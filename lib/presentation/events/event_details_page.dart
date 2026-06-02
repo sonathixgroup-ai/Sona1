@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/event_item.dart';
 import '../../services/event_service.dart';
-import '../../app_router.dart';
 
 class EventDetailsPage extends StatefulWidget {
   final String eventId;
@@ -21,7 +20,7 @@ class EventDetailsPage extends StatefulWidget {
 }
 
 class _EventDetailsPageState extends State<EventDetailsPage> {
-  late final EventService _eventService;
+  late final EventService _eventService = EventService();
 
   EventItem? _event;
   bool _isLoading = true;
@@ -31,32 +30,29 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _eventService = EventService(Supabase.instance.client);
     _loadEvent();
   }
 
   Future<void> _loadEvent() async {
     try {
-      // Si l'événement a été passé via extra, on l'utilise directement
+      // Si l'événement est déjà passé via navigation
       if (widget.event != null) {
         _event = widget.event;
-        _isLoading = false;
         await _checkTicketStatus();
-        if (mounted) setState(() {});
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      // Sinon on le charge depuis l'API
+      // Chargement depuis la base de données
       final event = await _eventService.getEventById(widget.eventId);
       _event = event;
-      _isLoading = false;
+
       await _checkTicketStatus();
-      if (mounted) setState(() {});
     } catch (e) {
+      debugPrint('Error loading event: $e');
+    } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -70,20 +66,19 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   Future<void> _reserveTicket() async {
     final user = Supabase.instance.client.auth.currentUser;
-
     if (user == null) {
-      context.push(AppRoutes.login);
+      context.push('/login');
       return;
     }
 
-    setState(() {
-      _isRegistering = true;
-    });
+    if (_event == null) return;
+
+    setState(() => _isRegistering = true);
 
     try {
       final success = await _eventService.registerForEvent(
         userId: user.id,
-        eventId: widget.eventId,
+        eventId: _event!.id,
       );
 
       if (!mounted) return;
@@ -91,42 +86,42 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Billet réservé avec succès'),
+            content: Text('Réservation réussie !'),
             backgroundColor: Colors.green,
           ),
         );
-        await _loadEvent();
+        await _checkTicketStatus(); // Rafraîchir le statut
+        setState(() {});
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Vous avez déjà un billet'),
+            content: Text('Vous avez déjà un billet pour cet événement'),
             backgroundColor: Colors.orange,
           ),
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors de la réservation'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
-        setState(() {
-          _isRegistering = false;
-        });
+        setState(() => _isRegistering = false);
       }
     }
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return '\( {date.day.toString().padLeft(2, '0')}/ \){date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   String _formatTime(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    return '\( {date.hour.toString().padLeft(2, '0')}: \){date.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -154,22 +149,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             expandedHeight: 280,
             pinned: true,
             backgroundColor: Colors.white,
-            elevation: 0,
-            foregroundColor: Colors.black,
             flexibleSpace: FlexibleSpaceBar(
               background: event.imageAssetPath != null
-                  ? Image.asset(
-                      event.imageAssetPath!,
-                      fit: BoxFit.cover,
-                    )
+                  ? Image.asset(event.imageAssetPath!, fit: BoxFit.cover)
                   : Container(
                       color: Colors.blue.shade100,
                       child: const Center(
-                        child: Icon(
-                          Icons.event,
-                          size: 80,
-                          color: Colors.blue,
-                        ),
+                        child: Icon(Icons.event, size: 80, color: Colors.blue),
                       ),
                     ),
             ),
@@ -181,63 +167,33 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: Text(
                       event.category,
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     event.title,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
-                  _infoTile(
-                    Icons.calendar_month,
-                    "Date",
-                    _formatDate(event.startsAt),
-                  ),
+                  _infoTile(Icons.calendar_month, "Date", _formatDate(event.startsAt)),
                   const SizedBox(height: 12),
-                  _infoTile(
-                    Icons.access_time,
-                    "Heure",
-                    _formatTime(event.startsAt),
-                  ),
+                  _infoTile(Icons.access_time, "Heure", _formatTime(event.startsAt)),
                   const SizedBox(height: 12),
-                  _infoTile(
-                    Icons.location_on,
-                    "Lieu",
-                    event.location,
-                  ),
+                  _infoTile(Icons.location_on, "Lieu", event.location),
                   const SizedBox(height: 20),
-                  const Text(
-                    "Description",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text("Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   Text(
                     event.description,
-                    style: const TextStyle(
-                      height: 1.6,
-                      color: Colors.black87,
-                    ),
+                    style: const TextStyle(height: 1.6, color: Colors.black87),
                   ),
                   const SizedBox(height: 30),
                   Container(
@@ -245,28 +201,16 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                        ),
-                      ],
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.confirmation_number,
-                          color: Colors.blue,
-                        ),
+                        const Icon(Icons.confirmation_number, color: Colors.blue),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             event.priceLabel,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue),
                           ),
                         ),
                       ],
@@ -283,12 +227,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 12,
-              color: Colors.black12,
-            ),
-          ],
+          boxShadow: [BoxShadow(blurRadius: 12, color: Colors.black12)],
         ),
         child: SafeArea(
           child: SizedBox(
@@ -296,33 +235,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             height: 55,
             child: _hasTicket
                 ? ElevatedButton.icon(
-                    onPressed: () => context.push(AppRoutes.userEventsDashboard),
+                    onPressed: () => context.push('/events/user-dashboard'),
                     icon: const Icon(Icons.confirmation_number),
                     label: const Text("Voir mon billet"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                   )
                 : ElevatedButton.icon(
                     onPressed: _isRegistering ? null : _reserveTicket,
                     icon: _isRegistering
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.event_available),
-                    label: Text(
-                      _isRegistering ? "Réservation..." : "Réserver maintenant",
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
+                    label: Text(_isRegistering ? "Réservation en cours..." : "Réserver maintenant"),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
                   ),
           ),
         ),
@@ -340,21 +264,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
-              ),
+              Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ],
           ),
         ),
