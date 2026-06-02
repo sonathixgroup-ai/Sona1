@@ -7,7 +7,7 @@ import '../../services/event_service.dart';
 
 class EventDetailsPage extends StatefulWidget {
   final String eventId;
-  final EventItem? event; // Optionnel : peut être passé via extra
+  final EventItem? event;
 
   const EventDetailsPage({
     super.key,
@@ -35,25 +35,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   Future<void> _loadEvent() async {
     try {
-      // Si l'événement est déjà passé via navigation
       if (widget.event != null) {
         _event = widget.event;
-        await _checkTicketStatus();
-        if (mounted) setState(() => _isLoading = false);
-        return;
+      } else {
+        _event = await _eventService.getEventById(widget.eventId);
       }
-
-      // Chargement depuis la base de données
-      final event = await _eventService.getEventById(widget.eventId);
-      _event = event;
 
       await _checkTicketStatus();
     } catch (e) {
       debugPrint('Error loading event: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -85,34 +77,23 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Réservation réussie !'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Réservation réussie !'), backgroundColor: Colors.green),
         );
-        await _checkTicketStatus(); // Rafraîchir le statut
-        setState(() {});
+        await _checkTicketStatus();
+        if (mounted) setState(() {});
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Vous avez déjà un billet pour cet événement'),
-            backgroundColor: Colors.orange,
-          ),
+          const SnackBar(content: Text('Vous avez déjà un billet'), backgroundColor: Colors.orange),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isRegistering = false);
-      }
+      if (mounted) setState(() => _isRegistering = false);
     }
   }
 
@@ -127,9 +108,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_event == null) {
@@ -148,16 +127,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
-            backgroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               background: event.imageAssetPath != null
                   ? Image.asset(event.imageAssetPath!, fit: BoxFit.cover)
-                  : Container(
-                      color: Colors.blue.shade100,
-                      child: const Center(
-                        child: Icon(Icons.event, size: 80, color: Colors.blue),
-                      ),
-                    ),
+                  : Container(color: Colors.blue.shade100, child: const Center(child: Icon(Icons.event, size: 80, color: Colors.blue))),
             ),
           ),
           SliverToBoxAdapter(
@@ -166,53 +139,26 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      event.category,
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    event.title,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
+                  Text(event.title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   _infoTile(Icons.calendar_month, "Date", _formatDate(event.startsAt)),
                   const SizedBox(height: 12),
                   _infoTile(Icons.access_time, "Heure", _formatTime(event.startsAt)),
                   const SizedBox(height: 12),
                   _infoTile(Icons.location_on, "Lieu", event.location),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 30),
                   const Text("Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  Text(
-                    event.description,
-                    style: const TextStyle(height: 1.6, color: Colors.black87),
-                  ),
+                  Text(event.description, style: const TextStyle(height: 1.6)),
                   const SizedBox(height: 30),
                   Container(
                     padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
                     child: Row(
                       children: [
                         const Icon(Icons.confirmation_number, color: Colors.blue),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            event.priceLabel,
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue),
-                          ),
-                        ),
+                        Expanded(child: Text(event.priceLabel, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue))),
                       ],
                     ),
                   ),
@@ -225,10 +171,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       ),
       bottomSheet: Container(
         padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(blurRadius: 12, color: Colors.black12)],
-        ),
+        decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(blurRadius: 12, color: Colors.black12)]),
         child: SafeArea(
           child: SizedBox(
             width: double.infinity,
@@ -238,15 +181,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     onPressed: () => context.push('/events/user-dashboard'),
                     icon: const Icon(Icons.confirmation_number),
                     label: const Text("Voir mon billet"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   )
                 : ElevatedButton.icon(
                     onPressed: _isRegistering ? null : _reserveTicket,
                     icon: _isRegistering
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.event_available),
-                    label: Text(_isRegistering ? "Réservation en cours..." : "Réserver maintenant"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                    label: Text(_isRegistering ? "Réservation..." : "Réserver maintenant"),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   ),
           ),
         ),
@@ -256,7 +199,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   Widget _infoTile(IconData icon, String title, String value) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, color: Colors.blue),
         const SizedBox(width: 12),
@@ -265,7 +207,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 2),
               Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ],
           ),
