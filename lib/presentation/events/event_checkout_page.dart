@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/event_item.dart';
+import '../../models/event_registration.dart';
 import '../../services/event_service.dart';
 
 class EventCheckoutPage extends StatefulWidget {
@@ -26,29 +27,16 @@ class EventCheckoutPage extends StatefulWidget {
   });
 
   @override
-  State<EventCheckoutPage> createState() =>
-      _EventCheckoutPageState();
+  State<EventCheckoutPage> createState() => _EventCheckoutPageState();
 }
 
-class _EventCheckoutPageState
-    extends State<EventCheckoutPage> {
-  late EventService _eventService;
+class _EventCheckoutPageState extends State<EventCheckoutPage> {
+  late final EventService _eventService = EventService();
 
-  final _promoController =
-      TextEditingController();
+  final _promoController = TextEditingController();
 
   bool _loading = false;
-
   double? _discountPercent;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _eventService = EventService(
-      Supabase.instance.client,
-    );
-  }
 
   @override
   void dispose() {
@@ -56,170 +44,105 @@ class _EventCheckoutPageState
     super.dispose();
   }
 
-  double get subtotal {
-    return widget.event.price *
-        widget.tickets;
-  }
+  double get subtotal => widget.event.price * widget.tickets;
 
   double get discountAmount {
-    if (_discountPercent == null) {
-      return 0;
-    }
-
-    return subtotal *
-        (_discountPercent! / 100);
+    if (_discountPercent == null) return 0;
+    return subtotal * (_discountPercent! / 100);
   }
 
-  double get total {
-    return subtotal - discountAmount;
-  }
+  double get total => subtotal - discountAmount;
 
   Future<void> _applyPromoCode() async {
-    final code =
-        _promoController.text.trim();
-
+    final code = _promoController.text.trim();
     if (code.isEmpty) return;
 
-    final discount =
-        await _eventService
-            .validatePromoCode(
-      code,
-      widget.event.id,
+    final discount = await _eventService.validatePromoCode(
+      code: code,
+      eventId: widget.event.id,
     );
 
     if (!mounted) return;
 
     if (discount == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Code promo invalide',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code promo invalide ou expiré')),
       );
       return;
     }
 
-    setState(() {
-      _discountPercent = discount;
-    });
+    setState(() => _discountPercent = discount);
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      SnackBar(
-        content: Text(
-          'Réduction $discount%',
-        ),
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Code appliqué : -$discount%')),
     );
   }
 
   Future<void> _completeCheckout() async {
-    final user =
-        Supabase.instance.client.auth.currentUser;
-
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Veuillez vous connecter',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez vous connecter')),
       );
       return;
     }
 
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
-      final ticketCode =
-          await _eventService
-              .createRegistration(
-        {
-          'event_id': widget.event.id,
-          'attendee_thix_id':
-              widget.attendeeThixId,
-          'attendee_name':
-              widget.attendeeName,
-          'attendee_email':
-              widget.attendeeEmail,
-          'attendee_phone':
-              widget.attendeePhone,
-          'tickets': widget.tickets,
-          'amount_paid': total,
-          'note': widget.note,
-          'ticket_code':
-              'THIX-${DateTime.now().millisecondsSinceEpoch}',
-        },
+      final registration = await _eventService.createRegistration(
         userId: user.id,
+        eventId: widget.event.id,
+        metadata: {
+          'tickets': widget.tickets,
+          'attendee_thix_id': widget.attendeeThixId,
+          'attendee_name': widget.attendeeName,
+          'attendee_email': widget.attendeeEmail,
+          'attendee_phone': widget.attendeePhone,
+          'note': widget.note,
+          'amount_paid': total,
+          'discount_percent': _discountPercent,
+        },
       );
 
-      if (!mounted) return;
+      if (registration != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paiement validé avec succès !')),
+        );
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Paiement validé',
-          ),
-        ),
-      );
-
-      context.go('/events');
+        // Redirection vers la page du ticket
+        context.go('/events/\( {widget.event.id}/ticket/ \){registration.id}');
+      }
     } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-          content: Text(
-            e.toString(),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du paiement: $e'),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: Colors.red,
-        ),
-      );
+        );
+      }
     } finally {
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
+        setState(() => _loading = false);
       }
     }
   }
 
-  Widget _buildPriceRow(
-    String label,
-    String value, {
-    bool bold = false,
-  }) {
+  Widget _buildPriceRow(String label, String value, {bool bold = false}) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontWeight: bold
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-              ),
+              style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal),
             ),
           ),
           Text(
             value,
-            style: TextStyle(
-              fontWeight: bold
-                  ? FontWeight.bold
-                  : FontWeight.normal,
-            ),
+            style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal),
           ),
         ],
       ),
@@ -231,181 +154,96 @@ class _EventCheckoutPageState
     final event = widget.event;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Paiement',
-        ),
-      ),
+      appBar: AppBar(title: const Text('Paiement')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding:
-              const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Card(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.all(
-                          16),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        event.title,
-                        style:
-                            const TextStyle(
-                          fontSize: 18,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(
-                          height: 8),
-                      Text(
-                        event.location,
-                      ),
+                      Text(event.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(event.location),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(
-                  height: 20),
+              const SizedBox(height: 20),
 
+              // Code Promo
               TextField(
-                controller:
-                    _promoController,
-                decoration:
-                    InputDecoration(
-                  labelText:
-                      'Code promo',
-                  border:
-                      const OutlineInputBorder(),
-                  suffixIcon:
-                      TextButton(
-                    onPressed:
-                        _applyPromoCode,
-                    child: const Text(
-                      'Appliquer',
-                    ),
+                controller: _promoController,
+                decoration: InputDecoration(
+                  labelText: 'Code promo (optionnel)',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: TextButton(
+                    onPressed: _applyPromoCode,
+                    child: const Text('Appliquer'),
                   ),
                 ),
               ),
 
-              const SizedBox(
-                  height: 24),
+              const SizedBox(height: 24),
 
-              const Text(
-                'Résumé',
-                style: TextStyle(
-                  fontWeight:
-                      FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-
-              const SizedBox(
-                  height: 12),
+              const Text('Résumé', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 12),
 
               Card(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.all(
-                          16),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      _buildPriceRow(
-                        'Billets',
-                        widget.tickets
-                            .toString(),
-                      ),
-                      _buildPriceRow(
-                        'Sous-total',
-                        '\$${subtotal.toStringAsFixed(2)}',
-                      ),
-                      _buildPriceRow(
-                        'Réduction',
-                        '-\$${discountAmount.toStringAsFixed(2)}',
-                      ),
+                      _buildPriceRow('Nombre de billets', widget.tickets.toString()),
+                      _buildPriceRow('Sous-total', '${subtotal.toStringAsFixed(2)} USD'),
+                      if (_discountPercent != null)
+                        _buildPriceRow('Réduction', '-${discountAmount.toStringAsFixed(2)} USD'),
                       const Divider(),
-                      _buildPriceRow(
-                        'Total',
-                        '\$${total.toStringAsFixed(2)}',
-                        bold: true,
-                      ),
+                      _buildPriceRow('Total', '${total.toStringAsFixed(2)} USD', bold: true),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(
-                  height: 30),
+              const SizedBox(height: 30),
 
+              // Info Paiement
               Container(
-                padding:
-                    const EdgeInsets.all(
-                        16),
-                decoration:
-                    BoxDecoration(
-                  color:
-                      Colors.blue.shade50,
-                  borderRadius:
-                      BorderRadius
-                          .circular(12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Paiement THIX',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight
-                                .bold,
-                      ),
-                    ),
+                    Text('Paiement THIX', style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
-                    Text(
-                      'Intégrez ici Stripe, Orange Money, Airtel Money, M-Pesa ou PayPal.',
-                    ),
+                    Text('Paiement simulé pour le moment.\nIntégrez Stripe / Mobile Money plus tard.'),
                   ],
                 ),
               ),
 
-              const SizedBox(
-                  height: 30),
+              const SizedBox(height: 30),
 
               SizedBox(
-                width:
-                    double.infinity,
+                width: double.infinity,
                 height: 55,
-                child:
-                    ElevatedButton.icon(
-                  onPressed:
-                      _loading
-                          ? null
-                          : _completeCheckout,
+                child: ElevatedButton.icon(
+                  onPressed: _loading ? null : _completeCheckout,
                   icon: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child:
-                              CircularProgressIndicator(
-                            strokeWidth:
-                                2,
-                          ),
-                        )
-                      : const Icon(
-                          Icons.payment,
-                        ),
-                  label: const Text(
-                    'Confirmer et payer',
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.payment),
+                  label: const Text('Confirmer et payer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),
