@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/models/app_user.dart';
 
-// Pages
+// Pages principales
 import 'presentation/home/home_page.dart';
 import 'presentation/auth/login_page.dart';
 import 'presentation/auth/personal_registration_page.dart';
@@ -81,7 +80,6 @@ class AppRouter {
       redirect: (context, state) {
         final isLoggedIn = auth.isAuthenticated;
         final location = state.matchedLocation;
-
         final isAuthPage = [AppRoutes.login, AppRoutes.personalReg, AppRoutes.enterpriseReg].contains(location);
 
         if (!isLoggedIn && !isAuthPage) return AppRoutes.login;
@@ -104,7 +102,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.opportunities, pageBuilder: (context, state) => const NoTransitionPage(child: OpportunitiesPage())),
         GoRoute(path: AppRoutes.events, pageBuilder: (context, state) => const NoTransitionPage(child: EventsPage())),
 
-        // EVENTS
+        // === EVENTS ===
         GoRoute(
           path: '/events/:eventId',
           pageBuilder: (context, state) {
@@ -132,9 +130,13 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(child: UserEventDashboardPage()),
         ),
 
+        // Autres
         GoRoute(path: AppRoutes.education, pageBuilder: (context, state) => const NoTransitionPage(child: EducationPage())),
         GoRoute(path: AppRoutes.trainingHome, pageBuilder: (context, state) => const NoTransitionPage(child: TrainingHomePage())),
-        GoRoute(path: AppRoutes.admin, pageBuilder: (context, state) => const NoTransitionPage(child: AdminPage())),
+        GoRoute(
+          path: AppRoutes.admin,
+          pageBuilder: (context, state) => const NoTransitionPage(child: AdminPage()),
+        ),
       ],
     );
   }
