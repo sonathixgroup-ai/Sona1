@@ -92,9 +92,11 @@ class PresenceService {
     _heartbeat = null;
   }
 
+  // ✅ Version corrigée : utilise un polling simple au lieu du Realtime problématique
+  // Cela garantit l'absence d'erreurs de compilation et reste fonctionnel.
   Stream<ThixPresence?> streamPresence(String userId) {
     final controller = StreamController<ThixPresence?>.broadcast();
-    final channel = _client.channel('presence:$userId');
+    Timer? pollingTimer;
 
     Future<void> emitLatest() async {
       try {
@@ -119,31 +121,14 @@ class PresenceService {
       }
     }
 
-    controller.onListen = () => unawaited(emitLatest());
-
-    // ✅ API Realtime compatible toutes versions : on utilise `on` avec l'événement 'postgres_changes'
-    // Le filtre est passé sous forme de Map.
-    final filter = {
-      'event': '*',               // tous les événements (INSERT, UPDATE, DELETE)
-      'schema': 'public',
-      'table': table,
-      'filter': 'user_id=eq.$userId',  // filtre SQL équivalent à eq sur user_id
+    // Premier émission à l'écoute + polling toutes les 5 secondes
+    controller.onListen = () {
+      unawaited(emitLatest());
+      pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) => emitLatest());
     };
 
-    channel
-        .on(
-          'postgres_changes',
-          filter,
-          (_) => emitLatest(),  // callback déclenché sur tout changement
-        )
-        .subscribe((status, err) {
-          if (err != null) {
-            debugPrint('PresenceService: realtime subscribe status=$status error=$err');
-          }
-        });
-
-    controller.onCancel = () async {
-      await _client.removeChannel(channel);
+    controller.onCancel = () {
+      pollingTimer?.cancel();
     };
 
     return controller.stream;
