@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
+// Utilisation d'un préfixe pour accéder aux énumérations realtime si nécessaire
+// (facultatif, on peut aussi utiliser des strings)
+import 'package:realtime_client/realtime_client.dart' as realtime;
+
 class NotificationService {
   final SupabaseClient _client;
   static const String _table = 'notifications';
@@ -49,43 +53,46 @@ class NotificationService {
       }
     }
 
-    // Polling fallback
     void startPolling() {
       pollTimer?.cancel();
       pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => fetchAndEmit());
     }
 
-    // Realtime (version compatible 2025-2026)
+    // Tentative de mise en place du Realtime
     try {
       channel = _client.channel('notifications:$uid');
 
-      channel
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: _table,
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'user_id',
-              value: uid,
-            ),
-            callback: (_) => fetchAndEmit(),
-          )
-          .subscribe(
-            (status, error) {
-              debugPrint('Notification subscribe: $status, error=$error');
-              if (status == RealtimeSubscribeStatus.channelError || error != null) {
-                startPolling();
-              }
-            },
-          );
+      // Nouvelle API : on('postgres_changes', filter, callback)
+      // On utilise des strings pour éviter les dépendances d'import,
+      // mais on peut aussi utiliser realtime.RealtimeEvent.postgresChanges
+      channel!.on(
+        'postgres_changes',
+        {
+          'event': '*', // '*' pour tous les événements (INSERT, UPDATE, DELETE)
+          'schema': 'public',
+          'table': _table,
+          'filter': 'user_id=eq.$uid', // format Supabase: colonne=op.valeur
+        },
+        (_) => fetchAndEmit(),
+      );
+
+      // Souscription avec gestion du statut
+      channel.subscribe((status, [error]) {
+        debugPrint('Notification subscribe: $status, error=$error');
+        // Le statut est une chaîne, par exemple 'SUBSCRIBED', 'CHANNEL_ERROR'
+        if (status == 'CHANNEL_ERROR' || error != null) {
+          startPolling();
+        }
+      });
     } catch (e) {
       debugPrint('Realtime failed → polling: $e');
       startPolling();
     }
 
-    fetchAndEmit(); // Chargement initial
+    // Chargement initial
+    fetchAndEmit();
 
+    // Nettoyage
     controller.onCancel = () {
       cancelled = true;
       pollTimer?.cancel();
