@@ -41,19 +41,23 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   void _subscribeRoleRealtime() {
-    // If the membership row changes, refresh role live.
     final uid = SupabaseConfig.client.auth.currentUser?.id;
     if (uid == null || uid.trim().isEmpty) return;
+    
     try {
       _roleChannel = SupabaseConfig.client.channel('admin:rbac:$uid');
+      
+      // ✅ Solution 1: Utiliser l'API générique 'on' (compatible toutes versions)
       _roleChannel!
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: AdminRbacService.table,
-            filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
-            callback: (_) {
-              // Avoid setState storms; just reload.
+          .on(
+            'postgres_changes',
+            {
+              'event': '*',
+              'schema': 'public',
+              'table': AdminRbacService.table,
+              'filter': 'user_id=eq.$uid',
+            },
+            (_) {
               _loadRole();
             },
           )
