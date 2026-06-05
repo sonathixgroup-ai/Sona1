@@ -19,7 +19,7 @@ class EventRegistrationPage extends StatefulWidget {
 }
 
 class _EventRegistrationPageState extends State<EventRegistrationPage> {
-  late final EventService _eventService = EventService();
+  late final EventService _eventService;
 
   bool _loading = true;
   bool _submitting = false;
@@ -31,6 +31,7 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
   @override
   void initState() {
     super.initState();
+    _eventService = EventService(Supabase.instance.client);
     _loadEvent();
   }
 
@@ -86,7 +87,7 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
         );
 
         // Redirection vers la page du ticket
-        context.go('/events/\( {_event!.id}/ticket/ \){registration.id}');
+        context.go('/events/${_event!.id}/ticket/${registration.id}');
       }
     } catch (e) {
       if (mounted) {
@@ -117,7 +118,12 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
-      appBar: AppBar(title: const Text('Réserver')),
+      appBar: AppBar(
+        title: const Text('Réserver'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: const Color(0xff0F172A),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -135,6 +141,12 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
               height: 55,
               child: FilledButton(
                 onPressed: _submitting ? null : _register,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xff2563EB),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: _submitting
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('Confirmer la réservation'),
@@ -152,6 +164,12 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,7 +181,7 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.location_on, size: 18),
+              const Icon(Icons.location_on, size: 18, color: Color(0xff2563EB)),
               const SizedBox(width: 6),
               Expanded(child: Text(_event!.location)),
             ],
@@ -171,11 +189,27 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.calendar_month, size: 18),
+              const Icon(Icons.calendar_month, size: 18, color: Color(0xff2563EB)),
               const SizedBox(width: 6),
               Text(_formatDate(_event!.startsAt)),
             ],
           ),
+          if (_event!.price != null && _event!.price! > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.attach_money, size: 18, color: Color(0xff2563EB)),
+                const SizedBox(width: 6),
+                Text(
+                  '${_event!.price} USD',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -187,23 +221,46 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Nombre de billets', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text(
+            'Nombre de billets',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
                 onPressed: _tickets > 1 ? () => setState(() => _tickets--) : null,
-                icon: const Icon(Icons.remove_circle),
+                icon: const Icon(Icons.remove_circle, size: 32),
+                color: const Color(0xff2563EB),
               ),
-              Text(_tickets.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _tickets.toString(),
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 20),
               IconButton(
                 onPressed: () => setState(() => _tickets++),
-                icon: const Icon(Icons.add_circle),
+                icon: const Icon(Icons.add_circle, size: 32),
+                color: const Color(0xff2563EB),
               ),
             ],
           ),
@@ -218,32 +275,74 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+          ),
+        ],
       ),
-      child: TextField(
-        controller: _noteController,
-        maxLines: 3,
-        decoration: const InputDecoration(
-          labelText: 'Note (optionnel)',
-          border: OutlineInputBorder(),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Note (optionnel)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _noteController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Ajoutez une note à votre réservation...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xff2563EB)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildPriceSummary() {
+    final bool hasPrice = _event!.price != null && _event!.price! > 0;
+    
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+          ),
+        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _row('Prix unitaire', '${_event!.price} USD'),
-          const SizedBox(height: 8),
-          _row('Nombre de billets', _tickets.toString()),
-          const Divider(height: 30),
-          _row('TOTAL', '${_totalPrice.toStringAsFixed(2)} USD', bold: true),
+          const Text(
+            'Résumé de la commande',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          if (hasPrice) ...[
+            _row('Prix unitaire', '${_event!.price} USD'),
+            const SizedBox(height: 8),
+            _row('Nombre de billets', _tickets.toString()),
+            const Divider(height: 30),
+            _row('TOTAL', '${_totalPrice.toStringAsFixed(2)} USD', bold: true),
+          ] else ...[
+            _row('Nombre de billets', _tickets.toString()),
+            const Divider(height: 30),
+            _row('TOTAL', 'Gratuit', bold: true),
+          ],
         ],
       ),
     );
@@ -252,13 +351,14 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
   Widget _row(String label, String value, {bool bold = false}) {
     return Row(
       children: [
-        Text(label),
+        Text(label, style: const TextStyle(fontSize: 16)),
         const Spacer(),
         Text(
           value,
           style: TextStyle(
             fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-            fontSize: bold ? 18 : 14,
+            fontSize: bold ? 18 : 16,
+            color: bold ? const Color(0xff2563EB) : null,
           ),
         ),
       ],
@@ -266,7 +366,7 @@ class _EventRegistrationPageState extends State<EventRegistrationPage> {
   }
 
   String _formatDate(DateTime date) {
-    return "\( {date.day}/ \){date.month}/${date.year}";
+    return "${date.day}/${date.month}/${date.year} à ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
   }
 
   @override
