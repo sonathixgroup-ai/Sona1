@@ -89,12 +89,14 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }
   }
 
+  // ✅ CORRIGÉ : interpolation correcte sans backslash ni espaces parasites
   String _formatDate(DateTime date) {
-    return '\( {date.day.toString().padLeft(2, '0')}/ \){date.month.toString().padLeft(2, '0')}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  // ✅ CORRIGÉ
   String _formatTime(DateTime date) {
-    return '\( {date.hour.toString().padLeft(2, '0')}: \){date.minute.toString().padLeft(2, '0')}';
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   @override
