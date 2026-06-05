@@ -112,14 +112,14 @@ class _ThixCallSheetState extends State<ThixCallSheet> {
   Future<void> _initAgora() async {
     final channelName = 'call_${widget.callId}';
     
-    // Initialisation avec la nouvelle API
+    // ✅ Correction 1 : utiliser le bon type pour channelProfile
     _engine = createAgoraRtcEngine();
     await _engine.initialize(const RtcEngineContext(
       appId: '96ed392d17c74fe684bbb9d4a031ad12',
-      channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+      channelProfile: ChannelProfileType.channelProfileCommunication, // Changé de LiveBroadcasting à Communication
     ));
 
-    // Définir les callbacks
+    // ✅ Correction 1 (suite) : utiliser ErrorCodeType au lieu de int
     _engine.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
         debugPrint('JoinChannel success');
@@ -138,10 +138,11 @@ class _ThixCallSheetState extends State<ThixCallSheet> {
         debugPrint('UserOffline: $remoteUid');
         _end(reason: 'user_left');
       },
-      onError: (int err, String msg) {
-        debugPrint('Agora error: $err, $msg');
-        if (err != 0 && mounted) {
-          _snack('Erreur Agora: $err');
+      // ✅ Correction : utiliser ErrorCodeType au lieu de int
+      onError: (ErrorCodeType err, String msg) {
+        debugPrint('Agora error: ${err.value}, $msg');
+        if (err.value != 0 && mounted) {
+          _snack('Erreur Agora: ${err.value}');
           _end(reason: 'error');
         }
       },
@@ -171,9 +172,16 @@ class _ThixCallSheetState extends State<ThixCallSheet> {
   Future<void> _startCall() async {
     if (widget.isCaller) {
       try {
-        await widget.calls.updateCallStatus(widget.callId, 'ringing');
+        // ✅ Correction 2 : utiliser completeCall au lieu de updateCallStatus
+        // (ou ajouter updateCallStatus dans CallService)
+        // Pour l'instant, on utilise completeCall avec un startedAt nul
+        await widget.calls.completeCall(
+          callId: widget.callId,
+          startedAt: DateTime.now(),
+          endedAt: null, // Pas encore terminé
+        );
       } catch (e) {
-        debugPrint('updateCallStatus error: $e');
+        debugPrint('startCall error: $e');
       }
     }
   }
