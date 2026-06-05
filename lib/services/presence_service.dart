@@ -55,7 +55,6 @@ class PresenceService {
     try {
       await _client.rpc('pgrst_schema_reload');
     } catch (e) {
-      // Some deployments expose it as an Edge Function instead.
       try {
         await _client.functions.invoke('pgrst_schema_reload', body: const {});
       } catch (_) {}
@@ -75,8 +74,7 @@ class PresenceService {
       });
     } catch (e) {
       if (_isTableMissing(e)) {
-        debugPrint(
-            'PresenceService: table missing/cache stale. Attempt schema reload. err=$e');
+        debugPrint('PresenceService: table missing/cache stale. Attempt schema reload. err=$e');
         await _trySchemaReload();
         return;
       }
@@ -84,8 +82,6 @@ class PresenceService {
     }
   }
 
-  /// Starts a lightweight heartbeat to keep `last_seen_at` fresh while the user
-  /// is actively using the app.
   void startHeartbeat({Duration interval = const Duration(seconds: 30)}) {
     _heartbeat?.cancel();
     _heartbeat = Timer.periodic(interval, (_) => unawaited(setOnline(true)));
@@ -98,14 +94,6 @@ class PresenceService {
 
   Stream<ThixPresence?> streamPresence(String userId) {
     final controller = StreamController<ThixPresence?>.broadcast();
-
-    // ✅ Correction : utiliser les noms exacts exportés par supabase_flutter
-    final filter = PostgresChangeFilter(
-      type: PostgresChangeFilterType.eq,
-      column: 'user_id',
-      value: userId,
-    );
-
     final channel = _client.channel('presence:$userId');
 
     Future<void> emitLatest() async {
@@ -119,12 +107,10 @@ class PresenceService {
           controller.add(null);
           return;
         }
-        controller.add(
-            ThixPresence.fromRow((row as Map).cast<String, dynamic>()));
+        controller.add(ThixPresence.fromRow((row as Map).cast<String, dynamic>()));
       } catch (e) {
         if (_isTableMissing(e)) {
-          debugPrint(
-              'PresenceService: table missing/cache stale. Disabling presence stream until DB is ready. err=$e');
+          debugPrint('PresenceService: table missing/cache stale. Disabling presence stream until DB is ready. err=$e');
           controller.add(null);
           return;
         }
@@ -135,19 +121,24 @@ class PresenceService {
 
     controller.onListen = () => unawaited(emitLatest());
 
-    // ✅ Correction : la méthode s'appelle bien `onPostgresChanges`
+    // ✅ API Realtime compatible toutes versions : on utilise `on` avec l'événement 'postgres_changes'
+    // Le filtre est passé sous forme de Map.
+    final filter = {
+      'event': '*',               // tous les événements (INSERT, UPDATE, DELETE)
+      'schema': 'public',
+      'table': table,
+      'filter': 'user_id=eq.$userId',  // filtre SQL équivalent à eq sur user_id
+    };
+
     channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: table,
-          filter: filter,
-          callback: (_) => emitLatest(),
+        .on(
+          'postgres_changes',
+          filter,
+          (_) => emitLatest(),  // callback déclenché sur tout changement
         )
         .subscribe((status, err) {
           if (err != null) {
-            debugPrint(
-                'PresenceService: realtime subscribe status=$status error=$err');
+            debugPrint('PresenceService: realtime subscribe status=$status error=$err');
           }
         });
 
