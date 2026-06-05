@@ -9,7 +9,11 @@ class ThixPresence {
   final bool isOnline;
   final DateTime lastSeenAt;
 
-  const ThixPresence({required this.userId, required this.isOnline, required this.lastSeenAt});
+  const ThixPresence({
+    required this.userId,
+    required this.isOnline,
+    required this.lastSeenAt,
+  });
 
   static DateTime _dt(Object? v) {
     if (v is DateTime) return v;
@@ -17,17 +21,21 @@ class ThixPresence {
     return DateTime.now().toUtc();
   }
 
-  static ThixPresence fromRow(Map<String, dynamic> row) => ThixPresence(
-        userId: (row['user_id'] as String?) ?? '',
-        isOnline: (row['is_online'] as bool?) ?? false,
-        lastSeenAt: _dt(row['last_seen_at'] ?? row['updated_at']),
-      );
+  static ThixPresence fromRow(Map<String, dynamic> row) {
+    return ThixPresence(
+      userId: (row['user_id'] as String?) ?? '',
+      isOnline: (row['is_online'] as bool?) ?? false,
+      lastSeenAt: _dt(row['last_seen_at'] ?? row['updated_at']),
+    );
+  }
 }
 
 class PresenceService {
   static const String table = 'thix_presence';
   final SupabaseClient _client;
-  PresenceService({SupabaseClient? client}) : _client = client ?? SupabaseConfig.client;
+
+  PresenceService({SupabaseClient? client})
+      : _client = client ?? SupabaseConfig.client;
 
   Timer? _heartbeat;
 
@@ -39,7 +47,8 @@ class PresenceService {
       if (m.contains('relation') && m.contains('does not exist')) return true;
     }
     final m = e.toString().toLowerCase();
-    return (m.contains('pgrst205') || (m.contains('relation') && m.contains('does not exist')));
+    return (m.contains('pgrst205') ||
+        (m.contains('relation') && m.contains('does not exist')));
   }
 
   Future<void> _trySchemaReload() async {
@@ -66,7 +75,8 @@ class PresenceService {
       });
     } catch (e) {
       if (_isTableMissing(e)) {
-        debugPrint('PresenceService: table missing/cache stale. Attempt schema reload. err=$e');
+        debugPrint(
+            'PresenceService: table missing/cache stale. Attempt schema reload. err=$e');
         await _trySchemaReload();
         return;
       }
@@ -88,20 +98,33 @@ class PresenceService {
 
   Stream<ThixPresence?> streamPresence(String userId) {
     final controller = StreamController<ThixPresence?>.broadcast();
+
+    // ✅ Correction : utiliser les noms exacts exportés par supabase_flutter
+    final filter = PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'user_id',
+      value: userId,
+    );
+
     final channel = _client.channel('presence:$userId');
-    final filter = PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: userId);
 
     Future<void> emitLatest() async {
       try {
-        final row = await _client.from(table).select('*').eq('user_id', userId).maybeSingle();
+        final row = await _client
+            .from(table)
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
         if (row == null) {
           controller.add(null);
           return;
         }
-        controller.add(ThixPresence.fromRow((row as Map).cast<String, dynamic>()));
+        controller.add(
+            ThixPresence.fromRow((row as Map).cast<String, dynamic>()));
       } catch (e) {
         if (_isTableMissing(e)) {
-          debugPrint('PresenceService: table missing/cache stale. Disabling presence stream until DB is ready. err=$e');
+          debugPrint(
+              'PresenceService: table missing/cache stale. Disabling presence stream until DB is ready. err=$e');
           controller.add(null);
           return;
         }
@@ -111,11 +134,22 @@ class PresenceService {
     }
 
     controller.onListen = () => unawaited(emitLatest());
+
+    // ✅ Correction : la méthode s'appelle bien `onPostgresChanges`
     channel
-        .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: table, filter: filter, callback: (_) => emitLatest())
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: table,
+          filter: filter,
+          callback: (_) => emitLatest(),
+        )
         .subscribe((status, err) {
-      if (err != null) debugPrint('PresenceService: realtime subscribe status=$status error=$err');
-    });
+          if (err != null) {
+            debugPrint(
+                'PresenceService: realtime subscribe status=$status error=$err');
+          }
+        });
 
     controller.onCancel = () async {
       await _client.removeChannel(channel);
