@@ -242,4 +242,72 @@ class _ThixAgoraCallSheetState extends State<ThixAgoraCallSheet> {
   }
 }
 
-// Widgets _ControlButton et _HangupButton (déjà dans ton fichier)
+// ============================================================================
+// Control Button Widget
+// ============================================================================
+class _ControlButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ControlButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(40),
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade800,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
+    );
+  }
+}
+
+// ============================================================================
+// Hangup Button Widget
+// ============================================================================
+class _HangupButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _HangupButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(40),
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.call_end, color: Colors.white, size: 28),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text('Raccrocher', style: TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
+    );
+  }
+}
