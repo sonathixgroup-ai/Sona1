@@ -1,3 +1,4 @@
+// lib/pages/event_ticket_page.dart
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -201,7 +202,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
               ],
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -214,23 +214,17 @@ class _EventTicketPageState extends State<EventTicketPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 _infoRow(
                   Icons.calendar_month,
                   _formatDate(event.startsAt),
                 ),
-
                 const SizedBox(height: 10),
-
                 _infoRow(
                   Icons.location_on,
                   event.location,
                 ),
-
                 const SizedBox(height: 20),
-
                 BarcodeWidget(
                   barcode: Barcode.code128(),
                   data: reg.ticketCode,
@@ -238,9 +232,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                   width: 300,
                   height: 90,
                 ),
-
                 const SizedBox(height: 15),
-
                 SelectableText(
                   reg.ticketCode,
                   style: const TextStyle(
@@ -248,23 +240,17 @@ class _EventTicketPageState extends State<EventTicketPage> {
                     letterSpacing: 1.5,
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 const Divider(),
-
                 const SizedBox(height: 10),
-
                 _detailRow(
                   "THIX ID",
                   reg.attendeeThixId,
                 ),
-
                 _detailRow(
                   "Billets",
                   reg.tickets.toString(),
                 ),
-
                 _detailRow(
                   "Réservation",
                   reg.id,
