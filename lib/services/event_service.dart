@@ -1,8 +1,53 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/event_item.dart';
-import '../models/event_registration.dart';
 
+// ============================================================================
+// Model EventRegistration (intégré pour éviter les erreurs d'import)
+// ============================================================================
+class EventRegistration {
+  final String id;
+  final String userId;
+  final String eventId;
+  final String status;
+  final DateTime createdAt;
+  final Map<String, dynamic>? metadata;
+
+  EventRegistration({
+    required this.id,
+    required this.userId,
+    required this.eventId,
+    required this.status,
+    required this.createdAt,
+    this.metadata,
+  });
+
+  factory EventRegistration.fromJson(Map<String, dynamic> json) {
+    return EventRegistration(
+      id: json['id'].toString(),
+      userId: json['user_id'].toString(),
+      eventId: json['event_id'].toString(),
+      status: json['status'] ?? 'confirmed',
+      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+      metadata: json['metadata'] is Map ? Map<String, dynamic>.from(json['metadata']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'event_id': eventId,
+      'status': status,
+      'created_at': createdAt.toIso8601String(),
+      'metadata': metadata,
+    };
+  }
+}
+
+// ============================================================================
+// EventService
+// ============================================================================
 class EventService {
   final SupabaseClient _supabase;
   static const String eventsTable = 'events';
@@ -11,7 +56,7 @@ class EventService {
   EventService({SupabaseClient? client})
       : _supabase = client ?? Supabase.instance.client;
 
-  // ==================== EVENTS ====================
+  // -------------------- EVENTS --------------------
   Future<EventItem?> getEventById(String eventId) async {
     try {
       final data = await _supabase.from(eventsTable).select().eq('id', eventId).single();
@@ -32,7 +77,7 @@ class EventService {
     }
   }
 
-  // ==================== REGISTRATIONS ====================
+  // -------------------- REGISTRATIONS --------------------
   Future<bool> hasUserTicket(String userId, String eventId) async {
     try {
       final res = await _supabase.from(registrationsTable).select('id').eq('user_id', userId).eq('event_id', eventId).limit(1);
