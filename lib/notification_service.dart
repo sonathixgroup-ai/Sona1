@@ -2,21 +2,17 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'dart:async';
+import 'package:realtime_client/realtime_client.dart' as realtime;
 
 class NotificationService {
   final SupabaseClient _client;
   NotificationService({SupabaseClient? client}) : _client = client ?? SupabaseConfig.client;
 
-  /// IMPORTANT: In this Supabase project, the verified table name is `notifications`.
-  ///
-  /// We still normalize rows so the UI always receives:
-  /// `{id,user_id,type,title,body,read,data,created_at}` regardless of DB column variants.
   static const String _table = 'notifications';
 
-  static bool _isPermanentRealtimeError(RealtimeSubscribeStatus status, Object? err) {
-    if (status == RealtimeSubscribeStatus.channelError) return true;
+  static bool _isPermanentRealtimeError(realtime.RealtimeSubscribeStatus status, Object? err) {
+    if (status == realtime.RealtimeSubscribeStatus.channelError) return true;
     final msg = (err ?? '').toString().toLowerCase();
-    // Common permanent-ish causes: table missing, publication missing, RLS denied.
     if (msg.contains('permission denied')) return true;
     if (msg.contains('rls')) return true;
     if (msg.contains('relation') && msg.contains('does not exist')) return true;
@@ -44,11 +40,7 @@ class NotificationService {
   }
 
   /// Realtime stream (preferred): uses `postgres_changes` then refetches.
-  /// Falls back to polling if Realtime cannot subscribe.
   Stream<List<Map<String, dynamic>>> streamForUser(String uid) {
-    // IMPORTANT: This must emit AFTER the first listener is attached.
-    // A broadcast StreamController will drop events added before any listener
-    // subscribes (which makes the UI look “stuck loading”).
     late final StreamController<List<Map<String, dynamic>>> controller;
     final authUid = _client.auth.currentUser?.id;
     if (authUid != null && authUid != uid) {
@@ -56,7 +48,12 @@ class NotificationService {
       uid = authUid;
     }
 
-    final filter = PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid);
+    final filter = realtime.PostgresChangeFilter(
+      type: realtime.PostgresChangeFilterType.eq,
+      column: 'user_id',
+      value: uid,
+    );
+
     RealtimeChannel? channel;
     var closedRetries = 0;
     Timer? retryTimer;
@@ -88,7 +85,6 @@ class NotificationService {
 
     controller = StreamController<List<Map<String, dynamic>>>.broadcast(
       onListen: () {
-        // First paint: fetch current state.
         unawaited(emitLatest());
       },
     );
@@ -98,7 +94,6 @@ class NotificationService {
       retryTimer?.cancel();
       if (polling) return;
 
-      // Recreate a fresh channel on every attempt.
       try {
         if (channel != null) await _client.removeChannel(channel!);
       } catch (_) {}
@@ -106,30 +101,28 @@ class NotificationService {
       channel = _client.channel('notifications:user:$uid');
       try {
         channel!
-            .onPostgresChanges(
-              event: PostgresChangeEvent.all,
-              schema: 'public',
-              table: _table,
-              filter: filter,
-              callback: (payload) {
-                debugPrint('NotificationService: realtime event uid=$uid event=${payload.eventType} table=${payload.table}');
+            .on(
+              realtime.ChannelFilterExtension.postgresChanges(
+                event: realtime.PostgresChangeEvent.all,
+                schema: 'public',
+                table: _table,
+                filter: filter,
+              ),
+              (realtime.Payload payload, [realtime.RealtimeChannel? ch]) {
+                debugPrint('NotificationService: realtime event uid=$uid event=${payload['type']} table=${payload['table']}');
                 emitLatest();
               },
             )
             .subscribe((status, err) {
               debugPrint('NotificationService: subscribe status=$status err=$err uid=$uid');
-              // We observe occasional `closed` statuses before the channel stabilizes.
-              // If RLS rejects or connection is unstable, retry with backoff.
               if (isCancelled) return;
 
               if (_isPermanentRealtimeError(status, err)) {
-                // Do not loop forever: treat this as a configuration/schema problem and
-                // fall back to polling so the UI stays usable.
                 startPolling();
                 return;
               }
 
-              final shouldRetry = err != null || status == RealtimeSubscribeStatus.closed;
+              final shouldRetry = err != null || status == realtime.RealtimeSubscribeStatus.closed;
               if (!shouldRetry) {
                 closedRetries = 0;
                 return;
@@ -161,9 +154,6 @@ class NotificationService {
     return controller.stream;
   }
 
-  /// Convenience stream that exposes the number of unread notifications.
-  ///
-  /// This is used for red badges (Home buttons, bell icon, etc.).
   Stream<int> streamUnreadCount(String uid) {
     return streamForUser(uid)
         .map((rows) => rows.where((r) => (r['read'] as bool?) != true).length)
@@ -178,7 +168,6 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      // Try the richer schema first.
       try {
         await _client.from(_table).insert({
           'user_id': toUid,
@@ -193,7 +182,6 @@ class NotificationService {
       } catch (e) {
         debugPrint('NotificationService: insert with (type,body,read,data) failed, retrying legacy columns. err=$e');
       }
-      // Legacy/simple schema compatibility.
       await _client.from(_table).insert({
         'user_id': toUid,
         'title': title,
