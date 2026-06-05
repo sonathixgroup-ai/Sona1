@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'dart:async';
-import 'package:realtime_client/realtime_client.dart' as realtime;
 
 class NotificationService {
   final SupabaseClient _client;
@@ -10,8 +9,8 @@ class NotificationService {
 
   static const String _table = 'notifications';
 
-  static bool _isPermanentRealtimeError(realtime.RealtimeSubscribeStatus status, Object? err) {
-    if (status == realtime.RealtimeSubscribeStatus.channelError) return true;
+  static bool _isPermanentRealtimeError(RealtimeSubscribeStatus status, Object? err) {
+    if (status == RealtimeSubscribeStatus.channelError) return true;
     final msg = (err ?? '').toString().toLowerCase();
     if (msg.contains('permission denied')) return true;
     if (msg.contains('rls')) return true;
@@ -48,8 +47,8 @@ class NotificationService {
       uid = authUid;
     }
 
-    final filter = realtime.PostgresChangeFilter(
-      type: realtime.PostgresChangeFilterType.eq,
+    final filter = PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
       column: 'user_id',
       value: uid,
     );
@@ -101,15 +100,13 @@ class NotificationService {
       channel = _client.channel('notifications:user:$uid');
       try {
         channel!
-            .on(
-              realtime.ChannelFilterExtension.postgresChanges(
-                event: realtime.PostgresChangeEvent.all,
-                schema: 'public',
-                table: _table,
-                filter: filter,
-              ),
-              (realtime.Payload payload, [realtime.RealtimeChannel? ch]) {
-                debugPrint('NotificationService: realtime event uid=$uid event=${payload['type']} table=${payload['table']}');
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: _table,
+              filter: filter,
+              callback: (payload) {
+                debugPrint('NotificationService: realtime event uid=$uid event=${payload.eventType} table=${payload.table}');
                 emitLatest();
               },
             )
@@ -122,7 +119,7 @@ class NotificationService {
                 return;
               }
 
-              final shouldRetry = err != null || status == realtime.RealtimeSubscribeStatus.closed;
+              final shouldRetry = err != null || status == RealtimeSubscribeStatus.closed;
               if (!shouldRetry) {
                 closedRetries = 0;
                 return;
