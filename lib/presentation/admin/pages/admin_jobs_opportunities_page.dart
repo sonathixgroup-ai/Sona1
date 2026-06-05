@@ -22,7 +22,7 @@ class _AdminJobsOpportunitiesPageState extends State<AdminJobsOpportunitiesPage>
   String? _error;
   List<Map<String, dynamic>> _offers = const [];
   List<Map<String, dynamic>> _opps = const [];
-  int _tab = 0; // 0=jobs, 1=opportunities
+  int _tab = 0;
   bool _loggedFabDebug = false;
 
   bool get _forceFabForSona {
@@ -31,11 +31,8 @@ class _AdminJobsOpportunitiesPageState extends State<AdminJobsOpportunitiesPage>
   }
 
   bool get _shouldShowFab {
-    // The FAB was reported as not visible on mobile web.
-    // We keep it enabled for everyone by default, and explicitly force it for this account.
     final email = SupabaseConfig.currentUser?.email?.trim().toLowerCase();
     if (_forceFabForSona) return true;
-    // If we later re-introduce RBAC gating per module, keep SUPER_ADMIN/admin here.
     return email != null && email.isNotEmpty;
   }
 
@@ -51,7 +48,6 @@ class _AdminJobsOpportunitiesPageState extends State<AdminJobsOpportunitiesPage>
       _error = null;
     });
     try {
-      // NOTE: thix_job_offers may not exist in generated types yet; we query dynamically.
       final res = await SupabaseService.select(
         'thix_job_offers',
         select: '*',
@@ -104,7 +100,6 @@ class _AdminJobsOpportunitiesPageState extends State<AdminJobsOpportunitiesPage>
   Widget build(BuildContext context) {
     final isJobs = _tab == 0;
 
-    // Debug visibility (helps validate in Dreamflow logs).
     if (!_loggedFabDebug) {
       _loggedFabDebug = true;
       debugPrint(
@@ -112,8 +107,6 @@ class _AdminJobsOpportunitiesPageState extends State<AdminJobsOpportunitiesPage>
       );
     }
 
-    // Use an inner Scaffold to ensure the FAB is laid out correctly on all breakpoints.
-    // (Positioned in a Stack can end up off-screen on mobile web due to padding / browser UI.)
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Column(
@@ -330,6 +323,10 @@ class _OpportunityTile extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// FEUILLES DE CRÉATION/MODIFICATION – CORRECTION FilePicker
+// ============================================================================
+
 class _CreateOpportunitySheet extends StatefulWidget {
   const _CreateOpportunitySheet();
 
@@ -369,7 +366,8 @@ class _CreateOpportunitySheetState extends State<_CreateOpportunitySheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      // ✅ Correction : utiliser FilePicker.platform.pickFiles
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
@@ -594,7 +592,7 @@ class _EditOpportunitySheetState extends State<_EditOpportunitySheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
@@ -940,8 +938,7 @@ class _StatusPill extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: c.withValues(alpha: 0.9)),
-        color: c.withValues(alpha: 0.12),
-      ),
+        color: c.withValues(alpha: 0.12)),
       child: Text(status, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AdminCyberColors.text)),
     );
   }
@@ -1146,7 +1143,6 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
   List<String> _splitLines(String input) {
     final raw = input.trim();
     if (raw.isEmpty) return const <String>[];
-    // Support: newline OR comma separated.
     final parts = raw
         .replaceAll('\r', '\n')
         .split(RegExp('[\n,]'))
@@ -1159,7 +1155,7 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
@@ -1203,7 +1199,6 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
       lastDate: DateTime(now.year + 5),
     );
     if (picked == null) return;
-    // Store as local date (00:00) – Supabase timestamptz will convert.
     final date = DateTime(picked.year, picked.month, picked.day);
     setState(() {
       _deadlineAt = date;
@@ -1230,7 +1225,6 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
       final requirements = _splitLines(_criteria.text);
       final responsibilities = _splitLines(_mission.text);
       final payload = <String, dynamic>{
-        // Best-effort columns (adapt if your schema differs)
         'title': title,
         if (_company.text.trim().isNotEmpty) 'company': _company.text.trim(),
         if (_location.text.trim().isNotEmpty) 'location': _location.text.trim(),
@@ -1240,14 +1234,12 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
         if (responsibilities.isNotEmpty) 'responsibilities': responsibilities,
         if (_deadlineAt != null) 'deadline': _deadlineAt!.toUtc().toIso8601String(),
         if ((_uploadedImageUrl ?? '').trim().isNotEmpty) 'image_url': _uploadedImageUrl,
-        // New optional flag. If the DB column doesn't exist yet, SupabaseSafeWrite logic will strip it.
         'is_suggested': _suggested,
         'status': _status,
       };
       try {
         await SupabaseConfig.client.from('thix_job_offers').insert(payload);
       } on PostgrestException catch (e) {
-        // Gracefully handle schema drift (missing is_suggested).
         if (e.code == 'PGRST204' || e.code == '42703' || e.message.contains("Could not find the '")) {
           payload.remove('is_suggested');
           await SupabaseConfig.client.from('thix_job_offers').insert(payload);
@@ -1460,7 +1452,7 @@ class _EditOfferSheetState extends State<_EditOfferSheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
