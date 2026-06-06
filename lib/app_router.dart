@@ -36,12 +36,16 @@ import 'presentation/training/training_details_page.dart';
 import 'presentation/training/learning_dashboard_page.dart';
 import 'presentation/training/lesson_player_page.dart';
 import 'presentation/admin/admin_page.dart';
+import 'presentation/admin/admin_routes.dart'; // ✅ Import ajouté pour AdminModule
 import 'presentation/thix_market/thix_market_page.dart';
 import 'presentation/thix_sante/thix_sante_page.dart';
 import 'presentation/thix_reservation/thix_reservation_page.dart';
 import 'presentation/thix_money/thix_money_page.dart';
 import 'presentation/thix_media/thix_media_page.dart';
 import 'presentation/admin/pages/admin_media_page.dart';
+
+// ✅ Import du modèle EventItem
+import 'models/event_item.dart';
 
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -159,8 +163,22 @@ class AppRouter {
           path: '/events/:eventId/register',
           pageBuilder: (context, state) {
             final eventId = state.pathParameters['eventId'] ?? '';
-            // Note: Tu peux passer l'event complet via extra si besoin
-            return NoTransitionPage(child: EventRegisterPage(event: EventItem.placeholder(id: eventId))); // À adapter si nécessaire
+            // ✅ Correction : utiliser un constructeur approprié pour EventItem
+            // Option 1: Utiliser un placeholder
+            return NoTransitionPage(
+              child: EventRegisterPage(
+                event: EventItem(
+                  id: eventId,
+                  title: 'Chargement...',
+                  description: '',
+                  location: '',
+                  startsAt: DateTime.now(),
+                  endsAt: DateTime.now().add(const Duration(hours: 1)),
+                  price: 0,
+                  coverImageUrl: '',
+                ),
+              ),
+            );
           },
         ),
         GoRoute(
@@ -187,11 +205,75 @@ class AppRouter {
           path: AppRoutes.trainingHome,
           pageBuilder: (context, state) => const NoTransitionPage(child: TrainingHomePage()),
         ),
+        
+        // ✅ Correction : Ajout du paramètre 'module' requis
         GoRoute(
           path: AppRoutes.admin,
-          pageBuilder: (context, state) => const NoTransitionPage(child: AdminPage()),
+          pageBuilder: (context, state) {
+            // Déterminer le module en fonction de l'URL ou utiliser le module par défaut
+            final moduleName = state.uri.queryParameters['module'] ?? 'overview';
+            final module = _stringToModule(moduleName);
+            return NoTransitionPage(
+              child: AdminPage(module: module),
+            );
+          },
+        ),
+        
+        // Route admin avec module spécifique
+        GoRoute(
+          path: '/admin/:module',
+          pageBuilder: (context, state) {
+            final moduleName = state.pathParameters['module'] ?? 'overview';
+            final module = _stringToModule(moduleName);
+            return NoTransitionPage(
+              child: AdminPage(module: module),
+            );
+          },
         ),
       ],
     );
+  }
+  
+  // ✅ Helper pour convertir string en AdminModule
+  static AdminModule _stringToModule(String name) {
+    switch (name.toLowerCase()) {
+      case 'overview':
+        return AdminModule.overview;
+      case 'access-requests':
+      case 'accessrequests':
+        return AdminModule.accessRequests;
+      case 'users':
+        return AdminModule.users;
+      case 'verification':
+        return AdminModule.verification;
+      case 'events':
+        return AdminModule.events;
+      case 'trainings':
+        return AdminModule.trainings;
+      case 'uid':
+        return AdminModule.uid;
+      case 'jobs':
+        return AdminModule.jobs;
+      case 'news':
+        return AdminModule.news;
+      case 'chat':
+        return AdminModule.chat;
+      case 'sos':
+        return AdminModule.sos;
+      case 'institutions':
+        return AdminModule.institutions;
+      case 'analytics':
+        return AdminModule.analytics;
+      case 'cybersecurity':
+        return AdminModule.cybersecurity;
+      case 'api':
+        return AdminModule.api;
+      case 'settings':
+        return AdminModule.settings;
+      case 'audit':
+        return AdminModule.audit;
+      default:
+        return AdminModule.overview;
+    }
   }
 }
