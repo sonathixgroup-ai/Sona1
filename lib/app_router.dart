@@ -36,7 +36,7 @@ import 'presentation/training/training_details_page.dart';
 import 'presentation/training/learning_dashboard_page.dart';
 import 'presentation/training/lesson_player_page.dart';
 import 'presentation/admin/admin_page.dart';
-import 'presentation/admin/admin_routes.dart'; // ✅ Import ajouté pour AdminModule
+import 'presentation/admin/admin_routes.dart';
 import 'presentation/thix_market/thix_market_page.dart';
 import 'presentation/thix_sante/thix_sante_page.dart';
 import 'presentation/thix_reservation/thix_reservation_page.dart';
@@ -44,7 +44,7 @@ import 'presentation/thix_money/thix_money_page.dart';
 import 'presentation/thix_media/thix_media_page.dart';
 import 'presentation/admin/pages/admin_media_page.dart';
 
-// ✅ Import du modèle EventItem
+// Modèles
 import 'models/event_item.dart';
 
 class NoTransitionPage<T> extends Page<T> {
@@ -163,8 +163,8 @@ class AppRouter {
           path: '/events/:eventId/register',
           pageBuilder: (context, state) {
             final eventId = state.pathParameters['eventId'] ?? '';
-            // ✅ Correction : utiliser un constructeur approprié pour EventItem
-            // Option 1: Utiliser un placeholder
+            
+            // ✅ Création d'un EventItem avec TOUS les paramètres requis
             return NoTransitionPage(
               child: EventRegisterPage(
                 event: EventItem(
@@ -176,6 +176,13 @@ class AppRouter {
                   endsAt: DateTime.now().add(const Duration(hours: 1)),
                   price: 0,
                   coverImageUrl: '',
+                  // Paramètres requis supplémentaires
+                  category: 'Autre',
+                  isRecommended: false,
+                  isPublished: true,
+                  maxParticipants: 0,
+                  registeredParticipants: 0,
+                  createdAt: DateTime.now(),
                 ),
               ),
             );
@@ -206,11 +213,10 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(child: TrainingHomePage()),
         ),
         
-        // ✅ Correction : Ajout du paramètre 'module' requis
+        // Route Admin
         GoRoute(
           path: AppRoutes.admin,
           pageBuilder: (context, state) {
-            // Déterminer le module en fonction de l'URL ou utiliser le module par défaut
             final moduleName = state.uri.queryParameters['module'] ?? 'overview';
             final module = _stringToModule(moduleName);
             return NoTransitionPage(
@@ -234,7 +240,7 @@ class AppRouter {
     );
   }
   
-  // ✅ Helper pour convertir string en AdminModule
+  // Helper pour convertir string en AdminModule
   static AdminModule _stringToModule(String name) {
     switch (name.toLowerCase()) {
       case 'overview':
