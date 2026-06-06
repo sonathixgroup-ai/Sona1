@@ -3,10 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
-// Utilisation d'un préfixe pour accéder aux énumérations realtime si nécessaire
-// (facultatif, on peut aussi utiliser des strings)
-import 'package:realtime_client/realtime_client.dart' as realtime;
-
 class NotificationService {
   final SupabaseClient _client;
   static const String _table = 'notifications';
@@ -27,7 +23,53 @@ class NotificationService {
     };
   }
 
+  /// Version simplifiée - sans Realtime pour éviter les problèmes de typage
+  /// Utilise uniquement le polling (rafraîchissement périodique)
   Stream<List<Map<String, dynamic>>> streamForUser(String uid) {
+    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
+    Timer? pollTimer;
+    bool cancelled = false;
+
+    Future<void> fetchAndEmit() async {
+      if (cancelled) return;
+      try {
+        final data = await _client
+            .from(_table)
+            .select()
+            .eq('user_id', uid)
+            .order('created_at', ascending: false)
+            .limit(50);
+
+        final list = (data as List)
+            .map((e) => _normalizeRow(e as Map<String, dynamic>))
+            .toList();
+        controller.add(list);
+      } catch (e) {
+        debugPrint('NotificationService fetch error: $e');
+        controller.add([]);
+      }
+    }
+
+    // Polling toutes les 3 secondes
+    void startPolling() {
+      pollTimer?.cancel();
+      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => fetchAndEmit());
+    }
+
+    startPolling();
+    fetchAndEmit(); // Chargement initial
+
+    controller.onCancel = () {
+      cancelled = true;
+      pollTimer?.cancel();
+    };
+
+    return controller.stream;
+  }
+
+  /// Version avec Realtime simplifiée (si vous voulez absolument du temps réel)
+  /// Utilise des dynamic pour contourner les problèmes de typage
+  Stream<List<Map<String, dynamic>>> streamForUserRealtime(String uid) {
     final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
     RealtimeChannel? channel;
     Timer? pollTimer;
@@ -58,28 +100,24 @@ class NotificationService {
       pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => fetchAndEmit());
     }
 
-    // Tentative de mise en place du Realtime
+    // Tentative Realtime avec API simplifiée (dynamic)
     try {
       channel = _client.channel('notifications:$uid');
-
-      // Nouvelle API : on('postgres_changes', filter, callback)
-      // On utilise des strings pour éviter les dépendances d'import,
-      // mais on peut aussi utiliser realtime.RealtimeEvent.postgresChanges
-      channel!.on(
+      
+      // Utilisation de dynamic pour éviter les erreurs de typage
+      (channel as dynamic).on(
         'postgres_changes',
         {
-          'event': '*', // '*' pour tous les événements (INSERT, UPDATE, DELETE)
+          'event': '*',
           'schema': 'public',
           'table': _table,
-          'filter': 'user_id=eq.$uid', // format Supabase: colonne=op.valeur
+          'filter': 'user_id=eq.$uid',
         },
         (_) => fetchAndEmit(),
       );
-
-      // Souscription avec gestion du statut
-      channel.subscribe((status, [error]) {
-        debugPrint('Notification subscribe: $status, error=$error');
-        // Le statut est une chaîne, par exemple 'SUBSCRIBED', 'CHANNEL_ERROR'
+      
+      (channel as dynamic).subscribe((status, [error]) {
+        debugPrint('Notification subscribe: $status');
         if (status == 'CHANNEL_ERROR' || error != null) {
           startPolling();
         }
@@ -89,14 +127,16 @@ class NotificationService {
       startPolling();
     }
 
-    // Chargement initial
     fetchAndEmit();
 
-    // Nettoyage
     controller.onCancel = () {
       cancelled = true;
       pollTimer?.cancel();
-      if (channel != null) _client.removeChannel(channel!);
+      if (channel != null) {
+        try {
+          _client.removeChannel(channel!);
+        } catch (_) {}
+      }
     };
 
     return controller.stream;
@@ -130,18 +170,54 @@ class NotificationService {
   }
 
   Future<void> markRead({required String uid, required String notificationId}) async {
-    await _client
-        .from(_table)
-        .update({'read': true})
-        .eq('id', notificationId)
-        .eq('user_id', uid);
+    try {
+      await _client
+          .from(_table)
+          .update({'read': true})
+          .eq('id', notificationId)
+          .eq('user_id', uid);
+    } catch (e) {
+      debugPrint('Notification markRead error: $e');
+    }
   }
 
   Future<void> markAllRead(String uid) async {
-    await _client
-        .from(_table)
-        .update({'read': true})
-        .eq('user_id', uid)
-        .eq('read', false);
+    try {
+      await _client
+          .from(_table)
+          .update({'read': true})
+          .eq('user_id', uid)
+          .eq('read', false);
+    } catch (e) {
+      debugPrint('Notification markAllRead error: $e');
+    }
+  }
+
+  /// Méthode utilitaire pour récupérer les notifications une fois
+  Future<List<Map<String, dynamic>>> getNotifications(String uid) async {
+    try {
+      final data = await _client
+          .from(_table)
+          .select()
+          .eq('user_id', uid)
+          .order('created_at', ascending: false)
+          .limit(50);
+      
+      return (data as List)
+          .map((e) => _normalizeRow(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('NotificationService getNotifications error: $e');
+      return [];
+    }
+  }
+
+  /// Méthode utilitaire pour supprimer une notification
+  Future<void> delete(String notificationId) async {
+    try {
+      await _client.from(_table).delete().eq('id', notificationId);
+    } catch (e) {
+      debugPrint('Notification delete error: $e');
+    }
   }
 }
