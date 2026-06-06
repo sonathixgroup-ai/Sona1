@@ -60,7 +60,6 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
     }
   }
 
-  // ✅ Correction : Utiliser FilePicker.platform au lieu de FilePicker
   Future<void> _pickCoverFile() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
@@ -71,7 +70,6 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
     }
   }
 
-  // ✅ Correction : Utiliser FilePicker.platform au lieu de FilePicker
   Future<void> _pickVideoFile() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.video);
     if (result != null && result.files.single.path != null) {
@@ -123,7 +121,9 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
       await _loadMedia();
       
       if (mounted) {
-        Navigator.pop(context); // Fermer le modal
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Média sauvegardé avec succès !')),
         );
@@ -267,7 +267,6 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                     ),
                     const SizedBox(height: 12),
                     
-                    // Cover file picker
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
@@ -289,7 +288,6 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                                 _selectedCoverFile = File(result.files.single.path!);
                                 _coverUrlController.text = _selectedCoverFile!.path;
                               });
-                              setState(() {});
                             }
                           },
                           child: const Text('Choisir'),
@@ -307,7 +305,6 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                     ),
                     const SizedBox(height: 12),
                     
-                    // Video file picker
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
@@ -329,7 +326,6 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                                 _selectedVideoFile = File(result.files.single.path!);
                                 _videoUrlController.text = _selectedVideoFile!.path;
                               });
-                              setState(() {});
                             }
                           },
                           child: const Text('Choisir'),
