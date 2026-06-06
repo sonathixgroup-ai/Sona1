@@ -66,7 +66,8 @@ class SupabaseService {
     int? limit,
   }) async {
     try {
-      var query = SupabaseConfig.client.from(table).select(select ?? '*');
+      // ✅ Correction : utiliser dynamic pour permettre le chaînage
+      dynamic query = SupabaseConfig.client.from(table).select(select ?? '*');
 
       // Apply filters
       if (filters != null) {
@@ -99,13 +100,15 @@ class SupabaseService {
     required Map<String, dynamic> filters,
   }) async {
     try {
-      var query = SupabaseConfig.client.from(table).select(select ?? '*');
+      // ✅ Correction : utiliser dynamic pour permettre le chaînage
+      dynamic query = SupabaseConfig.client.from(table).select(select ?? '*');
 
       for (final entry in filters.entries) {
         query = query.eq(entry.key, entry.value);
       }
 
-      return await query.maybeSingle();
+      final result = await query.maybeSingle();
+      return result != null ? Map<String, dynamic>.from(result) : null;
     } catch (e) {
       throw _handleDatabaseError('selectSingle', table, e);
     }
@@ -144,6 +147,7 @@ class SupabaseService {
     required Map<String, dynamic> filters,
   }) async {
     try {
+      // ✅ Correction : commencer avec un PostgrestFilterBuilder
       var query = SupabaseConfig.client.from(table).update(data);
 
       for (final entry in filters.entries) {
@@ -163,6 +167,7 @@ class SupabaseService {
     required Map<String, dynamic> filters,
   }) async {
     try {
+      // ✅ Correction : commencer avec un PostgrestFilterBuilder
       var query = SupabaseConfig.client.from(table).delete();
 
       for (final entry in filters.entries) {
