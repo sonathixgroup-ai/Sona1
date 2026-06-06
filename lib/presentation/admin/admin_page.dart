@@ -47,23 +47,26 @@ class _AdminPageState extends State<AdminPage> {
     try {
       _roleChannel = SupabaseConfig.client.channel('admin:rbac:$uid');
       
-      // ✅ Solution 1: Utiliser l'API générique 'on' (compatible toutes versions)
+      // ✅ Correction API Realtime (version moderne)
+      // L'API 'on' accepte maintenant des paramètres de type différent
       _roleChannel!
           .on(
-            'postgres_changes',
+            RealtimeListenTypes.postgresChanges,
             {
-              'event': '*',
+              'event': PostgresChangeEvent.all,
               'schema': 'public',
               'table': AdminRbacService.table,
               'filter': 'user_id=eq.$uid',
-            },
-            (_) {
+            } as ChannelFilter,
+            (payload, [ref]) {
+              // Callback avec les bons paramètres
               _loadRole();
             },
           )
           .subscribe();
     } catch (e) {
       debugPrint('AdminPage: role realtime subscribe failed err=$e');
+      // Fallback: pas de realtime, c'est pas critique
     }
   }
 
