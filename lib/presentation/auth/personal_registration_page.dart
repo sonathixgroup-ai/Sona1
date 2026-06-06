@@ -742,7 +742,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   Future<void> _pickPhoto() async {
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
+      final result = await FilePicker.platform.pickFiles(
+  type: FileType.image,
+  withData: kIsWeb,
+  allowMultiple: false,
+);
       if (res == null || res.files.isEmpty) return;
       setState(() => _pickedPhoto = res.files.first);
     } catch (e) {
@@ -841,7 +845,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       setState(() => _isLoading = true);
       try {
         final cc = _nationalityC.text.trim().isNotEmpty ? _nationalityC.text.trim() : _countryOriginC.text.trim();
-        final thixId = await _firestoreUsers.ensureThixId(uid: me.id, countryCode: cc);
+        final thixId = await firestoreUsers.ensureThixId(uid: uid);
         final suggested = _suggestChatFromName(_nameC.text.trim());
         final claimed = await _firestoreUsers.ensureThixChat(uid: me.id, desired: _thixChatC.text.trim().isEmpty ? suggested : _thixChatC.text);
         _thixChatC.text = claimed;
@@ -969,7 +973,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   }
 
   Future<void> _pickAndUploadDoc() async {
-    final picked = await FilePicker.pickFiles(withData: kIsWeb);
+    return await FilePicker.platform.pickFiles(withData: kIsWeb);
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;
     if (!mounted) return;
