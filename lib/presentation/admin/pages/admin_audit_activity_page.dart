@@ -62,14 +62,21 @@ class _AdminAuditActivityPageState extends State<AdminAuditActivityPage> {
   void _subscribeRealtime() {
     try {
       _channel = SupabaseConfig.client.channel('admin:audit');
+      
+      // ✅ Correction : utiliser l'API 'on' au lieu de 'onPostgresChanges'
       _channel!
-          .onPostgresChanges(
-            event: PostgresChangeEvent.insert,
-            schema: 'public',
-            table: 'thix_admin_audit_logs',
-            callback: (_) => unawaited(_load()),
+          .on(
+            'postgres_changes',
+            {
+              'event': 'INSERT', // 'INSERT', 'UPDATE', 'DELETE', ou '*' pour tous
+              'schema': 'public',
+              'table': 'thix_admin_audit_logs',
+            },
+            (_) => unawaited(_load()),
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            debugPrint('AdminAuditActivityPage: realtime status=$status, error=$error');
+          });
     } catch (e) {
       debugPrint('AdminAuditActivityPage: realtime subscribe failed: $e');
     }
