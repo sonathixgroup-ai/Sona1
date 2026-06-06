@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -38,18 +37,18 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     final firestoreService = context.watch<FirestoreUserService>();
 
     return Scaffold(
-      body: StreamBuilder<AppUser>(
-        stream: authController.currentUserStream,
+      body: FutureBuilder<AppUser?>(
+        future: authController.getCurrentUser(),
         builder: (context, authSnap) {
           if (!authSnap.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final authUser = authSnap.data!;
-          return StreamBuilder<ThixProfile?>(
-            stream: profileService.streamMyProfile(authUser.id),
+          return FutureBuilder<ThixProfile?>(
+            future: profileService.fetchMyProfile(authUser.id),
             builder: (context, profileSnap) {
-              final profile = profileSnap.data ?? ThixProfile.empty(userId: authUser.id);
+              final profile = profileSnap.data ?? ThixProfile.createEmpty(userId: authUser.id);
 
               return Stack(
                 children: [
@@ -136,7 +135,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   }
 
   Future<void> _shareProfile(BuildContext context, ThixProfile profile) async {
-    await Share.share('Découvrez mon THIX ID : \( {profile.thixId}\nhttps://thixid.com/ \){profile.thixId}');
+    await Share.share('Découvrez mon THIX ID : ${profile.thixId}\nhttps://thixid.com/${profile.thixId}');
   }
 }
 
@@ -222,6 +221,104 @@ class _DashboardTopBar extends StatelessWidget {
   }
 }
 
+// ==================== HEADER IDENTITY CARD ====================
+
+class _HeaderIdentityCard extends StatelessWidget {
+  final AppUser user;
+  final ThixProfile profile;
+  final bool verified;
+  final VoidCallback onEditProfile;
+  final VoidCallback onDownloadCv;
+  final VoidCallback onShareProfile;
+
+  const _HeaderIdentityCard({
+    required this.user,
+    required this.profile,
+    required this.verified,
+    required this.onEditProfile,
+    required this.onDownloadCv,
+    required this.onShareProfile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          CircleAvatar(
+            radius: 40,
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
+            child: Text(
+              profile.fullName?.substring(0, 1).toUpperCase() ?? user.email?.substring(0, 1).toUpperCase() ?? '?',
+              style: const TextStyle(fontSize: 32, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.fullName ?? user.email?.split('@').first ?? 'Utilisateur',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile.thixId.isNotEmpty ? '@${profile.thixId}' : 'THIX ID non défini',
+                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      verified ? Icons.verified : Icons.pending,
+                      size: 14,
+                      color: verified ? Colors.green : Colors.orange,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      verified ? 'Vérifié' : 'En attente',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Actions
+          Column(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.white),
+                onPressed: onEditProfile,
+                tooltip: 'Modifier',
+              ),
+              IconButton(
+                icon: const Icon(Icons.download, color: Colors.white),
+                onPressed: onDownloadCv,
+                tooltip: 'Télécharger CV',
+              ),
+              IconButton(
+                icon: const Icon(Icons.share, color: Colors.white),
+                onPressed: onShareProfile,
+                tooltip: 'Partager',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ==================== TABS ====================
 
 class _DashboardTabs extends StatelessWidget {
@@ -279,11 +376,11 @@ class _ProfileTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ... Tu peux remettre ici les DashboardCard que tu veux garder
-
           const SizedBox(height: 20),
-          Text("Politique de confidentialité & Conditions d'utilisation",
-              style: context.textStyles.bodySmall?.copyWith(fontSize: 11, color: Colors.grey)),
+          Text(
+            "Politique de confidentialité & Conditions d'utilisation",
+            style: context.textStyles.bodySmall?.copyWith(fontSize: 11, color: Colors.grey),
+          ),
           const SizedBox(height: 30),
         ],
       ),
@@ -291,7 +388,7 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
-// ==================== PROFILE EDITOR SHEET (Corrigé) ====================
+// ==================== PROFILE EDITOR SHEET ====================
 
 class _ProfileEditorSheet extends StatelessWidget {
   static void show(BuildContext context, {required ThixProfile profile, required ProfileService profileService, required AppUser authUser}) {
@@ -314,10 +411,16 @@ class _ProfileEditorSheet extends StatelessWidget {
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
-        color: context.theme.scaffoldBackgroundColor,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: const Center(child: Text("Éditeur de Profil - Version simplifiée")),
     );
   }
+}
+
+// ==================== EXTENSION POUR THEME ====================
+
+extension _ThemeContext on BuildContext {
+  ThemeData get theme => Theme.of(this);
 }
