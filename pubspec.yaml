@@ -14,18 +14,18 @@ dependencies:
 
   # UI & Core
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
+  google_fonts: ^8.1.0
   provider: ^6.1.2
-  go_router: ^16.3.0
-  fl_chart: ^0.68.0
+  go_router: ^17.3.0
+  fl_chart: ^1.2.0
 
   # Backend
-  supabase_flutter: ^1.12.0
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  cloud_firestore: ^4.13.6
-  firebase_messaging: ^14.7.10
-  firebase_storage: ^11.6.0
+  supabase_flutter: ^2.14.1
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.2
+  cloud_firestore: ^6.5.0
+  firebase_messaging: ^16.3.0
+  firebase_storage: ^13.4.2
 
   # Utils & Storage
   http: ^1.2.2
@@ -35,22 +35,22 @@ dependencies:
   # Media & Communication
   video_player: ^2.9.2
   agora_rtc_engine: ^6.3.0
-  record: ^5.1.2
+  record: ^7.0.0
 
   # Identification & Scanning
-  geolocator: ^13.0.4
+  geolocator: ^14.0.2
   nfc_manager: ^4.0.0
   mobile_scanner: ^7.0.0
   qr_flutter: ^4.1.0
   barcode_widget: ^2.0.0
 
   # Notifications & Sharing
-  flutter_local_notifications: ^18.0.0
+  flutter_local_notifications: ^21.0.0
   permission_handler: ^12.0.0
-  share_plus: ^10.0.0
+  share_plus: ^13.1.0
 
   # Files & PDF
-  file_picker: ^8.1.2
+  file_picker: ^12.0.0-beta.5
   printing: ^5.13.0
   pdf: ^3.11.0
 
@@ -61,8 +61,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
-  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
