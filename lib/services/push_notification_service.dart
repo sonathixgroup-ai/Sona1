@@ -142,7 +142,7 @@ class PushNotificationService {
     final androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     final iosInit = DarwinInitializationSettings();
     final init = InitializationSettings(android: androidInit, iOS: iosInit);
-    await _localNotifications.initialize(settings: init);
+    await _localNotifications.initialize(init);
 
     final channel = AndroidNotificationChannel(
       'thix_general',
@@ -183,10 +183,10 @@ class PushNotificationService {
       const ios = DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true);
       const details = NotificationDetails(android: android, iOS: ios);
       await _localNotifications.show(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        title: title,
-        body: body,
-        notificationDetails: details,
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        details,
         payload: message.data.isEmpty ? null : message.data.toString(),
       );
     } catch (e) {

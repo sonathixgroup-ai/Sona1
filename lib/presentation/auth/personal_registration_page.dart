@@ -840,8 +840,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
       setState(() => _isLoading = true);
       try {
-        final cc = _nationalityC.text.trim().isNotEmpty ? _nationalityC.text.trim() : _countryOriginC.text.trim();
-        final thixId = await _firestoreUsers.ensureThixId(uid: me.id, countryCode: cc);
+        // THIX ID generation is server-side; current implementation doesn't
+        // require a country code.
+        final thixId = await _firestoreUsers.ensureThixId(uid: me.id);
         final suggested = _suggestChatFromName(_nameC.text.trim());
         final claimed = await _firestoreUsers.ensureThixChat(uid: me.id, desired: _thixChatC.text.trim().isEmpty ? suggested : _thixChatC.text);
         _thixChatC.text = claimed;

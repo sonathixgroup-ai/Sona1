@@ -95,8 +95,8 @@ class _TrainingHomePageState extends State<TrainingHomePage> {
     }).toList(growable: false);
   }
 
-  void _openTraining(BuildContext context, TrainingItem t) => 
-      context.push('${AppRoutes.trainingDetails}/${Uri.encodeComponent(t.id)}');
+  void _openTraining(BuildContext context, TrainingItem t) =>
+      context.push('${AppRoutes.trainingDetailsBasePath}/${Uri.encodeComponent(t.id)}');
 
   List<TrainingItem> _aiRecommend(List<TrainingItem> list) {
     final scored = list.map((t) {

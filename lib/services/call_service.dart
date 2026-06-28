@@ -217,6 +217,9 @@ class CallService {
     }
   }
 
+  /// Back-compat helper for older UI code.
+  Future<void> updateCallStatus(String callId, String status) => setCallStatus(callId: callId, status: status);
+
   Stream<List<ThixCall>> streamIncomingOngoingCalls({required String receiverId}) {
     final controller = StreamController<List<ThixCall>>.broadcast();
     Timer? pollTimer;

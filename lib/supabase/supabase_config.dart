@@ -66,7 +66,9 @@ class SupabaseService {
     int? limit,
   }) async {
     try {
-      var query = SupabaseConfig.client.from(table).select(select ?? '*');
+      // In supabase_flutter ^1.12, some transforms (order/limit) change the
+      // builder type. Keep it dynamic to allow fluent chaining.
+      dynamic query = SupabaseConfig.client.from(table).select(select ?? '*');
 
       // Apply filters
       if (filters != null) {
@@ -99,7 +101,7 @@ class SupabaseService {
     required Map<String, dynamic> filters,
   }) async {
     try {
-      var query = SupabaseConfig.client.from(table).select(select ?? '*');
+      dynamic query = SupabaseConfig.client.from(table).select(select ?? '*');
 
       for (final entry in filters.entries) {
         query = query.eq(entry.key, entry.value);

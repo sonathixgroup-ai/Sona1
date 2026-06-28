@@ -117,28 +117,21 @@ class NotificationService {
       channel = _client.channel('notifications:user:$uid');
       try {
         channel!
-            .on(
-              RealtimeListenTypes.postgresChanges,
-              ChannelFilter(
-                event: 'INSERT,UPDATE,DELETE',
-                schema: 'public',
-                table: _table,
-                filter: 'user_id=eq.$uid',
-              ),
-              (payload, [_]) {
-                debugPrint('NotificationService: realtime event uid=$uid event=${payload.eventType} table=${payload.table}');
-                emitLatest();
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: _table,
+              filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
+              callback: (payload) {
+                debugPrint('NotificationService: realtime change uid=$uid table=${payload.table}');
+                unawaited(emitLatest());
               },
             )
             .subscribe((status, err) {
               debugPrint('NotificationService: subscribe status=$status err=$err uid=$uid');
-              // Nous observons occasionnellement des statuts `closed` avant que le canal ne se stabilise.
-              // Si RLS rejette ou que la connexion est instable, réessayer avec backoff.
               if (isCancelled) return;
 
               if (_isPermanentRealtimeError(status, err)) {
-                // Ne pas boucler indéfiniment: traitez ceci comme un problème de configuration/schéma et
-                // basculez vers le polling pour que l'UI reste utilisable.
                 startPolling();
                 return;
               }
@@ -148,6 +141,7 @@ class NotificationService {
                 closedRetries = 0;
                 return;
               }
+
               closedRetries = (closedRetries + 1).clamp(1, 10);
               final delayMs = (500 * (1 << (closedRetries - 1))).clamp(500, 8000);
               retryTimer?.cancel();
@@ -259,4 +253,7 @@ class NotificationService {
       debugPrint('NotificationService: markAllRead failed uid=$uid err=$e');
     }
   }
+}
+
+class RealtimeListenTypes {
 }

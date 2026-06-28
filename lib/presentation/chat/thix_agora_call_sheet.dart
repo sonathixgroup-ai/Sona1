@@ -5,6 +5,8 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:thix_id/services/call_service.dart';
+import 'package:thix_id/presentation/thix_media/widgets/control_button.dart';
+import 'package:thix_id/presentation/thix_media/widgets/hangup_button.dart';
 import 'package:thix_id/theme.dart';
 
 class ThixAgoraCallSheet extends StatefulWidget {
@@ -226,12 +228,12 @@ class _ThixAgoraCallSheetState extends State<ThixAgoraCallSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _ControlButton(icon: _micOn ? Icons.mic : Icons.mic_off, label: _micOn ? 'Micro' : 'Muet', onTap: _toggleMic),
+                  ControlButton(icon: _micOn ? Icons.mic : Icons.mic_off, tooltip: _micOn ? 'Micro' : 'Muet', onPressed: _toggleMic),
                   const SizedBox(width: 12),
                   if (_isVideo)
-                    _ControlButton(icon: _camOn ? Icons.videocam : Icons.videocam_off, label: _camOn ? 'Cam' : 'Cam off', onTap: _toggleCam),
+                    ControlButton(icon: _camOn ? Icons.videocam : Icons.videocam_off, tooltip: _camOn ? 'Caméra' : 'Caméra off', onPressed: _toggleCam),
                   const SizedBox(width: 12),
-                  _HangupButton(onTap: () => _end(reason: 'hangup')),
+                  HangupButton(onHangup: () => _end(reason: 'hangup')),
                 ],
               ),
             ),

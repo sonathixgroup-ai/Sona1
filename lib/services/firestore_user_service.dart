@@ -146,6 +146,7 @@ class FirestoreUserService {
     String? competence,
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? experience,
+    List<Map<String, dynamic>>? enrollments,
     // Statut
     String? registrationStatus,
     String? photoUrl,
@@ -209,6 +210,7 @@ class FirestoreUserService {
     if (competence != null) patch['competence'] = competence;
     if (education != null) patch['education'] = education;
     if (experience != null) patch['experience'] = experience;
+    if (enrollments != null) patch['enrollments'] = enrollments;
     
     // Statut
     if (registrationStatus != null) patch['registration_status'] = registrationStatus;
@@ -216,6 +218,35 @@ class FirestoreUserService {
     if (thixChat != null) patch['thix_chat'] = thixChat;
 
     await _client.from(_table).update(patch).eq('id', sessionUid);
+  }
+
+  static const String _paymentsTable = 'payment_transactions';
+
+  Future<void> addPaymentTransaction({
+    required String uid,
+    required String title,
+    required num amount,
+    required String currency,
+    required String method,
+    required String status,
+    Map<String, dynamic>? meta,
+  }) async {
+    try {
+      final sessionUid = _requireAuthedUid();
+      await _client.from(_paymentsTable).insert({
+        'user_id': sessionUid,
+        'title': title,
+        'amount': amount,
+        'currency': currency,
+        'method': method,
+        'status': status,
+        'meta': meta ?? const <String, dynamic>{},
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('FirestoreUserService: addPaymentTransaction failed err=$e');
+    }
   }
 
   /// Génère ou récupère le THIX ID unique de l'utilisateur
@@ -229,6 +260,20 @@ class FirestoreUserService {
     final candidate = ThixIdService.generate();
     await _client.from(_table).update({'thix_id': candidate}).eq('id', sessionUid);
     return candidate;
+  }
+
+  /// Fetch an AppUser row by `profiles.thix_id`.
+  Future<AppUser?> fetchUserByThixId(String thixId) async {
+    final normalized = ThixIdService.normalize(thixId).toUpperCase();
+    if (normalized.isEmpty) return null;
+    try {
+      final row = await _client.from(_table).select('*').eq('thix_id', normalized).maybeSingle();
+      if (row == null) return null;
+      return _appUserFromProfileRow((row as Map).cast<String, dynamic>());
+    } catch (e) {
+      debugPrint('FirestoreUserService: fetchUserByThixId failed thixId=$thixId err=$e');
+      return null;
+    }
   }
 
   /// Alias de ensureThixId pour compatibilité

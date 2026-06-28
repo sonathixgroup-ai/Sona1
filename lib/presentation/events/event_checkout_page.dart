@@ -44,7 +44,7 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
     super.dispose();
   }
 
-  double get subtotal => widget.event.price * widget.tickets;
+  double get subtotal => (widget.event.price ?? 0) * widget.tickets;
 
   double get discountAmount {
     if (_discountPercent == null) return 0;
@@ -111,7 +111,7 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
         );
 
         // Redirection vers la page du ticket
-        context.go('/events/\( {widget.event.id}/ticket/ \){registration.id}');
+        context.go('/events/${widget.event.id}/ticket/${registration.id}');
       }
     } catch (e) {
       if (mounted) {
@@ -169,7 +169,7 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
                     children: [
                       Text(event.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      Text(event.location),
+                      Text((event.location ?? '').isEmpty ? '—' : event.location!),
                     ],
                   ),
                 ),

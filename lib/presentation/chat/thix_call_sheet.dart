@@ -138,10 +138,10 @@ class _ThixCallSheetState extends State<ThixCallSheet> {
         debugPrint('UserOffline: $remoteUid');
         _end(reason: 'user_left');
       },
-      onError: (int err, String msg) {
+      onError: (ErrorCodeType err, String msg) {
         debugPrint('Agora error: $err, $msg');
-        if (err != 0 && mounted) {
-          _snack('Erreur Agora: $err');
+        if (err != ErrorCodeType.errOk && mounted) {
+          _snack('Erreur Agora: ${err.name}');
           _end(reason: 'error');
         }
       },

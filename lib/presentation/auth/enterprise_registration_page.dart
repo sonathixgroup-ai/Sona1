@@ -225,7 +225,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
           rethrow;
         }
       }
-      await _firestoreUsers.ensureThixId(uid: me.id, countryCode: 'XX');
+      await _firestoreUsers.ensureThixId(uid: me.id);
       await _firestoreUsers.ensureThixChat(uid: me.id, desired: '@${companyName.toLowerCase().replaceAll(RegExp(r"[^a-z0-9._]"), '')}${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}');
       await _firestoreUsers.updateProfile(uid: me.id, registrationStatus: 'awaiting_payment');
     } catch (e) {

@@ -7,6 +7,7 @@ class EventService {
   final SupabaseClient _supabase;
   static const String eventsTable = 'events';
   static const String registrationsTable = 'event_registrations';
+  static const String promoCodesTable = 'event_promo_codes';
 
   EventService({SupabaseClient? client})
       : _supabase = client ?? Supabase.instance.client;
@@ -102,6 +103,36 @@ class EventService {
     } catch (e) {
       debugPrint('getUserRegistrations error: $e');
       return [];
+    }
+  }
+
+  /// Validates a promo code for an event.
+  ///
+  /// Returns the discount percent (e.g. 10.0) or null if invalid/expired.
+  Future<double?> validatePromoCode({required String code, required String eventId}) async {
+    final c = code.trim();
+    if (c.isEmpty) return null;
+    try {
+      final row = await _supabase
+          .from(promoCodesTable)
+          .select('discount_percent,active,expires_at,event_id,code')
+          .eq('code', c)
+          .maybeSingle();
+      if (row == null) return null;
+      final active = (row['active'] as bool?) ?? true;
+      if (!active) return null;
+      final rowEventId = (row['event_id'] ?? '').toString();
+      if (rowEventId.isNotEmpty && rowEventId != eventId) return null;
+      final expiresRaw = row['expires_at'];
+      if (expiresRaw != null) {
+        final expires = DateTime.tryParse(expiresRaw.toString());
+        if (expires != null && expires.isBefore(DateTime.now().toUtc())) return null;
+      }
+      return (row['discount_percent'] as num?)?.toDouble();
+    } catch (e) {
+      // Soft-fail if table doesn't exist / RLS blocks.
+      debugPrint('validatePromoCode error: $e');
+      return null;
     }
   }
 }

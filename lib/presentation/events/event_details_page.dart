@@ -89,12 +89,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '\( {date.day.toString().padLeft(2, '0')}/ \){date.month.toString().padLeft(2, '0')}/${date.year}';
+  String _formatDate(DateTime? date) {
+    final d = date ?? DateTime.now();
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    return '$dd/$mm/${d.year}';
   }
 
-  String _formatTime(DateTime date) {
-    return '\( {date.hour.toString().padLeft(2, '0')}: \){date.minute.toString().padLeft(2, '0')}';
+  String _formatTime(DateTime? date) {
+    final d = date ?? DateTime.now();
+    final hh = d.hour.toString().padLeft(2, '0');
+    final min = d.minute.toString().padLeft(2, '0');
+    return '$hh:$min';
   }
 
   @override
@@ -134,7 +140,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   const SizedBox(height: 12),
                   _infoTile(Icons.access_time, "Heure", _formatTime(event.startsAt)),
                   const SizedBox(height: 12),
-                  _infoTile(Icons.location_on, "Lieu", event.location),
+                  _infoTile(Icons.location_on, "Lieu", (event.location ?? '').isEmpty ? '—' : event.location!),
                   const SizedBox(height: 30),
                   const Text("Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),

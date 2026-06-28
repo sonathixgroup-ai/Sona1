@@ -27,7 +27,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
   @override
   void initState() {
     super.initState();
-    _service = EventService(Supabase.instance.client);
+    _service = EventService(client: Supabase.instance.client);
   }
 
   Future<_TicketData?> _loadTicket() async {
@@ -143,6 +143,9 @@ class _EventTicketPageState extends State<EventTicketPage> {
     EventItem event,
     EventRegistration reg,
   ) {
+    final ticketCode = (reg.metadata?['ticket_code'] ?? reg.metadata?['ticketCode'] ?? reg.id).toString();
+    final attendeeThixId = (reg.metadata?['attendee_thix_id'] ?? reg.metadata?['attendeeThixId'] ?? '').toString();
+    final tickets = reg.metadata?['tickets'] ?? reg.metadata?['qty'] ?? 1;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -226,14 +229,14 @@ class _EventTicketPageState extends State<EventTicketPage> {
 
                 _infoRow(
                   Icons.location_on,
-                  event.location,
+                  (event.location ?? '').isEmpty ? '—' : event.location!,
                 ),
 
                 const SizedBox(height: 20),
 
                 BarcodeWidget(
                   barcode: Barcode.code128(),
-                  data: reg.ticketCode,
+                  data: ticketCode,
                   drawText: false,
                   width: 300,
                   height: 90,
@@ -242,7 +245,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                 const SizedBox(height: 15),
 
                 SelectableText(
-                  reg.ticketCode,
+                  ticketCode,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
@@ -257,12 +260,12 @@ class _EventTicketPageState extends State<EventTicketPage> {
 
                 _detailRow(
                   "THIX ID",
-                  reg.attendeeThixId,
+                  attendeeThixId.isEmpty ? '—' : attendeeThixId,
                 ),
 
                 _detailRow(
                   "Billets",
-                  reg.tickets.toString(),
+                  tickets.toString(),
                 ),
 
                 _detailRow(
@@ -384,9 +387,9 @@ class _EventTicketPageState extends State<EventTicketPage> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return "${date.day}/${date.month}/${date.year} "
-        "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+  String _formatDate(DateTime? date) {
+    final d = date ?? DateTime.now();
+    return "${d.day}/${d.month}/${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}";
   }
 }
 

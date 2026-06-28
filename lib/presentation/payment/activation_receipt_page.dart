@@ -62,7 +62,7 @@ class _ActivationReceiptPageState extends State<ActivationReceiptPage> {
     setState(() => _ensuringThixId = true);
     try {
       final users = FirestoreUserService();
-      final real = await users.assignRealThixIdIfMissing(uid: me.id, countryOrOrigin: me.countryOrOrigin, displayName: me.displayName);
+      final real = await users.assignRealThixIdIfMissing(uid: me.id);
       await auth.updateCurrentUser(me.copyWith(thixId: real, updatedAt: DateTime.now()));
     } catch (e) {
       debugPrint('ActivationReceipt: ensureRealThixId failed err=$e');

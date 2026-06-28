@@ -103,8 +103,8 @@ class _EventRegisterPageState extends State<EventRegisterPage> {
                     children: [
                       Text(event.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      Text(event.location),
-                      Text(event.priceLabel, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                      Text((event.location ?? '').isEmpty ? '—' : event.location!),
+                      Text((event.priceLabel ?? '').isEmpty ? '—' : event.priceLabel!, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),

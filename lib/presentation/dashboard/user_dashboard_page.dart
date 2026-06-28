@@ -38,19 +38,17 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     final firestoreService = context.watch<FirestoreUserService>();
 
     return Scaffold(
-      body: StreamBuilder<AppUser>(
-        stream: authController.currentUserStream,
-        builder: (context, authSnap) {
-          if (!authSnap.hasData) {
+      body: Builder(
+        builder: (context) {
+          final authUser = authController.currentUser;
+          if (authUser == null) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final authUser = authSnap.data!;
           return StreamBuilder<ThixProfile?>(
             stream: profileService.streamMyProfile(authUser.id),
             builder: (context, profileSnap) {
               final profile = profileSnap.data ?? ThixProfile.empty(userId: authUser.id);
-
               return Stack(
                 children: [
                   const _DashboardBackground(),
@@ -75,10 +73,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                           onDownloadCv: () => _downloadCV(context, profile),
                           onShareProfile: () => _shareProfile(context, profile),
                         ),
-                        _DashboardTabs(
-                          currentTab: _currentTab,
-                          onTabChanged: (i) => setState(() => _currentTab = i),
-                        ),
+                        _DashboardTabs(currentTab: _currentTab, onTabChanged: (i) => setState(() => _currentTab = i)),
                         Expanded(
                           child: _buildCurrentTab(
                             context,
@@ -258,6 +253,139 @@ class _DashboardTabs extends StatelessWidget {
   }
 }
 
+class _HeaderIdentityCard extends StatelessWidget {
+  final AppUser user;
+  final ThixProfile profile;
+  final bool verified;
+  final VoidCallback onEditProfile;
+  final VoidCallback onDownloadCv;
+  final VoidCallback onShareProfile;
+
+  const _HeaderIdentityCard({
+    required this.user,
+    required this.profile,
+    required this.verified,
+    required this.onEditProfile,
+    required this.onDownloadCv,
+    required this.onShareProfile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = (profile.displayName.trim().isNotEmpty ? profile.displayName : user.displayName).trim();
+    final thixId = user.thixId.trim();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: Colors.white.withValues(alpha: 0.14),
+            backgroundImage: (user.photoUrl ?? '').trim().isNotEmpty ? NetworkImage(user.photoUrl!) : null,
+            child: (user.photoUrl ?? '').trim().isNotEmpty
+                ? null
+                : Text(
+                    (name.isNotEmpty ? name[0] : 'T').toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                  ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name.isEmpty ? 'Mon profil' : name,
+                        style: context.textStyles.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: verified ? Colors.green.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(verified ? Icons.verified_rounded : Icons.verified_outlined, size: 16, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(verified ? 'Vérifié' : 'Non vérifié', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  thixId.isEmpty ? 'THIX ID: —' : 'THIX ID: $thixId',
+                  style: context.textStyles.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.8)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _HeaderAction(icon: Icons.edit_rounded, label: 'Éditer', onTap: onEditProfile, fg: scheme.onPrimary),
+                    _HeaderAction(icon: Icons.download_rounded, label: 'CV', onTap: onDownloadCv, fg: scheme.onPrimary),
+                    _HeaderAction(icon: Icons.share_rounded, label: 'Partager', onTap: onShareProfile, fg: scheme.onPrimary),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color fg;
+
+  const _HeaderAction({required this.icon, required this.label, required this.onTap, required this.fg});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: fg),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ==================== PROFILE TAB (Principal) ====================
 
 class _ProfileTab extends StatelessWidget {
@@ -314,7 +442,7 @@ class _ProfileEditorSheet extends StatelessWidget {
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
-        color: context.theme.scaffoldBackgroundColor,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: const Center(child: Text("Éditeur de Profil - Version simplifiée")),

@@ -29,9 +29,7 @@ class _EventsPageState extends State<EventsPage> {
   void initState() {
     super.initState();
 
-    _eventService = EventService(
-      Supabase.instance.client,
-    );
+    _eventService = EventService(client: Supabase.instance.client);
 
     _loadEvents();
   }
@@ -58,16 +56,14 @@ class _EventsPageState extends State<EventsPage> {
         final titleMatch =
             event.title.toLowerCase().contains(query);
 
-        final locationMatch =
-            event.location.toLowerCase().contains(query);
+        final locationMatch = event.location?.toLowerCase().contains(query) ?? false;
 
         final categoryMatch =
             _selectedCategory == 'Tous'
                 ? true
                 : event.category == _selectedCategory;
 
-        return (titleMatch || locationMatch) &&
-            categoryMatch;
+        return (titleMatch || locationMatch) && categoryMatch;
       }).toList();
     });
   }
@@ -76,7 +72,8 @@ class _EventsPageState extends State<EventsPage> {
     final set = <String>{};
 
     for (final event in _events) {
-      set.add(event.category);
+      final c = (event.category ?? '').trim();
+      if (c.isNotEmpty) set.add(c);
     }
 
     return [
@@ -245,8 +242,9 @@ class _EventCard extends StatelessWidget {
     required this.event,
   });
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  String _formatDate(DateTime? date) {
+    final d = date ?? DateTime.now();
+    return '${d.day}/${d.month}/${d.year}';
   }
 
   @override
@@ -316,7 +314,7 @@ class _EventCard extends StatelessWidget {
                               20),
                     ),
                     child: Text(
-                      event.category,
+                      (event.category ?? '').isEmpty ? 'Général' : event.category!,
                       style:
                           const TextStyle(
                         color: Colors.blue,
@@ -368,7 +366,7 @@ class _EventCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          event.location,
+                          (event.location ?? '').isEmpty ? '—' : event.location!,
                           maxLines: 1,
                           overflow:
                               TextOverflow
@@ -383,7 +381,7 @@ class _EventCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        event.priceLabel,
+                        (event.priceLabel ?? '').isEmpty ? '—' : event.priceLabel!,
                         style:
                             const TextStyle(
                           color: Colors.blue,

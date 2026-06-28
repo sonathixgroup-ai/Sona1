@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/models/event_item.dart';
+import 'package:thix_id/presentation/admin/admin_routes.dart';
 
 // Pages
 import 'presentation/home/home_page.dart';
@@ -73,10 +76,16 @@ class AppRoutes {
 }
 
 class AppRouter {
-  static GoRouter create(AuthController auth) {
+  static GoRouter create(
+    AuthController auth, {
+    Listenable? extraRefreshListenable,
+  }) {
+    final refresh = extraRefreshListenable == null
+        ? auth
+        : Listenable.merge([auth, extraRefreshListenable]);
     return GoRouter(
       initialLocation: AppRoutes.home,
-      refreshListenable: auth,
+      refreshListenable: refresh,
       redirect: (context, state) {
         final isLoggedIn = auth.isAuthenticated;
         final location = state.matchedLocation;
@@ -189,7 +198,7 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.admin,
-          pageBuilder: (context, state) => const NoTransitionPage(child: AdminPage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: AdminPage(module: AdminModule.overview)),
         ),
       ],
     );

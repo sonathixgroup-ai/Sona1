@@ -28,9 +28,7 @@ class _UserEventDashboardPageState
   void initState() {
     super.initState();
 
-    _eventService = EventService(
-      Supabase.instance.client,
-    );
+    _eventService = EventService(client: Supabase.instance.client);
 
     _loadTickets();
   }
@@ -257,9 +255,10 @@ class _TicketCard extends StatelessWidget {
   });
 
   String _formatDate(
-    DateTime date,
+    DateTime? date,
   ) {
-    return "${date.day}/${date.month}/${date.year}";
+    final d = date ?? DateTime.now();
+    return "${d.day}/${d.month}/${d.year}";
   }
 
   @override
@@ -351,7 +350,7 @@ class _TicketCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    event.location,
+                    (event.location ?? '').isEmpty ? '—' : event.location!,
                   ),
                 ),
               ],
@@ -371,7 +370,7 @@ class _TicketCard extends StatelessWidget {
             const SizedBox(height: 4),
 
             SelectableText(
-              registration.ticketCode,
+              (registration.metadata?['ticket_code'] ?? registration.metadata?['ticketCode'] ?? registration.id).toString(),
               style:
                   const TextStyle(
                 fontWeight:
