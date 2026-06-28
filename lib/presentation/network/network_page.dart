@@ -1,21 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../../data/models/thix_user_model.dart';
-import '../../data/models/post_model.dart';
-import '../../data/models/story_model.dart';
-import '../../data/models/metric_model.dart';
-import '../../data/models/short_model.dart';
-import '../../data/repositories/network_repository.dart';
 import 'network_view_model.dart';
-import 'widgets/network_app_bar.dart';
-import 'widgets/story_carousel.dart';
-import 'widgets/create_post_bar.dart';
-import 'widgets/metrics_grid.dart';
-import 'widgets/activity_chart.dart';
-import 'widgets/post_card.dart';
-import 'widgets/short_item.dart';
+import 'tabs/home_tab.dart';
+import 'tabs/projects_tab.dart';
+import 'tabs/team_tab.dart';
+import 'tabs/messages_tab.dart';
+import 'tabs/settings_tab.dart';
 
 class NetworkPage extends StatefulWidget {
   const NetworkPage({super.key});
@@ -25,69 +16,68 @@ class NetworkPage extends StatefulWidget {
 }
 
 class _NetworkPageState extends State<NetworkPage> {
-  int _selectedTabIndex = 0;
+  int _selectedTab = 0;
+  final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => NetworkViewModel(
-        repository: NetworkRepository(
-          supabaseClient: Supabase.instance.client,
-        ),
-        currentUser: ThixUser(
-          id: Supabase.instance.client.auth.currentUser?.id ?? '',
-          firstName: 'Jean',
-          lastName: 'Dupont',
-          email: Supabase.instance.client.auth.currentUser?.email ?? '',
-          avatarUrl: null,
-          isVerified: true,
-        ),
+      create: (_) => NetworkViewModel(
+        supabase: Supabase.instance.client,
+        currentUserId: Supabase.instance.client.auth.currentUser?.id ?? '',
       )..loadInitialData(),
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-        appBar: const NetworkAppBar(),
         body: SafeArea(
           child: Consumer<NetworkViewModel>(
-            builder: (context, viewModel, child) {
-              if (viewModel.isLoading) {
+            builder: (context, vm, _) {
+              if (vm.isLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (viewModel.error != null) {
-                return Center(child: Text('Erreur: ${viewModel.error}'));
+              if (vm.error != null) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 12),
+                      Text('Erreur: ${vm.error}', textAlign: TextAlign.center),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: vm.loadInitialData,
+                        child: const Text('Réessayer'),
+                      ),
+                    ],
+                  ),
+                );
               }
-              return RefreshIndicator(
-                onRefresh: viewModel.loadInitialData,
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    const SizedBox(height: 8),
-                    // Stories
-                    StoryCarousel(stories: viewModel.stories),
-                    const SizedBox(height: 16),
-                    // Barre de création
-                    const CreatePostBar(),
-                    const SizedBox(height: 12),
-                    // Métriques
-                    MetricsGrid(metrics: viewModel.metrics),
-                    const SizedBox(height: 12),
-                    // Graphique
-                    ActivityChart(data: viewModel.chartData),
-                    const SizedBox(height: 12),
-                    // Posts
-                    ...viewModel.posts.map((post) => PostCard(
-                          post: post,
-                          onLike: () => viewModel.toggleLike(post.id),
-                          onComment: () => _openCommentModal(post.id),
-                          onShare: () => viewModel.sharePost(post.id),
-                          onSave: () => viewModel.toggleSave(post.id),
-                        )),
-                    const SizedBox(height: 12),
-                    // Short
-                    if (viewModel.shorts.isNotEmpty)
-                      ShortItem(short: viewModel.shorts.first),
-                    const SizedBox(height: 80),
-                  ],
-                ),
+              return PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() => _selectedTab = index);
+                },
+                children: [
+                  HomeTab(
+                    posts: vm.posts,
+                    stories: vm.stories,
+                    metrics: vm.metrics,
+                    chartData: vm.chartData,
+                    onLike: vm.toggleLike,
+                    onComment: (postId) => _openCommentModal(context, postId, vm),
+                    onShare: vm.sharePost,
+                    onSave: vm.toggleSave,
+                  ),
+                  const ProjectsTab(),
+                  const TeamTab(),
+                  const MessagesTab(),
+                  const SettingsTab(),
+                ],
               );
             },
           ),
@@ -110,13 +100,16 @@ class _NetworkPageState extends State<NetworkPage> {
         ],
       ),
       child: BottomNavigationBar(
-        currentIndex: _selectedTabIndex,
+        currentIndex: _selectedTab,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF1A73E8),
         unselectedItemColor: Colors.grey.shade600,
         selectedFontSize: 11,
         unselectedFontSize: 11,
-        onTap: (index) => setState(() => _selectedTabIndex = index),
+        onTap: (index) {
+          setState(() => _selectedTab = index);
+          _pageController.jumpToPage(index);
+        },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined, size: 24),
@@ -148,8 +141,93 @@ class _NetworkPageState extends State<NetworkPage> {
     );
   }
 
-  void _openCommentModal(String postId) {
-    // Implémentez l'ouverture de la modale de commentaires
-    // (à faire dans un fichier séparé)
+  void _openCommentModal(BuildContext context, String postId, NetworkViewModel vm) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Text('Commentaires', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Divider(),
+            Expanded(
+              child: FutureBuilder(
+                future: vm.getComments(postId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Erreur: ${snapshot.error}'));
+                  }
+                  final comments = snapshot.data ?? [];
+                  if (comments.isEmpty) {
+                    return const Center(child: Text('Aucun commentaire pour le moment.'));
+                  }
+                  return ListView.builder(
+                    itemCount: comments.length,
+                    itemBuilder: (context, index) {
+                      final c = comments[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundImage: c['avatar_url'] != null
+                              ? NetworkImage(c['avatar_url'])
+                              : null,
+                          child: c['avatar_url'] == null
+                              ? Text(c['user_name'][0].toUpperCase())
+                              : null,
+                        ),
+                        title: Text(c['user_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(c['content']),
+                        trailing: Text(
+                          c['created_at'].toString().substring(0, 16),
+                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const Divider(),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: TextEditingController(),
+                    decoration: InputDecoration(
+                      hintText: 'Écrire un commentaire...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onSubmitted: (value) async {
+                      if (value.isNotEmpty) {
+                        await vm.addComment(postId, value);
+                        // Recharger les commentaires
+                        // (on pourrait rafraîchir le snapshot via un StatefulBuilder)
+                      }
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Color(0xFF1A73E8)),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
