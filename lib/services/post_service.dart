@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/post.dart';
 import 'package:thix_id/models/post_media.dart';
+import 'package:thix_id/models/comment.dart';
 
 class PostService {
   final SupabaseClient supabase;
@@ -142,11 +143,57 @@ class PostService {
 
   Future<void> addComment({required String profileId, required String postId, required String content, String? parentId}) async {
     try {
-      await supabase.from('comments').insert({'post_id': postId, 'author': profileId, 'content': content, 'parent_id': parentId}).execute();
+      final res = await supabase
+          .from('comments')
+          .insert({'post_id': postId, 'author': profileId, 'content': content, 'parent_id': parentId})
+          .select()
+          .single();
+
+      // optionally increment comment counter safely via RPC
       await supabase.rpc('increment_post_comment_count', params: {'post_id': postId});
+
+      // return created comment if needed
+      // final comment = Comment.fromMap(res as Map<String, dynamic>);
+      // return comment;
     } catch (e, st) {
       debugPrint('PostService.addComment error: $e\n$st');
       rethrow;
     }
+  }
+
+  /// Fetch comments for a post with pagination. Returns a list of Comment models.
+  Future<List<Comment>> fetchComments({required String postId, int limit = 50, int offset = 0}) async {
+    try {
+      final res = await supabase
+          .from('comments')
+          .select('*, profiles:author(*)')
+          .eq('post_id', postId)
+          .order('created_at', ascending: true)
+          .range(offset, offset + limit - 1)
+          .execute();
+
+      final data = res.data as List<dynamic>? ?? [];
+      return data.map((e) => Comment.fromMap(e as Map<String, dynamic>)).toList();
+    } catch (e, st) {
+      debugPrint('PostService.fetchComments error: $e\n$st');
+      rethrow;
+    }
+  }
+
+  /// Stream comments for a post using realtime.
+  RealtimeSubscription streamComments({required String postId, required void Function(List<Comment>) onData}) {
+    final channel = supabase.channel('public:comments:$postId');
+
+    channel
+        .on(RealtimeListenTypes.postgresChanges, ChannelFilter(event: '*', schema: 'public', table: 'comments', filter: 'post_id=eq.$postId'), (payload, {ref}) async {
+      try {
+        final comments = await fetchComments(postId: postId, limit: 100, offset: 0);
+        onData(comments);
+      } catch (e) {
+        debugPrint('streamComments handler error: $e');
+      }
+    }).subscribe();
+
+    return channel;
   }
 }
