@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/message_model.dart';
+import '../../models/ai_models.dart';
+import '../../providers/ai_chat_provider.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
   final bool isCurrentUser;
+  final String conversationId;
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -17,6 +21,7 @@ class MessageBubble extends StatefulWidget {
     Key? key,
     required this.message,
     required this.isCurrentUser,
+    required this.conversationId,
     this.onReply,
     this.onEdit,
     this.onDelete,
@@ -32,6 +37,147 @@ class MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<MessageBubble> {
   bool _showActions = false;
+  bool _showInlineAi = false;
+  bool _loadingAi = false;
+  AIChatResult? _aiResult;
+  String _translateLang = 'fr';
+
+  List<String> _conversationPreview() {
+    final content = widget.message.content.trim();
+    return content.isEmpty ? const [] : [content];
+  }
+
+  Future<void> _translateCurrentMessage() async {
+    setState(() {
+      _loadingAi = true;
+      _showInlineAi = true;
+    });
+
+    try {
+      final service = context.read(aiChatServiceProvider);
+      final result = await service.translateMessage(
+        conversationId: widget.conversationId,
+        message: widget.message.content,
+        targetLanguage: _translateLang,
+      );
+      if (!mounted) return;
+      setState(() {
+        _aiResult = result;
+        _loadingAi = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingAi = false);
+    }
+  }
+
+  Future<void> _suggestContextReplies() async {
+    setState(() {
+      _loadingAi = true;
+      _showInlineAi = true;
+    });
+
+    try {
+      final service = context.read(aiChatServiceProvider);
+      final result = await service.generateSmartReplies(
+        conversationId: widget.conversationId,
+        messages: _conversationPreview(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _aiResult = result;
+        _loadingAi = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingAi = false);
+    }
+  }
+
+  Widget _buildInlineAiPanel() {
+    if (!_showInlineAi) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        elevation: 0,
+        color: Colors.grey.shade100,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: _loadingAi
+              ? const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Analyse IA en cours...'),
+                  ],
+                )
+              : _aiResult == null
+                  ? const Text('Aucun résultat IA.')
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_aiResult!.translation != null) ...[
+                          const Text(
+                            'Traduction',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(_aiResult!.translation!),
+                          const SizedBox(height: 8),
+                        ],
+                        if (_aiResult!.summary != null) ...[
+                          const Text(
+                            'Résumé',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(_aiResult!.summary!),
+                          const SizedBox(height: 8),
+                        ],
+                        if (_aiResult!.sentiment != null) ...[
+                          Row(
+                            children: [
+                              const Text(
+                                'Sentiment: ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '${_aiResult!.sentiment} '
+                                '(${(_aiResult!.confidence ?? 0).toStringAsFixed(2)})',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (_aiResult!.smartReplies.isNotEmpty) ...[
+                          const Text(
+                            'Réponses suggérées',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _aiResult!.smartReplies.map((reply) {
+                              return ActionChip(
+                                label: Text(reply),
+                                onPressed: () {},
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +217,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               padding: const EdgeInsets.only(top: 4),
               child: _buildReactions(),
             ),
+          _buildInlineAiPanel(),
         ],
       ),
     );
@@ -172,7 +319,18 @@ class _MessageBubbleState extends State<MessageBubble> {
         _buildActionButton(Icons.add_reaction, 'Réagir', () {}),
         _buildActionButton(Icons.forward, 'Transférer', widget.onForward),
         if (!widget.isCurrentUser)
-          _buildActionButton(Icons.translate, 'Traduire', widget.onTranslate),
+          _buildActionButton(Icons.translate, 'Traduire', () {
+            setState(() {
+              _showInlineAi = true;
+            });
+            _translateCurrentMessage();
+          }),
+        _buildActionButton(Icons.auto_awesome, 'AI', () {
+          setState(() {
+            _showInlineAi = true;
+          });
+          _suggestContextReplies();
+        }),
         if (widget.isCurrentUser)
           _buildActionButton(Icons.delete, 'Supprimer', widget.onDelete,
               color: Colors.red),

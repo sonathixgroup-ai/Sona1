@@ -4,11 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/message_model.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/ai_chat_provider.dart';
+import '../../widgets/messages/message_bubble.dart';
+import '../../widgets/input/message_input.dart';
+import '../../widgets/appbar/chat_appbar.dart';
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
 
-  const ConversationScreen({Key? key, required this.conversationId}) : super(key: key);
+  const ConversationScreen({Key? key, required this.conversationId})
+      : super(key: key);
 
   @override
   ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
@@ -60,12 +64,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         return DefaultTabController(
           length: 4,
           child: Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 12),
-                Container(width: 48, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(100))),
+                Container(
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 const TabBar(
                   tabs: [
@@ -82,20 +95,41 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       _AiActionPanel(
                         title: 'Résumé',
                         actionLabel: 'Générer le résumé',
-                        onRun: () => ref.read(aiChatControllerProvider.notifier).summarizeConversation(conversationId: widget.conversationId, messages: texts),
+                        onRun: () => ref
+                            .read(aiChatControllerProvider.notifier)
+                            .summarizeConversation(
+                              conversationId: widget.conversationId,
+                              messages: texts,
+                            ),
                       ),
                       _AiActionPanel(
                         title: 'Smart Replies',
                         actionLabel: 'Proposer des réponses',
-                        onRun: () => ref.read(aiChatControllerProvider.notifier).generateSmartReplies(conversationId: widget.conversationId, messages: texts),
+                        onRun: () => ref
+                            .read(aiChatControllerProvider.notifier)
+                            .generateSmartReplies(
+                              conversationId: widget.conversationId,
+                              messages: texts,
+                            ),
                       ),
                       _AiActionPanel(
                         title: 'Sentiment',
                         actionLabel: 'Analyser le sentiment',
-                        onRun: () => ref.read(aiChatControllerProvider.notifier).analyzeConversation(conversationId: widget.conversationId, messages: texts),
+                        onRun: () => ref
+                            .read(aiChatControllerProvider.notifier)
+                            .analyzeConversation(
+                              conversationId: widget.conversationId,
+                              messages: texts,
+                            ),
                       ),
                       _TranslatePanel(
-                        onRun: (lang) => ref.read(aiChatControllerProvider.notifier).translateMessage(conversationId: widget.conversationId, message: texts.isNotEmpty ? texts.last : '', targetLanguage: lang),
+                        onRun: (lang) => ref
+                            .read(aiChatControllerProvider.notifier)
+                            .translateMessage(
+                              conversationId: widget.conversationId,
+                              message: texts.isNotEmpty ? texts.last : '',
+                              targetLanguage: lang,
+                            ),
                       ),
                     ],
                   ),
@@ -115,14 +149,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final aiState = ref.watch(aiChatControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(conversation?.name ?? 'Conversation'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            onPressed: _showAiSheet,
-          ),
-        ],
+      appBar: ChatAppBar(
+        title: conversation?.name ?? 'Conversation',
+        subtitle: conversation?.description,
+        avatarUrl: conversation?.avatarUrl,
+        isGroup: conversation?.isGroup ?? false,
+        memberCount: conversation?.memberIds.length ?? 0,
+        onCall: () {},
+        onVideoCall: () {},
+        onInfo: () {},
+        onMore: _showAiSheet,
       ),
       body: Column(
         children: [
@@ -133,19 +169,76 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ),
           Expanded(
             child: messages.isEmpty
-                ? const Center(child: Text('Aucun message'))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 48,
+                          color: Colors.grey[300],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucun message',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     controller: _scrollController,
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
                       final isCurrentUser = message.senderId == 'current_user_id';
-                      return ListTile(
-                        title: Text(message.content),
-                        subtitle: Text(isCurrentUser ? 'Vous' : message.senderName),
+
+                      return MessageBubble(
+                        message: message,
+                        isCurrentUser: isCurrentUser,
+                        conversationId: widget.conversationId,
+                        onReply: () {
+                          setState(() => _replyingToId = message.id);
+                        },
+                        onDelete: () {
+                          ref.read(messagesProvider.notifier).deleteMessage(message.id);
+                        },
+                        onPin: () {
+                          ref.read(messagesProvider.notifier).togglePin(message.id);
+                        },
+                        onReact: (emoji) {
+                          ref.read(messagesProvider.notifier).addReaction(message.id, emoji);
+                        },
                       );
                     },
                   ),
+          ),
+          MessageInput(
+            replyingToName: _replyingToId != null
+                ? messages.firstWhere((m) => m.id == _replyingToId).senderName
+                : null,
+            onCancelReply: () => setState(() => _replyingToId = null),
+            onSend: (message) {
+              final newMessage = Message(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                conversationId: widget.conversationId,
+                senderId: 'current_user_id',
+                senderName: 'Current User',
+                content: message,
+                type: MessageType.text,
+                status: MessageStatus.sending,
+                timestamp: DateTime.now(),
+                replyToId: _replyingToId,
+              );
+              ref.read(messagesProvider.notifier).addMessage(newMessage);
+              setState(() => _replyingToId = null);
+              _scrollToBottom();
+            },
+            onAttachMedia: () {},
+            onStartRecording: () {},
           ),
         ],
       ),
@@ -154,7 +247,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 }
 
 class _AiActionPanel extends StatelessWidget {
-  const _AiActionPanel({required this.title, required this.actionLabel, required this.onRun});
+  const _AiActionPanel({
+    required this.title,
+    required this.actionLabel,
+    required this.onRun,
+  });
 
   final String title;
   final String actionLabel;
@@ -170,7 +267,10 @@ class _AiActionPanel extends StatelessWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: onRun, child: Text(actionLabel)),
+            ElevatedButton(
+              onPressed: onRun,
+              child: Text(actionLabel),
+            ),
           ],
         ),
       ),
@@ -188,6 +288,13 @@ class _TranslatePanel extends StatefulWidget {
 
 class _TranslatePanelState extends State<_TranslatePanel> {
   final _controller = TextEditingController(text: 'en');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -200,7 +307,10 @@ class _TranslatePanelState extends State<_TranslatePanel> {
             const SizedBox(height: 12),
             TextField(controller: _controller),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: () => widget.onRun(_controller.text.trim()), child: const Text('Traduire le dernier message')),
+            ElevatedButton(
+              onPressed: () => widget.onRun(_controller.text.trim()),
+              child: const Text('Traduire le dernier message'),
+            ),
           ],
         ),
       ),
@@ -222,7 +332,11 @@ class _AiResultCard extends StatelessWidget {
           children: [
             if (result.summary != null) Text('Résumé: ${result.summary}'),
             if (result.translation != null) Text('Traduction: ${result.translation}'),
-            if (result.sentiment != null) Text('Sentiment: ${result.sentiment} (${(result.confidence ?? 0).toStringAsFixed(2)})'),
+            if (result.sentiment != null)
+              Text(
+                'Sentiment: ${result.sentiment} '
+                '(${(result.confidence ?? 0).toStringAsFixed(2)})',
+              ),
             if (result.smartReplies.isNotEmpty) ...[
               const SizedBox(height: 8),
               const Text('Réponses suggérées:'),
