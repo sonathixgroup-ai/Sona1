@@ -6,12 +6,12 @@ class SupabaseConfig {
   ///
   /// Utilise `--dart-define` pour les passer en production (recommandé).
   static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
+    '',
     defaultValue: 'https://kfzkxaadtbapqwxcegly.supabase.co',
   );
 
   static const String anonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
+    '',
     defaultValue:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtmemt4YWFkdGJhcHF3eGNlZ2x5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTQ4NDQsImV4cCI6MjA5MTczMDg0NH0.7JWalFAF9XaHTHqypt-bMokd2B3sU9Rm6X3YkVm3BTE',
   );

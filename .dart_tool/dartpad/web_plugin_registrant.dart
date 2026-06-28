@@ -8,12 +8,7 @@
 
 import 'package:agora_rtc_engine/agora_rtc_engine_web.dart';
 import 'package:app_links_web/app_links_web.dart';
-import 'package:cloud_firestore_web/cloud_firestore_web.dart';
 import 'package:file_picker/src/platform/web/file_picker_web.dart';
-import 'package:firebase_auth_web/firebase_auth_web.dart';
-import 'package:firebase_core_web/firebase_core_web.dart';
-import 'package:firebase_messaging_web/firebase_messaging_web.dart';
-import 'package:firebase_storage_web/firebase_storage_web.dart';
 import 'package:geolocator_web/geolocator_web.dart';
 import 'package:iris_method_channel/iris_method_channel_web.dart';
 import 'package:mobile_scanner/src/web/mobile_scanner_web.dart';
@@ -30,12 +25,7 @@ void registerPlugins([final Registrar? pluginRegistrar]) {
   final Registrar registrar = pluginRegistrar ?? webPluginRegistrar;
   AgoraRtcEngineWeb.registerWith(registrar);
   AppLinksPluginWeb.registerWith(registrar);
-  FirebaseFirestoreWeb.registerWith(registrar);
   FilePickerWeb.registerWith(registrar);
-  FirebaseAuthWeb.registerWith(registrar);
-  FirebaseCoreWeb.registerWith(registrar);
-  FirebaseMessagingWeb.registerWith(registrar);
-  FirebaseStorageWeb.registerWith(registrar);
   GeolocatorPlugin.registerWith(registrar);
   IrisMethodChannelWeb.registerWith(registrar);
   MobileScannerWeb.registerWith(registrar);

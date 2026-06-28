@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum AccountType { personal, enterprise }
 
 class AppUser {
@@ -314,91 +312,17 @@ class AppUser {
     );
   }
 
-  static AppUser fromFirestore(DocumentSnapshot<Map<String, dynamic>> snap) {
-    final d = snap.data() ?? const <String, dynamic>{};
-    final createdAt = _readDate(d['createdAt']) ?? DateTime.now();
-    final updatedAt = _readDate(d['updatedAt']) ?? createdAt;
-    final accountTypeStr = (d['accountType'] as String?) ?? AccountType.personal.name;
-    return AppUser(
-      id: snap.id,
-      thixId: (d['thixId'] as String?) ?? 'THIX-000000',
-      thixChat: (d['thixChat'] as String?) ?? '',
-      thixScore: (d['thixScore'] as num?)?.toInt(),
-      email: ((d['email'] as String?) ?? '').toLowerCase(),
-      phone: d['phone'] as String?,
-      displayName: (d['displayName'] as String?) ?? 'Utilisateur THIX',
-      accountType: AccountType.values.firstWhere((e) => e.name == accountTypeStr, orElse: () => AccountType.personal),
-      photoUrl: d['photoUrl'] as String?,
-      bio: d['bio'] as String?,
-      countryOrOrigin: d['countryOrOrigin'] as String?,
-      contactPhone: d['contactPhone'] as String?,
-      maritalStatus: d['maritalStatus'] as String?,
-      gender: d['gender'] as String?,
-      occupation: d['occupation'] as String?,
-      profession: d['profession'] as String?,
-      dateOfBirth: d['dateOfBirth'] as String?,
-      placeOfBirth: d['placeOfBirth'] as String?,
-      nationality: d['nationality'] as String?,
-      address: d['address'] as String?,
-      fatherName: d['fatherName'] as String?,
-      motherName: d['motherName'] as String?,
-      emergencyContactName: d['emergencyContactName'] as String?,
-      emergencyContactPhone: d['emergencyContactPhone'] as String?,
-      emergencyContactRelation: d['emergencyContactRelation'] as String?,
-      registrationStatus: d['registrationStatus'] as String?,
-      education: ((d['education'] as List?) ?? const []).whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false),
-      experience: ((d['experience'] as List?) ?? const []).whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false),
-      skills: ((d['skills'] as List?) ?? const []).whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false),
-      enrollments: ((d['enrollments'] as List?) ?? const []).whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false),
-      languages: ((d['languages'] as List?) ?? const []).whereType<String>().toList(growable: false),
-      biometricsEnabled: (d['biometricsEnabled'] as bool?) ?? true,
-      twoFaEnabled: (d['twoFaEnabled'] as bool?) ?? false,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'thixId': thixId,
-      'thixChat': thixChat,
-      'thixScore': thixScore,
-      'email': email,
-      'phone': phone,
-      'displayName': displayName,
-      'accountType': accountType.name,
-      'photoUrl': photoUrl,
-      'bio': bio,
-      'countryOrOrigin': countryOrOrigin,
-      'contactPhone': contactPhone,
-      'maritalStatus': maritalStatus,
-      'gender': gender,
-      'occupation': occupation,
-      'dateOfBirth': dateOfBirth,
-      'placeOfBirth': placeOfBirth,
-      'nationality': nationality,
-      'address': address,
-      'fatherName': fatherName,
-      'motherName': motherName,
-      'emergencyContactName': emergencyContactName,
-      'emergencyContactPhone': emergencyContactPhone,
-      'emergencyContactRelation': emergencyContactRelation,
-      'registrationStatus': registrationStatus,
-      'education': education,
-      'experience': experience,
-      'skills': skills,
-      'enrollments': enrollments,
-      'languages': languages,
-      'biometricsEnabled': biometricsEnabled,
-      'twoFaEnabled': twoFaEnabled,
-      // Prefer server timestamps when writing in services.
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
+  // NOTE: Firestore helpers removed (project is now Supabase-first).
 
   static DateTime? _readDate(Object? v) {
-    if (v is Timestamp) return v.toDate();
+    // Firestore dependency removed: support DateTime, ISO strings, and best-effort
+    // conversion for objects exposing a `toDate()` method (e.g., Firestore Timestamp
+    // when running in legacy builds).
+    try {
+      final dyn = v as dynamic;
+      final maybe = dyn?.toDate();
+      if (maybe is DateTime) return maybe;
+    } catch (_) {}
     if (v is DateTime) return v;
     if (v is String) return DateTime.tryParse(v);
     return null;
@@ -434,4 +358,7 @@ class AppUser {
     final v = thixId.trim().toUpperCase();
     return v.isNotEmpty && v != 'THIX-PENDING' && v != 'THIX-000000';
   }
+}
+
+class DocumentSnapshot {
 }

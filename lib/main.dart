@@ -2,10 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
-import 'package:thix_id/firebase_options.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/app_router.dart';
@@ -48,15 +46,6 @@ Future<void> main() async {
     await SupabaseConfig.initialize();
   } catch (e, st) {
     debugPrint('Main: SupabaseConfig.initialize failed err=$e');
-    debugPrint(st.toString());
-  }
-
-  // Push notifications (FCM) are used for both mobile and web.
-  // We keep Firebase optional (app should still boot if Firebase is misconfigured).
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  } catch (e, st) {
-    debugPrint('Main: Firebase.initializeApp failed err=$e');
     debugPrint(st.toString());
   }
 
