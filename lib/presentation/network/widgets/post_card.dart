@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../data/models/post_model.dart';
+import 'package:thix_id/presentation/network/network_view_model.dart';
 
 class PostCard extends StatelessWidget {
   final Post post;

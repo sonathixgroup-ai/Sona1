@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../data/models/post_model.dart';
-import '../../data/models/story_model.dart';
-import '../../data/models/metric_model.dart';
-import '../../data/models/short_model.dart';
-import '../../data/models/opportunity_model.dart';
+import 'package:thix_id/presentation/network/network_view_model.dart';
 import 'post_card.dart';
 import 'short_card.dart';
 

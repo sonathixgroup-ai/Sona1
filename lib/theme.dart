@@ -125,24 +125,31 @@ extension TextStyleExtensions on TextStyle {
 // =============================================================================
 
 class LightModeColors {
-  // Deep navy base (premium)
-  static const primary = Color(0xFF071A2B);
+  /// Instance access is occasionally used in older widgets. We keep the tokens
+  /// as `static const` (preferred), but also expose instance getters for
+  /// backward compatibility.
+  const LightModeColors();
+
+  // Social / pro network (Facebook-like) — bright & readable.
+  static const primary = Color(0xFF1877F2);
   static const onPrimary = Color(0xFFFFFFFF);
-  static const secondary = Color(0xFF0A3D62);
+  static const secondary = Color(0xFF0B5ED7);
   static const onSecondary = Color(0xFFFFFFFF);
-  // Golden metal (premium)
-  static const accent = metalGold;
-  // Premium metallic accents
+  static const accent = Color(0xFF00A884);
+
+  // Legacy premium tokens still referenced by some modules.
+  // Kept for compatibility even if the main app is now “social/pro”.
   static const metalGold = Color(0xFFD4AF37);
   static const metalGoldDeep = Color(0xFFB8860B);
   static const metalGoldSoft = Color(0xFFFFF3B0);
-  // Slight champagne background for a warmer premium feel
-  static const background = Color(0xFFFBFAF6);
+
+  // Neutral surfaces (Facebook-like)
+  static const background = Color(0xFFF0F2F5);
   static const surface = Color(0xFFFFFFFF);
-  static const onSurface = Color(0xFF071A2B);
-  static const primaryText = Color(0xFF071A2B);
-  static const secondaryText = Color(0xFF475569);
-  static const hint = Color(0xFF94A3B8);
+  static const onSurface = Color(0xFF111827);
+  static const primaryText = Color(0xFF111827);
+  static const secondaryText = Color(0xFF4B5563);
+  static const hint = Color(0xFF9CA3AF);
   static const error = Color(0xFFDC2626);
   static const emergencyRed = Color(0xFFFF3B30);
   // Medical blue palette (Emergency UI)
@@ -152,8 +159,16 @@ class LightModeColors {
   static const cyberDarkBlue = Color(0xFF0D1B2A);
   static const onError = Color(0xFFFFFFFF);
   static const success = Color(0xFF059669);
-  static const divider = Color(0xFFE2E8F0);
+  static const divider = Color(0xFFE5E7EB);
   static const transparent = Color(0x00000000);
+}
+
+/// Backward-compatible instance getters for legacy code paths that do
+/// `LightModeColors().metalGold` instead of the preferred static access.
+extension LightModeColorsInstance on LightModeColors {
+  Color get metalGold => LightModeColors.metalGold;
+  Color get metalGoldDeep => LightModeColors.metalGoldDeep;
+  Color get metalGoldSoft => LightModeColors.metalGoldSoft;
 }
 
 class DarkModeColors {
@@ -448,10 +463,10 @@ ThemeData get lightTheme => ThemeData(
       colorScheme: const ColorScheme.light(
         primary: LightModeColors.primary,
         onPrimary: LightModeColors.onPrimary,
-        secondary: LightModeColors.metalGoldDeep,
-        onSecondary: LightModeColors.onSurface,
-        tertiary: LightModeColors.metalGold,
-        onTertiary: LightModeColors.onSurface,
+        secondary: LightModeColors.secondary,
+        onSecondary: LightModeColors.onSecondary,
+        tertiary: LightModeColors.accent,
+        onTertiary: LightModeColors.onPrimary,
         error: LightModeColors.error,
         onError: LightModeColors.onError,
         surface: LightModeColors.surface,
@@ -459,11 +474,24 @@ ThemeData get lightTheme => ThemeData(
       ),
       brightness: Brightness.light,
       scaffoldBackgroundColor: LightModeColors.background,
+      iconTheme: const IconThemeData(color: LightModeColors.secondaryText, size: 22),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: LightModeColors.surface,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: LightModeColors.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
+        centerTitle: true,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: LightModeColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        indicatorColor: LightModeColors.primary.withValues(alpha: 0.12),
+        labelTextStyle: WidgetStatePropertyAll(
+          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, height: 1.2, color: LightModeColors.secondaryText),
+        ),
+        iconTheme: const WidgetStatePropertyAll(IconThemeData(size: 22)),
       ),
       dividerTheme: const DividerThemeData(
         color: LightModeColors.divider,
@@ -485,6 +513,46 @@ ThemeData get lightTheme => ThemeData(
             color: LightModeColors.divider,
             width: 1,
           ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: LightModeColors.surface,
+        hintStyle: GoogleFonts.inter(color: LightModeColors.hint, fontSize: 14, height: 1.2),
+        labelStyle: GoogleFonts.inter(color: LightModeColors.secondaryText, fontSize: 14, height: 1.2),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          borderSide: const BorderSide(color: LightModeColors.divider, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          borderSide: const BorderSide(color: LightModeColors.divider, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          borderSide: const BorderSide(color: LightModeColors.primary, width: 1.4),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: const WidgetStatePropertyAll(LightModeColors.primary),
+          foregroundColor: const WidgetStatePropertyAll(LightModeColors.onPrimary),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+          ),
+          textStyle: WidgetStatePropertyAll(GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: const WidgetStatePropertyAll(LightModeColors.primary),
+          side: const WidgetStatePropertyAll(BorderSide(color: LightModeColors.divider, width: 1)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+          ),
+          textStyle: WidgetStatePropertyAll(GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
         ),
       ),
       textTheme: _buildTextTheme(LightModeColors.primaryText),
@@ -584,23 +652,8 @@ TextTheme _buildTextTheme(Color textColor) {
       height: 1.1,
       color: textColor,
     ),
-    bodyLarge: GoogleFonts.inter(
-      fontSize: FontSizes.bodyLarge,
-      fontWeight: FontWeight.w400,
-      height: 1.6,
-      color: textColor,
-    ),
-    bodyMedium: GoogleFonts.inter(
-      fontSize: FontSizes.bodyMedium,
-      fontWeight: FontWeight.w400,
-      height: 1.5,
-      color: textColor,
-    ),
-    bodySmall: GoogleFonts.inter(
-      fontSize: FontSizes.bodySmall,
-      fontWeight: FontWeight.w400,
-      height: 1.4,
-      color: textColor,
-    ),
+    bodyLarge: GoogleFonts.inter(fontSize: FontSizes.bodyLarge, fontWeight: FontWeight.w400, height: 1.55, color: textColor),
+    bodyMedium: GoogleFonts.inter(fontSize: FontSizes.bodyMedium, fontWeight: FontWeight.w400, height: 1.45, color: textColor),
+    bodySmall: GoogleFonts.inter(fontSize: FontSizes.bodySmall, fontWeight: FontWeight.w400, height: 1.35, color: textColor),
   );
 }

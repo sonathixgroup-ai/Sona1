@@ -53,7 +53,7 @@ class PostService {
             await supabase.storage.from(storageBucket).upload(key, file);
           }
 
-          final publicUrl = supabase.storage.from(storageBucket).getPublicUrl(key).data;
+          final publicUrl = supabase.storage.from(storageBucket).getPublicUrl(key);
 
           await supabase.from('post_media').insert({
             'post_id': post.id,
@@ -86,14 +86,11 @@ class PostService {
   /// Fetch feed with simple pagination. For production, consider server-side RPC for ranking.
   Future<List<Post>> fetchFeed({int limit = 20, int offset = 0}) async {
     try {
-      final res = await supabase
+      final data = await supabase
           .from('posts')
           .select('*, profiles:author(*) , post_media(*)')
           .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1)
-          .execute();
-
-      final data = res.data as List<dynamic>? ?? [];
+          .range(offset, offset + limit - 1) as List<dynamic>;
       return data.map((e) => Post.fromMap(e as Map<String, dynamic>)).toList();
     } catch (e, st) {
       debugPrint('PostService.fetchFeed error: $e\n$st');
@@ -102,27 +99,30 @@ class PostService {
   }
 
   /// Stream posts realtime (inserts/updates/deletes).
-  RealtimeSubscription streamPosts({required void Function(List<Post>) onData}) {
+  RealtimeChannel streamPosts({required void Function(List<Post>) onData}) {
     final channel = supabase.channel('public:posts');
-
     channel
-        .on(RealtimeListenTypes.postgresChanges, ChannelFilter(event: '*', schema: 'public', table: 'posts'), (payload, {ref}) async {
-      try {
-        // payload contains record data; fetch latest feed slice for simplicity
-        final posts = await fetchFeed(limit: 50, offset: 0);
-        onData(posts);
-      } catch (e) {
-        debugPrint('streamPosts handler error: $e');
-      }
-    }).subscribe();
-
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'posts',
+          callback: (payload) async {
+            try {
+              final posts = await fetchFeed(limit: 50, offset: 0);
+              onData(posts);
+            } catch (e) {
+              debugPrint('streamPosts handler error: $e');
+            }
+          },
+        )
+        .subscribe();
     return channel;
   }
 
   /// Like a post. Note: for robust counters use an RPC or DB trigger to avoid race conditions.
   Future<void> likePost({required String profileId, required String postId}) async {
     try {
-      await supabase.from('likes').insert({'user_id': profileId, 'post_id': postId}).execute();
+      await supabase.from('likes').insert({'user_id': profileId, 'post_id': postId});
       // Attempt a best-effort increment (may race). Prefer an RPC/trigger in production.
       await supabase.rpc('increment_post_like_count', params: {'post_id': postId});
     } catch (e, st) {
@@ -133,7 +133,7 @@ class PostService {
 
   Future<void> unlikePost({required String profileId, required String postId}) async {
     try {
-      await supabase.from('likes').delete().match({'user_id': profileId, 'post_id': postId}).execute();
+      await supabase.from('likes').delete().match({'user_id': profileId, 'post_id': postId});
       await supabase.rpc('decrement_post_like_count', params: {'post_id': postId});
     } catch (e, st) {
       debugPrint('PostService.unlikePost error: $e\n$st');
@@ -164,15 +164,12 @@ class PostService {
   /// Fetch comments for a post with pagination. Returns a list of Comment models.
   Future<List<Comment>> fetchComments({required String postId, int limit = 50, int offset = 0}) async {
     try {
-      final res = await supabase
+      final data = await supabase
           .from('comments')
           .select('*, profiles:author(*)')
           .eq('post_id', postId)
           .order('created_at', ascending: true)
-          .range(offset, offset + limit - 1)
-          .execute();
-
-      final data = res.data as List<dynamic>? ?? [];
+          .range(offset, offset + limit - 1) as List<dynamic>;
       return data.map((e) => Comment.fromMap(e as Map<String, dynamic>)).toList();
     } catch (e, st) {
       debugPrint('PostService.fetchComments error: $e\n$st');
@@ -181,19 +178,24 @@ class PostService {
   }
 
   /// Stream comments for a post using realtime.
-  RealtimeSubscription streamComments({required String postId, required void Function(List<Comment>) onData}) {
+  RealtimeChannel streamComments({required String postId, required void Function(List<Comment>) onData}) {
     final channel = supabase.channel('public:comments:$postId');
-
     channel
-        .on(RealtimeListenTypes.postgresChanges, ChannelFilter(event: '*', schema: 'public', table: 'comments', filter: 'post_id=eq.$postId'), (payload, {ref}) async {
-      try {
-        final comments = await fetchComments(postId: postId, limit: 100, offset: 0);
-        onData(comments);
-      } catch (e) {
-        debugPrint('streamComments handler error: $e');
-      }
-    }).subscribe();
-
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'comments',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'post_id', value: postId),
+          callback: (payload) async {
+            try {
+              final comments = await fetchComments(postId: postId, limit: 100, offset: 0);
+              onData(comments);
+            } catch (e) {
+              debugPrint('streamComments handler error: $e');
+            }
+          },
+        )
+        .subscribe();
     return channel;
   }
 }

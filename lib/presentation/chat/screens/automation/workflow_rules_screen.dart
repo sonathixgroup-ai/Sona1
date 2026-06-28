@@ -41,7 +41,7 @@ class _WorkflowRulesScreenState extends ConsumerState<WorkflowRulesScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.workflow, size: 48, color: Colors.grey[300]),
+                  Icon(Icons.account_tree_rounded, size: 48, color: Colors.grey[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Aucune r\u00e8gle de flux',

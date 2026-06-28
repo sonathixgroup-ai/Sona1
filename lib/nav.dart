@@ -47,19 +47,31 @@ import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
+import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
-/// Page sans transition (indispensable pour GoRouter)
+/// Page sans transition pour GoRouter.
+///
+/// Important: utiliser un [PageRouteBuilder] (Navigator 2.0 friendly) plutôt
+/// qu'un [MaterialPageRoute] pour éviter des comportements bizarres sur Web
+/// (ex: navigation qui ne se déclenche pas depuis certaines pages).
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
 
   @override
   Route<T> createRoute(BuildContext context) {
-    return MaterialPageRoute(builder: (context) => child, settings: this);
+    return PageRouteBuilder<T>(
+      settings: this,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+    );
   }
 }
 
 class AppRoutes {
+  static const String start = '/start';
   static const String home = '/';
   static const String login = '/login';
   static const String personalReg = '/personal-reg';
@@ -101,7 +113,15 @@ class AppRouter {
   static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
+      // Temporary: start directly on the homepage to avoid any chance of getting
+      // stuck on the splash screen in Dreamflow preview.
+      // The splash remains accessible at /start and can be re-enabled later.
       initialLocation: AppRoutes.home,
+      // On web, GoRouter uses the browser URL as the initial route.
+      // In Dreamflow preview (and many web contexts), this can stick to the last visited
+      // location (e.g. /login) across reloads. We explicitly override it so the app
+      // always starts on the homepage.
+      overridePlatformDefaultLocation: true,
       refreshListenable: refresh,
       redirect: (context, state) {
         final location = state.matchedLocation;
@@ -112,7 +132,8 @@ class AppRouter {
         final isAdmin = location == AppRoutes.admin || location.startsWith('${AppRoutes.admin}/');
         final isEnterprisePortal = location.startsWith('${AppRoutes.enterprisePortalBasePath}/') ||
             location == AppRoutes.enterprisePortalBasePath;
-        final isPublic = location == AppRoutes.home ||
+        final isPublic = location == AppRoutes.start ||
+            location == AppRoutes.home ||
             location == AppRoutes.publicProfile ||
             location == AppRoutes.jobs ||
             location == AppRoutes.opportunities ||
@@ -147,6 +168,11 @@ class AppRouter {
         return null;
       },
       routes: [
+        GoRoute(
+          path: AppRoutes.start,
+          name: 'start',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixIdStartPage()),
+        ),
         GoRoute(
           path: AppRoutes.home,
           name: 'home',

@@ -22,18 +22,44 @@ import 'package:thix_id/services/thix_id_service.dart';
 // ============================================================================
 
 class AppColors {
-  static const Color primaryBlue = Color(0xFF003BFF);
-  static const Color darkNavy = Color(0xFF02134F);
+  // Social/pro bright palette (aligned with global theme).
+  static const Color primaryBlue = Color(0xFF1877F2);
+  static const Color darkNavy = Color(0xFF111827);
   static const Color white = Color(0xFFFFFFFF);
-  static const Color lightGrayBg = Color(0xFFF5F6FA);
-  static const Color textSecondary = Color(0xFF7B8190);
-  static const Color cardBorder = Color(0xFFE9ECF3);
-  static const Color goldBadge = Color(0xFFF7C948);
-  static const Color successGreen = Color(0xFF1BC47D);
+  static const Color lightGrayBg = Color(0xFFF0F2F5);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color goldBadge = Color(0xFFFBBF24);
+  static const Color successGreen = Color(0xFF059669);
   static const Color dangerRed = Color(0xFFFF3B30);
-  static const Color darkText = Color(0xFF1A1A2E);
+  static const Color darkText = Color(0xFF111827);
   static const Color shadowLight = Color(0x0F000000);
   static const Color shadowSecondary = Color(0x0A000000);
+
+  // Premium card (more luminous)
+  static const Color premiumSoftStart = Color(0xFFEAF2FF); // light blue tint
+  static const Color premiumSoftEnd = Color(0xFFFFFFFF); // pure white
+  static const Color premiumAccent = Color(0xFF0B3B8F);
+
+  // Domain colors (icons)
+  static const Color domainMedia = Color(0xFF7C3AED); // purple
+  static const Color domainMarket = Color(0xFFF97316); // orange
+  static const Color domainLearning = Color(0xFF2563EB); // blue
+  static const Color domainJobs = Color(0xFF16A34A); // green
+  static const Color domainInfo = Color(0xFF0284C7); // sky
+  static const Color domainOpportunity = Color(0xFFF59E0B); // amber
+  static const Color domainEvents = Color(0xFFEF4444); // red
+  static const Color domainNetwork = Color(0xFF4F46E5); // indigo
+  static const Color domainHealth = Color(0xFFE11D48); // rose
+  static const Color domainMoney = Color(0xFF059669); // emerald
+  static const Color domainGov = Color(0xFF334155); // slate
+  static const Color domainReservation = Color(0xFF0D9488); // teal
+
+  // Bottom bar (match capture)
+  static const Color bottomNavBlue = Color(0xFF0B3B8F);
+  static const Color bottomNavInactive = Color(0x99FFFFFF);
+  static const Color bottomNavActive = goldBadge;
+  static const Color bottomNavCenterIcon = Color(0xFF111827);
 }
 
 class AppSpacing {
@@ -90,7 +116,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
   final TextEditingController _searchController = TextEditingController();
   bool _searching = false;
   late AnimationController _animationController;
-  double _scrollOffset = 0;
+  final PageController _headlinesController = PageController();
+  Timer? _headlinesTimer;
 
   final _notifications = NotificationService();
   final _counters = NotificationCountersService();
@@ -100,16 +127,34 @@ class _HomePagePremiumState extends State<HomePagePremium>
   @override
   void initState() {
     super.initState();
+
+    // Performance: keep initState extremely light.
+    // We start animations/timers after the first frame so the initial paint is faster.
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
-    )..forward();
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _animationController.forward();
+      _headlinesTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (!_headlinesController.hasClients) return;
+        final next = (_headlinesController.page?.round() ?? 0) == 0 ? 1 : 0;
+        _headlinesController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 550),
+          curve: Curves.easeInOutCubic,
+        );
+      });
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _animationController.dispose();
+    _headlinesTimer?.cancel();
+    _headlinesController.dispose();
     super.dispose();
   }
 
@@ -141,7 +186,9 @@ class _HomePagePremiumState extends State<HomePagePremium>
     setState(() => _searching = true);
 
     try {
-      final userService = FirestoreUserService();
+      // Performance/architecture: reuse the app-wide instance instead of
+      // creating a new service (which can create extra clients/streams).
+      final userService = context.read<FirestoreUserService>();
       AppUser? user;
 
       if (isThix) {
@@ -250,77 +297,76 @@ class _HomePagePremiumState extends State<HomePagePremium>
       body: Stack(
         children: [
           const _HomeSoftBackground(),
-          NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification) {
-                setState(() {
-                  _scrollOffset = notification.metrics.pixels;
-                });
-              }
-              return false;
-            },
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _PremiumHeader(
-                    safeTop: safeTop,
-                    displayName: displayName,
-                    isAuthenticated: auth.isAuthenticated,
-                    onProfileTap: _onProfileTap,
-                    onAccountRequest: () => _handleRequestAccount(context),
-                  ),
+          CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _PinnedHeaderDelegate(
+                  safeTop: safeTop,
+                  displayName: displayName,
+                  isAuthenticated: auth.isAuthenticated,
+                  onProfileTap: _onProfileTap,
+                  onAccountRequest: () => _handleRequestAccount(context),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+              ),
 
-                // Barre de recherche
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                    child: _SearchBarOverlay(
-                      controller: _searchController,
-                      isSearching: _searching,
-                      onVerify: _handleHomeSearchVerify,
-                    ),
-                  ),
-                ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
-
-                // Carte Premium Status (style mixx)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                    child: _PremiumStatusCard(),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
-
-                // Actions rapides (4 boutons) – toujours avec conteneur
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                    child: _QuickActionsRow(
-                      onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
-                      onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
-                      onDocumentsTap: () {},
-                      onSecurityTap: () {},
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
-
-                // Grille des services (4x3) – SANS CONTENEURS (plats)
-                SliverPadding(
+              // Barre de recherche
+              SliverToBoxAdapter(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                  sliver: SliverToBoxAdapter(
-                    child: StreamBuilder<SectionBadgeCounts>(
-                      stream: badgeCountsStream,
-                      builder: (context, snap) {
-                        final counts = snap.data ?? SectionBadgeCounts.zero;
-                        return _ServicesGrid(
+                  child: _SearchBarOverlay(
+                    controller: _searchController,
+                    isSearching: _searching,
+                    onVerify: _handleHomeSearchVerify,
+                  ),
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Bannière passante (THIX Info / Opportunity)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                  child: _HeadlinesCarousel(
+                    controller: _headlinesController,
+                    onThixInfoTap: () => AlertInfoSheet.show(context),
+                    onOpportunityTap: () => context.push(AppRoutes.opportunities),
+                  ),
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Actions rapides (4 boutons)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                  child: _QuickActionsRow(
+                    onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
+                    onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
+                    onDocumentsTap: () {},
+                    onSecurityTap: () {},
+                  ),
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Mes services (encadré + spacing réduit)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                sliver: SliverToBoxAdapter(
+                  child: StreamBuilder<SectionBadgeCounts>(
+                    stream: badgeCountsStream,
+                    builder: (context, snap) {
+                      final counts = snap.data ?? SectionBadgeCounts.zero;
+                      return _SectionCage(
+                        title: 'Mes services',
+                        child: _ServicesGrid(
                           counts: counts,
                           onServiceTap: (serviceKey) {
                             switch (serviceKey) {
@@ -363,40 +409,40 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 break;
                             }
                           },
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
+              ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-                // Bannière promotionnelle
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                    child: _PromoBanner(),
-                  ),
+              // Carte Premium (repositionnée)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                  child: _PremiumStatusCard(),
                 ),
+              ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-                // Section personnalisée (style Facebook)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                    child: _PersonalisedSection(),
-                  ),
+              // Section personnalisée
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                  child: _PersonalisedSection(),
                 ),
+              ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 20)),
-              ],
-            ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 20)),
+            ],
           ),
           if (_searching)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 child: const Center(
                   child: CircularProgressIndicator(
                     color: AppColors.primaryBlue,
@@ -410,6 +456,62 @@ class _HomePagePremiumState extends State<HomePagePremium>
         onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
       ),
     );
+  }
+}
+
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double safeTop;
+  final String displayName;
+  final bool isAuthenticated;
+  final VoidCallback onProfileTap;
+  final VoidCallback onAccountRequest;
+
+  _PinnedHeaderDelegate({
+    required this.safeTop,
+    required this.displayName,
+    required this.isAuthenticated,
+    required this.onProfileTap,
+    required this.onAccountRequest,
+  });
+
+  double _headerExtent() => safeTop + 92;
+
+  @override
+  double get maxExtent => _headerExtent();
+
+  @override
+  double get minExtent => _headerExtent();
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.lightGrayBg,
+        boxShadow: overlapsContent
+            ? [
+                const BoxShadow(
+                  color: AppColors.shadowSecondary,
+                  blurRadius: 14,
+                  offset: Offset(0, 8),
+                ),
+              ]
+            : null,
+      ),
+      child: _PremiumHeader(
+        safeTop: safeTop,
+        displayName: displayName,
+        isAuthenticated: isAuthenticated,
+        onProfileTap: onProfileTap,
+        onAccountRequest: onAccountRequest,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return safeTop != oldDelegate.safeTop ||
+        displayName != oldDelegate.displayName ||
+        isAuthenticated != oldDelegate.isAuthenticated;
   }
 }
 
@@ -506,155 +608,118 @@ class _PremiumHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + AppSpacing.s, AppSpacing.xl, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                      boxShadow: AppShadows.secondary,
-                    ),
-                    child: const Icon(Icons.menu_rounded, color: AppColors.darkText, size: 20),
-                  ),
-                  const SizedBox(width: AppSpacing.m),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome Back',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        displayName,
-                        style: const TextStyle(
-                          color: AppColors.darkText,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                  boxShadow: AppShadows.secondary,
+                ),
+                child: const Icon(Icons.menu_rounded, color: AppColors.darkText, size: 18),
               ),
-              Row(
+              const SizedBox(width: AppSpacing.m),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                      boxShadow: AppShadows.secondary,
-                    ),
-                    child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 20),
-                  ),
-                  const SizedBox(width: AppSpacing.s),
-                  GestureDetector(
-                    onTap: () => NotificationsSheet.show(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                        boxShadow: AppShadows.secondary,
-                      ),
-                      child: Stack(
-                        children: [
-                          const Center(
-                            child: Icon(
-                              Icons.notifications_none_rounded,
-                              color: AppColors.darkText,
-                              size: 20,
-                            ),
-                          ),
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppColors.dangerRed,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  const Text(
+                    'Welcome Back',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.s),
-                  GestureDetector(
-                    onTap: onProfileTap,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.white, width: 2),
-                        boxShadow: AppShadows.secondary,
-                        image: const DecorationImage(
-                          image: NetworkImage('https://i.pravatar.cc/150?img=11'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                  Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.l),
-          Align(
-            alignment: Alignment.center,
-            child: Text(
-              'Thix',
-              style: TextStyle(
-                color: AppColors.darkNavy,
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.2,
-                shadows: [
-                  Shadow(
-                    color: AppColors.primaryBlue.withOpacity(0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 6),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                  boxShadow: AppShadows.secondary,
+                ),
+                child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 18),
+              ),
+              const SizedBox(width: AppSpacing.s),
+              GestureDetector(
+                onTap: () => NotificationsSheet.show(context),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                    boxShadow: AppShadows.secondary,
                   ),
-                ],
+                  child: Stack(
+                    children: [
+                      const Center(
+                        child: Icon(
+                          Icons.notifications_none_rounded,
+                          color: AppColors.darkText,
+                          size: 18,
+                        ),
+                      ),
+                      Positioned(
+                        right: 7,
+                        top: 7,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: AppColors.dangerRed,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s),
-          Align(
-            alignment: Alignment.center,
-            child: Text(
-              isAuthenticated ? 'Votre tableau de bord THIX' : 'Connectez-vous à votre compte THIX',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: AppSpacing.s),
+              GestureDetector(
+                onTap: onProfileTap,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.white, width: 2),
+                    boxShadow: AppShadows.secondary,
+                    image: const DecorationImage(
+                      image: NetworkImage('https://i.pravatar.cc/150?img=11'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.m),
         ],
       ),
     );
@@ -746,15 +811,16 @@ class _PremiumStatusCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.darkNavy, AppColors.primaryBlue],
+          colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd],
         ),
+        border: Border.all(color: AppColors.cardBorder, width: 0.7),
         borderRadius: BorderRadius.circular(AppRadius.mainCard),
         boxShadow: AppShadows.main,
       ),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l),
       child: Row(
         children: [
-          const Icon(Icons.stars_rounded, color: AppColors.goldBadge, size: 28),
+          const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26),
           const SizedBox(width: AppSpacing.m),
           Expanded(
             child: Column(
@@ -764,16 +830,18 @@ class _PremiumStatusCard extends StatelessWidget {
                 Text(
                   'Membre Premium',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.darkText,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 Text(
                   'Score de confiance : 98%',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AppColors.textSecondary,
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -782,7 +850,7 @@ class _PremiumStatusCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue,
+              color: AppColors.darkText,
               borderRadius: BorderRadius.circular(AppRadius.button),
             ),
             child: const Text(
@@ -902,18 +970,18 @@ class _ServicesGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final services = [
-      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.primaryBlue},
-      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.primaryBlue},
-      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.primaryBlue, 'badge': counts.formations},
-      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.successGreen, 'badge': counts.jobs},
-      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.primaryBlue, 'badge': counts.info},
-      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.goldBadge},
-      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.dangerRed, 'badge': counts.events},
-      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.primaryBlue},
-      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.dangerRed},
-      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.successGreen},
-      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.primaryBlue},
-      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.primaryBlue},
+      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.domainMedia},
+      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.domainMarket},
+      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.domainLearning, 'badge': counts.formations},
+      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.domainJobs, 'badge': counts.jobs},
+      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.domainInfo, 'badge': counts.info},
+      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.domainOpportunity},
+      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.domainEvents, 'badge': counts.events},
+      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
+      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
+      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
+      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.domainGov},
+      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
     ];
 
     return GridView.builder(
@@ -921,9 +989,9 @@ class _ServicesGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.95,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+        childAspectRatio: 1.02,
       ),
       itemCount: services.length,
       itemBuilder: (ctx, index) {
@@ -1000,7 +1068,7 @@ class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderSta
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: widget.color.withOpacity(0.08),
+                color: widget.color.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -1053,81 +1121,160 @@ class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderSta
   }
 }
 
-// ---- BANNIÈRE PROMO ----
-class _PromoBanner extends StatelessWidget {
+class _SectionCage extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _SectionCage({required this.title, required this.child});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 150,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.darkNavy, AppColors.primaryBlue],
-        ),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(AppRadius.mainCard),
-        boxShadow: AppShadows.main,
+        border: Border.all(color: AppColors.cardBorder, width: 0.6),
+        boxShadow: AppShadows.secondary,
       ),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Équipez-vous',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          Row(
+            children: [
+              const Icon(Icons.grid_view_rounded, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.s),
-                const Text(
-                  'Rejoignez le programme THIX ELITE',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.m),
-                Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(AppRadius.button),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'En savoir plus',
-                      style: TextStyle(
-                        color: AppColors.primaryBlue,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.l),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.phone_iphone_rounded,
-              size: 48,
-              color: Colors.white,
-            ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _HeadlinesCarousel extends StatelessWidget {
+  final PageController controller;
+  final VoidCallback onThixInfoTap;
+  final VoidCallback onOpportunityTap;
+
+  const _HeadlinesCarousel({
+    required this.controller,
+    required this.onThixInfoTap,
+    required this.onOpportunityTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 120,
+      child: PageView(
+        controller: controller,
+        children: [
+          _HeadlineCard(
+            label: 'À la une • THIX Info',
+            title: 'Nouvelles, annonces et mises à jour',
+            icon: Icons.newspaper_rounded,
+            accent: AppColors.domainInfo,
+            onTap: onThixInfoTap,
+          ),
+          _HeadlineCard(
+            label: 'À la une • Opportunity',
+            title: 'Opportunités pro à saisir maintenant',
+            icon: Icons.lightbulb_rounded,
+            accent: AppColors.domainOpportunity,
+            onTap: onOpportunityTap,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeadlineCard extends StatelessWidget {
+  final String label;
+  final String title;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _HeadlineCard({
+    required this.label,
+    required this.title,
+    required this.icon,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.mainCard),
+          border: Border.all(color: AppColors.cardBorder, width: 0.6),
+          boxShadow: AppShadows.main,
+        ),
+        padding: const EdgeInsets.all(AppSpacing.l),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: accent, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.2,
+                      height: 1.15,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }
@@ -1220,48 +1367,119 @@ class _FloatingBottomNav extends StatelessWidget {
 
   const _FloatingBottomNav({required this.onScanTap});
 
+  void _openMessages(BuildContext context) {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.go(AppRoutes.chat);
+      return;
+    }
+    context.push(AppRoutes.login);
+  }
+
+  void _openProfile(BuildContext context) {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      final t = auth.currentUser?.accountType;
+      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
+      return;
+    }
+    context.push(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 82,
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.bottomNav),
-        boxShadow: AppShadows.main,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return SizedBox(
+      height: 92,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          _NavItem(icon: Icons.home_filled, label: 'Accueil', active: true, onTap: () {}),
-          _NavItem(icon: Icons.grid_view_rounded, label: 'Services', onTap: () {}),
-          GestureDetector(
-            onTap: onScanTap,
+          Positioned.fill(
             child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.primaryBlue, AppColors.darkNavy],
+              decoration: const BoxDecoration(
+                color: AppColors.bottomNavBlue,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryBlue.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _NavItem(
+                    icon: Icons.home_filled,
+                    label: 'Home',
+                    active: true,
+                    onTap: () => context.go(AppRoutes.home),
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                  _NavItem(
+                    icon: Icons.apps_rounded,
+                    label: 'Mini Apps',
+                    onTap: () {},
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                  const SizedBox(width: 74),
+                  _NavItem(
+                    icon: Icons.headphones_rounded,
+                    label: 'Messages',
+                    onTap: () => _openMessages(context),
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                  _NavItem(
+                    icon: Icons.person_outline_rounded,
+                    label: 'Profile',
+                    onTap: () => _openProfile(context),
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.qr_code_scanner_rounded,
-                color: Colors.white,
-                size: 28,
+            ),
+          ),
+          Positioned(
+            top: -18,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 74,
+                    height: 74,
+                    decoration: const BoxDecoration(color: AppColors.lightGrayBg, shape: BoxShape.circle),
+                  ),
+                  GestureDetector(
+                    onTap: onScanTap,
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.goldBadge,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.18),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.qr_code_scanner_rounded,
+                        color: AppColors.bottomNavCenterIcon,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          _NavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Messages', onTap: () {}),
-          _NavItem(icon: Icons.person_outline_rounded, label: 'Profil', onTap: () {}),
         ],
       ),
     );
@@ -1273,16 +1491,22 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
+  final Color? activeColor;
+  final Color? inactiveColor;
 
   const _NavItem({
     required this.icon,
     required this.label,
     this.active = false,
     required this.onTap,
+    this.activeColor,
+    this.inactiveColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final resolvedActive = activeColor ?? AppColors.primaryBlue;
+    final resolvedInactive = inactiveColor ?? AppColors.textSecondary;
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -1290,7 +1514,7 @@ class _NavItem extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: active ? AppColors.primaryBlue : AppColors.textSecondary,
+            color: active ? resolvedActive : resolvedInactive,
             size: 22,
           ),
           const SizedBox(height: 4),
@@ -1299,7 +1523,7 @@ class _NavItem extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: active ? AppColors.primaryBlue : AppColors.textSecondary,
+              color: active ? resolvedActive : resolvedInactive,
             ),
           ),
         ],
@@ -1405,7 +1629,7 @@ class _OptionButton extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: AppColors.darkText.withOpacity(0.06),
+                color: AppColors.darkText.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: AppColors.darkText, size: 20),

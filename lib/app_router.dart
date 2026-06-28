@@ -52,7 +52,14 @@ class NoTransitionPage<T> extends Page<T> {
 
   @override
   Route<T> createRoute(BuildContext context) {
-    return MaterialPageRoute(builder: (context) => child, settings: this);
+    // Navigator 2.0 / go_router friendly: avoid MaterialPageRoute here.
+    return PageRouteBuilder<T>(
+      settings: this,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+    );
   }
 }
 
@@ -85,6 +92,9 @@ class AppRouter {
         : Listenable.merge([auth, extraRefreshListenable]);
     return GoRouter(
       initialLocation: AppRoutes.home,
+      // Keep behavior consistent with lib/nav.dart: always start from the homepage
+      // instead of restoring the last browser URL (e.g. /login) on web reload.
+      overridePlatformDefaultLocation: true,
       refreshListenable: refresh,
       redirect: (context, state) {
         final isLoggedIn = auth.isAuthenticated;
@@ -94,9 +104,8 @@ class AppRouter {
             location == AppRoutes.personalReg ||
             location == AppRoutes.enterpriseReg;
 
-        if (!isLoggedIn && !isAuthPage) {
-          return AppRoutes.login;
-        }
+        // Allow public access to the homepage.
+        if (!isLoggedIn && !isAuthPage && location != AppRoutes.home) return AppRoutes.login;
         if (isLoggedIn && isAuthPage) {
           return AppRoutes.userDashboard;
         }

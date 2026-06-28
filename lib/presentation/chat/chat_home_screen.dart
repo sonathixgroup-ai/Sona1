@@ -200,20 +200,27 @@ class ChatHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'THIX CHAT',
-          style: TextStyle(
-            color: Color(0xFF5A67D8),
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: const Text(
-          'Connectez-vous. Échangez. Avancez.',
-          style: TextStyle(
-            color: Colors.grey,
-            fontSize: 12,
-          ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'THIX CHAT',
+              style: TextStyle(
+                color: Color(0xFF5A67D8),
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Connectez-vous. Échangez. Avancez.',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(

@@ -1,6 +1,7 @@
 // lib/presentation/feed/comments_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/post.dart';
 import 'package:thix_id/models/comment.dart';
 import 'package:thix_id/presentation/feed/post_card.dart';
@@ -25,7 +26,7 @@ class _CommentsPageState extends State<CommentsPage> {
   final _scroll = ScrollController();
   List<Comment> _comments = [];
   bool _loading = false;
-  RealtimeSubscription? _sub;
+  RealtimeChannel? _sub;
 
   @override
   void initState() {

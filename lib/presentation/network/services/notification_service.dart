@@ -8,34 +8,49 @@ class NotificationService {
   NotificationService({SupabaseClient? client}) : supabase = client ?? Supabase.instance.client;
 
   Future<void> createNotification({required String userId, required String actorId, required String type, Map<String, dynamic>? data}) async {
-    await supabase.rpc('create_notification', params: {'p_user_id': userId, 'p_actor_id': actorId, 'p_type': type, 'p_data': data ?? {}}).execute();
+    await supabase.rpc('create_notification', params: {
+      'p_user_id': userId,
+      'p_actor_id': actorId,
+      'p_type': type,
+      'p_data': data ?? {},
+    });
   }
 
   Future<List<NotificationModel>> fetchNotifications({required String userId, int limit = 50}) async {
-    final res = await supabase.from('notifications').select().eq('user_id', userId).order('created_at', ascending: false).limit(limit).execute();
-    final data = res.data as List<dynamic>? ?? [];
+    final data = await supabase
+        .from('notifications')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(limit) as List<dynamic>;
     return data.map((e) => NotificationModel.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<void> markRead(String notificationId) async {
-    await supabase.rpc('mark_notification_read', params: {'nid': notificationId}).execute();
+    await supabase.rpc('mark_notification_read', params: {'nid': notificationId});
   }
 
-  RealtimeSubscription streamNotifications({required String userId, required void Function(List<NotificationModel>) onData}) {
+  RealtimeChannel streamNotifications({required String userId, required void Function(List<NotificationModel>) onData}) {
     final channelName = 'public:notifications:$userId';
     final channel = supabase.channel(channelName);
-    channel.on(RealtimeListenTypes.postgresChanges, ChannelFilter(event: '*', schema: 'public', table: 'notifications', filter: 'user_id=eq.$userId'), (payload, {ref}) async {
-      try {
-        final items = await fetchNotifications(userId: userId);
-        onData(items);
-      } catch (e) {
-        // ignore
-      }
-    }).subscribe();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: userId),
+          callback: (payload) async {
+            try {
+              final items = await fetchNotifications(userId: userId);
+              onData(items);
+            } catch (_) {}
+          },
+        )
+        .subscribe();
     return channel;
   }
 
   Future<void> registerDeviceToken({required String profileId, required String provider, required String token}) async {
-    await supabase.from('device_tokens').insert({'profile_id': profileId, 'provider': provider, 'token': token}).execute();
+    await supabase.from('device_tokens').insert({'profile_id': profileId, 'provider': provider, 'token': token});
   }
 }

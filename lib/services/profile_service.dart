@@ -85,6 +85,8 @@ class ProfileService {
     var didEmitCached = false;
     var didRunBeforeFetch = false;
 
+    bool canAdd() => !controller.isClosed;
+
     Future<ThixProfile?> loadCached() => _local.loadMyProfile(userId);
 
     Future<void> emitCached() async {
@@ -92,6 +94,7 @@ class ProfileService {
       didEmitCached = true;
       try {
         final cached = await loadCached();
+        if (!canAdd()) return;
         if (cached != null) controller.add(cached);
       } catch (e) {
         debugPrint('ProfileService.streamMyProfile emitCached failed userId=$userId err=$e');
@@ -100,18 +103,20 @@ class ProfileService {
 
     Future<void> emitLatest() async {
       try {
+        if (!canAdd()) return;
         if (!didRunBeforeFetch) {
           didRunBeforeFetch = true;
           await flushPendingProfileWrites(userId);
         }
         final row = await SupabaseService.selectSingle(table, filters: {'id': userId});
         if (row == null) {
-          if (!didEmitCached) controller.add(null);
+          if (!didEmitCached && canAdd()) controller.add(null);
           return;
         }
         final cached = await loadCached();
         final merged = <String, dynamic>{...?(cached?.toPrivateRowJson()), ...row};
         final mapped = ThixProfile.fromPrivateRow(merged);
+        if (!canAdd()) return;
         controller.add(mapped);
         unawaited(() async {
           await _local.saveMyProfile(mapped);
@@ -119,14 +124,17 @@ class ProfileService {
         }());
       } catch (e) {
         debugPrint('ProfileService.streamMyProfile emitLatest failed userId=$userId err=$e');
-        if (!didEmitCached) controller.add(null);
+        if (!didEmitCached && canAdd()) controller.add(null);
       }
     }
 
     controller.onListen = () {
       unawaited(emitCached());
       unawaited(emitLatest());
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => unawaited(emitLatest()));
+      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+        if (controller.isClosed) return;
+        unawaited(emitLatest());
+      });
     };
 
     controller.onCancel = () {

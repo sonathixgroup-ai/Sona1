@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
@@ -44,25 +45,128 @@ Future<void> main() async {
     );
   };
 
-  try {
-    await SupabaseConfig.initialize();
-  } catch (e, st) {
-    debugPrint('Main: SupabaseConfig.initialize failed err=$e');
-    debugPrint(st.toString());
+
+  // IMPORTANT (performance): Do NOT block first frame on network / storage.
+  // Dreamflow preview can feel very heavy if we await Supabase + auth hydration
+  // before calling runApp(). We bootstrap asynchronously and show a lightweight
+  // loading UI immediately.
+  runApp(const BootstrapApp());
+}
+
+class BootstrapApp extends StatefulWidget {
+  const BootstrapApp({super.key});
+
+  @override
+  State<BootstrapApp> createState() => _BootstrapAppState();
+}
+
+class _BootstrapAppState extends State<BootstrapApp> {
+  late final Future<_BootstrapResult> _future = _bootstrap();
+
+  Future<_BootstrapResult> _bootstrap() async {
+    try {
+      await SupabaseConfig.initialize();
+    } catch (e, st) {
+      debugPrint('Bootstrap: SupabaseConfig.initialize failed err=$e');
+      debugPrint(st.toString());
+    }
+
+    // Use shared service instances across the whole app to avoid duplicated
+    // streams / closed controllers when multiple pages expect Provider access.
+    final profiles = ProfileService();
+    final users = FirestoreUserService(profiles: profiles);
+    final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
+    try {
+      await auth.init();
+    } catch (e, st) {
+      debugPrint('Bootstrap: auth.init failed err=$e');
+      debugPrint(st.toString());
+    }
+    return _BootstrapResult(auth: auth, profiles: profiles, users: users);
   }
 
-  // Use shared service instances across the whole app to avoid duplicated
-  // streams / closed controllers when multiple pages expect Provider access.
-  final profiles = ProfileService();
-  final users = FirestoreUserService(profiles: profiles);
-  final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
-  try {
-    await auth.init();
-  } catch (e, st) {
-    debugPrint('Main: auth.init failed err=$e');
-    debugPrint(st.toString());
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_BootstrapResult>(
+      future: _future,
+      builder: (context, snap) {
+        final child = snap.hasData
+            ? MyApp(auth: snap.data!.auth, profiles: snap.data!.profiles, users: snap.data!.users)
+            : MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: lightTheme,
+                darkTheme: darkTheme,
+                themeMode: ThemeMode.system,
+                home: const _StartupLoadingPage(),
+              );
+
+        // Smooth transition from loader to the real app.
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: KeyedSubtree(
+            key: ValueKey(snap.hasData),
+            child: child,
+          ),
+        );
+      },
+    );
   }
-  runApp(MyApp(auth: auth, profiles: profiles, users: users));
+}
+
+class _BootstrapResult {
+  final AuthController auth;
+  final ProfileService profiles;
+  final FirestoreUserService users;
+  const _BootstrapResult({required this.auth, required this.profiles, required this.users});
+}
+
+class _StartupLoadingPage extends StatelessWidget {
+  const _StartupLoadingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 56,
+                width: 56,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(Icons.verified_user_rounded, color: cs.primary),
+              ),
+              const SizedBox(height: 14),
+              Text('THIX ID', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 6),
+              Text(
+                'Chargement sécurisé…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: 140,
+                child: LinearProgressIndicator(
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -90,34 +194,36 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: widget.auth),
-        ChangeNotifierProvider.value(value: _localeController),
-        Provider<ProfileService>.value(value: widget.profiles),
-        Provider<FirestoreUserService>.value(value: widget.users),
-      ],
-      child: Builder(
-        builder: (context) {
-          final locale = context.watch<LocaleController>().locale;
-          return MaterialApp.router(
-            title: 'THIX ID',
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: ThemeMode.system,
-            routerConfig: _router,
-            locale: locale,
-            supportedLocales: LocaleController.supportedLocales,
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            builder: (context, child) => child ?? const SizedBox.shrink(),
-          );
-        },
+    return ProviderScope(
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: widget.auth),
+          ChangeNotifierProvider.value(value: _localeController),
+          Provider<ProfileService>.value(value: widget.profiles),
+          Provider<FirestoreUserService>.value(value: widget.users),
+        ],
+        child: Builder(
+          builder: (context) {
+            final locale = context.watch<LocaleController>().locale;
+            return MaterialApp.router(
+              title: 'THIX ID',
+              debugShowCheckedModeBanner: false,
+              theme: lightTheme,
+              darkTheme: darkTheme,
+              themeMode: ThemeMode.system,
+              routerConfig: _router,
+              locale: locale,
+              supportedLocales: LocaleController.supportedLocales,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              builder: (context, child) => child ?? const SizedBox.shrink(),
+            );
+          },
+        ),
       ),
     );
   }

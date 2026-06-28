@@ -39,7 +39,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   @override
   void initState() {
     super.initState();
-    _mediaService = MediaService(Supabase.instance.client);
+    _mediaService = MediaService(client: Supabase.instance.client, bucket: 'media');
     _loadMedia();
     _startBannerAutoScroll();
   }

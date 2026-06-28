@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/models/story_model.dart';
+import 'package:thix_id/presentation/network/network_view_model.dart';
 
 class StoryViewScreen extends StatefulWidget {
   final List<Story> stories;

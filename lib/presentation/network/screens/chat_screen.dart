@@ -17,7 +17,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   List<MessageModel> _messages = [];
   bool _loading = true;
-  RealtimeSubscription? _sub;
+  RealtimeChannel? _sub;
 
   @override
   void initState() {

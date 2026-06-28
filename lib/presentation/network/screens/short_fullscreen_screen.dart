@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/models/short_model.dart';
+import 'package:thix_id/presentation/network/network_view_model.dart';
 
 class ShortFullscreenScreen extends StatefulWidget {
   final List<Short> shorts;

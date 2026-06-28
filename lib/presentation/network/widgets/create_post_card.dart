@@ -16,7 +16,7 @@ class _CreatePostCardState extends State<CreatePostCard> {
   bool _loading = false;
 
   Future<void> _pickFiles() async {
-    final res = await FilePicker.platform.pickFiles(allowMultiple: true, type: FileType.image, withData: true);
+    final res = await FilePicker().pickFiles(allowMultiple: true, type: FileType.image, withData: true);
     if (res == null) return;
     setState(() => _picked = res.files);
   }
@@ -67,7 +67,9 @@ class _CreatePostCardState extends State<CreatePostCard> {
                           width: 96,
                           height: 96,
                           decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
-                          child: p.bytes != null ? Image.memory(p.bytes!, fit: BoxFit.cover) : (p.path != null ? Image.file(File(p.path!), fit: BoxFit.cover) : SizedBox.shrink()),
+                          child: p.bytes != null
+                              ? Image.memory(p.bytes!, fit: BoxFit.cover)
+                              : const Center(child: Icon(Icons.image_not_supported_outlined, color: Colors.grey)),
                         ),
                         Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => setState(() => _picked.removeAt(i)), child: CircleAvatar(radius: 12, child: Icon(Icons.close, size: 14))))
                       ],

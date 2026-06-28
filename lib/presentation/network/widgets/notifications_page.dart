@@ -19,7 +19,7 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   List<NotificationModel> _items = [];
   bool _loading = true;
-  RealtimeSubscription? _sub;
+  RealtimeChannel? _sub;
 
   @override
   void initState() {

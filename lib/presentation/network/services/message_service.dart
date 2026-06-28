@@ -9,35 +9,53 @@ class MessageService {
   MessageService({SupabaseClient? client}) : supabase = client ?? Supabase.instance.client;
 
   Future<String> createConversation({required List<String> participantProfileIds, String? title}) async {
-    // call rpc create_conversation
-    final res = await supabase.rpc('create_conversation', params: {'p_title': title, 'p_participants': participantProfileIds}).execute();
-    if (res.error != null) throw Exception(res.error!.message);
-    return res.data as String;
+    try {
+      final data = await supabase.rpc('create_conversation', params: {
+        'p_title': title,
+        'p_participants': participantProfileIds,
+      });
+      return data is String ? data : (data as dynamic).toString();
+    } on PostgrestException catch (e) {
+      throw Exception(e.message);
+    }
   }
 
   Future<List<ConversationModel>> fetchConversations({int limit = 50}) async {
-    final res = await supabase.from('conversations').select().order('created_at', ascending: false).limit(limit).execute();
-    final data = res.data as List<dynamic>? ?? [];
+    final data = await supabase
+        .from('conversations')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit) as List<dynamic>;
     return data.map((e) => ConversationModel.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<MessageModel>> fetchMessages({required String conversationId, int limit = 100}) async {
-    final res = await supabase.from('messages').select().eq('conversation_id', conversationId).order('created_at', ascending: true).limit(limit).execute();
-    final data = res.data as List<dynamic>? ?? [];
+    final data = await supabase
+        .from('messages')
+        .select()
+        .eq('conversation_id', conversationId)
+        .order('created_at', ascending: true)
+        .limit(limit) as List<dynamic>;
     return data.map((e) => MessageModel.fromMap(e as Map<String, dynamic>)).toList();
   }
 
-  RealtimeSubscription streamMessages({required String conversationId, required void Function(List<MessageModel>) onData}) {
+  RealtimeChannel streamMessages({required String conversationId, required void Function(List<MessageModel>) onData}) {
     final channelName = 'public:messages:$conversationId';
     final channel = supabase.channel(channelName);
-    channel.on(RealtimeListenTypes.postgresChanges, ChannelFilter(event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.$conversationId'), (payload, {ref}) async {
-      try {
-        final messages = await fetchMessages(conversationId: conversationId);
-        onData(messages);
-      } catch (e) {
-        // ignore
-      }
-    }).subscribe();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'conversation_id', value: conversationId),
+          callback: (payload) async {
+            try {
+              final messages = await fetchMessages(conversationId: conversationId);
+              onData(messages);
+            } catch (_) {}
+          },
+        )
+        .subscribe();
     return channel;
   }
 

@@ -214,6 +214,7 @@ class FeaturedFormationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = context.theme.brightness == Brightness.dark;
     final gold = (isDark ? DarkModeColors.metalGold : LightModeColors.metalGold);
+    final goldDeep = (isDark ? DarkModeColors.metalGoldDeep : LightModeColors.metalGoldDeep);
     final cs = context.theme.colorScheme;
 
     final bg = LinearGradient(
@@ -312,7 +313,7 @@ class FeaturedFormationCard extends StatelessWidget {
                         padding: buttonPad,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(AppRadius.full),
-                          gradient: const LinearGradient(colors: [LightModeColors.accent, LightModeColors.metalGoldDeep]),
+                          gradient: LinearGradient(colors: [LightModeColors.accent, goldDeep]),
                           boxShadow: [BoxShadow(color: gold.withValues(alpha: 0.16), blurRadius: 20, offset: const Offset(0, 10))],
                         ),
                         child: Row(
