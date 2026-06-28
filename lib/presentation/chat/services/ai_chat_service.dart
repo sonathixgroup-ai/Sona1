@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/ai_models.dart';
 
 abstract class AIChatService {
@@ -25,56 +29,106 @@ abstract class AIChatService {
 }
 
 class SupabaseAIChatService implements AIChatService {
-  @override
-  Future<AIChatResult> analyzeConversation({required String conversationId, required List<String> messages, String targetLanguage = 'fr'}) async {
+  SupabaseAIChatService({SupabaseClient? client, this.functionName = 'chat_ai'})
+      : _client = client ?? Supabase.instance.client;
+
+  final SupabaseClient _client;
+  final String functionName;
+
+  Future<Map<String, dynamic>> _invoke({
+    required String action,
+    required Map<String, dynamic> payload,
+  }) async {
+    final res = await _client.functions.invoke(
+      functionName,
+      body: <String, dynamic>{
+        'action': action,
+        ...payload,
+      },
+    );
+    final data = res.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is String) {
+      final decoded = jsonDecode(data);
+      if (decoded is Map<String, dynamic>) return decoded;
+    }
+    return <String, dynamic>{'raw': data};
+  }
+
+  AIChatResult _parse(Map<String, dynamic> json) {
+    final smartReplies = (json['smartReplies'] ?? json['smart_replies'] ?? const []) as List<dynamic>;
+    final rawReplies = smartReplies.map((e) => e.toString()).toList(growable: false);
     return AIChatResult(
-      sentiment: 'positive',
-      confidence: 0.84,
-      raw: {
+      translation: json['translation']?.toString(),
+      summary: json['summary']?.toString(),
+      smartReplies: rawReplies,
+      sentiment: json['sentiment']?.toString(),
+      confidence: (json['confidence'] as num?)?.toDouble(),
+      raw: json,
+    );
+  }
+
+  @override
+  Future<AIChatResult> analyzeConversation({
+    required String conversationId,
+    required List<String> messages,
+    String targetLanguage = 'fr',
+  }) async {
+    final json = await _invoke(
+      action: 'analyzeConversation',
+      payload: {
         'conversationId': conversationId,
-        'messagesCount': messages.length,
+        'messages': messages,
         'targetLanguage': targetLanguage,
-        'action': 'analyzeConversation',
       },
     );
+    return _parse(json);
   }
 
   @override
-  Future<AIChatResult> generateSmartReplies({required String conversationId, required List<String> messages}) async {
-    return AIChatResult(
-      smartReplies: const [
-        'Merci, je vérifie ça et je reviens vers toi.',
-        'Oui, je suis d’accord avec cette proposition.',
-        'Peux-tu préciser le point 2 ?'
-      ],
-      raw: {
+  Future<AIChatResult> generateSmartReplies({
+    required String conversationId,
+    required List<String> messages,
+  }) async {
+    final json = await _invoke(
+      action: 'generateSmartReplies',
+      payload: {
         'conversationId': conversationId,
-        'messagesCount': messages.length,
-        'action': 'generateSmartReplies',
+        'messages': messages,
       },
     );
+    return _parse(json);
   }
 
   @override
-  Future<AIChatResult> summarizeConversation({required String conversationId, required List<String> messages}) async {
-    return AIChatResult(
-      summary: 'Résumé automatique: la conversation traite d\'une demande de suivi avec quelques prochaines étapes à confirmer.',
-      raw: {
+  Future<AIChatResult> summarizeConversation({
+    required String conversationId,
+    required List<String> messages,
+  }) async {
+    final json = await _invoke(
+      action: 'summarizeConversation',
+      payload: {
         'conversationId': conversationId,
-        'messagesCount': messages.length,
-        'action': 'summarizeConversation',
+        'messages': messages,
       },
     );
+    return _parse(json);
   }
 
   @override
-  Future<AIChatResult> translateMessage({required String conversationId, required String message, required String targetLanguage}) async {
-    return AIChatResult(
-      translation: '[${targetLanguage.toUpperCase()}] $message',
-      raw: {
+  Future<AIChatResult> translateMessage({
+    required String conversationId,
+    required String message,
+    required String targetLanguage,
+  }) async {
+    final json = await _invoke(
+      action: 'translateMessage',
+      payload: {
         'conversationId': conversationId,
-        'action': 'translateMessage',
+        'message': message,
+        'targetLanguage': targetLanguage,
       },
     );
+    return _parse(json);
   }
 }
