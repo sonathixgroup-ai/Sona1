@@ -8,6 +8,7 @@ class PostCard extends StatelessWidget {
   final VoidCallback onComment;
   final VoidCallback onShare;
   final VoidCallback onSave;
+  final VoidCallback onRepost; // 👈 AJOUT
 
   const PostCard({
     super.key,
@@ -16,6 +17,7 @@ class PostCard extends StatelessWidget {
     required this.onComment,
     required this.onShare,
     required this.onSave,
+    required this.onRepost, // 👈 AJOUT
   });
 
   @override
@@ -37,7 +39,7 @@ class PostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête
+          // En-tête (inchangé)
           Row(
             children: [
               CircleAvatar(
@@ -129,7 +131,7 @@ class PostCard extends StatelessWidget {
             ],
           ),
           const Divider(height: 20),
-          // Actions
+          // Actions (avec onRepost)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -147,7 +149,7 @@ class PostCard extends StatelessWidget {
               _actionButton(
                 icon: Icons.repeat_outlined,
                 label: 'Reposter',
-                onTap: () {},
+                onTap: onRepost, // 👈 maintenant connecté
               ),
               _actionButton(
                 icon: Icons.share_outlined,
