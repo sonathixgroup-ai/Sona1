@@ -9,13 +9,16 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/services/call_service.dart';
 import 'package:thix_id/services/chat_service.dart';
+import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/presence_service.dart';
 import 'package:thix_id/services/status_service.dart';
 import 'package:thix_id/services/thix_id_service.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/nav.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:thix_id/presentation/chat/thix_agora_call_sheet.dart';
 
@@ -48,7 +51,10 @@ class _ThixChatPageState extends State<ThixChatPage> with SingleTickerProviderSt
   final _status = StatusService();
   final _calls = CallService();
   final _presence = PresenceService();
+  final _counters = NotificationCountersService();
+  final _homeSearch = TextEditingController();
 
+  String _searchQuery = '';
   StreamSubscription<List<ThixCall>>? _incomingCallsSub;
   String? _incomingForUid;
   bool _incomingSheetOpen = false;
@@ -57,6 +63,11 @@ class _ThixChatPageState extends State<ThixChatPage> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    _homeSearch.addListener(() {
+      final next = _homeSearch.text.trim().toLowerCase();
+      if (next == _searchQuery) return;
+      setState(() => _searchQuery = next);
+    });
     unawaited(_presence.setOnline(true));
     _presence.startHeartbeat();
   }
@@ -66,6 +77,7 @@ class _ThixChatPageState extends State<ThixChatPage> with SingleTickerProviderSt
     unawaited(_incomingCallsSub?.cancel());
     _presence.stopHeartbeat();
     unawaited(_presence.setOnline(false));
+    _homeSearch.dispose();
     _tabs.dispose();
     super.dispose();
   }
@@ -223,6 +235,22 @@ class _ThixChatPageState extends State<ThixChatPage> with SingleTickerProviderSt
     );
   }
 
+  Future<void> _openStatusComposer() async {
+    final me = _me(context);
+    if (me == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => ThixBottomSheetShell(
+        title: 'Nouvelle histoire',
+        subtitle: 'Publiez un statut texte, photo, vidéo ou audio.',
+        child: ThixStatusComposer(me: me, status: _status),
+      ),
+    );
+  }
+
   Future<void> _openThreadSheet({required String chatId, required String otherUid, required String otherName}) async {
     final me = _me(context);
     if (me == null) return;
@@ -275,223 +303,227 @@ class _ThixChatPageState extends State<ThixChatPage> with SingleTickerProviderSt
     }
     _ensureIncomingCallListener(me);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F9),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // HEADER GRADIENT
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 34),
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(34), bottomRight: Radius.circular(34)),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF07122A), Color(0xFF001B5E)],
-                ),
+    return StreamBuilder<SectionBadgeCounts>(
+      stream: _counters.streamCounts(me.id),
+      builder: (context, snapshot) {
+        final counts = snapshot.data ?? SectionBadgeCounts.zero;
+        final notificationBadge = counts.info + counts.events + counts.formations + counts.opportunities + counts.jobs;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF6F7FB),
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFFFFFFF), Color(0xFFF6F8FF)],
               ),
+            ),
+            child: SafeArea(
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 58,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: const Color(0xFFD4AF37), width: 1.2),
-                            ),
-                            child: const Icon(Icons.fingerprint_rounded, color: Color(0xFFD4AF37), size: 30),
-                          ),
-                          const SizedBox(width: 14),
-                          const Column(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Row(
+                      children: [
+                        _circleIconButton(
+                          icon: Icons.menu_rounded,
+                          onTap: () => context.go(AppRoutes.home),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                            children: const [
                               Row(
                                 children: [
-                                  Text("THIX ", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
-                                  Text("CHAT", style: TextStyle(color: Color(0xFFD4AF37), fontSize: 28, fontWeight: FontWeight.w800)),
+                                  Text(
+                                    'THIX ',
+                                    style: TextStyle(
+                                      color: Color(0xFF0D1440),
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.6,
+                                    ),
+                                  ),
+                                  Text(
+                                    'CHAT',
+                                    style: TextStyle(
+                                      color: Color(0xFF3455FF),
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.6,
+                                    ),
+                                  ),
                                 ],
                               ),
                               SizedBox(height: 2),
-                              Text("Échangez en toute confiance.", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                              Text(
+                                'Connectez-vous. Échangez. Avancez.',
+                                style: TextStyle(
+                                  color: Color(0xFF666D97),
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ],
                           ),
+                        ),
+                        _circleIconButton(icon: Icons.search_rounded, onTap: _openSearch),
+                        const SizedBox(width: 10),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            _circleIconButton(
+                              icon: Icons.notifications_none_rounded,
+                              onTap: () => NotificationsSheet.show(context),
+                            ),
+                            if (notificationBadge > 0)
+                              Positioned(
+                                right: -1,
+                                top: -1,
+                                child: _badge(notificationBadge > 99 ? '99+' : '$notificationBadge'),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () => context.go(AppRoutes.userDashboard),
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: const Color(0xFFE9EEFF),
+                                backgroundImage: me.photoUrl != null && me.photoUrl!.trim().isNotEmpty ? NetworkImage(me.photoUrl!) : null,
+                                child: me.photoUrl == null || me.photoUrl!.trim().isEmpty
+                                    ? Text(
+                                        _initials(me.displayName),
+                                        style: const TextStyle(
+                                          color: Color(0xFF1637D6),
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              Positioned(
+                                right: 2,
+                                bottom: 2,
+                                child: Container(
+                                  width: 13,
+                                  height: 13,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1CCB6E),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF13256E).withOpacity(0.07),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
                         ],
                       ),
-                      Row(
+                      child: Row(
                         children: [
-                          _topIcon(Icons.search_rounded, onTap: _openSearch),
-                          const SizedBox(width: 10),
-                          _topIcon(Icons.more_vert_rounded, onTap: _openNewChat),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  Row(
-                    children: [
-                      _tab("Discussions", _tabs.index == 0, () => _tabs.animateTo(0)),
-                      const SizedBox(width: 36),
-                      _tab("Statut", _tabs.index == 1, () => _tabs.animateTo(1)),
-                      const SizedBox(width: 36),
-                      _tab("Appels", _tabs.index == 2, () => _tabs.animateTo(2)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // BARRE DE RECHERCHE FLOTTANTE (REDIMENSIONNÉE)
-            Transform.translate(
-              offset: const Offset(0, -26),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  height: 56,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(34),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 18, offset: const Offset(0, 6))],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, color: Colors.grey, size: 24),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: _openSearch,
-                          child: const TextField(
-                            enabled: false,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: "Rechercher un contact ou message...",
-                              hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                          const SizedBox(width: 16),
+                          const Icon(Icons.search_rounded, color: Color(0xFF7C86B2), size: 26),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _homeSearch,
+                              textInputAction: TextInputAction.search,
+                              decoration: const InputDecoration(
+                                hintText: 'Rechercher un chat, contact, groupe...',
+                                hintStyle: TextStyle(color: Color(0xFF7C86B2), fontSize: 16),
+                                border: InputBorder.none,
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: _openNewChat,
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(colors: [Color(0xFFB8860B), Color(0xFFD4AF37)]),
+                          IconButton(
+                            onPressed: _openSearch,
+                            icon: const Icon(Icons.tune_rounded, color: Color(0xFF6773A7)),
                           ),
-                          child: const Icon(Icons.edit_rounded, color: Colors.white, size: 22),
-                        ),
+                          const SizedBox(width: 6),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-            // BODY
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  ThixChatsTab(
-                    me: me,
-                    chat: _chat,
-                    onOpenThread: (chatId, otherUid, otherName) => _openThreadSheet(chatId: chatId, otherUid: otherUid, otherName: otherName),
-                    onStartByThixId: () => _openStartByThixId(context, me),
+                  Expanded(
+                    child: ThixChatsTab(
+                      me: me,
+                      chat: _chat,
+                      query: _searchQuery,
+                      counts: counts,
+                      onOpenThread: (chatId, otherUid, otherName) => _openThreadSheet(chatId: chatId, otherUid: otherUid, otherName: otherName),
+                      onStartByThixId: () => _openStartByThixId(context, me),
+                      onOpenStatusComposer: _openStatusComposer,
+                      onOpenCalls: _openCalls,
+                      onOpenGroups: _openGroups,
+                      onOpenFilters: _openSearch,
+                      onOpenNewChat: _openNewChat,
+                    ),
                   ),
-                  ThixStatusTab(me: me, status: _status),
-                  _buildCallsTab(me),
                 ],
               ),
             ),
-          ],
+          ),
+          bottomNavigationBar: _buildBottomNav(messageBadge: counts.messages),
+        );
+      },
+    );
+  }
+
+  Widget _circleIconButton({required IconData icon, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Icon(icon, color: const Color(0xFF11194B), size: 27),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _topIcon(IconData icon, {required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Icon(icon, color: const Color(0xFFD4AF37), size: 20),
+  Widget _badge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF5A34F2),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
       ),
     );
   }
 
-  Widget _tab(String title, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Text(title, style: TextStyle(color: active ? const Color(0xFFD4AF37) : Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          if (active)
-            Container(width: 80, height: 3, decoration: const BoxDecoration(color: Color(0xFFD4AF37), borderRadius: BorderRadius.vertical(bottom: Radius.circular(2)))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCallsTab(AppUser me) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => _openCalls(),
-            icon: const Icon(Icons.call),
-            label: const Text("Démarrer un appel"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: StreamBuilder<List<ThixCall>>(
-              stream: Stream.value([]),
-              builder: (context, snapshot) {
-                final calls = snapshot.data ?? [];
-                if (calls.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      "Aucun appel récent",
-                      style: TextStyle(color: Color(0xFF6C6C7A)),
-                    ),
-                  );
-                }
-                return ListView.separated(
-                  itemCount: calls.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) {
-                    final call = calls[i];
-                    return ListTile(
-                      leading: const Icon(Icons.call),
-                      title: Text(call.callerId == me.id ? "Appel sortant" : "Appel entrant"),
-                      subtitle: Text(call.status),
-                      trailing: Text(_formatTime(call.startedAt)),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
+  String _initials(String value) {
+    final parts = value.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList(growable: false);
+    if (parts.isEmpty) return 'T';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
   }
 
   String _formatTime(DateTime? dt) {
@@ -504,50 +536,113 @@ class _ThixChatPageState extends State<ThixChatPage> with SingleTickerProviderSt
     return 'maintenant';
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav({required int messageBadge}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(34),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            height: 72,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.92), borderRadius: BorderRadius.circular(34)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _navItem(Icons.home_filled, "Accueil", onTap: () => context.go(AppRoutes.home)),
-                _navItem(Icons.grid_view_rounded, "Services", onTap: () => context.go(AppRoutes.home)),
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: [Color(0xFF07122A), Color(0xFF001B5E)]),
-                  ),
-                  child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFFD4AF37), size: 26),
-                ),
-                _navItem(Icons.chat_bubble_rounded, "Messages", active: true, onTap: () {}),
-                _navItem(Icons.person_outline, "Profil", onTap: () => context.go(AppRoutes.userDashboard)),
-              ],
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF20306D).withOpacity(0.08),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
             ),
+          ],
+        ),
+        child: SizedBox(
+          height: 88,
+          child: Row(
+            children: [
+              Expanded(child: _navItem(Icons.home_rounded, 'Accueil', active: true, onTap: () {})),
+              Expanded(child: _navItem(Icons.chat_bubble_outline_rounded, 'Chats', badge: messageBadge, onTap: _openSearch)),
+              Expanded(
+                child: Center(
+                  child: GestureDetector(
+                    onTap: _openNewChat,
+                    child: Container(
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        gradient: const LinearGradient(colors: [Color(0xFF1D4DFF), Color(0xFF3455FF)]),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1D4DFF).withOpacity(0.28),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.add_rounded, color: Colors.white, size: 38),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(child: _navItem(Icons.graphic_eq_rounded, 'Spaces', onTap: _openGroups)),
+              Expanded(child: _navItem(Icons.person_outline_rounded, 'Profil', onTap: () => context.go(AppRoutes.userDashboard))),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, {bool active = false, VoidCallback? onTap}) {
-    return GestureDetector(
+  Widget _navItem(IconData icon, String label, {bool active = false, int badge = 0, VoidCallback? onTap}) {
+    final activeColor = const Color(0xFF2451FF);
+    final inactiveColor = const Color(0xFF626A95);
+    return InkWell(
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: active ? const Color(0xFFD4AF37) : Colors.grey, size: 22),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
-        ],
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(
+        height: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, color: active ? activeColor : inactiveColor, size: 28),
+                if (badge > 0)
+                  Positioned(
+                    right: -8,
+                    top: -8,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF4D7E),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Text(
+                        badge > 99 ? '99+' : '$badge',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? activeColor : inactiveColor,
+                fontSize: 12,
+                fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: active ? 8 : 0,
+              height: 8,
+              decoration: BoxDecoration(color: activeColor, borderRadius: BorderRadius.circular(999)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -721,148 +816,737 @@ class _ThixHeaderActionButtonState extends State<ThixHeaderActionButton> {
   }
 }
 
+enum _ChatHomeFilter { all, teams, calls, favorites, meetings }
+
 class ThixChatsTab extends StatefulWidget {
   final AppUser me;
   final ChatService chat;
+  final String query;
+  final SectionBadgeCounts counts;
   final void Function(String chatId, String otherUid, String otherName) onOpenThread;
   final VoidCallback onStartByThixId;
-  const ThixChatsTab({super.key, required this.me, required this.chat, required this.onOpenThread, required this.onStartByThixId});
+  final VoidCallback onOpenStatusComposer;
+  final VoidCallback onOpenCalls;
+  final VoidCallback onOpenGroups;
+  final VoidCallback onOpenFilters;
+  final VoidCallback onOpenNewChat;
+
+  const ThixChatsTab({
+    super.key,
+    required this.me,
+    required this.chat,
+    required this.query,
+    required this.counts,
+    required this.onOpenThread,
+    required this.onStartByThixId,
+    required this.onOpenStatusComposer,
+    required this.onOpenCalls,
+    required this.onOpenGroups,
+    required this.onOpenFilters,
+    required this.onOpenNewChat,
+  });
 
   @override
   State<ThixChatsTab> createState() => _ThixChatsTabState();
 }
 
 class _ThixChatsTabState extends State<ThixChatsTab> {
-  final _q = TextEditingController();
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _q.addListener(() {
-      final next = _q.text.trim().toLowerCase();
-      if (next == _query) return;
-      setState(() => _query = next);
-    });
-  }
-
-  @override
-  void dispose() {
-    _q.dispose();
-    super.dispose();
-  }
+  _ChatHomeFilter _selectedFilter = _ChatHomeFilter.all;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.md),
-      child: StreamBuilder<List<ChatSummary>>(
-        stream: widget.chat.streamChatsForUser(widget.me.id),
-        builder: (context, snap) {
-          final data = snap.data;
-          if (snap.connectionState == ConnectionState.waiting && data == null) {
-            return const ThixChatLoadingState();
-          }
-          final all = data ?? const <ChatSummary>[];
-          final chats = _query.isEmpty
-              ? all
-              : all.where((c) {
-                  final otherUid = c.participants.firstWhere((p) => p != widget.me.id, orElse: () => '');
-                  final isGroup = c.participants.length > 2;
-                  final otherName = isGroup ? 'Groupe' : (c.participantName[otherUid] ?? 'Utilisateur');
-                  final hay = '${otherName.toLowerCase()} ${c.lastMessage.toLowerCase()}';
-                  return hay.contains(_query);
-                }).toList(growable: false);
+    return StreamBuilder<List<ChatSummary>>(
+      stream: widget.chat.streamChatsForUser(widget.me.id),
+      builder: (context, chatSnapshot) {
+        final chats = chatSnapshot.data ?? const <ChatSummary>[];
+        final waiting = chatSnapshot.connectionState == ConnectionState.waiting && chatSnapshot.data == null;
 
-          return Column(
-            children: [
-              _TemplateSearchField(controller: _q),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Text('En ligne maintenant', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
-                  const Spacer(),
-                  Container(width: 10, height: 10, decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: scheme.surface, width: 2))),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Icon(Icons.chat_bubble_rounded, size: 18, color: scheme.onSurface.withValues(alpha: 0.70)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text('Discussions récentes', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
-                  TextButton(
-                    onPressed: all.isEmpty
-                        ? null
-                        : () async {
-                            try {
-                              await Future.wait(all.map((c) => widget.chat.markChatRead(chatId: c.id, uid: widget.me.id)));
-                            } catch (e) {
-                              debugPrint('ChatsTab: mark all read failed err=$e');
-                            }
-                          },
-                    style: TextButton.styleFrom(foregroundColor: scheme.tertiary, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-                    child: const Text('Tout marquer lu', style: TextStyle(fontSize: 12)),
+        return StreamBuilder<List<ChatContact>>(
+          stream: widget.chat.streamRecentContacts(uid: widget.me.id, limit: 12),
+          builder: (context, contactsSnapshot) {
+            final contacts = contactsSnapshot.data ?? const <ChatContact>[];
+            final visibleChats = _applyFilters(chats);
+            final meetingsCount = chats.where(_isMeetingChat).length;
+            final callCount = chats.where(_isCallChat).length;
+            final alertsCount = widget.counts.info + widget.counts.events + widget.counts.formations + widget.counts.opportunities + widget.counts.jobs;
+
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _StatsBoard(
+                      onlineCount: contacts.length,
+                      unreadCount: widget.counts.messages,
+                      activeCalls: callCount,
+                      alerts: alertsCount,
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: all.isEmpty
-                    ? ThixChatEmptyState(
-                        title: 'Aucune discussion',
-                        subtitle: 'Démarre une conversation en trouvant une personne via son THIX ID.',
-                        icon: Icons.forum_rounded,
-                        actionLabel: 'Démarrer (THIX ID)',
-                        onAction: widget.onStartByThixId,
-                      )
-                    : chats.isEmpty
-                        ? ThixChatEmptyState(title: 'Aucun résultat', subtitle: 'Essaie une autre recherche.', icon: Icons.search_off_rounded)
-                        : ListView.separated(
-                            itemCount: chats.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                            itemBuilder: (context, i) {
-                              final c = chats[i];
-                              final otherUid = c.participants.firstWhere((p) => p != widget.me.id, orElse: () => '');
-                              final isGroup = c.participants.length > 2;
-                              final otherName = isGroup ? 'Groupe' : (c.participantName[otherUid] ?? 'Utilisateur');
-                              return ThixChatListTile(
-                                title: otherName,
-                                subtitle: c.lastMessage.isEmpty ? '…' : c.lastMessage,
-                                time: c.lastMessageAt,
-                                onTap: otherUid.isEmpty ? null : () => widget.onOpenThread(c.id, otherUid, otherName),
-                              );
-                            },
-                          ),
-              ),
-            ],
-          );
-        },
+                ),
+                SliverToBoxAdapter(
+                  child: _SectionLabel(
+                    title: 'En ligne',
+                    actionLabel: 'Voir tout',
+                    onAction: contacts.isEmpty ? null : widget.onOpenFilters,
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 132,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: contacts.length + 1,
+                      separatorBuilder: (_, __) => const SizedBox(width: 14),
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _StoryCreateCard(onTap: widget.onOpenStatusComposer);
+                        }
+                        final contact = contacts[index - 1];
+                        return StreamBuilder<ThixPresence?>(
+                          stream: PresenceService().streamPresence(contact.uid),
+                          builder: (context, presenceSnapshot) {
+                            final online = presenceSnapshot.data?.isOnline ?? true;
+                            return _OnlineContactCard(
+                              name: contact.displayName,
+                              online: online,
+                              onTap: () => widget.onOpenThread(
+                                widget.chat.directChatIdForUids(widget.me.id, contact.uid),
+                                contact.uid,
+                                contact.displayName,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                    child: _FilterDeck(
+                      active: _selectedFilter,
+                      meetingCount: meetingsCount,
+                      onSelect: (value) {
+                        if (value == _ChatHomeFilter.calls) {
+                          widget.onOpenCalls();
+                          return;
+                        }
+                        setState(() => _selectedFilter = value);
+                      },
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: _SectionLabel(
+                    title: 'Conversations récentes',
+                    actionLabel: 'Filtres',
+                    onAction: widget.onOpenFilters,
+                  ),
+                ),
+                if (waiting)
+                  const SliverFillRemaining(child: ThixChatLoadingState())
+                else if (chats.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: ThixChatEmptyState(
+                      title: 'Aucune conversation',
+                      subtitle: 'Commence un échange depuis le bouton central ou via un THIX ID.',
+                      icon: Icons.forum_rounded,
+                      actionLabel: 'Démarrer',
+                      onAction: widget.onStartByThixId,
+                    ),
+                  )
+                else if (visibleChats.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: ThixChatEmptyState(
+                      title: 'Aucun résultat',
+                      subtitle: 'Essayez un autre filtre ou un autre mot-clé.',
+                      icon: Icons.search_off_rounded,
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    sliver: SliverList.separated(
+                      itemCount: visibleChats.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final chat = visibleChats[index];
+                        final otherUid = _otherUid(chat);
+                        final title = _chatTitle(chat);
+                        final subtitle = chat.lastMessage.trim().isEmpty ? 'Aucun message pour le moment.' : chat.lastMessage.trim();
+                        return _ConversationPreviewCard(
+                          title: title,
+                          subtitle: subtitle,
+                          timeLabel: _timeLabel(chat.lastMessageAt),
+                          isGroup: _isGroup(chat),
+                          isVerified: _isVerifiedConversation(title),
+                          isHighlighted: index == 0 && widget.counts.messages > 0,
+                          badgeCount: index == 0 ? widget.counts.messages : 0,
+                          onTap: otherUid.isEmpty ? null : () => widget.onOpenThread(chat.id, otherUid, title),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<ChatSummary> _applyFilters(List<ChatSummary> chats) {
+    final query = widget.query.trim().toLowerCase();
+    final searched = query.isEmpty
+        ? chats
+        : chats.where((chat) {
+            final haystack = '${_chatTitle(chat).toLowerCase()} ${chat.lastMessage.toLowerCase()}';
+            return haystack.contains(query);
+          }).toList(growable: false);
+
+    switch (_selectedFilter) {
+      case _ChatHomeFilter.all:
+        return searched;
+      case _ChatHomeFilter.teams:
+        return searched.where(_isGroup).toList(growable: false);
+      case _ChatHomeFilter.calls:
+        return searched.where(_isCallChat).toList(growable: false);
+      case _ChatHomeFilter.favorites:
+        return searched.where((chat) => _isVerifiedConversation(_chatTitle(chat)) || !_isGroup(chat)).toList(growable: false);
+      case _ChatHomeFilter.meetings:
+        return searched.where(_isMeetingChat).toList(growable: false);
+    }
+  }
+
+  bool _isGroup(ChatSummary chat) => chat.type == 'group' || chat.participants.length > 2;
+
+  bool _isMeetingChat(ChatSummary chat) {
+    final value = '${chat.lastMessage} ${chat.title ?? ''}'.toLowerCase();
+    return value.contains('meeting') || value.contains('réunion') || value.contains('rendez');
+  }
+
+  bool _isCallChat(ChatSummary chat) {
+    final value = chat.lastMessage.toLowerCase();
+    return value.contains('appel') || value.contains('audio') || value.contains('vidéo') || value.contains('video');
+  }
+
+  String _otherUid(ChatSummary chat) => chat.participants.firstWhere((id) => id != widget.me.id, orElse: () => '');
+
+  String _chatTitle(ChatSummary chat) {
+    if (_isGroup(chat)) {
+      final title = (chat.title ?? '').trim();
+      if (title.isNotEmpty) return title;
+      final names = chat.participants
+          .where((id) => id != widget.me.id)
+          .map((id) => chat.participantName[id] ?? 'Membre')
+          .take(2)
+          .join(', ');
+      return names.isEmpty ? 'Groupe THIX' : names;
+    }
+    final otherUid = _otherUid(chat);
+    return chat.participantName[otherUid] ?? 'Utilisateur';
+  }
+
+  String _timeLabel(DateTime? value) {
+    if (value == null) return '—';
+    final local = value.toLocal();
+    final now = DateTime.now();
+    final sameDay = now.year == local.year && now.month == local.month && now.day == local.day;
+    if (sameDay) {
+      final hh = local.hour.toString().padLeft(2, '0');
+      final mm = local.minute.toString().padLeft(2, '0');
+      return '$hh:$mm';
+    }
+    final yesterday = now.subtract(const Duration(days: 1));
+    final sameYesterday = yesterday.year == local.year && yesterday.month == local.month && yesterday.day == local.day;
+    if (sameYesterday) return 'Hier';
+    const weekdays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    if (now.difference(local).inDays < 7) {
+      return weekdays[local.weekday - 1];
+    }
+    return '${local.day}/${local.month}';
+  }
+
+  bool _isVerifiedConversation(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('support') || lower.contains('thix');
+  }
+}
+
+class _StatsBoard extends StatelessWidget {
+  final int onlineCount;
+  final int unreadCount;
+  final int activeCalls;
+  final int alerts;
+
+  const _StatsBoard({
+    required this.onlineCount,
+    required this.unreadCount,
+    required this.activeCalls,
+    required this.alerts,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF15296D).withOpacity(0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _MetricItem(icon: Icons.people_alt_rounded, color: const Color(0xFF16B86D), value: onlineCount, label: 'En ligne')),
+          const _MetricDivider(),
+          Expanded(child: _MetricItem(icon: Icons.chat_bubble_rounded, color: const Color(0xFF5A34F2), value: unreadCount, label: 'Nouveaux\nmessages')),
+          const _MetricDivider(),
+          Expanded(child: _MetricItem(icon: Icons.videocam_rounded, color: const Color(0xFF2451FF), value: activeCalls, label: 'Réunions\nactives')),
+          const _MetricDivider(),
+          Expanded(child: _MetricItem(icon: Icons.shield_rounded, color: const Color(0xFFFF8A1E), value: alerts, label: 'Alertes\nsécurité', showChevron: true)),
+        ],
       ),
     );
   }
 }
 
-class _TemplateSearchField extends StatelessWidget {
-  final TextEditingController controller;
-  const _TemplateSearchField({required this.controller});
+class _MetricDivider extends StatelessWidget {
+  const _MetricDivider();
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TextField(
-      controller: controller,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        prefixIcon: Icon(Icons.search_rounded, color: scheme.onSurface.withValues(alpha: 0.55)),
-        hintText: 'Rechercher une conversation…',
-        filled: true,
-        fillColor: scheme.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.full), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.full), borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.full), borderSide: BorderSide(color: scheme.tertiary.withValues(alpha: 0.9), width: 1.4)),
+    return Container(width: 1, height: 76, color: const Color(0xFFE9EDFA));
+  }
+}
+
+class _MetricItem extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final int value;
+  final String label;
+  final bool showChevron;
+
+  const _MetricItem({required this.icon, required this.color, required this.value, required this.label, this.showChevron = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 14),
+              Text('$value', style: const TextStyle(color: Color(0xFF121A4B), fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              Text(label, style: const TextStyle(color: Color(0xFF313A70), fontSize: 12.5, fontWeight: FontWeight.w600, height: 1.25)),
+            ],
+          ),
+          if (showChevron)
+            const Positioned(
+              right: 0,
+              top: 22,
+              child: Icon(Icons.chevron_right_rounded, color: Color(0xFF1C2459)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _SectionLabel({required this.title, this.actionLabel, this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(color: Color(0xFF10184A), fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+          ),
+          if ((actionLabel ?? '').trim().isNotEmpty)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFF2451FF), padding: EdgeInsets.zero),
+              child: Row(
+                children: [
+                  Text(actionLabel!, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right_rounded, size: 18),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryCreateCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _StoryCreateCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1B2E76).withOpacity(0.07),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.add_rounded, color: Color(0xFF11194B), size: 36),
+          ),
+          const SizedBox(height: 10),
+          const SizedBox(
+            width: 80,
+            child: Text(
+              'Nouvelle\nhistoire',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF2B336A), fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnlineContactCard extends StatelessWidget {
+  final String name;
+  final bool online;
+  final VoidCallback onTap;
+
+  const _OnlineContactCard({required this.name, required this.online, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).take(2).toList(growable: false);
+    final initials = parts.isEmpty ? 'U' : parts.map((part) => part.substring(0, 1).toUpperCase()).join();
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              Container(
+                width: 78,
+                height: 78,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(colors: [Color(0xFF2451FF), Color(0xFF6E56FF)]),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2451FF).withOpacity(0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  decoration: const BoxDecoration(color: Color(0xFFF5F7FF), shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: Text(initials, style: const TextStyle(color: Color(0xFF2451FF), fontSize: 22, fontWeight: FontWeight.w900)),
+                ),
+              ),
+              Positioned(
+                right: 6,
+                bottom: 6,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: online ? const Color(0xFF1CCB6E) : const Color(0xFFC3C8DE),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: 84,
+            child: Text(
+              parts.isEmpty ? name : parts.first,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFF1D255A), fontSize: 13.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterDeck extends StatelessWidget {
+  final _ChatHomeFilter active;
+  final int meetingCount;
+  final ValueChanged<_ChatHomeFilter> onSelect;
+
+  const _FilterDeck({required this.active, required this.meetingCount, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({IconData icon, String label, Color color, _ChatHomeFilter value})>[
+      (icon: Icons.remove_rounded, label: 'Tous', color: const Color(0xFF2451FF), value: _ChatHomeFilter.all),
+      (icon: Icons.groups_rounded, label: 'Équipes', color: const Color(0xFF5A34F2), value: _ChatHomeFilter.teams),
+      (icon: Icons.call_rounded, label: 'Appels', color: const Color(0xFF18A85A), value: _ChatHomeFilter.calls),
+      (icon: Icons.star_rounded, label: 'Favoris', color: const Color(0xFFFFC73A), value: _ChatHomeFilter.favorites),
+      (icon: Icons.calendar_month_rounded, label: 'Rendez-vous', color: const Color(0xFFFF4D7E), value: _ChatHomeFilter.meetings),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF15296D).withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            Expanded(
+              child: _FilterDeckItem(
+                icon: items[i].icon,
+                label: items[i].label,
+                color: items[i].color,
+                active: active == items[i].value,
+                badge: items[i].value == _ChatHomeFilter.meetings ? meetingCount : 0,
+                onTap: () => onSelect(items[i].value),
+              ),
+            ),
+            if (i != items.length - 1) Container(width: 1, height: 50, color: const Color(0xFFE9EDFA)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterDeckItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool active;
+  final int badge;
+  final VoidCallback onTap;
+
+  const _FilterDeckItem({required this.icon, required this.label, required this.color, required this.active, required this.badge, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, color: color, size: 28),
+                if (badge > 0)
+                  Positioned(
+                    right: -10,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(color: const Color(0xFFFF4D7E), borderRadius: BorderRadius.circular(999)),
+                      child: Text('$badge', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: active ? const Color(0xFF2451FF) : const Color(0xFF3D4678), fontSize: 12.5, fontWeight: active ? FontWeight.w800 : FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: active ? 32 : 0,
+              height: 4,
+              decoration: BoxDecoration(color: const Color(0xFF2451FF), borderRadius: BorderRadius.circular(999)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationPreviewCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String timeLabel;
+  final bool isGroup;
+  final bool isVerified;
+  final bool isHighlighted;
+  final int badgeCount;
+  final VoidCallback? onTap;
+
+  const _ConversationPreviewCard({
+    required this.title,
+    required this.subtitle,
+    required this.timeLabel,
+    required this.isGroup,
+    required this.isVerified,
+    required this.isHighlighted,
+    required this.badgeCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = title.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).take(2).toList(growable: false);
+    final initials = parts.isEmpty ? 'T' : parts.map((part) => part.substring(0, 1).toUpperCase()).join();
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(26),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF172A72).withOpacity(0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(isGroup ? 18 : 30),
+                    gradient: isGroup
+                        ? const LinearGradient(colors: [Color(0xFF2D35FF), Color(0xFF6D39FF)])
+                        : const LinearGradient(colors: [Color(0xFFF0F3FF), Color(0xFFE8EEFF)]),
+                  ),
+                  alignment: Alignment.center,
+                  child: isGroup
+                      ? const Icon(Icons.groups_rounded, color: Colors.white, size: 30)
+                      : Text(initials, style: const TextStyle(color: Color(0xFF2451FF), fontSize: 22, fontWeight: FontWeight.w900)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Color(0xFF141D4F), fontSize: 16, fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          if (isVerified) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.verified_rounded, color: Color(0xFF2451FF), size: 18),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(0xFF5A628B), fontSize: 13.5, fontWeight: FontWeight.w500, height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (isHighlighted)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: Icon(Icons.push_pin_rounded, color: Color(0xFF6B6F95), size: 16),
+                      )
+                    else
+                      const SizedBox(height: 6),
+                    Text(timeLabel, style: const TextStyle(color: Color(0xFF6C739C), fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    if (badgeCount > 0)
+                      Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF5A34F2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          badgeCount > 99 ? '99+' : '$badgeCount',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2234,10 +2918,17 @@ class ThixMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bg = isMine ? AppPremiumGradients.thixNavyToGold(scheme) : LinearGradient(colors: [scheme.surfaceContainerHighest, scheme.surface]);
-    final fg = isMine ? scheme.onPrimary : scheme.onSurface;
+    final bg = isMine
+        ? const LinearGradient(colors: [Color(0xFF2451FF), Color(0xFF5A34F2)])
+        : const LinearGradient(colors: [Colors.white, Color(0xFFF7F9FF)]);
+    final fg = isMine ? Colors.white : const Color(0xFF16204C);
     final rich = _tryMoneyPayload(message.text);
     final isMoney = rich != null;
+    final attachmentUrl = (message.extra['download_url'] ?? '').toString();
+    final attachmentName = (message.extra['file_name'] ?? 'Document').toString();
+    final attachmentExt = ((message.extra['file_ext'] ?? '').toString()).toUpperCase();
+    final meetingTitle = (message.extra['meeting_title'] ?? '').toString();
+    final callKind = (message.extra['call_kind'] ?? '').toString();
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -2247,7 +2938,14 @@ class ThixMessageBubble extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.lg),
             gradient: bg,
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            border: Border.all(color: isMine ? Colors.transparent : const Color(0xFFE8EDFA)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF15296D).withOpacity(isMine ? 0.16 : 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -2262,11 +2960,17 @@ class ThixMessageBubble extends StatelessWidget {
                 if (!isMine) const SizedBox(height: 6),
                 if (isMoney)
                   ThixMoneyBubble(payload: rich!, isMine: isMine)
+                else if (message.type == 'attachment' && attachmentUrl.trim().isNotEmpty)
+                 _buildAttachmentCard(context, fg, attachmentName, attachmentExt, attachmentUrl)
+                else if (message.type == 'meeting')
+                 _buildMeetingCard(context, fg, meetingTitle)
+                else if (message.type == 'call_request')
+                 _buildCallCard(context, fg, callKind)
                 else
-                  Text(
-                    message.text.trim().isEmpty ? '…' : message.text,
-                    style: context.textStyles.bodyMedium?.copyWith(color: fg, height: 1.45, fontWeight: FontWeight.w600),
-                  ),
+                 Text(
+                   message.text.trim().isEmpty ? '…' : message.text,
+                   style: context.textStyles.bodyMedium?.copyWith(color: fg, height: 1.45, fontWeight: FontWeight.w600),
+                 ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.bottomRight,
@@ -2279,6 +2983,119 @@ class ThixMessageBubble extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentCard(BuildContext context, Color fg, String name, String ext, String url) {
+    final chipBg = isMine ? Colors.white.withOpacity(0.14) : const Color(0xFFEAF0FF);
+    return InkWell(
+      onTap: () async {
+        final uri = Uri.tryParse(url);
+        if (uri == null) return;
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: chipBg,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: isMine ? Colors.white.withOpacity(0.12) : const Color(0xFFDCE5FF)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isMine ? Colors.white : const Color(0xFF2451FF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                ext.isEmpty ? 'DOC' : ext,
+                style: TextStyle(
+                  color: isMine ? const Color(0xFF2451FF) : Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(color: fg, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Appuyer pour ouvrir le fichier',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: fg.withOpacity(0.78), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.open_in_new_rounded, color: fg, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingCard(BuildContext context, Color fg, String title) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isMine ? Colors.white.withOpacity(0.14) : const Color(0xFFFFF4E6),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month_rounded, color: fg, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Invitation réunion', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: fg, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(
+                  title.trim().isEmpty ? 'Meeting THIX CHAT' : title,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg.withOpacity(0.84), fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCallCard(BuildContext context, Color fg, String kind) {
+    final label = kind == 'video' ? 'Appel vidéo' : 'Appel audio';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isMine ? Colors.white.withOpacity(0.14) : const Color(0xFFEAFBF2),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          Icon(kind == 'video' ? Icons.videocam_rounded : Icons.call_rounded, color: fg, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$label lancé depuis THIX CHAT',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }

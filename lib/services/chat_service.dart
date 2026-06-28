@@ -12,6 +12,7 @@ class ChatSummary {
   final String id;
   final String type;
   final String? directKey;
+  final String? title;
   final List<String> participants;
   final Map<String, String> participantName;
   final Map<String, String> participantThix;
@@ -22,6 +23,7 @@ class ChatSummary {
     required this.id,
     required this.type,
     required this.directKey,
+    required this.title,
     required this.participants,
     required this.participantName,
     required this.participantThix,
@@ -57,6 +59,7 @@ class ChatSummary {
       id: id,
       type: (row['type'] as String?) ?? 'direct',
       directKey: (dk == null || dk.isEmpty) ? null : dk,
+      title: (row['title'] as String?)?.trim(),
       participants: participants,
       participantName: pn.map((k, v) => MapEntry(k, (v as String?) ?? 'Utilisateur')),
       participantThix: pt.map((k, v) => MapEntry(k, (v as String?) ?? '')),
@@ -280,6 +283,7 @@ class ChatService {
             id: id,
             type: type,
             directKey: (dk == null || dk.isEmpty) ? null : dk,
+            title: (c['title'] as String?)?.trim(),
             participants: parts,
             participantName: patchedNames,
             participantThix: Map<String, String>.from(participantThix),

@@ -1,114 +1,124 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/message_model.dart';
+import 'package:flutter/foundation.dart';
 import '../models/conversation_model.dart';
+import '../models/message_model.dart';
 
-final messagesProvider = StateNotifierProvider<MessagesNotifier, List<Message>>((ref) {
-  return MessagesNotifier();
-});
+class MessagesController extends ChangeNotifier {
+  final List<Message> _messages = <Message>[];
 
-class MessagesNotifier extends StateNotifier<List<Message>> {
-  MessagesNotifier() : super([]);
+  List<Message> get messages => List.unmodifiable(_messages);
 
   void addMessage(Message message) {
-    state = [...state, message];
+    _messages.add(message);
+    notifyListeners();
   }
 
   void updateMessage(String messageId, Message updatedMessage) {
-    state = state.map((msg) => msg.id == messageId ? updatedMessage : msg).toList();
+    final index = _messages.indexWhere((msg) => msg.id == messageId);
+    if (index == -1) return;
+    _messages[index] = updatedMessage;
+    notifyListeners();
   }
 
   void deleteMessage(String messageId) {
-    state = state.where((msg) => msg.id != messageId).toList();
+    _messages.removeWhere((msg) => msg.id == messageId);
+    notifyListeners();
   }
 
   void togglePin(String messageId) {
-    state = state.map((msg) {
-      if (msg.id == messageId) {
-        return msg.copyWith(isPinned: !msg.isPinned);
-      }
-      return msg;
-    }).toList();
+    final index = _messages.indexWhere((msg) => msg.id == messageId);
+    if (index == -1) return;
+    _messages[index] = _messages[index].copyWith(isPinned: !_messages[index].isPinned);
+    notifyListeners();
   }
 
   void addReaction(String messageId, String emoji) {
-    state = state.map((msg) {
-      if (msg.id == messageId) {
-        final reactions = List<String>.from(msg.reactionEmojis);
-        final counts = Map<String, int>.from(msg.reactionCounts);
-        
-        if (reactions.contains(emoji)) {
-          reactions.remove(emoji);
-          counts[emoji] = (counts[emoji] ?? 1) - 1;
-          if (counts[emoji]! <= 0) counts.remove(emoji);
-        } else {
-          reactions.add(emoji);
-          counts[emoji] = (counts[emoji] ?? 0) + 1;
-        }
-        
-        return msg.copyWith(
-          reactionEmojis: reactions,
-          reactionCounts: counts,
-        );
+    final index = _messages.indexWhere((msg) => msg.id == messageId);
+    if (index == -1) return;
+    final target = _messages[index];
+    final reactions = List<String>.from(target.reactionEmojis);
+    final counts = Map<String, int>.from(target.reactionCounts);
+    if (reactions.contains(emoji)) {
+      reactions.remove(emoji);
+      final next = (counts[emoji] ?? 1) - 1;
+      if (next <= 0) {
+        counts.remove(emoji);
+      } else {
+        counts[emoji] = next;
       }
-      return msg;
-    }).toList();
+    } else {
+      reactions.add(emoji);
+      counts[emoji] = (counts[emoji] ?? 0) + 1;
+    }
+    _messages[index] = target.copyWith(reactionEmojis: reactions, reactionCounts: counts);
+    notifyListeners();
   }
 
   void setMessages(List<Message> messages) {
-    state = messages;
+    _messages
+      ..clear()
+      ..addAll(messages);
+    notifyListeners();
   }
 }
 
-final currentConversationProvider = StateNotifierProvider<ConversationNotifier, Conversation?>((ref) {
-  return ConversationNotifier();
-});
+class ConversationController extends ChangeNotifier {
+  Conversation? _conversation;
 
-class ConversationNotifier extends StateNotifier<Conversation?> {
-  ConversationNotifier() : super(null);
+  Conversation? get conversation => _conversation;
 
   void setConversation(Conversation conversation) {
-    state = conversation;
+    _conversation = conversation;
+    notifyListeners();
   }
 
   void updateUnreadCount(int count) {
-    if (state != null) {
-      state = state!.copyWith(unreadCount: count);
-    }
+    final current = _conversation;
+    if (current == null) return;
+    _conversation = current.copyWith(unreadCount: count);
+    notifyListeners();
   }
 
   void toggleMute() {
-    if (state != null) {
-      state = state!.copyWith(isMuted: !state!.isMuted);
-    }
+    final current = _conversation;
+    if (current == null) return;
+    _conversation = current.copyWith(isMuted: !current.isMuted);
+    notifyListeners();
   }
 
   void toggleArchive() {
-    if (state != null) {
-      state = state!.copyWith(isArchived: !state!.isArchived);
-    }
+    final current = _conversation;
+    if (current == null) return;
+    _conversation = current.copyWith(isArchived: !current.isArchived);
+    notifyListeners();
   }
 }
 
-final conversationsProvider = StateNotifierProvider<ConversationsNotifier, List<Conversation>>((ref) {
-  return ConversationsNotifier();
-});
+class ConversationsController extends ChangeNotifier {
+  final List<Conversation> _conversations = <Conversation>[];
 
-class ConversationsNotifier extends StateNotifier<List<Conversation>> {
-  ConversationsNotifier() : super([]);
+  List<Conversation> get conversations => List.unmodifiable(_conversations);
 
   void setConversations(List<Conversation> conversations) {
-    state = conversations;
+    _conversations
+      ..clear()
+      ..addAll(conversations);
+    notifyListeners();
   }
 
   void addConversation(Conversation conversation) {
-    state = [conversation, ...state];
+    _conversations.insert(0, conversation);
+    notifyListeners();
   }
 
   void updateConversation(String conversationId, Conversation updatedConversation) {
-    state = state.map((conv) => conv.id == conversationId ? updatedConversation : conv).toList();
+    final index = _conversations.indexWhere((conv) => conv.id == conversationId);
+    if (index == -1) return;
+    _conversations[index] = updatedConversation;
+    notifyListeners();
   }
 
   void removeConversation(String conversationId) {
-    state = state.where((conv) => conv.id != conversationId).toList();
+    _conversations.removeWhere((conv) => conv.id == conversationId);
+    notifyListeners();
   }
 }
