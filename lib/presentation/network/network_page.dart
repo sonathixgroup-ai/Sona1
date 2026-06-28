@@ -17,7 +17,7 @@ class NetworkPage extends StatefulWidget {
 }
 
 class _NetworkPageState extends State<NetworkPage> {
-  int _selectedIndex = 0; // 0: Accueil, 1: Découvrir, 2: Connexions, 3: Profil
+  int _selectedIndex = 0;
   final PageController _pageController = PageController();
 
   @override
@@ -85,6 +85,7 @@ class _NetworkPageState extends State<NetworkPage> {
                     onComment: (postId) => _openCommentModal(context, postId, vm),
                     onShare: vm.sharePost,
                     onSave: vm.toggleSave,
+                    onRepost: vm.repostPost, // 👈 AJOUT
                     onCreatePost: () => _openCreatePost(context),
                   ),
                   // Onglet Découvrir
@@ -109,119 +110,121 @@ class _NetworkPageState extends State<NetworkPage> {
     );
   }
 
-  // Ouvre la modale des commentaires
+  // Ouvre la modale des commentaires (AMÉLIORÉE)
   void _openCommentModal(BuildContext context, String postId, NetworkViewModel vm) {
+    final TextEditingController commentController = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text('Commentaires', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(),
-            Expanded(
-              child: FutureBuilder(
-                future: vm.getComments(postId),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Erreur : ${snapshot.error}'));
-                  }
-                  final comments = snapshot.data ?? [];
-                  if (comments.isEmpty) {
-                    return const Center(child: Text('Aucun commentaire pour le moment.'));
-                  }
-                  return ListView.builder(
-                    itemCount: comments.length,
-                    itemBuilder: (context, index) {
-                      final c = comments[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          radius: 18,
-                          backgroundImage: c['avatar_url'] != null
-                              ? NetworkImage(c['avatar_url'])
-                              : null,
-                          child: c['avatar_url'] == null
-                              ? Text(c['user_name'][0].toUpperCase())
-                              : null,
-                        ),
-                        title: Text(
-                          c['user_name'],
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        subtitle: Text(c['content'], style: const TextStyle(fontSize: 13)),
-                        trailing: Text(
-                          c['created_at'].toString().substring(0, 16),
-                          style: const TextStyle(fontSize: 10, color: Colors.grey),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const Divider(),
-            Row(
+      builder: (_) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.8,
+            padding: const EdgeInsets.all(16),
+            child: Column(
               children: [
+                const Text('Commentaires', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Divider(),
                 Expanded(
-                  child: TextField(
-                    controller: TextEditingController(),
-                    decoration: InputDecoration(
-                      hintText: 'Écrire un commentaire...',
-                      hintStyle: const TextStyle(fontSize: 13),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    onSubmitted: (value) async {
-                      if (value.isNotEmpty) {
-                        await vm.addComment(postId, value);
-                        // Recharger les commentaires (on pourrait rafraîchir le snapshot)
-                        // Pour simplifier, on referme la modale et on rouvre
-                        Navigator.pop(context);
-                        _openCommentModal(context, postId, vm);
+                  child: FutureBuilder(
+                    future: vm.getComments(postId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
                       }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Erreur : ${snapshot.error}'));
+                      }
+                      final comments = snapshot.data ?? [];
+                      if (comments.isEmpty) {
+                        return const Center(child: Text('Aucun commentaire pour le moment.'));
+                      }
+                      return ListView.builder(
+                        itemCount: comments.length,
+                        itemBuilder: (context, index) {
+                          final c = comments[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              radius: 18,
+                              backgroundImage: c['avatar_url'] != null
+                                  ? NetworkImage(c['avatar_url'])
+                                  : null,
+                              child: c['avatar_url'] == null
+                                  ? Text(c['user_name'][0].toUpperCase())
+                                  : null,
+                            ),
+                            title: Text(
+                              c['user_name'],
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            subtitle: Text(c['content'], style: const TextStyle(fontSize: 13)),
+                            trailing: Text(
+                              c['created_at'].toString().substring(0, 16),
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            ),
+                          );
+                        },
+                      );
                     },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Color(0xFF1A73E8)),
-                  onPressed: () {},
+                const Divider(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: commentController,
+                        decoration: InputDecoration(
+                          hintText: 'Écrire un commentaire...',
+                          hintStyle: const TextStyle(fontSize: 13),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        onSubmitted: (value) async {
+                          if (value.isNotEmpty) {
+                            await vm.addComment(postId, value);
+                            commentController.clear();
+                            // Rafraîchir la modale en appelant setModalState
+                            setModalState(() {});
+                          }
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Color(0xFF1A73E8)),
+                      onPressed: () async {
+                        final value = commentController.text.trim();
+                        if (value.isNotEmpty) {
+                          await vm.addComment(postId, value);
+                          commentController.clear();
+                          setModalState(() {});
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
   void _openCreatePost(BuildContext context) {
     // Navigation vers l'écran de création
-    // Pour l'exemple, on affiche une alerte
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Créer une publication'),
-        content: const Text('Cette fonctionnalité sera bientôt disponible.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CreatePostScreen()),
     );
   }
 }
