@@ -4,14 +4,19 @@ import 'package:thix_id/presentation/network/models/post_model.dart';
 import 'package:thix_id/presentation/network/models/story_model.dart';
 import 'package:thix_id/presentation/network/models/opportunity_model.dart';
 import 'package:thix_id/presentation/network/utils/network_constants.dart';
+import 'package:thix_id/services/media_service.dart';
+import 'package:file_picker/file_picker.dart';
 
 class NetworkService {
   final SupabaseClient supabase;
   final String postsTable = 'posts';
   final String storiesTable = 'stories';
   final String opportunitiesTable = 'opportunities';
+  final MediaService mediaService;
 
-  NetworkService({SupabaseClient? client}) : supabase = client ?? Supabase.instance.client;
+  NetworkService({SupabaseClient? client, MediaService? media})
+      : supabase = client ?? Supabase.instance.client,
+        mediaService = media ?? MediaService();
 
   Future<List<PostModel>> fetchPosts({int limit = 20, int offset = 0}) async {
     final res = await supabase
@@ -57,7 +62,23 @@ class NetworkService {
     return data.map((e) => OpportunityModel.fromMap(e as Map<String, dynamic>)).toList();
   }
 
-  Future<void> createPost({required String profileId, required String content}) async {
-    await supabase.from(postsTable).insert({'author': profileId, 'content': content}).execute();
+  /// Create a post, upload optional media files to storage and link them in post_media.
+  Future<void> createPost({required String profileId, required String content, List<PlatformFile>? mediaFiles}) async {
+    // Insert post and get id
+    final insertRes = await supabase.from(postsTable).insert({'author': profileId, 'content': content}).select().single();
+    if (insertRes == null) return;
+    final postId = insertRes['id'] as String;
+
+    if (mediaFiles != null && mediaFiles.isNotEmpty) {
+      for (var i = 0; i < mediaFiles.length; i++) {
+        final f = mediaFiles[i];
+        // upload via MediaService
+        final uploaded = await mediaService.uploadFile(file: f, path: 'posts/$postId');
+        final key = uploaded['key'] ?? uploaded['url'];
+        final mime = f.mimeType ?? 'application/octet-stream';
+        final size = f.size;
+        await supabase.from('post_media').insert({'post_id': postId, 'storage_path': key, 'mime': mime, 'size': size, 'ordering': i}).execute();
+      }
+    }
   }
 }

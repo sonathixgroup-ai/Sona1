@@ -38,7 +38,7 @@ class _NetworkHomeScreenState extends State<NetworkHomeScreen> {
               const SizedBox(height: 12),
               const CategoryTabs(),
               const SizedBox(height: 12),
-              CreatePostCard(onCreate: (text) => p.createPost(text)),
+              CreatePostCard(onCreate: (text, files) => p.createPost(text, files)),
               const SizedBox(height: 12),
               OpportunitiesSection(opportunities: p.state.opportunities),
               const SizedBox(height: 12),

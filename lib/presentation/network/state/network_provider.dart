@@ -9,6 +9,7 @@ import 'package:thix_id/presentation/feed/comments_page.dart';
 import 'package:thix_id/models/post.dart' as ThixPostModel;
 import 'package:thix_id/models/post_media.dart' as ThixPostMedia;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 
 class NetworkProvider extends ChangeNotifier {
   final NetworkController controller;
@@ -51,15 +52,20 @@ class NetworkProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> createPost(String content) async {
-    // For production you'd pass the profile id; here we assume service handles auth mapping
+  Future<void> createPost(String content, [List<PlatformFile>? mediaFiles]) async {
     state = state.copyWith(isLoading: true);
     notifyListeners();
     try {
       final supabase = Supabase.instance.client;
-      final authUid = supabase.auth.currentUser?.id ?? '';
-      // In production map authUid -> profiles.id. For now pass authUid as author.
-      await controller.createPost('', content);
+      final authUid = supabase.auth.currentUser?.id;
+      if (authUid == null || authUid.isEmpty) throw Exception('Utilisateur non authentifié');
+
+      // get profile id from profiles table
+      final profileRes = await supabase.from('profiles').select('id').eq('user_id', authUid).maybeSingle();
+      final profileId = (profileRes as Map<String, dynamic>?)?['id'] as String?;
+      if (profileId == null || profileId.isEmpty) throw Exception('Profile introuvable pour cet utilisateur');
+
+      await controller.createPost(profileId: profileId, content: content, mediaFiles: mediaFiles);
       await init();
     } catch (e) {
       state = state.copyWith(error: e.toString());
