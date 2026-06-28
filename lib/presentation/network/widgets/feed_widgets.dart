@@ -19,6 +19,7 @@ class FeedWidgets extends StatelessWidget {
   final Function(String) onComment;
   final Function(String) onShare;
   final Function(String) onSave;
+  final Function(String) onRepost; // 👈 NOUVEAU
   final VoidCallback onCreatePost;
 
   const FeedWidgets({
@@ -33,6 +34,7 @@ class FeedWidgets extends StatelessWidget {
     required this.onComment,
     required this.onShare,
     required this.onSave,
+    required this.onRepost, // 👈 NOUVEAU
     required this.onCreatePost,
   });
 
@@ -63,6 +65,7 @@ class FeedWidgets extends StatelessWidget {
                 onComment: () => onComment(post.id),
                 onShare: () => onShare(post.id),
                 onSave: () => onSave(post.id),
+                onRepost: () => onRepost(post.id), // 👈 NOUVEAU
               )),
           const SizedBox(height: 12),
           // Shorts
