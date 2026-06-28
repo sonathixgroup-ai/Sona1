@@ -18,6 +18,14 @@ class NetworkService {
       : supabase = client ?? Supabase.instance.client,
         mediaService = media ?? MediaService();
 
+  Future<String?> _currentProfileId() async {
+    final authUid = supabase.auth.currentUser?.id;
+    if (authUid == null) return null;
+    final res = await supabase.from('profiles').select('id').eq('user_id', authUid).maybeSingle();
+    if (res == null) return null;
+    return (res as Map<String, dynamic>)['id'] as String?;
+  }
+
   Future<List<PostModel>> fetchPosts({int limit = 20, int offset = 0}) async {
     final res = await supabase
         .from(postsTable)
@@ -36,7 +44,6 @@ class NetworkService {
             if (m is Map && m['storage_path'] != null) {
               final path = m['storage_path'] as String;
               final publicUrl = supabase.storage.from(NetworkConstants.postsBucket).getPublicUrl(path).data;
-              // prefer explicit url key to avoid mutating original storage_path
               m['url'] = publicUrl ?? path;
             }
           } catch (e) {
@@ -46,23 +53,52 @@ class NetworkService {
       }
     }
 
-    return data.map((e) => PostModel.fromMap(e as Map<String, dynamic>)).toList();
+    final posts = data.map((e) => PostModel.fromMap(e as Map<String, dynamic>)).toList();
+
+    // fetch reactions and bookmarks in batch for current user
+    final profileId = await _currentProfileId();
+    final postIds = posts.map((p) => p.id).where((id) => id.isNotEmpty).toList();
+    if (postIds.isNotEmpty) {
+      // fetch reactions for these posts
+      final reactionsRes = await supabase.from('reactions').select('id,post_id,type,user_id').in_('post_id', postIds).execute();
+      final reactionsData = reactionsRes.data as List<dynamic>? ?? [];
+
+      // aggregate counts
+      final Map<String, Map<String, int>> counts = {};
+      final Map<String, String> userReaction = {};
+      for (final r in reactionsData) {
+        final map = r as Map<String, dynamic>;
+        final pid = map['post_id'] as String? ?? '';
+        final type = map['type'] as String? ?? 'like';
+        counts.putIfAbsent(pid, () => {});
+        counts[pid]![type] = (counts[pid]![type] ?? 0) + 1;
+        if (profileId != null && map['user_id'] == profileId) {
+          userReaction[pid] = type;
+        }
+      }
+
+      // fetch bookmarks for current user
+      final bookmarksRes = profileId != null ? await supabase.from('bookmarks').select('post_id').eq('user_id', profileId).in_('post_id', postIds).execute() : null;
+      final bookmarksData = bookmarksRes?.data as List<dynamic>? ?? [];
+      final bookmarkedSet = <String>{};
+      for (final b in bookmarksData) {
+        final m = b as Map<String, dynamic>;
+        bookmarkedSet.add(m['post_id'] as String);
+      }
+
+      // apply to posts
+      for (var i = 0; i < posts.length; i++) {
+        final p = posts[i];
+        final pc = counts[p.id] ?? {};
+        final ur = userReaction[p.id];
+        final isBm = bookmarkedSet.contains(p.id);
+        posts[i] = p.copyWith(reactionCounts: pc, userReaction: ur, isBookmarked: isBm);
+      }
+    }
+
+    return posts;
   }
 
-  Future<List<StoryModel>> fetchStories() async {
-    final res = await supabase.from(storiesTable).select('*, profiles:author(*)').order('created_at', ascending: false).limit(50).execute();
-    final data = res.data as List<dynamic>? ?? [];
-    return data.map((e) => StoryModel.fromMap(e as Map<String, dynamic>)).toList();
-  }
-
-  Future<List<OpportunityModel>> fetchOpportunities() async {
-    // opportunites could be a custom table or external source; offer a basic select
-    final res = await supabase.from(opportunitiesTable).select().limit(20).execute();
-    final data = res.data as List<dynamic>? ?? [];
-    return data.map((e) => OpportunityModel.fromMap(e as Map<String, dynamic>)).toList();
-  }
-
-  /// Create a post, upload optional media files to storage and link them in post_media.
   Future<void> createPost({required String profileId, required String content, List<PlatformFile>? mediaFiles}) async {
     // Insert post and get id
     final insertRes = await supabase.from(postsTable).insert({'author': profileId, 'content': content}).select().single();
@@ -80,5 +116,53 @@ class NetworkService {
         await supabase.from('post_media').insert({'post_id': postId, 'storage_path': key, 'mime': mime, 'size': size, 'ordering': i}).execute();
       }
     }
+  }
+
+  // Reactions
+  Future<void> addReaction({required String postId, required String type}) async {
+    final profileId = await _currentProfileId();
+    if (profileId == null) throw Exception('No profile');
+    // check existing reaction by user on that post
+    final existing = await supabase.from('reactions').select('id,type').eq('post_id', postId).eq('user_id', profileId).maybeSingle();
+    if (existing != null) {
+      final existingType = (existing as Map<String, dynamic>)['type'] as String?;
+      if (existingType == type) {
+        // remove
+        await supabase.from('reactions').delete().eq('post_id', postId).eq('user_id', profileId).execute();
+        return;
+      } else {
+        // update
+        await supabase.from('reactions').update({'type': type}).eq('id', existing['id']).execute();
+        return;
+      }
+    }
+    await supabase.from('reactions').insert({'post_id': postId, 'user_id': profileId, 'type': type}).execute();
+  }
+
+  // bookmarks
+  Future<void> toggleBookmark({required String postId}) async {
+    final profileId = await _currentProfileId();
+    if (profileId == null) throw Exception('No profile');
+    final existing = await supabase.from('bookmarks').select('id').eq('post_id', postId).eq('user_id', profileId).maybeSingle();
+    if (existing != null) {
+      await supabase.from('bookmarks').delete().eq('id', existing['id']).execute();
+    } else {
+      await supabase.from('bookmarks').insert({'post_id': postId, 'user_id': profileId}).execute();
+    }
+  }
+
+  Future<List<BookmarkModel>> fetchBookmarks({required String profileId, int limit = 50}) async {
+    final res = await supabase.from('bookmarks').select().eq('user_id', profileId).limit(limit).execute();
+    final data = res.data as List<dynamic>? ?? [];
+    return data.map((e) => BookmarkModel.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
+  // shares
+  Future<void> sharePost({required String postId, required String targetType, String? targetId}) async {
+    final profileId = await _currentProfileId();
+    if (profileId == null) throw Exception('No profile');
+    await supabase.from('shares').insert({'post_id': postId, 'user_id': profileId, 'target_type': targetType, 'target_id': targetId}).execute();
+    // optionally increment share count in posts
+    await supabase.rpc('increment_post_share_count', params: {'post_id': postId});
   }
 }

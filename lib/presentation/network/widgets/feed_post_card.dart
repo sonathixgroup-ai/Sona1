@@ -6,8 +6,11 @@ import 'package:thix_id/presentation/network/widgets/post_actions_bar.dart';
 class FeedPostCard extends StatelessWidget {
   final PostModel post;
   final VoidCallback? onTapComments;
+  final Future<void> Function(String type)? onReact;
+  final VoidCallback? onShare;
+  final VoidCallback? onToggleBookmark;
 
-  const FeedPostCard({Key? key, required this.post, this.onTapComments}) : super(key: key);
+  const FeedPostCard({Key? key, required this.post, this.onTapComments, this.onReact, this.onShare, this.onToggleBookmark}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +23,7 @@ class FeedPostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(backgroundImage: NetworkImage(post.authorPhoto ?? ''), radius: 20),
+                CircleAvatar(backgroundImage: post.authorPhoto != null && post.authorPhoto!.isNotEmpty ? NetworkImage(post.authorPhoto!) : null, radius: 20, child: (post.authorPhoto == null || post.authorPhoto!.isEmpty) ? const Icon(Icons.person) : null),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w800)), Text(post.timeAgo, style: const TextStyle(fontSize: 12))]),
@@ -40,7 +43,18 @@ class FeedPostCard extends StatelessWidget {
               )
             ],
             const SizedBox(height: 8),
-            PostActionsBar(likes: post.likeCount, comments: post.commentCount, onComments: onTapComments),
+            PostActionsBar(
+              reactions: post.reactionCounts,
+              userReaction: post.userReaction,
+              comments: post.commentCount,
+              isBookmarked: post.isBookmarked,
+              onComments: onTapComments,
+              onReact: (type) async {
+                if (onReact != null) await onReact(type);
+              },
+              onShare: onShare,
+              onToggleBookmark: onToggleBookmark,
+            ),
           ],
         ),
       ),
