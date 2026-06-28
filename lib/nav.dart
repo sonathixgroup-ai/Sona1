@@ -127,15 +127,9 @@ class AppRouter {
         if (isAdmin && !isLoggedIn) return AppRoutes.login;
 
         if (isLoggedIn) {
-          final u = auth.currentUser;
-          final isActivated = (u?.hasRealThixId ?? false);
-          final hasActiveTrial = (u?.hasActiveTrial ?? false);
-          final isPaymentOrReceipt = location == AppRoutes.payment || location == AppRoutes.activationReceipt;
-          final isDashboard = location == AppRoutes.userDashboard || location == AppRoutes.enterpriseDashboard;
-          if (!isActivated && !hasActiveTrial && !isAuthPage && !isPublic && !isPaymentOrReceipt && !isDashboard) {
-            final receiptReturn = Uri.encodeComponent(AppRoutes.activationReceipt);
-            return '${AppRoutes.payment}?returnTo=$receiptReturn';
-          }
+          // Paiement/activation désactivés : accès gratuit.
+          // (On garde les routes /payment et /activation-receipt pour compatibilité,
+          // mais aucune redirection automatique ne doit y conduire.)
         }
 
         if (isLoggedIn) {

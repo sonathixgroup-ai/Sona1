@@ -867,7 +867,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       return;
     }
     if (_step == 4) {
-      await _proceedToPayment();
+      await _finishRegistrationFree();
       return;
     }
   }
@@ -928,7 +928,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return null;
   }
 
-  Future<void> _proceedToPayment() async {
+  Future<void> _finishRegistrationFree() async {
     final me = context.read<AuthController>().currentUser;
     if (me == null) {
       _snack('Session expirée.');
@@ -942,13 +942,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
     setState(() => _isLoading = true);
     try {
-      // Reserve/validate THIX CHAT before payment.
+      // Finalisation gratuite : on réserve/valide THIX CHAT et on marque le compte comme actif.
       final claimed = await _firestoreUsers.ensureThixChat(uid: me.id, desired: _thixChatC.text);
-      await _firestoreUsers.updateProfile(uid: me.id, thixChat: claimed, registrationStatus: 'awaiting_payment');
+      await _firestoreUsers.updateProfile(uid: me.id, thixChat: claimed, registrationStatus: 'verified');
       if (!mounted) return;
 
-      final receiptReturn = Uri.encodeComponent('/activation-receipt');
-      context.push('${AppRoutes.payment}?returnTo=$receiptReturn');
+      context.go(AppRoutes.userDashboard);
     } catch (e) {
       debugPrint('PersonalReg: submit failed uid=${me.id} err=$e');
       if (!mounted) return;
@@ -1008,7 +1007,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       1 => _isLoading ? 'CRÉATION…' : 'SUIVANT (PARCOURS)',
       2 => _isLoading ? 'SAUVEGARDE…' : 'SUIVANT (DOCUMENTS)',
       3 => _isLoading ? 'PRÉPARATION…' : 'SUIVANT (IDENTIFIANTS)',
-      4 => _isLoading ? 'PRÉPARATION…' : 'CONFIRMER & PAYER',
+      4 => _isLoading ? 'FINALISATION…' : 'CONFIRMER',
       _ => 'CONTINUER',
     };
     return GestureDetector(

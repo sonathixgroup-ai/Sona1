@@ -177,7 +177,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
         }
         await auth.confirmPhoneCode(session: _phoneSession!, smsCode: pass, displayName: name, accountType: AccountType.enterprise);
         if (!mounted) return;
-        await _prepareEnterpriseAndGoToPayment(companyName: name);
+        await _prepareEnterpriseAndFinishFree(companyName: name);
         return;
       }
 
@@ -194,7 +194,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
         },
       );
       if (!mounted) return;
-      await _prepareEnterpriseAndGoToPayment(companyName: name);
+       await _prepareEnterpriseAndFinishFree(companyName: name);
     } catch (e) {
       debugPrint('Enterprise registration failed: $e');
       if (!mounted) return;
@@ -204,7 +204,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
     }
   }
 
-  Future<void> _prepareEnterpriseAndGoToPayment({required String companyName}) async {
+  Future<void> _prepareEnterpriseAndFinishFree({required String companyName}) async {
     final me = context.read<AuthController>().currentUser;
     if (me == null) throw Exception('Session utilisateur introuvable.');
     if (!_hasSupabaseSession()) {
@@ -227,7 +227,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
       }
       await _firestoreUsers.ensureThixId(uid: me.id);
       await _firestoreUsers.ensureThixChat(uid: me.id, desired: '@${companyName.toLowerCase().replaceAll(RegExp(r"[^a-z0-9._]"), '')}${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}');
-      await _firestoreUsers.updateProfile(uid: me.id, registrationStatus: 'awaiting_payment');
+      await _firestoreUsers.updateProfile(uid: me.id, registrationStatus: 'verified');
     } catch (e) {
       debugPrint('EnterpriseReg: prepare identifiers failed uid=${me.id} err=$e');
       if (mounted) {
@@ -241,8 +241,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
       rethrow;
     }
     if (!mounted) return;
-    final receiptReturn = Uri.encodeComponent('/activation-receipt');
-    context.go('${AppRoutes.payment}?returnTo=$receiptReturn');
+    context.go(AppRoutes.enterpriseDashboard);
   }
 
   Future<void> _pickPhoto() async {
