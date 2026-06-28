@@ -6,7 +6,9 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
-import 'package:thix_id/app_router.dart';
+import 'package:thix_id/nav.dart';
+import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
@@ -49,19 +51,25 @@ Future<void> main() async {
     debugPrint(st.toString());
   }
 
-  final auth = AuthController(auth: SupabaseAuthManager());
+  // Use shared service instances across the whole app to avoid duplicated
+  // streams / closed controllers when multiple pages expect Provider access.
+  final profiles = ProfileService();
+  final users = FirestoreUserService(profiles: profiles);
+  final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
   try {
     await auth.init();
   } catch (e, st) {
     debugPrint('Main: auth.init failed err=$e');
     debugPrint(st.toString());
   }
-  runApp(MyApp(auth: auth));
+  runApp(MyApp(auth: auth, profiles: profiles, users: users));
 }
 
 class MyApp extends StatefulWidget {
   final AuthController auth;
-  const MyApp({super.key, required this.auth});
+  final ProfileService profiles;
+  final FirestoreUserService users;
+  const MyApp({super.key, required this.auth, required this.profiles, required this.users});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -86,6 +94,8 @@ class _MyAppState extends State<MyApp> {
       providers: [
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
+        Provider<ProfileService>.value(value: widget.profiles),
+        Provider<FirestoreUserService>.value(value: widget.users),
       ],
       child: Builder(
         builder: (context) {
