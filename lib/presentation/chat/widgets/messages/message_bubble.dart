@@ -5,7 +5,7 @@ import '../../models/message_model.dart';
 import '../../models/ai_models.dart';
 import '../../providers/ai_chat_provider.dart';
 
-class MessageBubble extends StatefulWidget {
+class MessageBubble extends ConsumerStatefulWidget {
   final Message message;
   final bool isCurrentUser;
   final String conversationId;
@@ -32,10 +32,10 @@ class MessageBubble extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<MessageBubble> createState() => _MessageBubbleState();
+  ConsumerState<MessageBubble> createState() => _MessageBubbleState();
 }
 
-class _MessageBubbleState extends State<MessageBubble> {
+class _MessageBubbleState extends ConsumerState<MessageBubble> {
   bool _showActions = false;
   bool _showInlineAi = false;
   bool _loadingAi = false;
@@ -54,7 +54,7 @@ class _MessageBubbleState extends State<MessageBubble> {
     });
 
     try {
-      final service = context.read(aiChatServiceProvider);
+      final service = ref.read(aiChatServiceProvider);
       final result = await service.translateMessage(
         conversationId: widget.conversationId,
         message: widget.message.content,
@@ -78,7 +78,7 @@ class _MessageBubbleState extends State<MessageBubble> {
     });
 
     try {
-      final service = context.read(aiChatServiceProvider);
+      final service = ref.read(aiChatServiceProvider);
       final result = await service.generateSmartReplies(
         conversationId: widget.conversationId,
         messages: _conversationPreview(),
@@ -92,6 +92,12 @@ class _MessageBubbleState extends State<MessageBubble> {
       if (!mounted) return;
       setState(() => _loadingAi = false);
     }
+  }
+
+  void _applySmartReply(String reply) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Réponse copiée: $reply')),
+    );
   }
 
   Widget _buildInlineAiPanel() {
@@ -167,7 +173,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                             children: _aiResult!.smartReplies.map((reply) {
                               return ActionChip(
                                 label: Text(reply),
-                                onPressed: () {},
+                                onPressed: () => _applySmartReply(reply),
                               );
                             }).toList(),
                           ),

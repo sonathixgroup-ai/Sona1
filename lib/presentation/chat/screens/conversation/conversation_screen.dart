@@ -218,7 +218,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
           MessageInput(
             replyingToName: _replyingToId != null
-                ? messages.firstWhere((m) => m.id == _replyingToId).senderName
+                ? messages
+                        .where((m) => m.id == _replyingToId)
+                        .map((m) => m.senderName)
+                        .cast<String?>()
+                        .firstOrNull ??
+                    null
                 : null,
             onCancelReply: () => setState(() => _replyingToId = null),
             onSend: (message) {
@@ -347,4 +352,8 @@ class _AiResultCard extends StatelessWidget {
       ),
     );
   }
+}
+
+extension _FirstOrNull<E> on Iterable<E> {
+  E? get firstOrNull => isEmpty ? null : first;
 }
