@@ -5,31 +5,91 @@ class AppSpacing {
   // Spacing values
   static const double xs = 4.0;
   static const double sm = 8.0;
+  static const double sm2 = 12.0;
   static const double md = 16.0;
+  static const double md2 = 20.0;
   static const double lg = 24.0;
+  static const double lg2 = 28.0;
   static const double xl = 32.0;
   static const double xxl = 48.0;
 
   // Edge insets shortcuts
   static const EdgeInsets paddingXs = EdgeInsets.all(xs);
   static const EdgeInsets paddingSm = EdgeInsets.all(sm);
+  static const EdgeInsets paddingSm2 = EdgeInsets.all(sm2);
   static const EdgeInsets paddingMd = EdgeInsets.all(md);
+  static const EdgeInsets paddingMd2 = EdgeInsets.all(md2);
   static const EdgeInsets paddingLg = EdgeInsets.all(lg);
+  static const EdgeInsets paddingLg2 = EdgeInsets.all(lg2);
   static const EdgeInsets paddingXl = EdgeInsets.all(xl);
 
   // Horizontal padding
   static const EdgeInsets horizontalXs = EdgeInsets.symmetric(horizontal: xs);
   static const EdgeInsets horizontalSm = EdgeInsets.symmetric(horizontal: sm);
+  static const EdgeInsets horizontalSm2 = EdgeInsets.symmetric(horizontal: sm2);
   static const EdgeInsets horizontalMd = EdgeInsets.symmetric(horizontal: md);
+  static const EdgeInsets horizontalMd2 = EdgeInsets.symmetric(horizontal: md2);
   static const EdgeInsets horizontalLg = EdgeInsets.symmetric(horizontal: lg);
+  static const EdgeInsets horizontalLg2 = EdgeInsets.symmetric(horizontal: lg2);
   static const EdgeInsets horizontalXl = EdgeInsets.symmetric(horizontal: xl);
 
   // Vertical padding
   static const EdgeInsets verticalXs = EdgeInsets.symmetric(vertical: xs);
   static const EdgeInsets verticalSm = EdgeInsets.symmetric(vertical: sm);
+  static const EdgeInsets verticalSm2 = EdgeInsets.symmetric(vertical: sm2);
   static const EdgeInsets verticalMd = EdgeInsets.symmetric(vertical: md);
+  static const EdgeInsets verticalMd2 = EdgeInsets.symmetric(vertical: md2);
   static const EdgeInsets verticalLg = EdgeInsets.symmetric(vertical: lg);
+  static const EdgeInsets verticalLg2 = EdgeInsets.symmetric(vertical: lg2);
   static const EdgeInsets verticalXl = EdgeInsets.symmetric(vertical: xl);
+}
+
+// =============================================================================
+// THIX ID — HOME (PIXEL TOKENS)
+// =============================================================================
+
+/// Tokens stricts pour reproduire la homepage iOS “fintech/gov premium”.
+///
+/// Note: On garde ces tokens isolés pour ne pas perturber les palettes existantes
+/// (Market/Admin/Learning).
+class ThixHomeColors {
+  static const primaryBlue = Color(0xFF003BFF);
+  static const darkNavy = Color(0xFF02134F);
+  static const white = Color(0xFFFFFFFF);
+  static const lightGrayBackground = Color(0xFFF5F6FA);
+  static const textSecondary = Color(0xFF7B8190);
+  static const cardBorder = Color(0xFFE9ECF3);
+  static const goldBadge = Color(0xFFF7C948);
+  static const successGreen = Color(0xFF1BC47D);
+  static const dangerRed = Color(0xFFFF3B30);
+}
+
+class ThixHomeRadii {
+  static const searchBar = 24.0;
+  static const mainCards = 22.0;
+  static const thixPassCard = 24.0;
+  static const serviceCards = 18.0;
+  static const buttons = 14.0;
+  static const bottomNavbar = 30.0;
+  static const qrContainer = 16.0;
+}
+
+class ThixHomeShadows {
+  static const main = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x0F000000), // rgba(0,0,0,0.06)
+      blurRadius: 20,
+      offset: Offset(0, 4),
+    ),
+  ];
+
+  static const secondary = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x0A000000), // rgba(0,0,0,0.04)
+      blurRadius: 8,
+      offset: Offset(0, 2),
+    ),
+  ];
 }
 
 /// Border radius constants for consistent rounded corners
