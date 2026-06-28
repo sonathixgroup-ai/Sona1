@@ -18,7 +18,64 @@ import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/thix_id_service.dart';
 
 // ============================================================================
-// NOUVEAU DESIGN INSPIRÉ DE THIX MARKET
+// CONSTANTES DE DESIGN – INSPIRÉ DE "MIXX" (FINTECH PREMIUM)
+// ============================================================================
+
+class AppColors {
+  static const Color primaryBlue = Color(0xFF003BFF);
+  static const Color darkNavy = Color(0xFF02134F);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color lightGrayBg = Color(0xFFF5F6FA);
+  static const Color textSecondary = Color(0xFF7B8190);
+  static const Color cardBorder = Color(0xFFE9ECF3);
+  static const Color goldBadge = Color(0xFFF7C948);
+  static const Color successGreen = Color(0xFF1BC47D);
+  static const Color dangerRed = Color(0xFFFF3B30);
+  static const Color darkText = Color(0xFF1A1A2E);
+  static const Color shadowLight = Color(0x0F000000); // avec opacité 0.06
+  static const Color shadowSecondary = Color(0x0A000000); // 0.04
+}
+
+class AppSpacing {
+  static const double xs = 4;
+  static const double s = 8;
+  static const double m = 12;
+  static const double l = 16;
+  static const double xl = 20;
+  static const double xxl = 24;
+  static const double xxxl = 28;
+  static const double huge = 32;
+}
+
+class AppRadius {
+  static const double searchBar = 24;
+  static const double mainCard = 22;
+  static const double serviceCard = 18;
+  static const double button = 14;
+  static const double bottomNav = 30;
+  static const double avatar = 50;
+  static const double qrContainer = 16;
+}
+
+class AppShadows {
+  static List<BoxShadow> main = [
+    BoxShadow(
+      color: AppColors.shadowLight,
+      blurRadius: 20,
+      offset: const Offset(0, 4),
+    ),
+  ];
+  static List<BoxShadow> secondary = [
+    BoxShadow(
+      color: AppColors.shadowSecondary,
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
+}
+
+// ============================================================================
+// PAGE PRINCIPALE – HOMEPAGE PREMIUM (STYLE MIXX)
 // ============================================================================
 
 class HomePagePremium extends StatefulWidget {
@@ -184,7 +241,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
         : _counters.streamCounts(auth.currentUser!.id);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: AppColors.lightGrayBg,
       body: Stack(
         children: [
           NotificationListener<ScrollNotification>(
@@ -206,12 +263,12 @@ class _HomePagePremiumState extends State<HomePagePremium>
                     onAccountRequest: () => _handleRequestAccount(context),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
                 // Barre de recherche
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                     child: _SearchBarOverlay(
                       controller: _searchController,
                       isSearching: _searching,
@@ -220,204 +277,113 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
 
-                // Actions rapides (QR / NFC)
+                // Carte Premium Status (style mixx)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _QuickActionCard(
-                            title: 'Scanner un QR',
-                            subtitle: 'Scannez en sécurité',
-                            icon: Icons.qr_code_scanner_rounded,
-                            iconColor: const Color(0xFFE5592F),
-                            onTap: () {
-                              ThixIdentitySheets.showQrScanSheet(context);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _QuickActionCard(
-                            title: 'Lire via NFC',
-                            subtitle: 'Approchez l\'appareil',
-                            icon: Icons.fingerprint_rounded,
-                            iconColor: Colors.blue.shade700,
-                            onTap: () {
-                              ThixIdentitySheets.showNfcScanSheet(context);
-                            },
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    child: _PremiumStatusCard(),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
+
+                // Carte THIX Pass
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    child: _ThixPassCard(),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
+
+                // Actions rapides (4 boutons)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    child: _QuickActionsRow(
+                      onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
+                      onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
+                      onDocumentsTap: () {},
+                      onSecurityTap: () {},
                     ),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
 
-                // Aperçu notifications
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _NotificationPreviewCard(
-                      onTap: () {
-                        if (!auth.isAuthenticated) {
-                          context.push(AppRoutes.login);
-                          return;
-                        }
-                        NotificationsSheet.show(context);
-                      },
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                // Titre "Thix services"
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Thix services',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1A1A2E),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {},
-                          child: const Text(
-                            'Tout voir',
-                            style: TextStyle(
-                              color: Color(0xFFE5592F),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
-                // Grille des services (4x4)
+                // Grille des services (4x3)
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   sliver: SliverToBoxAdapter(
                     child: StreamBuilder<SectionBadgeCounts>(
                       stream: badgeCountsStream,
                       builder: (context, snap) {
                         final counts = snap.data ?? SectionBadgeCounts.zero;
-                        return GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.82,
-                          children: [
-                            _ServiceCard(
-                              icon: Icons.play_circle_filled,
-                              title: 'THIX MEDIA',
-                              iconColor: Colors.blue.shade700,
-                              onTap: () => context.push(AppRoutes.thixMedia),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.storefront_rounded,
-                              title: 'THIX Market',
-                              iconColor: const Color(0xFFE5592F),
-                              onTap: () => context.push(AppRoutes.thixMarket),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.school_rounded,
-                              title: 'Formations',
-                              iconColor: const Color(0xFF0057D9),
-                              badgeCount: counts.formations,
-                              onTap: () => context.push(AppRoutes.trainingHome),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.work_rounded,
-                              title: 'Emplois',
-                              iconColor: const Color(0xFF00A86B),
-                              badgeCount: counts.jobs,
-                              onTap: () => context.push(AppRoutes.jobs),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.newspaper_rounded,
-                              title: 'THIX INFO',
-                              iconColor: const Color(0xFFFF9800),
-                              badgeCount: counts.info,
-                              onTap: () => AlertInfoSheet.show(context),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.lightbulb_rounded,
-                              title: 'Opportunités',
-                              iconColor: const Color(0xFFD4AF37),
-                              onTap: () => context.push(AppRoutes.opportunities),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.event_rounded,
-                              title: 'Événements',
-                              iconColor: const Color(0xFFE63946),
-                              badgeCount: counts.events,
-                              onTap: () => context.push(AppRoutes.events),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.groups_rounded,
-                              title: 'Réseau Pro',
-                              iconColor: const Color(0xFF0077B6),
-                              onTap: () => context.push(AppRoutes.network),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.local_hospital_rounded,
-                              title: 'THIX Santé',
-                              iconColor: const Color(0xFFE63946),
-                              onTap: () => context.push(AppRoutes.thixSante),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.account_balance_wallet_rounded,
-                              title: 'Thix Money',
-                              iconColor: const Color(0xFF00A86B),
-                              onTap: () => context.push(AppRoutes.thixMoney),
-                            ),
-                            _ServiceCard(
-                              icon: Icons.account_balance_rounded,
-                              title: 'Services Gov',
-                              iconColor: const Color(0xFF0057D9),
-                              onTap: () {},
-                            ),
-                            _ServiceCard(
-                              icon: Icons.confirmation_number_rounded,
-                              title: 'Réservation',
-                              iconColor: const Color(0xFF9C27B0),
-                              onTap: () => context.push(AppRoutes.reservation),
-                            ),
-                          ],
+                        return _ServicesGrid(
+                          counts: counts,
+                          onServiceTap: (serviceKey) {
+                            // Gestion des onTap pour chaque service
+                            switch (serviceKey) {
+                              case 'thixMedia':
+                                context.push(AppRoutes.thixMedia);
+                                break;
+                              case 'thixMarket':
+                                context.push(AppRoutes.thixMarket);
+                                break;
+                              case 'formations':
+                                context.push(AppRoutes.trainingHome);
+                                break;
+                              case 'emplois':
+                                context.push(AppRoutes.jobs);
+                                break;
+                              case 'thixInfo':
+                                AlertInfoSheet.show(context);
+                                break;
+                              case 'opportunites':
+                                context.push(AppRoutes.opportunities);
+                                break;
+                              case 'evenements':
+                                context.push(AppRoutes.events);
+                                break;
+                              case 'reseauPro':
+                                context.push(AppRoutes.network);
+                                break;
+                              case 'thixSante':
+                                context.push(AppRoutes.thixSante);
+                                break;
+                              case 'thixMoney':
+                                context.push(AppRoutes.thixMoney);
+                                break;
+                              case 'servicesGov':
+                                // TODO: à implémenter
+                                break;
+                              case 'reservation':
+                                context.push(AppRoutes.reservation);
+                                break;
+                              default:
+                                break;
+                            }
+                          },
                         );
                       },
                     ),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.l)),
 
-                // Bannière mission
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverToBoxAdapter(
-                    child: _MissionBanner(),
+                // Bannière promotionnelle
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    child: _PromoBanner(),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 20)),
               ],
             ),
           ),
@@ -427,7 +393,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 color: Colors.black.withOpacity(0.4),
                 child: const Center(
                   child: CircularProgressIndicator(
-                    color: Color(0xFFE5592F),
+                    color: AppColors.primaryBlue,
                   ),
                 ),
               ),
@@ -442,10 +408,10 @@ class _HomePagePremiumState extends State<HomePagePremium>
 }
 
 // ============================================================================
-// COMPOSANTS RÉVISÉS
+// COMPOSANTS (STYLE MIXX)
 // ============================================================================
 
-// --- HEADER (style Market) ---
+// ---- HEADER ----
 class _PremiumHeader extends StatelessWidget {
   final double safeTop;
   final VoidCallback onProfileTap;
@@ -459,93 +425,127 @@ class _PremiumHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, safeTop + 12, 20, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + AppSpacing.s, AppSpacing.xl, 0),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.darkNavy, AppColors.darkNavy],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(0),
+          bottomRight: Radius.circular(0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'THIX',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A1A2E),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                'ID',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFE5592F),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5592F).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'SÉCURISÉ',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFE5592F),
-                    letterSpacing: 0.5,
+              // Hamburger + Titre
+              Row(
+                children: [
+                  const Icon(
+                    Icons.menu_rounded,
+                    color: Colors.white,
+                    size: 24,
                   ),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: onAccountRequest,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFE5592F), Color(0xFFD94A1E)],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Créer',
+                  const SizedBox(width: AppSpacing.m),
+                  const Text(
+                    'THIX ID',
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 12),
-              GestureDetector(
-                onTap: onProfileTap,
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.white,
-                  child: const Icon(
-                    Icons.person_outline_rounded,
-                    color: Color(0xFF1A1A2E),
-                    size: 22,
+              // Notifications + Avatar
+              Row(
+                children: [
+                  Stack(
+                    children: [
+                      const Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: const BoxDecoration(
+                            color: AppColors.dangerRed,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              '3',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(width: AppSpacing.l),
+                  GestureDetector(
+                    onTap: onProfileTap,
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        image: const DecorationImage(
+                          image: NetworkImage('https://i.pravatar.cc/150?img=11'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.m),
+          const Text(
+            'Bonjour Nathan 👋',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 36,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s),
+          const Text(
+            'Votre identité numérique, votre pouvoir.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );
   }
 }
 
-// --- BARRE DE RECHERCHE (style Market) ---
+// ---- BARRE DE RECHERCHE ----
 class _SearchBarOverlay extends StatefulWidget {
   final TextEditingController controller;
   final bool isSearching;
@@ -565,23 +565,17 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.searchBar),
+        boxShadow: AppShadows.secondary,
       ),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 20, color: Colors.grey),
-          const SizedBox(width: 10),
+          const Icon(Icons.search_rounded, size: 22, color: AppColors.textSecondary),
+          const SizedBox(width: AppSpacing.s),
           Expanded(
             child: TextField(
               controller: widget.controller,
@@ -589,10 +583,10 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Rechercher un THIX ID...',
-                hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
               style: const TextStyle(
-                color: Color(0xFF1A1A2E),
+                color: AppColors.darkText,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -601,22 +595,206 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
           GestureDetector(
             onTap: widget.isSearching ? null : widget.onVerify,
             child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFE5592F), Color(0xFFD94A1E)],
+                  colors: [AppColors.primaryBlue, AppColors.darkNavy],
+                ),
+                borderRadius: BorderRadius.circular(AppRadius.button),
+              ),
+              child: const Text(
+                'Vérifier',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
               ),
-              child: const Center(
-                child: Text(
-                  'Vérifier',
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s),
+          const Icon(Icons.tune_rounded, size: 22, color: AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- CARTE STATUT PREMIUM ----
+class _PremiumStatusCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 84,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.darkNavy, AppColors.primaryBlue],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        boxShadow: AppShadows.main,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l),
+      child: Row(
+        children: [
+          const Icon(Icons.stars_rounded, color: AppColors.goldBadge, size: 28),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'Membre Premium',
                   style: TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'Score de confiance : 98%',
+                  style: TextStyle(
+                    color: Colors.white70,
                     fontSize: 12,
                   ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue,
+              borderRadius: BorderRadius.circular(AppRadius.button),
+            ),
+            child: const Text(
+              'Voir',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- CARTE THIX PASS ----
+class _ThixPassCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 210,
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        boxShadow: AppShadows.secondary,
+        border: Border.all(color: AppColors.cardBorder, width: 0.5),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Row(
+        children: [
+          // Partie gauche : info
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'THIX PASS',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.darkText,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.successGreen.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(AppRadius.button),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.verified_rounded, color: AppColors.successGreen, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            'Vérifié',
+                            style: TextStyle(
+                              color: AppColors.successGreen,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.s),
+                const Text(
+                  'ID: THIX-1234-5678',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const Text(
+                  'Exp: 31/12/2026',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.m),
+                OutlinedButton(
+                  onPressed: () {},
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.primaryBlue),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.button),
+                    ),
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                  child: const Text(
+                    'Voir le pass',
+                    style: TextStyle(
+                      color: AppColors.primaryBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.l),
+          // QR Code
+          Expanded(
+            flex: 1,
+            child: Container(
+              height: 120,
+              width: 120,
+              padding: const EdgeInsets.all(AppSpacing.s),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(AppRadius.qrContainer),
+                border: Border.all(color: AppColors.cardBorder, width: 0.5),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 100,
+                  color: AppColors.darkText.withOpacity(0.3),
                 ),
               ),
             ),
@@ -627,182 +805,87 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   }
 }
 
-// --- CARTE ACTION RAPIDE (style Market) ---
-class _QuickActionCard extends StatefulWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final VoidCallback onTap;
+// ---- ACTIONS RAPIDES (4 boutons) ----
+class _QuickActionsRow extends StatelessWidget {
+  final VoidCallback onScanTap;
+  final VoidCallback onNfcTap;
+  final VoidCallback onDocumentsTap;
+  final VoidCallback onSecurityTap;
 
-  const _QuickActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-    required this.onTap,
+  const _QuickActionsRow({
+    required this.onScanTap,
+    required this.onNfcTap,
+    required this.onDocumentsTap,
+    required this.onSecurityTap,
   });
 
   @override
-  State<_QuickActionCard> createState() => _QuickActionCardState();
-}
-
-class _QuickActionCardState extends State<_QuickActionCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: widget.iconColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(widget.icon, color: widget.iconColor, size: 22),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A2E),
-                      ),
-                    ),
-                    Text(
-                      widget.subtitle,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _QuickActionItem(
+          icon: Icons.qr_code_scanner_rounded,
+          label: 'Scanner QR',
+          onTap: onScanTap,
         ),
-      ),
+        _QuickActionItem(
+          icon: Icons.nfc_rounded,
+          label: 'NFC',
+          onTap: onNfcTap,
+        ),
+        _QuickActionItem(
+          icon: Icons.folder_rounded,
+          label: 'Documents',
+          onTap: onDocumentsTap,
+        ),
+        _QuickActionItem(
+          icon: Icons.shield_rounded,
+          label: 'Sécurité',
+          onTap: onSecurityTap,
+        ),
+      ],
     );
   }
 }
 
-// --- CARTE APERÇU NOTIFICATIONS (style Market) ---
-class _NotificationPreviewCard extends StatelessWidget {
+class _QuickActionItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
-  const _NotificationPreviewCard({required this.onTap});
+  const _QuickActionItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        width: 72,
+        height: 72,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.serviceCard),
+          boxShadow: AppShadows.secondary,
+          border: Border.all(color: AppColors.cardBorder, width: 0.5),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE5592F).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+            Icon(icon, size: 28, color: AppColors.primaryBlue),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.darkText,
               ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                color: Color(0xFFE5592F),
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Notifications',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1A2E),
-                    ),
-                  ),
-                  Text(
-                    'Nouvelles mises à jour disponibles',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: Colors.grey,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -811,18 +894,69 @@ class _NotificationPreviewCard extends StatelessWidget {
   }
 }
 
-// --- CARTE SERVICE (style Market) ---
+// ---- GRILLE DE SERVICES (4x3) ----
+class _ServicesGrid extends StatelessWidget {
+  final SectionBadgeCounts counts;
+  final Function(String) onServiceTap;
+
+  const _ServicesGrid({
+    required this.counts,
+    required this.onServiceTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final services = [
+      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.primaryBlue},
+      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.primaryBlue},
+      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.primaryBlue, 'badge': counts.formations},
+      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.successGreen, 'badge': counts.jobs},
+      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.primaryBlue, 'badge': counts.info},
+      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.goldBadge},
+      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.dangerRed, 'badge': counts.events},
+      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.primaryBlue},
+      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.dangerRed},
+      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.successGreen},
+      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.primaryBlue},
+      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.primaryBlue},
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.9,
+      ),
+      itemCount: services.length,
+      itemBuilder: (ctx, index) {
+        final service = services[index];
+        final badge = service['badge'] as int?;
+        return _ServiceCard(
+          icon: service['icon'] as IconData,
+          title: service['title'] as String,
+          color: service['color'] as Color,
+          badgeCount: badge,
+          onTap: () => onServiceTap(service['key'] as String),
+        );
+      },
+    );
+  }
+}
+
 class _ServiceCard extends StatefulWidget {
   final IconData icon;
   final String title;
-  final Color iconColor;
+  final Color color;
   final int? badgeCount;
   final VoidCallback onTap;
 
   const _ServiceCard({
     required this.icon,
     required this.title,
-    required this.iconColor,
+    required this.color,
     this.badgeCount,
     required this.onTap,
   });
@@ -831,8 +965,7 @@ class _ServiceCard extends StatefulWidget {
   State<_ServiceCard> createState() => _ServiceCardState();
 }
 
-class _ServiceCardState extends State<_ServiceCard>
-    with SingleTickerProviderStateMixin {
+class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -867,18 +1000,12 @@ class _ServiceCardState extends State<_ServiceCard>
         scale: _scaleAnimation,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(AppRadius.serviceCard),
+            boxShadow: AppShadows.secondary,
+            border: Border.all(color: AppColors.cardBorder, width: 0.5),
           ),
           child: Stack(
-            clipBehavior: Clip.none,
             children: [
               Center(
                 child: Column(
@@ -888,23 +1015,23 @@ class _ServiceCardState extends State<_ServiceCard>
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: widget.iconColor.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(14),
+                        color: widget.color.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         widget.icon,
-                        color: widget.iconColor,
+                        color: widget.color,
                         size: 26,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.s),
                     Text(
                       widget.title,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A2E),
+                        color: AppColors.darkText,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -919,14 +1046,14 @@ class _ServiceCardState extends State<_ServiceCard>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE5592F),
+                      color: AppColors.dangerRed,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${widget.badgeCount}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -940,28 +1067,22 @@ class _ServiceCardState extends State<_ServiceCard>
   }
 }
 
-// --- BANNIÈRE MISSION (style Market) ---
-class _MissionBanner extends StatelessWidget {
+// ---- BANNIÈRE PROMO ----
+class _PromoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 90,
-      padding: const EdgeInsets.all(16),
+      height: 150,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+          colors: [AppColors.darkNavy, AppColors.primaryBlue],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        boxShadow: AppShadows.main,
       ),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Row(
         children: [
           Expanded(
@@ -969,48 +1090,56 @@ class _MissionBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5592F).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'NOTRE MISSION',
-                    style: TextStyle(
-                      color: Color(0xFFE5592F),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
                 const Text(
-                  'Construisons l\'avenir de la jeunesse.',
+                  'Équipez-vous',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Accédez à des opportunités et un réseau engagé.',
+                const SizedBox(height: AppSpacing.s),
+                const Text(
+                  'Rejoignez le programme THIX ELITE',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.75),
-                    fontSize: 12,
+                    color: Colors.white70,
+                    fontSize: 14,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.m),
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(AppRadius.button),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'En savoir plus',
+                      style: TextStyle(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.shield_outlined,
-            size: 48,
-            color: Color(0xFFE5592F),
+          const SizedBox(width: AppSpacing.l),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.phone_iphone_rounded,
+              size: 48,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -1018,7 +1147,7 @@ class _MissionBanner extends StatelessWidget {
   }
 }
 
-// --- NAVIGATION BASSE FLOTTANTE (style Market) ---
+// ---- BOTTOM NAVIGATION (FLOATING IN CURVED) ----
 class _FloatingBottomNav extends StatelessWidget {
   final VoidCallback onScanTap;
 
@@ -1027,45 +1156,32 @@ class _FloatingBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, -4),
-          ),
-        ],
+      height: 82,
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.bottomNav),
+        boxShadow: AppShadows.main,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _NavItem(
-            icon: Icons.home_filled,
-            label: 'Accueil',
-            active: true,
-            onTap: () {},
-          ),
-          _NavItem(
-            icon: Icons.grid_view_rounded,
-            label: 'Services',
-            onTap: () {},
-          ),
+          _NavItem(icon: Icons.home_filled, label: 'Accueil', active: true, onTap: () {}),
+          _NavItem(icon: Icons.grid_view_rounded, label: 'Services', onTap: () {}),
+          // Bouton central
           GestureDetector(
             onTap: onScanTap,
             child: Container(
-              width: 56,
-              height: 56,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFE5592F), Color(0xFFD94A1E)],
+                  colors: [AppColors.primaryBlue, AppColors.darkNavy],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFE5592F).withOpacity(0.4),
+                    color: AppColors.primaryBlue.withOpacity(0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -1078,16 +1194,8 @@ class _FloatingBottomNav extends StatelessWidget {
               ),
             ),
           ),
-          _NavItem(
-            icon: Icons.chat_bubble_outline_rounded,
-            label: 'Messages',
-            onTap: () {},
-          ),
-          _NavItem(
-            icon: Icons.person_outline_rounded,
-            label: 'Profil',
-            onTap: () {},
-          ),
+          _NavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Messages', onTap: () {}),
+          _NavItem(icon: Icons.person_outline_rounded, label: 'Profil', onTap: () {}),
         ],
       ),
     );
@@ -1116,16 +1224,16 @@ class _NavItem extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: active ? const Color(0xFFE5592F) : Colors.grey,
-            size: 24,
+            color: active ? AppColors.primaryBlue : AppColors.textSecondary,
+            size: 22,
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
-              fontWeight: active ? FontWeight.bold : FontWeight.w500,
-              color: active ? const Color(0xFFE5592F) : Colors.grey,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: active ? AppColors.primaryBlue : AppColors.textSecondary,
             ),
           ),
         ],
@@ -1147,14 +1255,14 @@ class AccountRequestSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1162,20 +1270,20 @@ class AccountRequestSheet extends StatelessWidget {
               width: 35,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: AppColors.cardBorder,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             const Text(
               'Créer un compte',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1A1A2E),
+                color: AppColors.darkText,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
             _OptionButton(
               icon: Icons.person_outline,
               title: 'Compte Personnel',
@@ -1184,7 +1292,7 @@ class AccountRequestSheet extends StatelessWidget {
                 Navigator.pop(context, _AccountRequestChoice.personal);
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.m),
             _OptionButton(
               icon: Icons.business_outlined,
               title: 'Compte Entreprise',
@@ -1193,7 +1301,7 @@ class AccountRequestSheet extends StatelessWidget {
                 Navigator.pop(context, _AccountRequestChoice.enterprise);
               },
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.m),
           ],
         ),
       ),
@@ -1219,11 +1327,11 @@ class _OptionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.m),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: AppColors.cardBorder),
           borderRadius: BorderRadius.circular(14),
-          color: Colors.grey.shade50,
+          color: AppColors.lightGrayBg,
         ),
         child: Row(
           children: [
@@ -1231,12 +1339,12 @@ class _OptionButton extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A2E).withOpacity(0.06),
+                color: AppColors.darkText.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: const Color(0xFF1A1A2E), size: 20),
+              child: Icon(icon, color: AppColors.darkText, size: 20),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpacing.m),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1246,14 +1354,14 @@ class _OptionButton extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A1A2E),
+                      color: AppColors.darkText,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.grey,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -1262,7 +1370,7 @@ class _OptionButton extends StatelessWidget {
             const Icon(
               Icons.arrow_forward_ios_rounded,
               size: 12,
-              color: Colors.grey,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
