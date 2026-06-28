@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'network_view_model.dart';
-import 'tabs/home_tab.dart';
-import 'tabs/projects_tab.dart';
-import 'tabs/team_tab.dart';
-import 'tabs/messages_tab.dart';
-import 'tabs/settings_tab.dart';
+import 'widgets/app_bar_widgets.dart';
+import 'widgets/bottom_nav.dart';
+import 'widgets/feed_widgets.dart';
+import 'tabs/discover_tab.dart';
+import 'tabs/connections_tab.dart';
+import 'tabs/profile_tab.dart';
 
 class NetworkPage extends StatefulWidget {
   const NetworkPage({super.key});
@@ -16,7 +17,7 @@ class NetworkPage extends StatefulWidget {
 }
 
 class _NetworkPageState extends State<NetworkPage> {
-  int _selectedTab = 0;
+  int _selectedIndex = 0; // 0: Accueil, 1: Découvrir, 2: Connexions, 3: Profil
   final PageController _pageController = PageController();
 
   @override
@@ -34,11 +35,16 @@ class _NetworkPageState extends State<NetworkPage> {
       )..loadInitialData(),
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
+        appBar: const NetworkAppBar(),
         body: SafeArea(
           child: Consumer<NetworkViewModel>(
             builder: (context, vm, _) {
               if (vm.isLoading) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A73E8)),
+                  ),
+                );
               }
               if (vm.error != null) {
                 return Center(
@@ -47,10 +53,14 @@ class _NetworkPageState extends State<NetworkPage> {
                     children: [
                       const Icon(Icons.error_outline, size: 48, color: Colors.red),
                       const SizedBox(height: 12),
-                      Text('Erreur: ${vm.error}', textAlign: TextAlign.center),
+                      Text('Erreur : ${vm.error}', textAlign: TextAlign.center),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: vm.loadInitialData,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1A73E8),
+                          foregroundColor: Colors.white,
+                        ),
                         child: const Text('Réessayer'),
                       ),
                     ],
@@ -60,87 +70,46 @@ class _NetworkPageState extends State<NetworkPage> {
               return PageView(
                 controller: _pageController,
                 onPageChanged: (index) {
-                  setState(() => _selectedTab = index);
+                  setState(() => _selectedIndex = index);
                 },
                 children: [
-                  HomeTab(
-                    posts: vm.posts,
+                  // Onglet Accueil (feed principal)
+                  FeedWidgets(
                     stories: vm.stories,
                     metrics: vm.metrics,
                     chartData: vm.chartData,
+                    posts: vm.posts,
+                    shorts: vm.shorts,
+                    opportunities: vm.opportunities,
                     onLike: vm.toggleLike,
                     onComment: (postId) => _openCommentModal(context, postId, vm),
                     onShare: vm.sharePost,
                     onSave: vm.toggleSave,
+                    onCreatePost: () => _openCreatePost(context),
                   ),
-                  const ProjectsTab(),
-                  const TeamTab(),
-                  const MessagesTab(),
-                  const SettingsTab(),
+                  // Onglet Découvrir
+                  const DiscoverTab(),
+                  // Onglet Connexions
+                  const ConnectionsTab(),
+                  // Onglet Profil
+                  const ProfileTab(),
                 ],
               );
             },
           ),
         ),
-        bottomNavigationBar: _buildBottomNav(),
+        bottomNavigationBar: BottomNav(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            setState(() => _selectedIndex = index);
+            _pageController.jumpToPage(index);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedTab,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF1A73E8),
-        unselectedItemColor: Colors.grey.shade600,
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
-        onTap: (index) {
-          setState(() => _selectedTab = index);
-          _pageController.jumpToPage(index);
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined, size: 24),
-            activeIcon: Icon(Icons.home, size: 24),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.folder_outlined, size: 24),
-            activeIcon: Icon(Icons.folder, size: 24),
-            label: 'Projets',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline, size: 24),
-            activeIcon: Icon(Icons.people, size: 24),
-            label: 'Équipe',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_outlined, size: 24),
-            activeIcon: Icon(Icons.chat, size: 24),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined, size: 24),
-            activeIcon: Icon(Icons.settings, size: 24),
-            label: 'Paramètres',
-          ),
-        ],
-      ),
-    );
-  }
-
+  // Ouvre la modale des commentaires
   void _openCommentModal(BuildContext context, String postId, NetworkViewModel vm) {
     showModalBottomSheet(
       context: context,
@@ -163,7 +132,7 @@ class _NetworkPageState extends State<NetworkPage> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
-                    return Center(child: Text('Erreur: ${snapshot.error}'));
+                    return Center(child: Text('Erreur : ${snapshot.error}'));
                   }
                   final comments = snapshot.data ?? [];
                   if (comments.isEmpty) {
@@ -175,6 +144,7 @@ class _NetworkPageState extends State<NetworkPage> {
                       final c = comments[index];
                       return ListTile(
                         leading: CircleAvatar(
+                          radius: 18,
                           backgroundImage: c['avatar_url'] != null
                               ? NetworkImage(c['avatar_url'])
                               : null,
@@ -182,8 +152,11 @@ class _NetworkPageState extends State<NetworkPage> {
                               ? Text(c['user_name'][0].toUpperCase())
                               : null,
                         ),
-                        title: Text(c['user_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(c['content']),
+                        title: Text(
+                          c['user_name'],
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        subtitle: Text(c['content'], style: const TextStyle(fontSize: 13)),
                         trailing: Text(
                           c['created_at'].toString().substring(0, 16),
                           style: const TextStyle(fontSize: 10, color: Colors.grey),
@@ -202,6 +175,7 @@ class _NetworkPageState extends State<NetworkPage> {
                     controller: TextEditingController(),
                     decoration: InputDecoration(
                       hintText: 'Écrire un commentaire...',
+                      hintStyle: const TextStyle(fontSize: 13),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -213,8 +187,10 @@ class _NetworkPageState extends State<NetworkPage> {
                     onSubmitted: (value) async {
                       if (value.isNotEmpty) {
                         await vm.addComment(postId, value);
-                        // Recharger les commentaires
-                        // (on pourrait rafraîchir le snapshot via un StatefulBuilder)
+                        // Recharger les commentaires (on pourrait rafraîchir le snapshot)
+                        // Pour simplifier, on referme la modale et on rouvre
+                        Navigator.pop(context);
+                        _openCommentModal(context, postId, vm);
                       }
                     },
                   ),
@@ -227,6 +203,24 @@ class _NetworkPageState extends State<NetworkPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openCreatePost(BuildContext context) {
+    // Navigation vers l'écran de création
+    // Pour l'exemple, on affiche une alerte
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Créer une publication'),
+        content: const Text('Cette fonctionnalité sera bientôt disponible.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
