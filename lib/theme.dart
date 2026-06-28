@@ -216,6 +216,21 @@ class InstitutionalColors {
   static const ink = Color(0xFF0F172A);
 }
 
+/// THIX Market palette (light, punchy orange accents).
+///
+/// Kept separate from the premium-gold palette so the Market module can mimic
+/// a modern marketplace look (à la Facebook Marketplace) without affecting the
+/// rest of the app.
+class MarketColors {
+  static const ink = Color(0xFF0F172A);
+  static const bg = Color(0xFFF7F7F8);
+  static const surface = Color(0xFFFFFFFF);
+  static const orange = Color(0xFFFF5A1F);
+  static const orangeDeep = Color(0xFFEA580C);
+  static const grayText = Color(0xFF64748B);
+  static const stroke = Color(0xFFE5E7EB);
+}
+
 class LearningCyberGradients {
   static LinearGradient background() => const LinearGradient(
         begin: Alignment.topCenter,

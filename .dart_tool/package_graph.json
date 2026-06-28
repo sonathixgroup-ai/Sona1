@@ -9,6 +9,7 @@
       "dependencies": [
         "agora_rtc_engine",
         "barcode_widget",
+        "carousel_slider",
         "crypto",
         "cupertino_icons",
         "file_picker",
@@ -20,6 +21,7 @@
         "go_router",
         "google_fonts",
         "http",
+        "iconsax",
         "mobile_scanner",
         "nfc_manager",
         "path_provider",
@@ -411,6 +413,20 @@
         "meta",
         "sky_engine",
         "vector_math"
+      ]
+    },
+    {
+      "name": "carousel_slider",
+      "version": "5.1.2",
+      "dependencies": [
+        "flutter"
+      ]
+    },
+    {
+      "name": "iconsax",
+      "version": "0.0.8",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
