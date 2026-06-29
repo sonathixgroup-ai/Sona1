@@ -40,10 +40,10 @@ import 'presentation/training/learning_dashboard_page.dart';
 import 'presentation/training/lesson_player_page.dart';
 import 'presentation/admin/admin_page.dart';
 import 'presentation/thix_market/thix_market_page.dart';
-import 'presentation/thix_sante/thix_sante_page.dart';
 import 'presentation/thix_reservation/thix_reservation_page.dart';
 import 'presentation/thix_money/thix_money_page.dart';
 import 'presentation/thix_media/thix_media_page.dart';
+import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 import 'presentation/admin/pages/admin_media_page.dart';
 
 class NoTransitionPage<T> extends Page<T> {
@@ -80,6 +80,11 @@ class AppRoutes {
   static const String education = '/education';
   static const String trainingHome = '/training';
   static const String admin = '/admin';
+  static const String thixMarket = '/market';
+  static const String reservation = '/reservation';
+  static const String thixMoney = '/thix-money';
+  static const String thixMedia = '/thix-media';
+  static const String thixInfo = '/info';
 }
 
 class AppRouter {
@@ -204,6 +209,26 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.trainingHome,
           pageBuilder: (context, state) => const NoTransitionPage(child: TrainingHomePage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixMarket,
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixMarketPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.reservation,
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixReservationPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixMoney,
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixMoneyPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixMedia,
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixMediaPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfo,
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixInfoHomePage()),
         ),
         GoRoute(
           path: AppRoutes.admin,
