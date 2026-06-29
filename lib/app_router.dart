@@ -19,7 +19,7 @@ import 'presentation/enterprise/enterprise_dashboard_page.dart';
 import 'presentation/chat/thix_chat_page.dart';
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
-import 'presentation/network/network_page.dart';
+import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'presentation/jobs/jobs_page.dart';
 import 'presentation/jobs/job_apply_page.dart';
 import 'presentation/jobs/job_details_page.dart';
@@ -150,7 +150,7 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.network,
-          pageBuilder: (context, state) => const NoTransitionPage(child: NetworkPage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: NetworkProHome()),
         ),
         GoRoute(
           path: AppRoutes.jobs,

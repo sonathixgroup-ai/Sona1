@@ -21,7 +21,17 @@ import 'presentation/chat/thix_chat_page.dart';
 import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart';
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
-import 'presentation/network/network_page.dart';
+import 'package:thix_id/presentation/network/network_pro_home.dart';
+import 'package:thix_id/presentation/network/search_network_page.dart';
+import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
+import 'package:thix_id/presentation/network/messages/conversations_list.dart';
+import 'package:thix_id/presentation/network/messages/chat_screen.dart';
+import 'package:thix_id/presentation/network/connections_list_page.dart';
+import 'package:thix_id/presentation/network/community_detail_page.dart';
+import 'package:thix_id/presentation/network/post_detail_page.dart';
+import 'package:thix_id/presentation/network/profile_page.dart';
+import 'package:thix_id/presentation/network/profile_settings_page.dart';
+import 'package:thix_id/presentation/network/blocked_users_page.dart';
 import 'presentation/jobs/jobs_page.dart';
 import 'package:thix_id/presentation/jobs/job_apply_page.dart';
 import 'package:thix_id/presentation/jobs/job_details_page.dart';
@@ -90,6 +100,19 @@ class AppRoutes {
   static const String vault = '/vault';
   static const String settings = '/settings';
   static const String network = '/network';
+  // Network module sub-routes
+  static const String networkSearch = '/network/search';
+  static const String networkNotifications = '/network/notifications';
+  static const String networkMessages = '/network/messages';
+  static const String networkConnections = '/network/connections';
+  static const String networkProfileSettings = '/network/profile-settings';
+  static const String networkBlockedUsers = '/network/blocked';
+  static const String networkChatBasePath = '/network/chat';
+  static const String networkPostBasePath = '/network/post';
+  static const String networkCommunityBasePath = '/network/community';
+  static const String networkProfileBasePath = '/network/profile';
+
+  static const String profile = '/profile';
   static const String jobs = '/jobs';
   static const String jobDashboard = '/jobs/dashboard';
   static const String recruiter = '/recruiter';
@@ -113,6 +136,11 @@ class AppRoutes {
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
+
+  static String networkChat(String userId) => '$networkChatBasePath/$userId';
+  static String networkPost(String postId) => '$networkPostBasePath/$postId';
+  static String networkCommunity(String communityId) => '$networkCommunityBasePath/$communityId';
+  static String networkProfile(String userId) => '$networkProfileBasePath/$userId';
 }
 
 class AppRouter {
@@ -322,7 +350,88 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.network,
           name: 'network',
-          pageBuilder: (context, state) => const NoTransitionPage(child: NetworkPage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: NetworkProHome()),
+        ),
+
+        // Network module sub-routes (Réseau Pro)
+        GoRoute(
+          path: AppRoutes.networkSearch,
+          name: 'networkSearch',
+          pageBuilder: (context, state) => const NoTransitionPage(child: SearchNetworkPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkNotifications,
+          name: 'networkNotifications',
+          pageBuilder: (context, state) => const NoTransitionPage(child: NotificationsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkMessages,
+          name: 'networkMessages',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ConversationsList()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkChatBasePath}/:userId',
+          name: 'networkChat',
+          pageBuilder: (context, state) {
+            final userId = (state.pathParameters['userId'] ?? '').trim();
+            final extra = state.extra;
+            String userName = 'Discussion';
+            String? userAvatar;
+            if (extra is String && extra.trim().isNotEmpty) {
+              userName = extra.trim();
+            } else if (extra is Map) {
+              final m = extra.cast<String, dynamic>();
+              final n = (m['userName'] as String?)?.trim();
+              if (n != null && n.isNotEmpty) userName = n;
+              final a = (m['userAvatar'] as String?)?.trim();
+              if (a != null && a.isNotEmpty) userAvatar = a;
+            }
+            return NoTransitionPage(child: ChatScreen(userId: userId, userName: userName, userAvatar: userAvatar));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.networkConnections,
+          name: 'networkConnections',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsListPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkProfileSettings,
+          name: 'networkProfileSettings',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ProfileSettingsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkBlockedUsers,
+          name: 'networkBlockedUsers',
+          pageBuilder: (context, state) => const NoTransitionPage(child: BlockedUsersPage()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkPostBasePath}/:postId',
+          name: 'networkPostDetail',
+          pageBuilder: (context, state) {
+            final postId = (state.pathParameters['postId'] ?? '').trim();
+            return NoTransitionPage(child: PostDetailPage(postId: postId));
+          },
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkCommunityBasePath}/:communityId',
+          name: 'networkCommunityDetail',
+          pageBuilder: (context, state) {
+            final communityId = (state.pathParameters['communityId'] ?? '').trim();
+            return NoTransitionPage(child: CommunityDetailPage(communityId: communityId));
+          },
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkProfileBasePath}/:userId',
+          name: 'networkProfile',
+          pageBuilder: (context, state) {
+            final userId = (state.pathParameters['userId'] ?? '').trim();
+            return NoTransitionPage(child: ProfilePage(userId: userId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.profile,
+          name: 'profile',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ProfilePage()),
         ),
         // THIX MARKET
         GoRoute(
