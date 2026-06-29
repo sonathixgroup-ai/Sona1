@@ -56,10 +56,8 @@ import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
-// Import des pages THIX Santé
-import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
-// Import de l'énumération ThixRole (si elle n'est pas exportée par thix_sante_page.dart)
-import 'package:thix_id/presentation/thix_sante/thix_role.dart'; // Ajustez le chemin selon votre projet
+// Import du module Santé (unique point d'entrée)
+import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart'; // contient ThixSantePage, ThixSanteRolePage et importe thix_role.dart
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
@@ -121,7 +119,7 @@ class AppRoutes {
   static const String lessonPlayer = '/learn/player';
   static const String admin = '/admin';
   static const String thixMarket = '/market';
-  // Routes THIX Santé
+  // Routes THIX Santé (réintégrées)
   static const String thixSante = '/sante';
   static const String thixSantePatient = '/sante/patient';
   static const String thixSanteDoctor = '/sante/medecin';
@@ -260,7 +258,7 @@ class AppRouter {
         }),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (context, state) => const NoTransitionPage(child: ProfilePage())),
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (context, state) => const NoTransitionPage(child: ThixMarketPage())),
-        // Routes THIX Santé réintégrées avec les trois rôles (sans const pour éviter l'erreur)
+        // Routes THIX Santé – sans const pour éviter l'erreur "Invalid constant value"
         GoRoute(
           path: AppRoutes.thixSante,
           name: 'thixSante',
