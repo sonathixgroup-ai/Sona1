@@ -352,12 +352,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 context.push(AppRoutes.network);
                                 break;
                               case 'thixSante':
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Thix Santé : bientôt disponible.'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
+                                context.push(AppRoutes.thixSante);
                                 break;
                               case 'thixMoney':
                                 context.push(AppRoutes.thixMoney);
