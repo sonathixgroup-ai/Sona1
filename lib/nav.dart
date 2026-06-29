@@ -56,8 +56,10 @@ import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
-// Route THIX Santé réintégrée
+// Import des pages THIX Santé
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
+// Import de l'énumération ThixRole (si elle n'est pas exportée par thix_sante_page.dart)
+import 'package:thix_id/presentation/thix_sante/thix_role.dart'; // Ajustez le chemin selon votre projet
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
@@ -119,7 +121,7 @@ class AppRoutes {
   static const String lessonPlayer = '/learn/player';
   static const String admin = '/admin';
   static const String thixMarket = '/market';
-  // Routes THIX Santé réintégrées
+  // Routes THIX Santé
   static const String thixSante = '/sante';
   static const String thixSantePatient = '/sante/patient';
   static const String thixSanteDoctor = '/sante/medecin';
@@ -258,7 +260,7 @@ class AppRouter {
         }),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (context, state) => const NoTransitionPage(child: ProfilePage())),
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (context, state) => const NoTransitionPage(child: ThixMarketPage())),
-        // Routes THIX Santé réintégrées avec les trois rôles
+        // Routes THIX Santé réintégrées avec les trois rôles (sans const pour éviter l'erreur)
         GoRoute(
           path: AppRoutes.thixSante,
           name: 'thixSante',
@@ -268,27 +270,21 @@ class AppRouter {
           path: AppRoutes.thixSantePatient,
           name: 'thixSantePatient',
           pageBuilder: (context, state) => NoTransitionPage(
-            child: ThixSanteRolePage(
-              role: ThixRole.patient,
-            ),
+            child: ThixSanteRolePage(role: ThixRole.patient),
           ),
         ),
         GoRoute(
           path: AppRoutes.thixSanteDoctor,
           name: 'thixSanteDoctor',
           pageBuilder: (context, state) => NoTransitionPage(
-            child: ThixSanteRolePage(
-              role: ThixRole.doctor,
-            ),
+            child: ThixSanteRolePage(role: ThixRole.doctor),
           ),
         ),
         GoRoute(
           path: AppRoutes.thixSantePharmacy,
           name: 'thixSantePharmacy',
           pageBuilder: (context, state) => NoTransitionPage(
-            child: ThixSanteRolePage(
-              role: ThixRole.pharmacy,
-            ),
+            child: ThixSanteRolePage(role: ThixRole.pharmacy),
           ),
         ),
         GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (context, state) => const NoTransitionPage(child: ThixMoneyPage())),
