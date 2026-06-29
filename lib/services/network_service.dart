@@ -3,13 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import '../models/network_post.dart';
 import '../models/network_connection.dart';
 import '../models/network_community.dart';
 import '../models/network_message.dart';
 import '../models/network_notification.dart';
 import '../models/network_story.dart';
-import 'dart:io';
 
 // ============================================================
 // CLASSE POSTSCORE
@@ -770,15 +770,11 @@ class NetworkService {
   // SECTION 10: UPLOAD IMAGES & VIDEOS
   // ============================================================
 
-  Future<String?> uploadImage(String filePath, {String bucket = 'post_images'}) async {
+  Future<String?> uploadImageBytes(Uint8List bytes, {required String extension, String bucket = 'post_images'}) async {
     try {
       final currentUserId = this.currentUserId;
       if (currentUserId.isEmpty) return null;
-      
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      
-      final extension = filePath.split('.').last;
+
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
       final storagePath = '$currentUserId/$fileName';
       
@@ -793,13 +789,16 @@ class NetworkService {
     }
   }
 
+  @Deprecated('Use uploadImageBytes + PlatformFile.bytes instead (Web-safe).')
+  Future<String?> uploadImage(String filePath, {String bucket = 'post_images'}) async {
+    debugPrint('NetworkService.uploadImage(filePath) is not Web-safe. Use uploadImageBytes instead.');
+    return null;
+  }
+
+  @Deprecated('Use uploadImageBytes + PlatformFile.bytes instead (Web-safe).')
   Future<List<String>> uploadMultipleImages(List<String> filePaths, {String bucket = 'post_images'}) async {
-    final List<String> uploadedUrls = [];
-    for (final path in filePaths) {
-      final url = await uploadImage(path, bucket: bucket);
-      if (url != null) uploadedUrls.add(url);
-    }
-    return uploadedUrls;
+    debugPrint('NetworkService.uploadMultipleImages(filePaths) is not Web-safe.');
+    return [];
   }
 
   Future<String?> uploadAvatar(String filePath) async {
@@ -825,9 +824,9 @@ class NetworkService {
     }
   }
 
+  @Deprecated('Use uploadImageBytes + createPost(content, urls) instead (Web-safe).')
   Future<void> createPostWithImages(String content, List<String> imagePaths) async {
-    final imageUrls = await uploadMultipleImages(imagePaths);
-    await createPost(content, imageUrls);
+    debugPrint('NetworkService.createPostWithImages is not Web-safe.');
   }
 
   // ============================================================

@@ -1,5 +1,3 @@
-// lib/services/media_service.dart
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -30,15 +28,15 @@ class MediaService {
     return data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList(growable: false);
   }
 
-  Future<MediaContent> insertWithFiles(MediaContent item, {File? coverFile, File? videoFile}) async {
+  Future<MediaContent> insertWithFiles(MediaContent item, {PlatformFile? coverFile, PlatformFile? videoFile}) async {
     final inserted = await supabase.from('media_content').insert(item.toJson()).select().single() as Map<String, dynamic>;
     var updated = MediaContent.fromJson(inserted);
     if (coverFile != null) {
-      final up = await _uploadIoFile(file: coverFile, path: 'media/${updated.id}', filename: coverFile.path.split('/').last);
+      final up = await uploadFile(file: coverFile, path: 'media/${updated.id}');
       updated = updated.copyWith(coverUrl: up['url'] ?? updated.coverUrl);
     }
     if (videoFile != null) {
-      final up = await _uploadIoFile(file: videoFile, path: 'media/${updated.id}', filename: videoFile.path.split('/').last);
+      final up = await uploadFile(file: videoFile, path: 'media/${updated.id}');
       updated = updated.copyWith(videoUrl: up['url'] ?? updated.videoUrl);
     }
     if (updated.id.isNotEmpty) {
@@ -47,14 +45,14 @@ class MediaService {
     return updated;
   }
 
-  Future<MediaContent> updateWithFiles(MediaContent existing, {File? newCoverFile, File? newVideoFile}) async {
+  Future<MediaContent> updateWithFiles(MediaContent existing, {PlatformFile? newCoverFile, PlatformFile? newVideoFile}) async {
     var updated = existing.copyWith(updatedAt: DateTime.now());
     if (newCoverFile != null) {
-      final up = await _uploadIoFile(file: newCoverFile, path: 'media/${existing.id}', filename: newCoverFile.path.split('/').last);
+      final up = await uploadFile(file: newCoverFile, path: 'media/${existing.id}');
       updated = updated.copyWith(coverUrl: up['url']);
     }
     if (newVideoFile != null) {
-      final up = await _uploadIoFile(file: newVideoFile, path: 'media/${existing.id}', filename: newVideoFile.path.split('/').last);
+      final up = await uploadFile(file: newVideoFile, path: 'media/${existing.id}');
       updated = updated.copyWith(videoUrl: up['url']);
     }
     await supabase.from('media_content').update(updated.toJson()).eq('id', existing.id);
@@ -71,15 +69,11 @@ class MediaService {
     final filename = file.name;
     final key = '$path/${DateTime.now().millisecondsSinceEpoch}_$filename';
 
-    if (kIsWeb) {
-      final bytes = file.bytes;
-      if (bytes == null) throw Exception('Web file bytes are null');
-      await supabase.storage.from(bucket).uploadBinary(key, bytes, fileOptions: FileOptions(cacheControl: '3600'));
-    } else {
-      if (file.path == null) throw Exception('File path is null');
-      final f = File(file.path!);
-      await supabase.storage.from(bucket).upload(key, f);
+    final bytes = file.bytes;
+    if (bytes == null) {
+      throw Exception('File bytes are null. Ensure FilePicker.withData=true');
     }
+    await supabase.storage.from(bucket).uploadBinary(key, bytes, fileOptions: FileOptions(cacheControl: '3600'));
 
     final url = supabase.storage.from(bucket).getPublicUrl(key);
     return {'key': key, 'url': url};
@@ -92,10 +86,4 @@ class MediaService {
     return {'key': key, 'url': url};
   }
 
-  Future<Map<String, String>> _uploadIoFile({required File file, required String path, required String filename}) async {
-    final key = '$path/${DateTime.now().millisecondsSinceEpoch}_$filename';
-    await supabase.storage.from(bucket).upload(key, file);
-    final url = supabase.storage.from(bucket).getPublicUrl(key);
-    return {'key': key, 'url': url};
-  }
 }

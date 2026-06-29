@@ -1,10 +1,9 @@
 // lib/presentation/network/widgets/create_post_dialog.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
-import '../../../services/network_service.dart';
-import '../../../providers/feed_provider.dart';
+import 'package:thix_id/providers/feed_provider.dart';
+import 'package:thix_id/services/network_service.dart';
 
 class CreatePostDialog extends StatefulWidget {
   final String? communityId;
@@ -18,8 +17,8 @@ class CreatePostDialog extends StatefulWidget {
 
 class _CreatePostDialogState extends State<CreatePostDialog> {
   final TextEditingController _contentController = TextEditingController();
-  final List<File> _selectedImages = [];
-  final List<File> _selectedVideos = [];
+  final List<PlatformFile> _selectedImages = [];
+  final List<PlatformFile> _selectedVideos = [];
   final List<String> _uploadingFiles = [];
   bool _isUploading = false;
   String? _errorMessage;
@@ -98,15 +97,12 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: true,
+        withData: true,
       );
       
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
-          for (final file in result.files) {
-            if (file.path != null) {
-              _selectedImages.add(File(file.path!));
-            }
-          }
+          _selectedImages.addAll(result.files.where((f) => f.bytes != null));
           _selectedPostType = _selectedImages.isNotEmpty ? 1 : 0;
         });
       }
@@ -124,11 +120,13 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
       
-      if (result != null && result.files.isNotEmpty && result.files.first.path != null && mounted) {
+      if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
-          _selectedImages.add(File(result.files.first.path!));
+          final f = result.files.first;
+          if (f.bytes != null) _selectedImages.add(f);
         });
       }
     } catch (e) {
@@ -154,8 +152,11 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
 
       // Upload images and get URLs
       final imageUrls = <String>[];
-      for (var image in _selectedImages) {
-        final url = await networkService.uploadImage(image.path);
+      for (final image in _selectedImages) {
+        final bytes = image.bytes;
+        if (bytes == null) continue;
+        final ext = (image.extension?.trim().isNotEmpty == true) ? image.extension!.toLowerCase() : 'jpg';
+        final url = await networkService.uploadImageBytes(bytes, extension: ext);
         if (url != null && url.isNotEmpty) {
           imageUrls.add(url);
         }
@@ -197,9 +198,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         setState(() => _errorMessage = 'Erreur: ${e.toString()}');
       }
     } finally {
-      if (mounted) {
-        setState(() => _isUploading = false);
-      }
+        if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -410,10 +409,9 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          _selectedImages[index],
-                          fit: BoxFit.cover,
-                        ),
+                        child: _selectedImages[index].bytes != null
+                            ? Image.memory(_selectedImages[index].bytes!, fit: BoxFit.cover)
+                            : Container(color: Colors.grey[200], child: const Icon(Icons.image)),
                       ),
                       Positioned(
                         top: 4,
@@ -532,10 +530,9 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                   itemCount: _selectedImages.length,
                   itemBuilder: (context, index) => ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _selectedImages[index],
-                      fit: BoxFit.cover,
-                    ),
+                    child: _selectedImages[index].bytes != null
+                        ? Image.memory(_selectedImages[index].bytes!, fit: BoxFit.cover)
+                        : Container(color: Colors.grey[200], child: const Icon(Icons.image)),
                   ),
                 ),
               ],

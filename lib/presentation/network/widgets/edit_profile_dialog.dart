@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
@@ -32,7 +31,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   late TextEditingController _titleController;
   late TextEditingController _bioController;
   final List<TextEditingController> _skillControllers = [];
-  File? _selectedAvatar;
+  PlatformFile? _selectedAvatar;
   bool _isSaving = false;
   bool _isUploading = false;
   late UploadService _uploadService;
@@ -93,11 +92,12 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   Future<void> _pickAvatar() async {
     final result = await FilePicker.pickFiles(
       type: FileType.image,
+      withData: true,
     );
     
     if (result != null && result.files.isNotEmpty) {
-      final file = File(result.files.first.path!);
-      final size = await file.length();
+      final file = result.files.first;
+      final size = file.bytes?.length ?? file.size;
       
       if (size > 5 * 1024 * 1024) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -140,7 +140,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       
       if (_selectedAvatar != null) {
         setState(() => _isUploading = true);
-        avatarUrl = await _uploadService.uploadAvatar(_selectedAvatar!, widget.userId);
+          avatarUrl = await _uploadService.uploadAvatar(_selectedAvatar!, widget.userId);
         setState(() => _isUploading = false);
       } else if (widget.currentAvatarUrl != null && _selectedAvatar == null) {
         // Avatar non modifié
@@ -185,12 +185,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   Widget _buildAvatarPreview() {
     if (_selectedAvatar != null) {
       return ClipOval(
-        child: Image.file(
-          _selectedAvatar!,
-          width: 100,
-          height: 100,
-          fit: BoxFit.cover,
-        ),
+        child: _selectedAvatar!.bytes != null
+            ? Image.memory(_selectedAvatar!.bytes!, width: 100, height: 100, fit: BoxFit.cover)
+            : Container(width: 100, height: 100, color: Colors.grey.shade200, child: const Icon(Icons.person, size: 50, color: Colors.grey)),
       );
     }
     if (widget.currentAvatarUrl != null && widget.currentAvatarUrl!.isNotEmpty) {

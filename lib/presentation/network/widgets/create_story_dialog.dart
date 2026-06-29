@@ -1,5 +1,4 @@
 // lib/presentation/network/widgets/create_story_dialog.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,7 +13,7 @@ class CreateStoryDialog extends StatefulWidget {
 }
 
 class _CreateStoryDialogState extends State<CreateStoryDialog> {
-  File? _selectedImage;
+  PlatformFile? _selectedImage;
   bool _isUploading = false;
   late NetworkService _networkService;
   late UploadService _uploadService;
@@ -32,11 +31,12 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
       
       if (result != null && result.files.isNotEmpty) {
-        final file = File(result.files.first.path!);
-        final size = await file.length();
+        final file = result.files.first;
+        final size = file.bytes?.length ?? file.size;
         
         if (size > 10 * 1024 * 1024) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -127,11 +127,8 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(16),
-                  image: _selectedImage != null
-                      ? DecorationImage(
-                          image: FileImage(_selectedImage!),
-                          fit: BoxFit.cover,
-                        )
+                  image: (_selectedImage?.bytes != null)
+                      ? DecorationImage(image: MemoryImage(_selectedImage!.bytes!), fit: BoxFit.cover)
                       : null,
                 ),
                 child: _selectedImage == null

@@ -1,11 +1,8 @@
-// lib/presentation/feed/create_post_sheet.dart
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/services/post_service.dart';
-import 'package:thix_id/services/media_service.dart';
 
 class CreatePostSheet extends StatefulWidget {
   final String profileId;
@@ -46,7 +43,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     try {
       final postService = context.read<PostService>();
       await postService.createPost(profileId: widget.profileId, content: content, mediaFiles: _picked);
-      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) context.pop();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de la publication: $e')));
     } finally {
@@ -66,7 +63,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
           Row(
             children: [
               Expanded(child: Text('Créer une publication', style: Theme.of(context).textTheme.titleLarge)),
-              IconButton(onPressed: () => Navigator.of(context).pop(), icon: Icon(Icons.close))
+              IconButton(onPressed: () => context.pop(), icon: Icon(Icons.close))
             ],
           ),
           TextField(controller: _controller, maxLines: null, decoration: InputDecoration(hintText: 'Que voulez-vous partager ?')),
@@ -80,9 +77,16 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (_, i) {
                   final p = _picked[i];
-                  return Stack(
+                   return Stack(
                     children: [
-                      Container(width: 96, height: 96, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]), child: p.bytes != null ? Image.memory(p.bytes!, fit: BoxFit.cover) : Image.file(File(p.path!), fit: BoxFit.cover)),
+                       Container(
+                         width: 96,
+                         height: 96,
+                         decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
+                         child: p.bytes != null
+                             ? Image.memory(p.bytes!, fit: BoxFit.cover)
+                             : Center(child: Icon(Icons.image, color: Colors.grey[500])),
+                       ),
                       Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => setState(() => _picked.removeAt(i)), child: CircleAvatar(radius: 12, child: Icon(Icons.close, size: 14))))
                     ],
                   );

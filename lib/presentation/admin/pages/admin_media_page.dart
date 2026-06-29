@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
@@ -34,8 +33,8 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
   bool _isRecommended = false;
   bool _isPublished = true;
 
-  File? _selectedCoverFile;
-  File? _selectedVideoFile;
+  PlatformFile? _selectedCoverFile;
+  PlatformFile? _selectedVideoFile;
 
   @override
   void initState() {
@@ -61,21 +60,21 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
   }
 
   Future<void> _pickCoverFile() async {
-    final result = await FilePicker.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.pickFiles(type: FileType.image, withData: true);
+    if (result != null && result.files.isNotEmpty) {
       setState(() {
-        _selectedCoverFile = File(result.files.single.path!);
-        _coverUrlController.text = _selectedCoverFile!.path;
+        _selectedCoverFile = result.files.single;
+        _coverUrlController.text = _selectedCoverFile!.name;
       });
     }
   }
 
   Future<void> _pickVideoFile() async {
-    final result = await FilePicker.pickFiles(type: FileType.video);
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.pickFiles(type: FileType.video, withData: true);
+    if (result != null && result.files.isNotEmpty) {
       setState(() {
-        _selectedVideoFile = File(result.files.single.path!);
-        _videoUrlController.text = _selectedVideoFile!.path;
+        _selectedVideoFile = result.files.single;
+        _videoUrlController.text = _selectedVideoFile!.name;
       });
     }
   }
@@ -224,7 +223,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                 TextFormField(controller: _yearController, decoration: const InputDecoration(labelText: 'Année')),
                 ListTile(
                   leading: const Icon(Icons.image),
-                  title: Text(_selectedCoverFile == null ? 'Aucun fichier image' : _selectedCoverFile!.path.split('/').last),
+                  title: Text(_selectedCoverFile == null ? 'Aucun fichier image' : _selectedCoverFile!.name),
                   trailing: ElevatedButton(
                     onPressed: _pickCoverFile,
                     child: const Text('Choisir image'),
@@ -233,7 +232,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                 TextFormField(controller: _coverUrlController, decoration: const InputDecoration(labelText: 'URL de couverture (si pas de fichier)')),
                 ListTile(
                   leading: const Icon(Icons.video_file),
-                  title: Text(_selectedVideoFile == null ? 'Aucun fichier vidéo' : _selectedVideoFile!.path.split('/').last),
+                  title: Text(_selectedVideoFile == null ? 'Aucun fichier vidéo' : _selectedVideoFile!.name),
                   trailing: ElevatedButton(
                     onPressed: _pickVideoFile,
                     child: const Text('Choisir vidéo'),

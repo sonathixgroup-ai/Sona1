@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -332,29 +331,19 @@ class _TrainingAdminPageState extends State<TrainingAdminPage> {
       final FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
       
       if (result == null || result.files.isEmpty) return;
       
       final PlatformFile file = result.files.first;
       
-      Uint8List bytes;
-      if (kIsWeb) {
-        if (file.bytes == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Impossible de lire le fichier sur Web')),
-          );
-          return;
-        }
-        bytes = file.bytes!;
-      } else {
-        if (file.path == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chemin du fichier invalide')),
-          );
-          return;
-        }
-        bytes = await File(file.path!).readAsBytes();
+      final bytes = file.bytes;
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de lire le fichier (active withData=true).')),
+        );
+        return;
       }
       
       const int maxSize = 10 * 1024 * 1024;

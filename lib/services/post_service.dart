@@ -1,7 +1,4 @@
 // lib/services/post_service.dart
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,17 +38,13 @@ class PostService {
           final filename = '${DateTime.now().millisecondsSinceEpoch}_${f.name}';
           final key = 'posts/${post.id}/$filename';
 
-          // Upload: handle web (bytes) and io (path)
-          if (kIsWeb) {
-            final bytes = f.bytes;
-            if (bytes == null) continue;
-            await supabase.storage.from(storageBucket).uploadBinary(key, bytes, fileOptions: FileOptions(cacheControl: '3600'));
-          } else {
-            final path = f.path;
-            if (path == null) continue;
-            final file = File(path);
-            await supabase.storage.from(storageBucket).upload(key, file);
+          // Upload sans `dart:io` (compatible Web). Sur mobile/desktop, exiger `withData: true`.
+          final bytes = f.bytes;
+          if (bytes == null) {
+            debugPrint('PostService.createPost: bytes null for file=${f.name}. Ensure FilePicker.withData=true');
+            continue;
           }
+          await supabase.storage.from(storageBucket).uploadBinary(key, bytes, fileOptions: FileOptions(cacheControl: '3600'));
 
           final publicUrl = supabase.storage.from(storageBucket).getPublicUrl(key);
 

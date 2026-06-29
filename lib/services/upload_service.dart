@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Lightweight upload helper used by the Network module.
@@ -18,26 +17,29 @@ class UploadService {
   final SupabaseClient _client;
   UploadService({SupabaseClient? client}) : _client = client ?? Supabase.instance.client;
 
-  Future<String> uploadAvatar(File file, String userId) async {
-    final ext = _extOf(file.path);
+  Future<String> uploadAvatar(PlatformFile file, String userId) async {
+    final ext = _extOf(file.name);
     final path = 'avatars/$userId/${DateTime.now().toIso8601String().replaceAll(':', '-')}$ext';
     return _uploadPublic(bucket: avatarBucket, file: file, objectPath: path);
   }
 
-  Future<String> uploadStoryImage(File file) async {
+  Future<String> uploadStoryImage(PlatformFile file) async {
     final uid = _client.auth.currentUser?.id ?? 'anon';
-    final ext = _extOf(file.path);
+    final ext = _extOf(file.name);
     final path = 'stories/$uid/${DateTime.now().toIso8601String().replaceAll(':', '-')}$ext';
     return _uploadPublic(bucket: storyBucket, file: file, objectPath: path);
   }
 
-  Future<String> _uploadPublic({required String bucket, required File file, required String objectPath}) async {
+  Future<String> _uploadPublic({required String bucket, required PlatformFile file, required String objectPath}) async {
     try {
-      final bytes = await file.readAsBytes();
+      final bytes = file.bytes;
+      if (bytes == null) {
+        throw Exception('Fichier sans bytes: active withData=true dans FilePicker.');
+      }
       await _client.storage.from(bucket).uploadBinary(
             objectPath,
             bytes,
-            fileOptions: FileOptions(upsert: true, cacheControl: '3600', contentType: _contentTypeForPath(file.path)),
+            fileOptions: FileOptions(upsert: true, cacheControl: '3600', contentType: _contentTypeForPath(file.name)),
           );
       final url = _client.storage.from(bucket).getPublicUrl(objectPath);
       if (url.trim().isEmpty) throw Exception('Storage: getPublicUrl returned empty.');
@@ -52,10 +54,10 @@ class UploadService {
     }
   }
 
-  String _extOf(String path) {
-    final dot = path.lastIndexOf('.');
+  String _extOf(String filename) {
+    final dot = filename.lastIndexOf('.');
     if (dot == -1) return '.jpg';
-    final ext = path.substring(dot).toLowerCase();
+    final ext = filename.substring(dot).toLowerCase();
     if (ext.length > 6) return '.jpg';
     return ext;
   }
