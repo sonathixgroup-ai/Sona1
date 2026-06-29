@@ -34,7 +34,6 @@ class NetworkService {
   Future<List<NetworkPost>> getFeedPosts({int limit = 20}) async {
     try {
       final currentUserId = this.currentUserId;
-      if (currentUserId.isEmpty) return [];
       
       final response = await _supabase
           .from('posts')
@@ -62,11 +61,13 @@ class NetworkService {
             .select('id')
             .eq('post_id', e['id']);
         
-        final likedData = await _supabase
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', e['id'])
-            .eq('user_id', currentUserId);
+        final likedData = currentUserId.isEmpty
+            ? []
+            : await _supabase
+                .from('post_likes')
+                .select('id')
+                .eq('post_id', e['id'])
+                .eq('user_id', currentUserId);
         
         posts.add(NetworkPost.fromJson({
           ...e,
@@ -76,6 +77,12 @@ class NetworkService {
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
           'is_liked': (likedData as List).isNotEmpty,
+          'image_urls': e['image_urls'] ?? (e['media_url'] != null ? [e['media_url']] : []),
+          'video_urls': e['video_urls'] ?? (e['media_type'] == 'video' && e['media_url'] != null ? [e['media_url']] : []),
+          'media_url': e['media_url'],
+          'media_type': e['media_type'],
+          'poll_options': e['poll_options'],
+          'views': e['views'] ?? 0,
         }));
       }
       
@@ -93,7 +100,6 @@ class NetworkService {
   Future<List<NetworkPost>> getSmartFeed({int limit = 20}) async {
     try {
       final currentUserId = this.currentUserId;
-      if (currentUserId.isEmpty) return [];
       
       final response = await _supabase
           .from('posts')
@@ -108,11 +114,13 @@ class NetworkService {
           .eq('is_public', true)
           .limit(100);
       
-      final connections = await _supabase
-          .from('connections')
-          .select('connection_id')
-          .eq('user_id', currentUserId)
-          .eq('status', 'accepted');
+      final connections = currentUserId.isEmpty
+          ? []
+          : await _supabase
+              .from('connections')
+              .select('connection_id')
+              .eq('user_id', currentUserId)
+              .eq('status', 'accepted');
       
       final connectedUserIds = (connections as List)
           .map((c) => c['connection_id'] as String)
@@ -131,11 +139,13 @@ class NetworkService {
             .select('id')
             .eq('post_id', e['id']);
         
-        final userLikedData = await _supabase
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', e['id'])
-            .eq('user_id', currentUserId);
+        final userLikedData = currentUserId.isEmpty
+            ? []
+            : await _supabase
+                .from('post_likes')
+                .select('id')
+                .eq('post_id', e['id'])
+                .eq('user_id', currentUserId);
         
         final userData = e['users'] as Map<String, dynamic>?;
         
@@ -147,6 +157,12 @@ class NetworkService {
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
           'is_liked': (userLikedData as List).isNotEmpty,
+          'image_urls': e['image_urls'] ?? (e['media_url'] != null ? [e['media_url']] : []),
+          'video_urls': e['video_urls'] ?? (e['media_type'] == 'video' && e['media_url'] != null ? [e['media_url']] : []),
+          'media_url': e['media_url'],
+          'media_type': e['media_type'],
+          'poll_options': e['poll_options'],
+          'views': e['views'] ?? 0,
         });
         
         double score = 0;
@@ -199,7 +215,6 @@ class NetworkService {
   Future<NetworkPost?> getPostById(String postId) async {
     try {
       final currentUserId = this.currentUserId;
-      if (currentUserId.isEmpty) return null;
       
       final response = await _supabase
           .from('posts')
@@ -226,11 +241,13 @@ class NetworkService {
           .select('id')
           .eq('post_id', postId);
       
-      final userLikedData = await _supabase
-          .from('post_likes')
-          .select('id')
-          .eq('post_id', postId)
-          .eq('user_id', currentUserId);
+      final userLikedData = currentUserId.isEmpty
+          ? []
+          : await _supabase
+              .from('post_likes')
+              .select('id')
+              .eq('post_id', postId)
+              .eq('user_id', currentUserId);
       
       final userData = response['users'] as Map<String, dynamic>?;
       
@@ -242,6 +259,12 @@ class NetworkService {
         'likes_count': (likesData as List).length,
         'comments_count': (commentsData as List).length,
         'is_liked': (userLikedData as List).isNotEmpty,
+        'image_urls': response['image_urls'] ?? (response['media_url'] != null ? [response['media_url']] : []),
+        'video_urls': response['video_urls'] ?? (response['media_type'] == 'video' && response['media_url'] != null ? [response['media_url']] : []),
+        'media_url': response['media_url'],
+        'media_type': response['media_type'],
+        'poll_options': response['poll_options'],
+        'views': response['views'] ?? 0,
       });
     } catch (e) {
       debugPrint('❌ Error getPostById: $e');
@@ -494,6 +517,23 @@ class NetworkService {
       debugPrint('📤 sharePost: post $postId partagé');
     } catch (e) {
       debugPrint('Error sharePost: $e');
+    }
+  }
+
+  Future<int> incrementViewCount(String postId) async {
+    try {
+      final current = await _supabase
+          .from('posts')
+          .select('views')
+          .eq('id', postId)
+          .maybeSingle();
+      final currentViews = (current?['views'] as int?) ?? 0;
+      final next = currentViews + 1;
+      await _supabase.from('posts').update({'views': next}).eq('id', postId);
+      return next;
+    } catch (e) {
+      debugPrint('Error incrementViewCount: $e');
+      return 0;
     }
   }
 
@@ -1391,9 +1431,15 @@ class NetworkService {
         'author_name': e['users']?['display_name'],
         'author_avatar': e['users']?['photo_url'],
         'author_title': e['users']?['profession'],
-        'likes_count': 0,
-        'comments_count': 0,
+        'likes_count': e['likes_count'] ?? 0,
+        'comments_count': e['comments_count'] ?? 0,
         'is_liked': false,
+        'image_urls': e['image_urls'] ?? (e['media_url'] != null ? [e['media_url']] : []),
+        'video_urls': e['video_urls'] ?? (e['media_type'] == 'video' && e['media_url'] != null ? [e['media_url']] : []),
+        'media_url': e['media_url'],
+        'media_type': e['media_type'],
+        'poll_options': e['poll_options'],
+        'views': e['views'] ?? 0,
       })).toList();
     } catch (e) {
       debugPrint('Error getUserPosts: $e');

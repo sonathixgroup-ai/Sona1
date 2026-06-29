@@ -8,6 +8,9 @@ class NetworkPost {
   final String content;
   final List<String> imageUrls;
   final List<String>? videoUrls;
+  final String? mediaUrl;
+  final String? mediaType; // text, image, video, poll
+  final List<String>? pollOptions;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final int likesCount;
@@ -30,6 +33,9 @@ class NetworkPost {
     required this.content,
     this.imageUrls = const [],
     this.videoUrls,
+    this.mediaUrl,
+    this.mediaType,
+    this.pollOptions,
     required this.createdAt,
     this.updatedAt,
     this.likesCount = 0,
@@ -57,6 +63,11 @@ class NetworkPost {
           : [],
       videoUrls: json['video_urls'] != null
           ? List<String>.from(json['video_urls'] as List? ?? [])
+          : null,
+      mediaUrl: json['media_url'] as String? ?? json['mediaUrl'] as String?,
+      mediaType: json['media_type'] as String? ?? json['mediaType'] as String?,
+      pollOptions: json['poll_options'] != null
+          ? List<String>.from(json['poll_options'] as List? ?? [])
           : null,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -87,6 +98,9 @@ class NetworkPost {
       'content': content,
       'image_urls': imageUrls,
       'video_urls': videoUrls,
+      'media_url': mediaUrl,
+      'media_type': mediaType,
+      'poll_options': pollOptions,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'likes_count': likesCount,
@@ -111,6 +125,9 @@ class NetworkPost {
     String? content,
     List<String>? imageUrls,
     List<String>? videoUrls,
+    String? mediaUrl,
+    String? mediaType,
+    List<String>? pollOptions,
     DateTime? createdAt,
     DateTime? updatedAt,
     int? likesCount,
@@ -133,6 +150,9 @@ class NetworkPost {
       content: content ?? this.content,
       imageUrls: imageUrls ?? this.imageUrls,
       videoUrls: videoUrls ?? this.videoUrls,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      mediaType: mediaType ?? this.mediaType,
+      pollOptions: pollOptions ?? this.pollOptions,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       likesCount: likesCount ?? this.likesCount,
