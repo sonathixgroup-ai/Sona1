@@ -7,10 +7,10 @@ import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/provides/feed_provider.dart';
 import 'package:thix_id/services/firestore_user_service.dart';
-import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
@@ -76,8 +76,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
     // streams / closed controllers when multiple pages expect Provider access.
     final profiles = ProfileService();
     final users = FirestoreUserService(profiles: profiles);
-    final network = NetworkService(SupabaseConfig.client);
-    final feed = FeedProvider(network, supabase: SupabaseConfig.client)..initRealtime();
     final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
     try {
       await auth.init();
@@ -85,13 +83,12 @@ class _BootstrapAppState extends State<BootstrapApp> {
       debugPrint('Bootstrap: auth.init failed err=$e');
       debugPrint(st.toString());
     }
-    return _BootstrapResult(
-      auth: auth,
-      profiles: profiles,
-      users: users,
-      network: network,
-      feed: feed,
-    );
+
+    final network = NetworkService(SupabaseConfig.client);
+    final feed = FeedProvider(network, supabase: SupabaseConfig.client);
+    feed.initRealtime();
+
+    return _BootstrapResult(auth: auth, profiles: profiles, users: users, network: network, feed: feed);
   }
 
   @override
@@ -100,13 +97,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
       future: _future,
       builder: (context, snap) {
         final child = snap.hasData
-            ? MyApp(
-                auth: snap.data!.auth,
-                profiles: snap.data!.profiles,
-                users: snap.data!.users,
-                network: snap.data!.network,
-                feed: snap.data!.feed,
-              )
+            ? MyApp(auth: snap.data!.auth, profiles: snap.data!.profiles, users: snap.data!.users)
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: lightTheme,
@@ -190,9 +181,7 @@ class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
   final FirestoreUserService users;
-  final NetworkService network;
-  final FeedProvider feed;
-  const MyApp({super.key, required this.auth, required this.profiles, required this.users, required this.network, required this.feed});
+  const MyApp({super.key, required this.auth, required this.profiles, required this.users});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -219,8 +208,6 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<FirestoreUserService>.value(value: widget.users),
-        Provider<NetworkService>.value(value: widget.network),
-        ChangeNotifierProvider<FeedProvider>.value(value: widget.feed),
       ],
       child: Builder(
         builder: (context) {

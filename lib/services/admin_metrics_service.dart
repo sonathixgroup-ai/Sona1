@@ -41,7 +41,7 @@ class AdminGlobalMetrics {
 class AdminMetricsService {
   static const String profilesTable = 'profiles';
   static const String chatsTable = 'thix_chat_chats';
-  static const String messagesTable = 'chat_messages';
+  static const String messagesTable = 'thix_chat_messages';
   static const String jobsTable = 'jobs';
   static const String emergencyTable = 'emergency_alerts';
   static const String verificationsTable = 'verification_requests';
