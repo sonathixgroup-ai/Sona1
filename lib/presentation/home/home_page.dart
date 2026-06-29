@@ -100,6 +100,10 @@ class AppShadows {
   ];
 }
 
+// ============================================================================
+// PAGE PRINCIPALE – HOMEPAGE STYLE FACEBOOK (HEADER BLANC, SERVICES PLATS)
+// ============================================================================
+
 class HomePagePremium extends StatefulWidget {
   const HomePagePremium({super.key});
 
@@ -123,6 +127,9 @@ class _HomePagePremiumState extends State<HomePagePremium>
   @override
   void initState() {
     super.initState();
+
+    // Performance: keep initState extremely light.
+    // We start animations/timers after the first frame so the initial paint is faster.
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -153,11 +160,12 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
   Future<void> _handleHomeSearchVerify() async {
     final raw = _searchController.text.trim();
+
     if (raw.isEmpty) {
       await FullScreenMessage.showError(
         context,
         title: 'Identifiant requis',
-        message: 'Saisissez un THIX ID puis appuyez sur Vérifier.',
+        message: "Saisissez un THIX ID puis appuyez sur Vérifier.",
       );
       return;
     }
@@ -178,6 +186,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
     setState(() => _searching = true);
 
     try {
+      // Performance/architecture: reuse the app-wide instance instead of
+      // creating a new service (which can create extra clients/streams).
       final userService = context.read<FirestoreUserService>();
       AppUser? user;
 
@@ -193,12 +203,13 @@ class _HomePagePremiumState extends State<HomePagePremium>
         await FullScreenMessage.showError(
           context,
           title: 'Profil introuvable',
-          message: 'Aucun profil trouvé.',
+          message: "Aucun profil trouvé.",
         );
         return;
       }
 
       final thix = user.thixId.trim().toUpperCase();
+
       if (thix.isNotEmpty && ThixIdService.isValid(thix)) {
         context.push('${AppRoutes.publicProfile}?thixId=$thix');
       } else {
@@ -215,7 +226,9 @@ class _HomePagePremiumState extends State<HomePagePremium>
         message: "Impossible d'effectuer la vérification.",
       );
     } finally {
-      if (mounted) setState(() => _searching = false);
+      if (mounted) {
+        setState(() => _searching = false);
+      }
     }
   }
 
@@ -223,7 +236,11 @@ class _HomePagePremiumState extends State<HomePagePremium>
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
       final t = auth.currentUser?.accountType;
-      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
+      context.go(
+        t == AccountType.enterprise
+            ? AppRoutes.enterpriseDashboard
+            : AppRoutes.userDashboard,
+      );
     } else {
       context.push(AppRoutes.login);
     }
@@ -246,6 +263,39 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
     if (!mounted) return;
     context.push(AppRoutes.login);
+  }
+
+  Future<void> _handleRequestAccount(BuildContext context) async {
+    final auth = context.read<AuthController>();
+    final res = await showModalBottomSheet<_AccountRequestChoice>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const AccountRequestSheet(),
+    );
+
+    switch (res) {
+      case _AccountRequestChoice.personal:
+        if (auth.isAuthenticated) {
+          await auth.signOut();
+        }
+        if (context.mounted) {
+          context.push(AppRoutes.personalReg);
+        }
+        return;
+
+      case _AccountRequestChoice.enterprise:
+        if (auth.isAuthenticated) {
+          await auth.signOut();
+        }
+        if (context.mounted) {
+          context.push(AppRoutes.enterpriseReg);
+        }
+        return;
+
+      case null:
+        return;
+    }
   }
 
   @override
@@ -276,10 +326,13 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   displayName: displayName,
                   isAuthenticated: auth.isAuthenticated,
                   onProfileTap: _onProfileTap,
-                  onAccountRequest: () {},
+                  onAccountRequest: () => _handleRequestAccount(context),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Barre de recherche
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -290,18 +343,24 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   ),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Bannière passante (THIX Info / Opportunity)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _HeadlinesCarousel(
                     controller: _headlinesController,
-                    onThixInfoTap: () => context.push(AppRoutes.thixInfo),
+                      onThixInfoTap: () => context.push(AppRoutes.thixInfo),
                     onOpportunityTap: () => context.push(AppRoutes.opportunities),
                   ),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Actions rapides (4 boutons)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -313,7 +372,10 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   ),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Mes services (encadré + spacing réduit)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 sliver: SliverToBoxAdapter(
@@ -357,6 +419,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                               case 'thixMoney':
                                 context.push(AppRoutes.thixMoney);
                                 break;
+                              case 'servicesGov':
+                                break;
                               case 'reservation':
                                 context.push(AppRoutes.reservation);
                                 break;
@@ -370,20 +434,27 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   ),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Carte Premium (repositionnée)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _PremiumStatusCard(),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+
+              // Section personnalisée
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _PersonalisedSection(),
                 ),
               ),
+
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 20)),
             ],
           ),
@@ -392,13 +463,17 @@ class _HomePagePremiumState extends State<HomePagePremium>
               child: Container(
                 color: Colors.black.withValues(alpha: 0.4),
                 child: const Center(
-                  child: CircularProgressIndicator(color: AppColors.primaryBlue),
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryBlue,
+                  ),
                 ),
               ),
             ),
         ],
       ),
-      bottomNavigationBar: _FloatingBottomNav(onScanTap: () => ThixIdentitySheets.showQrScanSheet(context)),
+      bottomNavigationBar: _FloatingBottomNav(
+        onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
+      ),
     );
   }
 }
@@ -459,6 +534,10 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
+// ============================================================================
+// COMPOSANTS (STYLE FACEBOOK)
+// ============================================================================
+
 class _HomeSoftBackground extends StatelessWidget {
   const _HomeSoftBackground();
 
@@ -482,12 +561,18 @@ class _HomeSoftBackground extends StatelessWidget {
             Positioned(
               top: -220,
               right: -180,
-              child: _SoftBlob(size: 420, colors: const [Color(0x2A003BFF), Color(0x1400214F)]),
+              child: _SoftBlob(
+                size: 420,
+                colors: const [Color(0x2A003BFF), Color(0x1400214F)],
+              ),
             ),
             Positioned(
               top: -120,
               left: -220,
-              child: _SoftBlob(size: 360, colors: const [Color(0x1F003BFF), Color(0x1200214F)]),
+              child: _SoftBlob(
+                size: 360,
+                colors: const [Color(0x1F003BFF), Color(0x1200214F)],
+              ),
             ),
           ],
         ),
@@ -499,7 +584,9 @@ class _HomeSoftBackground extends StatelessWidget {
 class _SoftBlob extends StatelessWidget {
   final double size;
   final List<Color> colors;
+
   const _SoftBlob({required this.size, required this.colors});
+
   @override
   Widget build(BuildContext context) {
     return ClipOval(
@@ -509,7 +596,11 @@ class _SoftBlob extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
           ),
         ),
       ),
@@ -517,13 +608,22 @@ class _SoftBlob extends StatelessWidget {
   }
 }
 
+// ---- HEADER (Facebook-style) ----
 class _PremiumHeader extends StatelessWidget {
   final double safeTop;
   final String displayName;
   final bool isAuthenticated;
   final VoidCallback onProfileTap;
   final VoidCallback onAccountRequest;
-  const _PremiumHeader({required this.safeTop, required this.displayName, required this.isAuthenticated, required this.onProfileTap, required this.onAccountRequest});
+
+  const _PremiumHeader({
+    required this.safeTop,
+    required this.displayName,
+    required this.isAuthenticated,
+    required this.onProfileTap,
+    required this.onAccountRequest,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -536,7 +636,12 @@ class _PremiumHeader extends StatelessWidget {
               Container(
                 width: 34,
                 height: 34,
-                decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.cardBorder, width: 0.5), boxShadow: AppShadows.secondary),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                  boxShadow: AppShadows.secondary,
+                ),
                 child: const Icon(Icons.menu_rounded, color: AppColors.darkText, size: 18),
               ),
               const SizedBox(width: AppSpacing.m),
@@ -544,26 +649,73 @@ class _PremiumHeader extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Welcome Back', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
-                  Text(displayName, style: const TextStyle(color: AppColors.darkText, fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+                  const Text(
+                    'Welcome Back',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
           Row(
             children: [
-              Container(width: 34, height: 34, decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.cardBorder, width: 0.5), boxShadow: AppShadows.secondary), child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 18)),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                  boxShadow: AppShadows.secondary,
+                ),
+                child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 18),
+              ),
               const SizedBox(width: AppSpacing.s),
               GestureDetector(
                 onTap: () => NotificationsSheet.show(context),
                 child: Container(
                   width: 34,
                   height: 34,
-                  decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.cardBorder, width: 0.5), boxShadow: AppShadows.secondary),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                    boxShadow: AppShadows.secondary,
+                  ),
                   child: Stack(
                     children: [
-                      const Center(child: Icon(Icons.notifications_none_rounded, color: AppColors.darkText, size: 18)),
-                      Positioned(right: 7, top: 7, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.dangerRed, shape: BoxShape.circle))),
+                      const Center(
+                        child: Icon(
+                          Icons.notifications_none_rounded,
+                          color: AppColors.darkText,
+                          size: 18,
+                        ),
+                      ),
+                      Positioned(
+                        right: 7,
+                        top: 7,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: AppColors.dangerRed,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -574,7 +726,15 @@ class _PremiumHeader extends StatelessWidget {
                 child: Container(
                   width: 34,
                   height: 34,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.white, width: 2), boxShadow: AppShadows.secondary, image: const DecorationImage(image: NetworkImage('https://i.pravatar.cc/150?img=11'), fit: BoxFit.cover)),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.white, width: 2),
+                    boxShadow: AppShadows.secondary,
+                    image: const DecorationImage(
+                      image: NetworkImage('https://i.pravatar.cc/150?img=11'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -585,11 +745,18 @@ class _PremiumHeader extends StatelessWidget {
   }
 }
 
+// ---- BARRE DE RECHERCHE ----
 class _SearchBarOverlay extends StatefulWidget {
   final TextEditingController controller;
   final bool isSearching;
   final VoidCallback onVerify;
-  const _SearchBarOverlay({required this.controller, required this.isSearching, required this.onVerify});
+
+  const _SearchBarOverlay({
+    required this.controller,
+    required this.isSearching,
+    required this.onVerify,
+  });
+
   @override
   State<_SearchBarOverlay> createState() => _SearchBarOverlayState();
 }
@@ -600,7 +767,11 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(AppRadius.searchBar), boxShadow: AppShadows.secondary),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.searchBar),
+        boxShadow: AppShadows.secondary,
+      ),
       child: Row(
         children: [
           const Icon(Icons.search_rounded, size: 22, color: AppColors.textSecondary),
@@ -609,8 +780,16 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
             child: TextField(
               controller: widget.controller,
               enabled: !widget.isSearching,
-              decoration: const InputDecoration(border: InputBorder.none, hintText: 'Rechercher un THIX ID...', hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-              style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w500),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Rechercher un THIX ID...',
+                hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              ),
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           GestureDetector(
@@ -618,14 +797,471 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.primaryBlue, AppColors.darkNavy]),
+                gradient: const LinearGradient(
+                  colors: [AppColors.primaryBlue, AppColors.darkNavy],
+                ),
                 borderRadius: BorderRadius.circular(AppRadius.button),
               ),
-              child: const Text('Vérifier', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+              child: const Text(
+                'Vérifier',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.s),
           const Icon(Icons.tune_rounded, size: 22, color: AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- CARTE STATUT PREMIUM ----
+class _PremiumStatusCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 84,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd],
+        ),
+        border: Border.all(color: AppColors.cardBorder, width: 0.7),
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        boxShadow: AppShadows.main,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l),
+      child: Row(
+        children: [
+          const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'Membre Premium',
+                  style: TextStyle(
+                    color: AppColors.darkText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                Text(
+                  'Score de confiance : 98%',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+            decoration: BoxDecoration(
+              color: AppColors.darkText,
+              borderRadius: BorderRadius.circular(AppRadius.button),
+            ),
+            child: const Text(
+              'Voir',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- ACTIONS RAPIDES ----
+class _QuickActionsRow extends StatelessWidget {
+  final VoidCallback onScanTap;
+  final VoidCallback onNfcTap;
+  final VoidCallback onChatTap;
+  final VoidCallback onSecurityTap;
+
+  const _QuickActionsRow({
+    required this.onScanTap,
+    required this.onNfcTap,
+    required this.onChatTap,
+    required this.onSecurityTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.smart_toy_rounded,
+              label: 'THIX IA',
+              backgroundColor: AppColors.goldBadge,
+              iconColor: AppColors.bottomNavCenterIcon,
+              labelColor: AppColors.darkText,
+              onTap: onScanTap,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.nfc_rounded,
+              label: 'NFC',
+              backgroundColor: AppColors.goldBadge,
+              iconColor: AppColors.bottomNavCenterIcon,
+              labelColor: AppColors.darkText,
+              onTap: onNfcTap,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.forum_rounded,
+              label: 'THIX CHAT',
+              backgroundColor: AppColors.goldBadge,
+              iconColor: AppColors.bottomNavCenterIcon,
+              labelColor: AppColors.darkText,
+              onTap: onChatTap,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.emergency_rounded,
+              label: 'URGENCE',
+              backgroundColor: AppColors.dangerRed,
+              iconColor: AppColors.white,
+              labelColor: AppColors.dangerRed,
+              onTap: onSecurityTap,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color labelColor;
+  final VoidCallback onTap;
+
+  const _QuickActionItem({
+    required this.icon,
+    required this.label,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.labelColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _PressableScale(
+      onTap: onTap,
+      child: SizedBox(
+        width: 78,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 24, color: iconColor),
+            ),
+            const SizedBox(height: AppSpacing.s),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.1,
+                color: labelColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PressableScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _PressableScale({required this.child, required this.onTap});
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale> {
+  bool _pressed = false;
+
+  void _setPressed(bool v) {
+    if (_pressed == v) return;
+    setState(() => _pressed = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => _setPressed(true),
+      onTapCancel: () => _setPressed(false),
+      onTapUp: (_) => _setPressed(false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: _pressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+// ---- GRILLE DE SERVICES (SANS CONTENEURS) ----
+class _ServicesGrid extends StatelessWidget {
+  final SectionBadgeCounts counts;
+  final Function(String) onServiceTap;
+
+  const _ServicesGrid({
+    required this.counts,
+    required this.onServiceTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final services = [
+      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.domainMedia},
+      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.domainMarket},
+      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.domainLearning, 'badge': counts.formations},
+      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.domainJobs, 'badge': counts.jobs},
+      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.domainInfo, 'badge': counts.info},
+      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.domainOpportunity},
+      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.domainEvents, 'badge': counts.events},
+      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
+      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
+      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
+      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.domainGov},
+      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+        childAspectRatio: 1.02,
+      ),
+      itemCount: services.length,
+      itemBuilder: (ctx, index) {
+        final service = services[index];
+        final badge = service['badge'] as int?;
+        return _ServiceCard(
+          icon: service['icon'] as IconData,
+          title: service['title'] as String,
+          color: service['color'] as Color,
+          badgeCount: badge,
+          onTap: () => onServiceTap(service['key'] as String),
+        );
+      },
+    );
+  }
+}
+
+class _ServiceCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final int? badgeCount;
+  final VoidCallback onTap;
+
+  const _ServiceCard({
+    required this.icon,
+    required this.title,
+    required this.color,
+    this.badgeCount,
+    required this.onTap,
+  });
+
+  @override
+  State<_ServiceCard> createState() => _ServiceCardState();
+}
+
+class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: widget.color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                widget.icon,
+                color: widget.color,
+                size: 18,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.darkText,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (widget.badgeCount != null && widget.badgeCount! > 0)
+                  Positioned(
+                    top: -8,
+                    right: -12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.dangerRed,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${widget.badgeCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCage extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _SectionCage({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        border: Border.all(color: AppColors.cardBorder, width: 0.6),
+        boxShadow: AppShadows.secondary,
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.grid_view_rounded, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          child,
         ],
       ),
     );
@@ -645,117 +1281,24 @@ class _HeadlinesCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = <({String title, String subtitle, IconData icon, VoidCallback onTap})>[
-      (
-        title: 'THIX INFO LIVE',
-        subtitle: 'Actus vérifiées et alertes en temps réel',
-        icon: Icons.newspaper_rounded,
-        onTap: onThixInfoTap,
-      ),
-      (
-        title: 'OPPORTUNITÉS',
-        subtitle: 'Emplois, formations et missions disponibles',
-        icon: Icons.trending_up_rounded,
-        onTap: onOpportunityTap,
-      ),
-    ];
-
     return SizedBox(
-      height: 130,
-      child: PageView.builder(
+      height: 120,
+      child: PageView(
         controller: controller,
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: _PressableScale(
-              onTap: item.onTap,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primaryBlue, AppColors.darkNavy],
-                  ),
-                  borderRadius: BorderRadius.circular(AppRadius.mainCard),
-                  boxShadow: AppShadows.main,
-                ),
-                padding: const EdgeInsets.all(AppSpacing.l),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(item.icon, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: AppSpacing.m),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.subtitle,
-                            style: const TextStyle(
-                              color: Color(0xE6FFFFFF),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: Colors.white),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PremiumStatusCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 84,
-      decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd]), border: Border.all(color: AppColors.cardBorder, width: 0.7), borderRadius: BorderRadius.circular(AppRadius.mainCard), boxShadow: AppShadows.main),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l),
-      child: Row(
         children: [
-          const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26),
-          const SizedBox(width: AppSpacing.m),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text('Membre Premium', style: TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
-                Text('Score de confiance : 98%', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-              ],
-            ),
+          _HeadlineCard(
+            label: 'À la une • THIX Info',
+            title: 'Nouvelles, annonces et mises à jour',
+            icon: Icons.newspaper_rounded,
+            accent: AppColors.domainInfo,
+            onTap: onThixInfoTap,
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
-            decoration: BoxDecoration(color: AppColors.darkText, borderRadius: BorderRadius.circular(AppRadius.button)),
-            child: const Text('Voir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+          _HeadlineCard(
+            label: 'À la une • Opportunity',
+            title: 'Opportunités pro à saisir maintenant',
+            icon: Icons.lightbulb_rounded,
+            accent: AppColors.domainOpportunity,
+            onTap: onOpportunityTap,
           ),
         ],
       ),
@@ -763,45 +1306,76 @@ class _PremiumStatusCard extends StatelessWidget {
   }
 }
 
-class _QuickActionsRow extends StatelessWidget {
-  final VoidCallback onScanTap;
-  final VoidCallback onNfcTap;
-  final VoidCallback onChatTap;
-  final VoidCallback onSecurityTap;
-  const _QuickActionsRow({required this.onScanTap, required this.onNfcTap, required this.onChatTap, required this.onSecurityTap});
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Center(child: _QuickActionItem(icon: Icons.smart_toy_rounded, label: 'THIX IA', backgroundColor: AppColors.goldBadge, iconColor: AppColors.bottomNavCenterIcon, labelColor: AppColors.darkText, onTap: onScanTap))),
-        Expanded(child: Center(child: _QuickActionItem(icon: Icons.nfc_rounded, label: 'NFC', backgroundColor: AppColors.goldBadge, iconColor: AppColors.bottomNavCenterIcon, labelColor: AppColors.darkText, onTap: onNfcTap))),
-        Expanded(child: Center(child: _QuickActionItem(icon: Icons.forum_rounded, label: 'THIX CHAT', backgroundColor: AppColors.goldBadge, iconColor: AppColors.bottomNavCenterIcon, labelColor: AppColors.darkText, onTap: onChatTap))),
-        Expanded(child: Center(child: _QuickActionItem(icon: Icons.emergency_rounded, label: 'URGENCE', backgroundColor: AppColors.dangerRed, iconColor: AppColors.white, labelColor: AppColors.dangerRed, onTap: onSecurityTap))),
-      ],
-    );
-  }
-}
-
-class _QuickActionItem extends StatelessWidget {
-  final IconData icon;
+class _HeadlineCard extends StatelessWidget {
   final String label;
-  final Color backgroundColor;
-  final Color iconColor;
-  final Color labelColor;
+  final String title;
+  final IconData icon;
+  final Color accent;
   final VoidCallback onTap;
-  const _QuickActionItem({required this.icon, required this.label, required this.backgroundColor, required this.iconColor, required this.labelColor, required this.onTap});
+
+  const _HeadlineCard({
+    required this.label,
+    required this.title,
+    required this.icon,
+    required this.accent,
+    required this.onTap,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return _PressableScale(
+    return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        width: 78,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.mainCard),
+          border: Border.all(color: AppColors.cardBorder, width: 0.6),
+          boxShadow: AppShadows.main,
+        ),
+        padding: const EdgeInsets.all(AppSpacing.l),
+        child: Row(
           children: [
-            Container(width: 56, height: 56, decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 14, offset: const Offset(0, 8))]), child: Icon(icon, color: iconColor, size: 26)),
-            const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: labelColor, fontSize: 11, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: accent, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.2,
+                      height: 1.15,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
           ],
         ),
       ),
@@ -809,54 +1383,391 @@ class _QuickActionItem extends StatelessWidget {
   }
 }
 
-class _PressableScale extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-  const _PressableScale({required this.child, required this.onTap});
-  @override
-  State<_PressableScale> createState() => _PressableScaleState();
-}
-
-class _PressableScaleState extends State<_PressableScale> {
-  bool _pressed = false;
+// ---- SECTION PERSONNALISÉE (Facebook-style) ----
+class _PersonalisedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(scale: _pressed ? 0.96 : 1, duration: const Duration(milliseconds: 120), child: widget.child),
+    const items = [
+      _MiniRoundAction(icon: Icons.account_balance_wallet_rounded, label: 'Top Up'),
+      _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: 'Buy'),
+      _MiniRoundAction(icon: Icons.shield_rounded, label: 'Secure'),
+      _MiniRoundAction(icon: Icons.local_atm_rounded, label: 'Cash out'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Personnalisé pour vous',
+          style: TextStyle(
+            color: AppColors.darkText,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.m),
+        Row(
+          children: [
+            for (final item in items)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: item,
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
 
-class _SectionCage extends StatelessWidget {
-  final String title;
-  final Widget child;
-  const _SectionCage({required this.title, required this.child});
+class _MiniRoundAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MiniRoundAction({required this.icon, required this.label});
+
   @override
-  Widget build(BuildContext context) => child;
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {},
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.cardBorder, width: 0.5),
+              boxShadow: AppShadows.secondary,
+            ),
+            child: Icon(icon, size: 20, color: AppColors.darkText),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ServicesGrid extends StatelessWidget {
-  final SectionBadgeCounts counts;
-  final ValueChanged<String> onServiceTap;
-  const _ServicesGrid({required this.counts, required this.onServiceTap});
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
-}
-
-class _PersonalisedSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
-}
-
+// ---- BOTTOM NAVIGATION ----
 class _FloatingBottomNav extends StatelessWidget {
   final VoidCallback onScanTap;
+
   const _FloatingBottomNav({required this.onScanTap});
+
+  void _openDocuments(BuildContext context) {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.go(AppRoutes.vault);
+      return;
+    }
+    context.push(AppRoutes.login);
+  }
+
+  void _openProfile(BuildContext context) {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      final t = auth.currentUser?.accountType;
+      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
+      return;
+    }
+    context.push(AppRoutes.login);
+  }
+
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 92,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: AppColors.bottomNavBlue,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _NavItem(
+                    icon: Icons.home_filled,
+                    label: 'Home',
+                    active: true,
+                    onTap: () => context.go(AppRoutes.home),
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                  _NavItem(
+                    icon: Icons.apps_rounded,
+                    label: 'Mini Apps',
+                    onTap: () {},
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                  const SizedBox(width: 74),
+                  _NavItem(
+                    icon: Icons.folder_rounded,
+                    label: 'Documents',
+                    onTap: () => _openDocuments(context),
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                  _NavItem(
+                    icon: Icons.person_outline_rounded,
+                    label: 'Profile',
+                    onTap: () => _openProfile(context),
+                    activeColor: AppColors.bottomNavActive,
+                    inactiveColor: AppColors.bottomNavInactive,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: -18,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 74,
+                    height: 74,
+                    decoration: const BoxDecoration(color: AppColors.lightGrayBg, shape: BoxShape.circle),
+                  ),
+                  GestureDetector(
+                    onTap: onScanTap,
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.goldBadge,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.18),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.qr_code_scanner_rounded,
+                        color: AppColors.bottomNavCenterIcon,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final Color? activeColor;
+  final Color? inactiveColor;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+    required this.onTap,
+    this.activeColor,
+    this.inactiveColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedActive = activeColor ?? AppColors.primaryBlue;
+    final resolvedInactive = inactiveColor ?? AppColors.textSecondary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: active ? resolvedActive : resolvedInactive,
+            size: 22,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: active ? resolvedActive : resolvedInactive,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// FEUILLE DE DEMANDE DE COMPTE
+// ============================================================================
+
+enum _AccountRequestChoice { personal, enterprise }
+
+class AccountRequestSheet extends StatelessWidget {
+  const AccountRequestSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 35,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.cardBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.l),
+            const Text(
+              'Créer un compte',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.darkText,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            _OptionButton(
+              icon: Icons.person_outline,
+              title: 'Compte Personnel',
+              subtitle: 'Pour un profil individuel',
+              onTap: () {
+                Navigator.pop(context, _AccountRequestChoice.personal);
+              },
+            ),
+            const SizedBox(height: AppSpacing.m),
+            _OptionButton(
+              icon: Icons.business_outlined,
+              title: 'Compte Entreprise',
+              subtitle: 'Pour une organisation',
+              onTap: () {
+                Navigator.pop(context, _AccountRequestChoice.enterprise);
+              },
+            ),
+            const SizedBox(height: AppSpacing.m),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionButton extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _OptionButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.m),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.cardBorder),
+          borderRadius: BorderRadius.circular(14),
+          color: AppColors.lightGrayBg,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.darkText.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppColors.darkText, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.darkText,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 12,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
