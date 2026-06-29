@@ -50,7 +50,8 @@ class FeedPostCard extends StatelessWidget {
               isBookmarked: post.isBookmarked,
               onComments: onTapComments,
               onReact: (type) async {
-                if (onReact != null) await onReact(type);
+                final cb = onReact;
+                if (cb != null) await cb(type);
               },
               onShare: onShare,
               onToggleBookmark: onToggleBookmark,

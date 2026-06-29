@@ -1,6 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../network_view_model.dart';
@@ -14,11 +13,9 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _contentController = TextEditingController();
-  final List<File> _selectedMedia = [];
+  final List<PlatformFile> _selectedMedia = [];
   bool _isUploading = false;
   String? _postType = 'publication'; // 'publication', 'photo', 'video', 'short', 'sondage'
-
-  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -27,21 +24,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickMedia() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _selectedMedia.add(File(image.path));
-      });
-    }
+    final res = await FilePicker.pickFiles(type: FileType.image, allowMultiple: true, withData: true);
+    if (res == null || res.files.isEmpty) return;
+    setState(() => _selectedMedia.addAll(res.files));
   }
 
   Future<void> _pickVideo() async {
-    final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
-    if (video != null) {
-      setState(() {
-        _selectedMedia.add(File(video.path));
-      });
-    }
+    final res = await FilePicker.pickFiles(type: FileType.video, allowMultiple: true, withData: true);
+    if (res == null || res.files.isEmpty) return;
+    setState(() => _selectedMedia.addAll(res.files));
   }
 
   Future<void> _submitPost() async {
@@ -62,11 +53,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       List<String> mediaUrls = [];
 
       // Upload des médias vers Supabase Storage
-      for (var file in _selectedMedia) {
-        final ext = file.path.split('.').last;
-        final path = 'posts/${userId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-        await supabase.storage.from('media').upload(path, file);
-        final url = supabase.storage.from('media').getPublicUrl(path);
+      for (final f in _selectedMedia) {
+        final bytes = f.bytes;
+        if (bytes == null) continue;
+        final ext = (f.extension ?? 'bin').toLowerCase();
+        final storagePath = 'posts/${userId}_${DateTime.now().millisecondsSinceEpoch}.${ext.isEmpty ? 'bin' : ext}';
+        await supabase.storage.from('media').uploadBinary(storagePath, bytes);
+        final url = supabase.storage.from('media').getPublicUrl(storagePath);
         mediaUrls.add(url);
       }
 
@@ -175,6 +168,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   itemCount: _selectedMedia.length,
                   itemBuilder: (context, index) {
                     final file = _selectedMedia[index];
+                    final bytes = file.bytes;
                     return Stack(
                       children: [
                         Container(
@@ -182,11 +176,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            image: DecorationImage(
-                              image: FileImage(file),
-                              fit: BoxFit.cover,
-                            ),
+                            image: bytes == null
+                                ? null
+                                : DecorationImage(
+                                    image: MemoryImage(bytes),
+                                    fit: BoxFit.cover,
+                                  ),
                           ),
+                          child: bytes == null ? const Center(child: Icon(Icons.insert_photo_outlined)) : null,
                         ),
                         Positioned(
                           top: 4,

@@ -11,9 +11,9 @@ class Post {
   final String content;
   final List<String>? mediaUrls;
   final DateTime createdAt;
-  final int likesCount;
-  final int commentsCount;
-  final int sharesCount;
+  int likesCount;
+  int commentsCount;
+  int sharesCount;
   bool isLiked;
   bool isSaved;
 
@@ -214,12 +214,12 @@ class NetworkViewModel extends ChangeNotifier {
         opportunitiesFuture,
       ]);
 
-      _posts = results[0];
-      _stories = results[1];
-      _metrics = results[2];
-      _chartData = results[3];
-      _shorts = results[4];
-      _opportunities = results[5];
+      _posts = (results[0] as List).cast<Post>();
+      _stories = (results[1] as List).cast<Story>();
+      _metrics = (results[2] as List).cast<Metric>();
+      _chartData = (results[3] as List).cast<double>();
+      _shorts = (results[4] as List).cast<Short>();
+      _opportunities = (results[5] as List).cast<Opportunity>();
 
       // Charger les états de like/save pour chaque post (optimisé plus tard)
       for (var post in _posts) {
@@ -268,10 +268,10 @@ class NetworkViewModel extends ChangeNotifier {
     // Pour l'exemple, on simule des métriques (car elles sont souvent calculées)
     // Vous pouvez les remplacer par des requêtes SQL (ex: SUM des revenus, COUNT des users, etc.)
     return [
-      const Metric(label: 'Revenus', value: '24.8K €', change: '+12.5%', icon: Icons.attach_money, color: Colors.green),
-      const Metric(label: 'Utilisateurs', value: '2,540', change: '+18.2%', icon: Icons.people, color: Colors.blue),
-      const Metric(label: 'Tâches', value: '18', change: 'En cours', icon: Icons.task, color: Colors.orange),
-      const Metric(label: 'Activité', value: '55', change: '+42%', icon: Icons.trending_up, color: Colors.purple),
+      Metric(label: 'Revenus', value: '24.8K €', change: '+12.5%', icon: Icons.attach_money, color: Colors.green),
+      Metric(label: 'Utilisateurs', value: '2,540', change: '+18.2%', icon: Icons.people, color: Colors.blue),
+      Metric(label: 'Tâches', value: '18', change: 'En cours', icon: Icons.task, color: Colors.orange),
+      Metric(label: 'Activité', value: '55', change: '+42%', icon: Icons.trending_up, color: Colors.purple),
     ];
   }
 
@@ -297,22 +297,32 @@ class NetworkViewModel extends ChangeNotifier {
     // Pour l'exemple, on utilise des données statiques
     // Vous pouvez remplacer par une table Supabase 'opportunities'
     return [
-      const Opportunity(
+      Opportunity(
         title: 'Offre d\'emploi',
         subtitle: 'UI/UX Designer - TechNova',
         type: 'job',
       ),
-      const Opportunity(
+      Opportunity(
         title: 'Financement',
         subtitle: 'Fonds Innovation Afrique 2024',
         type: 'funding',
       ),
-      const Opportunity(
+      Opportunity(
         title: 'Appel à projets',
         subtitle: 'Impact Startup Challenge',
         type: 'project',
       ),
     ];
+  }
+
+  Future<void> repostPost(String postId) async {
+    // Minimal implementation: reuse share RPC if present.
+    try {
+      await supabase.from('shares').insert({'post_id': postId, 'user_id': currentUserId, 'target_type': 'repost'});
+      await supabase.rpc('increment_shares', params: {'post_id': postId});
+    } catch (e) {
+      debugPrint('repostPost failed err=$e');
+    }
   }
 
   // ---- Actions utilisateur ----

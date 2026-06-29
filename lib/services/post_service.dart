@@ -55,13 +55,15 @@ class PostService {
 
           final publicUrl = supabase.storage.from(storageBucket).getPublicUrl(key);
 
-          await supabase.from('post_media').insert({
-            'post_id': post.id,
-            'storage_path': key,
-            'mime': f.mimeType ?? 'application/octet-stream',
-            'size': f.size,
-            'ordering': i,
-          });
+            final ext = (f.extension ?? '').toLowerCase();
+            final mime = ext.isEmpty ? 'application/octet-stream' : 'application/$ext';
+            await supabase.from('post_media').insert({
+              'post_id': post.id,
+              'storage_path': key,
+              'mime': mime,
+              'size': f.size,
+              'ordering': i,
+            });
 
           // update in-memory media list (optional)
           post.media.add(PostMedia(
@@ -69,7 +71,7 @@ class PostService {
             postId: post.id,
             storagePath: key,
             url: publicUrl ?? '',
-            mime: f.mimeType ?? 'application/octet-stream',
+            mime: ((f.extension ?? '').isEmpty) ? 'application/octet-stream' : 'application/${(f.extension ?? '').toLowerCase()}',
             size: f.size,
             ordering: i,
           ));

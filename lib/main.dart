@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
@@ -194,36 +193,34 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ProviderScope(
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: widget.auth),
-          ChangeNotifierProvider.value(value: _localeController),
-          Provider<ProfileService>.value(value: widget.profiles),
-          Provider<FirestoreUserService>.value(value: widget.users),
-        ],
-        child: Builder(
-          builder: (context) {
-            final locale = context.watch<LocaleController>().locale;
-            return MaterialApp.router(
-              title: 'THIX ID',
-              debugShowCheckedModeBanner: false,
-              theme: lightTheme,
-              darkTheme: darkTheme,
-              themeMode: ThemeMode.system,
-              routerConfig: _router,
-              locale: locale,
-              supportedLocales: LocaleController.supportedLocales,
-              localizationsDelegates: const [
-                AppLocalizations.delegate,
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              builder: (context, child) => child ?? const SizedBox.shrink(),
-            );
-          },
-        ),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: widget.auth),
+        ChangeNotifierProvider.value(value: _localeController),
+        Provider<ProfileService>.value(value: widget.profiles),
+        Provider<FirestoreUserService>.value(value: widget.users),
+      ],
+      child: Builder(
+        builder: (context) {
+          final locale = context.watch<LocaleController>().locale;
+          return MaterialApp.router(
+            title: 'THIX ID',
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.system,
+            routerConfig: _router,
+            locale: locale,
+            supportedLocales: LocaleController.supportedLocales,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            builder: (context, child) => child ?? const SizedBox.shrink(),
+          );
+        },
       ),
     );
   }

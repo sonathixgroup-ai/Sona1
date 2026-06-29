@@ -8,6 +8,7 @@ import 'widgets/feed_widgets.dart';
 import 'tabs/discover_tab.dart';
 import 'tabs/connections_tab.dart';
 import 'tabs/profile_tab.dart';
+import 'screens/create_post_screen.dart';
 
 class NetworkPage extends StatefulWidget {
   const NetworkPage({super.key});

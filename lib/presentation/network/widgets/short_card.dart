@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:timeago/timeago.dart' as timeago;
 import 'package:thix_id/presentation/network/network_view_model.dart';
+import 'package:thix_id/utils/time_ago.dart';
 
 class ShortCard extends StatelessWidget {
   final Short short;

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:thix_id/models/post.dart';
 import 'package:thix_id/services/post_service.dart';
 import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:thix_id/utils/time_ago.dart';
 
 class PostCard extends StatefulWidget {
   final Post post;
@@ -68,7 +68,7 @@ class _PostCardState extends State<PostCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(name, style: TextStyle(fontWeight: FontWeight.w800)),
-                      Text(timeago.format(widget.post.createdAt), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      Text(formatTimeAgo(widget.post.createdAt), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                     ],
                   ),
                 ),

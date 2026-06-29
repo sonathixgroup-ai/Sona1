@@ -16,7 +16,7 @@ class _CreatePostCardState extends State<CreatePostCard> {
   bool _loading = false;
 
   Future<void> _pickFiles() async {
-    final res = await FilePicker().pickFiles(allowMultiple: true, type: FileType.image, withData: true);
+    final res = await FilePicker.pickFiles(allowMultiple: true, type: FileType.image, withData: true);
     if (res == null) return;
     setState(() => _picked = res.files);
   }

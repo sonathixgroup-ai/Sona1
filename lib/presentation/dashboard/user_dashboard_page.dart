@@ -2826,7 +2826,7 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
 
   Future<void> _pickEvidenceFiles() async {
     try {
-      final res = await FilePicker().pickFiles(allowMultiple: true, withData: kIsWeb, type: FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
+      final res = await FilePicker.pickFiles(allowMultiple: true, withData: kIsWeb, type: FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
       if (res == null || res.files.isEmpty) return;
       setState(() => _saving = true);
       final uid = widget.profile.userId;
@@ -3298,7 +3298,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
 
   Future<void> _pickIdFile(String kind) async {
     try {
-      final res = await FilePicker().pickFiles(type: FileType.custom, withData: kIsWeb, allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp', 'pdf']);
+      final res = await FilePicker.pickFiles(type: FileType.custom, withData: kIsWeb, allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp', 'pdf']);
       if (res == null || res.files.isEmpty) return;
       final f = res.files.first;
       setState(() {
@@ -3593,7 +3593,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
 
   Future<void> _pickPhoto() async {
     try {
-      final res = await FilePicker().pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
+      final res = await FilePicker.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.first;
       setState(() => _pickedPhoto = file);
@@ -4219,7 +4219,7 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
 
   Future<void> _pickEvidenceFiles() async {
     try {
-      final res = await FilePicker().pickFiles(allowMultiple: true, withData: kIsWeb, type: FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
+      final res = await FilePicker.pickFiles(allowMultiple: true, withData: kIsWeb, type: FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
       if (res == null || res.files.isEmpty) return;
       setState(() => _saving = true);
       final uid = widget.profile.userId;

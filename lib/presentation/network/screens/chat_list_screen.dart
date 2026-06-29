@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/presentation/network/services/message_service.dart';
 import 'package:thix_id/presentation/network/models/conversation_model.dart';
+import 'package:thix_id/presentation/network/screens/chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);

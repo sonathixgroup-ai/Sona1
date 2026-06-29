@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:timeago/timeago.dart' as timeago;
 import 'package:thix_id/presentation/network/network_view_model.dart';
+import 'package:thix_id/utils/time_ago.dart';
 
 class PostCard extends StatelessWidget {
   final Post post;
@@ -74,7 +74,7 @@ class PostCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          timeago.format(post.createdAt, locale: 'fr'),
+                          formatTimeAgo(post.createdAt),
                           style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                         const SizedBox(width: 4),
