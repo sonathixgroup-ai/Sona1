@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:ui' as ui;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -32,14 +29,6 @@ Future<void> main() async {
     debugPrint('FlutterError: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
   };
-
-  // Catches asynchronous errors that would otherwise surface as a blank screen
-  // on web (especially in release/profile-like modes).
-  ui.PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('PlatformDispatcher.onError: $error');
-    debugPrint(stack.toString());
-    return true;
-  };
   ErrorWidget.builder = (FlutterErrorDetails details) {
     debugPrint('ErrorWidget: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
@@ -61,13 +50,7 @@ Future<void> main() async {
   // Dreamflow preview can feel very heavy if we await Supabase + auth hydration
   // before calling runApp(). We bootstrap asynchronously and show a lightweight
   // loading UI immediately.
-  runZonedGuarded(
-    () => runApp(const BootstrapApp()),
-    (error, stack) {
-      debugPrint('runZonedGuarded: $error');
-      debugPrint(stack.toString());
-    },
-  );
+  runApp(const BootstrapApp());
 }
 
 class BootstrapApp extends StatefulWidget {
