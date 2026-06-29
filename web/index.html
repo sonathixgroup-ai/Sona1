@@ -14,7 +14,24 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-  <base href="$FLUTTER_BASE_HREF">
+  <!--
+    Dreamflow share links may serve the `web/` folder without running `flutter build web`,
+    meaning `$FLUTTER_BASE_HREF` might not be replaced.
+    If that placeholder remains, relative URLs (including `main.dart.js`) resolve incorrectly
+    and the app stays stuck on the initial Flutter loading spinner.
+
+    Using a relative base makes the app work both at root and under sub-paths.
+  -->
+  <!--
+    NOTE (Dreamflow preview/share): the Flutter tool may rewrite <base href> to
+    "./" when running on the "web-server" device, but the Flutter runtime
+    requires an absolute base (starting with "/").
+
+    The safest option here is to OMIT the <base> tag entirely.
+    - Preview/share links: work from the current document URL
+    - Production builds: `flutter build web --base-href ...` will generate a
+      correct `index.html` in build/web.
+  -->
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -35,7 +52,7 @@
 <body>
   <!-- Required by the `flutter-passkeys` web plugin (Corbado). Without this, the app throws
        "Passkeys Web SDK not loaded" at runtime even if the feature isn't used directly. -->
-  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
+  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js" defer></script>
   <!--
     IMPORTANT:
     This project previously referenced `flutter_bootstrap.js`, but the file is not present in

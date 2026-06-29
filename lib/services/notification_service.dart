@@ -121,13 +121,17 @@ class NotificationService {
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: _table,
+              // NOTE: Prefer explicit filter object (2.x API).
+              // If your Realtime policies / RLS prevent visibility, we fall back to polling.
               filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
               callback: (payload) {
                 debugPrint('NotificationService: realtime change uid=$uid table=${payload.table}');
                 unawaited(emitLatest());
               },
             )
-            .subscribe((status, err) {
+            // Some supabase_flutter versions expose `subscribe((status, [err]) {})`.
+            // Using an optional positional keeps us compatible.
+            .subscribe((status, [err]) {
               debugPrint('NotificationService: subscribe status=$status err=$err uid=$uid');
               if (isCancelled) return;
 
