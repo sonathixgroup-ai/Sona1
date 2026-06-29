@@ -95,7 +95,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   // ⭐ CORRIGÉ - Utilisation de FilePicker au lieu de ImagePicker
   Future<void> _pickImages() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: true,
       );
@@ -121,7 +121,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   // ⭐ CORRIGÉ - Utilisation de FilePicker pour la caméra (fallback)
   Future<void> _pickCamera() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
       );

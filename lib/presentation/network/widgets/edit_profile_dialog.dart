@@ -91,7 +91,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   }
 
   Future<void> _pickAvatar() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
     );
     

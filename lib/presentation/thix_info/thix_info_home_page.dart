@@ -11,6 +11,7 @@ import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/services/news_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
+import 'package:thix_id/utils/time_ago.dart';
 import 'package:provider/provider.dart';
 
 /// THIX INFO — production screen (no mockups)
@@ -51,6 +52,15 @@ class _ThixInfoHomePageState extends State<ThixInfoHomePage> {
     'Sport',
     'Culture',
     'International',
+  ];
+
+  static const _quickActions = <_InfoQuickActionSpec>[
+    _InfoQuickActionSpec('Fil info', Icons.feed_rounded),
+    _InfoQuickActionSpec('Vidéos', Icons.play_circle_outline_rounded),
+    _InfoQuickActionSpec('Podcasts', Icons.podcasts_rounded),
+    _InfoQuickActionSpec('Magazines', Icons.library_books_rounded),
+    _InfoQuickActionSpec('Communiqué', Icons.campaign_rounded),
+    _InfoQuickActionSpec('Alertes', Icons.notifications_active_rounded),
   ];
 
   @override
@@ -218,6 +228,7 @@ class _ThixInfoHomePageState extends State<ThixInfoHomePage> {
                           pageController: _pageController,
                           pageIndex: _page,
                           onPageChanged: (v) => setState(() => _page = v),
+                          onQuickAction: (label) => _onQuickActionTap(context, label),
                         ),
             ),
           ],
@@ -244,6 +255,20 @@ class _ThixInfoHomePageState extends State<ThixInfoHomePage> {
       _searchController.clear();
     });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fil info')));
+  }
+
+  void _onQuickActionTap(BuildContext context, String label) {
+    switch (label) {
+      case 'Fil info':
+        _scrollToTopAndHighlight(context);
+        break;
+      case 'Alertes':
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alertes (bientôt)')));
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label (bientôt)')));
+        break;
+    }
   }
 }
 
@@ -276,7 +301,18 @@ class ThixInfoTopBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('THIX INFO', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                Row(
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(4)),
+                      child: const Icon(Icons.article_rounded, size: 12, color: Colors.black),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('THIX INFO', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  ],
+                ),
                 Text('Information vraie, partout.', style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.55))),
               ],
             ),
@@ -449,6 +485,7 @@ class _InfoContent extends StatelessWidget {
   final PageController pageController;
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
+  final ValueChanged<String> onQuickAction;
 
   const _InfoContent({
     required this.gold,
@@ -457,12 +494,14 @@ class _InfoContent extends StatelessWidget {
     required this.pageController,
     required this.pageIndex,
     required this.onPageChanged,
+    required this.onQuickAction,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final recent = items.take(8).toList(growable: false);
+    final recent = items.take(4).toList(growable: false);
+    final videos = items.take(6).toList(growable: false);
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
@@ -477,7 +516,22 @@ class _InfoContent extends StatelessWidget {
               final item = featured.isEmpty ? null : featured[index];
               return Padding(
                 padding: const EdgeInsets.only(left: 6, right: 6),
-                child: ThixFeaturedNewsCard(gold: gold, item: item),
+                child: ThixFeaturedNewsCard(
+                  gold: gold,
+                  item: item,
+                  onPrev: featured.length <= 1
+                      ? null
+                      : () {
+                          final prev = (pageIndex - 1) < 0 ? (featured.length - 1) : (pageIndex - 1);
+                          pageController.animateToPage(prev, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+                        },
+                  onNext: featured.length <= 1
+                      ? null
+                      : () {
+                          final next = (pageIndex + 1) % featured.length;
+                          pageController.animateToPage(next, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+                        },
+                ),
               );
             },
           ),
@@ -487,7 +541,7 @@ class _InfoContent extends StatelessWidget {
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: ThixInfoShortcutsRow(gold: gold),
+          child: ThixInfoShortcutsRow(gold: gold, onTap: onQuickAction),
         ),
         const SizedBox(height: 12),
         Padding(
@@ -502,15 +556,9 @@ class _InfoContent extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 160,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            scrollDirection: Axis.horizontal,
-            itemBuilder: (context, index) => ThixNewsMiniCard(item: recent[index], gold: gold),
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemCount: recent.length,
-          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: _InfoRecentGrid(gold: gold, items: recent),
         ),
         const SizedBox(height: 14),
         Padding(
@@ -535,9 +583,9 @@ class _InfoContent extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
-            itemBuilder: (context, index) => ThixVideoCard(item: items[index % items.length], gold: gold),
+            itemBuilder: (context, index) => ThixVideoCard(item: videos[index % videos.length], gold: gold),
             separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemCount: items.isEmpty ? 0 : (items.length < 8 ? items.length : 8),
+            itemCount: videos.isEmpty ? 0 : (videos.length < 8 ? videos.length : 8),
           ),
         ),
       ],
@@ -548,7 +596,9 @@ class _InfoContent extends StatelessWidget {
 class ThixFeaturedNewsCard extends StatelessWidget {
   final Color gold;
   final NewsItem? item;
-  const ThixFeaturedNewsCard({super.key, required this.gold, required this.item});
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  const ThixFeaturedNewsCard({super.key, required this.gold, required this.item, this.onPrev, this.onNext});
 
   @override
   Widget build(BuildContext context) {
@@ -633,12 +683,60 @@ class ThixFeaturedNewsCard extends StatelessWidget {
                         _ArrowPill(gold: gold),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(999)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.black),
+                              const SizedBox(width: 8),
+                              Text('Lire l’article', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.black, fontWeight: FontWeight.w900)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
             ),
+
+            Positioned(left: 10, top: 76, child: _CarouselArrowButton(icon: Icons.chevron_left_rounded, onTap: onPrev)),
+            Positioned(right: 10, top: 76, child: _CarouselArrowButton(icon: Icons.chevron_right_rounded, onTap: onNext)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CarouselArrowButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _CarouselArrowButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) return const SizedBox.shrink();
+    return InkWell(
+      onTap: onTap,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+        ),
+        child: Icon(icon, color: Colors.white, size: 22),
       ),
     );
   }
@@ -662,19 +760,13 @@ class _ArrowPill extends StatelessWidget {
 
 class ThixInfoShortcutsRow extends StatelessWidget {
   final Color gold;
-  const ThixInfoShortcutsRow({super.key, required this.gold});
+  final ValueChanged<String> onTap;
+  const ThixInfoShortcutsRow({super.key, required this.gold, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final items = const [
-      ('Fil info', Icons.feed_rounded),
-      ('Vidéos', Icons.play_circle_outline_rounded),
-      ('Podcasts', Icons.podcasts_rounded),
-      ('Magazines', Icons.library_books_rounded),
-      ('Communiqué', Icons.campaign_rounded),
-      ('Alertes', Icons.notifications_active_rounded),
-    ];
+    final specs = _ThixInfoHomePageState._quickActions;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -686,34 +778,70 @@ class ThixInfoShortcutsRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          for (final (label, icon) in items)
+          for (final s in specs)
             Expanded(
-              child: InkWell(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label))),
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: gold.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: gold.withValues(alpha: 0.30)),
-                        ),
-                        child: Icon(icon, color: cs.onSurface, size: 18),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-              ),
+              child: _QuickActionItem(gold: gold, icon: s.icon, label: s.label, onTap: () => onTap(s.label)),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _InfoQuickActionSpec {
+  final String label;
+  final IconData icon;
+  const _InfoQuickActionSpec(this.label, this.icon);
+}
+
+class _QuickActionItem extends StatefulWidget {
+  final Color gold;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickActionItem({required this.gold, required this.icon, required this.label, required this.onTap});
+
+  @override
+  State<_QuickActionItem> createState() => _QuickActionItemState();
+}
+
+class _QuickActionItemState extends State<_QuickActionItem> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) {
+        setState(() => _down = false);
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: widget.gold.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: widget.gold.withValues(alpha: 0.30)),
+                ),
+                child: Icon(widget.icon, color: cs.onSurface, size: 18),
+              ),
+              const SizedBox(height: 6),
+              Text(widget.label, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -774,6 +902,141 @@ class ThixNewsMiniCard extends StatelessWidget {
   }
 }
 
+class _InfoRecentGrid extends StatelessWidget {
+  final Color gold;
+  final List<NewsItem> items;
+  const _InfoRecentGrid({required this.gold, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text('Aucune actualité récente.', style: Theme.of(context).textTheme.bodyMedium),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.98,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => ThixNewsGridTile(item: items[index], gold: gold),
+    );
+  }
+}
+
+class ThixNewsGridTile extends StatefulWidget {
+  final NewsItem item;
+  final Color gold;
+  const ThixNewsGridTile({super.key, required this.item, required this.gold});
+
+  @override
+  State<ThixNewsGridTile> createState() => _ThixNewsGridTileState();
+}
+
+class _ThixNewsGridTileState extends State<ThixNewsGridTile> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final it = widget.item;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) {
+        setState(() => _down = false);
+        context.push(AppRoutes.thixInfoArticle(it.id));
+      },
+      child: AnimatedScale(
+        scale: _down ? 0.985 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: cs.onSurface.withValues(alpha: 0.10)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: _ThixNewsImage(
+                        url: it.imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: _ThixNewsPlaceholder(gold: widget.gold, icon: Icons.newspaper_rounded, variant: _ThixNewsPlaceholderVariant.tile),
+                      ),
+                    ),
+                    Positioned(
+                      left: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.40),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                        ),
+                        child: Text(
+                          formatTimeAgo(it.createdAt),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      it.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900, height: 1.12),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(width: 6, height: 6, decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(999))),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            it.source,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.60), fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.bookmark_border_rounded, size: 18, color: cs.onSurface.withValues(alpha: 0.55)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ThixRealtimeBanner extends StatelessWidget {
   final Color gold;
   const ThixRealtimeBanner({super.key, required this.gold});
@@ -786,7 +1049,7 @@ class ThixRealtimeBanner extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: cs.onSurface.withValues(alpha: 0.10)),
-        color: gold.withValues(alpha: 0.12),
+        color: gold.withValues(alpha: 0.10),
       ),
       child: Row(
         children: [
@@ -797,8 +1060,13 @@ class ThixRealtimeBanner extends StatelessWidget {
             child: const Icon(Icons.notifications_active_rounded, color: Colors.black, size: 18),
           ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Text('Restez informé en temps réel !\nActivez les notifications pour ne rien rater.', maxLines: 2, overflow: TextOverflow.ellipsis),
+          Expanded(
+            child: Text(
+              'Restez informé en temps réel !\nActivez les notifications pour ne rien rater.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.25),
+            ),
           ),
           const SizedBox(width: 12),
           FilledButton(
