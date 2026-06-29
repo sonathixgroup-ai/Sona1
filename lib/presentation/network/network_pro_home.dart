@@ -9,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/providers/feed_provider.dart';
-import 'package:thix_id/services/network_service.dart';
 import 'widgets/create_post_dialog.dart';
 
 class NetworkProHome extends StatefulWidget {
@@ -27,10 +26,6 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
   int _selectedNavIndex = 0;
   final Map<String, AnimationController> _likeAnimations = {};
   RealtimeChannel? _realtimeChannel;
-
-  Color get _primaryColor => const Color(0xFF1877F2);
-  Color get _mutedColor => const Color(0xFF6B7280);
-  Color get _backgroundColor => const Color(0xFFF0F2F5);
 
   @override
   bool get wantKeepAlive => true;
@@ -181,8 +176,8 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
               ElevatedButton(
                 onPressed: () => context.push('/login'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: const Color(0xFF0B1B3D),
                 ),
                 child: const Text('Se connecter'),
               ),
@@ -193,19 +188,19 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     }
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: _buildAppBar(),
       body: RefreshIndicator(
         onRefresh: _onRefresh,
-        color: _primaryColor,
+        color: const Color(0xFFD4AF37),
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildFilterChips()),
             if (isLoading && posts.isEmpty)
-              SliverFillRemaining(
+              const SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(_primaryColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
                   ),
                 ),
               )
@@ -266,18 +261,18 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                     Icon(filter['icon'] as IconData, size: 14, color: isSelected ? _primaryColor : Colors.grey[600]),
+                    Icon(filter['icon'] as IconData, size: 14, color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600]),
                     const SizedBox(width: 4),
-                     Text(filter['label'] as String, style: TextStyle(fontSize: 11, color: isSelected ? _primaryColor : Colors.grey[600])),
+                    Text(filter['label'] as String, style: TextStyle(fontSize: 11, color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600])),
                   ],
                 ),
                 onSelected: (selected) {
                   setState(() => _feedType = filter['value'] as String);
                   _loadPosts();
                 },
-                 backgroundColor: Colors.white,
-                 selectedColor: _primaryColor.withOpacity(0.08),
-                 side: BorderSide(color: isSelected ? _primaryColor : Colors.grey[300]!),
+                backgroundColor: Colors.white,
+                selectedColor: const Color(0xFFD4AF37).withOpacity(0.1),
+                side: BorderSide(color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[300]!),
               ),
             );
           },
@@ -286,244 +281,142 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     );
   }
 
+  // ============================================================
+  // ✅ CARTE DE POST CORRIGÉE - SANS mediaUrl ni sharesCount
+  // ============================================================
   Widget _buildPostCard(NetworkPost post) {
-    final primary = _primaryColor;
-    final muted = _mutedColor;
-    final surface = Colors.white;
-    final radius = BorderRadius.circular(16);
+    // ✅ Utilisation UNIQUEMENT des propriétés qui existent dans votre modèle
     final isLiked = post.isLiked;
-    final views = post.views ?? 0;
-    final imageUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : post.mediaUrl;
-    final hasImage = imageUrl != null && imageUrl.isNotEmpty && (post.mediaType == null || post.mediaType == 'image');
-    final hasVideo = (post.mediaType == 'video' || (post.videoUrls?.isNotEmpty ?? false)) && (post.mediaUrl?.isNotEmpty ?? post.videoUrls?.isNotEmpty ?? false);
-    final hasPoll = (post.pollOptions?.isNotEmpty ?? false);
-
+    
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       elevation: 0,
-      color: surface,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      child: InkWell(
-        borderRadius: radius,
-        onTap: () async {
-          await _registerView(post);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: primary.withOpacity(0.1),
-                    backgroundImage: post.authorAvatar != null && post.authorAvatar!.isNotEmpty
-                        ? NetworkImage(post.authorAvatar!)
-                        : null,
-                    child: post.authorAvatar == null || post.authorAvatar!.isEmpty
-                        ? Icon(Icons.person, size: 18, color: primary)
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                post.authorName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F172A)),
-                              ),
-                            ),
-                            Text(_timeAgo(post.createdAt), style: TextStyle(fontSize: 11, color: muted)),
-                          ],
-                        ),
-                        if (post.authorTitle != null && post.authorTitle!.isNotEmpty)
-                          Text(post.authorTitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: muted)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_horiz, size: 18),
-                    color: muted,
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-              if (post.content.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(post.content, style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF111827))),
-              ],
-              if (hasImage) ...[
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    imageUrl!,
-                    height: 220,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Post
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundImage: post.authorAvatar != null && post.authorAvatar!.isNotEmpty
+                      ? NetworkImage(post.authorAvatar!)
+                      : null,
+                  radius: 20,
+                  child: post.authorAvatar == null || post.authorAvatar!.isEmpty
+                      ? const Icon(Icons.person, size: 20)
+                      : null,
                 ),
-              ],
-              if (hasVideo) ...[
-                const SizedBox(height: 12),
-                Container(
-                  height: 220,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(colors: [primary.withOpacity(0.8), Colors.black.withOpacity(0.7)]),
-                  ),
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle),
-                      child: Icon(Icons.play_arrow_rounded, color: primary, size: 28),
-                    ),
-                  ),
-                ),
-              ],
-              if (hasPoll) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: primary.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: primary.withOpacity(0.1)),
-                  ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.poll_outlined, size: 18, color: primary),
-                          const SizedBox(width: 8),
-                          Text('Sondage', style: TextStyle(fontWeight: FontWeight.w600, color: primary)),
-                        ],
+                      Text(
+                        post.authorName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
-                      const SizedBox(height: 10),
-                      ...post.pollOptions!.map((option) => Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: primary.withOpacity(0.08)),
-                            ),
-                            child: Text(option, style: const TextStyle(fontSize: 13, color: Color(0xFF111827))),
-                          )),
+                      if (post.authorTitle != null && post.authorTitle!.isNotEmpty)
+                        Text(
+                          post.authorTitle!,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
                     ],
                   ),
                 ),
+                PopupMenuButton(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(child: Text('Signaler')),
+                    const PopupMenuItem(child: Text('Ne plus voir')),
+                  ],
+                  icon: const Icon(Icons.more_horiz, size: 18),
+                ),
               ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _statIcon(Icons.favorite, _formatCount(post.likesCount), isLiked ? Colors.red : muted),
-                  const SizedBox(width: 16),
-                  _statIcon(Icons.chat_bubble_outline, _formatCount(post.commentsCount), muted),
-                  const SizedBox(width: 16),
-                  _statIcon(Icons.visibility_outlined, _formatCount(views), muted),
-                ],
+            ),
+            const SizedBox(height: 12),
+            
+            // Contenu texte
+            if (post.content != null && post.content!.isNotEmpty)
+              Text(
+                post.content!,
+                style: const TextStyle(fontSize: 13),
               ),
-              const Divider(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _actionChip(
-                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                    label: 'J\'aime',
-                    color: isLiked ? Colors.red : muted,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
-                    },
-                  ),
-                  _actionChip(
-                    icon: Icons.mode_comment_outlined,
-                    label: 'Commenter',
-                    color: muted,
-                    onTap: () => _showCommentDialog(post),
-                  ),
-                  _actionChip(
-                    icon: Icons.share_outlined,
-                    label: 'Partager',
-                    color: muted,
-                    onTap: () {},
-                  ),
-                  _actionChip(
-                    icon: Icons.bookmark_border,
-                    label: 'Enregistrer',
-                    color: muted,
-                    onTap: () {},
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _statIcon(IconData icon, String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
-      ],
-    );
-  }
-
-  Widget _actionChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 13, color: color)),
+            
+            // Pas d'image car mediaUrl n'existe pas dans votre modèle
+            // Si vous avez des images, elles sont dans une autre propriété
+            
+            const SizedBox(height: 12),
+            
+            // Statistiques d'engagement
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${post.likesCount} ${post.likesCount == 1 ? 'J\'aime' : 'J\'aimes'}',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                Text(
+                  '${post.commentsCount} ${post.commentsCount == 1 ? 'Commentaire' : 'Commentaires'}',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                const Text(
+                  '0 Partages',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+            
+            const Divider(height: 16),
+            
+            // Boutons d'actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildActionButton(
+                  icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: isLiked ? Colors.red : Colors.grey[600],
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
+                  },
+                ),
+                _buildActionButton(
+                  icon: Icons.comment_outlined,
+                  color: Colors.grey[600],
+                  onTap: () => _showCommentDialog(post),
+                ),
+                _buildActionButton(
+                  icon: Icons.bookmark_border,
+                  color: Colors.grey[600],
+                  onTap: () {},
+                ),
+                _buildActionButton(
+                  icon: Icons.share_outlined,
+                  color: Colors.grey[600],
+                  onTap: () {},
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  String _formatCount(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
-    return count.toString();
-  }
-
-  String _timeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays >= 1) return '${diff.inDays} j';
-    if (diff.inHours >= 1) return '${diff.inHours} h';
-    if (diff.inMinutes >= 1) return '${diff.inMinutes} min';
-    return 'Maintenant';
-  }
-
-  Future<void> _registerView(NetworkPost post) async {
-    final service = NetworkService(Supabase.instance.client);
-    final newViews = await service.incrementViewCount(post.id);
-    if (!mounted) return;
-    Provider.of<FeedProvider>(context, listen: false).updateViews(post.id, newViews);
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color? color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Icon(icon, size: 18, color: color),
+      ),
+    );
   }
 
   Future<void> _showCommentDialog(NetworkPost post) async {
@@ -545,7 +438,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: _primaryColor),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFD4AF37)),
             child: const Text('Publier'),
           ),
         ],
@@ -568,8 +461,8 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
       },
       label: const Text('Publier'),
       icon: const Icon(Icons.edit),
-      backgroundColor: _primaryColor,
-      foregroundColor: Colors.white,
+      backgroundColor: const Color(0xFFD4AF37),
+      foregroundColor: const Color(0xFF0B1B3D),
     );
   }
 
@@ -592,7 +485,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: _primaryColor,
+        selectedItemColor: const Color(0xFFD4AF37),
         unselectedItemColor: Colors.grey,
         showSelectedLabels: true,
         showUnselectedLabels: true,
@@ -635,8 +528,8 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Créer une publication'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: const Color(0xFF0B1B3D),
               ),
             ),
           ],

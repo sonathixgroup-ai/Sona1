@@ -10,19 +10,6 @@ import 'package:thix_id/models/network_post.dart';
 import 'widgets/pinned_post.dart';
 import 'dart:async';
 
-// Palette alignée sur la homepage (bleu profond + or doux)
-class _ProfileColors {
-  static const Color primary = Color(0xFF0B3B8F);
-  static const Color primaryDark = Color(0xFF0A2F6B);
-  static const Color accentGold = Color(0xFFFBBF24);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color background = Color(0xFFF0F2F5);
-  static const Color text = Color(0xFF111827);
-  static const Color textMuted = Color(0xFF6B7280);
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color shadow = Color(0x14000000);
-}
-
 class ProfilePage extends StatefulWidget {
   final String? userId;
   const ProfilePage({super.key, this.userId});
@@ -125,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     final isOwnProfile = widget.userId == null || widget.userId == auth.currentUser?.id;
     
     return Scaffold(
-      backgroundColor: _ProfileColors.background,
+      backgroundColor: const Color(0xFFF8F9FA),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -179,15 +166,15 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     return Stack(
       children: [
         Container(
-          height: 150,
+          height: 160,
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [_ProfileColors.primary, _ProfileColors.primaryDark],
+              colors: [Color(0xFF0B1B3D), Color(0xFF1A2B4D)],
             ),
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
             image: _user?['cover_url'] != null
                 ? DecorationImage(image: NetworkImage(_user!['cover_url']), fit: BoxFit.cover)
                 : null,

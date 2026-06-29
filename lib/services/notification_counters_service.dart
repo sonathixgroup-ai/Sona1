@@ -83,9 +83,9 @@ class NotificationCountersService {
   final SupabaseClient _client;
 
   static const _pollingInterval = Duration(seconds: 30);
-  static const _infoTable = 'info_articles';
+  static const _infoTable = 'news_articles';
   static const _eventsTable = 'events';
-  static const _opportunitiesTable = 'opportunities';
+  static const _opportunitiesTable = 'thix_opportunities';
   static const _jobsTable = 'jobs';
   static const _formationsTable = 'formations';
 
@@ -138,7 +138,7 @@ class NotificationCountersService {
       var query = _client
           .from(ChatService.messagesTable)
           .select('id')
-          .eq('to_uid', uid);
+          .neq('sender_id', uid);
       if (since != null) {
         query = query.gt('created_at', since.toIso8601String());
       }

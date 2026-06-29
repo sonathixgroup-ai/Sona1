@@ -171,7 +171,7 @@ class ChatService {
   ChatService({SupabaseClient? client}) : _client = client ?? SupabaseConfig.client;
 
   static const String chatsTable = 'thix_chat_chats';
-  static const String messagesTable = 'thix_chat_messages';
+  static const String messagesTable = 'chat_messages';
   static const String readsTable = 'thix_chat_reads';
   static const String typingTable = 'thix_chat_typing';
   static const String attachmentsBucket = 'thix-chat';

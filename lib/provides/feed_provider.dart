@@ -28,14 +28,6 @@ class FeedProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String get currentFeedType => _currentFeedType;
   String? get error => _error;
-
-  void updateViews(String postId, int views) {
-    final index = _posts.indexWhere((p) => p.id == postId);
-    if (index != -1) {
-      _posts[index] = _posts[index].copyWith(views: views);
-      notifyListeners();
-    }
-  }
   
   // ============================================================
   // INITIALISATION REALTIME
