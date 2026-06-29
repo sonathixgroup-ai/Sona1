@@ -17,11 +17,13 @@
         "flutter",
         "flutter_local_notifications",
         "flutter_localizations",
+        "flutter_riverpod",
         "geolocator",
         "go_router",
         "google_fonts",
         "http",
         "iconsax",
+        "image_picker",
         "mobile_scanner",
         "nfc_manager",
         "path_provider",
@@ -34,6 +36,7 @@
         "share_plus",
         "shared_preferences",
         "supabase_flutter",
+        "timeago",
         "url_launcher",
         "video_player"
       ],
@@ -329,16 +332,15 @@
     },
     {
       "name": "supabase_flutter",
-      "version": "2.14.1",
+      "version": "2.15.0",
       "dependencies": [
         "app_links",
         "async",
-        "crypto",
         "flutter",
         "http",
         "logging",
         "meta",
-        "path_provider",
+        "passkeys",
         "shared_preferences",
         "supabase",
         "url_launcher",
@@ -427,6 +429,38 @@
       "version": "0.0.8",
       "dependencies": [
         "flutter"
+      ]
+    },
+    {
+      "name": "flutter_riverpod",
+      "version": "2.6.1",
+      "dependencies": [
+        "collection",
+        "flutter",
+        "meta",
+        "riverpod",
+        "state_notifier"
+      ]
+    },
+    {
+      "name": "timeago",
+      "version": "3.7.1",
+      "dependencies": [
+        "intl"
+      ]
+    },
+    {
+      "name": "image_picker",
+      "version": "1.2.1",
+      "dependencies": [
+        "flutter",
+        "image_picker_android",
+        "image_picker_for_web",
+        "image_picker_ios",
+        "image_picker_linux",
+        "image_picker_macos",
+        "image_picker_platform_interface",
+        "image_picker_windows"
       ]
     },
     {
@@ -866,7 +900,7 @@
     },
     {
       "name": "permission_handler_apple",
-      "version": "9.4.9",
+      "version": "9.4.10",
       "dependencies": [
         "flutter",
         "permission_handler_platform_interface"
@@ -932,7 +966,7 @@
     },
     {
       "name": "geolocator_web",
-      "version": "4.1.3",
+      "version": "4.1.4",
       "dependencies": [
         "flutter",
         "flutter_web_plugins",
@@ -942,7 +976,7 @@
     },
     {
       "name": "geolocator_apple",
-      "version": "2.3.13",
+      "version": "2.3.14",
       "dependencies": [
         "flutter",
         "geolocator_platform_interface"
@@ -960,7 +994,7 @@
     },
     {
       "name": "geolocator_platform_interface",
-      "version": "4.2.6",
+      "version": "4.2.8",
       "dependencies": [
         "flutter",
         "meta",
@@ -1207,7 +1241,7 @@
     },
     {
       "name": "supabase",
-      "version": "2.12.1",
+      "version": "2.13.0",
       "dependencies": [
         "functions_client",
         "gotrue",
@@ -1218,6 +1252,22 @@
         "rxdart",
         "storage_client",
         "yet_another_json_isolate"
+      ]
+    },
+    {
+      "name": "passkeys",
+      "version": "2.20.0",
+      "dependencies": [
+        "convert",
+        "flutter",
+        "json_annotation",
+        "passkeys_android",
+        "passkeys_darwin",
+        "passkeys_doctor",
+        "passkeys_platform_interface",
+        "passkeys_web",
+        "passkeys_windows",
+        "ua_client_hints"
       ]
     },
     {
@@ -1258,6 +1308,91 @@
       "name": "sky_engine",
       "version": "0.0.0",
       "dependencies": []
+    },
+    {
+      "name": "state_notifier",
+      "version": "1.0.0",
+      "dependencies": [
+        "meta"
+      ]
+    },
+    {
+      "name": "riverpod",
+      "version": "2.6.1",
+      "dependencies": [
+        "collection",
+        "meta",
+        "stack_trace",
+        "state_notifier"
+      ]
+    },
+    {
+      "name": "image_picker_windows",
+      "version": "0.2.2",
+      "dependencies": [
+        "file_selector_platform_interface",
+        "file_selector_windows",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_platform_interface",
+      "version": "2.11.1",
+      "dependencies": [
+        "cross_file",
+        "flutter",
+        "http",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_macos",
+      "version": "0.2.2",
+      "dependencies": [
+        "file_selector_macos",
+        "file_selector_platform_interface",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_linux",
+      "version": "0.2.2",
+      "dependencies": [
+        "file_selector_linux",
+        "file_selector_platform_interface",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_ios",
+      "version": "0.8.13",
+      "dependencies": [
+        "flutter",
+        "image_picker_platform_interface"
+      ]
+    },
+    {
+      "name": "image_picker_for_web",
+      "version": "3.1.1",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "image_picker_platform_interface",
+        "mime",
+        "web"
+      ]
+    },
+    {
+      "name": "image_picker_android",
+      "version": "0.8.13+1",
+      "dependencies": [
+        "flutter",
+        "flutter_plugin_android_lifecycle",
+        "image_picker_platform_interface"
+      ]
     },
     {
       "name": "petitparser",
@@ -1306,7 +1441,7 @@
     },
     {
       "name": "yet_another_json_isolate",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "dependencies": [
         "async"
       ]
@@ -1318,7 +1453,7 @@
     },
     {
       "name": "storage_client",
-      "version": "2.5.5",
+      "version": "2.5.7",
       "dependencies": [
         "http",
         "http_parser",
@@ -1330,7 +1465,7 @@
     },
     {
       "name": "realtime_client",
-      "version": "2.7.3",
+      "version": "2.8.0",
       "dependencies": [
         "collection",
         "http",
@@ -1341,7 +1476,7 @@
     },
     {
       "name": "postgrest",
-      "version": "2.7.0",
+      "version": "2.7.2",
       "dependencies": [
         "http",
         "logging",
@@ -1351,7 +1486,7 @@
     },
     {
       "name": "gotrue",
-      "version": "2.21.0",
+      "version": "2.22.0",
       "dependencies": [
         "collection",
         "crypto",
@@ -1367,11 +1502,81 @@
     },
     {
       "name": "functions_client",
-      "version": "2.6.0",
+      "version": "2.6.1",
       "dependencies": [
         "http",
         "logging",
         "yet_another_json_isolate"
+      ]
+    },
+    {
+      "name": "ua_client_hints",
+      "version": "1.7.0",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins"
+      ]
+    },
+    {
+      "name": "passkeys_windows",
+      "version": "0.1.1",
+      "dependencies": [
+        "flutter",
+        "passkeys_platform_interface"
+      ]
+    },
+    {
+      "name": "passkeys_web",
+      "version": "2.9.0",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "json_annotation",
+        "passkeys_platform_interface",
+        "web"
+      ]
+    },
+    {
+      "name": "passkeys_platform_interface",
+      "version": "2.6.0",
+      "dependencies": [
+        "flutter",
+        "json_annotation",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "passkeys_doctor",
+      "version": "1.4.1",
+      "dependencies": [
+        "device_info_plus",
+        "flutter",
+        "http",
+        "package_info_plus",
+        "passkeys_platform_interface"
+      ]
+    },
+    {
+      "name": "passkeys_darwin",
+      "version": "0.4.0",
+      "dependencies": [
+        "flutter",
+        "passkeys_platform_interface"
+      ]
+    },
+    {
+      "name": "passkeys_android",
+      "version": "2.12.0",
+      "dependencies": [
+        "flutter",
+        "passkeys_platform_interface"
+      ]
+    },
+    {
+      "name": "convert",
+      "version": "3.1.2",
+      "dependencies": [
+        "typed_data"
       ]
     },
     {
@@ -1399,6 +1604,43 @@
         "app_links_platform_interface",
         "flutter",
         "gtk"
+      ]
+    },
+    {
+      "name": "file_selector_windows",
+      "version": "0.9.3+5",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter"
+      ]
+    },
+    {
+      "name": "file_selector_platform_interface",
+      "version": "2.7.0",
+      "dependencies": [
+        "cross_file",
+        "flutter",
+        "http",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "file_selector_macos",
+      "version": "0.9.4+4",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter"
+      ]
+    },
+    {
+      "name": "file_selector_linux",
+      "version": "0.9.4",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter"
       ]
     },
     {
@@ -1437,6 +1679,37 @@
       "dependencies": []
     },
     {
+      "name": "package_info_plus",
+      "version": "9.0.1",
+      "dependencies": [
+        "clock",
+        "ffi",
+        "flutter",
+        "flutter_web_plugins",
+        "http",
+        "meta",
+        "package_info_plus_platform_interface",
+        "path",
+        "web",
+        "win32"
+      ]
+    },
+    {
+      "name": "device_info_plus",
+      "version": "12.4.0",
+      "dependencies": [
+        "device_info_plus_platform_interface",
+        "ffi",
+        "file",
+        "flutter",
+        "flutter_web_plugins",
+        "meta",
+        "web",
+        "win32",
+        "win32_registry"
+      ]
+    },
+    {
       "name": "gtk",
       "version": "2.2.0",
       "dependencies": [
@@ -1461,10 +1734,30 @@
       ]
     },
     {
-      "name": "convert",
-      "version": "3.1.2",
+      "name": "package_info_plus_platform_interface",
+      "version": "3.2.1",
       "dependencies": [
-        "typed_data"
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "win32_registry",
+      "version": "2.1.0",
+      "dependencies": [
+        "ffi",
+        "meta",
+        "win32"
+      ]
+    },
+    {
+      "name": "device_info_plus_platform_interface",
+      "version": "7.0.3",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
       ]
     }
   ],
