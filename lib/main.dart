@@ -46,7 +46,6 @@ Future<void> main() async {
     );
   };
 
-
   // IMPORTANT (performance): Do NOT block first frame on network / storage.
   // Dreamflow preview can feel very heavy if we await Supabase + auth hydration
   // before calling runApp(). We bootstrap asynchronously and show a lightweight
@@ -97,7 +96,12 @@ class _BootstrapAppState extends State<BootstrapApp> {
       future: _future,
       builder: (context, snap) {
         final child = snap.hasData
-            ? MyApp(auth: snap.data!.auth, profiles: snap.data!.profiles, users: snap.data!.users)
+            ? MyApp(
+                auth: snap.data!.auth,
+                profiles: snap.data!.profiles,
+                users: snap.data!.users,
+                feed: snap.data!.feed, // <-- AJOUT : on passe le feed
+              )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: lightTheme,
@@ -181,7 +185,15 @@ class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
   final FirestoreUserService users;
-  const MyApp({super.key, required this.auth, required this.profiles, required this.users});
+  final FeedProvider feed; // <-- AJOUT : déclaration du paramètre
+
+  const MyApp({
+    super.key,
+    required this.auth,
+    required this.profiles,
+    required this.users,
+    required this.feed, // <-- AJOUT : rendu obligatoire
+  });
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -208,6 +220,10 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<FirestoreUserService>.value(value: widget.users),
+        // <-- AJOUT : on rend FeedProvider disponible
+        ChangeNotifierProvider.value(value: widget.feed),
+        // Si FeedProvider n'est pas un ChangeNotifier, utilisez plutôt :
+        // Provider<FeedProvider>.value(value: widget.feed),
       ],
       child: Builder(
         builder: (context) {
