@@ -8,9 +8,12 @@ import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
+import 'package:thix_id/providers/feed_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Main entry point for the application
 ///
@@ -181,11 +184,16 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late final LocaleController _localeController;
   late final _router;
+  late final NetworkService _networkService;
+  late final FeedProvider _feedProvider;
 
   @override
   void initState() {
     super.initState();
     _localeController = LocaleController()..init();
+    final supabase = Supabase.instance.client;
+    _networkService = NetworkService(supabase);
+    _feedProvider = FeedProvider(_networkService, supabase: supabase);
     // Ensure go_router refreshes when locale changes so every page rebuilds
     // consistently (especially for route shells and cached pages).
     _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
@@ -199,6 +207,8 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<FirestoreUserService>.value(value: widget.users),
+        Provider<NetworkService>.value(value: _networkService),
+        ChangeNotifierProvider<FeedProvider>.value(value: _feedProvider),
       ],
       child: Builder(
         builder: (context) {
@@ -223,5 +233,11 @@ class _MyAppState extends State<MyApp> {
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _feedProvider.dispose();
+    super.dispose();
   }
 }
