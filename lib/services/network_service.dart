@@ -27,6 +27,16 @@ class NetworkService {
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
+  /// Returns a list of image URLs for a post row, normalising the DB column
+  /// `media_url` (single string) into the model's `image_urls` (array).
+  static List<String> _imageUrlsFromRow(Map<String, dynamic> row) {
+    if (row['image_urls'] != null) {
+      return List<String>.from(row['image_urls'] as List);
+    }
+    final mediaUrl = row['media_url'] as String?;
+    return mediaUrl != null && mediaUrl.isNotEmpty ? [mediaUrl] : [];
+  }
+
   // ============================================================
   // SECTION 1: POSTS - GET FEED
   // ============================================================
@@ -76,6 +86,7 @@ class NetworkService {
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
           'is_liked': (likedData as List).isNotEmpty,
+          'image_urls': _imageUrlsFromRow(e),
         }));
       }
       
@@ -147,6 +158,7 @@ class NetworkService {
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
           'is_liked': (userLikedData as List).isNotEmpty,
+          'image_urls': _imageUrlsFromRow(e),
         });
         
         double score = 0;
@@ -242,6 +254,7 @@ class NetworkService {
         'likes_count': (likesData as List).length,
         'comments_count': (commentsData as List).length,
         'is_liked': (userLikedData as List).isNotEmpty,
+        'image_urls': _imageUrlsFromRow(response),
       });
     } catch (e) {
       debugPrint('❌ Error getPostById: $e');
@@ -657,7 +670,21 @@ class NetworkService {
           .gte('expires_at', DateTime.now().toIso8601String())
           .order('created_at', ascending: false);
       
-      return (response as List).map((e) => NetworkStory.fromJson(e)).toList();
+      return (response as List).map((e) {
+        final userData = e['users'] as Map<String, dynamic>?;
+        // Normalize JSON: map DB field names to what NetworkStory.fromJson expects.
+        // - 'users' joined data → 'profiles'
+        // - 'media_url' → 'image_url' (fallback)
+        return NetworkStory.fromJson({
+          ...e,
+          'image_url': e['image_url'] ?? e['media_url'] ?? '',
+          'profiles': userData != null ? {
+            'display_name': userData['display_name'],
+            'avatar_url': userData['photo_url'],
+            'title': userData['profession'],
+          } : null,
+        });
+      }).toList();
     } catch (e) {
       debugPrint('Error getActiveStories: $e');
       return [];
