@@ -12,6 +12,7 @@ import 'package:thix_id/presentation/common/full_screen_message.dart';
 import 'package:thix_id/presentation/common/alert_info_sheet.dart';
 import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
+import 'package:thix_id/presentation/emergency/emergency_overlay.dart';
 import 'package:thix_id/services/firestore_user_service.dart';
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
@@ -246,6 +247,25 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
   }
 
+  Future<void> _openThixAi() async {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.go(AppRoutes.chat);
+      return;
+    }
+    context.push(AppRoutes.login);
+  }
+
+  Future<void> _openEmergency() async {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      await EmergencyOverlay.show(context);
+      return;
+    }
+    if (!mounted) return;
+    context.push(AppRoutes.login);
+  }
+
   Future<void> _handleRequestAccount(BuildContext context) async {
     final auth = context.read<AuthController>();
     final res = await showModalBottomSheet<_AccountRequestChoice>(
@@ -346,10 +366,10 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _QuickActionsRow(
-                    onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
+                    onScanTap: _openThixAi,
                     onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
-                    onDocumentsTap: () {},
-                    onSecurityTap: () {},
+                    onChatTap: () => context.go(AppRoutes.chat),
+                    onSecurityTap: _openEmergency,
                   ),
                 ),
               ),
@@ -383,7 +403,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 context.push(AppRoutes.jobs);
                                 break;
                               case 'thixInfo':
-                                AlertInfoSheet.show(context);
+                                context.push(AppRoutes.thixInfo);
                                 break;
                               case 'opportunites':
                                 context.push(AppRoutes.opportunities);
@@ -872,40 +892,67 @@ class _PremiumStatusCard extends StatelessWidget {
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onScanTap;
   final VoidCallback onNfcTap;
-  final VoidCallback onDocumentsTap;
+  final VoidCallback onChatTap;
   final VoidCallback onSecurityTap;
 
   const _QuickActionsRow({
     required this.onScanTap,
     required this.onNfcTap,
-    required this.onDocumentsTap,
+    required this.onChatTap,
     required this.onSecurityTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _QuickActionItem(
-          icon: Icons.qr_code_scanner_rounded,
-          label: 'Scanner QR',
-          onTap: onScanTap,
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.smart_toy_rounded,
+              label: 'THIX IA',
+              backgroundColor: AppColors.goldBadge,
+              iconColor: AppColors.bottomNavCenterIcon,
+              labelColor: AppColors.darkText,
+              onTap: onScanTap,
+            ),
+          ),
         ),
-        _QuickActionItem(
-          icon: Icons.nfc_rounded,
-          label: 'NFC',
-          onTap: onNfcTap,
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.nfc_rounded,
+              label: 'NFC',
+              backgroundColor: AppColors.goldBadge,
+              iconColor: AppColors.bottomNavCenterIcon,
+              labelColor: AppColors.darkText,
+              onTap: onNfcTap,
+            ),
+          ),
         ),
-        _QuickActionItem(
-          icon: Icons.folder_rounded,
-          label: 'Documents',
-          onTap: onDocumentsTap,
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.forum_rounded,
+              label: 'THIX CHAT',
+              backgroundColor: AppColors.goldBadge,
+              iconColor: AppColors.bottomNavCenterIcon,
+              labelColor: AppColors.darkText,
+              onTap: onChatTap,
+            ),
+          ),
         ),
-        _QuickActionItem(
-          icon: Icons.shield_rounded,
-          label: 'Sécurité',
-          onTap: onSecurityTap,
+        Expanded(
+          child: Center(
+            child: _QuickActionItem(
+              icon: Icons.emergency_rounded,
+              label: 'URGENCE',
+              backgroundColor: AppColors.dangerRed,
+              iconColor: AppColors.white,
+              labelColor: AppColors.dangerRed,
+              onTap: onSecurityTap,
+            ),
+          ),
         ),
       ],
     );
@@ -915,42 +962,99 @@ class _QuickActionsRow extends StatelessWidget {
 class _QuickActionItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color labelColor;
   final VoidCallback onTap;
 
   const _QuickActionItem({
     required this.icon,
     required this.label,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.labelColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return _PressableScale(
       onTap: onTap,
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(AppRadius.serviceCard),
-          boxShadow: AppShadows.secondary,
-          border: Border.all(color: AppColors.cardBorder, width: 0.5),
-        ),
+      child: SizedBox(
+        width: 78,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: AppColors.primaryBlue),
-            const SizedBox(height: AppSpacing.xs),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 24, color: iconColor),
+            ),
+            const SizedBox(height: AppSpacing.s),
             Text(
               label,
-              style: const TextStyle(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppColors.darkText,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.1,
+                color: labelColor,
               ),
               textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PressableScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _PressableScale({required this.child, required this.onTap});
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale> {
+  bool _pressed = false;
+
+  void _setPressed(bool v) {
+    if (_pressed == v) return;
+    setState(() => _pressed = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => _setPressed(true),
+      onTapCancel: () => _setPressed(false),
+      onTapUp: (_) => _setPressed(false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: _pressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: widget.child,
         ),
       ),
     );
@@ -1367,10 +1471,10 @@ class _FloatingBottomNav extends StatelessWidget {
 
   const _FloatingBottomNav({required this.onScanTap});
 
-  void _openMessages(BuildContext context) {
+  void _openDocuments(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      context.go(AppRoutes.chat);
+      context.go(AppRoutes.vault);
       return;
     }
     context.push(AppRoutes.login);
@@ -1423,9 +1527,9 @@ class _FloatingBottomNav extends StatelessWidget {
                   ),
                   const SizedBox(width: 74),
                   _NavItem(
-                    icon: Icons.headphones_rounded,
-                    label: 'Messages',
-                    onTap: () => _openMessages(context),
+                    icon: Icons.folder_rounded,
+                    label: 'Documents',
+                    onTap: () => _openDocuments(context),
                     activeColor: AppColors.bottomNavActive,
                     inactiveColor: AppColors.bottomNavInactive,
                   ),

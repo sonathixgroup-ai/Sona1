@@ -18,6 +18,7 @@ import 'presentation/enterprise/enterprise_dashboard_page.dart';
 import 'package:thix_id/presentation/enterprise/enterprise_portal_page.dart';
 import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.dart';
 import 'presentation/chat/thix_chat_page.dart';
+import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart';
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 import 'presentation/network/network_page.dart';
@@ -48,6 +49,8 @@ import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
+import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
+import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 
 /// Page sans transition pour GoRouter.
 ///
@@ -104,9 +107,12 @@ class AppRoutes {
   static const String thixMoney = '/thix-money';
   static const String thixMedia = '/thix-media';
   static const String adminMedia = '/admin/media';
+  static const String thixInfo = '/info';
+  static const String thixInfoArticleBasePath = '/info/a';
 
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
+  static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
 }
 
 class AppRouter {
@@ -289,6 +295,19 @@ class AppRouter {
           path: AppRoutes.chat,
           name: 'chat',
           pageBuilder: (context, state) => const NoTransitionPage(child: ThixChatPage()),
+          routes: [
+            GoRoute(
+              path: ':chatId',
+              name: 'chatConversation',
+              pageBuilder: (context, state) {
+                final chatId = Uri.decodeComponent(state.pathParameters['chatId'] ?? '');
+                final extra = (state.extra is Map) ? (state.extra as Map).cast<String, dynamic>() : const <String, dynamic>{};
+                final title = (extra['title'] as String?) ?? 'Discussion';
+                final type = (extra['type'] as String?) ?? 'direct';
+                return NoTransitionPage(child: ChatConversationScreen(chatId: chatId, title: title, type: type));
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: AppRoutes.vault,
@@ -328,6 +347,19 @@ class AppRouter {
           path: AppRoutes.thixMedia,
           name: 'thixMedia',
           pageBuilder: (context, state) => const NoTransitionPage(child: ThixMediaPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfo,
+          name: 'thixInfo',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixInfoHomePage()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.thixInfoArticleBasePath}/:id',
+          name: 'thixInfoArticle',
+          pageBuilder: (context, state) {
+            final id = (state.pathParameters['id'] ?? '').trim();
+            return NoTransitionPage(child: ThixInfoArticlePage(id: id));
+          },
         ),
         // RÉSERVATION
         GoRoute(

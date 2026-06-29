@@ -29,6 +29,8 @@ class ChatSummary {
     required this.lastMessageAt,
   });
 
+  get unreadCount => null;
+
   static List<String> _parseParticipants(Object? raw) {
     if (raw == null) return const <String>[];
     if (raw is List) return raw.whereType<String>().toList(growable: false);
