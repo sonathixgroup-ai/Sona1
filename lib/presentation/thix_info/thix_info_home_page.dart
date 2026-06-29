@@ -128,7 +128,11 @@ class _ThixInfoHomePageState extends State<ThixInfoHomePage> {
       final featured = _featured;
       if (featured.length <= 1) return;
       final next = (_page + 1) % featured.length;
-      _pageController.animateToPage(next, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
     });
   }
 
@@ -247,8 +251,6 @@ class _ThixInfoHomePageState extends State<ThixInfoHomePage> {
   }
 
   void _scrollToTopAndHighlight(BuildContext context) {
-    // Center action in the capture focuses the feed.
-    // Here we simply reset filters to show the main feed.
     setState(() {
       _category = 'À la une';
       _query = '';
@@ -667,45 +669,10 @@ class ThixFeaturedNewsCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.88), height: 1.3),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Icon(Icons.schedule_rounded, color: Colors.white.withValues(alpha: 0.90), size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            it.source,
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white.withValues(alpha: 0.90), fontWeight: FontWeight.w800),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _ArrowPill(gold: gold),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(999)),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.black),
-                              const SizedBox(width: 8),
-                              Text('Lire l’article', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.black, fontWeight: FontWeight.w900)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ],
               ),
             ),
-
             Positioned(left: 10, top: 76, child: _CarouselArrowButton(icon: Icons.chevron_left_rounded, onTap: onPrev)),
             Positioned(right: 10, top: 76, child: _CarouselArrowButton(icon: Icons.chevron_right_rounded, onTap: onNext)),
           ],
@@ -742,18 +709,30 @@ class _CarouselArrowButton extends StatelessWidget {
   }
 }
 
-class _ArrowPill extends StatelessWidget {
-  final Color gold;
-  const _ArrowPill({required this.gold});
+class _DotsIndicator extends StatelessWidget {
+  final int count;
+  final int index;
+  final Color activeColor;
+  const _DotsIndicator({required this.count, required this.index, required this.activeColor});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 26,
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.20), borderRadius: BorderRadius.circular(999), border: Border.all(color: Colors.white.withValues(alpha: 0.25))),
-      alignment: Alignment.center,
-      child: Icon(Icons.arrow_forward_rounded, color: gold, size: 16),
+    final inactive = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (int i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: i == index ? 16 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: i == index ? activeColor : inactive,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -889,7 +868,7 @@ class ThixNewsMiniCard extends StatelessWidget {
                     children: [
                       Container(width: 6, height: 6, decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(999))),
                       const SizedBox(width: 6),
-                      Expanded(child: Text(item.source, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.60), fontWeight: FontWeight.w700))),
+                      Expanded(child: Text(item.source, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.60)))),
                     ],
                   ),
                 ],
@@ -987,45 +966,21 @@ class _ThixNewsGridTileState extends State<ThixNewsGridTile> {
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.40),
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
                         ),
-                        child: Text(
-                          formatTimeAgo(it.createdAt),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
-                        ),
+                        child: Text(formatTimeAgo(it.createdAt), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
                       ),
                     ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      it.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900, height: 1.12),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(width: 6, height: 6, decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(999))),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            it.source,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.60), fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(Icons.bookmark_border_rounded, size: 18, color: cs.onSurface.withValues(alpha: 0.55)),
-                      ],
-                    ),
+                    Text(it.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900, height: 1.12)),
+                    const SizedBox(height: 6),
+                    Text(it.source, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.60))),
                   ],
                 ),
               ),
@@ -1040,167 +995,53 @@ class _ThixNewsGridTileState extends State<ThixNewsGridTile> {
 class ThixRealtimeBanner extends StatelessWidget {
   final Color gold;
   const ThixRealtimeBanner({super.key, required this.gold});
-
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: cs.onSurface.withValues(alpha: 0.10)),
-        color: gold.withValues(alpha: 0.10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.notifications_active_rounded, color: Colors.black, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Restez informé en temps réel !\nActivez les notifications pour ne rien rater.',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.25),
-            ),
-          ),
-          const SizedBox(width: 12),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notifications activées (demo)'))),
-            child: const Text('Activer'),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-class ThixVideoCard extends StatelessWidget {
-  final NewsItem item;
+enum _ThixNewsPlaceholderVariant { hero, tile }
+
+class _ThixNewsPlaceholder extends StatelessWidget {
   final Color gold;
-  const ThixVideoCard({super.key, required this.item, required this.gold});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: () => context.push(AppRoutes.thixInfoArticle(item.id)),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: 170,
-        decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: cs.onSurface.withValues(alpha: 0.10))),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: _ThixNewsImage(
-                url: item.imageUrl,
-                fit: BoxFit.cover,
-                placeholder: _ThixNewsPlaceholder(gold: gold, icon: Icons.play_circle_filled_rounded, variant: _ThixNewsPlaceholderVariant.tile),
-              ),
-            ),
-            Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)])))),
-            Center(
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(999), border: Border.all(color: Colors.white.withValues(alpha: 0.28))),
-                child: Icon(Icons.play_arrow_rounded, color: gold, size: 26),
-              ),
-            ),
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w900, height: 1.15)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ThixInfoBottomBar extends StatelessWidget {
-  final VoidCallback onHome;
-  final VoidCallback onCenter;
-  final VoidCallback onFavorites;
-  final VoidCallback onProfile;
-
-  const ThixInfoBottomBar({super.key, required this.onHome, required this.onCenter, required this.onFavorites, required this.onProfile});
+  final IconData icon;
+  final _ThixNewsPlaceholderVariant variant;
+  const _ThixNewsPlaceholder({required this.gold, this.icon = Icons.article_rounded, this.variant = _ThixNewsPlaceholderVariant.hero});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
-    final cs = theme.colorScheme;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          border: Border(top: BorderSide(color: cs.onSurface.withValues(alpha: 0.08))),
-        ),
-        child: Row(
-          children: [
-            Expanded(child: _BottomItem(icon: Icons.home_rounded, label: 'Accueil', onTap: onHome)),
-            Expanded(
-              child: Center(
-                child: InkWell(
-                  onTap: onCenter,
-                  borderRadius: BorderRadius.circular(999),
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: gold,
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 18, offset: const Offset(0, 8))],
-                    ),
-                    child: const Icon(Icons.feed_rounded, color: Colors.black, size: 26),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(child: _BottomItem(icon: Icons.bookmark_rounded, label: 'Favoris', onTap: onFavorites)),
-            Expanded(child: _BottomItem(icon: Icons.person_rounded, label: 'Profil', onTap: onProfile)),
-          ],
-        ),
+    final navy = isDark ? DarkModeColors.primary : LightModeColors.primary;
+    final navy2 = isDark ? DarkModeColors.cyberDarkBlue : LightModeColors.secondary;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [navy.withValues(alpha: 0.96), navy2.withValues(alpha: 0.90), gold.withValues(alpha: 0.14)]),
+      ),
+      child: Center(
+        child: Icon(icon, color: Colors.white.withValues(alpha: 0.85), size: variant == _ThixNewsPlaceholderVariant.hero ? 42 : 30),
       ),
     );
   }
 }
 
-class _BottomItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _BottomItem({required this.icon, required this.label, required this.onTap});
+class _ThixNewsImage extends StatelessWidget {
+  final String? url;
+  final BoxFit fit;
+  final Widget placeholder;
+  const _ThixNewsImage({required this.url, required this.fit, required this.placeholder});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: cs.onSurface.withValues(alpha: 0.72)),
-            const SizedBox(height: 4),
-            Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.72), fontWeight: FontWeight.w700)),
-          ],
-        ),
-      ),
+    final u = (url ?? '').trim();
+    if (u.isEmpty) return placeholder;
+    if (!u.startsWith('http')) return Image.asset(u, fit: fit);
+    return Image.network(
+      u,
+      fit: fit,
+      errorBuilder: (context, error, stack) {
+        debugPrint('THIX INFO image load failed url=$u err=$error');
+        return placeholder;
+      },
     );
   }
 }
@@ -1228,93 +1069,6 @@ class _InfoErrorState extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DotsIndicator extends StatelessWidget {
-  final int count;
-  final int index;
-  final Color activeColor;
-  const _DotsIndicator({required this.count, required this.index, required this.activeColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final inactive = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (int i = 0; i < count; i++)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 240),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: i == index ? 18 : 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: i == index ? activeColor : inactive,
-              borderRadius: BorderRadius.circular(AppRadius.full),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-enum _ThixNewsPlaceholderVariant { hero, tile }
-
-class _ThixNewsPlaceholder extends StatelessWidget {
-  final Color gold;
-  final IconData? icon;
-  final _ThixNewsPlaceholderVariant variant;
-  const _ThixNewsPlaceholder({required this.gold, this.icon, required this.variant});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final navy = isDark ? DarkModeColors.primary : LightModeColors.primary;
-    final navy2 = isDark ? DarkModeColors.cyberDarkBlue : LightModeColors.secondary;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [navy.withValues(alpha: 0.96), navy2.withValues(alpha: 0.90), gold.withValues(alpha: 0.14)]),
-      ),
-      child: variant == _ThixNewsPlaceholderVariant.tile
-          ? Center(child: Icon(icon ?? Icons.campaign_rounded, color: gold, size: 22))
-          : Align(
-              alignment: const Alignment(-0.90, -0.72),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(color: gold.withValues(alpha: 0.35)),
-                  color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.10),
-                ),
-                child: Text('THIX INFO', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white.withValues(alpha: 0.92), fontWeight: FontWeight.w900, letterSpacing: 0.4)),
-              ),
-            ),
-    );
-  }
-}
-
-class _ThixNewsImage extends StatelessWidget {
-  final String? url;
-  final BoxFit fit;
-  final Widget placeholder;
-  const _ThixNewsImage({required this.url, required this.fit, required this.placeholder});
-
-  @override
-  Widget build(BuildContext context) {
-    final u = (url ?? '').trim();
-    if (u.isEmpty) return placeholder;
-    if (!u.startsWith('http')) return Image.asset(u, fit: fit);
-    return Image.network(
-      u,
-      fit: fit,
-      errorBuilder: (context, error, stack) {
-        debugPrint('THIX INFO image load failed url=$u err=$error');
-        return placeholder;
-      },
     );
   }
 }
