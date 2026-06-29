@@ -185,18 +185,15 @@ class AppRouter {
         final isProtected = !isPublic && !isAuthPage;
         if (!isLoggedIn && isProtected) return AppRoutes.login;
         if (isAdmin && !isLoggedIn) return AppRoutes.login;
-
         if (isLoggedIn) {
           final t = auth.currentUser?.accountType;
           if (location == AppRoutes.userDashboard && t == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
           if (location == AppRoutes.enterpriseDashboard && t == AccountType.personal) return AppRoutes.userDashboard;
         }
-
         if (isLoggedIn && isAuthPage) {
           final t = auth.currentUser?.accountType;
           return t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
         }
-
         if (isEnterprisePortal) return null;
         return null;
       },
