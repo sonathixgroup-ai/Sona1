@@ -1482,11 +1482,11 @@ class _FloatingBottomNav extends StatelessWidget {
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
-      return;
+      // ✅ MODIFICATION : redirection vers la page de profil
+      context.go(AppRoutes.profile);
+    } else {
+      context.push(AppRoutes.login);
     }
-    context.push(AppRoutes.login);
   }
 
   @override
