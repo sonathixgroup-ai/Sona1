@@ -14,6 +14,7 @@ class FeedProvider extends ChangeNotifier {
   bool _hasMore = true;
   String _currentFeedType = 'smart';
   String? _error;
+  bool _realtimeInitialized = false;
   
   // Real-time listening
   RealtimeChannel? _realtimeChannel;
@@ -34,7 +35,12 @@ class FeedProvider extends ChangeNotifier {
   // ============================================================
   
   void initRealtime() {
+    if (_realtimeInitialized) {
+      debugPrint('⚠️ FeedProvider: Realtime déjà initialisé, skip');
+      return;
+    }
     debugPrint('🎙️ FeedProvider: Initialisation realtime...');
+    _realtimeInitialized = true;
     _setupRealtimeListener();
     _setupAutoRefresh();
   }
@@ -57,18 +63,18 @@ class FeedProvider extends ChangeNotifier {
             event: PostgresChangeEvent.insert,
             schema: 'public',
             table: 'posts',
-            callback: (payload) {
+            callback: (payload) async {
               debugPrint('📬 [REALTIME] Nouvelle publication détectée!');
-              _onPostInserted(payload.newRecord);
+              await _onPostInserted();
             },
           )
           .onPostgresChanges(
             event: PostgresChangeEvent.update,
             schema: 'public',
             table: 'posts',
-            callback: (payload) {
+            callback: (payload) async {
               debugPrint('📝 [REALTIME] Publication mise à jour');
-              _onPostUpdated(payload.newRecord);
+              await _onPostUpdated();
             },
           )
           .onPostgresChanges(
@@ -116,43 +122,14 @@ class FeedProvider extends ChangeNotifier {
     }
   }
   
-  void _onPostInserted(dynamic newRecord) {
-    try {
-      if (newRecord == null) return;
-      final Map<String, dynamic> jsonData;
-      if (newRecord is Map<String, dynamic>) {
-        jsonData = newRecord;
-      } else {
-        jsonData = (newRecord as Map).cast<String, dynamic>();
-      }
-      final post = NetworkPost.fromJson(jsonData);
-      _posts.insert(0, post);
-      notifyListeners();
-      debugPrint('✅ FeedProvider: Post inséré en début de liste');
-    } catch (e) {
-      debugPrint('❌ FeedProvider _onPostInserted error: $e');
-    }
+  Future<void> _onPostInserted() async {
+    debugPrint('📬 FeedProvider: Nouveau post inséré - rechargement du feed...');
+    await loadFeed(feedType: _currentFeedType);
   }
   
-  void _onPostUpdated(dynamic updatedRecord) {
-    try {
-      if (updatedRecord == null) return;
-      final Map<String, dynamic> jsonData;
-      if (updatedRecord is Map<String, dynamic>) {
-        jsonData = updatedRecord;
-      } else {
-        jsonData = (updatedRecord as Map).cast<String, dynamic>();
-      }
-      final updated = NetworkPost.fromJson(jsonData);
-      final index = _posts.indexWhere((p) => p.id == updated.id);
-      if (index != -1) {
-        _posts[index] = updated;
-        notifyListeners();
-        debugPrint('✅ FeedProvider: Post ${updated.id} mis à jour');
-      }
-    } catch (e) {
-      debugPrint('❌ FeedProvider _onPostUpdated error: $e');
-    }
+  Future<void> _onPostUpdated() async {
+    debugPrint('📝 FeedProvider: Post mis à jour - rechargement du feed...');
+    await loadFeed(feedType: _currentFeedType);
   }
   
   void _onPostDeleted(dynamic deletedRecord) {
@@ -164,10 +141,12 @@ class FeedProvider extends ChangeNotifier {
       } else {
         jsonData = (deletedRecord as Map).cast<String, dynamic>();
       }
-      final deleted = NetworkPost.fromJson(jsonData);
-      _posts.removeWhere((p) => p.id == deleted.id);
-      notifyListeners();
-      debugPrint('✅ FeedProvider: Post ${deleted.id} supprimé');
+      final deletedId = jsonData['id'] as String?;
+      if (deletedId != null && deletedId.isNotEmpty) {
+        _posts.removeWhere((p) => p.id == deletedId);
+        notifyListeners();
+        debugPrint('✅ FeedProvider: Post $deletedId supprimé');
+      }
     } catch (e) {
       debugPrint('❌ FeedProvider _onPostDeleted error: $e');
     }

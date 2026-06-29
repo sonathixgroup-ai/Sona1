@@ -100,7 +100,8 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 auth: snap.data!.auth,
                 profiles: snap.data!.profiles,
                 users: snap.data!.users,
-                feed: snap.data!.feed, // <-- AJOUT : on passe le feed
+                network: snap.data!.network,
+                feed: snap.data!.feed,
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -185,14 +186,16 @@ class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
   final FirestoreUserService users;
-  final FeedProvider feed; // <-- AJOUT : déclaration du paramètre
+  final NetworkService network;
+  final FeedProvider feed;
 
   const MyApp({
     super.key,
     required this.auth,
     required this.profiles,
     required this.users,
-    required this.feed, // <-- AJOUT : rendu obligatoire
+    required this.network,
+    required this.feed,
   });
 
   @override
@@ -220,10 +223,8 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<FirestoreUserService>.value(value: widget.users),
-        // <-- AJOUT : on rend FeedProvider disponible
+        Provider<NetworkService>.value(value: widget.network),
         ChangeNotifierProvider.value(value: widget.feed),
-        // Si FeedProvider n'est pas un ChangeNotifier, utilisez plutôt :
-        // Provider<FeedProvider>.value(value: widget.feed),
       ],
       child: Builder(
         builder: (context) {
