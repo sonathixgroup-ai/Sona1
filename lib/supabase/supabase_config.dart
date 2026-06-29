@@ -68,8 +68,8 @@ class SupabaseService {
     int? limit,
   }) async {
     try {
-      // In supabase_flutter ^1.12, some transforms (order/limit) change the
-      // builder type. Keep it dynamic to allow fluent chaining.
+      // In supabase_flutter v2, some transforms (order/limit) change the builder
+      // type. Keep it dynamic to allow fluent chaining.
       dynamic query = SupabaseConfig.client.from(table).select(select ?? '*');
 
       // Apply filters
