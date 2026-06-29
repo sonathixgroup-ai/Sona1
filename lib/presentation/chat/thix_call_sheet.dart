@@ -171,9 +171,9 @@ class _ThixCallSheetState extends State<ThixCallSheet> {
   Future<void> _startCall() async {
     if (widget.isCaller) {
       try {
-        await widget.calls.updateCallStatus(widget.callId, 'ringing');
+        await widget.calls.setCallStatus(callId: widget.callId, status: 'ongoing');
       } catch (e) {
-        debugPrint('updateCallStatus error: $e');
+        debugPrint('setCallStatus error: $e');
       }
     }
   }

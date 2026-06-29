@@ -67,8 +67,16 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
     try {
       _channel = SupabaseConfig.client.channel('admin:events');
       _channel!
-          .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: AdminEventService.eventsTable, callback: (_) => unawaited(_load()))
-          .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: AdminEventService.registrationsTable, callback: (_) => unawaited(_load()))
+          .on(
+            RealtimeListenTypes.postgresChanges,
+            ChannelFilter(event: '*', schema: 'public', table: AdminEventService.eventsTable),
+            (_, [__]) => unawaited(_load()),
+          )
+          .on(
+            RealtimeListenTypes.postgresChanges,
+            ChannelFilter(event: '*', schema: 'public', table: AdminEventService.registrationsTable),
+            (_, [__]) => unawaited(_load()),
+          )
           .subscribe();
     } catch (e) {
       debugPrint('AdminEventsPage: realtime subscribe failed: $e');

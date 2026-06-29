@@ -103,11 +103,10 @@ class _AlertInfoSheetBodyState extends State<_AlertInfoSheetBody> {
       _newsRealtimeChannel = channel;
 
       channel
-        ..onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: NewsService.table,
-          callback: (payload) {
+        ..on(
+          RealtimeListenTypes.postgresChanges,
+          ChannelFilter(event: '*', schema: 'public', table: NewsService.table),
+          (payload, [_]) {
             debugPrint('THIX INFO realtime: ${payload.eventType} on ${payload.table}');
             _scheduleRealtimeReload();
           },
