@@ -56,10 +56,11 @@ class AdminAccessRequestService {
       try {
         channel = _client.channel('admin_access_requests:$status');
         channel!
-            .on(
-              RealtimeListenTypes.postgresChanges,
-              const ChannelFilter(event: '*', schema: 'public', table: table),
-              (_, [__]) => unawaited(emit()),
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: table,
+              callback: (_) => unawaited(emit()),
             )
             .subscribe((s, err) {
               final msg = (err ?? '').toString().toLowerCase();

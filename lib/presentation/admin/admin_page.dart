@@ -47,15 +47,12 @@ class _AdminPageState extends State<AdminPage> {
     try {
       _roleChannel = SupabaseConfig.client.channel('admin:rbac:$uid');
       _roleChannel!
-          .on(
-            RealtimeListenTypes.postgresChanges,
-            ChannelFilter(
-              event: '*',
-              schema: 'public',
-              table: AdminRbacService.table,
-              filter: 'user_id=eq.$uid',
-            ),
-            (_, [__]) {
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: AdminRbacService.table,
+            filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
+            callback: (_) {
               // Avoid setState storms; just reload.
               _loadRole();
             },

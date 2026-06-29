@@ -274,6 +274,54 @@ class _ThixInfoHomePageState extends State<ThixInfoHomePage> {
   }
 }
 
+class ThixInfoBottomBar extends StatelessWidget {
+  final VoidCallback onHome;
+  final VoidCallback onCenter;
+  final VoidCallback onFavorites;
+  final VoidCallback onProfile;
+
+  const ThixInfoBottomBar({
+    super.key,
+    required this.onHome,
+    required this.onCenter,
+    required this.onFavorites,
+    required this.onProfile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: cs.onSurface.withValues(alpha: 0.10)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            IconButton(onPressed: onHome, icon: const Icon(Icons.home_rounded)),
+            IconButton(onPressed: onCenter, icon: const Icon(Icons.newspaper_rounded)),
+            IconButton(onPressed: onFavorites, icon: const Icon(Icons.bookmark_border_rounded)),
+            IconButton(onPressed: onProfile, icon: const Icon(Icons.person_outline_rounded)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ThixInfoTopBar extends StatelessWidget {
   final VoidCallback onMenu;
   final VoidCallback onNotifications;
@@ -872,6 +920,78 @@ class ThixNewsMiniCard extends StatelessWidget {
                     ],
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ThixVideoCard extends StatelessWidget {
+  final NewsItem item;
+  final Color gold;
+
+  const ThixVideoCard({super.key, required this.item, required this.gold});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: () => context.push(AppRoutes.thixInfoArticle(item.id)),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 220,
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.onSurface.withValues(alpha: 0.10)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: _ThixNewsImage(
+                url: item.imageUrl,
+                fit: BoxFit.cover,
+                placeholder: _ThixNewsPlaceholder(
+                  gold: gold,
+                  icon: Icons.play_circle_fill_rounded,
+                  variant: _ThixNewsPlaceholderVariant.tile,
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black.withValues(alpha: 0.10), Colors.black.withValues(alpha: 0.45)],
+                  ),
+                ),
+              ),
+            ),
+            const Positioned(
+              left: 12,
+              top: 12,
+              child: Icon(Icons.play_circle_fill_rounded, size: 28, color: Colors.white),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 10,
+              child: Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  height: 1.15,
+                ),
               ),
             ),
           ],

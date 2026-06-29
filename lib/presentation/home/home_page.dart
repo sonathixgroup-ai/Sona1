@@ -632,6 +632,105 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   }
 }
 
+class _HeadlinesCarousel extends StatelessWidget {
+  final PageController controller;
+  final VoidCallback onThixInfoTap;
+  final VoidCallback onOpportunityTap;
+
+  const _HeadlinesCarousel({
+    required this.controller,
+    required this.onThixInfoTap,
+    required this.onOpportunityTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({String title, String subtitle, IconData icon, VoidCallback onTap})>[
+      (
+        title: 'THIX INFO LIVE',
+        subtitle: 'Actus vérifiées et alertes en temps réel',
+        icon: Icons.newspaper_rounded,
+        onTap: onThixInfoTap,
+      ),
+      (
+        title: 'OPPORTUNITÉS',
+        subtitle: 'Emplois, formations et missions disponibles',
+        icon: Icons.trending_up_rounded,
+        onTap: onOpportunityTap,
+      ),
+    ];
+
+    return SizedBox(
+      height: 130,
+      child: PageView.builder(
+        controller: controller,
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: _PressableScale(
+              onTap: item.onTap,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.primaryBlue, AppColors.darkNavy],
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.mainCard),
+                  boxShadow: AppShadows.main,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.l),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(item.icon, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: AppSpacing.m),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            item.subtitle,
+                            style: const TextStyle(
+                              color: Color(0xE6FFFFFF),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _PremiumStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
