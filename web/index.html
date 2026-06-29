@@ -36,6 +36,14 @@
   <!-- Required by the `flutter-passkeys` web plugin (Corbado). Without this, the app throws
        "Passkeys Web SDK not loaded" at runtime even if the feature isn't used directly. -->
   <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
-  <script src="flutter_bootstrap.js" async></script>
+  <!--
+    IMPORTANT:
+    This project previously referenced `flutter_bootstrap.js`, but the file is not present in
+    `web/` (and therefore not served in Dreamflow share links), which leaves the app stuck on
+    the initial loading spinner.
+
+    Loading `main.dart.js` directly is the most robust option for Dreamflow preview + share.
+  -->
+  <script src="main.dart.js" defer></script>
 </body>
 </html>
