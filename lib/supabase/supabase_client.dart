@@ -10,7 +10,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 ///
 /// IMPORTANT (per requirements): authentication must use
 /// `Supabase.instance.client` and `supabase.auth.currentUser`.
-final supabase = Supabase.instance.client;
+///
+/// We keep this as a getter (not a top-level `final`) so importing this file
+/// never eagerly reads the client before `Supabase.initialize()` runs.
+SupabaseClient get supabase => Supabase.instance.client;
 
 User? get currentUser => supabase.auth.currentUser;
 

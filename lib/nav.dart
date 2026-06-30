@@ -139,6 +139,7 @@ import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_p
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
+import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
@@ -215,6 +216,7 @@ class AppRoutes {
   static const String reservation = '/reservation';
   static const String thixMoney = '/thix-money';
   static const String thixMedia = '/thix-media';
+  static const String thixMediaVideo = '/thix-media/video';
   static const String adminMedia = '/admin/media';
   static const String thixInfo = '/info';
   static const String thixInfoArticleBasePath = '/info/a';
@@ -1292,6 +1294,20 @@ class AppRouter {
           name: 'thixMedia',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: ThixMediaPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixMediaVideo,
+          name: 'thixMediaVideo',
+          pageBuilder: (context, state) {
+            final title = (state.uri.queryParameters['title'] ?? '').trim();
+            final url = (state.uri.queryParameters['url'] ?? '').trim();
+            return NoTransitionPage(
+              child: VideoPlayerPage(
+                title: title.isEmpty ? 'Lecture vidéo' : title,
+                videoUrl: url,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: AppRoutes.thixInfo,
