@@ -14,7 +14,6 @@ class _DoctorConnectPageState extends State<DoctorConnectPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Données mockées messages
   final List<Map<String, dynamic>> _messages = [
     {
       'id': 'm1',
@@ -42,7 +41,6 @@ class _DoctorConnectPageState extends State<DoctorConnectPage>
     },
   ];
 
-  // Alertes patients
   final List<Map<String, dynamic>> _patientAlerts = [
     {
       'patientName': 'Jean P.',
@@ -115,7 +113,7 @@ class _DoctorConnectPageState extends State<DoctorConnectPage>
           } else if (index == 2) {
             _showQuickAction(context);
           } else if (index == 3) {
-            context.go('/sante/doctor/messages');
+            context.go('/sante/doctor/connect');
           } else if (index == 4) {
             context.go('/sante/doctor/profile');
           }
@@ -124,10 +122,8 @@ class _DoctorConnectPageState extends State<DoctorConnectPage>
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           if (_tabController.index == 0) {
-            // Nouveau message
             context.push('/sante/doctor/messages/new');
           } else {
-            // Marquer toutes les alertes comme lues
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Alertes marquées comme lues')),
             );
@@ -166,7 +162,7 @@ class _DoctorConnectPageState extends State<DoctorConnectPage>
               title: const Text('Téléconsultation'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/doctor/teleconsultation/new');
+                context.push('/sante/doctor/teleconsult');
               },
             ),
           ],
@@ -176,9 +172,7 @@ class _DoctorConnectPageState extends State<DoctorConnectPage>
   }
 }
 
-// ============================================================
-// 1. ONGLET MESSAGERIE
-// ============================================================
+// ----- Onglet Messagerie -----
 class _MessagingTab extends StatelessWidget {
   final List<Map<String, dynamic>> messages;
   const _MessagingTab({required this.messages});
@@ -197,7 +191,8 @@ class _MessagingTab extends StatelessWidget {
                   backgroundColor: _getColorForRole(msg['role'] as String),
                   child: Text((msg['sender'] as String)[0], style: const TextStyle(color: Colors.white)),
                 ),
-                title: Text(msg['sender'] as String, style: TextStyle(fontWeight: (msg['unread'] as bool) ? FontWeight.bold : FontWeight.normal)),
+                title: Text(msg['sender'] as String,
+                    style: TextStyle(fontWeight: (msg['unread'] as bool) ? FontWeight.bold : FontWeight.normal)),
                 subtitle: Text(msg['lastMessage'] as String, maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -210,7 +205,7 @@ class _MessagingTab extends StatelessWidget {
                   ],
                 ),
                 onTap: () {
-                  context.push('/sante/doctor/messages/${msg['id']}');
+                  context.push('/sante/doctor/messages/${msg['id']}', extra: msg['sender']);
                 },
               ),
             )),
@@ -251,9 +246,7 @@ class _MessagingTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 2. ONGLET ALERTES PATIENTS
-// ============================================================
+// ----- Onglet Alertes patients -----
 class _AlertsTab extends StatelessWidget {
   final List<Map<String, dynamic>> patientAlerts;
   const _AlertsTab({required this.patientAlerts});
@@ -286,7 +279,7 @@ class _AlertsTab extends StatelessWidget {
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: () {
-            // Voir toutes les alertes
+            context.push('/sante/doctor/alerts');
           },
           icon: const Icon(Icons.view_list),
           label: const Text('Toutes les alertes'),
