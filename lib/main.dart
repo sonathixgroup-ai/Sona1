@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
@@ -50,7 +51,7 @@ Future<void> main() async {
   // Dreamflow preview can feel very heavy if we await Supabase + auth hydration
   // before calling runApp(). We bootstrap asynchronously and show a lightweight
   // loading UI immediately.
-  runApp(const BootstrapApp());
+  runApp(const ProviderScope(child: BootstrapApp()));
 }
 
 class BootstrapApp extends StatefulWidget {

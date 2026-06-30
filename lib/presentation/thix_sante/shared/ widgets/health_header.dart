@@ -7,11 +7,13 @@ import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 class HealthHeader extends StatelessWidget {
   final ThixRole role;
   final VoidCallback? onNotificationsTap;
+  final VoidCallback? onSwitchRoleTap;
 
   const HealthHeader({
     super.key,
     required this.role,
     this.onNotificationsTap,
+    this.onSwitchRoleTap,
   });
 
   @override
@@ -34,9 +36,23 @@ class HealthHeader extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (onSwitchRoleTap != null) ...[
+                GestureDetector(
+                  onTap: onSwitchRoleTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.menu, size: 18, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               CircleAvatar(
                 radius: 28,
-                backgroundColor: Colors.white.withOpacity(0.3),
+                backgroundColor: Colors.white.withValues(alpha: 0.3),
                 child: Text(
                   firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
                   style: const TextStyle(
@@ -64,7 +80,7 @@ class HealthHeader extends StatelessWidget {
                       'Votre santé entre de bonnes mains',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -81,7 +97,7 @@ class HealthHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(

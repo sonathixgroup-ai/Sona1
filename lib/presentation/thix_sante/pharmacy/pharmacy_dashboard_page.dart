@@ -1,6 +1,11 @@
 // presentation/thix_sante/pharmacy/pharmacy_dashboard_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/presentation/thix_sante/health_constants.dart';
+import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_header.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
@@ -14,10 +19,12 @@ class PharmacyDashboardPage extends StatefulWidget {
 
 class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   bool _isLoading = true;
-  int _pendingOrders = 8;
-  int _inProgressOrders = 12;
-  int _criticalStock = 5;
-  int _deliveriesToday = 4;
+  final HealthService _service = HealthService.instance;
+  int _pendingOrders = 0;
+  int _inProgressOrders = 0;
+  int _criticalStock = 0;
+  int _deliveriesToday = 0;
+  List<Map<String, dynamic>> _recentOrders = const [];
 
   @override
   void initState() {
@@ -27,8 +34,25 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() => _isLoading = false);
+    try {
+      final user = AuthController.instance.currentUser;
+      if (user == null) throw Exception('Utilisateur non connecté');
+      final pharmacyId = user.id;
+      final stats = await _service.fetchPharmacyDashboardStats(pharmacyId);
+      final orders = await _service.fetchPharmacyRecentOrders(pharmacyId, limit: 5);
+      if (!mounted) return;
+      setState(() {
+        _pendingOrders = stats['pending'] ?? 0;
+        _inProgressOrders = stats['in_progress'] ?? 0;
+        _criticalStock = stats['critical_stock'] ?? 0;
+        _deliveriesToday = stats['deliveries_today'] ?? 0;
+        _recentOrders = orders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('PharmacyDashboard: load failed: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -45,6 +69,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
                     SliverToBoxAdapter(
                       child: HealthHeader(
                         role: ThixRole.pharmacy,
+                        onSwitchRoleTap: () => _openRoleSwitchSheet(context),
                         onNotificationsTap: () {
                           // Notifications (à créer)
                         },
@@ -110,6 +135,46 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
     );
   }
 
+  Future<void> _openRoleSwitchSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<ThixRole>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.pharmacy),
+    );
+
+    if (selected == null || selected == ThixRole.pharmacy) return;
+    await _selectRoleAndNavigate(context, selected);
+  }
+
+  Future<void> _selectRoleAndNavigate(BuildContext context, ThixRole role) async {
+    try {
+      ThixRoleController.instance.selectRole(role, manual: true);
+      try {
+        await Supabase.instance.client.auth.updateUser(UserAttributes(data: {'thix_role': role.name}));
+      } catch (e) {
+        debugPrint('THIX Santé: role metadata update failed: $e');
+      }
+
+      if (!context.mounted) return;
+      switch (role) {
+        case ThixRole.patient:
+          context.go('/sante/patient/dashboard');
+        case ThixRole.doctor:
+          context.go('/sante/doctor/dashboard');
+        case ThixRole.pharmacy:
+          context.go('/sante/pharmacy/dashboard');
+      }
+    } catch (e, st) {
+      debugPrint('THIX Santé: selectRoleAndNavigate failed: $e');
+      debugPrint(st.toString());
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(HealthConstants.errorGeneric), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Widget _statCard(String label, String value, IconData icon, Color color) {
     return Card(
       elevation: 2,
@@ -128,26 +193,41 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   }
 
   Widget _buildRecentOrders() {
-    // Simuler des commandes récentes avec ID
-    final orders = [
-      {'id': 'ord1', 'patient': 'Michel L.', 'meds': 3, 'status': 'En attente'},
-      {'id': 'ord2', 'patient': 'Sophie M.', 'meds': 2, 'status': 'En cours'},
-      {'id': 'ord3', 'patient': 'Jean P.', 'meds': 5, 'status': 'Validée'},
-    ];
+    final orders = _recentOrders;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Commandes récentes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        ...orders.map((o) => ListTile(
+        if (orders.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('Aucune commande récente.', style: TextStyle(color: Colors.grey)),
+          )
+        else
+          ...orders.map((o) {
+            final id = (o['id'] ?? '').toString();
+            final patient = (o['patient_name'] ?? o['patient'] ?? '').toString();
+            final meds = o['meds_count'] ?? o['meds'] ?? '';
+            final status = (o['status'] ?? '').toString();
+            return ListTile(
               leading: const Icon(Icons.receipt),
-              title: Text('Commande #${(o['id'] as String).substring(3)}'),
-              subtitle: Text('Patient : ${o['patient']} • ${o['meds']} médicaments'),
-              trailing: Chip(label: Text(o['status'] as String), backgroundColor: _getStatusColor(o['status'] as String)),
-              onTap: () {
-                context.push('/sante/pharmacy/order/${o['id']}');
-              },
-            )),
+              title: Text(id.isNotEmpty ? 'Commande #$id' : 'Commande'),
+              subtitle: Text(
+                [
+                  if (patient.trim().isNotEmpty) 'Patient : $patient',
+                  if (meds.toString().trim().isNotEmpty) '${meds.toString()} médicaments',
+                ].join(' • '),
+              ),
+              trailing: status.isEmpty
+                  ? null
+                  : Chip(
+                      label: Text(status, style: const TextStyle(fontSize: 11)),
+                      backgroundColor: _getStatusColor(status),
+                    ),
+              onTap: id.isEmpty ? null : () => context.push('/sante/pharmacy/order/$id'),
+            );
+          }),
       ],
     );
   }
@@ -205,7 +285,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
               leading: const Icon(Icons.add_shopping_cart, color: Colors.blue),
               title: const Text('Nouvelle commande'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 context.push('/sante/pharmacy/order/new');
               },
             ),
@@ -213,7 +293,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
               leading: const Icon(Icons.verified, color: Colors.green),
               title: const Text('Valider une ordonnance'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 context.push('/sante/pharmacy/prescription/p1');
               },
             ),
@@ -221,10 +301,82 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
               leading: const Icon(Icons.inventory, color: Colors.orange),
               title: const Text('Voir l\'inventaire'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 context.push('/sante/pharmacy/inventory');
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleSwitchSheet extends StatelessWidget {
+  final ThixRole currentRole;
+  const _RoleSwitchSheet({required this.currentRole});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Changer de rôle', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Quitter le mode pharmacie et accéder à un autre espace.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor)),
+            const SizedBox(height: 12),
+            for (final role in ThixRoleController.availableRoles)
+              _RoleTile(role: role, selected: role == currentRole, onTap: () => context.pop(role)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleTile extends StatelessWidget {
+  final ThixRole role;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleTile({required this.role, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? role.accent : Colors.transparent, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(color: role.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
+              child: Icon(role.icon, color: role.accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(role.label, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(role.shortLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                ],
+              ),
+            ),
+            if (selected) const Icon(Icons.check_circle, color: HealthConstants.primaryColor),
           ],
         ),
       ),

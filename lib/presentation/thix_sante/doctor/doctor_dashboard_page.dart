@@ -1,6 +1,10 @@
 // presentation/thix_sante/doctor/doctor_dashboard_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/presentation/thix_sante/health_constants.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_header.dart';
@@ -33,46 +37,47 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // Simuler des données (à remplacer par de vraies API)
-      await Future.delayed(const Duration(milliseconds: 800));
+      final user = AuthController.instance.currentUser;
+      if (user == null) throw Exception('Utilisateur non connecté');
+
+      final doctorId = user.id;
+      final today = DateTime.now();
+      final appts = await _service.fetchDoctorAppointmentsForDay(doctorId, today);
+      final patientsCount = await _service.fetchDoctorDistinctPatientsCount(doctorId);
+      final teleCount = await _service.fetchDoctorPendingTeleexpertiseCount(doctorId);
+      final alertsCount = await _service.fetchDoctorCriticalAlertsCount(doctorId);
+      final recentPatients = _deriveRecentPatients(appts);
+
+      if (!mounted) return;
       setState(() {
-        _patientsCount = 156;
-        _appointmentsToday = 12;
-        _pendingTeleexpertise = 3;
-        _criticalAlerts = 2;
-        _todayAppointments = [
-          Appointment(
-            id: 'a1',
-            doctorId: 'doc1',
-            doctorName: 'Dr. Dupont',
-            patientId: 'p1',
-            patientName: 'Michel L.',
-            date: DateTime.now().add(const Duration(hours: 1)),
-            type: AppointmentType.inPerson,
-            status: AppointmentStatus.confirmed,
-          ),
-          Appointment(
-            id: 'a2',
-            doctorId: 'doc1',
-            doctorName: 'Dr. Dupont',
-            patientId: 'p2',
-            patientName: 'Sophie M.',
-            date: DateTime.now().add(const Duration(hours: 3)),
-            type: AppointmentType.teleconsultation,
-            status: AppointmentStatus.scheduled,
-            teleconsultationLink: 'https://meet.jit.si/consult12',
-          ),
-        ];
-        _recentPatients = [
-          Doctor(id: 'p1', firstName: 'Michel', lastName: 'L.', specialty: ''),
-          Doctor(id: 'p2', firstName: 'Sophie', lastName: 'M.', specialty: ''),
-          Doctor(id: 'p3', firstName: 'Jean', lastName: 'P.', specialty: ''),
-        ];
+        _patientsCount = patientsCount;
+        _appointmentsToday = appts.length;
+        _pendingTeleexpertise = teleCount;
+        _criticalAlerts = alertsCount;
+        _todayAppointments = appts;
+        _recentPatients = recentPatients;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      debugPrint('DoctorDashboard: load failed: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  List<Doctor> _deriveRecentPatients(List<Appointment> appts) {
+    final seen = <String>{};
+    final res = <Doctor>[];
+    for (final a in appts) {
+      final pid = (a.patientId ?? '').trim();
+      if (pid.isEmpty || !seen.add(pid)) continue;
+      final name = (a.patientName ?? '').trim();
+      final parts = name.split(' ').where((e) => e.trim().isNotEmpty).toList();
+      final first = parts.isNotEmpty ? parts.first : 'Patient';
+      final last = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      res.add(Doctor(id: pid, firstName: first, lastName: last, specialty: ''));
+      if (res.length >= 5) break;
+    }
+    return res;
   }
 
   @override
@@ -89,6 +94,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
                     SliverToBoxAdapter(
                       child: HealthHeader(
                         role: ThixRole.doctor,
+                        onSwitchRoleTap: () => _openRoleSwitchSheet(context),
                         onNotificationsTap: () {
                           // Notifications
                         },
@@ -155,6 +161,46 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  Future<void> _openRoleSwitchSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<ThixRole>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.doctor),
+    );
+
+    if (selected == null || selected == ThixRole.doctor) return;
+    await _selectRoleAndNavigate(context, selected);
+  }
+
+  Future<void> _selectRoleAndNavigate(BuildContext context, ThixRole role) async {
+    try {
+      ThixRoleController.instance.selectRole(role, manual: true);
+      try {
+        await Supabase.instance.client.auth.updateUser(UserAttributes(data: {'thix_role': role.name}));
+      } catch (e) {
+        debugPrint('THIX Santé: role metadata update failed: $e');
+      }
+
+      if (!context.mounted) return;
+      switch (role) {
+        case ThixRole.patient:
+          context.go('/sante/patient/dashboard');
+        case ThixRole.doctor:
+          context.go('/sante/doctor/dashboard');
+        case ThixRole.pharmacy:
+          context.go('/sante/pharmacy/dashboard');
+      }
+    } catch (e, st) {
+      debugPrint('THIX Santé: selectRoleAndNavigate failed: $e');
+      debugPrint(st.toString());
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(HealthConstants.errorGeneric), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Widget _statCard(String label, String value, IconData icon, Color color) {
@@ -249,7 +295,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
               leading: const Icon(Icons.person_add, color: Colors.blue),
               title: const Text('Nouveau patient'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 context.push('/sante/doctor/patient/new');
               },
             ),
@@ -257,7 +303,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
               leading: const Icon(Icons.receipt, color: Colors.green),
               title: const Text('Nouvelle prescription'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 context.push('/sante/doctor/prescription/new');
               },
             ),
@@ -265,10 +311,82 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
               leading: const Icon(Icons.videocam, color: Colors.purple),
               title: const Text('Téléconsultation'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 context.push('/sante/doctor/teleconsult');
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleSwitchSheet extends StatelessWidget {
+  final ThixRole currentRole;
+  const _RoleSwitchSheet({required this.currentRole});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Changer de rôle', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Quitter le mode médecin et accéder à un autre espace.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor)),
+            const SizedBox(height: 12),
+            for (final role in ThixRoleController.availableRoles)
+              _RoleTile(role: role, selected: role == currentRole, onTap: () => context.pop(role)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleTile extends StatelessWidget {
+  final ThixRole role;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleTile({required this.role, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? role.accent : Colors.transparent, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(color: role.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
+              child: Icon(role.icon, color: role.accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(role.label, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(role.shortLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                ],
+              ),
+            ),
+            if (selected) const Icon(Icons.check_circle, color: HealthConstants.primaryColor),
           ],
         ),
       ),

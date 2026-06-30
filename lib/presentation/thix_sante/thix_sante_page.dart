@@ -37,10 +37,6 @@ class _ThixSantePageState extends State<ThixSantePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Vérifier si un rôle est déjà sélectionné (via le contrôleur)
-    final roleController = ThixRoleController.instance;
-    final hasValidRole = roleController.verifiedRole != null;
-
     // Si un rôle existe, on utilise HealthRouter pour afficher le bon dashboard
     // Sinon, on affiche la page de sélection
     return HealthRouter(
@@ -137,9 +133,16 @@ class _ThixSantePageState extends State<ThixSantePage> {
         // 2. Mettre à jour les métadonnées utilisateur (persistance)
         _updateUserRoleInMetadata(role);
 
-        // 3. Rediriger vers la route santé (qui va utiliser HealthRouter)
-        // On utilise go pour remplacer l'historique
-        context.go('/sante');
+        // 3. Rediriger directement vers le dashboard du rôle (production)
+        // On utilise go pour remplacer l'historique.
+        switch (role) {
+          case ThixRole.patient:
+            context.go('/sante/patient/dashboard');
+          case ThixRole.doctor:
+            context.go('/sante/doctor/dashboard');
+          case ThixRole.pharmacy:
+            context.go('/sante/pharmacy/dashboard');
+        }
       },
       child: Card(
         elevation: 4,
@@ -181,13 +184,18 @@ class _ThixSantePageState extends State<ThixSantePage> {
       final user = auth.currentUser;
       if (user == null) return;
 
-      // Mettre à jour les métadonnées sur le serveur (exemple avec Supabase)
-      // On suppose que AuthController expose une méthode updateUserMetadata
-      // ou bien on utilise directement le client Supabase.
-      // Ici, on simule un appel, à adapter.
-      // Dans la vraie vie, on appellerait :
-      // await auth.updateUserMetadata({'thix_role': role.toString().split('.').last});
-      // Pour l'exemple, on affiche un snackbar de confirmation.
+      // Persistance côté Supabase Auth (user_metadata).
+      // Cela permet de retrouver automatiquement le rôle après reconnexion.
+      try {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(data: {'thix_role': role.name}),
+        );
+      } catch (e) {
+        // Ne pas bloquer l'accès au module si la persistance échoue.
+        // On log l'erreur pour investigation.
+        debugPrint('THIX Santé: updateUser metadata failed: $e');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

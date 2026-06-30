@@ -30,6 +30,13 @@ class HealthService {
   static const _tPharmacies = 'health_pharmacies';
   static const _tDoctorSlots = 'health_doctor_slots';
 
+  // Optional tables (used by dashboards when available)
+  static const _tHealthAlerts = 'health_alerts';
+
+  // Pharmacy optional tables
+  static const _tPharmacyOrders = 'health_pharmacy_orders';
+  static const _tPharmacyInventory = 'health_pharmacy_inventory_items';
+
   String _s(Map<String, dynamic> m, String k, [String d = '']) =>
       (m[k] as String?)?.trim().isNotEmpty == true ? (m[k] as String).trim() : d;
 
@@ -714,5 +721,140 @@ class HealthService {
       debugPrint(st.toString());
       rethrow;
     }
+  }
+
+  // ============================================================
+  // DOCTOR DASHBOARD HELPERS
+  // ============================================================
+
+  Future<List<Appointment>> fetchDoctorAppointmentsForDay(String doctorId, DateTime day) async {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    try {
+      dynamic q = _db.from(_tAppointments).select('*').eq('doctor_id', doctorId);
+      q = q.gte('scheduled_at', start.toIso8601String());
+      q = q.lt('scheduled_at', end.toIso8601String());
+      q = q.order('scheduled_at', ascending: true);
+      final res = await q;
+      final rows = (res is List)
+          ? res.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList()
+          : const <Map<String, dynamic>>[];
+      return rows.map((m) {
+        final typeName = _s(m, 'type', AppointmentType.inPerson.name);
+        final statusName = _s(m, 'status', AppointmentStatus.scheduled.name);
+        return Appointment(
+          id: _s(m, 'id'),
+          doctorId: _s(m, 'doctor_id', doctorId),
+          doctorName: _s(m, 'doctor_name', 'Médecin'),
+          doctorSpecialty: (m['doctor_specialty'] as String?)?.trim(),
+          patientId: (m['patient_id'] as String?)?.trim(),
+          patientName: (m['patient_name'] as String?)?.trim(),
+          date: _dt(m, 'scheduled_at'),
+          type: AppointmentType.values.firstWhere((e) => e.name == typeName, orElse: () => AppointmentType.inPerson),
+          status: AppointmentStatus.values.firstWhere((e) => e.name == statusName, orElse: () => AppointmentStatus.scheduled),
+          notes: (m['notes'] as String?)?.trim(),
+          teleconsultationLink: (m['teleconsultation_link'] as String?)?.trim(),
+          isEmergency: (m['is_emergency'] as bool?) ?? false,
+        );
+      }).toList();
+    } catch (e, st) {
+      debugPrint('HealthService: fetchDoctorAppointmentsForDay failed err=$e');
+      debugPrint(st.toString());
+      return const [];
+    }
+  }
+
+  Future<int> fetchDoctorDistinctPatientsCount(String doctorId) async {
+    try {
+      final rows = await _safeSelect(_tAppointments, columns: 'patient_id', eq: {'doctor_id': doctorId}, limit: 500);
+      final ids = <String>{};
+      for (final r in rows) {
+        final pid = (r['patient_id'] as String?)?.trim();
+        if (pid != null && pid.isNotEmpty) ids.add(pid);
+      }
+      return ids.length;
+    } catch (e, st) {
+      debugPrint('HealthService: fetchDoctorDistinctPatientsCount failed err=$e');
+      debugPrint(st.toString());
+      return 0;
+    }
+  }
+
+  Future<int> fetchDoctorPendingTeleexpertiseCount(String doctorId) async {
+    // Teleexpertise schema may vary. We best-effort filter by doctor_id & status.
+    try {
+      final rows = await _safeSelect(
+        _tTeleexpertise,
+        columns: 'id',
+        eq: {'doctor_id': doctorId, 'status': 'pending'},
+        limit: 200,
+      );
+      return rows.length;
+    } catch (e, st) {
+      debugPrint('HealthService: fetchDoctorPendingTeleexpertiseCount failed err=$e');
+      debugPrint(st.toString());
+      return 0;
+    }
+  }
+
+  Future<int> fetchDoctorCriticalAlertsCount(String doctorId) async {
+    // Optional alerts table.
+    try {
+      final rows = await _safeSelect(
+        _tHealthAlerts,
+        columns: 'id',
+        eq: {'doctor_id': doctorId, 'severity': 'critical'},
+        limit: 200,
+      );
+      return rows.length;
+    } catch (e, st) {
+      debugPrint('HealthService: fetchDoctorCriticalAlertsCount failed err=$e');
+      debugPrint(st.toString());
+      return 0;
+    }
+  }
+
+  // ============================================================
+  // PHARMACY DASHBOARD HELPERS (best-effort)
+  // ============================================================
+
+  Future<Map<String, int>> fetchPharmacyDashboardStats(String pharmacyId) async {
+    // Returns keys: pending, in_progress, critical_stock, deliveries_today
+    // If tables are not present, all are 0.
+    try {
+      final pending = (await _safeSelect(_tPharmacyOrders, columns: 'id', eq: {'pharmacy_id': pharmacyId, 'status': 'pending'}, limit: 500)).length;
+      final inProgress = (await _safeSelect(_tPharmacyOrders, columns: 'id', eq: {'pharmacy_id': pharmacyId, 'status': 'in_progress'}, limit: 500)).length;
+      final criticalStock = (await _safeSelect(_tPharmacyInventory, columns: 'id', eq: {'pharmacy_id': pharmacyId, 'is_critical': true}, limit: 500)).length;
+
+      // deliveries today is optional; we count orders with status=out_for_delivery created today.
+      final start = DateTime.now();
+      final dayStart = DateTime(start.year, start.month, start.day);
+      dynamic q = _db.from(_tPharmacyOrders).select('id').eq('pharmacy_id', pharmacyId).eq('status', 'out_for_delivery');
+      q = q.gte('updated_at', dayStart.toIso8601String());
+      final res = await q;
+      final deliveriesToday = (res is List) ? res.length : 0;
+      return {
+        'pending': pending,
+        'in_progress': inProgress,
+        'critical_stock': criticalStock,
+        'deliveries_today': deliveriesToday,
+      };
+    } catch (e, st) {
+      debugPrint('HealthService: fetchPharmacyDashboardStats failed err=$e');
+      debugPrint(st.toString());
+      return const {'pending': 0, 'in_progress': 0, 'critical_stock': 0, 'deliveries_today': 0};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPharmacyRecentOrders(String pharmacyId, {int limit = 5}) async {
+    // Expected columns: id, patient_name, meds_count, status, created_at
+    return _safeSelect(
+      _tPharmacyOrders,
+      columns: '*',
+      eq: {'pharmacy_id': pharmacyId},
+      limit: limit,
+      orderBy: const ['created_at'],
+      ascending: false,
+    );
   }
 }
