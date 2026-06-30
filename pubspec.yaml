@@ -40,7 +40,7 @@ dependencies:
   agora_rtc_engine: ^6.5.4
   record: ^6.2.1
   image_picker: ^1.2.1
-  jitsi_meet: ^8.0.0                # Téléconsultation Jitsi
+  # Note: we use url_launcher to open Jitsi links; no dedicated jitsi_meet plugin required.
 
   # Identification & Scanning
   geolocator: ^13.0.4
@@ -64,7 +64,7 @@ dependencies:
   pdf: ^3.11.3
 
   # Graphiques
-  syncfusion_flutter_charts: ^27.2.4  # Graphiques avancés (ou charts_flutter)
+  syncfusion_flutter_charts: ^31.1.19  # Graphiques avancés
 
   # Audio / Dictée
   speech_to_text: ^7.0.0             # Dictée vocale médecin
