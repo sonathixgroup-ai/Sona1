@@ -8,9 +8,23 @@ import '../models/event_model.dart';
 
 class EventService {
   final SupabaseClient _supabase;
+<<<<<<< Updated upstream
+=======
+  // Prefer the Admin-published tables so "Admin → App" is synchronized.
+  static const String eventsTable = 'thix_events';
+  static const String eventsStatusView = 'thix_events_status';
+  static const String registrationsTable = 'thix_event_registrations';
+  static const String promoCodesTable = 'thix_event_promo_codes';
+
+  // Legacy tables (some older deployments used these names).
+  static const String _legacyEventsTable = 'events';
+  static const String _legacyRegistrationsTable = 'event_registrations';
+  static const String _legacyPromoCodesTable = 'event_promo_codes';
+>>>>>>> Stashed changes
 
   EventService(this._supabase);
 
+<<<<<<< Updated upstream
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
   // ============================================================
@@ -22,6 +36,121 @@ class EventService {
     String? dateFilter,
     String? city,
     int limit = 50,
+=======
+  // ==================== EVENTS ====================
+  Future<EventItem?> getEventById(String eventId) async {
+    try {
+      // Prefer view if available.
+      final row = await _supabase.from(eventsStatusView).select('*').eq('id', eventId).maybeSingle();
+      if (row != null) return _mapThixEventRow(row);
+
+      final data = await _supabase.from(eventsTable).select('*').eq('id', eventId).maybeSingle();
+      if (data != null) return _mapThixEventRow(data);
+      return null;
+    } catch (e) {
+      debugPrint('getEventById error: $e');
+      // Legacy fallback.
+      try {
+        final data = await _supabase.from(_legacyEventsTable).select().eq('id', eventId).single();
+        return EventItem.fromJson((data as Map).cast<String, dynamic>());
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<List<EventItem>> getAllEvents() async {
+    try {
+      // Prefer status view (contains computed fields).
+      try {
+        final data = await _supabase
+            .from(eventsStatusView)
+            .select('*')
+            .eq('status', 'published')
+            .order('starts_at');
+        if (data is List) {
+          return data
+              .map((e) => _mapThixEventRow((e as Map).cast<String, dynamic>()))
+              .where((e) => e.id.trim().isNotEmpty)
+              .toList(growable: false);
+        }
+      } catch (e) {
+        debugPrint('getAllEvents view fallback err=$e');
+      }
+
+      final data = await _supabase
+          .from(eventsTable)
+          .select('*')
+          .eq('status', 'published')
+          .order('starts_at');
+      if (data is! List) return const [];
+      return data
+          .map((e) => _mapThixEventRow((e as Map).cast<String, dynamic>()))
+          .where((e) => e.id.trim().isNotEmpty)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('getAllEvents error: $e');
+      // Legacy fallback.
+      try {
+        final data = await _supabase.from(_legacyEventsTable).select().order('starts_at');
+        if (data is! List) return const [];
+        return data
+            .map((e) => EventItem.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(growable: false);
+      } catch (_) {
+        return const [];
+      }
+    }
+  }
+
+  // ==================== REGISTRATIONS ====================
+  Future<bool> hasUserTicket(String userId, String eventId) async {
+    try {
+      final res = await _supabase.from(registrationsTable).select('id').eq('user_id', userId).eq('event_id', eventId).limit(1);
+      return res.isNotEmpty;
+    } catch (_) {
+      try {
+        final res = await _supabase
+            .from(_legacyRegistrationsTable)
+            .select('id')
+            .eq('user_id', userId)
+            .eq('event_id', eventId)
+            .limit(1);
+        return (res is List) && res.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  Future<bool> registerForEvent({required String userId, required String eventId}) async {
+    try {
+      await _supabase.from(registrationsTable).insert({
+        'user_id': userId,
+        'event_id': eventId,
+        'status': 'confirmed',
+      });
+      return true;
+    } catch (e) {
+      debugPrint('registerForEvent error: $e');
+      try {
+        await _supabase.from(_legacyRegistrationsTable).insert({
+          'user_id': userId,
+          'event_id': eventId,
+          'status': 'confirmed',
+        });
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  Future<EventRegistration?> createRegistration({
+    required String userId,
+    required String eventId,
+    Map<String, dynamic>? metadata,
+>>>>>>> Stashed changes
   }) async {
     try {
       debugPrint('📅 getEvents: chargement des événements...');
@@ -97,8 +226,69 @@ class EventService {
       debugPrint('✅ getEvents: ${events.length} événements retournés');
       return events;
     } catch (e) {
+<<<<<<< Updated upstream
       debugPrint('❌ Error getEvents: $e');
       return [];
+=======
+      debugPrint('createRegistration error: $e');
+      try {
+        final res = await _supabase.from(_legacyRegistrationsTable).insert({
+          'user_id': userId,
+          'event_id': eventId,
+          'status': 'confirmed',
+          'metadata': metadata ?? {},
+        }).select().single();
+        return EventRegistration.fromJson((res as Map).cast<String, dynamic>());
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<EventRegistration?> getRegistrationById(String registrationId) async {
+    try {
+      final data = await _supabase.from(registrationsTable).select().eq('id', registrationId).single();
+      return EventRegistration.fromJson(data);
+    } catch (e) {
+      debugPrint('getRegistrationById error: $e');
+      try {
+        final data = await _supabase.from(_legacyRegistrationsTable).select().eq('id', registrationId).single();
+        return EventRegistration.fromJson((data as Map).cast<String, dynamic>());
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<bool> cancelRegistration(String registrationId) async {
+    try {
+      await _supabase.from(registrationsTable).update({'status': 'cancelled'}).eq('id', registrationId);
+      return true;
+    } catch (e) {
+      debugPrint('cancelRegistration error: $e');
+      try {
+        await _supabase.from(_legacyRegistrationsTable).update({'status': 'cancelled'}).eq('id', registrationId);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  Future<List<EventRegistration>> getUserRegistrations(String userId) async {
+    try {
+      final data = await _supabase.from(registrationsTable).select().eq('user_id', userId).order('created_at', ascending: false);
+      return (data as List).map((e) => EventRegistration.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('getUserRegistrations error: $e');
+      try {
+        final data = await _supabase.from(_legacyRegistrationsTable).select().eq('user_id', userId).order('created_at', ascending: false);
+        if (data is! List) return const [];
+        return data.map((e) => EventRegistration.fromJson((e as Map).cast<String, dynamic>())).toList(growable: false);
+      } catch (_) {
+        return const [];
+      }
+>>>>>>> Stashed changes
     }
   }
 
@@ -130,6 +320,7 @@ class EventService {
       
       return events;
     } catch (e) {
+<<<<<<< Updated upstream
       debugPrint('❌ Error getPopularEvents: $e');
       return [];
     }
@@ -611,4 +802,64 @@ class EventService {
       return false;
     }
   }
+=======
+      // Soft-fail if table doesn't exist / RLS blocks.
+      debugPrint('validatePromoCode error: $e');
+      try {
+        final row = await _supabase
+            .from(_legacyPromoCodesTable)
+            .select('discount_percent,active,expires_at,event_id,code')
+            .eq('code', c)
+            .maybeSingle();
+        if (row == null) return null;
+        final active = (row['active'] as bool?) ?? true;
+        if (!active) return null;
+        final rowEventId = (row['event_id'] ?? '').toString();
+        if (rowEventId.isNotEmpty && rowEventId != eventId) return null;
+        final expiresRaw = row['expires_at'];
+        if (expiresRaw != null) {
+          final expires = DateTime.tryParse(expiresRaw.toString());
+          if (expires != null && expires.isBefore(DateTime.now().toUtc())) return null;
+        }
+        return (row['discount_percent'] as num?)?.toDouble();
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  EventItem _mapThixEventRow(Map<String, dynamic> row) {
+    final id = (row['id'] ?? '').toString();
+    final title = (row['title'] ?? 'Sans titre').toString();
+    final description = (row['description'] ?? row['quick_hook'] ?? '').toString();
+    final category = (row['category'] ?? '').toString();
+    final place = (row['place'] ?? row['location'] ?? '').toString();
+    final startsAt = DateTime.tryParse((row['starts_at'] ?? '').toString());
+    final maxParticipants = (row['max_participants'] as num?)?.toInt();
+    final currentParticipants = (row['registrations_count'] as num?)?.toInt() ?? (row['current_participants'] as num?)?.toInt();
+    final isActive = (row['status']?.toString() ?? 'published') == 'published';
+    final isFree = row['is_free'];
+    final price = (row['price'] as num?)?.toDouble();
+    final priceLabel = (isFree == true) ? 'Gratuit' : (price == null ? null : '${price.toString()}');
+
+    // If your schema stores cover in bucket/path, the app can resolve it in the UI.
+    // We still map any direct URL if present.
+    final imageUrl = (row['image_url'] ?? row['cover_url'] ?? row['coverImageUrl'] ?? '').toString();
+
+    return EventItem(
+      id: id,
+      title: title,
+      description: description,
+      category: category.isEmpty ? null : category,
+      location: place.isEmpty ? null : place,
+      maxParticipants: maxParticipants,
+      currentParticipants: currentParticipants,
+      isActive: isActive,
+      imageUrl: imageUrl.isEmpty ? null : imageUrl,
+      price: price,
+      priceLabel: priceLabel,
+      startsAt: startsAt,
+    );
+  }
+>>>>>>> Stashed changes
 }

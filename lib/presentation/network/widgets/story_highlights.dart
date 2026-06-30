@@ -1,5 +1,6 @@
 // lib/presentation/network/widgets/story_highlights.dart
 import 'package:flutter/material.dart';
+import 'package:thix_id/theme.dart';
 
 class Highlight {
   final String id;
@@ -36,11 +37,11 @@ class StoryHighlights extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('📌 En vedette', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            child: Text('📌 En vedette', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: ThixHomeColors.darkNavy)),
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 80,
+            height: 64,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -64,23 +65,23 @@ class StoryHighlights extends StatelessWidget {
     return GestureDetector(
       onTap: onAddHighlight,
       child: Container(
-        width: 70,
-        margin: const EdgeInsets.only(right: 12),
+        width: 56,
+        margin: const EdgeInsets.only(right: 10),
         child: Column(
           children: [
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+                border: Border.all(color: ThixHomeColors.primaryBlue, width: 2),
               ),
               child: const CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white,
-                child: Icon(Icons.add, size: 30, color: Color(0xFFD4AF37)),
+                radius: 22,
+                backgroundColor: ThixHomeColors.white,
+                child: Icon(Icons.add, size: 22, color: ThixHomeColors.primaryBlue),
               ),
             ),
             const SizedBox(height: 4),
-            const Text('Nouveau', style: TextStyle(fontSize: 10)),
+            const Text('Nouveau', style: TextStyle(fontSize: 9, color: ThixHomeColors.darkNavy)),
           ],
         ),
       ),
@@ -91,8 +92,8 @@ class StoryHighlights extends StatelessWidget {
     return GestureDetector(
       onTap: () => _viewHighlight(highlight),
       child: Container(
-        width: 70,
-        margin: const EdgeInsets.only(right: 12),
+        width: 56,
+        margin: const EdgeInsets.only(right: 10),
         child: Column(
           children: [
             Stack(
@@ -100,18 +101,16 @@ class StoryHighlights extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFD4AF37), Color(0xFFE5C55E)],
-                    ),
+                    gradient: const LinearGradient(colors: [ThixHomeColors.primaryBlue, ThixHomeColors.darkNavy]),
                     border: Border.all(color: Colors.white, width: 2),
                   ),
                   child: CircleAvatar(
-                    radius: 30,
+                    radius: 22,
                     backgroundImage: highlight.coverImage != null
                         ? NetworkImage(highlight.coverImage!)
                         : null,
                     child: highlight.coverImage == null
-                        ? Icon(Icons.star, size: 30, color: const Color(0xFFD4AF37))
+                        ? const Icon(Icons.star, size: 22, color: ThixHomeColors.white)
                         : null,
                   ),
                 ),
@@ -121,7 +120,7 @@ class StoryHighlights extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFD4AF37),
+                      color: ThixHomeColors.primaryBlue,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.lock_clock, size: 10, color: Colors.white),
@@ -132,7 +131,7 @@ class StoryHighlights extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               highlight.name,
-              style: const TextStyle(fontSize: 10),
+              style: const TextStyle(fontSize: 9, color: ThixHomeColors.darkNavy),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

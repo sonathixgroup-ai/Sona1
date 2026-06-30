@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/training_certificate.dart';
 import 'package:thix_id/models/training_enrollment.dart';
@@ -23,7 +22,7 @@ class TrainingService {
   static const String certificatesTable = 'thix_training_certificates';
 
   // Local fallback cache keys
-  static const _kSeedTrainings = 'thix_seed_trainings_v1';
+  // (No local seed/mock in production)
 
   Future<List<TrainingItem>> listPublishedTrainings({int limit = 200}) async {
     try {
@@ -41,7 +40,7 @@ class TrainingService {
           .toList(growable: false);
     } catch (e) {
       debugPrint('TrainingService.listPublishedTrainings failed err=$e');
-      return _localSeedTrainings();
+      return const [];
     }
   }
 
@@ -237,93 +236,5 @@ class TrainingService {
     }
   }
 
-  List<TrainingItem> _localSeedTrainings() {
-    return _seedCached().toList(growable: false);
-  }
-
-  List<TrainingItem> _seedCached() {
-    final now = DateTime.now().toUtc();
-    final seeded = <TrainingItem>[
-      TrainingItem(
-        id: 'trn_cyber_fundamentals',
-        title: 'Cybersecurity Foundations (THIX Verified)',
-        tagline: 'Zero-trust mindset • Threat modeling • African compliance',
-        description: 'Un parcours premium orienté terrain: sécurité, politiques, audits, et réponses à incident. Certificat THIX Verified inclus.',
-        coverImageBucket: null,
-        coverImagePath: null,
-        category: 'Cybersecurity',
-        level: 'Beginner',
-        language: 'FR',
-        deliveryMode: 'online',
-        durationMinutes: 6 * 60,
-        isFree: false,
-        priceAmount: 49,
-        currency: 'USD',
-        certificationIncluded: true,
-        isFeatured: true,
-        isPublished: true,
-        instructorName: 'THIX Security Lab',
-        instructorTitle: 'Cyber Defense Team',
-        instructorAvatarUrl: null,
-        institutionName: 'THIX ID Academy',
-        institutionLogoUrl: null,
-        skills: const ['Threat Modeling', 'SOC Basics', 'Incident Response', 'IAM'],
-        requirements: 'Aucun prérequis. Un téléphone + connexion internet.',
-        startDate: now.add(const Duration(days: 2)),
-        studentsCount: 1280,
-        rating: 4.9,
-        reviewsCount: 342,
-        completionRate: 0.72,
-        createdAt: now.subtract(const Duration(days: 20)),
-        updatedAt: now.subtract(const Duration(hours: 6)),
-      ),
-      TrainingItem(
-        id: 'trn_ai_data_sentinel',
-        title: 'AI & Data Sentinel',
-        tagline: 'Data governance • Privacy • Practical LLM safety',
-        description: 'Apprends à construire des produits IA responsables: governance, privacy, sécurité et mise en prod.',
-        coverImageBucket: null,
-        coverImagePath: null,
-        category: 'AI & Data',
-        level: 'Intermediate',
-        language: 'FR',
-        deliveryMode: 'online',
-        durationMinutes: 8 * 60,
-        isFree: true,
-        priceAmount: 0,
-        currency: 'USD',
-        certificationIncluded: true,
-        isFeatured: false,
-        isPublished: true,
-        instructorName: 'Prof. N. Kabila',
-        instructorTitle: 'Data & AI',
-        instructorAvatarUrl: null,
-        institutionName: 'Partner University',
-        institutionLogoUrl: null,
-        skills: const ['Data Governance', 'Prompt Safety', 'PII Protection'],
-        requirements: 'Connaissances basiques en data.',
-        startDate: now.add(const Duration(days: 6)),
-        studentsCount: 840,
-        rating: 4.8,
-        reviewsCount: 190,
-        completionRate: 0.66,
-        createdAt: now.subtract(const Duration(days: 12)),
-        updatedAt: now.subtract(const Duration(days: 1)),
-      ),
-    ];
-
-    unawaited(_persistSeed(seeded));
-    return seeded;
-  }
-
-  Future<void> _persistSeed(List<TrainingItem> seeded) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final existing = prefs.getString(_kSeedTrainings);
-      if (existing != null && existing.trim().isNotEmpty) return;
-      await prefs.setString(_kSeedTrainings, TrainingItem.encodeList(seeded));
-    } catch (e) {
-      debugPrint('TrainingService._persistSeed failed err=$e');
-    }
-  }
+  // No local seed/mock data in production. Trainings come from Supabase Admin.
 }

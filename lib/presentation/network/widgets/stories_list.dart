@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_story.dart';
+import 'package:thix_id/theme.dart';
 
 class StoriesList extends StatefulWidget {
   final Function(String)? onStoryTap;
@@ -52,7 +53,7 @@ class _StoriesListState extends State<StoriesList> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const SizedBox(
-        height: 100,
+        height: 72,
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -66,11 +67,11 @@ class _StoriesListState extends State<StoriesList> {
       children: [
         const Text(
           'Stories professionnelles',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: ThixHomeColors.darkNavy),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         SizedBox(
-          height: 100,
+          height: 72,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _stories.length,
@@ -80,28 +81,26 @@ class _StoriesListState extends State<StoriesList> {
               final timeRemaining = _getTimeRemaining(story.expiresAt);
               
               return Container(
-                width: 80,
-                margin: const EdgeInsets.only(right: 12),
+                width: 56,
+                margin: const EdgeInsets.only(right: 10),
                 child: Column(
                   children: [
                     Stack(
                       children: [
                         Container(
-                          width: 64,
-                          height: 64,
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: story.isViewed || story.isCurrentUser
                                 ? null
-                                : const LinearGradient(
-                                    colors: [Color(0xFFD4AF37), Colors.orange],
-                                  ),
+                                : const LinearGradient(colors: [ThixHomeColors.primaryBlue, ThixHomeColors.darkNavy]),
                             border: story.isCurrentUser
                                 ? Border.all(color: Colors.grey.shade300, width: 2)
                                 : null,
                           ),
                           child: CircleAvatar(
-                            radius: 30,
+                            radius: 22,
                             backgroundColor: Colors.grey.shade200,
                             backgroundImage: hasValidAvatar
                                 ? NetworkImage(story.userAvatar!)
@@ -109,7 +108,7 @@ class _StoriesListState extends State<StoriesList> {
                             child: !hasValidAvatar
                                 ? Text(
                                     story.userName.isNotEmpty ? story.userName[0].toUpperCase() : '?',
-                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                   )
                                 : null,
                           ),
@@ -120,7 +119,7 @@ class _StoriesListState extends State<StoriesList> {
                             right: 0,
                             child: Container(
                               decoration: const BoxDecoration(
-                                color: Color(0xFFD4AF37),
+                                color: ThixHomeColors.primaryBlue,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -160,14 +159,14 @@ class _StoriesListState extends State<StoriesList> {
                     const SizedBox(height: 4),
                     Text(
                       story.userName,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: ThixHomeColors.darkNavy),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (!story.isCurrentUser)
                       Text(
                         timeRemaining,
-                        style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                        style: TextStyle(fontSize: 8, color: Colors.grey.shade500),
                       ),
                   ],
                 ),

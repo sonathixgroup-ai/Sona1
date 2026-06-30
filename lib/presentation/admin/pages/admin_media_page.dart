@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../../../models/media_content.dart';
 import '../../../services/media_service.dart';
 
@@ -132,8 +133,8 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
         title: const Text('Supprimer ?'),
         content: Text('Voulez-vous vraiment supprimer "${item.title}" ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Oui')),
+          TextButton(onPressed: () => ctx.pop(false), child: const Text('Non')),
+          TextButton(onPressed: () => ctx.pop(true), child: const Text('Oui')),
         ],
       ),
     );

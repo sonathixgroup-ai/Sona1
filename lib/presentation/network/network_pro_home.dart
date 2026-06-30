@@ -10,6 +10,7 @@ import 'package:thix_id/models/network_story.dart';
 import 'package:thix_id/models/network_connection.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/theme.dart';
 import 'widgets/create_post_dialog.dart';
 import 'widgets/create_story_dialog.dart';
 
@@ -47,6 +48,13 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     )..repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Ensure feed realtime is initialised when the user lands on Réseau Pro.
+      // This is safe even if called multiple times thanks to FeedProvider guards.
+      try {
+        Provider.of<FeedProvider>(context, listen: false).initRealtime();
+      } catch (e) {
+        debugPrint('❌ NetworkProHome initRealtime error: $e');
+      }
       _loadAllData();
     });
   }
@@ -134,7 +142,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
 
     if (auth.currentUser == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: ThixHomeColors.lightGrayBackground,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -149,8 +157,8 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
               ElevatedButton(
                 onPressed: () => context.push('/login'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: const Color(0xFF0B1B3D),
+                  backgroundColor: ThixHomeColors.primaryBlue,
+                  foregroundColor: ThixHomeColors.white,
                 ),
                 child: const Text('Se connecter'),
               ),
@@ -161,11 +169,11 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: ThixHomeColors.lightGrayBackground,
       appBar: _buildAppBar(),
       body: RefreshIndicator(
         onRefresh: _onRefresh,
-        color: const Color(0xFFD4AF37),
+        color: ThixHomeColors.primaryBlue,
         child: CustomScrollView(
           slivers: [
             // Search bar
@@ -178,7 +186,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
               const SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                    valueColor: AlwaysStoppedAnimation<Color>(ThixHomeColors.primaryBlue),
                   ),
                 ),
               )
@@ -205,7 +213,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: ThixHomeColors.white,
       elevation: 0,
       title: Row(
         children: [
@@ -213,27 +221,27 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF0B1B3D),
+              color: ThixHomeColors.darkNavy,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Center(
-              child: Text('T', style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text('T', style: TextStyle(color: ThixHomeColors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
           const SizedBox(width: 8),
           const Text(
             'Réseau Pro',
-            style: TextStyle(color: Color(0xFF0B1B3D), fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(color: ThixHomeColors.darkNavy, fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: Color(0xFF0B1B3D)),
+          icon: const Icon(Icons.notifications_none, color: ThixHomeColors.darkNavy),
           onPressed: _goToNotifications,
         ),
         IconButton(
-          icon: const Icon(Icons.mail_outline, color: Color(0xFF0B1B3D)),
+          icon: const Icon(Icons.mail_outline, color: ThixHomeColors.darkNavy),
           onPressed: _goToMessages,
         ),
       ],
@@ -270,9 +278,9 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
 
   Widget _buildStoriesRow() {
     return Container(
-      color: Colors.white,
+      color: ThixHomeColors.white,
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -281,7 +289,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
             children: [
               const Text(
                 'Stories',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0B1B3D)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: ThixHomeColors.darkNavy),
               ),
               TextButton(
                 onPressed: () async {
@@ -292,7 +300,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                   if (result == true) _loadStories();
                 },
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: ThixHomeColors.primaryBlue,
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(0, 0),
                 ),
@@ -300,11 +308,11 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           SizedBox(
-            height: 88,
+            height: 72,
             child: _loadingStories
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Color(0xFFD4AF37))))
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(ThixHomeColors.primaryBlue)))
                 : _stories.isEmpty
                     ? Center(
                         child: GestureDetector(
@@ -319,17 +327,17 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 56,
-                                height: 56,
+                                width: 44,
+                                height: 44,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFD4AF37).withOpacity(0.15),
+                                  color: ThixHomeColors.primaryBlue.withValues(alpha: 0.10),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: const Color(0xFFD4AF37), width: 2, style: BorderStyle.solid),
+                                  border: Border.all(color: ThixHomeColors.primaryBlue, width: 2, style: BorderStyle.solid),
                                 ),
-                                child: const Icon(Icons.add, color: Color(0xFFD4AF37), size: 28),
+                                child: const Icon(Icons.add, color: ThixHomeColors.primaryBlue, size: 22),
                               ),
                               const SizedBox(height: 4),
-                              const Text('Votre story', style: TextStyle(fontSize: 10, color: Color(0xFFD4AF37))),
+                              const Text('Votre story', style: TextStyle(fontSize: 9, color: ThixHomeColors.primaryBlue)),
                             ],
                           ),
                         ),
@@ -348,23 +356,23 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                                 if (result == true) _loadStories();
                               },
                               child: Container(
-                                width: 64,
-                                margin: const EdgeInsets.only(right: 12),
+                                width: 56,
+                                margin: const EdgeInsets.only(right: 10),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
-                                      width: 56,
-                                      height: 56,
+                                      width: 44,
+                                      height: 44,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFD4AF37).withOpacity(0.15),
+                                        color: ThixHomeColors.primaryBlue.withValues(alpha: 0.10),
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+                                        border: Border.all(color: ThixHomeColors.primaryBlue, width: 2),
                                       ),
-                                      child: const Icon(Icons.add, color: Color(0xFFD4AF37), size: 24),
+                                      child: const Icon(Icons.add, color: ThixHomeColors.primaryBlue, size: 20),
                                     ),
                                     const SizedBox(height: 4),
-                                    const Text('Ajouter', style: TextStyle(fontSize: 9, color: Color(0xFFD4AF37)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    const Text('Ajouter', style: TextStyle(fontSize: 9, color: ThixHomeColors.primaryBlue), maxLines: 1, overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
                               ),
@@ -373,17 +381,17 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                           final story = _stories[index - 1];
                           final hasAvatar = story.userAvatar != null && story.userAvatar!.isNotEmpty;
                           return Container(
-                            width: 64,
-                            margin: const EdgeInsets.only(right: 12),
+                            width: 56,
+                            margin: const EdgeInsets.only(right: 10),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  width: 56,
-                                  height: 56,
+                                  width: 44,
+                                  height: 44,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Colors.orange]),
+                                    gradient: const LinearGradient(colors: [ThixHomeColors.primaryBlue, ThixHomeColors.darkNavy]),
                                   ),
                                   padding: const EdgeInsets.all(2),
                                   child: CircleAvatar(
@@ -392,7 +400,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                                     child: !hasAvatar
                                         ? Text(
                                             story.userName.trim().isNotEmpty ? story.userName.trim()[0].toUpperCase() : '?',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                           )
                                         : null,
                                   ),
@@ -438,9 +446,9 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(filter['icon'] as IconData, size: 14, color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600]),
+                    Icon(filter['icon'] as IconData, size: 14, color: isSelected ? ThixHomeColors.primaryBlue : Colors.grey[600]),
                     const SizedBox(width: 4),
-                    Text(filter['label'] as String, style: TextStyle(fontSize: 11, color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600])),
+                    Text(filter['label'] as String, style: TextStyle(fontSize: 11, color: isSelected ? ThixHomeColors.primaryBlue : Colors.grey[600])),
                   ],
                 ),
                 onSelected: (selected) {
@@ -448,8 +456,8 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                   _loadPosts();
                 },
                 backgroundColor: Colors.white,
-                selectedColor: const Color(0xFFD4AF37).withOpacity(0.1),
-                side: BorderSide(color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[300]!),
+                selectedColor: ThixHomeColors.primaryBlue.withValues(alpha: 0.10),
+                side: BorderSide(color: isSelected ? ThixHomeColors.primaryBlue : Colors.grey[300]!),
               ),
             );
           },

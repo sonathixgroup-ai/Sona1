@@ -43,6 +43,7 @@ import 'presentation/thix_market/thix_market_page.dart';
 import 'presentation/thix_reservation/thix_reservation_page.dart';
 import 'presentation/thix_money/thix_money_page.dart';
 import 'presentation/thix_media/thix_media_page.dart';
+import 'presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 import 'presentation/admin/pages/admin_media_page.dart';
 
@@ -84,6 +85,7 @@ class AppRoutes {
   static const String reservation = '/reservation';
   static const String thixMoney = '/thix-money';
   static const String thixMedia = '/thix-media';
+  static const String thixMediaVideo = '/thix-media/video';
   static const String thixInfo = '/info';
 }
 
@@ -225,6 +227,15 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.thixMedia,
           pageBuilder: (context, state) => const NoTransitionPage(child: ThixMediaPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixMediaVideo,
+          pageBuilder: (context, state) {
+            final qp = state.uri.queryParameters;
+            final title = qp['title'] ?? 'Vidéo';
+            final url = qp['url'] ?? '';
+            return NoTransitionPage(child: VideoPlayerPage(title: title, videoUrl: url));
+          },
         ),
         GoRoute(
           path: AppRoutes.thixInfo,

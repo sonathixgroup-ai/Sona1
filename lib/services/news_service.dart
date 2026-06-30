@@ -56,33 +56,22 @@ class NewsService {
     try {
       final res = await SupabaseService.select(table, select: '*', orderBy: 'created_at', ascending: false, limit: limit);
       final items = _mapRows(res);
-      if (items.isNotEmpty) {
-        await _cache(items);
-        return items;
-      }
+      await _cache(items);
+      return items;
     } catch (e) {
       debugPrint('NewsService.listNews supabase failed err=$e');
     }
 
-    // 2) Local fallback (cached or seeded)
+    // 2) Local fallback (cached only; no mock/seed in production)
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_kLocal);
-      if (raw == null || raw.trim().isEmpty) {
-        final seeded = _seed();
-        await prefs.setString(_kLocal, NewsItem.encodeList(seeded));
-        return seeded;
-      }
+      if (raw == null || raw.trim().isEmpty) return const [];
       final items = NewsItem.decodeList(raw);
-      if (items.isEmpty) {
-        final seeded = _seed();
-        await prefs.setString(_kLocal, NewsItem.encodeList(seeded));
-        return seeded;
-      }
       return items;
     } catch (e) {
       debugPrint('NewsService.listNews local failed err=$e');
-      return _seed();
+      return const [];
     }
   }
 
@@ -233,33 +222,5 @@ class NewsService {
     return '${prefix}_$n';
   }
 
-  List<NewsItem> _seed() {
-    final now = DateTime.now();
-    return [
-      NewsItem(
-        id: 'news_kyc_update',
-        title: 'Sécurité: mise à jour KYC / vérification',
-        subtitle: 'Nous renforçons la vérification des profils et documents. Les comptes “Vérifiés” auront un badge visible partout.',
-        source: 'THIX Trust Center',
-        category: 'Sécurité',
-        severity: 'Important',
-        featured: true,
-        imageUrl: null,
-        createdAt: now.subtract(const Duration(hours: 5)),
-        updatedAt: now.subtract(const Duration(hours: 2)),
-      ),
-      NewsItem(
-        id: 'news_grants',
-        title: 'Opportunités: bourses & subventions',
-        subtitle: 'Nouveaux programmes disponibles dans la section Opportunités. Pense à compléter ton profil pour candidater.',
-        source: 'THIX Opportunities',
-        category: 'Actualités',
-        severity: 'Info',
-        featured: false,
-        imageUrl: null,
-        createdAt: now.subtract(const Duration(days: 1)),
-        updatedAt: now.subtract(const Duration(days: 1)),
-      ),
-    ];
-  }
+  // No seed/mock data in production. Content comes from Supabase Admin.
 }
