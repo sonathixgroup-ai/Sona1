@@ -1,9 +1,8 @@
-import 'package:flutter/foundation.dart';
+// presentation/thix_sante/patient/details/patient_vital_chart_page.dart
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/nav.dart';
-import 'package:thix_id/presentation/thix_sante/shared/ widgets/health_charts.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 
@@ -15,94 +14,340 @@ class PatientVitalChartPage extends StatefulWidget {
 }
 
 class _PatientVitalChartPageState extends State<PatientVitalChartPage> {
-  VitalType _type = VitalType.weight;
+  final HealthService _healthService = HealthService.instance;
+  List<VitalSign> _allVitals = [];
+  VitalType _selectedType = VitalType.weight;
+  bool _isLoading = true;
+  String? _error;
+
+  // Valeurs min/max pour l'affichage
+  double _minY = 0;
+  double _maxY = 100;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVitals();
+  }
+
+  Future<void> _loadVitals() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = AuthController.instance.currentUser;
+      if (user == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+      final patientId = user.id;
+      final vitals = await _healthService.fetchVitalSigns(patientId);
+      setState(() {
+        _allVitals = vitals;
+        if (_allVitals.isNotEmpty) {
+          // Sélectionner le type le plus fréquent ou le premier
+          _selectedType = _getMostFrequentType(vitals);
+          _computeMinMax(_selectedType);
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  VitalType _getMostFrequentType(List<VitalSign> vitals) {
+    final counts = <VitalType, int>{};
+    for (final v in vitals) {
+      counts[v.type] = (counts[v.type] ?? 0) + 1;
+    }
+    return counts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+  }
+
+  void _computeMinMax(VitalType type) {
+    final filtered = _allVitals.where((v) => v.type == type).toList();
+    if (filtered.isEmpty) {
+      _minY = 0;
+      _maxY = 100;
+      return;
+    }
+    final values = filtered.map((v) => v.value).toList();
+    final min = values.reduce((a, b) => a < b ? a : b);
+    final max = values.reduce((a, b) => a > b ? a : b);
+    final margin = (max - min) * 0.2;
+    _minY = (min - margin).clamp(0, double.infinity);
+    _maxY = max + margin;
+    if (_maxY == _minY) {
+      _maxY = _minY + 10;
+    }
+  }
+
+  List<FlSpot> _getSpotsForType(VitalType type) {
+    final filtered = _allVitals
+        .where((v) => v.type == type)
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    // Si pas de données, retourner quelques points fictifs pour l'exemple
+    if (filtered.isEmpty) {
+      final now = DateTime.now();
+      return [
+        FlSpot(0, 0),
+        FlSpot(1, 10),
+        FlSpot(2, 5),
+        FlSpot(3, 15),
+      ];
+    }
+
+    // Normaliser les dates en nombre de jours depuis le premier
+    final firstDate = filtered.first.date;
+    final spots = <FlSpot>[];
+    for (int i = 0; i < filtered.length; i++) {
+      final v = filtered[i];
+      final days = v.date.difference(firstDate).inDays.toDouble();
+      spots.add(FlSpot(days, v.value));
+    }
+    return spots;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final patientId = AuthController.instance.currentUser?.id;
+    final title = 'Graphique des constantes';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Graphiques'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.popOrGo('/sante/patient/dashboard'),
-        ),
+        title: Text(title),
         actions: [
-          PopupMenuButton<VitalType>(
-            initialValue: _type,
-            onSelected: (v) => setState(() => _type = v),
-            itemBuilder: (context) => VitalType.values
-                .map((e) => PopupMenuItem(value: e, child: Text(_label(e))))
-                .toList(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(child: Text(_label(_type))),
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadVitals,
           ),
         ],
       ),
-      body: patientId == null
-          ? const Center(child: Text('Vous devez être connecté.'))
-          : FutureBuilder<List<VitalSign>>(
-              future: HealthService.instance.fetchVitalSigns(patientId),
-              builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  debugPrint('PatientVitalChartPage error: ${snap.error}');
-                  return const Center(child: Text('Impossible de charger les constantes.'));
-                }
-                final all = snap.data ?? const [];
-                final vitals = all.where((v) => v.type == _type).toList();
-                if (vitals.isEmpty) {
-                  return const Center(child: Text('Aucune donnée à afficher.'));
-                }
-
-                final last = vitals.take(7).toList().reversed.toList();
-                final data = <BarData>[];
-                for (final v in last) {
-                  data.add(BarData(label: '${v.date.day}/${v.date.month}', value: v.value));
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    HealthBarChart(data: data, title: _label(_type)),
-                    const SizedBox(height: 12),
-                    ...vitals.take(20).map(
-                          (v) => ListTile(
-                            title: Text('${v.value} ${v.unit}'.trim()),
-                            subtitle: Text('${v.date.day}/${v.date.month}/${v.date.year}'),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 8),
+                      Text('Erreur : $_error'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadVitals,
+                        child: const Text('Réessayer'),
+                      ),
+                    ],
+                  ),
+                )
+              : _allVitals.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'Aucune constante enregistrée.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        // Sélecteur de type
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Text('Constante : '),
+                              Expanded(
+                                child: DropdownButton<VitalType>(
+                                  value: _selectedType,
+                                  isExpanded: true,
+                                  items: VitalType.values.map((type) {
+                                    return DropdownMenuItem(
+                                      value: type,
+                                      child: Text(VitalSign.getVitalLabel(type)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _selectedType = value;
+                                        _computeMinMax(value);
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                  ],
+                        // Graphique
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: _buildLineChart(),
+                          ),
+                        ),
+                        // Informations supplémentaires
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _infoChip('Dernière valeur', _getLastValue(_selectedType)),
+                              _infoChip('Min', _getMinValue(_selectedType)),
+                              _infoChip('Max', _getMaxValue(_selectedType)),
+                              _infoChip('Moyenne', _getAverageValue(_selectedType)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Naviguer vers l'ajout d'une constante
+                            context.push('/sante/patient/vital/new');
+                          },
+                          child: const Text('Ajouter une constante'),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+    );
+  }
+
+  Widget _buildLineChart() {
+    final spots = _getSpotsForType(_selectedType);
+    return LineChart(
+      LineChartData(
+        minX: 0,
+        maxX: spots.isEmpty ? 1 : spots.last.x + 1,
+        minY: _minY,
+        maxY: _maxY,
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (value, meta) {
+                // Afficher les jours
+                final days = value.toInt();
+                if (days % 5 == 0 || days == 0) {
+                  return Text(
+                    'J$days',
+                    style: const TextStyle(fontSize: 10),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 10),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/sante/patient/record/add'),
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter'),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+        ),
+        borderData: FlBorderData(show: true),
+        gridData: FlGridData(show: true),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: const Color(0xFF2563FF),
+            barWidth: 3,
+            dotData: FlDotData(show: true),
+            belowBarData: BarAreaData(
+              show: true,
+              color: const Color(0xFF2563FF).withOpacity(0.2),
+            ),
+          ),
+        ],
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: _getLastValue(_selectedType),
+              color: Colors.orange.withOpacity(0.6),
+              strokeWidth: 1,
+              dashArray: [5, 5],
+              label: HorizontalLineLabel(
+                show: true,
+                labelResolver: (line) => 'Dernier',
+                style: const TextStyle(color: Colors.orange, fontSize: 10),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  String _label(VitalType t) {
-    switch (t) {
-      case VitalType.weight:
-        return 'Poids';
-      case VitalType.bloodPressureSystolic:
-      case VitalType.bloodPressureDiastolic:
-        return 'Tension';
-      case VitalType.heartRate:
-        return 'Fréquence cardiaque';
-      case VitalType.temperature:
-        return 'Température';
-      case VitalType.glucose:
-        return 'Glycémie';
-      default:
-        return VitalSign.getVitalLabel(t);
-    }
+  double _getLastValue(VitalType type) {
+    final filtered = _allVitals.where((v) => v.type == type).toList();
+    if (filtered.isEmpty) return 0;
+    filtered.sort((a, b) => b.date.compareTo(a.date));
+    return filtered.first.value;
+  }
+
+  double _getMinValue(VitalType type) {
+    final filtered = _allVitals.where((v) => v.type == type).toList();
+    if (filtered.isEmpty) return 0;
+    return filtered.map((v) => v.value).reduce((a, b) => a < b ? a : b);
+  }
+
+  double _getMaxValue(VitalType type) {
+    final filtered = _allVitals.where((v) => v.type == type).toList();
+    if (filtered.isEmpty) return 0;
+    return filtered.map((v) => v.value).reduce((a, b) => a > b ? a : b);
+  }
+
+  double _getAverageValue(VitalType type) {
+    final filtered = _allVitals.where((v) => v.type == type).toList();
+    if (filtered.isEmpty) return 0;
+    final sum = filtered.map((v) => v.value).reduce((a, b) => a + b);
+    return sum / filtered.length;
+  }
+
+  Widget _infoChip(String label, double value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          Text(
+            value.toStringAsFixed(1),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
