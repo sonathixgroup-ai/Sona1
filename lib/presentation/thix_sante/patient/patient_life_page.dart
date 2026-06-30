@@ -2,10 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
-import 'package:thix_id/presentation/thix_sante/shared/widgets/health_header.dart';
-import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 
-/// Page regroupant les fonctionnalités de vie et bien-être du patient
 class PatientLifePage extends StatefulWidget {
   const PatientLifePage({super.key});
 
@@ -47,7 +44,7 @@ class _PatientLifePageState extends State<PatientLifePage>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
+        children: [
           _PregnancyTab(),
           _FamilyTab(),
           _WellnessTab(),
@@ -85,7 +82,7 @@ class _PatientLifePageState extends State<PatientLifePage>
               title: const Text('Prendre un rendez-vous'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/patient/appointments/new');
+                context.push('/sante/patient/appointment/new');
               },
             ),
             ListTile(
@@ -111,12 +108,8 @@ class _PatientLifePageState extends State<PatientLifePage>
   }
 }
 
-// ============================================================
-// 1. Onglet SUIVI GROSSESSE
-// ============================================================
+// ===== Onglet Grossesse =====
 class _PregnancyTab extends StatelessWidget {
-  const _PregnancyTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -158,7 +151,7 @@ class _PregnancyTab extends StatelessWidget {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    context.push('/sante/patient/pregnancy/add');
+                    context.push('/sante/patient/pregnancy/new');
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Ajouter une mesure'),
@@ -174,11 +167,22 @@ class _PregnancyTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const Text('Historique des mesures', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ...List.generate(3, (index) => ListTile(
+        ListTile(
           leading: const Icon(Icons.calendar_today, color: Colors.pink),
-          title: Text('Semaine ${10 + index}'),
-          subtitle: Text('Poids : ${60 + index * 0.5} kg • Tension : ${120 + index * 2}/${80 + index}'),
-        )),
+          title: const Text('Semaine 10'),
+          subtitle: const Text('Poids : 61.0 kg • Tension : 120/80'),
+          onTap: () {
+            context.push('/sante/patient/pregnancy/1');
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.calendar_today, color: Colors.pink),
+          title: const Text('Semaine 11'),
+          subtitle: const Text('Poids : 61.8 kg • Tension : 122/82'),
+          onTap: () {
+            context.push('/sante/patient/pregnancy/2');
+          },
+        ),
       ],
     );
   }
@@ -202,12 +206,8 @@ class _PregnancyTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 2. Onglet ESPACE FAMILLE
-// ============================================================
+// ===== Onglet Famille =====
 class _FamilyTab extends StatelessWidget {
-  const _FamilyTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -232,7 +232,7 @@ class _FamilyTab extends StatelessWidget {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    context.push('/sante/patient/family/add');
+                    context.push('/sante/patient/family/new');
                   },
                   icon: const Icon(Icons.person_add),
                   label: const Text('Ajouter un membre'),
@@ -254,7 +254,7 @@ class _FamilyTab extends StatelessWidget {
           subtitle: const Text('Épouse • Dossier partagé'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           onTap: () {
-            context.push('/sante/patient/family/member/1');
+            context.push('/sante/patient/family/1');
           },
         ),
         ListTile(
@@ -263,7 +263,7 @@ class _FamilyTab extends StatelessWidget {
           subtitle: const Text('Fille • Dossier partagé'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           onTap: () {
-            context.push('/sante/patient/family/member/2');
+            context.push('/sante/patient/family/2');
           },
         ),
         ListTile(
@@ -272,7 +272,7 @@ class _FamilyTab extends StatelessWidget {
           subtitle: const Text('Fils • Dossier partagé'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           onTap: () {
-            context.push('/sante/patient/family/member/3');
+            context.push('/sante/patient/family/3');
           },
         ),
       ],
@@ -280,12 +280,8 @@ class _FamilyTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 3. Onglet PROGRAMMES BIEN-ÊTRE
-// ============================================================
+// ===== Onglet Bien-être =====
 class _WellnessTab extends StatelessWidget {
-  const _WellnessTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -299,9 +295,7 @@ class _WellnessTab extends StatelessWidget {
           progress: 0.4,
           icon: Icons.self_improvement,
           color: Colors.blue,
-          onTap: () {
-            context.push('/sante/patient/wellness/stress');
-          },
+          programId: 'stress',
         ),
         _buildProgramCard(
           title: 'Arrêt du tabac',
@@ -309,9 +303,7 @@ class _WellnessTab extends StatelessWidget {
           progress: 0.7,
           icon: Icons.smoke_free,
           color: Colors.green,
-          onTap: () {
-            context.push('/sante/patient/wellness/stop-smoking');
-          },
+          programId: 'stop-smoking',
         ),
         _buildProgramCard(
           title: 'Nutrition équilibrée',
@@ -319,9 +311,7 @@ class _WellnessTab extends StatelessWidget {
           progress: 0.2,
           icon: Icons.restaurant,
           color: Colors.orange,
-          onTap: () {
-            context.push('/sante/patient/wellness/nutrition');
-          },
+          programId: 'nutrition',
         ),
         _buildProgramCard(
           title: 'Activité physique',
@@ -329,9 +319,7 @@ class _WellnessTab extends StatelessWidget {
           progress: 0.5,
           icon: Icons.fitness_center,
           color: Colors.purple,
-          onTap: () {
-            context.push('/sante/patient/wellness/fitness');
-          },
+          programId: 'fitness',
         ),
         const SizedBox(height: 16),
         ElevatedButton.icon(
@@ -351,13 +339,15 @@ class _WellnessTab extends StatelessWidget {
     required double progress,
     required IconData icon,
     required Color color,
-    required VoidCallback onTap,
+    required String programId,
   }) {
     return Card(
       elevation: 1,
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          context.push('/sante/patient/wellness/$programId');
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -389,12 +379,8 @@ class _WellnessTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 4. Onglet PARTAGE SÉCURISÉ
-// ============================================================
+// ===== Onglet Partage sécurisé =====
 class _SecureSharingTab extends StatelessWidget {
-  const _SecureSharingTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -443,12 +429,18 @@ class _SecureSharingTab extends StatelessWidget {
           title: const Text('Dr. Dupont'),
           subtitle: const Text('Accès complet • Expire dans 30 jours'),
           trailing: const Chip(label: Text('Actif'), backgroundColor: Colors.green),
+          onTap: () {
+            context.push('/sante/patient/sharing/1');
+          },
         ),
         ListTile(
           leading: const Icon(Icons.person, color: Colors.orange),
           title: const Text('Marie Dupont'),
           subtitle: const Text('Accès limité • En attente de validation'),
           trailing: const Chip(label: Text('En attente'), backgroundColor: Colors.orange),
+          onTap: () {
+            context.push('/sante/patient/sharing/2');
+          },
         ),
         const SizedBox(height: 16),
         const Text('Historique des partages'),
