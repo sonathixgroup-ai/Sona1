@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/models/event_item.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 
 // Pages
@@ -28,11 +27,6 @@ import 'presentation/recruiter/recruiter_portal_page.dart';
 import 'presentation/opportunities/opportunities_page.dart';
 import 'presentation/opportunities/opportunity_apply_page.dart';
 import 'presentation/opportunities/opportunity_details_page.dart';
-import 'presentation/events/events_page.dart';
-import 'presentation/events/event_details_page.dart';
-import 'presentation/events/event_register_page.dart';
-import 'presentation/events/event_ticket_page.dart';
-import 'presentation/events/user_event_dashboard_page.dart';
 import 'presentation/education/education_page.dart';
 import 'presentation/training/training_home_page.dart';
 import 'presentation/training/training_details_page.dart';
@@ -77,7 +71,6 @@ class AppRoutes {
   static const String network = '/network';
   static const String jobs = '/jobs';
   static const String opportunities = '/opportunities';
-  static const String events = '/events';
   static const String education = '/education';
   static const String trainingHome = '/training';
   static const String admin = '/admin';
@@ -167,43 +160,6 @@ class AppRouter {
           path: AppRoutes.opportunities,
           pageBuilder: (context, state) => const NoTransitionPage(child: OpportunitiesPage()),
         ),
-        GoRoute(
-          path: AppRoutes.events,
-          pageBuilder: (context, state) => const NoTransitionPage(child: EventsPage()),
-        ),
-
-        // ==================== EVENTS ROUTES ====================
-        GoRoute(
-          path: '/events/:eventId',
-          pageBuilder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '';
-            return NoTransitionPage(child: EventDetailsPage(eventId: eventId));
-          },
-        ),
-        GoRoute(
-          path: '/events/:eventId/register',
-          pageBuilder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '';
-            // Note: Tu peux passer l'event complet via extra si besoin
-            return NoTransitionPage(child: EventRegisterPage(event: EventItem.placeholder(id: eventId))); // À adapter si nécessaire
-          },
-        ),
-        GoRoute(
-          path: '/events/:eventId/ticket/:registrationId',
-          pageBuilder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '';
-            final registrationId = state.pathParameters['registrationId'] ?? '';
-            return NoTransitionPage(
-              child: EventTicketPage(eventId: eventId, registrationId: registrationId),
-            );
-          },
-        ),
-        GoRoute(
-          path: '/events/me',
-          pageBuilder: (context, state) => const NoTransitionPage(child: UserEventDashboardPage()),
-        ),
-
-        // Autres routes
         GoRoute(
           path: AppRoutes.education,
           pageBuilder: (context, state) => const NoTransitionPage(child: EducationPage()),
