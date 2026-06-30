@@ -1,5 +1,6 @@
 // presentation/thix_sante/patient/patient_dashboard_page.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_cards.dart';
@@ -7,9 +8,7 @@ import 'package:thix_id/presentation/thix_sante/shared/widgets/health_header.dar
 import 'package:thix_id/presentation/thix_sante/shared/widgets/emergency_button.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
-import 'package:go_router/go_router.dart';
 
-/// Dashboard principal du patient
 class PatientDashboardPage extends StatefulWidget {
   const PatientDashboardPage({super.key});
 
@@ -19,7 +18,6 @@ class PatientDashboardPage extends StatefulWidget {
 
 class _PatientDashboardPageState extends State<PatientDashboardPage> {
   final HealthService _healthService = HealthService.instance;
-
   bool _isLoading = true;
   HealthSummary? _summary;
   List<Appointment> _upcomingAppointments = [];
@@ -35,7 +33,6 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     try {
-      // Pour l'exemple, on utilise un ID patient fictif
       const String patientId = 'patient-123';
       final summary = await _healthService.fetchHealthSummary(patientId);
       final appointments = await _healthService.fetchUpcomingAppointments(patientId);
@@ -82,7 +79,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
                         delegate: SliverChildListDelegate([
                           const SizedBox(height: 16),
 
-                          // Carte de résumé de santé
+                          // Résumé de santé
                           if (_summary != null)
                             HealthSummaryCard(
                               consultations: _summary!.consultationsThisYear,
@@ -159,7 +156,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
               specialty: appt.doctorSpecialty ?? 'Généraliste',
               date: appt.date,
               onTap: () {
-                context.push('/sante/patient/appointment/${appt.id}');
+                context.push('/sante/patient/appointment/${appt.id}', extra: appt);
               },
             )),
         if (_upcomingAppointments.length > 3)
@@ -199,7 +196,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
                     ? const Icon(Icons.check_circle, color: Colors.green)
                     : const Icon(Icons.cancel, color: Colors.grey),
                 onTap: () {
-                  context.push('/sante/patient/medication/${med.id}');
+                  context.push('/sante/patient/medication/${med.id}', extra: med);
                 },
               ),
             )),
@@ -230,7 +227,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
               imageUrl: article.imageUrl,
               readTime: article.readTime,
               onTap: () {
-                context.push('/sante/patient/article/${article.id}');
+                context.push('/sante/patient/article/${article.id}', extra: article);
               },
             )),
       ],
@@ -251,7 +248,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
               title: const Text('Prendre un rendez-vous'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/patient/appointments/new');
+                context.push('/sante/patient/appointment/new');
               },
             ),
             ListTile(
@@ -275,7 +272,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
               title: const Text('Ajouter un symptôme'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/patient/health/symptom/add');
+                context.push('/sante/patient/symptom/new');
               },
             ),
           ],
