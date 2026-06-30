@@ -17,22 +17,16 @@ class PatientDashboardPage extends StatefulWidget {
   const PatientDashboardPage({super.key});
 
   @override
-  State<PatientDashboardPage> createState() =>
-      _PatientDashboardPageState();
+  State<PatientDashboardPage> createState() => _PatientDashboardPageState();
 }
 
-class _PatientDashboardPageState
-    extends State<PatientDashboardPage> {
+class _PatientDashboardPageState extends State<PatientDashboardPage> {
   final HealthService _healthService = HealthService.instance;
-
   bool _isLoading = true;
-
   HealthSummary? _summary;
-
   List<Appointment> _upcomingAppointments = [];
   List<Medication> _currentMedications = [];
   List<HealthArticle> _articles = [];
-
   int _unreadNotifications = 0;
 
   @override
@@ -43,35 +37,16 @@ class _PatientDashboardPageState
 
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
-
     try {
       final user = AuthController.instance.currentUser;
-
-      if (user == null) {
-        throw Exception('Utilisateur non connecté');
-      }
-
+      if (user == null) throw Exception('Utilisateur non connecté');
       final patientId = user.id;
 
-      final summary =
-          await _healthService.fetchHealthSummary(patientId);
-
-      final appointments =
-          await _healthService.fetchUpcomingAppointments(
-        patientId,
-      );
-
-      final medications =
-          await _healthService.fetchMedications(
-        patientId,
-        activeOnly: true,
-      );
-
-      final articles =
-          await _healthService.fetchHealthArticles(limit: 4);
-
-      final alerts =
-          await _healthService.fetchHealthAlerts(patientId);
+      final summary = await _healthService.fetchHealthSummary(patientId);
+      final appointments = await _healthService.fetchUpcomingAppointments(patientId);
+      final medications = await _healthService.fetchMedications(patientId, activeOnly: true);
+      final articles = await _healthService.fetchHealthArticles(limit: 12);
+      final alerts = await _healthService.fetchHealthAlerts(patientId);
 
       setState(() {
         _summary = summary;
@@ -83,12 +58,8 @@ class _PatientDashboardPageState
       });
     } catch (e) {
       setState(() => _isLoading = false);
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur : $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -97,268 +68,91 @@ class _PatientDashboardPageState
   Widget build(BuildContext context) {
     return Theme(
       data: Theme.of(context).copyWith(
-        textTheme: GoogleFonts.poppinsTextTheme(
-          Theme.of(context).textTheme,
-        ),
+        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
       ),
       child: Scaffold(
-        backgroundColor: HealthUI.background,
-
+        backgroundColor: const Color(0xFFF0F2F5), // Facebook grey
         floatingActionButton: FloatingActionButton(
           elevation: 6,
-          backgroundColor: HealthUI.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: const Icon(Icons.add, color: Colors.white),
+          backgroundColor: const Color(0xFF2563FF),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
           onPressed: () => _showQuickActions(context),
         ),
-
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.centerDocked,
-
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: _BottomNav(
           currentIndex: 0,
           onTap: (index) {
-            if (index == 1) {
-              context.go('/sante/patient/health');
-            } else if (index == 3) {
-              context.go('/sante/patient/messages');
-            } else if (index == 4) {
-              context.go('/sante/patient/profile');
-            }
+            if (index == 1) context.go('/sante/patient/health');
+            else if (index == 2) context.go('/sante/patient/messages');
+            else if (index == 3) context.go('/sante/patient/profile');
           },
         ),
-
         body: SafeArea(
           child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(),
-                )
+              ? const Center(child: CircularProgressIndicator())
               : RefreshIndicator(
                   onRefresh: _loadDashboardData,
                   child: CustomScrollView(
-                    physics:
-                        const BouncingScrollPhysics(),
+                    physics: const BouncingScrollPhysics(),
                     slivers: [
+                      // ===== TOP BAR =====
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(
-                            18,
-                            18,
-                            18,
-                            12,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           child: _TopBar(
-                            unreadCount:
-                                _unreadNotifications,
-                            onNotificationTap: () {
-                              context.push(
-                                '/sante/patient/notifications',
-                              );
-                            },
-                            onMenuTap: () {
-                              _openRoleSwitchSheet(
-                                context,
-                              );
-                            },
+                            unreadCount: _unreadNotifications,
+                            onNotificationTap: () => context.push('/sante/patient/notifications'),
+                            onMenuTap: () => _openRoleSwitchSheet(context),
                           ),
                         ),
                       ),
-
+                      // ===== HERO CARD =====
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(
-                            horizontal: 18,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: _HeroCard(
-                            onTap: () {
-                              context.push(
-                                '/sante/patient/profile',
-                              );
-                            },
+                            onDossierTap: () => context.push('/sante/patient/profile'),
+                            score: _summary?.healthScore ?? 0,
                           ),
                         ),
                       ),
-
+                      // ===== RÉSUMÉ DE SANTÉ =====
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.only(
-                            top: 18,
-                            left: 14,
-                            right: 14,
-                          ),
-                          child: _QuickActions(
-                            items: [
-                              _ActionItem(
-                                label:
-                                    'Rendez-vous',
-                                icon:
-                                    Icons.calendar_month,
-                                color:
-                                    const Color(
-                                      0xFF2563FF,
-                                    ),
-                                onTap: () {
-                                  context.push(
-                                    '/sante/patient/appointments',
-                                  );
-                                },
-                              ),
-                              _ActionItem(
-                                label:
-                                    'Consultation',
-                                icon:
-                                    Icons.video_call,
-                                color:
-                                    const Color(
-                                      0xFF00B894,
-                                    ),
-                                onTap: () {
-                                  context.push(
-                                    '/sante/patient/appointment/new',
-                                  );
-                                },
-                              ),
-                              _ActionItem(
-                                label: 'Examens',
-                                icon: Icons.science,
-                                color:
-                                    Colors.purple,
-                                onTap: () {
-                                  context.push(
-                                    '/sante/patient/exams',
-                                  );
-                                },
-                              ),
-                              _ActionItem(
-                                label:
-                                    'Ordonnances',
-                                icon: Icons.receipt,
-                                color:
-                                    Colors.orange,
-                                onTap: () {
-                                  context.push(
-                                    '/sante/patient/prescriptions',
-                                  );
-                                },
-                              ),
-                              _ActionItem(
-                                label: 'Urgences',
-                                icon:
-                                    Icons.favorite,
-                                color: Colors.red,
-                                onTap: () {
-                                  context.push(
-                                    '/sante/patient/map/emergencies',
-                                  );
-                                },
-                              ),
-                              _ActionItem(
-                                label: 'Plus',
-                                icon:
-                                    Icons.more_horiz,
-                                color:
-                                    Colors.blueGrey,
-                                onTap: () {
-                                  _showQuickActions(
-                                    context,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: _SummarySection(summary: _summary!),
                         ),
                       ),
-
-                      SliverPadding(
-                        padding:
-                            const EdgeInsets.all(18),
-                        sliver: SliverList(
-                          delegate:
-                              SliverChildListDelegate(
-                            [
-                              const SizedBox(
-                                height: 14,
-                              ),
-
-                              if (_summary != null)
-                                _SummarySection(
-                                  summary: _summary!,
-                                ),
-
-                              const SizedBox(
-                                height: 22,
-                              ),
-
-                              _SectionTitle(
-                                title:
-                                    'Services santé',
-                                action: 'Voir tout',
-                              ),
-
-                              const SizedBox(
-                                height: 14,
-                              ),
-
-                              _HealthServicesGrid(),
-
-                              const SizedBox(
-                                height: 22,
-                              ),
-
-                              _SectionTitle(
-                                title:
-                                    'Services rapides',
-                                action: 'Voir tout',
-                              ),
-
-                              const SizedBox(
-                                height: 12,
-                              ),
-
-                              _QuickServices(),
-
-                              const SizedBox(
-                                height: 22,
-                              ),
-
-                              _InsuranceCard(
-                                title: 'Assurance santé',
-                                subtitle: 'Bénéficiez d\'une couverture complète adaptée à vos besoins.',
-                                icon: Icons.shield,
-                                onTap: () => context.push('/sante/patient/insurance'),
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              _InsuranceCard(
-                                title: 'Assurance',
-                                subtitle: 'Protégez-vous et vos proches avec nos solutions.',
-                                icon: Icons.security,
-                                onTap: () => context.push('/sante/patient/insurance'),
-                              ),
-
-                              const SizedBox(
-                                height: 22,
-                              ),
-
-                              if (_articles.isNotEmpty)
-                                _ArticlesSection(
-                                  articles: _articles,
-                                ),
-
-                              // ===== BOUTON URGENCE AJOUTÉ =====
-                              const SizedBox(height: 18),
-                              const EmergencyButton(),
-                              const SizedBox(height: 100),
-                            ],
-                          ),
+                      // ===== SERVICES RAPIDES (4×3) =====
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: _QuickServicesGrid(),
                         ),
                       ),
+                      // ===== SERVICES SANTÉ (4×3) =====
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: _HealthServicesGrid(),
+                        ),
+                      ),
+                      // ===== POUR VOUS (4×3) =====
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: _ArticlesGrid(articles: _articles),
+                        ),
+                      ),
+                      // ===== BOUTON URGENCE =====
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          child: const EmergencyButton(),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 80)),
                     ],
                   ),
                 ),
@@ -373,167 +167,81 @@ class _PatientDashboardPageState
       showDragHandle: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(30),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _BottomSheetTile(
+                icon: Icons.calendar_today,
+                title: 'Prendre rendez-vous',
+                color: const Color(0xFF2563FF),
+                onTap: () { Navigator.pop(context); context.push('/sante/patient/appointment/new'); },
+              ),
+              _BottomSheetTile(
+                icon: Icons.camera_alt,
+                title: 'Scanner ordonnance',
+                color: Colors.purple,
+                onTap: () { Navigator.pop(context); context.push('/sante/patient/scan'); },
+              ),
+              _BottomSheetTile(
+                icon: Icons.chat,
+                title: 'Assistant IA',
+                color: Colors.green,
+                onTap: () { Navigator.pop(context); context.push('/sante/patient/ia'); },
+              ),
+              _BottomSheetTile(
+                icon: Icons.emergency,
+                title: 'Urgence',
+                color: Colors.red,
+                onTap: () { Navigator.pop(context); context.push('/sante/patient/map/emergencies'); },
+              ),
+            ],
+          ),
         ),
       ),
-      builder: (_) {
-        return SafeArea(
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 12,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _BottomSheetTile(
-                  icon: Icons.calendar_today,
-                  title:
-                      'Prendre un rendez-vous',
-                  color: HealthUI.primary,
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push(
-                        '/sante/patient/appointment/new');
-                  },
-                ),
-                _BottomSheetTile(
-                  icon: Icons.camera_alt,
-                  title:
-                      'Scanner une ordonnance',
-                  color: Colors.purple,
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push(
-                        '/sante/patient/scan');
-                  },
-                ),
-                _BottomSheetTile(
-                  icon: Icons.chat,
-                  title: 'Assistant IA',
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push(
-                        '/sante/patient/ia');
-                  },
-                ),
-                _BottomSheetTile(
-                  icon: Icons.health_and_safety,
-                  title: 'Urgence',
-                  color: Colors.red,
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push(
-                        '/sante/patient/map/emergencies');
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
-  Future<void> _openRoleSwitchSheet(
-    BuildContext context,
-  ) async {
-    final selected =
-        await showModalBottomSheet<ThixRole>(
+  Future<void> _openRoleSwitchSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<ThixRole>(
       context: context,
       showDragHandle: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) {
-        return const _RoleSwitchSheet(
-          currentRole: ThixRole.patient,
-        );
-      },
+      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.patient),
     );
-
     if (selected == null) return;
-
-    await _selectRoleAndNavigate(
-      context,
-      selected,
-    );
-  }
-
-  Future<void> _selectRoleAndNavigate(
-    BuildContext context,
-    ThixRole role,
-  ) async {
     try {
-      ThixRoleController.instance
-          .selectRole(role, manual: true);
-
-      try {
-        await Supabase.instance.client.auth
-            .updateUser(
-          UserAttributes(
-            data: {
-              'thix_role': role.name,
-            },
-          ),
-        );
-      } catch (e) {
-        debugPrint(e.toString());
-      }
-
+      ThixRoleController.instance.selectRole(selected, manual: true);
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(data: {'thix_role': selected.name}),
+      );
       if (!context.mounted) return;
-
-      switch (role) {
+      switch (selected) {
         case ThixRole.patient:
-          context.go(
-              '/sante/patient/dashboard');
-          break;
-
+          context.go('/sante/patient/dashboard');
         case ThixRole.doctor:
-          context.go(
-              '/sante/doctor/dashboard');
-          break;
-
+          context.go('/sante/doctor/dashboard');
         case ThixRole.pharmacy:
-          context.go(
-              '/sante/pharmacy/dashboard');
-          break;
+          context.go('/sante/pharmacy/dashboard');
       }
     } catch (_) {}
   }
 }
 
-class HealthUI {
-  static const primary = Color(0xFF2563FF);
-
-  static const secondary = Color(0xFF00C2A8);
-
-  static const background = Color(0xFFF7F8FC);
-
-  static const card = Colors.white;
-
-  static const shadow = [
-    BoxShadow(
-      color: Color(0x12000000),
-      blurRadius: 18,
-      offset: Offset(0, 10),
-    ),
-  ];
-}
-
+// ============================================================
+// TOP BAR
+// ============================================================
 class _TopBar extends StatelessWidget {
   final int unreadCount;
-
   final VoidCallback onNotificationTap;
-
   final VoidCallback onMenuTap;
-
   const _TopBar({
     required this.unreadCount,
     required this.onNotificationTap,
@@ -543,61 +251,42 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthController.instance.currentUser;
-
-    final photo =
-        (user?.photoUrl ?? '').trim();
-
+    final photo = (user?.photoUrl ?? '').trim();
     return Row(
       children: [
-        _CircleIconButton(
-          icon: Icons.menu,
-          onTap: onMenuTap,
-        ),
-
-        const SizedBox(width: 14),
-
+        _CircleIconButton(icon: Icons.menu, onTap: onMenuTap, size: 40),
+        const SizedBox(width: 12),
         Expanded(
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(14),
-                  gradient:
-                      const LinearGradient(
-                    colors: [
-                      Color(0xFF2563FF),
-                      Color(0xFF00D2C8),
-                    ],
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
                   ),
                 ),
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.health_and_safety, color: Colors.white, size: 20),
               ),
-
-              const SizedBox(width: 12),
-
+              const SizedBox(width: 10),
               Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'THIX SANTÉ',
                     style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
                     ),
                   ),
                   Text(
                     'Votre santé, notre priorité',
                     style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.grey,
+                      fontSize: 10,
+                      color: Colors.grey[600],
                     ),
                   ),
                 ],
@@ -605,50 +294,43 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-
         Stack(
           clipBehavior: Clip.none,
           children: [
             _CircleIconButton(
-              icon:
-                  Icons.notifications_none,
+              icon: Icons.notifications_none,
               onTap: onNotificationTap,
+              size: 40,
             ),
-            Positioned(
-              top: -2,
-              right: -2,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: const BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '$unreadCount',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight:
-                        FontWeight.bold,
+            if (unreadCount > 0)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$unreadCount',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
-
-        const SizedBox(width: 12),
-
+        const SizedBox(width: 8),
         CircleAvatar(
-          radius: 22,
-          backgroundImage: photo.isNotEmpty
-              ? NetworkImage(photo)
-              : null,
-          child: photo.isEmpty
-              ? const Icon(Icons.person)
-              : null,
+          radius: 20,
+          backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+          child: photo.isEmpty ? const Icon(Icons.person, size: 20) : null,
         ),
       ],
     );
@@ -657,12 +339,12 @@ class _TopBar extends StatelessWidget {
 
 class _CircleIconButton extends StatelessWidget {
   final IconData icon;
-
   final VoidCallback onTap;
-
+  final double size;
   const _CircleIconButton({
     required this.icon,
     required this.onTap,
+    this.size = 40,
   });
 
   @override
@@ -670,202 +352,167 @@ class _CircleIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 48,
-        height: 48,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius:
-              BorderRadius.circular(16),
-          boxShadow: HealthUI.shadow,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Icon(
-          icon,
-          size: 22,
-        ),
+        child: Icon(icon, size: 20, color: Colors.grey[700]),
       ),
     );
   }
 }
 
+// ============================================================
+// HERO CARD
+// ============================================================
 class _HeroCard extends StatelessWidget {
-  final VoidCallback onTap;
-
+  final VoidCallback onDossierTap;
+  final int score;
   const _HeroCard({
-    required this.onTap,
+    required this.onDossierTap,
+    required this.score,
   });
 
   @override
   Widget build(BuildContext context) {
     final user = AuthController.instance.currentUser;
-
-    final firstName =
-        (user?.displayName ?? '')
-            .split(' ')
-            .first;
-
+    final firstName = (user?.displayName ?? '').split(' ').first;
     return Container(
-      height: 230,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius:
-            BorderRadius.circular(30),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2563FF),
-            Color(0xFF00D2C8),
-          ],
+          colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
         ),
-        boxShadow: HealthUI.shadow,
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -40,
-            right: -30,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white
-                    .withOpacity(0.08),
-              ),
-            ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563FF).withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-
-          Padding(
-            padding:
-                const EdgeInsets.all(22),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-                    mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Bonjour, $firstName 👋',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Votre santé entre de bonnes mains',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Consultez, suivez et prenez soin\nde votre santé au quotidien.',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.medical_services,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 32,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onDossierTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.folder_open, size: 18, color: Color(0xFF2563FF)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Dossier de santé',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: const Color(0xFF2563FF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      const Icon(Icons.analytics, size: 18, color: Colors.white),
+                      const SizedBox(width: 6),
                       Text(
-                        'Bonjour, $firstName 👋',
-                        style:
-                            GoogleFonts.poppins(
-                          color:
-                              Colors.white,
-                          fontSize: 16,
-                          fontWeight:
-                              FontWeight
-                                  .w500,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 10,
-                      ),
-
-                      Text(
-                        'Votre santé\nentre de bonnes mains',
-                        style:
-                            GoogleFonts.poppins(
-                          color:
-                              Colors.white,
-                          fontSize: 30,
-                          height: 1.1,
-                          fontWeight:
-                              FontWeight
-                                  .w800,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      Text(
-                        'Consultez, suivez et prenez soin de votre santé au quotidien.',
-                        style:
-                            GoogleFonts.poppins(
-                          color: Colors.white
-                              .withOpacity(
-                                  0.9),
+                        'Score $score%',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 20,
-                      ),
-
-                      GestureDetector(
-                        onTap: onTap,
-                        child: Container(
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                Colors.white,
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
-                                        18),
-                          ),
-                          child: Row(
-                            mainAxisSize:
-                                MainAxisSize
-                                    .min,
-                            children: [
-                              const Icon(
-                                Icons.folder,
-                                size: 18,
-                                color:
-                                    HealthUI
-                                        .primary,
-                              ),
-                              const SizedBox(
-                                  width: 10),
-                              Text(
-                                'Dossier de santé',
-                                style:
-                                    GoogleFonts
-                                        .poppins(
-                                  fontWeight:
-                                      FontWeight
-                                          .w700,
-                                  color:
-                                      HealthUI
-                                          .primary,
-                                ),
-                              ),
-                            ],
-                          ),
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(width: 8),
-
-                const CircleAvatar(
-                  radius: 48,
-                  backgroundColor:
-                      Colors.white24,
-                  child: Icon(
-                    Icons.medical_services,
-                    size: 42,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -873,241 +520,115 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _ActionItem {
-  final String label;
-
-  final IconData icon;
-
-  final Color color;
-
-  final VoidCallback onTap;
-
-  _ActionItem({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-}
-
-class _QuickActions extends StatelessWidget {
-  final List<_ActionItem> items;
-
-  const _QuickActions({
-    required this.items,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics:
-          const BouncingScrollPhysics(),
-      child: Row(
-        children: items.map((item) {
-          return Padding(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 4,
-            ),
-            child: GestureDetector(
-              onTap: item.onTap,
-              child: Container(
-                width: 78,
-                padding:
-                    const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(
-                          18),
-                  boxShadow: HealthUI.shadow,
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration:
-                          BoxDecoration(
-                        borderRadius:
-                            BorderRadius
-                                .circular(12),
-                        color: item.color
-                            .withOpacity(0.1),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 18,
-                        color: item.color,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Text(
-                      item.label,
-                      textAlign:
-                          TextAlign.center,
-                      style:
-                          GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight:
-                            FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
+// ============================================================
+// RÉSUMÉ DE SANTÉ
+// ============================================================
 class _SummarySection extends StatelessWidget {
   final HealthSummary summary;
-
-  const _SummarySection({
-    required this.summary,
-  });
+  const _SummarySection({required this.summary});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const _SectionTitle(
-          title: 'Résumé de santé',
-          action: 'Voir tout',
-        ),
-
-        const SizedBox(height: 14),
-
-        GridView.count(
-          shrinkWrap: true,
-          physics:
-              const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.4,
-          children: [
-            _SummaryCard(
-              title: 'Consultations',
-              value:
-                  summary.consultationsThisYear
-                      .toString(),
-              icon: Icons.calendar_today,
-              color: Colors.blue,
-              onTap: () {
-                context.push('/sante/patient/health');
-              },
-            ),
-            _SummaryCard(
-              title: 'Examens',
-              value: summary.examsCompleted
-                  .toString(),
-              icon: Icons.science,
-              color: Colors.green,
-              onTap: () {
-                context.push('/sante/patient/exams');
-              },
-            ),
-            _SummaryCard(
-              title: 'Médicaments',
-              value: summary
-                  .activeMedications
-                  .toString(),
-              icon: Icons.medication,
-              color: Colors.purple,
-              onTap: () {
-                context.push('/sante/patient/medications');
-              },
-            ),
-            _SummaryCard(
-              title: 'Rendez-vous',
-              value: summary
-                  .upcomingAppointments
-                  .toString(),
-              icon: Icons.access_time,
-              color: Colors.orange,
-              onTap: () {
-                context.push('/sante/patient/appointments');
-              },
-            ),
-          ],
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: Row(
+        children: [
+          _SummaryCard(
+            title: 'Consultations',
+            value: summary.consultationsThisYear.toString(),
+            icon: Icons.calendar_today,
+            color: const Color(0xFF2563FF),
+            subtitle: 'Cette année',
+          ),
+          _SummaryCard(
+            title: 'Examens',
+            value: summary.examsCompleted.toString(),
+            icon: Icons.science,
+            color: Colors.green,
+            subtitle: 'Complétés',
+          ),
+          _SummaryCard(
+            title: 'Médicaments',
+            value: summary.activeMedications.toString(),
+            icon: Icons.medication,
+            color: Colors.purple,
+            subtitle: 'En cours',
+          ),
+          _SummaryCard(
+            title: 'Rendez-vous',
+            value: summary.upcomingAppointments.toString(),
+            icon: Icons.access_time,
+            color: Colors.orange,
+            subtitle: 'À venir',
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _SummaryCard extends StatelessWidget {
   final String title;
-
   final String value;
-
   final IconData icon;
-
   final Color color;
-
-  final VoidCallback? onTap;
-
+  final String subtitle;
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
-    this.onTap,
+    required this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
+    return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(18),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius:
-              BorderRadius.circular(22),
-          boxShadow: HealthUI.shadow,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          mainAxisAlignment:
-              MainAxisAlignment.center,
           children: [
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment
-                      .spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 4),
                 Text(
-                  title,
+                  value,
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: Colors.grey,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1A1A2E),
                   ),
-                ),
-                Icon(
-                  icon,
-                  color: color,
-                  size: 18,
                 ),
               ],
             ),
-
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 2),
             Text(
-              value,
+              title,
               style: GoogleFonts.poppins(
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[600],
+              ),
+            ),
+            Text(
+              subtitle,
+              style: GoogleFonts.poppins(
+                fontSize: 9,
+                color: Colors.grey[400],
               ),
             ),
           ],
@@ -1117,302 +638,163 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
+// ============================================================
+// SERVICES RAPIDES (4×3)
+// ============================================================
+class _QuickServicesGrid extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ('Consulter médecin', Icons.medical_services, '/sante/patient/appointment/new'),
+      ('Dossier médical', Icons.folder, '/sante/patient/record'),
+      ('Résultats examens', Icons.science, '/sante/patient/exams'),
+      ('Mes ordonnances', Icons.receipt, '/sante/patient/prescriptions'),
+      ('Trouver hôpital', Icons.local_hospital, '/sante/patient/map/hospitals'),
+      ('Trouver médicament', Icons.medication, '/sante/patient/map/pharmacies'),
+      ('Pharmacies proches', Icons.local_pharmacy, '/sante/patient/map/pharmacies'),
+      ('Urgences proches', Icons.emergency, '/sante/patient/map/emergencies'),
+      ('Prendre RDV', Icons.calendar_today, '/sante/patient/appointment/new'),
+      ('Téléconsultation', Icons.video_call, '/sante/patient/teleconsultation/new'),
+      ('Assistant IA', Icons.smart_toy, '/sante/patient/ia'),
+      ('Dossier partagé', Icons.share, '/sante/patient/sharing'),
+    ];
+    return _SectionGrid(title: '⚡ Services rapides', items: items);
+  }
+}
+
+// ============================================================
+// SERVICES SANTÉ (4×3)
+// ============================================================
+class _HealthServicesGrid extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ('Santé enfants', Icons.child_care, '/sante/patient/family'),
+      ('Carnet vaccination', Icons.vaccines, '/sante/patient/vaccinations'),
+      ('Suivi grossesses', Icons.pregnant_woman, '/sante/patient/pregnancy'),
+      ('Dossier médical', Icons.folder_open, '/sante/patient/record'),
+      ('Assurance santé', Icons.shield, '/sante/patient/insurance'),
+      ('Assurance', Icons.security, '/sante/patient/insurance'),
+      ('Plus de services', Icons.more_horiz, '/sante/patient/health'),
+      ('Analyse prédictive', Icons.analytics, '/sante/patient/health'),
+      ('Bien-être mental', Icons.self_improvement, '/sante/patient/wellness/stress'),
+      ('Nutrition', Icons.restaurant, '/sante/patient/wellness/nutrition'),
+      ('Activité physique', Icons.fitness_center, '/sante/patient/wellness/fitness'),
+      ('Gestion stress', Icons.spa, '/sante/patient/wellness/stress'),
+    ];
+    return _SectionGrid(title: '🏥 Services santé', items: items);
+  }
+}
+
+// ============================================================
+// POUR VOUS (4×3)
+// ============================================================
+class _ArticlesGrid extends StatelessWidget {
+  final List<HealthArticle> articles;
+  const _ArticlesGrid({required this.articles});
+
+  @override
+  Widget build(BuildContext context) {
+    // Si pas assez d'articles, on les complète avec des exemples
+    final displayArticles = articles.isNotEmpty
+        ? articles.take(12).toList()
+        : [
+            HealthArticle(id: '1', title: '5 conseils pour rester en bonne santé', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '2', title: 'Alimentation équilibrée : les bases', subtitle: '', readTime: 4, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '3', title: 'Gérer le stress au quotidien', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '4', title: 'Prévention : un geste qui sauve', subtitle: '', readTime: 2, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '5', title: 'Activité physique pour tous', subtitle: '', readTime: 5, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '6', title: 'Sommeil réparateur', subtitle: '', readTime: 4, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '7', title: 'Méditation pour débutants', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '8', title: 'Santé mentale au travail', subtitle: '', readTime: 6, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '9', title: 'Nutrition avancée', subtitle: '', readTime: 5, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '10', title: 'Bien-être global', subtitle: '', readTime: 4, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '11', title: 'Sport adapté', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
+            HealthArticle(id: '12', title: 'Relaxation profonde', subtitle: '', readTime: 2, publishDate: DateTime.now(), tags: [], content: ''),
+          ];
+
+    return _SectionGrid(
+      title: '📰 Pour vous',
+      items: displayArticles.map((a) => (a.title, Icons.article, '/sante/patient/article/${a.id}')).toList(),
+      showReadTime: true,
+      articles: displayArticles,
+    );
+  }
+}
+
+// ============================================================
+// GRID GÉNÉRIQUE (4 colonnes)
+// ============================================================
+class _SectionGrid extends StatelessWidget {
   final String title;
+  final List<(String, IconData, String)> items;
+  final bool showReadTime;
+  final List<HealthArticle>? articles;
 
-  final String? action;
-
-  const _SectionTitle({
+  const _SectionGrid({
     required this.title,
-    this.action,
+    required this.items,
+    this.showReadTime = false,
+    this.articles,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Text(
             title,
             style: GoogleFonts.poppins(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1A2E),
             ),
           ),
         ),
-        if (action != null)
-          GestureDetector(
-            onTap: () {
-              // Redirige vers la page correspondante
-              // selon le titre
-              if (title == 'Résumé de santé') {
-                context.push('/sante/patient/health');
-              } else if (title == 'Services santé') {
-                context.push('/sante/patient/health');
-              } else if (title == 'Services rapides') {
-                context.push('/sante/patient/health');
-              } else if (title == 'Pour vous') {
-                // rester sur la page
-              }
-            },
-            child: Text(
-              action!,
-              style: GoogleFonts.poppins(
-                color: HealthUI.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1.1,
           ),
+          itemCount: items.length.clamp(0, 12),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return _GridItem(
+              icon: item.$2,
+              label: item.$1,
+              onTap: () => context.push(item.$3),
+              readTime: showReadTime && articles != null && index < articles!.length
+                  ? '${articles![index].readTime} min'
+                  : null,
+            );
+          },
+        ),
       ],
     );
   }
 }
 
-class _HealthServicesGrid
-    extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final services = [
-      (
-        'Santé enfants',
-        'Suivez la santé',
-        Icons.child_care,
-        '/sante/patient/family'
-      ),
-      (
-        'Vaccination',
-        'Consultez vaccins',
-        Icons.vaccines,
-        '/sante/patient/vaccinations'
-      ),
-      (
-        'Grossesse',
-        'Suivi pas à pas',
-        Icons.pregnant_woman,
-        '/sante/patient/pregnancy'
-      ),
-      (
-        'Assurance',
-        'Protection santé',
-        Icons.shield,
-        '/sante/patient/insurance'
-      ),
-      (
-        'Assistance',
-        'Solutions adaptées',
-        Icons.security,
-        '/sante/patient/insurance'
-      ),
-      (
-        'Plus',
-        'Tous les services',
-        Icons.more_horiz,
-        '/sante/patient/health'
-      ),
-    ];
-
-    return GridView.builder(
-      itemCount: services.length,
-      shrinkWrap: true,
-      physics:
-          const NeverScrollableScrollPhysics(),
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 1.38,
-      ),
-      itemBuilder: (_, index) {
-        final item = services[index];
-
-        return GestureDetector(
-          onTap: () {
-            context.push(item.$4);
-          },
-          child: Container(
-            padding:
-                const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(22),
-              boxShadow: HealthUI.shadow,
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(
-                            14),
-                    color: HealthUI.primary
-                        .withOpacity(0.1),
-                  ),
-                  child: Icon(
-                    item.$3,
-                    size: 20,
-                    color: HealthUI.primary,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Text(
-                  item.$1,
-                  style: GoogleFonts.poppins(
-                    fontWeight:
-                        FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  item.$2,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _QuickServices
-    extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final services = [
-      (
-        'Consulter médecin',
-        Icons.medical_services,
-        '/sante/patient/appointment/new'
-      ),
-      (
-        'Dossier médical',
-        Icons.folder,
-        '/sante/patient/record'
-      ),
-      (
-        'Résultats',
-        Icons.science,
-        '/sante/patient/exams'
-      ),
-      (
-        'Ordonnances',
-        Icons.receipt,
-        '/sante/patient/prescriptions'
-      ),
-      (
-        'Hôpitaux',
-        Icons.local_hospital,
-        '/sante/patient/map/hospitals'
-      ),
-      (
-        'Médicaments',
-        Icons.medication,
-        '/sante/patient/map/pharmacies'
-      ),
-      (
-        'Pharmacies proches',
-        Icons.local_pharmacy,
-        '/sante/patient/map/pharmacies'
-      ),
-      (
-        'Urgences proches',
-        Icons.emergency,
-        '/sante/patient/map/emergencies'
-      ),
-    ];
-
-    return Column(
-      children: services.map((item) {
-        return GestureDetector(
-          onTap: () {
-            context.push(item.$3);
-          },
-          child: Container(
-            margin:
-                const EdgeInsets.only(
-              bottom: 12,
-            ),
-            padding:
-                const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(20),
-              boxShadow: HealthUI.shadow,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(
-                            14),
-                    color: HealthUI.primary
-                        .withOpacity(0.1),
-                  ),
-                  child: Icon(
-                    item.$2,
-                    color: HealthUI.primary,
-                    size: 20,
-                  ),
-                ),
-
-                const SizedBox(width: 14),
-
-                Expanded(
-                  child: Text(
-                    item.$1,
-                    style:
-                        GoogleFonts.poppins(
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-                ),
-
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 14,
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _InsuranceCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
+// ============================================================
+// ITEM DE GRILLE (4×3)
+// ============================================================
+class _GridItem extends StatelessWidget {
   final IconData icon;
-  final VoidCallback? onTap;
+  final String label;
+  final VoidCallback onTap;
+  final String? readTime;
 
-  const _InsuranceCard({
-    required this.title,
-    required this.subtitle,
+  const _GridItem({
     required this.icon,
-    this.onTap,
+    required this.label,
+    required this.onTap,
+    this.readTime,
   });
 
   @override
@@ -1420,62 +802,54 @@ class _InsuranceCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          borderRadius:
-              BorderRadius.circular(26),
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFEAF4FF),
-              Color(0xFFF4FFFC),
-            ],
-          ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 54,
-              height: 54,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(
-                        18),
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF2563FF).withOpacity(0.15), const Color(0xFF00D2C8).withOpacity(0.15)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                color: HealthUI.primary,
+              child: Icon(icon, size: 22, color: const Color(0xFF2563FF)),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1A1A2E),
+                height: 1.2,
               ),
             ),
-
-            const SizedBox(width: 16),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style:
-                        GoogleFonts.poppins(
-                      fontWeight:
-                          FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style:
-                        GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
+            if (readTime != null)
+              Text(
+                readTime!,
+                style: GoogleFonts.poppins(
+                  fontSize: 9,
+                  color: Colors.grey[500],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -1483,242 +857,67 @@ class _InsuranceCard extends StatelessWidget {
   }
 }
 
-class _ArticlesSection
-    extends StatelessWidget {
-  final List<HealthArticle> articles;
-
-  const _ArticlesSection({
-    required this.articles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const _SectionTitle(
-          title: 'Pour vous',
-          action: 'Voir tout',
-        ),
-
-        const SizedBox(height: 14),
-
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: articles.length,
-            itemBuilder: (_, index) {
-              final article =
-                  articles[index];
-
-              return GestureDetector(
-                onTap: () {
-                  context.push(
-                      '/sante/patient/article/${article.id}');
-                },
-                child: Container(
-                  width: 240,
-                  margin:
-                      const EdgeInsets.only(
-                    right: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(
-                            24),
-                    image:
-                        article.imageUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(
-                                  article
-                                      .imageUrl!,
-                                ),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                    color: Colors.white,
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(
-                              24),
-                      gradient:
-                          LinearGradient(
-                        begin:
-                            Alignment.topCenter,
-                        end: Alignment
-                            .bottomCenter,
-                        colors: [
-                          Colors.black
-                              .withOpacity(
-                                  0.05),
-                          Colors.black
-                              .withOpacity(
-                                  0.55),
-                        ],
-                      ),
-                    ),
-                    padding:
-                        const EdgeInsets.all(
-                            18),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .end,
-                      children: [
-                        Text(
-                          article.title,
-                          maxLines: 2,
-                          overflow:
-                              TextOverflow
-                                  .ellipsis,
-                          style:
-                              GoogleFonts
-                                  .poppins(
-                            color:
-                                Colors.white,
-                            fontWeight:
-                                FontWeight
-                                    .w700,
-                            fontSize: 16,
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height: 8,
-                        ),
-
-                        Text(
-                          '${article.readTime} min de lecture',
-                          style:
-                              GoogleFonts
-                                  .poppins(
-                            color: Colors
-                                .white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
+// ============================================================
+// BOTTOM SHEET TILE
+// ============================================================
 class _BottomSheetTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final Color color;
-  final VoidCallback? onTap;
-
+  final VoidCallback onTap;
   const _BottomSheetTile({
     required this.icon,
     required this.title,
     required this.color,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(
-        vertical: 6,
-      ),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius:
-              BorderRadius.circular(14),
-        ),
-        child: Icon(
-          icon,
-          color: color,
-        ),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 14,
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-
-  final Function(int) onTap;
-
-  const _BottomNav({
-    required this.currentIndex,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+      onTap: onTap,
+    );
+  }
+}
+
+// ============================================================
+// BOTTOM NAVIGATION
+// ============================================================
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTap;
+  const _BottomNav({required this.currentIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return BottomAppBar(
-      height: 78,
+      height: 70,
       elevation: 20,
       color: Colors.white,
       shape: const CircularNotchedRectangle(),
-      notchMargin: 10,
+      notchMargin: 8,
       child: Row(
-        mainAxisAlignment:
-            MainAxisAlignment
-                .spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _NavItem(
-            icon: Icons.home,
-            label: 'Accueil',
-            selected:
-                currentIndex == 0,
-            onTap: () => onTap(0),
-          ),
-          _NavItem(
-            icon:
-                Icons.favorite_border,
-            label: 'Santé',
-            selected:
-                currentIndex == 1,
-            onTap: () => onTap(1),
-          ),
-
+          _NavItem(icon: Icons.home, label: 'Accueil', selected: currentIndex == 0, onTap: () => onTap(0)),
+          _NavItem(icon: Icons.favorite_border, label: 'Santé', selected: currentIndex == 1, onTap: () => onTap(1)),
           const SizedBox(width: 30),
-
-          _NavItem(
-            icon:
-                Icons.chat_bubble_outline,
-            label: 'Messages',
-            selected:
-                currentIndex == 3,
-            onTap: () => onTap(3),
-          ),
-          _NavItem(
-            icon: Icons.person_outline,
-            label: 'Profil',
-            selected:
-                currentIndex == 4,
-            onTap: () => onTap(4),
-          ),
+          _NavItem(icon: Icons.chat_bubble_outline, label: 'Messages', selected: currentIndex == 2, onTap: () => onTap(2)),
+          _NavItem(icon: Icons.person_outline, label: 'Profil', selected: currentIndex == 3, onTap: () => onTap(3)),
         ],
       ),
     );
@@ -1727,13 +926,9 @@ class _BottomNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
-
   final String label;
-
   final bool selected;
-
   final VoidCallback onTap;
-
   const _NavItem({
     required this.icon,
     required this.label,
@@ -1746,26 +941,20 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             icon,
             size: 22,
-            color: selected
-                ? HealthUI.primary
-                : Colors.grey,
+            color: selected ? const Color(0xFF2563FF) : Colors.grey,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: selected
-                  ? HealthUI.primary
-                  : Colors.grey,
-              fontWeight:
-                  FontWeight.w600,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: selected ? const Color(0xFF2563FF) : Colors.grey,
             ),
           ),
         ],
@@ -1774,89 +963,54 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _RoleSwitchSheet
-    extends StatelessWidget {
+// ============================================================
+// ROLE SWITCH SHEET
+// ============================================================
+class _RoleSwitchSheet extends StatelessWidget {
   final ThixRole currentRole;
-
-  const _RoleSwitchSheet({
-    required this.currentRole,
-  });
+  const _RoleSwitchSheet({required this.currentRole});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Changer de rôle',
-            style:
-                GoogleFonts.poppins(
-              fontWeight:
-                  FontWeight.w800,
-              fontSize: 22,
-            ),
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 20),
           ),
-
-          const SizedBox(height: 20),
-
-          for (final role
-              in ThixRoleController
-                  .availableRoles)
+          const SizedBox(height: 16),
+          for (final role in ThixRoleController.availableRoles)
             GestureDetector(
-              onTap: () {
-                context.pop(role);
-              },
+              onTap: () => context.pop(role),
               child: Container(
-                margin:
-                    const EdgeInsets.only(
-                  bottom: 12,
-                ),
-                padding:
-                    const EdgeInsets.all(
-                        16),
-                decoration:
-                    BoxDecoration(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius
-                          .circular(
-                              22),
-                  boxShadow:
-                      HealthUI.shadow,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      role.icon,
-                      color:
-                          role.accent,
-                    ),
-                    const SizedBox(
-                        width: 14),
+                    Icon(role.icon, color: role.accent, size: 24),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         role.label,
-                        style:
-                            GoogleFonts
-                                .poppins(
-                          fontWeight:
-                              FontWeight
-                                  .w700,
-                        ),
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15),
                       ),
                     ),
-                    if (role ==
-                        currentRole)
-                      const Icon(
-                        Icons
-                            .check_circle,
-                        color:
-                            Colors.green,
-                      ),
+                    if (role == currentRole)
+                      const Icon(Icons.check_circle, color: Colors.green, size: 20),
                   ],
                 ),
               ),
