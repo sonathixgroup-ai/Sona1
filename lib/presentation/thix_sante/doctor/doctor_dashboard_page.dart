@@ -64,9 +64,9 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
           ),
         ];
         _recentPatients = [
-          Doctor(id: 'p1', firstName: 'Michel', lastName: 'L.', specialty: 'Patient'),
-          Doctor(id: 'p2', firstName: 'Sophie', lastName: 'M.', specialty: 'Patient'),
-          Doctor(id: 'p3', firstName: 'Jean', lastName: 'P.', specialty: 'Patient'),
+          Doctor(id: 'p1', firstName: 'Michel', lastName: 'L.', specialty: ''),
+          Doctor(id: 'p2', firstName: 'Sophie', lastName: 'M.', specialty: ''),
+          Doctor(id: 'p3', firstName: 'Jean', lastName: 'P.', specialty: ''),
         ];
         _isLoading = false;
       });
@@ -90,7 +90,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
                       child: HealthHeader(
                         role: ThixRole.doctor,
                         onNotificationsTap: () {
-                          context.push('/sante/doctor/notifications');
+                          // Notifications
                         },
                       ),
                     ),
@@ -99,7 +99,6 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           const SizedBox(height: 16),
-                          // Cartes statistiques
                           Row(
                             children: [
                               Expanded(
@@ -124,10 +123,8 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          // Rendez-vous du jour
                           _buildTodayAppointments(),
                           const SizedBox(height: 16),
-                          // Patients récents
                           _buildRecentPatients(),
                           const SizedBox(height: 16),
                         ]),
@@ -138,14 +135,14 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
               ),
       ),
       bottomNavigationBar: HealthBottomNav(
-        currentIndex: 0, // Accueil
+        currentIndex: 0,
         onTap: (index) {
           if (index == 1) {
             context.go('/sante/doctor/care');
           } else if (index == 2) {
             _showQuickActions(context);
           } else if (index == 3) {
-            context.go('/sante/doctor/messages');
+            context.go('/sante/doctor/connect');
           } else if (index == 4) {
             context.go('/sante/doctor/profile');
           }
@@ -153,7 +150,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          context.push('/sante/doctor/consultation/new');
+          context.push('/sante/doctor/consult');
         },
         child: const Icon(Icons.add),
       ),
@@ -201,7 +198,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
                   backgroundColor: appt.status == AppointmentStatus.confirmed ? Colors.green : Colors.orange,
                 ),
                 onTap: () {
-                  context.push('/sante/doctor/appointment/${appt.id}', extra: appt);
+                  context.push('/sante/doctor/agenda');
                 },
               ),
             )),
@@ -210,6 +207,10 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text('Aucun rendez-vous aujourd\'hui.', style: TextStyle(color: Colors.grey)),
           ),
+        TextButton(
+          onPressed: () => context.push('/sante/doctor/agenda'),
+          child: const Text('Voir l\'agenda complet'),
+        ),
       ],
     );
   }
@@ -226,13 +227,11 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
               subtitle: Text('Dernière consultation : il y a 2 jours'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {
-                context.push('/sante/doctor/patient/${patient.id}');
+                context.push('/sante/doctor/patient/${patient.id}', extra: patient);
               },
             )),
         TextButton(
-          onPressed: () {
-            context.push('/sante/doctor/patients');
-          },
+          onPressed: () => context.push('/sante/doctor/patients'),
           child: const Text('Voir tous les patients'),
         ),
       ],
@@ -267,7 +266,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
               title: const Text('Téléconsultation'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/doctor/teleconsultation/new');
+                context.push('/sante/doctor/teleconsult');
               },
             ),
           ],
