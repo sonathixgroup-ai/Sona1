@@ -13,12 +13,9 @@ class HealthService {
   static final HealthService _instance = HealthService._internal();
   static HealthService get instance => _instance;
 
-  // Ici, vous pouvez injecter un client HTTP, un repository, etc.
-  // Exemple : final SupabaseClient _supabase = ...
-
   SupabaseClient get _db => SupabaseConfig.client;
 
-  // Table names (configurable later without touching UI)
+  // Noms des tables (configurables)
   static const _tAppointments = 'health_appointments';
   static const _tVitals = 'health_vitals';
   static const _tMedications = 'health_medications';
@@ -29,14 +26,11 @@ class HealthService {
   static const _tTeleexpertise = 'health_teleexpertise_requests';
   static const _tPharmacies = 'health_pharmacies';
   static const _tDoctorSlots = 'health_doctor_slots';
-
-  // Optional tables (used by dashboards when available)
   static const _tHealthAlerts = 'health_alerts';
-
-  // Pharmacy optional tables
   static const _tPharmacyOrders = 'health_pharmacy_orders';
   static const _tPharmacyInventory = 'health_pharmacy_inventory_items';
 
+  // Helpers pour extraire des valeurs sécurisées
   String _s(Map<String, dynamic> m, String k, [String d = '']) =>
       (m[k] as String?)?.trim().isNotEmpty == true ? (m[k] as String).trim() : d;
 
@@ -61,9 +55,6 @@ class HealthService {
     bool ascending = false,
   }) async {
     try {
-      // Supabase v2: select() returns PostgrestTransformBuilder, and chaining
-      // eq/order/limit returns filter/transform builders. We keep it dynamic
-      // to stay compatible across supabase versions.
       dynamic q = _db.from(table).select(columns);
       if (eq != null) {
         for (final e in eq.entries) {
@@ -112,10 +103,7 @@ class HealthService {
   // RÉSUMÉ DE SANTÉ
   // ============================================================
 
-  /// Récupère le résumé de santé pour un patient donné.
   Future<HealthSummary> fetchHealthSummary(String patientId) async {
-    // Note: schema is expected to exist in Supabase. If tables aren't created yet,
-    // we return empty summary (no mock) and log details.
     final appts = await fetchUpcomingAppointments(patientId);
     final meds = await fetchMedications(patientId, activeOnly: true);
     final exams = await fetchExamResults(patientId);
@@ -137,7 +125,6 @@ class HealthService {
   // RENDEZ-VOUS
   // ============================================================
 
-  /// Récupère la liste des rendez-vous pour un patient.
   Future<List<Appointment>> fetchAppointments(
     String patientId, {
     int? limit,
@@ -153,7 +140,6 @@ class HealthService {
       orderBy: const ['scheduled_at'],
       ascending: true,
     );
-
     return rows.map((m) {
       final typeName = _s(m, 'type', AppointmentType.inPerson.name);
       final statusName = _s(m, 'status', AppointmentStatus.scheduled.name);
@@ -174,13 +160,11 @@ class HealthService {
     }).toList();
   }
 
-  /// Récupère les rendez-vous à venir pour un patient.
   Future<List<Appointment>> fetchUpcomingAppointments(String patientId) async {
     final all = await fetchAppointments(patientId);
     return all.where((a) => a.status == AppointmentStatus.scheduled || a.status == AppointmentStatus.confirmed).toList();
   }
 
-  /// Crée un nouveau rendez-vous.
   Future<Appointment> createAppointment(Appointment appointment) async {
     try {
       final payload = {
@@ -219,7 +203,6 @@ class HealthService {
     }
   }
 
-  /// Annule un rendez-vous.
   Future<void> cancelAppointment(String appointmentId) async {
     try {
       await _db.from(_tAppointments).update({'status': AppointmentStatus.cancelled.name}).eq('id', appointmentId);
@@ -234,7 +217,6 @@ class HealthService {
   // MÉDICAMENTS
   // ============================================================
 
-  /// Récupère les médicaments d'un patient.
   Future<List<Medication>> fetchMedications(
     String patientId, {
     bool activeOnly = true,
@@ -303,11 +285,10 @@ class HealthService {
     }).toList();
   }
 
-  /// Ajoute un nouveau médicament.
   Future<Medication> addMedication(Medication medication) async {
     try {
       final payload = {
-        'patient_id': null, // caller should set via RPC or pass in extra fields later
+        'patient_id': medication.patientId,
         'name': medication.name,
         'dosage': medication.dosage,
         'frequency': medication.frequency,
@@ -329,7 +310,6 @@ class HealthService {
     }
   }
 
-  /// Met à jour un médicament (ex: marquer comme terminé).
   Future<Medication> updateMedication(Medication medication) async {
     try {
       final payload = {
@@ -355,16 +335,13 @@ class HealthService {
   // SYMPTÔMES
   // ============================================================
 
-  /// Récupère l'historique des symptômes d'un patient.
   Future<List<Symptom>> fetchSymptoms(String patientId) async {
-    // Optional: implement later with a dedicated table.
-    // For now, we return empty (no mock).
+    // Table optionnelle, pour l'instant retourne vide
     return const [];
   }
 
-  /// Ajoute un nouveau symptôme.
   Future<Symptom> addSymptom(Symptom symptom) async {
-    // Optional: implement later with a dedicated table.
+    // À implémenter ultérieurement
     throw UnimplementedError('Symptom persistence is not configured yet.');
   }
 
@@ -372,7 +349,6 @@ class HealthService {
   // CONSTANTES VITALES
   // ============================================================
 
-  /// Récupère les constantes vitales d'un patient.
   Future<List<VitalSign>> fetchVitalSigns(String patientId) async {
     final rows = await _safeSelect(
       _tVitals,
@@ -380,7 +356,6 @@ class HealthService {
       orderBy: const ['measured_at'],
       ascending: false,
     );
-
     return rows.map((m) {
       final typeName = _s(m, 'type', VitalType.weight.name);
       final type = VitalType.values.firstWhere((e) => e.name == typeName, orElse: () => VitalType.weight);
@@ -395,7 +370,6 @@ class HealthService {
     }).toList();
   }
 
-  /// Ajoute une constante vitale.
   Future<VitalSign> addVitalSign(VitalSign vital) async {
     try {
       final payload = {
@@ -419,7 +393,6 @@ class HealthService {
   // ORDONNANCES
   // ============================================================
 
-  /// Récupère les ordonnances d'un patient.
   Future<List<Prescription>> fetchPrescriptions(String patientId) async {
     final rows = await _safeSelect(
       _tPrescriptions,
@@ -445,7 +418,6 @@ class HealthService {
     }).toList();
   }
 
-  /// Crée une nouvelle ordonnance (pour les médecins).
   Future<Prescription> createPrescription(Prescription prescription) async {
     try {
       final payload = {
@@ -472,7 +444,6 @@ class HealthService {
   // EXAMENS
   // ============================================================
 
-  /// Récupère les résultats d'examens d'un patient.
   Future<List<ExamResult>> fetchExamResults(String patientId) async {
     final rows = await _safeSelect(
       _tExams,
@@ -498,7 +469,6 @@ class HealthService {
   // VACCINS
   // ============================================================
 
-  /// Récupère le carnet de vaccination d'un patient.
   Future<List<Vaccine>> fetchVaccines(String patientId) async {
     final rows = await _safeSelect(
       _tVaccines,
@@ -519,7 +489,6 @@ class HealthService {
     }).toList();
   }
 
-  /// Ajoute un vaccin.
   Future<Vaccine> addVaccine(Vaccine vaccine) async {
     try {
       final payload = {
@@ -544,9 +513,9 @@ class HealthService {
   // ARTICLES DE SANTÉ
   // ============================================================
 
-  /// Récupère des articles santé.
   Future<List<HealthArticle>> fetchHealthArticles({int limit = 10}) async {
-    // Optional: store in Supabase later. For now: empty (no mock).
+    // Table optionnelle, retourne vide par défaut
+    // Implémentez la requête si la table existe
     return const [];
   }
 
@@ -554,20 +523,17 @@ class HealthService {
   // ALERTES SANITAIRES
   // ============================================================
 
-  /// Récupère les alertes sanitaires pour un patient.
   Future<List<HealthAlert>> fetchHealthAlerts(String patientId) async {
-    // Optional: store in Supabase later. For now: empty (no mock).
+    // Table optionnelle, retourne vide par défaut
+    // Implémentez la requête si la table existe
     return const [];
   }
 
   // ============================================================
-  // PHARMACIES / HÔPITAUX
+  // PHARMACIES
   // ============================================================
 
-  /// Recherche des pharmacies proches (simulé).
   Future<List<Pharmacy>> findNearbyPharmacies(double lat, double lng) async {
-    // If a pharmacies table exists, query by distance via RPC or PostGIS.
-    // Minimal implementation: return the closest by rough bounding box.
     final rows = await _safeSelect(
       _tPharmacies,
       limit: 30,
@@ -591,8 +557,22 @@ class HealthService {
     return mapped.take(10).toList();
   }
 
+  Future<Pharmacy?> fetchPharmacyById(String pharmacyId) async {
+    final m = await _safeSingle(_tPharmacies, eq: {'id': pharmacyId});
+    if (m == null) return null;
+    return Pharmacy(
+      id: _s(m, 'id', pharmacyId),
+      name: _s(m, 'name', 'Pharmacie'),
+      address: _s(m, 'address', ''),
+      phone: (m['phone'] as String?)?.trim(),
+      latitude: _d(m, 'lat'),
+      longitude: _d(m, 'lng'),
+      isOpen: (m['is_open'] as bool?) ?? true,
+    );
+  }
+
   // ============================================================
-  // TELEEXPERTISE (minimal)
+  // TÉLÉEXPERTISE
   // ============================================================
 
   Future<List<Map<String, dynamic>>> fetchTeleexpertiseRequests({required String patientId}) =>
@@ -618,7 +598,7 @@ class HealthService {
   }
 
   // ============================================================
-  // MÉDICAMENTS - RAPPELS (CRUD minimal)
+  // MÉDICAMENTS - RAPPELS (CRUD)
   // ============================================================
 
   Future<List<MedicationReminder>> fetchMedicationReminders(String medicationId) async {
@@ -689,25 +669,7 @@ class HealthService {
   }
 
   // ============================================================
-  // PHARMACIES
-  // ============================================================
-
-  Future<Pharmacy?> fetchPharmacyById(String pharmacyId) async {
-    final m = await _safeSingle(_tPharmacies, eq: {'id': pharmacyId});
-    if (m == null) return null;
-    return Pharmacy(
-      id: _s(m, 'id', pharmacyId),
-      name: _s(m, 'name', 'Pharmacie'),
-      address: _s(m, 'address', ''),
-      phone: (m['phone'] as String?)?.trim(),
-      latitude: _d(m, 'lat'),
-      longitude: _d(m, 'lng'),
-      isOpen: (m['is_open'] as bool?) ?? true,
-    );
-  }
-
-  // ============================================================
-  // DOCTOR SLOTS (minimal)
+  // DOCTOR SLOTS
   // ============================================================
 
   Future<List<Map<String, dynamic>>> fetchDoctorSlots(String doctorId) =>
@@ -781,7 +743,6 @@ class HealthService {
   }
 
   Future<int> fetchDoctorPendingTeleexpertiseCount(String doctorId) async {
-    // Teleexpertise schema may vary. We best-effort filter by doctor_id & status.
     try {
       final rows = await _safeSelect(
         _tTeleexpertise,
@@ -798,7 +759,6 @@ class HealthService {
   }
 
   Future<int> fetchDoctorCriticalAlertsCount(String doctorId) async {
-    // Optional alerts table.
     try {
       final rows = await _safeSelect(
         _tHealthAlerts,
@@ -815,18 +775,15 @@ class HealthService {
   }
 
   // ============================================================
-  // PHARMACY DASHBOARD HELPERS (best-effort)
+  // PHARMACY DASHBOARD HELPERS
   // ============================================================
 
   Future<Map<String, int>> fetchPharmacyDashboardStats(String pharmacyId) async {
-    // Returns keys: pending, in_progress, critical_stock, deliveries_today
-    // If tables are not present, all are 0.
     try {
       final pending = (await _safeSelect(_tPharmacyOrders, columns: 'id', eq: {'pharmacy_id': pharmacyId, 'status': 'pending'}, limit: 500)).length;
       final inProgress = (await _safeSelect(_tPharmacyOrders, columns: 'id', eq: {'pharmacy_id': pharmacyId, 'status': 'in_progress'}, limit: 500)).length;
       final criticalStock = (await _safeSelect(_tPharmacyInventory, columns: 'id', eq: {'pharmacy_id': pharmacyId, 'is_critical': true}, limit: 500)).length;
 
-      // deliveries today is optional; we count orders with status=out_for_delivery created today.
       final start = DateTime.now();
       final dayStart = DateTime(start.year, start.month, start.day);
       dynamic q = _db.from(_tPharmacyOrders).select('id').eq('pharmacy_id', pharmacyId).eq('status', 'out_for_delivery');
@@ -847,7 +804,6 @@ class HealthService {
   }
 
   Future<List<Map<String, dynamic>>> fetchPharmacyRecentOrders(String pharmacyId, {int limit = 5}) async {
-    // Expected columns: id, patient_name, meds_count, status, created_at
     return _safeSelect(
       _tPharmacyOrders,
       columns: '*',
