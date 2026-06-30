@@ -69,7 +69,7 @@ class Appointment {
   final AppointmentType type;
   final AppointmentStatus status;
   final String? notes;
-  final String? teleconsultationLink; // Jitsi link
+  final String? teleconsultationLink;
   final Duration? duration;
   final bool isEmergency;
 
@@ -148,7 +148,7 @@ class Appointment {
 
 class Medication {
   final String id;
-  final String patientId; // <-- AJOUTÉ
+  final String? patientId; // nullable pour les mock-ups
   final String name;
   final String dosage;
   final String frequency;
@@ -163,7 +163,7 @@ class Medication {
 
   Medication({
     required this.id,
-    required this.patientId, // <-- AJOUTÉ
+    this.patientId,
     required this.name,
     required this.dosage,
     required this.frequency,
@@ -180,7 +180,7 @@ class Medication {
   factory Medication.fromJson(Map<String, dynamic> json) {
     return Medication(
       id: json['id'] as String,
-      patientId: json['patientId'] as String, // <-- AJOUTÉ
+      patientId: json['patientId'] as String?,
       name: json['name'] as String,
       dosage: json['dosage'] as String,
       frequency: json['frequency'] as String,
@@ -202,7 +202,7 @@ class Medication {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'patientId': patientId, // <-- AJOUTÉ
+        'patientId': patientId,
         'name': name,
         'dosage': dosage,
         'frequency': frequency,
@@ -218,7 +218,7 @@ class Medication {
 
   Medication copyWith({
     String? id,
-    String? patientId, // <-- AJOUTÉ
+    String? patientId,
     String? name,
     String? dosage,
     String? frequency,
@@ -233,7 +233,7 @@ class Medication {
   }) {
     return Medication(
       id: id ?? this.id,
-      patientId: patientId ?? this.patientId, // <-- AJOUTÉ
+      patientId: patientId ?? this.patientId,
       name: name ?? this.name,
       dosage: dosage ?? this.dosage,
       frequency: frequency ?? this.frequency,
