@@ -1,11 +1,10 @@
 // presentation/thix_sante/patient/patient_health_page.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
-import 'package:go_router/go_router.dart';
 
-/// Page de gestion de la santé (regroupe symptômes, constantes, médicaments, vaccination)
 class PatientHealthPage extends StatefulWidget {
   const PatientHealthPage({super.key});
 
@@ -18,7 +17,6 @@ class _PatientHealthPageState extends State<PatientHealthPage>
   late TabController _tabController;
   final HealthService _healthService = HealthService.instance;
 
-  // Données partagées
   List<Symptom> _symptoms = [];
   List<VitalSign> _vitals = [];
   List<Medication> _medications = [];
@@ -119,9 +117,9 @@ class _PatientHealthPageState extends State<PatientHealthPage>
     );
   }
 
-  // ============================================================
-  // 1. ONGLET SYMPTÔMES
-  // ============================================================
+  // ... (les méthodes _buildSymptomsTab, _buildVitalsTab, _buildMedicationsTab, _buildVaccinesTab restent identiques à avant,
+  // mais les onTap doivent pointer vers les nouvelles routes)
+
   Widget _buildSymptomsTab() {
     if (_symptoms.isEmpty) {
       return const Center(child: Text('Aucun symptôme enregistré.'));
@@ -146,7 +144,7 @@ class _PatientHealthPageState extends State<PatientHealthPage>
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Voir détail du symptôme
+              context.push('/sante/patient/symptom/${sym.id}', extra: sym);
             },
           ),
         );
@@ -154,14 +152,10 @@ class _PatientHealthPageState extends State<PatientHealthPage>
     );
   }
 
-  // ============================================================
-  // 2. ONGLET CONSTANTES VITALES
-  // ============================================================
   Widget _buildVitalsTab() {
     if (_vitals.isEmpty) {
       return const Center(child: Text('Aucune constante enregistrée.'));
     }
-    // Grouper par type pour afficher les derniers
     final grouped = <VitalType, VitalSign>{};
     for (var v in _vitals) {
       if (!grouped.containsKey(v.type) || v.date.isAfter(grouped[v.type]!.date)) {
@@ -187,7 +181,7 @@ class _PatientHealthPageState extends State<PatientHealthPage>
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Voir historique de cette constante
+              context.push('/sante/patient/vital/${v.id}', extra: v);
             },
           ),
         );
@@ -195,9 +189,6 @@ class _PatientHealthPageState extends State<PatientHealthPage>
     );
   }
 
-  // ============================================================
-  // 3. ONGLET MÉDICAMENTS
-  // ============================================================
   Widget _buildMedicationsTab() {
     if (_medications.isEmpty) {
       return const Center(child: Text('Aucun médicament.'));
@@ -225,7 +216,7 @@ class _PatientHealthPageState extends State<PatientHealthPage>
               ),
             ),
             onTap: () {
-              // Voir détail du médicament
+              context.push('/sante/patient/medication/${med.id}', extra: med);
             },
           ),
         );
@@ -233,9 +224,6 @@ class _PatientHealthPageState extends State<PatientHealthPage>
     );
   }
 
-  // ============================================================
-  // 4. ONGLET VACCINS
-  // ============================================================
   Widget _buildVaccinesTab() {
     if (_vaccines.isEmpty) {
       return const Center(child: Text('Aucun vaccin enregistré.'));
@@ -259,7 +247,7 @@ class _PatientHealthPageState extends State<PatientHealthPage>
                 ? const Chip(label: Text('Rappel dû'), backgroundColor: Colors.red)
                 : null,
             onTap: () {
-              // Voir détail
+              context.push('/sante/patient/vaccine/${vac.id}', extra: vac);
             },
           ),
         );
@@ -267,9 +255,6 @@ class _PatientHealthPageState extends State<PatientHealthPage>
     );
   }
 
-  // ============================================================
-  // ACTIONS RAPIDES
-  // ============================================================
   void _showAddDialog(int tabIndex) {
     final titles = ['Ajouter un symptôme', 'Ajouter une constante', 'Ajouter un médicament', 'Ajouter un vaccin'];
     final icons = [Icons.sick, Icons.favorite, Icons.medication, Icons.vaccines];
@@ -303,16 +288,16 @@ class _PatientHealthPageState extends State<PatientHealthPage>
   void _navigateToAddForm(int tabIndex) {
     switch (tabIndex) {
       case 0:
-        context.push('/sante/patient/health/symptom/add');
+        context.push('/sante/patient/symptom/new');
         break;
       case 1:
-        context.push('/sante/patient/health/vital/add');
+        context.push('/sante/patient/vital/new');
         break;
       case 2:
-        context.push('/sante/patient/health/medication/add');
+        context.push('/sante/patient/medication/new');
         break;
       case 3:
-        context.push('/sante/patient/health/vaccine/add');
+        context.push('/sante/patient/vaccine/new');
         break;
     }
   }
@@ -331,7 +316,7 @@ class _PatientHealthPageState extends State<PatientHealthPage>
               title: const Text('Prendre un rendez-vous'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/patient/appointments/new');
+                context.push('/sante/patient/appointment/new');
               },
             ),
             ListTile(
