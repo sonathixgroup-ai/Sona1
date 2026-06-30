@@ -43,11 +43,6 @@ import 'package:thix_id/presentation/recruiter/recruiter_portal_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunities_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_apply_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart';
-import 'presentation/events/events_page.dart';
-import 'package:thix_id/presentation/events/event_details_page.dart';
-import 'package:thix_id/presentation/events/event_register_page.dart';
-import 'package:thix_id/presentation/events/event_ticket_page.dart';
-import 'package:thix_id/presentation/events/user_event_dashboard_page.dart';
 import 'presentation/education/education_page.dart';
 import 'package:thix_id/presentation/training/training_home_page.dart';
 import 'package:thix_id/presentation/training/training_details_page.dart';
@@ -149,6 +144,17 @@ import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 
+// ==================== THIX ÉVÉNEMENT (IMPORTS) ====================
+import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
+import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
+import 'package:thix_id/presentation/thix_event/event_search_page.dart';
+import 'package:thix_id/presentation/thix_event/event_category_page.dart';
+import 'package:thix_id/presentation/thix_event/event_reservation_page.dart';
+import 'package:thix_id/presentation/thix_event/my_tickets_page.dart';
+import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
+import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
+import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
+
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
@@ -194,7 +200,6 @@ class AppRoutes {
   static const String jobDashboard = '/jobs/dashboard';
   static const String recruiter = '/recruiter';
   static const String opportunities = '/opportunities';
-  static const String events = '/events';
   static const String education = '/education';
   static const String trainingHome = '/training';
   static const String trainingDetailsBasePath = '/training-details';
@@ -213,6 +218,18 @@ class AppRoutes {
   static const String adminMedia = '/admin/media';
   static const String thixInfo = '/info';
   static const String thixInfoArticleBasePath = '/info/a';
+
+  // ==================== THIX ÉVÉNEMENT (ROUTES) ====================
+  static const String thixEvent = '/thix-event';
+  static const String thixEventDetail = '/thix-event/event/:eventId';
+  static const String thixEventSearch = '/thix-event/search';
+  static const String thixEventCategory = '/thix-event/category/:category';
+  static const String thixEventReservation = '/thix-event/reservation/:eventId';
+  static const String thixEventMyTickets = '/thix-event/my-tickets';
+  static const String thixEventFavorites = '/thix-event/favorites';
+  static const String thixEventSeatSelection = '/thix-event/seat-selection/:eventId';
+  static const String thixEventWaitingQueue = '/thix-event/waiting-queue/:eventId';
+
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
@@ -244,7 +261,6 @@ class AppRouter {
             location == AppRoutes.publicProfile ||
             location == AppRoutes.jobs ||
             location == AppRoutes.opportunities ||
-            location == AppRoutes.events ||
             location == AppRoutes.education ||
             location == AppRoutes.trainingHome ||
             location.startsWith('${AppRoutes.trainingDetailsBasePath}/');
@@ -636,8 +652,7 @@ class AppRouter {
           path: '/sante/patient/prescriptions',
           name: 'patientPrescriptions',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientPrescriptionsListPage()), // à créer ? mais on a prescription_detail_page
-          // On utilise plutôt la liste dédiée plus tard
+              const NoTransitionPage(child: PatientPrescriptionsListPage()),
         ),
         GoRoute(
           path: '/sante/patient/prescription/:id',
@@ -653,7 +668,7 @@ class AppRouter {
           path: '/sante/patient/exams',
           name: 'patientExams',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientExamsListPage()), // à créer
+              const NoTransitionPage(child: PatientExamsListPage()),
         ),
         GoRoute(
           path: '/sante/patient/exam/:id',
@@ -688,7 +703,7 @@ class AppRouter {
             final id = state.pathParameters['id']!;
             return NoTransitionPage(
                 child: PatientTeleexpertiseDetailPage(
-                    expertiseId: id)); // à créer
+                    expertiseId: id));
           },
         ),
         GoRoute(
@@ -731,7 +746,7 @@ class AppRouter {
           path: '/sante/patient/vitals/chart',
           name: 'patientVitalChart',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientVitalChartPage()), // à créer
+              const NoTransitionPage(child: PatientVitalChartPage()),
         ),
         GoRoute(
           path: '/sante/patient/record/add',
@@ -768,7 +783,7 @@ class AppRouter {
             final id = state.pathParameters['id']!;
             return NoTransitionPage(
                 child: PatientMedicationRemindersPage(
-                    medicationId: id)); // à créer
+                    medicationId: id));
           },
         ),
         // Vaccins
@@ -776,7 +791,7 @@ class AppRouter {
           path: '/sante/patient/vaccinations',
           name: 'patientVaccinations',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientVaccinationCalendarPage()), // à créer
+              const NoTransitionPage(child: PatientVaccinationCalendarPage()),
         ),
         GoRoute(
           path: '/sante/patient/vaccine/:id',
@@ -884,7 +899,7 @@ class AppRouter {
           pageBuilder: (context, state) {
             final id = state.pathParameters['id']!;
             return NoTransitionPage(
-                child: PatientPharmacyDetailPage(pharmacyId: id)); // à créer
+                child: PatientPharmacyDetailPage(pharmacyId: id));
           },
         ),
         // Bien-être
@@ -1007,7 +1022,7 @@ class AppRouter {
           path: '/sante/doctor/patient/new',
           name: 'doctorPatientNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorPatientAddPage()), // à créer
+              const NoTransitionPage(child: DoctorPatientAddPage()),
         ),
         // Prescriptions
         GoRoute(
@@ -1068,7 +1083,7 @@ class AppRouter {
           path: '/sante/doctor/agenda/slots',
           name: 'doctorAgendaSlots',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorSlotManagementPage()), // à créer
+              const NoTransitionPage(child: DoctorSlotManagementPage()),
         ),
         // Notes
         GoRoute(
@@ -1097,25 +1112,25 @@ class AppRouter {
           path: '/sante/doctor/terrain/scan',
           name: 'doctorTerrainScan',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorScanBraceletPage()), // à créer
+              const NoTransitionPage(child: DoctorScanBraceletPage()),
         ),
         GoRoute(
           path: '/sante/doctor/terrain/dictation',
           name: 'doctorTerrainDictation',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorVoiceDictationPage()), // à créer
+              const NoTransitionPage(child: DoctorVoiceDictationPage()),
         ),
         GoRoute(
           path: '/sante/doctor/terrain/offline',
           name: 'doctorTerrainOffline',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorOfflinePatientsPage()), // à créer
+              const NoTransitionPage(child: DoctorOfflinePatientsPage()),
         ),
         GoRoute(
           path: '/sante/doctor/terrain/photo',
           name: 'doctorTerrainPhoto',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorPhotoCapturePage()), // à créer
+              const NoTransitionPage(child: DoctorPhotoCapturePage()),
         ),
         // Chat
         GoRoute(
@@ -1132,7 +1147,7 @@ class AppRouter {
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorNewMessagePage()), // à créer
+              const NoTransitionPage(child: DoctorNewMessagePage()),
         ),
         // Alertes
         GoRoute(
@@ -1298,6 +1313,75 @@ class AppRouter {
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: ThixReservationPage()),
         ),
+
+        // ==================== THIX ÉVÉNEMENT ====================
+        GoRoute(
+          path: AppRoutes.thixEvent,
+          name: 'thixEvent',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: ThixEventHome()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventDetail,
+          name: 'thixEventDetail',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            return NoTransitionPage(child: EventDetailPage(eventId: eventId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventSearch,
+          name: 'thixEventSearch',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: EventSearchPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventCategory,
+          name: 'thixEventCategory',
+          pageBuilder: (context, state) {
+            final category = state.pathParameters['category']!;
+            return NoTransitionPage(child: EventCategoryPage(category: category));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventReservation,
+          name: 'thixEventReservation',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
+            return NoTransitionPage(child: EventReservationPage(eventId: eventId, quantity: quantity));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventMyTickets,
+          name: 'thixEventMyTickets',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: MyTicketsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventFavorites,
+          name: 'thixEventFavorites',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: FavoriteEventsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventSeatSelection,
+          name: 'thixEventSeatSelection',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            return NoTransitionPage(child: SeatSelectionPage(eventId: eventId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventWaitingQueue,
+          name: 'thixEventWaitingQueue',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
+            return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
+          },
+        ),
+
         // ---- Jobs ----
         GoRoute(
           path: AppRoutes.jobs,
@@ -1362,47 +1446,6 @@ class AppRouter {
             final jobId = state.pathParameters['jobId'] ?? '';
             return NoTransitionPage(child: JobApplyPage(jobId: jobId));
           },
-        ),
-        // Events
-        GoRoute(
-          path: AppRoutes.events,
-          name: 'events',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: EventsPage()),
-        ),
-        GoRoute(
-          path: '/events/:eventId',
-          name: 'eventDetails',
-          pageBuilder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '';
-            return NoTransitionPage(
-                child: EventDetailsPage(eventId: eventId));
-          },
-        ),
-        GoRoute(
-          path: '/events/:eventId/register',
-          name: 'eventRegister',
-          pageBuilder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '';
-            return NoTransitionPage(
-                child: EventDetailsPage(eventId: eventId)); // TODO: créer EventRegisterPage
-          },
-        ),
-        GoRoute(
-          path: '/events/:eventId/ticket/:registrationId',
-          name: 'eventTicket',
-          pageBuilder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '';
-            final registrationId = state.pathParameters['registrationId'] ?? '';
-            return NoTransitionPage(
-                child: EventTicketPage(eventId: eventId, registrationId: registrationId));
-          },
-        ),
-        GoRoute(
-          path: '/events/me',
-          name: 'userEventsDashboard',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: UserEventDashboardPage()),
         ),
         // Education
         GoRoute(
