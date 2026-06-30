@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
-
+export 'app_router.dart' show AppRoutes;
 import 'presentation/home/home_page.dart';
 import 'presentation/auth/login_page.dart';
 import 'presentation/auth/personal_registration_page.dart';
