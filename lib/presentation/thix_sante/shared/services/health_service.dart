@@ -270,6 +270,7 @@ class HealthService {
       final id = _s(m, 'id');
       return Medication(
         id: id,
+        patientId: _s(m, 'patient_id'), // ✅ patientId extrait de la table
         name: _s(m, 'name', 'Médicament'),
         dosage: _s(m, 'dosage', ''),
         frequency: _s(m, 'frequency', ''),
