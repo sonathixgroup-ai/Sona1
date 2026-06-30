@@ -148,6 +148,7 @@ class Appointment {
 
 class Medication {
   final String id;
+  final String patientId; // <-- AJOUTÉ
   final String name;
   final String dosage;
   final String frequency;
@@ -162,6 +163,7 @@ class Medication {
 
   Medication({
     required this.id,
+    required this.patientId, // <-- AJOUTÉ
     required this.name,
     required this.dosage,
     required this.frequency,
@@ -178,6 +180,7 @@ class Medication {
   factory Medication.fromJson(Map<String, dynamic> json) {
     return Medication(
       id: json['id'] as String,
+      patientId: json['patientId'] as String, // <-- AJOUTÉ
       name: json['name'] as String,
       dosage: json['dosage'] as String,
       frequency: json['frequency'] as String,
@@ -199,6 +202,7 @@ class Medication {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'patientId': patientId, // <-- AJOUTÉ
         'name': name,
         'dosage': dosage,
         'frequency': frequency,
@@ -214,6 +218,7 @@ class Medication {
 
   Medication copyWith({
     String? id,
+    String? patientId, // <-- AJOUTÉ
     String? name,
     String? dosage,
     String? frequency,
@@ -228,6 +233,7 @@ class Medication {
   }) {
     return Medication(
       id: id ?? this.id,
+      patientId: patientId ?? this.patientId, // <-- AJOUTÉ
       name: name ?? this.name,
       dosage: dosage ?? this.dosage,
       frequency: frequency ?? this.frequency,
