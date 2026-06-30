@@ -87,6 +87,15 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_profile_
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_article_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_chat_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_chat_new_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_exams_list_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_prescriptions_list_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleexpertise_detail_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleexpertise_request_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_add_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_vital_chart_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_medication_reminders_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccination_calendar_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_pharmacy_detail_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart';
 
 // Doctor pages
@@ -106,6 +115,13 @@ import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_statistics
 import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_terrain_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_chat_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_alert_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_patient_add_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_slot_management_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_scan_bracelet_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_voice_dictation_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_offline_patients_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_photo_capture_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_new_message_page.dart';
 
 // Pharmacy pages
 import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_dashboard_page.dart';
@@ -672,6 +688,12 @@ class AppRouter {
                     expertiseId: id)); // à créer
           },
         ),
+        GoRoute(
+          path: '/sante/patient/teleexpertise/request',
+          name: 'patientTeleexpertiseRequest',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: PatientTeleexpertiseRequestPage()),
+        ),
         // Symptômes
         GoRoute(
           path: '/sante/patient/symptom/:id',
@@ -707,6 +729,12 @@ class AppRouter {
           name: 'patientVitalChart',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: PatientVitalChartPage()), // à créer
+        ),
+        GoRoute(
+          path: '/sante/patient/record/add',
+          name: 'patientRecordAdd',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: PatientRecordAddPage()),
         ),
         // Médicaments
         GoRoute(
