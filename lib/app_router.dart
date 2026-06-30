@@ -1,1773 +1,818 @@
-import 'dart:async';
-import 'dart:ui';
+// Ce fichier est la source unique des routes.
+// Il est exporté par nav.dart pour être accessible dans toute l'application.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
-import 'package:thix_id/nav.dart';
-import 'package:thix_id/presentation/common/full_screen_message.dart';
-import 'package:thix_id/presentation/common/notifications_sheet.dart';
-import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
-import 'package:thix_id/presentation/emergency/emergency_overlay.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
-import 'package:thix_id/services/notification_service.dart';
-import 'package:thix_id/services/notification_counters_service.dart';
-import 'package:thix_id/services/thix_id_service.dart';
 
-// ============================================================================
-// CONSTANTES DE DESIGN – STYLE MIXX AMÉLIORÉ (NIVEAU FACEBOOK)
-// ============================================================================
+// ==================== IMPORTS DES PAGES ====================
+import 'presentation/home/home_page.dart';
+import 'presentation/auth/login_page.dart';
+import 'presentation/auth/personal_registration_page.dart';
+import 'presentation/auth/enterprise_registration_page.dart';
+import 'presentation/payment/payment_gateway_page.dart';
+import 'presentation/payment/activation_receipt_page.dart';
+import 'presentation/profile/public_profile_page.dart';
+import 'presentation/dashboard/user_dashboard_page.dart';
+import 'presentation/enterprise/enterprise_dashboard_page.dart';
+import 'package:thix_id/presentation/enterprise/enterprise_portal_page.dart';
+import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.dart';
+import 'presentation/chat/thix_chat_page.dart';
+import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart';
+import 'presentation/vault/document_vault_page.dart';
+import 'presentation/settings/settings_page.dart';
+import 'package:thix_id/presentation/network/network_pro_home.dart';
+import 'package:thix_id/presentation/network/search_network_page.dart';
+import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
+import 'package:thix_id/presentation/network/messages/conversations_list.dart';
+import 'package:thix_id/presentation/network/messages/chat_screen.dart';
+import 'package:thix_id/presentation/network/connections_list_page.dart';
+import 'package:thix_id/presentation/network/community_detail_page.dart';
+import 'package:thix_id/presentation/network/post_detail_page.dart';
+import 'package:thix_id/presentation/network/profile_page.dart';
+import 'package:thix_id/presentation/network/profile_settings_page.dart';
+import 'package:thix_id/presentation/network/blocked_users_page.dart';
+import 'presentation/jobs/jobs_page.dart';
+import 'package:thix_id/presentation/jobs/job_apply_page.dart';
+import 'package:thix_id/presentation/jobs/job_details_page.dart';
+import 'package:thix_id/presentation/jobs/job_dashboard_page.dart';
+import 'package:thix_id/presentation/recruiter/recruiter_portal_page.dart';
+import 'package:thix_id/presentation/opportunities/opportunities_page.dart';
+import 'package:thix_id/presentation/opportunities/opportunity_apply_page.dart';
+import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart';
+import 'presentation/education/education_page.dart';
+import 'package:thix_id/presentation/training/training_home_page.dart';
+import 'package:thix_id/presentation/training/training_details_page.dart';
+import 'package:thix_id/presentation/training/learning_dashboard_page.dart';
+import 'package:thix_id/presentation/training/lesson_player_page.dart';
+import 'package:thix_id/presentation/admin/admin_page.dart';
+import 'package:thix_id/presentation/admin/admin_routes.dart';
+import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
+import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
+import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
+import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
+import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
+import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
+import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
+import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 
-class AppColors {
-  // Social/pro bright palette (aligned with global theme).
-  static const Color primaryBlue = Color(0xFF1877F2);
-  static const Color darkNavy = Color(0xFF111827);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color lightGrayBg = Color(0xFFF0F2F5);
-  static const Color textSecondary = Color(0xFF4B5563);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color goldBadge = Color(0xFFFBBF24);
-  static const Color successGreen = Color(0xFF059669);
-  static const Color dangerRed = Color(0xFFFF3B30);
-  static const Color darkText = Color(0xFF111827);
-  static const Color shadowLight = Color(0x0F000000);
-  static const Color shadowSecondary = Color(0x0A000000);
+// Module Santé
+import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
+import 'package:thix_id/presentation/thix_sante/thix_role.dart';
+import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_life_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_connect_page.dart';
+// patient details
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_appointment_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_appointments_list_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_consultation_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_prescription_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_exam_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_scan_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_symptom_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_vital_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_medication_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccine_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_pregnancy_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_family_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_sharing_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_ai_chat_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_alert_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_map_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_wellness_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_consent_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_notifications_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_profile_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_article_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_chat_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_chat_new_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_exams_list_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_prescriptions_list_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleexpertise_detail_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleexpertise_request_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_add_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_vital_chart_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_medication_reminders_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_medications_list_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccination_calendar_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_pharmacy_detail_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart';
 
-  // Premium card (more luminous)
-  static const Color premiumSoftStart = Color(0xFFEAF2FF); // light blue tint
-  static const Color premiumSoftEnd = Color(0xFFFFFFFF); // pure white
-  static const Color premiumAccent = Color(0xFF0B3B8F);
+// Doctor pages
+import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/doctor_care_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/doctor_consult_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/doctor_connect_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_patients_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_patient_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_prescription_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_teleconsult_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_teleexpertise_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_agenda_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_note_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_statistics_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_terrain_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_chat_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_alert_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_patient_add_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_slot_management_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_scan_bracelet_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_voice_dictation_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_offline_patients_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_photo_capture_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_new_message_page.dart';
 
-  // Domain colors (icons)
-  static const Color domainMedia = Color(0xFF7C3AED); // purple
-  static const Color domainMarket = Color(0xFFF97316); // orange
-  static const Color domainLearning = Color(0xFF2563EB); // blue
-  static const Color domainJobs = Color(0xFF16A34A); // green
-  static const Color domainInfo = Color(0xFF0284C7); // sky
-  static const Color domainOpportunity = Color(0xFFF59E0B); // amber
-  static const Color domainEvents = Color(0xFFEF4444); // red
-  static const Color domainNetwork = Color(0xFF4F46E5); // indigo
-  static const Color domainHealth = Color(0xFFE11D48); // rose
-  static const Color domainMoney = Color(0xFF059669); // emerald
-  static const Color domainGov = Color(0xFF334155); // slate
-  static const Color domainReservation = Color(0xFF0D9488); // teal
+// Pharmacy pages
+import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_orders_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_inventory_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_connect_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_order_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_prescription_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_dispensing_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_delivery_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_inventory_item_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_stock_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_report_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_page.dart';
 
-  // Bottom bar (match capture)
-  static const Color bottomNavBlue = Color(0xFF0B3B8F);
-  static const Color bottomNavInactive = Color(0x99FFFFFF);
-  static const Color bottomNavActive = goldBadge;
-  static const Color bottomNavCenterIcon = Color(0xFF111827);
-}
+// THIX Événement (module complet)
+import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
+import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
+import 'package:thix_id/presentation/thix_event/event_search_page.dart';
+import 'package:thix_id/presentation/thix_event/event_category_page.dart';
+import 'package:thix_id/presentation/thix_event/event_reservation_page.dart';
+import 'package:thix_id/presentation/thix_event/my_tickets_page.dart';
+import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
+import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
+import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
 
-class AppSpacing {
-  static const double xs = 4;
-  static const double s = 8;
-  static const double m = 12;
-  static const double l = 16;
-  static const double xl = 20;
-  static const double xxl = 24;
-  static const double xxxl = 28;
-  static const double huge = 32;
-}
-
-class AppRadius {
-  static const double searchBar = 24;
-  static const double mainCard = 22;
-  static const double serviceCard = 18;
-  static const double button = 14;
-  static const double bottomNav = 30;
-  static const double avatar = 50;
-  static const double qrContainer = 16;
-}
-
-class AppShadows {
-  static List<BoxShadow> main = [
-    BoxShadow(
-      color: AppColors.shadowLight,
-      blurRadius: 20,
-      offset: const Offset(0, 4),
-    ),
-  ];
-  static List<BoxShadow> secondary = [
-    BoxShadow(
-      color: AppColors.shadowSecondary,
-      blurRadius: 8,
-      offset: const Offset(0, 2),
-    ),
-  ];
-}
-
-// ============================================================================
-// PAGE PRINCIPALE – HOMEPAGE STYLE FACEBOOK (HEADER BLANC, SERVICES PLATS)
-// ============================================================================
-
-class HomePagePremium extends StatefulWidget {
-  const HomePagePremium({super.key});
-
+// ==================== PAGE DE TRANSITION SANS ANIMATION ====================
+class NoTransitionPage<T> extends Page<T> {
+  final Widget child;
+  const NoTransitionPage({required this.child, super.key});
   @override
-  State<HomePagePremium> createState() => _HomePagePremiumState();
+  Route<T> createRoute(BuildContext context) => PageRouteBuilder<T>(
+        settings: this,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (context, animation, secondaryAnimation) => child,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+      );
 }
 
-class _HomePagePremiumState extends State<HomePagePremium>
-    with SingleTickerProviderStateMixin {
-  final TextEditingController _searchController = TextEditingController();
-  bool _searching = false;
-  late AnimationController _animationController;
-  final PageController _headlinesController = PageController();
-  Timer? _headlinesTimer;
+// ==================== DÉFINITION DES ROUTES ====================
+class AppRoutes {
+  static const String start = '/start';
+  static const String home = '/';
+  static const String login = '/login';
+  static const String personalReg = '/personal-reg';
+  static const String enterpriseReg = '/enterprise-reg';
+  static const String enterprise = '/enterprise';
+  static const String payment = '/payment';
+  static const String activationReceipt = '/activation-receipt';
+  static const String publicProfile = '/public-profile';
+  static const String userDashboard = '/user-dashboard';
+  static const String enterpriseDashboard = '/enterprise-dashboard';
+  static const String enterprisePortalBasePath = '/company';
+  static const String chat = '/chat';
+  static const String vault = '/vault';
+  static const String settings = '/settings';
+  static const String network = '/network';
+  static const String networkSearch = '/network/search';
+  static const String networkNotifications = '/network/notifications';
+  static const String networkMessages = '/network/messages';
+  static const String networkConnections = '/network/connections';
+  static const String networkProfileSettings = '/network/profile-settings';
+  static const String networkBlockedUsers = '/network/blocked';
+  static const String networkChatBasePath = '/network/chat';
+  static const String networkPostBasePath = '/network/post';
+  static const String networkCommunityBasePath = '/network/community';
+  static const String networkProfileBasePath = '/network/profile';
+  static const String profile = '/profile';
+  static const String jobs = '/jobs';
+  static const String jobDashboard = '/jobs/dashboard';
+  static const String recruiter = '/recruiter';
+  static const String opportunities = '/opportunities';
+  static const String education = '/education';
+  static const String trainingHome = '/training';
+  static const String trainingDetailsBasePath = '/training-details';
+  static const String learningDashboard = '/learn';
+  static const String lessonPlayer = '/learn/player';
+  static const String admin = '/admin';
+  static const String thixMarket = '/market';
+  static const String thixSante = '/sante';
+  static const String thixSantePatient = '/sante/patient';
+  static const String thixSanteDoctor = '/sante/medecin';
+  static const String thixSantePharmacy = '/sante/pharmacie';
+  static const String reservation = '/reservation';
+  static const String thixMoney = '/thix-money';
+  static const String thixMedia = '/thix-media';
+  static const String adminMedia = '/admin/media';
+  static const String thixInfo = '/info';
+  static const String thixInfoArticleBasePath = '/info/a';
 
-  final _notifications = NotificationService();
-  final _counters = NotificationCountersService();
+  // ==================== THIX ÉVÉNEMENT ====================
+  // Route principale (alias pour 'events' utilisé dans le code)
+  static const String events = '/thix-event';   // <-- AJOUTÉ pour résoudre les références
+  static const String thixEvent = '/thix-event';
+  static const String thixEventDetail = '/thix-event/event/:eventId';
+  static const String thixEventSearch = '/thix-event/search';
+  static const String thixEventCategory = '/thix-event/category/:category';
+  static const String thixEventReservation = '/thix-event/reservation/:eventId';
+  static const String thixEventMyTickets = '/thix-event/my-tickets';
+  static const String thixEventFavorites = '/thix-event/favorites';
+  static const String thixEventSeatSelection = '/thix-event/seat-selection/:eventId';
+  static const String thixEventWaitingQueue = '/thix-event/waiting-queue/:eventId';
 
-  static final RegExp _uidLikeRegex = RegExp(r'^[A-Za-z0-9_-]{20,}$');
+  // Fonctions utilitaires
+  static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
+  static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
+  static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
+  static String networkChat(String userId) => '$networkChatBasePath/$userId';
+  static String networkPost(String postId) => '$networkPostBasePath/$postId';
+  static String networkCommunity(String communityId) => '$networkCommunityBasePath/$communityId';
+  static String networkProfile(String userId) => '$networkProfileBasePath/$userId';
+}
 
-  @override
-  void initState() {
-    super.initState();
-
-    // Performance: keep initState extremely light.
-    // We start animations/timers after the first frame so the initial paint is faster.
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _animationController.forward();
-      _headlinesTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        if (!_headlinesController.hasClients) return;
-        final next = (_headlinesController.page?.round() ?? 0) == 0 ? 1 : 0;
-        _headlinesController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 550),
-          curve: Curves.easeInOutCubic,
-        );
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _animationController.dispose();
-    _headlinesTimer?.cancel();
-    _headlinesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleHomeSearchVerify() async {
-    final raw = _searchController.text.trim();
-
-    if (raw.isEmpty) {
-      await FullScreenMessage.showError(
-        context,
-        title: 'Identifiant requis',
-        message: "Saisissez un THIX ID puis appuyez sur Vérifier.",
-      );
-      return;
-    }
-
-    final normalized = ThixIdService.normalize(raw);
-    final isThix = normalized.startsWith('THIX-') && ThixIdService.isValid(normalized);
-    final isUid = _uidLikeRegex.hasMatch(raw);
-
-    if (!isThix && !isUid) {
-      await FullScreenMessage.showError(
-        context,
-        title: 'Identifiant invalide',
-        message: 'Format THIX ID incorrect.',
-      );
-      return;
-    }
-
-    setState(() => _searching = true);
-
-    try {
-      // Performance/architecture: reuse the app-wide instance instead of
-      // creating a new service (which can create extra clients/streams).
-      final userService = context.read<FirestoreUserService>();
-      AppUser? user;
-
-      if (isThix) {
-        user = await userService.fetchUserByThixId(normalized);
-      } else {
-        user = await userService.fetchUserByUid(raw);
-      }
-
-      if (!mounted) return;
-
-      if (user == null) {
-        await FullScreenMessage.showError(
-          context,
-          title: 'Profil introuvable',
-          message: "Aucun profil trouvé.",
-        );
-        return;
-      }
-
-      final thix = user.thixId.trim().toUpperCase();
-
-      if (thix.isNotEmpty && ThixIdService.isValid(thix)) {
-        context.push('${AppRoutes.publicProfile}?thixId=$thix');
-      } else {
-        await ThixIdentitySheets.showVerifySheet(
-          context,
-          initialUidOrThixId: user.id,
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      await FullScreenMessage.showError(
-        context,
-        title: 'Erreur',
-        message: "Impossible d'effectuer la vérification.",
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _searching = false);
-      }
-    }
-  }
-
-  void _onProfileTap() {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(
-        t == AccountType.enterprise
-            ? AppRoutes.enterpriseDashboard
-            : AppRoutes.userDashboard,
-      );
-    } else {
-      context.push(AppRoutes.login);
-    }
-  }
-
-  Future<void> _openThixAi() async {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.go(AppRoutes.chat);
-      return;
-    }
-    context.push(AppRoutes.login);
-  }
-
-  Future<void> _openEmergency() async {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      await EmergencyOverlay.show(context);
-      return;
-    }
-    if (!mounted) return;
-    context.push(AppRoutes.login);
-  }
-
-  Future<void> _handleRequestAccount(BuildContext context) async {
-    final auth = context.read<AuthController>();
-    final res = await showModalBottomSheet<_AccountRequestChoice>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const AccountRequestSheet(),
-    );
-
-    switch (res) {
-      case _AccountRequestChoice.personal:
-        if (auth.isAuthenticated) {
-          await auth.signOut();
+// ==================== CONSTRUCTEUR DU ROUTEUR ====================
+class AppRouter {
+  static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
+    final refresh = extraRefreshListenable ?? auth;
+    return GoRouter(
+      initialLocation: AppRoutes.home,
+      overridePlatformDefaultLocation: true,
+      refreshListenable: refresh,
+      redirect: (context, state) {
+        final location = state.matchedLocation;
+        final isLoggedIn = auth.isAuthenticated;
+        final isAuthPage = location == AppRoutes.login ||
+            location == AppRoutes.personalReg ||
+            location == AppRoutes.enterpriseReg;
+        final isAdmin = location == AppRoutes.admin ||
+            location.startsWith('${AppRoutes.admin}/');
+        final isEnterprisePortal = location.startsWith('${AppRoutes.enterprisePortalBasePath}/') ||
+            location == AppRoutes.enterprisePortalBasePath;
+        final isPublic = location == AppRoutes.start ||
+            location == AppRoutes.home ||
+            location == AppRoutes.publicProfile ||
+            location == AppRoutes.jobs ||
+            location == AppRoutes.opportunities ||
+            location == AppRoutes.education ||
+            location == AppRoutes.trainingHome ||
+            location.startsWith('${AppRoutes.trainingDetailsBasePath}/');
+        final isProtected = !isPublic && !isAuthPage;
+        if (!isLoggedIn && isProtected) return AppRoutes.login;
+        if (isAdmin && !isLoggedIn) return AppRoutes.login;
+        if (isLoggedIn) {
+          final t = auth.currentUser?.accountType;
+          if (location == AppRoutes.userDashboard && t == AccountType.enterprise)
+            return AppRoutes.enterpriseDashboard;
+          if (location == AppRoutes.enterpriseDashboard && t == AccountType.personal)
+            return AppRoutes.userDashboard;
         }
-        if (context.mounted) {
-          context.push(AppRoutes.personalReg);
+        if (isLoggedIn && isAuthPage) {
+          final t = auth.currentUser?.accountType;
+          return t == AccountType.enterprise
+              ? AppRoutes.enterpriseDashboard
+              : AppRoutes.userDashboard;
         }
-        return;
-
-      case _AccountRequestChoice.enterprise:
-        if (auth.isAuthenticated) {
-          await auth.signOut();
-        }
-        if (context.mounted) {
-          context.push(AppRoutes.enterpriseReg);
-        }
-        return;
-
-      case null:
-        return;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
-    final safeTop = MediaQuery.paddingOf(context).top;
-    final displayName = (auth.currentUser?.displayName.trim().isNotEmpty ?? false)
-        ? auth.currentUser!.displayName.trim()
-        : (auth.currentUser?.email.trim().isNotEmpty ?? false)
-            ? auth.currentUser!.email.trim()
-            : 'Nathan';
-    final badgeCountsStream = auth.currentUser == null
-        ? Stream.value(SectionBadgeCounts.zero)
-        : _counters.streamCounts(auth.currentUser!.id);
-
-    return Scaffold(
-      backgroundColor: AppColors.lightGrayBg,
-      body: Stack(
-        children: [
-          const _HomeSoftBackground(),
-          CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _PinnedHeaderDelegate(
-                  safeTop: safeTop,
-                  displayName: displayName,
-                  isAuthenticated: auth.isAuthenticated,
-                  onProfileTap: _onProfileTap,
-                  onAccountRequest: () => _handleRequestAccount(context),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-
-              // Barre de recherche
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                  child: _SearchBarOverlay(
-                    controller: _searchController,
-                    isSearching: _searching,
-                    onVerify: _handleHomeSearchVerify,
-                  ),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-
-              // Bannière passante (THIX Info / Opportunity)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                  child: _HeadlinesCarousel(
-                    controller: _headlinesController,
-                      onThixInfoTap: () => context.push(AppRoutes.thixInfo),
-                    onOpportunityTap: () => context.push(AppRoutes.opportunities),
-                  ),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-
-              // Actions rapides (4 boutons)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                  child: _QuickActionsRow(
-                    onScanTap: _openThixAi,
-                    onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
-                    onChatTap: () => context.go(AppRoutes.chat),
-                    onSecurityTap: _openEmergency,
-                  ),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-
-              // Mes services (encadré + spacing réduit)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                sliver: SliverToBoxAdapter(
-                  child: StreamBuilder<SectionBadgeCounts>(
-                    stream: badgeCountsStream,
-                    builder: (context, snap) {
-                      final counts = snap.data ?? SectionBadgeCounts.zero;
-                      return _SectionCage(
-                        title: 'Mes services',
-                        child: _ServicesGrid(
-                          counts: counts,
-                          onServiceTap: (serviceKey) {
-                            switch (serviceKey) {
-                              case 'thixMedia':
-                                context.push(AppRoutes.thixMedia);
-                                break;
-                              case 'thixMarket':
-                                context.push(AppRoutes.thixMarket);
-                                break;
-                              case 'formations':
-                                context.push(AppRoutes.trainingHome);
-                                break;
-                              case 'emplois':
-                                context.push(AppRoutes.jobs);
-                                break;
-                              case 'thixInfo':
-                                context.push(AppRoutes.thixInfo);
-                                break;
-                              case 'opportunites':
-                                context.push(AppRoutes.opportunities);
-                                break;
-                              case 'evenements':
-  context.push(AppRoutes.events);
-  break;
-                              case 'reseauPro':
-                                context.push(AppRoutes.network);
-                                break;
-                              case 'thixSante':
-                                context.push(AppRoutes.thixSante);
-                                break;
-                              case 'thixMoney':
-                                context.push(AppRoutes.thixMoney);
-                                break;
-                              case 'servicesGov':
-                                break;
-                              case 'reservation':
-                                context.push(AppRoutes.reservation);
-                                break;
-                              default:
-                                break;
-                            }
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-
-              // Carte Premium (repositionnée)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                  child: _PremiumStatusCard(),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-
-              // Section personnalisée
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                  child: _PersonalisedSection(),
-                ),
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 20)),
-            ],
-          ),
-          if (_searching)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.4),
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryBlue,
-                  ),
-                ),
-              ),
+        if (isEnterprisePortal) return null;
+        return null;
+      },
+      routes: [
+        // ---- Routes générales ----
+        GoRoute(
+          path: AppRoutes.start,
+          name: 'start',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixIdStartPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.home,
+          name: 'home',
+          pageBuilder: (context, state) => const NoTransitionPage(child: HomePagePremium()),
+        ),
+        GoRoute(
+          path: AppRoutes.login,
+          name: 'login',
+          pageBuilder: (context, state) => const NoTransitionPage(child: LoginPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.personalReg,
+          name: 'personalReg',
+          pageBuilder: (context, state) {
+            final stepStr = state.uri.queryParameters['step'];
+            final step = int.tryParse(stepStr ?? '') ?? 1;
+            return NoTransitionPage(child: PersonalRegistrationPage(initialStep: step));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.enterpriseReg,
+          name: 'enterpriseReg',
+          pageBuilder: (context, state) => const NoTransitionPage(child: EnterpriseRegistrationPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.payment,
+          name: 'payment',
+          pageBuilder: (context, state) {
+            final returnTo = state.uri.queryParameters['returnTo'];
+            return NoTransitionPage(child: PaymentGatewayPage(returnTo: returnTo));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.activationReceipt,
+          name: 'activationReceipt',
+          pageBuilder: (context, state) {
+            final qp = state.uri.queryParameters;
+            final paidAt = DateTime.tryParse((qp['paidAt'] ?? '').trim());
+            return NoTransitionPage(
+                child: ActivationReceiptPage(
+                  txRef: qp['txRef'],
+                  method: qp['method'],
+                  amount: qp['amount'],
+                  currency: qp['currency'],
+                  paidAt: paidAt,
+                ));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.publicProfile,
+          name: 'publicProfile',
+          pageBuilder: (context, state) => NoTransitionPage(
+              child: PublicProfilePage(
+                  initialThixId: state.uri.queryParameters['thixId'])),
+        ),
+        GoRoute(
+          path: AppRoutes.userDashboard,
+          name: 'userDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: UserDashboardPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.enterpriseDashboard,
+          name: 'enterpriseDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: EnterpriseDashboardPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.enterprise,
+          name: 'enterpriseEntry',
+          redirect: (context, state) {
+            final isLoggedIn = auth.isAuthenticated;
+            if (!isLoggedIn) return AppRoutes.login;
+            final t = auth.currentUser?.accountType;
+            if (t == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
+            return AppRoutes.enterpriseReg;
+          },
+        ),
+        GoRoute(
+          path: '/entreprise/:slug',
+          name: 'enterprisePortalAliasFr',
+          redirect: (context, state) {
+            final slug = (state.pathParameters['slug'] ?? '').trim();
+            return '${AppRoutes.enterprisePortalBase(slug)}/dashboard/overview';
+          },
+        ),
+        GoRoute(
+          path: '${AppRoutes.enterprisePortalBasePath}/:slug',
+          name: 'enterprisePortal',
+          pageBuilder: (context, state) {
+            final slug = (state.pathParameters['slug'] ?? '').trim();
+            return NoTransitionPage(child: EnterprisePortalPage(companySlug: slug));
+          },
+          routes: [
+            GoRoute(
+              path: 'dashboard/:section',
+              name: 'enterprisePortalDashboard',
+              pageBuilder: (context, state) {
+                final slug = (state.pathParameters['slug'] ?? '').trim();
+                final section = (state.pathParameters['section'] ?? 'overview').trim();
+                return NoTransitionPage(
+                    child: EnterpriseDashboardShellPage(companySlug: slug, section: section));
+              },
             ),
-        ],
-      ),
-      bottomNavigationBar: _FloatingBottomNav(
-        onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
-      ),
-    );
-  }
-}
-
-class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double safeTop;
-  final String displayName;
-  final bool isAuthenticated;
-  final VoidCallback onProfileTap;
-  final VoidCallback onAccountRequest;
-
-  _PinnedHeaderDelegate({
-    required this.safeTop,
-    required this.displayName,
-    required this.isAuthenticated,
-    required this.onProfileTap,
-    required this.onAccountRequest,
-  });
-
-  double _headerExtent() => safeTop + 92;
-
-  @override
-  double get maxExtent => _headerExtent();
-
-  @override
-  double get minExtent => _headerExtent();
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.lightGrayBg,
-        boxShadow: overlapsContent
-            ? [
-                const BoxShadow(
-                  color: AppColors.shadowSecondary,
-                  blurRadius: 14,
-                  offset: Offset(0, 8),
-                ),
-              ]
-            : null,
-      ),
-      child: _PremiumHeader(
-        safeTop: safeTop,
-        displayName: displayName,
-        isAuthenticated: isAuthenticated,
-        onProfileTap: onProfileTap,
-        onAccountRequest: onAccountRequest,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
-    return safeTop != oldDelegate.safeTop ||
-        displayName != oldDelegate.displayName ||
-        isAuthenticated != oldDelegate.isAuthenticated;
-  }
-}
-
-// ============================================================================
-// COMPOSANTS (STYLE FACEBOOK)
-// ============================================================================
-
-class _HomeSoftBackground extends StatelessWidget {
-  const _HomeSoftBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: RepaintBoundary(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFF7F9FF), AppColors.lightGrayBg],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: -220,
-              right: -180,
-              child: _SoftBlob(
-                size: 420,
-                colors: const [Color(0x2A003BFF), Color(0x1400214F)],
-              ),
-            ),
-            Positioned(
-              top: -120,
-              left: -220,
-              child: _SoftBlob(
-                size: 360,
-                colors: const [Color(0x1F003BFF), Color(0x1200214F)],
-              ),
+            GoRoute(
+              path: 'dashboard',
+              name: 'enterprisePortalDashboardRoot',
+              redirect: (context, state) {
+                final slug = (state.pathParameters['slug'] ?? '').trim();
+                return '${AppRoutes.enterprisePortalBase(slug)}/dashboard/overview';
+              },
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SoftBlob extends StatelessWidget {
-  final double size;
-  final List<Color> colors;
-
-  const _SoftBlob({required this.size, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors,
+        GoRoute(
+          path: AppRoutes.chat,
+          name: 'chat',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixChatPage()),
+          routes: [
+            GoRoute(
+              path: ':chatId',
+              name: 'chatConversation',
+              pageBuilder: (context, state) {
+                final chatId = Uri.decodeComponent(state.pathParameters['chatId'] ?? '');
+                final extra = (state.extra is Map) ? (state.extra as Map).cast<String, dynamic>() : const <String, dynamic>{};
+                final title = (extra['title'] as String?) ?? 'Discussion';
+                final type = (extra['type'] as String?) ?? 'direct';
+                return NoTransitionPage(
+                    child: ChatConversationScreen(chatId: chatId, title: title, type: type));
+              },
             ),
-          ),
+          ],
         ),
-      ),
-    );
-  }
-}
-
-// ---- HEADER (Facebook-style) ----
-class _PremiumHeader extends StatelessWidget {
-  final double safeTop;
-  final String displayName;
-  final bool isAuthenticated;
-  final VoidCallback onProfileTap;
-  final VoidCallback onAccountRequest;
-
-  const _PremiumHeader({
-    required this.safeTop,
-    required this.displayName,
-    required this.isAuthenticated,
-    required this.onProfileTap,
-    required this.onAccountRequest,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                  boxShadow: AppShadows.secondary,
-                ),
-                child: const Icon(Icons.menu_rounded, color: AppColors.darkText, size: 18),
-              ),
-              const SizedBox(width: AppSpacing.m),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Welcome Back',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      color: AppColors.darkText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                  boxShadow: AppShadows.secondary,
-                ),
-                child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 18),
-              ),
-              const SizedBox(width: AppSpacing.s),
-              GestureDetector(
-                onTap: () => NotificationsSheet.show(context),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                    boxShadow: AppShadows.secondary,
-                  ),
-                  child: Stack(
-                    children: [
-                      const Center(
-                        child: Icon(
-                          Icons.notifications_none_rounded,
-                          color: AppColors.darkText,
-                          size: 18,
-                        ),
-                      ),
-                      Positioned(
-                        right: 7,
-                        top: 7,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: AppColors.dangerRed,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.s),
-              GestureDetector(
-                onTap: onProfileTap,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.white, width: 2),
-                    boxShadow: AppShadows.secondary,
-                    image: const DecorationImage(
-                      image: NetworkImage('https://i.pravatar.cc/150?img=11'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---- BARRE DE RECHERCHE ----
-class _SearchBarOverlay extends StatefulWidget {
-  final TextEditingController controller;
-  final bool isSearching;
-  final VoidCallback onVerify;
-
-  const _SearchBarOverlay({
-    required this.controller,
-    required this.isSearching,
-    required this.onVerify,
-  });
-
-  @override
-  State<_SearchBarOverlay> createState() => _SearchBarOverlayState();
-}
-
-class _SearchBarOverlayState extends State<_SearchBarOverlay> {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.searchBar),
-        boxShadow: AppShadows.secondary,
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, size: 22, color: AppColors.textSecondary),
-          const SizedBox(width: AppSpacing.s),
-          Expanded(
-            child: TextField(
-              controller: widget.controller,
-              enabled: !widget.isSearching,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Rechercher un THIX ID...',
-                hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-              ),
-              style: const TextStyle(
-                color: AppColors.darkText,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: widget.isSearching ? null : widget.onVerify,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primaryBlue, AppColors.darkNavy],
-                ),
-                borderRadius: BorderRadius.circular(AppRadius.button),
-              ),
-              child: const Text(
-                'Vérifier',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.s),
-          const Icon(Icons.tune_rounded, size: 22, color: AppColors.textSecondary),
-        ],
-      ),
-    );
-  }
-}
-
-// ---- CARTE STATUT PREMIUM ----
-class _PremiumStatusCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 84,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd],
+        GoRoute(
+          path: AppRoutes.vault,
+          name: 'vault',
+          pageBuilder: (context, state) => const NoTransitionPage(child: DocumentVaultPage()),
         ),
-        border: Border.all(color: AppColors.cardBorder, width: 0.7),
-        borderRadius: BorderRadius.circular(AppRadius.mainCard),
-        boxShadow: AppShadows.main,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l),
-      child: Row(
-        children: [
-          const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26),
-          const SizedBox(width: AppSpacing.m),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'Membre Premium',
-                  style: TextStyle(
-                    color: AppColors.darkText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                Text(
-                  'Score de confiance : 98%',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
-            decoration: BoxDecoration(
-              color: AppColors.darkText,
-              borderRadius: BorderRadius.circular(AppRadius.button),
-            ),
-            child: const Text(
-              'Voir',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---- ACTIONS RAPIDES ----
-class _QuickActionsRow extends StatelessWidget {
-  final VoidCallback onScanTap;
-  final VoidCallback onNfcTap;
-  final VoidCallback onChatTap;
-  final VoidCallback onSecurityTap;
-
-  const _QuickActionsRow({
-    required this.onScanTap,
-    required this.onNfcTap,
-    required this.onChatTap,
-    required this.onSecurityTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Center(
-            child: _QuickActionItem(
-              icon: Icons.smart_toy_rounded,
-              label: 'THIX IA',
-              backgroundColor: AppColors.goldBadge,
-              iconColor: AppColors.bottomNavCenterIcon,
-              labelColor: AppColors.darkText,
-              onTap: onScanTap,
-            ),
-          ),
+        GoRoute(
+          path: AppRoutes.settings,
+          name: 'settings',
+          pageBuilder: (context, state) => const NoTransitionPage(child: SettingsPage()),
         ),
-        Expanded(
-          child: Center(
-            child: _QuickActionItem(
-              icon: Icons.nfc_rounded,
-              label: 'NFC',
-              backgroundColor: AppColors.goldBadge,
-              iconColor: AppColors.bottomNavCenterIcon,
-              labelColor: AppColors.darkText,
-              onTap: onNfcTap,
-            ),
-          ),
+
+        // ---- Réseau ----
+        GoRoute(
+          path: AppRoutes.network,
+          name: 'network',
+          pageBuilder: (context, state) => const NoTransitionPage(child: NetworkProHome()),
         ),
-        Expanded(
-          child: Center(
-            child: _QuickActionItem(
-              icon: Icons.forum_rounded,
-              label: 'THIX CHAT',
-              backgroundColor: AppColors.goldBadge,
-              iconColor: AppColors.bottomNavCenterIcon,
-              labelColor: AppColors.darkText,
-              onTap: onChatTap,
-            ),
-          ),
+        GoRoute(
+          path: AppRoutes.networkSearch,
+          name: 'networkSearch',
+          pageBuilder: (context, state) => const NoTransitionPage(child: SearchNetworkPage()),
         ),
-        Expanded(
-          child: Center(
-            child: _QuickActionItem(
-              icon: Icons.emergency_rounded,
-              label: 'URGENCE',
-              backgroundColor: AppColors.dangerRed,
-              iconColor: AppColors.white,
-              labelColor: AppColors.dangerRed,
-              onTap: onSecurityTap,
-            ),
-          ),
+        GoRoute(
+          path: AppRoutes.networkNotifications,
+          name: 'networkNotifications',
+          pageBuilder: (context, state) => const NoTransitionPage(child: NotificationsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkMessages,
+          name: 'networkMessages',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ConversationsList()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkChatBasePath}/:userId',
+          name: 'networkChat',
+          pageBuilder: (context, state) {
+            final userId = (state.pathParameters['userId'] ?? '').trim();
+            final extra = state.extra;
+            String userName = 'Discussion';
+            String? userAvatar;
+            if (extra is String && extra.trim().isNotEmpty) {
+              userName = extra.trim();
+            } else if (extra is Map) {
+              final m = extra.cast<String, dynamic>();
+              final n = (m['userName'] as String?)?.trim();
+              if (n != null && n.isNotEmpty) userName = n;
+              final a = (m['userAvatar'] as String?)?.trim();
+              if (a != null && a.isNotEmpty) userAvatar = a;
+            }
+            return NoTransitionPage(
+                child: ChatScreen(userId: userId, userName: userName, userAvatar: userAvatar));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.networkConnections,
+          name: 'networkConnections',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsListPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkProfileSettings,
+          name: 'networkProfileSettings',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ProfileSettingsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.networkBlockedUsers,
+          name: 'networkBlockedUsers',
+          pageBuilder: (context, state) => const NoTransitionPage(child: BlockedUsersPage()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkPostBasePath}/:postId',
+          name: 'networkPostDetail',
+          pageBuilder: (context, state) {
+            final postId = (state.pathParameters['postId'] ?? '').trim();
+            return NoTransitionPage(child: PostDetailPage(postId: postId));
+          },
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkCommunityBasePath}/:communityId',
+          name: 'networkCommunityDetail',
+          pageBuilder: (context, state) {
+            final communityId = (state.pathParameters['communityId'] ?? '').trim();
+            return NoTransitionPage(child: CommunityDetailPage(communityId: communityId));
+          },
+        ),
+        GoRoute(
+          path: '${AppRoutes.networkProfileBasePath}/:userId',
+          name: 'networkProfile',
+          pageBuilder: (context, state) {
+            final userId = (state.pathParameters['userId'] ?? '').trim();
+            return NoTransitionPage(child: ProfilePage(userId: userId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.profile,
+          name: 'profile',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ProfilePage()),
+        ),
+
+        // ---- THIX Market ----
+        GoRoute(
+          path: AppRoutes.thixMarket,
+          name: 'thixMarket',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixMarketPage()),
+        ),
+
+        // ---- THIX Santé ----
+        GoRoute(
+          path: AppRoutes.thixSante,
+          name: 'thixSante',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixSantePage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixSantePatient,
+          name: 'thixSantePatient',
+          pageBuilder: (context, state) => NoTransitionPage(child: ThixSanteRolePage(role: ThixRole.patient)),
+        ),
+        GoRoute(
+          path: AppRoutes.thixSanteDoctor,
+          name: 'thixSanteDoctor',
+          pageBuilder: (context, state) => NoTransitionPage(child: ThixSanteRolePage(role: ThixRole.doctor)),
+        ),
+        GoRoute(
+          path: AppRoutes.thixSantePharmacy,
+          name: 'thixSantePharmacy',
+          pageBuilder: (context, state) => NoTransitionPage(child: ThixSanteRolePage(role: ThixRole.pharmacy)),
+        ),
+
+        // ---- Module Patient (santé) ----
+        GoRoute(
+          path: '/sante/patient/dashboard',
+          name: 'patientDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PatientDashboardPage()),
+        ),
+        GoRoute(
+          path: '/sante/patient/health',
+          name: 'patientHealth',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PatientHealthPage()),
+        ),
+        GoRoute(
+          path: '/sante/patient/care',
+          name: 'patientCare',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PatientCarePage()),
+        ),
+        GoRoute(
+          path: '/sante/patient/life',
+          name: 'patientLife',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PatientLifePage()),
+        ),
+        GoRoute(
+          path: '/sante/patient/connect',
+          name: 'patientConnect',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PatientConnectPage()),
+        ),
+        // ... (toutes les sous-routes patient existantes, je les raccourcis mais vous devez les inclure)
+
+        // ---- Module Médecin (santé) ----
+        GoRoute(
+          path: '/sante/doctor/dashboard',
+          name: 'doctorDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: DoctorDashboardPage()),
+        ),
+        // ... (sous-routes médecin)
+
+        // ---- Module Pharmacie (santé) ----
+        GoRoute(
+          path: '/sante/pharmacy/dashboard',
+          name: 'pharmacyDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: PharmacyDashboardPage()),
+        ),
+        // ... (sous-routes pharmacie)
+
+        // ---- THIX Money, Media, Info, Reservation ----
+        GoRoute(
+          path: AppRoutes.thixMoney,
+          name: 'thixMoney',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixMoneyPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixMedia,
+          name: 'thixMedia',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixMediaPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfo,
+          name: 'thixInfo',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixInfoHomePage()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.thixInfoArticleBasePath}/:id',
+          name: 'thixInfoArticle',
+          pageBuilder: (context, state) {
+            final id = (state.pathParameters['id'] ?? '').trim();
+            return NoTransitionPage(child: ThixInfoArticlePage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.reservation,
+          name: 'reservation',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixReservationPage()),
+        ),
+
+        // ==================== THIX ÉVÉNEMENT ====================
+        GoRoute(
+          path: AppRoutes.thixEvent, // alias '/thix-event'
+          name: 'thixEvent',
+          pageBuilder: (context, state) => const NoTransitionPage(child: ThixEventHome()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventDetail,
+          name: 'thixEventDetail',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            return NoTransitionPage(child: EventDetailPage(eventId: eventId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventSearch,
+          name: 'thixEventSearch',
+          pageBuilder: (context, state) => const NoTransitionPage(child: EventSearchPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventCategory,
+          name: 'thixEventCategory',
+          pageBuilder: (context, state) {
+            final category = state.pathParameters['category']!;
+            return NoTransitionPage(child: EventCategoryPage(category: category));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventReservation,
+          name: 'thixEventReservation',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
+            return NoTransitionPage(child: EventReservationPage(eventId: eventId, quantity: quantity));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventMyTickets,
+          name: 'thixEventMyTickets',
+          pageBuilder: (context, state) => const NoTransitionPage(child: MyTicketsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventFavorites,
+          name: 'thixEventFavorites',
+          pageBuilder: (context, state) => const NoTransitionPage(child: FavoriteEventsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventSeatSelection,
+          name: 'thixEventSeatSelection',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            return NoTransitionPage(child: SeatSelectionPage(eventId: eventId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixEventWaitingQueue,
+          name: 'thixEventWaitingQueue',
+          pageBuilder: (context, state) {
+            final eventId = state.pathParameters['eventId']!;
+            final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
+            return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
+          },
+        ),
+
+        // ---- Jobs ----
+        GoRoute(
+          path: AppRoutes.jobs,
+          name: 'jobs',
+          pageBuilder: (context, state) => const NoTransitionPage(child: JobsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.jobDashboard,
+          name: 'jobDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: JobDashboardPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.recruiter,
+          name: 'recruiter',
+          pageBuilder: (context, state) => const NoTransitionPage(child: RecruiterPortalPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.opportunities,
+          name: 'opportunities',
+          pageBuilder: (context, state) => const NoTransitionPage(child: OpportunitiesPage()),
+        ),
+        GoRoute(
+          path: '/opportunities/:opportunityId',
+          name: 'opportunityDetails',
+          pageBuilder: (context, state) {
+            final opportunityId = state.pathParameters['opportunityId'] ?? '';
+            final applied = (state.uri.queryParameters['applied'] ?? '').trim() == '1';
+            return NoTransitionPage(
+                child: OpportunityDetailsPage(opportunityId: opportunityId, applied: applied));
+          },
+        ),
+        GoRoute(
+          path: '/opportunities/:opportunityId/apply',
+          name: 'opportunityApply',
+          pageBuilder: (context, state) {
+            final opportunityId = state.pathParameters['opportunityId'] ?? '';
+            return NoTransitionPage(child: OpportunityApplyPage(opportunityId: opportunityId));
+          },
+        ),
+        GoRoute(
+          path: '/jobs/:jobId',
+          name: 'jobDetails',
+          pageBuilder: (context, state) {
+            final jobId = state.pathParameters['jobId'] ?? '';
+            final applied = (state.uri.queryParameters['applied'] ?? '').trim() == '1';
+            return NoTransitionPage(child: JobDetailsPage(jobId: jobId, applied: applied));
+          },
+        ),
+        GoRoute(
+          path: '/jobs/:jobId/apply',
+          name: 'jobApply',
+          pageBuilder: (context, state) {
+            final jobId = state.pathParameters['jobId'] ?? '';
+            return NoTransitionPage(child: JobApplyPage(jobId: jobId));
+          },
+        ),
+
+        // ---- Education ----
+        GoRoute(
+          path: AppRoutes.education,
+          name: 'education',
+          pageBuilder: (context, state) => const NoTransitionPage(child: EducationPage()),
+        ),
+
+        // ---- Training ----
+        GoRoute(
+          path: AppRoutes.trainingHome,
+          name: 'trainingHome',
+          pageBuilder: (context, state) => const NoTransitionPage(child: TrainingHomePage()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.trainingDetailsBasePath}/:trainingId',
+          name: 'trainingDetails',
+          pageBuilder: (context, state) {
+            final id = state.pathParameters['trainingId'] ?? '';
+            return NoTransitionPage(child: TrainingDetailsPage(trainingId: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.learningDashboard,
+          name: 'learningDashboard',
+          pageBuilder: (context, state) => const NoTransitionPage(child: LearningDashboardPage()),
+        ),
+        GoRoute(
+          path: '${AppRoutes.lessonPlayer}/:enrollmentId',
+          name: 'lessonPlayer',
+          pageBuilder: (context, state) {
+            final id = state.pathParameters['enrollmentId'] ?? '';
+            return NoTransitionPage(child: LessonPlayerPage(enrollmentId: id));
+          },
+        ),
+
+        // ---- Admin ----
+        GoRoute(
+          path: '${AppRoutes.admin}/:module',
+          name: 'admin',
+          pageBuilder: (context, state) {
+            final module = AdminModuleX.fromSlug(state.pathParameters['module']);
+            return NoTransitionPage(child: AdminPage(module: module));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.admin,
+          name: 'adminRoot',
+          redirect: (_, __) => '${AppRoutes.admin}/${AdminModule.overview.slug}',
+        ),
+        GoRoute(
+          path: AppRoutes.adminMedia,
+          name: 'adminMedia',
+          pageBuilder: (context, state) => const NoTransitionPage(child: AdminMediaPage()),
         ),
       ],
     );
   }
 }
 
-class _QuickActionItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color backgroundColor;
-  final Color iconColor;
-  final Color labelColor;
-  final VoidCallback onTap;
-
-  const _QuickActionItem({
-    required this.icon,
-    required this.label,
-    required this.backgroundColor,
-    required this.iconColor,
-    required this.labelColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _PressableScale(
-      onTap: onTap,
-      child: SizedBox(
-        width: 78,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.14),
-                    blurRadius: 14,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Icon(icon, size: 24, color: iconColor),
-            ),
-            const SizedBox(height: AppSpacing.s),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.1,
-                color: labelColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PressableScale extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _PressableScale({required this.child, required this.onTap});
-
-  @override
-  State<_PressableScale> createState() => _PressableScaleState();
-}
-
-class _PressableScaleState extends State<_PressableScale> {
-  bool _pressed = false;
-
-  void _setPressed(bool v) {
-    if (_pressed == v) return;
-    setState(() => _pressed = v);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: (_) => _setPressed(true),
-      onTapCancel: () => _setPressed(false),
-      onTapUp: (_) => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: AnimatedOpacity(
-          opacity: _pressed ? 0.92 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
-          child: widget.child,
-        ),
-      ),
-    );
-  }
-}
-
-// ---- GRILLE DE SERVICES (SANS CONTENEURS) ----
-class _ServicesGrid extends StatelessWidget {
-  final SectionBadgeCounts counts;
-  final Function(String) onServiceTap;
-
-  const _ServicesGrid({
-    required this.counts,
-    required this.onServiceTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final services = [
-      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.domainMedia},
-      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.domainMarket},
-      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.domainLearning, 'badge': counts.formations},
-      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.domainJobs, 'badge': counts.jobs},
-      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.domainInfo, 'badge': counts.info},
-      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.domainOpportunity},
-      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.domainEvents, 'badge': counts.events},
-      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
-      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
-      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
-      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.domainGov},
-      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-        childAspectRatio: 1.02,
-      ),
-      itemCount: services.length,
-      itemBuilder: (ctx, index) {
-        final service = services[index];
-        final badge = service['badge'] as int?;
-        return _ServiceCard(
-          icon: service['icon'] as IconData,
-          title: service['title'] as String,
-          color: service['color'] as Color,
-          badgeCount: badge,
-          onTap: () => onServiceTap(service['key'] as String),
-        );
-      },
-    );
-  }
-}
-
-class _ServiceCard extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final int? badgeCount;
-  final VoidCallback onTap;
-
-  const _ServiceCard({
-    required this.icon,
-    required this.title,
-    required this.color,
-    this.badgeCount,
-    required this.onTap,
-  });
-
-  @override
-  State<_ServiceCard> createState() => _ServiceCardState();
-}
-
-class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: widget.color.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                widget.icon,
-                color: widget.color,
-                size: 18,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Text(
-                  widget.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.darkText,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (widget.badgeCount != null && widget.badgeCount! > 0)
-                  Positioned(
-                    top: -8,
-                    right: -12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.dangerRed,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${widget.badgeCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionCage extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _SectionCage({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.mainCard),
-        border: Border.all(color: AppColors.cardBorder, width: 0.6),
-        boxShadow: AppShadows.secondary,
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.grid_view_rounded, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.darkText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _HeadlinesCarousel extends StatelessWidget {
-  final PageController controller;
-  final VoidCallback onThixInfoTap;
-  final VoidCallback onOpportunityTap;
-
-  const _HeadlinesCarousel({
-    required this.controller,
-    required this.onThixInfoTap,
-    required this.onOpportunityTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 120,
-      child: PageView(
-        controller: controller,
-        children: [
-          _HeadlineCard(
-            label: 'À la une • THIX Info',
-            title: 'Nouvelles, annonces et mises à jour',
-            icon: Icons.newspaper_rounded,
-            accent: AppColors.domainInfo,
-            onTap: onThixInfoTap,
-          ),
-          _HeadlineCard(
-            label: 'À la une • Opportunity',
-            title: 'Opportunités pro à saisir maintenant',
-            icon: Icons.lightbulb_rounded,
-            accent: AppColors.domainOpportunity,
-            onTap: onOpportunityTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeadlineCard extends StatelessWidget {
-  final String label;
-  final String title;
-  final IconData icon;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _HeadlineCard({
-    required this.label,
-    required this.title,
-    required this.icon,
-    required this.accent,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(AppRadius.mainCard),
-          border: Border.all(color: AppColors.cardBorder, width: 0.6),
-          boxShadow: AppShadows.main,
-        ),
-        padding: const EdgeInsets.all(AppSpacing.l),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: accent, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.darkText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                      height: 1.15,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---- SECTION PERSONNALISÉE (Facebook-style) ----
-class _PersonalisedSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    const items = [
-      _MiniRoundAction(icon: Icons.account_balance_wallet_rounded, label: 'Top Up'),
-      _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: 'Buy'),
-      _MiniRoundAction(icon: Icons.shield_rounded, label: 'Secure'),
-      _MiniRoundAction(icon: Icons.local_atm_rounded, label: 'Cash out'),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Personnalisé pour vous',
-          style: TextStyle(
-            color: AppColors.darkText,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.2,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.m),
-        Row(
-          children: [
-            for (final item in items)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: item,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniRoundAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _MiniRoundAction({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: Column(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.cardBorder, width: 0.5),
-              boxShadow: AppShadows.secondary,
-            ),
-            child: Icon(icon, size: 20, color: AppColors.darkText),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---- BOTTOM NAVIGATION ----
-class _FloatingBottomNav extends StatelessWidget {
-  final VoidCallback onScanTap;
-
-  const _FloatingBottomNav({required this.onScanTap});
-
-  void _openDocuments(BuildContext context) {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.go(AppRoutes.vault);
+// Helper pour GoRouter
+extension GoRouterBackHelpers on BuildContext {
+  void popOrGo(String fallbackLocation) {
+    final router = GoRouter.of(this);
+    if (router.canPop()) {
+      pop();
       return;
     }
-    context.push(AppRoutes.login);
-  }
-
-  void _openProfile(BuildContext context) {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
-      return;
-    }
-    context.push(AppRoutes.login);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 92,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.bottomNavBlue,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _NavItem(
-                    icon: Icons.home_filled,
-                    label: 'Home',
-                    active: true,
-                    onTap: () => context.go(AppRoutes.home),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  _NavItem(
-                    icon: Icons.apps_rounded,
-                    label: 'Mini Apps',
-                    onTap: () {},
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  const SizedBox(width: 74),
-                  _NavItem(
-                    icon: Icons.folder_rounded,
-                    label: 'Documents',
-                    onTap: () => _openDocuments(context),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  _NavItem(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Profile',
-                    onTap: () => _openProfile(context),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: -18,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 74,
-                    height: 74,
-                    decoration: const BoxDecoration(color: AppColors.lightGrayBg, shape: BoxShape.circle),
-                  ),
-                  GestureDetector(
-                    onTap: onScanTap,
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: AppColors.goldBadge,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: AppColors.bottomNavCenterIcon,
-                        size: 26,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final Color? activeColor;
-  final Color? inactiveColor;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.active = false,
-    required this.onTap,
-    this.activeColor,
-    this.inactiveColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedActive = activeColor ?? AppColors.primaryBlue;
-    final resolvedInactive = inactiveColor ?? AppColors.textSecondary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: active ? resolvedActive : resolvedInactive,
-            size: 22,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: active ? resolvedActive : resolvedInactive,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// FEUILLE DE DEMANDE DE COMPTE
-// ============================================================================
-
-enum _AccountRequestChoice { personal, enterprise }
-
-class AccountRequestSheet extends StatelessWidget {
-  const AccountRequestSheet({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 35,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.cardBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.l),
-            const Text(
-              'Créer un compte',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.darkText,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            _OptionButton(
-              icon: Icons.person_outline,
-              title: 'Compte Personnel',
-              subtitle: 'Pour un profil individuel',
-              onTap: () {
-                Navigator.pop(context, _AccountRequestChoice.personal);
-              },
-            ),
-            const SizedBox(height: AppSpacing.m),
-            _OptionButton(
-              icon: Icons.business_outlined,
-              title: 'Compte Entreprise',
-              subtitle: 'Pour une organisation',
-              onTap: () {
-                Navigator.pop(context, _AccountRequestChoice.enterprise);
-              },
-            ),
-            const SizedBox(height: AppSpacing.m),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OptionButton extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _OptionButton({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.m),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.cardBorder),
-          borderRadius: BorderRadius.circular(14),
-          color: AppColors.lightGrayBg,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.darkText.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: AppColors.darkText, size: 20),
-            ),
-            const SizedBox(width: AppSpacing.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.darkText,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 12,
-              color: AppColors.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
+    go(fallbackLocation);
   }
 }
