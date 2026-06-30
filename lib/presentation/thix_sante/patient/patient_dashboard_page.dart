@@ -217,14 +217,22 @@ class _PatientDashboardPageState
                                     const Color(
                                       0xFF00B894,
                                     ),
-                                onTap: () {},
+                                onTap: () {
+                                  context.push(
+                                    '/sante/patient/appointment/new',
+                                  );
+                                },
                               ),
                               _ActionItem(
                                 label: 'Examens',
                                 icon: Icons.science,
                                 color:
                                     Colors.purple,
-                                onTap: () {},
+                                onTap: () {
+                                  context.push(
+                                    '/sante/patient/exams',
+                                  );
+                                },
                               ),
                               _ActionItem(
                                 label:
@@ -232,14 +240,22 @@ class _PatientDashboardPageState
                                 icon: Icons.receipt,
                                 color:
                                     Colors.orange,
-                                onTap: () {},
+                                onTap: () {
+                                  context.push(
+                                    '/sante/patient/prescriptions',
+                                  );
+                                },
                               ),
                               _ActionItem(
                                 label: 'Urgences',
                                 icon:
                                     Icons.favorite,
                                 color: Colors.red,
-                                onTap: () {},
+                                onTap: () {
+                                  context.push(
+                                    '/sante/patient/map/emergencies',
+                                  );
+                                },
                               ),
                               _ActionItem(
                                 label: 'Plus',
@@ -314,6 +330,7 @@ class _PatientDashboardPageState
                                 title: 'Assurance santé',
                                 subtitle: 'Bénéficiez d\'une couverture complète adaptée à vos besoins.',
                                 icon: Icons.shield,
+                                onTap: () => context.push('/sante/patient/insurance'),
                               ),
 
                               const SizedBox(height: 18),
@@ -322,6 +339,7 @@ class _PatientDashboardPageState
                                 title: 'Assurance',
                                 subtitle: 'Protégez-vous et vos proches avec nos solutions.',
                                 icon: Icons.security,
+                                onTap: () => context.push('/sante/patient/insurance'),
                               ),
 
                               const SizedBox(
@@ -375,22 +393,42 @@ class _PatientDashboardPageState
                   title:
                       'Prendre un rendez-vous',
                   color: HealthUI.primary,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(
+                        '/sante/patient/appointment/new');
+                  },
                 ),
                 _BottomSheetTile(
                   icon: Icons.camera_alt,
                   title:
                       'Scanner une ordonnance',
                   color: Colors.purple,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(
+                        '/sante/patient/scan');
+                  },
                 ),
                 _BottomSheetTile(
                   icon: Icons.chat,
                   title: 'Assistant IA',
                   color: Colors.green,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(
+                        '/sante/patient/ia');
+                  },
                 ),
                 _BottomSheetTile(
                   icon: Icons.health_and_safety,
                   title: 'Urgence',
                   color: Colors.red,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(
+                        '/sante/patient/map/emergencies');
+                  },
                 ),
               ],
             ),
@@ -963,6 +1001,9 @@ class _SummarySection extends StatelessWidget {
                       .toString(),
               icon: Icons.calendar_today,
               color: Colors.blue,
+              onTap: () {
+                context.push('/sante/patient/health');
+              },
             ),
             _SummaryCard(
               title: 'Examens',
@@ -970,6 +1011,9 @@ class _SummarySection extends StatelessWidget {
                   .toString(),
               icon: Icons.science,
               color: Colors.green,
+              onTap: () {
+                context.push('/sante/patient/exams');
+              },
             ),
             _SummaryCard(
               title: 'Médicaments',
@@ -978,6 +1022,9 @@ class _SummarySection extends StatelessWidget {
                   .toString(),
               icon: Icons.medication,
               color: Colors.purple,
+              onTap: () {
+                context.push('/sante/patient/medications');
+              },
             ),
             _SummaryCard(
               title: 'Rendez-vous',
@@ -986,6 +1033,9 @@ class _SummarySection extends StatelessWidget {
                   .toString(),
               icon: Icons.access_time,
               color: Colors.orange,
+              onTap: () {
+                context.push('/sante/patient/appointments');
+              },
             ),
           ],
         ),
@@ -1003,59 +1053,65 @@ class _SummaryCard extends StatelessWidget {
 
   final Color color;
 
+  final VoidCallback? onTap;
+
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(22),
-        boxShadow: HealthUI.shadow,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        mainAxisAlignment:
-            MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment:
-                MainAxisAlignment
-                    .spaceBetween,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius:
+              BorderRadius.circular(22),
+          boxShadow: HealthUI.shadow,
+        ),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment:
+                  MainAxisAlignment
+                      .spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
-              Icon(
-                icon,
-                color: color,
-                size: 18,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
+                Icon(
+                  icon,
+                  color: color,
+                  size: 18,
+                ),
+              ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: 12),
+
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1085,11 +1141,26 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
         if (action != null)
-          Text(
-            action!,
-            style: GoogleFonts.poppins(
-              color: HealthUI.primary,
-              fontWeight: FontWeight.w600,
+          GestureDetector(
+            onTap: () {
+              // Redirige vers la page correspondante
+              // selon le titre
+              if (title == 'Résumé de santé') {
+                context.push('/sante/patient/health');
+              } else if (title == 'Services santé') {
+                context.push('/sante/patient/health');
+              } else if (title == 'Services rapides') {
+                context.push('/sante/patient/health');
+              } else if (title == 'Pour vous') {
+                // rester sur la page
+              }
+            },
+            child: Text(
+              action!,
+              style: GoogleFonts.poppins(
+                color: HealthUI.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
       ],
@@ -1105,32 +1176,38 @@ class _HealthServicesGrid
       (
         'Santé enfants',
         'Suivez la santé',
-        Icons.child_care
+        Icons.child_care,
+        '/sante/patient/family'
       ),
       (
         'Vaccination',
         'Consultez vaccins',
-        Icons.vaccines
+        Icons.vaccines,
+        '/sante/patient/vaccinations'
       ),
       (
         'Grossesse',
         'Suivi pas à pas',
-        Icons.pregnant_woman
+        Icons.pregnant_woman,
+        '/sante/patient/pregnancy'
       ),
       (
         'Assurance',
         'Protection santé',
-        Icons.shield
+        Icons.shield,
+        '/sante/patient/insurance'
       ),
       (
         'Assistance',
         'Solutions adaptées',
-        Icons.security
+        Icons.security,
+        '/sante/patient/insurance'
       ),
       (
         'Plus',
         'Tous les services',
-        Icons.more_horiz
+        Icons.more_horiz,
+        '/sante/patient/health'
       ),
     ];
 
@@ -1149,59 +1226,64 @@ class _HealthServicesGrid
       itemBuilder: (_, index) {
         final item = services[index];
 
-        return Container(
-          padding:
-              const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-                BorderRadius.circular(22),
-            boxShadow: HealthUI.shadow,
-          ),
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(
-                          14),
-                  color: HealthUI.primary
-                      .withOpacity(0.1),
+        return GestureDetector(
+          onTap: () {
+            context.push(item.$4);
+          },
+          child: Container(
+            padding:
+                const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(22),
+              boxShadow: HealthUI.shadow,
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(
+                            14),
+                    color: HealthUI.primary
+                        .withOpacity(0.1),
+                  ),
+                  child: Icon(
+                    item.$3,
+                    size: 20,
+                    color: HealthUI.primary,
+                  ),
                 ),
-                child: Icon(
-                  item.$3,
-                  size: 20,
-                  color: HealthUI.primary,
+
+                const SizedBox(height: 12),
+
+                Text(
+                  item.$1,
+                  style: GoogleFonts.poppins(
+                    fontWeight:
+                        FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 4),
 
-              Text(
-                item.$1,
-                style: GoogleFonts.poppins(
-                  fontWeight:
-                      FontWeight.w700,
-                  fontSize: 14,
+                Text(
+                  item.$2,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 4),
-
-              Text(
-                item.$2,
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1216,70 +1298,103 @@ class _QuickServices
     final services = [
       (
         'Consulter médecin',
-        Icons.medical_services
+        Icons.medical_services,
+        '/sante/patient/appointment/new'
       ),
-      ('Dossier médical', Icons.folder),
-      ('Résultats', Icons.science),
-      ('Ordonnances', Icons.receipt),
-      ('Hôpitaux', Icons.local_hospital),
-      ('Médicaments', Icons.medication),
-      // === AJOUT : Pharmacies proches & Urgences proches ===
-      ('Pharmacies proches', Icons.local_pharmacy),
-      ('Urgences proches', Icons.emergency),
+      (
+        'Dossier médical',
+        Icons.folder,
+        '/sante/patient/record'
+      ),
+      (
+        'Résultats',
+        Icons.science,
+        '/sante/patient/exams'
+      ),
+      (
+        'Ordonnances',
+        Icons.receipt,
+        '/sante/patient/prescriptions'
+      ),
+      (
+        'Hôpitaux',
+        Icons.local_hospital,
+        '/sante/patient/map/hospitals'
+      ),
+      (
+        'Médicaments',
+        Icons.medication,
+        '/sante/patient/map/pharmacies'
+      ),
+      (
+        'Pharmacies proches',
+        Icons.local_pharmacy,
+        '/sante/patient/map/pharmacies'
+      ),
+      (
+        'Urgences proches',
+        Icons.emergency,
+        '/sante/patient/map/emergencies'
+      ),
     ];
 
     return Column(
       children: services.map((item) {
-        return Container(
-          margin:
-              const EdgeInsets.only(
-            bottom: 12,
-          ),
-          padding:
-              const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-                BorderRadius.circular(20),
-            boxShadow: HealthUI.shadow,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(
-                          14),
-                  color: HealthUI.primary
-                      .withOpacity(0.1),
-                ),
-                child: Icon(
-                  item.$2,
-                  color: HealthUI.primary,
-                  size: 20,
-                ),
-              ),
-
-              const SizedBox(width: 14),
-
-              Expanded(
-                child: Text(
-                  item.$1,
-                  style:
-                      GoogleFonts.poppins(
-                    fontWeight:
-                        FontWeight.w600,
+        return GestureDetector(
+          onTap: () {
+            context.push(item.$3);
+          },
+          child: Container(
+            margin:
+                const EdgeInsets.only(
+              bottom: 12,
+            ),
+            padding:
+                const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(20),
+              boxShadow: HealthUI.shadow,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(
+                            14),
+                    color: HealthUI.primary
+                        .withOpacity(0.1),
+                  ),
+                  child: Icon(
+                    item.$2,
+                    color: HealthUI.primary,
+                    size: 20,
                   ),
                 ),
-              ),
 
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-              ),
-            ],
+                const SizedBox(width: 14),
+
+                Expanded(
+                  child: Text(
+                    item.$1,
+                    style:
+                        GoogleFonts.poppins(
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -1287,78 +1402,82 @@ class _QuickServices
   }
 }
 
-// ===== InsuranceCard réutilisable =====
 class _InsuranceCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final VoidCallback? onTap;
 
   const _InsuranceCard({
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius:
-            BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFEAF4FF),
-            Color(0xFFF4FFFC),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          borderRadius:
+              BorderRadius.circular(26),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFEAF4FF),
+              Color(0xFFF4FFFC),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.circular(
+                        18),
+              ),
+              child: Icon(
+                icon,
+                color: HealthUI.primary,
+              ),
+            ),
+
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style:
+                        GoogleFonts.poppins(
+                      fontWeight:
+                          FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style:
+                        GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(
-                      18),
-            ),
-            child: Icon(
-              icon,
-              color: HealthUI.primary,
-            ),
-          ),
-
-          const SizedBox(width: 16),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style:
-                      GoogleFonts.poppins(
-                    fontWeight:
-                        FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style:
-                      GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1392,93 +1511,99 @@ class _ArticlesSection
               final article =
                   articles[index];
 
-              return Container(
-                width: 240,
-                margin:
-                    const EdgeInsets.only(
-                  right: 14,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(
-                          24),
-                  image:
-                      article.imageUrl != null
-                          ? DecorationImage(
-                              image: NetworkImage(
-                                article
-                                    .imageUrl!,
-                              ),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                  color: Colors.white,
-                ),
+              return GestureDetector(
+                onTap: () {
+                  context.push(
+                      '/sante/patient/article/${article.id}');
+                },
                 child: Container(
+                  width: 240,
+                  margin:
+                      const EdgeInsets.only(
+                    right: 14,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius:
                         BorderRadius.circular(
                             24),
-                    gradient:
-                        LinearGradient(
-                      begin:
-                          Alignment.topCenter,
-                      end: Alignment
-                          .bottomCenter,
-                      colors: [
-                        Colors.black
-                            .withOpacity(
-                                0.05),
-                        Colors.black
-                            .withOpacity(
-                                0.55),
+                    image:
+                        article.imageUrl != null
+                            ? DecorationImage(
+                                image: NetworkImage(
+                                  article
+                                      .imageUrl!,
+                                ),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                    color: Colors.white,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(
+                              24),
+                      gradient:
+                          LinearGradient(
+                        begin:
+                            Alignment.topCenter,
+                        end: Alignment
+                            .bottomCenter,
+                        colors: [
+                          Colors.black
+                              .withOpacity(
+                                  0.05),
+                          Colors.black
+                              .withOpacity(
+                                  0.55),
+                        ],
+                      ),
+                    ),
+                    padding:
+                        const EdgeInsets.all(
+                            18),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      mainAxisAlignment:
+                          MainAxisAlignment
+                              .end,
+                      children: [
+                        Text(
+                          article.title,
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
+                          style:
+                              GoogleFonts
+                                  .poppins(
+                            color:
+                                Colors.white,
+                            fontWeight:
+                                FontWeight
+                                    .w700,
+                            fontSize: 16,
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 8,
+                        ),
+
+                        Text(
+                          '${article.readTime} min de lecture',
+                          style:
+                              GoogleFonts
+                                  .poppins(
+                            color: Colors
+                                .white70,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  padding:
-                      const EdgeInsets.all(
-                          18),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-                    mainAxisAlignment:
-                        MainAxisAlignment
-                            .end,
-                    children: [
-                      Text(
-                        article.title,
-                        maxLines: 2,
-                        overflow:
-                            TextOverflow
-                                .ellipsis,
-                        style:
-                            GoogleFonts
-                                .poppins(
-                          color:
-                              Colors.white,
-                          fontWeight:
-                              FontWeight
-                                  .w700,
-                          fontSize: 16,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 8,
-                      ),
-
-                      Text(
-                        '${article.readTime} min de lecture',
-                        style:
-                            GoogleFonts
-                                .poppins(
-                          color: Colors
-                              .white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               );
@@ -1490,18 +1615,17 @@ class _ArticlesSection
   }
 }
 
-class _BottomSheetTile
-    extends StatelessWidget {
+class _BottomSheetTile extends StatelessWidget {
   final IconData icon;
-
   final String title;
-
   final Color color;
+  final VoidCallback? onTap;
 
   const _BottomSheetTile({
     required this.icon,
     required this.title,
     required this.color,
+    this.onTap,
   });
 
   @override
@@ -1534,6 +1658,7 @@ class _BottomSheetTile
         Icons.arrow_forward_ios,
         size: 14,
       ),
+      onTap: onTap,
     );
   }
 }
