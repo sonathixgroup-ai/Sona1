@@ -104,7 +104,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     final me = context.read<AuthController>().currentUser;
     if (me == null) return;
     try {
-      final res = await FilePicker.pickFiles(withData: kIsWeb);
+      final res = await FilePicker.platform.pickFiles(withData: kIsWeb);
       final f = res?.files.firstOrNull;
       if (f == null) return;
       setState(() => _sending = true);

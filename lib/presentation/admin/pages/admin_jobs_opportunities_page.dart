@@ -362,7 +362,7 @@ class _CreateOpportunitySheetState extends State<_CreateOpportunitySheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
@@ -587,7 +587,7 @@ class _EditOpportunitySheetState extends State<_EditOpportunitySheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
@@ -1151,7 +1151,7 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;
@@ -1448,7 +1448,7 @@ class _EditOfferSheetState extends State<_EditOfferSheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
       final bytes = file.bytes;

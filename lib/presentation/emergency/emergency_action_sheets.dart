@@ -436,7 +436,7 @@ class _BloodSheetState extends State<_BloodSheet> {
 
   Future<void> _pickMedicalProof() async {
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, allowMultiple: false, withData: kIsWeb);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false, withData: kIsWeb);
       if (res == null || res.files.isEmpty) return;
       setState(() => _medicalProof = res.files.first);
     } catch (e) {
@@ -643,7 +643,7 @@ class _AccidentSheetState extends State<_AccidentSheet> {
 
   Future<void> _pickPhotos() async {
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, allowMultiple: true, withData: kIsWeb);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true, withData: kIsWeb);
       if (res == null) return;
       setState(() => _photos = res.files);
     } catch (e) {
@@ -708,7 +708,7 @@ class _AnonymousReportSheetState extends State<_AnonymousReportSheet> {
 
   Future<void> _pickProofs() async {
     try {
-      final res = await FilePicker.pickFiles(type: FileType.any, allowMultiple: true, withData: kIsWeb);
+      final res = await FilePicker.platform.pickFiles(type: FileType.any, allowMultiple: true, withData: kIsWeb);
       if (res == null) return;
       setState(() => _files = res.files);
     } catch (e) {

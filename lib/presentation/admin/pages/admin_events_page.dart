@@ -589,7 +589,7 @@ class _EventEditorState extends State<_EventEditor> {
   Future<void> _pickCover() async {
     try {
       // IMPORTANT (Web): without withData=true, PlatformFile.bytes is null and uploads fail.
-      final res = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'], withData: true, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'], withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       setState(() {
         _pickedCover = res.files.first;

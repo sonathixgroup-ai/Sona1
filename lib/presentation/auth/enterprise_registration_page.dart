@@ -246,7 +246,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
 
   Future<void> _pickPhoto() async {
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       setState(() => _pickedPhoto = res.files.first);
     } catch (e) {

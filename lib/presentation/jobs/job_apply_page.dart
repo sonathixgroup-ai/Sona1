@@ -134,19 +134,19 @@ class _JobApplyPageState extends State<JobApplyPage> {
   }
 
   Future<void> _pickResume() async {
-    final res = await fp.FilePicker.pickFiles(withData: kIsWeb, type: fp.FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
+    final res = await fp.FilePicker.platform.pickFiles(withData: kIsWeb, type: fp.FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
     if (res == null || res.files.isEmpty) return;
     setState(() => _resume = res.files.first);
   }
 
   Future<void> _pickVideo() async {
-    final res = await fp.FilePicker.pickFiles(withData: kIsWeb, type: fp.FileType.video);
+    final res = await fp.FilePicker.platform.pickFiles(withData: kIsWeb, type: fp.FileType.video);
     if (res == null || res.files.isEmpty) return;
     setState(() => _video = res.files.first);
   }
 
   Future<void> _pickDiplomas() async {
-    final res = await fp.FilePicker.pickFiles(withData: kIsWeb, allowMultiple: true, type: fp.FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
+    final res = await fp.FilePicker.platform.pickFiles(withData: kIsWeb, allowMultiple: true, type: fp.FileType.custom, allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp']);
     if (res == null || res.files.isEmpty) return;
     setState(() => _diplomas = res.files);
   }

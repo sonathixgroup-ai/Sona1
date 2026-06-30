@@ -328,7 +328,7 @@ class _TrainingAdminPageState extends State<TrainingAdminPage> {
 
     try {
       // Correction : utiliser FilePicker.pickFiles (méthode statique) au lieu de FilePicker.platform.pickFiles
-      final FilePickerResult? result = await FilePicker.pickFiles(
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
         withData: true,

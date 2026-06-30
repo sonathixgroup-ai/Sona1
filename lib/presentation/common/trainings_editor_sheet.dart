@@ -106,7 +106,7 @@ class _TrainingsEditorBodyState extends State<_TrainingsEditorBody> {
   Future<void> _pickEvidenceFiles() async {
     try {
       // Photos only.
-      final res = await FilePicker.pickFiles(allowMultiple: true, withData: kIsWeb, type: FileType.custom, allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp']);
+      final res = await FilePicker.platform.pickFiles(allowMultiple: true, withData: kIsWeb, type: FileType.custom, allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp']);
       if (res == null || res.files.isEmpty) return;
       if (!mounted) return;
       setState(() => _saving = true);

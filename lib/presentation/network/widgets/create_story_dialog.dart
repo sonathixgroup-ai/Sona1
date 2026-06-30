@@ -28,7 +28,7 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
 
   Future<void> _pickImage() async {
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
         withData: true,

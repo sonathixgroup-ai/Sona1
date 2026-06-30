@@ -742,7 +742,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   Future<void> _pickPhoto() async {
     try {
-      final res = await FilePicker.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       setState(() => _pickedPhoto = res.files.first);
     } catch (e) {
@@ -969,7 +969,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   }
 
   Future<void> _pickAndUploadDoc() async {
-    final picked = await FilePicker.pickFiles(withData: kIsWeb);
+    final picked = await FilePicker.platform.pickFiles(withData: kIsWeb);
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;
     if (!mounted) return;

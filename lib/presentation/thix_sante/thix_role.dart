@@ -160,6 +160,11 @@ class ThixRoleController extends ChangeNotifier {
     if (_role == nextRole && _manualSelection == manual) return;
     _role = nextRole;
     _manualSelection = manual;
+    // UX pragmatique: quand l'utilisateur choisit explicitement un rôle,
+    // on le considère immédiatement comme "valide" (sinon HealthRouter
+    // reste bloqué sur le fallback tant que les métadonnées ne sont pas
+    // persistées et resynchronisées).
+    if (manual) _verifiedRole = nextRole;
     notifyListeners();
   }
 

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/auth/auth_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 import 'package:thix_id/presentation/thix_sante/health_router.dart';
 import 'package:thix_id/presentation/thix_sante/health_constants.dart';
@@ -24,14 +25,14 @@ class _ThixSantePageState extends State<ThixSantePage> {
 
   /// Synchronise le rôle depuis les métadonnées de l'utilisateur
   void _syncRoleFromUser() {
-    final user = AuthController.instance.currentUser;
-    if (user != null) {
-      // On passe les métadonnées (si elles existent) au contrôleur
-      ThixRoleController.instance.syncFromSession(
-        appMetadata: user.appMetadata,
-        userMetadata: user.userMetadata,
-      );
-    }
+    // AppUser (modèle app) n'expose pas directement appMetadata/userMetadata.
+    // Pour THIX Santé, on s'appuie sur le user Supabase pour lire les métadonnées.
+    final sbUser = Supabase.instance.client.auth.currentUser;
+    if (sbUser == null) return;
+    ThixRoleController.instance.syncFromSession(
+      appMetadata: sbUser.appMetadata,
+      userMetadata: sbUser.userMetadata,
+    );
   }
 
   @override
@@ -115,7 +116,7 @@ class _ThixSantePageState extends State<ThixSantePage> {
                 spacing: 20,
                 runSpacing: 20,
                 alignment: WrapAlignment.center,
-                children: ThixRole.availableRoles.map((role) {
+                children: ThixRoleController.availableRoles.map((role) {
                   return _buildRoleCard(role);
                 }).toList(),
               ),

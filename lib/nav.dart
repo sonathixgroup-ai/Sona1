@@ -58,6 +58,8 @@ import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
 // Import du module Santé (unique point d'entrée)
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
+import 'package:thix_id/presentation/thix_sante/thix_role.dart';
+import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
@@ -94,6 +96,7 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleexpe
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_add_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_vital_chart_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_medication_reminders_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_medications_list_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccination_calendar_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_pharmacy_detail_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart';

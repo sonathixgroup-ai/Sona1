@@ -184,7 +184,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
     final me = context.read<AuthController>().currentUser;
     if (me == null) return;
 
-    final picked = await FilePicker.pickFiles(withData: kIsWeb);
+    final picked = await FilePicker.platform.pickFiles(withData: kIsWeb);
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;
 

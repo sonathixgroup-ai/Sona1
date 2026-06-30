@@ -60,7 +60,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
   }
 
   Future<void> _pickCoverFile() async {
-    final result = await FilePicker.pickFiles(type: FileType.image, withData: true);
+    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     if (result != null && result.files.isNotEmpty) {
       setState(() {
         _selectedCoverFile = result.files.single;
@@ -70,7 +70,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
   }
 
   Future<void> _pickVideoFile() async {
-    final result = await FilePicker.pickFiles(type: FileType.video, withData: true);
+    final result = await FilePicker.platform.pickFiles(type: FileType.video, withData: true);
     if (result != null && result.files.isNotEmpty) {
       setState(() {
         _selectedVideoFile = result.files.single;

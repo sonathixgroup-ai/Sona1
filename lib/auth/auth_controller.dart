@@ -4,10 +4,20 @@ import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
 
 class AuthController extends ChangeNotifier {
+  static AuthController? _instance;
+
+  /// Global singleton accessor used by some legacy pages (ex: THIX Santé).
+  ///
+  /// In Dreamflow, the app also injects an AuthController via Provider.
+  /// We keep both worlds consistent by assigning the first constructed
+  /// instance (usually the bootstrap instance) to this singleton.
+  static AuthController get instance => _instance ??= AuthController();
+
   final AuthManager _auth;
 
   /// Defaults to SupabaseAuthManager to enforce Supabase-only backend.
   AuthController({AuthManager? auth}) : _auth = auth ?? SupabaseAuthManager() {
+    _instance ??= this;
     _auth.currentUserListenable.addListener(notifyListeners);
   }
 
