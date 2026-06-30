@@ -41,8 +41,6 @@ class _NotificationsSheetBodyState extends State<_NotificationsSheetBody> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Requirement: as soon as the user opens the notifications panel,
-    // the unread counter should drop to zero.
     if (_autoMarked) return;
     final me = context.read<AuthController>().currentUser;
     if (me == null) return;
@@ -118,7 +116,6 @@ class _SectionChip extends StatelessWidget {
     final bg = disabled ? cs.surfaceContainerHighest.withValues(alpha: 0.35) : cs.surfaceContainerHighest;
     final fg = disabled ? cs.onSurface.withValues(alpha: 0.45) : cs.onSurface;
     return InkWell(
-      // No splash.
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
       onTap: onTap,
@@ -211,7 +208,7 @@ class _ReceptionPanel extends StatelessWidget {
                         count: counts.events,
                         onTap: () async {
                           await counters.markSectionSeen(uid: meId, section: ThixSection.events);
-                          if (context.mounted) context.push(AppRoutes.events);
+                          if (context.mounted) context.push(AppRoutes.thixEvent);
                         },
                       ),
                       const SizedBox(width: 10),
@@ -387,7 +384,6 @@ class _ReceptionPanel extends StatelessWidget {
                     itemBuilder: (context, i) {
                       final data = merged[i];
 
-                      // Synthetic rows (computed from counters)
                       if ((data['__synthetic'] as bool?) == true) {
                         final section = (data['section'] ?? '').toString();
                         final title = (data['title'] ?? 'Notification').toString();
@@ -405,7 +401,6 @@ class _ReceptionPanel extends StatelessWidget {
                         );
                       }
 
-                      // Real DB rows
                       final title = (data['title'] as String?) ?? 'Notification';
                       final body = (data['body'] as String?) ?? '';
                       final type = (data['type'] as String?) ?? 'generic';
@@ -565,7 +560,7 @@ class _ReceptionPanel extends StatelessWidget {
           AlertInfoSheet.show(context);
           return;
         case ThixSection.events:
-          context.push(AppRoutes.events);
+          context.push(AppRoutes.thixEvent);
           return;
         case ThixSection.formations:
           context.push(AppRoutes.education);
