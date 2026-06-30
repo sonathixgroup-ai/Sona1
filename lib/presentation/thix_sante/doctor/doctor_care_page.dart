@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
-import 'package:charts_flutter/flutter.dart' as charts;
 
 class DoctorCarePage extends StatefulWidget {
   const DoctorCarePage({super.key});
@@ -17,9 +16,6 @@ class _DoctorCarePageState extends State<DoctorCarePage>
   late TabController _tabController;
   List<Doctor> _patients = [];
   Doctor? _selectedPatient;
-
-  // Données mockées
-  final List<PatientDetail> _patientDetails = [];
 
   @override
   void initState() {
@@ -35,17 +31,13 @@ class _DoctorCarePageState extends State<DoctorCarePage>
   }
 
   void _loadData() {
-    // Simuler une liste de patients
     _patients = [
       Doctor(id: 'p1', firstName: 'Michel', lastName: 'L.', specialty: '', phone: '0601020304'),
       Doctor(id: 'p2', firstName: 'Sophie', lastName: 'M.', specialty: '', phone: '0602030405'),
       Doctor(id: 'p3', firstName: 'Jean', lastName: 'P.', specialty: '', phone: '0603040506'),
       Doctor(id: 'p4', firstName: 'Marie', lastName: 'D.', specialty: '', phone: '0604050607'),
     ];
-    // Sélectionner le premier patient par défaut
-    if (_patients.isNotEmpty) {
-      _selectedPatient = _patients.first;
-    }
+    if (_patients.isNotEmpty) _selectedPatient = _patients.first;
   }
 
   @override
@@ -64,7 +56,7 @@ class _DoctorCarePageState extends State<DoctorCarePage>
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // Recherche de patient
+              context.push('/sante/doctor/patients');
             },
           ),
         ],
@@ -77,14 +69,14 @@ class _DoctorCarePageState extends State<DoctorCarePage>
         ],
       ),
       bottomNavigationBar: HealthBottomNav(
-        currentIndex: 1, // onglet "Santé"
+        currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
             context.go('/sante');
           } else if (index == 2) {
             _showQuickAction(context);
           } else if (index == 3) {
-            context.go('/sante/doctor/messages');
+            context.go('/sante/doctor/connect');
           } else if (index == 4) {
             context.go('/sante/doctor/profile');
           }
@@ -93,10 +85,8 @@ class _DoctorCarePageState extends State<DoctorCarePage>
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           if (_tabController.index == 0) {
-            // Ajouter un patient
             context.push('/sante/doctor/patient/new');
           } else {
-            // Prescription électronique
             context.push('/sante/doctor/prescription/new', extra: _selectedPatient);
           }
         },
@@ -105,9 +95,6 @@ class _DoctorCarePageState extends State<DoctorCarePage>
     );
   }
 
-  // ============================================================
-  // 1. LISTE PATIENTS
-  // ============================================================
   Widget _buildPatientsList() {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -137,9 +124,6 @@ class _DoctorCarePageState extends State<DoctorCarePage>
     );
   }
 
-  // ============================================================
-  // 2. DÉTAIL PATIENT (avec prescription, notes, graphiques)
-  // ============================================================
   Widget _buildPatientDetail() {
     if (_selectedPatient == null) {
       return const Center(child: Text('Sélectionnez un patient dans la liste.'));
@@ -148,7 +132,6 @@ class _DoctorCarePageState extends State<DoctorCarePage>
       length: 3,
       child: Column(
         children: [
-          // En-tête patient
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.blue.shade50,
@@ -184,7 +167,6 @@ class _DoctorCarePageState extends State<DoctorCarePage>
               ],
             ),
           ),
-          // Onglets Prescription / Notes / Graphiques
           const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.receipt), text: 'Prescriptions'),
@@ -206,7 +188,6 @@ class _DoctorCarePageState extends State<DoctorCarePage>
     );
   }
 
-  // ----- Prescriptions électroniques -----
   Widget _buildPrescriptionsTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -221,27 +202,35 @@ class _DoctorCarePageState extends State<DoctorCarePage>
         ),
         const SizedBox(height: 16),
         const Text('Historique des prescriptions', style: TextStyle(fontWeight: FontWeight.bold)),
-        ...List.generate(2, (index) => ListTile(
+        ListTile(
           leading: const Icon(Icons.receipt, color: Colors.green),
-          title: Text('Ordonnance du ${DateTime.now().subtract(Duration(days: index * 5)).day}/${DateTime.now().month}/${DateTime.now().year}'),
+          title: const Text('Ordonnance du 10/03/2024'),
           subtitle: Text('Dr. ${_selectedPatient?.lastName} • 3 médicaments'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           onTap: () {
-            // Voir l'ordonnance
+            context.push('/sante/doctor/prescription/1');
           },
-        )),
+        ),
+        ListTile(
+          leading: const Icon(Icons.receipt, color: Colors.green),
+          title: const Text('Ordonnance du 25/02/2024'),
+          subtitle: Text('Dr. ${_selectedPatient?.lastName} • 2 médicaments'),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () {
+            context.push('/sante/doctor/prescription/2');
+          },
+        ),
       ],
     );
   }
 
-  // ----- Notes médicales -----
   Widget _buildNotesTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         ElevatedButton.icon(
           onPressed: () {
-            _showAddNoteDialog();
+            context.push('/sante/doctor/note/new');
           },
           icon: const Icon(Icons.add),
           label: const Text('Ajouter une note médicale'),
@@ -255,7 +244,7 @@ class _DoctorCarePageState extends State<DoctorCarePage>
             subtitle: const Text('Patient présentant une douleur thoracique...'),
             trailing: const Icon(Icons.more_vert),
             onTap: () {
-              // Voir la note
+              context.push('/sante/doctor/note/1');
             },
           ),
         ),
@@ -265,7 +254,7 @@ class _DoctorCarePageState extends State<DoctorCarePage>
             subtitle: const Text('Amélioration constatée, dosage réduit...'),
             trailing: const Icon(Icons.more_vert),
             onTap: () {
-              // Voir la note
+              context.push('/sante/doctor/note/2');
             },
           ),
         ),
@@ -273,121 +262,9 @@ class _DoctorCarePageState extends State<DoctorCarePage>
     );
   }
 
-  // ----- Graphiques des constantes -----
   Widget _buildChartsTab() {
-    // Données simulées pour le graphique de tension
-    final data = [
-      charts.Series<Map<String, dynamic>, int>(
-        id: 'Tension',
-        colorFn: (_, __) => charts.ColorUtil.fromDartColor(Colors.blue),
-        domainFn: (datum, _) => datum['day'] as int,
-        measureFn: (datum, _) => datum['systolic'] as int,
-        data: [
-          {'day': 1, 'systolic': 130},
-          {'day': 2, 'systolic': 125},
-          {'day': 3, 'systolic': 140},
-          {'day': 4, 'systolic': 135},
-          {'day': 5, 'systolic': 120},
-          {'day': 6, 'systolic': 128},
-          {'day': 7, 'systolic': 132},
-        ],
-      ),
-      charts.Series<Map<String, dynamic>, int>(
-        id: 'Diastolique',
-        colorFn: (_, __) => charts.ColorUtil.fromDartColor(Colors.red),
-        domainFn: (datum, _) => datum['day'] as int,
-        measureFn: (datum, _) => datum['diastolic'] as int,
-        data: [
-          {'day': 1, 'diastolic': 85},
-          {'day': 2, 'diastolic': 80},
-          {'day': 3, 'diastolic': 90},
-          {'day': 4, 'diastolic': 88},
-          {'day': 5, 'diastolic': 78},
-          {'day': 6, 'diastolic': 82},
-          {'day': 7, 'diastolic': 85},
-        ],
-      ),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const Text('Évolution de la tension artérielle', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 200,
-            child: charts.LineChart(
-              data,
-              animate: true,
-              defaultRenderer: charts.LineRendererConfig(includePoints: true),
-              behaviors: [charts.ChartTitle('Jour', behaviorPosition: charts.BehaviorPosition.bottom)],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text('Dernières constantes', style: TextStyle(fontWeight: FontWeight.bold)),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _vitalRow('Tension', '130/85 mmHg'),
-                  _vitalRow('Fréquence cardiaque', '72 bpm'),
-                  _vitalRow('Poids', '72.5 kg'),
-                  _vitalRow('IMC', '24.5'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _vitalRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // DIALOGUES
-  // ============================================================
-  void _showAddNoteDialog() {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ajouter une note médicale'),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'Rédigez votre note ici...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-          ElevatedButton(
-            onPressed: () {
-              // Sauvegarder la note
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Note ajoutée avec succès')),
-              );
-            },
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
+    return const Center(
+      child: Text('Graphiques des constantes (à implémenter avec doctor_statistics_page)'),
     );
   }
 
@@ -419,7 +296,7 @@ class _DoctorCarePageState extends State<DoctorCarePage>
               title: const Text('Téléconsultation'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/doctor/teleconsultation/new');
+                context.push('/sante/doctor/teleconsult');
               },
             ),
           ],
