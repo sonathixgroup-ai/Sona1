@@ -65,7 +65,9 @@ class AppColors {
 class AppSpacing {
   static const double xs = 4;
   static const double s = 8;
+  static const double sm = 10;
   static const double m = 12;
+  static const double md = 14;
   static const double l = 16;
   static const double xl = 20;
   static const double xxl = 24;
@@ -74,6 +76,10 @@ class AppSpacing {
 }
 
 class AppRadius {
+  static const double xs = 8;
+  static const double sm = 12;
+  static const double md = 14;
+  static const double lg = 16;
   static const double searchBar = 24;
   static const double mainCard = 22;
   static const double serviceCard = 18;
@@ -81,6 +87,7 @@ class AppRadius {
   static const double bottomNav = 30;
   static const double avatar = 50;
   static const double qrContainer = 16;
+  static const double full = 999;
 }
 
 class AppShadows {
@@ -116,7 +123,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
   final TextEditingController _searchController = TextEditingController();
   bool _searching = false;
   late AnimationController _animationController;
-  final PageController _headlinesController = PageController();
+  late ValueNotifier<int> _headlineIndex;
   Timer? _headlinesTimer;
 
   final _notifications = NotificationService();
@@ -134,17 +141,14 @@ class _HomePagePremiumState extends State<HomePagePremium>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
+    _headlineIndex = ValueNotifier<int>(0);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _animationController.forward();
       _headlinesTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        if (!_headlinesController.hasClients) return;
-        final next = (_headlinesController.page?.round() ?? 0) == 0 ? 1 : 0;
-        _headlinesController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 550),
-          curve: Curves.easeInOutCubic,
-        );
+        if (!mounted) return;
+        _headlineIndex.value = _headlineIndex.value == 0 ? 1 : 0;
       });
     });
   }
@@ -154,7 +158,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
     _searchController.dispose();
     _animationController.dispose();
     _headlinesTimer?.cancel();
-    _headlinesController.dispose();
+    _headlineIndex.dispose();
     super.dispose();
   }
 
@@ -351,8 +355,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _HeadlinesCarousel(
-                    controller: _headlinesController,
-                      onThixInfoTap: () => context.push(AppRoutes.thixInfo),
+                    headlineIndex: _headlineIndex,
+                    onThixInfoTap: () => context.push(AppRoutes.thixInfo),
                     onOpportunityTap: () => context.push(AppRoutes.opportunities),
                   ),
                 ),
@@ -820,6 +824,63 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   }
 }
 
+// ---- CAROUSEL DE HEADLINES ----
+class _HeadlinesCarousel extends StatelessWidget {
+  final ValueNotifier<int> headlineIndex;
+  final VoidCallback onThixInfoTap;
+  final VoidCallback onOpportunityTap;
+
+  const _HeadlinesCarousel({
+    required this.headlineIndex,
+    required this.onThixInfoTap,
+    required this.onOpportunityTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: headlineIndex,
+      builder: (context, index, _) {
+        final headlines = [
+          {'title': 'THIX Info', 'icon': Icons.newspaper_rounded, 'onTap': onThixInfoTap},
+          {'title': 'Opportunités', 'icon': Icons.lightbulb_rounded, 'onTap': onOpportunityTap},
+        ];
+        final headline = headlines[index % headlines.length];
+        return GestureDetector(
+          onTap: headline['onTap'] as VoidCallback,
+          child: Container(
+            height: 120,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd],
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.mainCard),
+              boxShadow: AppShadows.main,
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(headline['icon'] as IconData, size: 32, color: AppColors.premiumAccent),
+                  const SizedBox(height: 8),
+                  Text(
+                    headline['title'] as String,
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ---- CARTE STATUT PREMIUM ----
 class _PremiumStatusCard extends StatelessWidget {
   @override
@@ -841,11 +902,11 @@ class _PremiumStatusCard extends StatelessWidget {
         children: [
           const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26),
           const SizedBox(width: AppSpacing.m),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
+              children: [
                 Text(
                   'Membre Premium',
                   style: TextStyle(
@@ -1060,7 +1121,7 @@ class _PressableScaleState extends State<_PressableScale> {
   }
 }
 
-// ---- GRILLE DE SERVICES (SANS CONTENEURS) ----
+// ---- GRILLE DE SERVICES ----
 class _ServicesGrid extends StatelessWidget {
   final SectionBadgeCounts counts;
   final Function(String) onServiceTap;
@@ -1072,253 +1133,43 @@ class _ServicesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final services = [
-      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.domainMedia},
-      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.domainMarket},
-      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.domainLearning, 'badge': counts.formations},
-      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.domainJobs, 'badge': counts.jobs},
-      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.domainInfo, 'badge': counts.info},
-      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.domainOpportunity},
-      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.domainEvents, 'badge': counts.events},
-      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
-      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
-      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
-      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.domainGov},
-      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
-    ];
-
-    return GridView.builder(
+    return GridView.count(
+      crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-        childAspectRatio: 1.02,
-      ),
-      itemCount: services.length,
-      itemBuilder: (ctx, index) {
-        final service = services[index];
-        final badge = service['badge'] as int?;
-        return _ServiceCard(
-          icon: service['icon'] as IconData,
-          title: service['title'] as String,
-          color: service['color'] as Color,
-          badgeCount: badge,
-          onTap: () => onServiceTap(service['key'] as String),
-        );
-      },
+      mainAxisSpacing: AppSpacing.m,
+      crossAxisSpacing: AppSpacing.m,
+      children: [
+        _ServiceCard(icon: Icons.play_circle_filled, title: 'THIX Media', color: AppColors.domainMedia, onTap: () => onServiceTap('thixMedia')),
+        _ServiceCard(icon: Icons.storefront_rounded, title: 'Market', color: AppColors.domainMarket, onTap: () => onServiceTap('thixMarket')),
+        _ServiceCard(icon: Icons.school_rounded, title: 'Formations', color: AppColors.domainLearning, badge: counts.formations, onTap: () => onServiceTap('formations')),
+        _ServiceCard(icon: Icons.work_rounded, title: 'Emplois', color: AppColors.domainJobs, badge: counts.jobs, onTap: () => onServiceTap('emplois')),
+        _ServiceCard(icon: Icons.newspaper_rounded, title: 'THIX Info', color: AppColors.domainInfo, badge: counts.info, onTap: () => onServiceTap('thixInfo')),
+        _ServiceCard(icon: Icons.lightbulb_rounded, title: 'Opportunités', color: AppColors.domainOpportunity, badge: counts.opportunities, onTap: () => onServiceTap('opportunites')),
+        _ServiceCard(icon: Icons.event_rounded, title: 'Événements', color: AppColors.domainEvents, badge: counts.events, onTap: () => onServiceTap('evenements')),
+        _ServiceCard(icon: Icons.people_rounded, title: 'Réseau Pro', color: AppColors.domainNetwork, onTap: () => onServiceTap('reseauPro')),
+        _ServiceCard(icon: Icons.favorite_rounded, title: 'THIX Santé', color: AppColors.domainHealth, onTap: () => onServiceTap('thixSante')),
+        _ServiceCard(icon: Icons.attach_money_rounded, title: 'THIX Money', color: AppColors.domainMoney, onTap: () => onServiceTap('thixMoney')),
+        _ServiceCard(icon: Icons.domain_rounded, title: 'Services Gov', color: AppColors.domainGov, onTap: () => onServiceTap('servicesGov')),
+        _ServiceCard(icon: Icons.calendar_today_rounded, title: 'Réservation', color: AppColors.domainReservation, onTap: () => onServiceTap('reservation')),
+      ],
     );
   }
 }
 
-class _ServiceCard extends StatefulWidget {
+class _ServiceCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final Color color;
-  final int? badgeCount;
+  final int badge;
   final VoidCallback onTap;
 
   const _ServiceCard({
     required this.icon,
     required this.title,
     required this.color,
-    this.badgeCount,
     required this.onTap,
-  });
-
-  @override
-  State<_ServiceCard> createState() => _ServiceCardState();
-}
-
-class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: widget.color.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                widget.icon,
-                color: widget.color,
-                size: 18,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Text(
-                  widget.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.darkText,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (widget.badgeCount != null && widget.badgeCount! > 0)
-                  Positioned(
-                    top: -8,
-                    right: -12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.dangerRed,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${widget.badgeCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionCage extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _SectionCage({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.mainCard),
-        border: Border.all(color: AppColors.cardBorder, width: 0.6),
-        boxShadow: AppShadows.secondary,
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.grid_view_rounded, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.darkText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _HeadlinesCarousel extends StatelessWidget {
-  final PageController controller;
-  final VoidCallback onThixInfoTap;
-  final VoidCallback onOpportunityTap;
-
-  const _HeadlinesCarousel({
-    required this.controller,
-    required this.onThixInfoTap,
-    required this.onOpportunityTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 120,
-      child: PageView(
-        controller: controller,
-        children: [
-          _HeadlineCard(
-            label: 'À la une • THIX Info',
-            title: 'Nouvelles, annonces et mises à jour',
-            icon: Icons.newspaper_rounded,
-            accent: AppColors.domainInfo,
-            onTap: onThixInfoTap,
-          ),
-          _HeadlineCard(
-            label: 'À la une • Opportunity',
-            title: 'Opportunités pro à saisir maintenant',
-            icon: Icons.lightbulb_rounded,
-            accent: AppColors.domainOpportunity,
-            onTap: onOpportunityTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeadlineCard extends StatelessWidget {
-  final String label;
-  final String title;
-  final IconData icon;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _HeadlineCard({
-    required this.label,
-    required this.title,
-    required this.icon,
-    required this.accent,
-    required this.onTap,
+    this.badge = 0,
   });
 
   @override
@@ -1328,54 +1179,53 @@ class _HeadlineCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(AppRadius.mainCard),
-          border: Border.all(color: AppColors.cardBorder, width: 0.6),
-          boxShadow: AppShadows.main,
+          borderRadius: BorderRadius.circular(AppRadius.serviceCard),
+          border: Border.all(color: AppColors.cardBorder, width: 0.5),
+          boxShadow: AppShadows.secondary,
         ),
-        padding: const EdgeInsets.all(AppSpacing.l),
-        child: Row(
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: accent, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 32, color: color),
+                const SizedBox(height: 6),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkText,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
+                ),
+              ],
+            ),
+            if (badge > 0)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.dangerRed,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    badge.toString(),
                     style: const TextStyle(
-                      color: AppColors.darkText,
-                      fontSize: 14,
+                      color: Colors.white,
+                      fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                      height: 1.15,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
           ],
         ),
       ),
@@ -1383,80 +1233,79 @@ class _HeadlineCard extends StatelessWidget {
   }
 }
 
-// ---- SECTION PERSONNALISÉE (Facebook-style) ----
-class _PersonalisedSection extends StatelessWidget {
+// ---- SECTION CAGE ----
+class _SectionCage extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _SectionCage({
+    required this.title,
+    required this.child,
+  });
+
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _MiniRoundAction(icon: Icons.account_balance_wallet_rounded, label: 'Top Up'),
-      _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: 'Buy'),
-      _MiniRoundAction(icon: Icons.shield_rounded, label: 'Secure'),
-      _MiniRoundAction(icon: Icons.local_atm_rounded, label: 'Cash out'),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Personnalisé pour vous',
-          style: TextStyle(
-            color: AppColors.darkText,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.2,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        border: Border.all(color: AppColors.cardBorder, width: 0.5),
+        boxShadow: AppShadows.secondary,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.darkText,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.2,
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.m),
-        Row(
-          children: [
-            for (final item in items)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: item,
-                ),
-              ),
-          ],
-        ),
-      ],
+          const SizedBox(height: AppSpacing.m),
+          child,
+        ],
+      ),
     );
   }
 }
 
-class _MiniRoundAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _MiniRoundAction({required this.icon, required this.label});
-
+// ---- SECTION PERSONNALISÉE ----
+class _PersonalisedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        border: Border.all(color: AppColors.cardBorder, width: 0.5),
+        boxShadow: AppShadows.secondary,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.m),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.cardBorder, width: 0.5),
-              boxShadow: AppShadows.secondary,
+          const Text(
+            'Suggestions pour vous',
+            style: TextStyle(
+              color: AppColors.darkText,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
             ),
-            child: Icon(icon, size: 20, color: AppColors.darkText),
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          const SizedBox(height: AppSpacing.m),
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: AppColors.lightGrayBg,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: const Center(
+              child: Text('Contenu personnalisé en cours de chargement...'),
+            ),
           ),
         ],
       ),
@@ -1464,125 +1313,41 @@ class _MiniRoundAction extends StatelessWidget {
   }
 }
 
-// ---- BOTTOM NAVIGATION ----
+// ---- BOTTOM NAVIGATION FLOTTANTE ----
 class _FloatingBottomNav extends StatelessWidget {
   final VoidCallback onScanTap;
 
   const _FloatingBottomNav({required this.onScanTap});
 
-  void _openDocuments(BuildContext context) {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.go(AppRoutes.vault);
-      return;
-    }
-    context.push(AppRoutes.login);
-  }
-
-  void _openProfile(BuildContext context) {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
-      return;
-    }
-    context.push(AppRoutes.login);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 92,
-      child: Stack(
-        clipBehavior: Clip.none,
+    return Container(
+      height: 70,
+      decoration: BoxDecoration(
+        color: AppColors.bottomNavBlue,
+        boxShadow: AppShadows.main,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Positioned.fill(
+          _NavItem(icon: Icons.home_rounded, label: 'Accueil', onTap: () {}),
+          _NavItem(icon: Icons.explore_rounded, label: 'Explorer', onTap: () {}),
+          GestureDetector(
+            onTap: onScanTap,
             child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.bottomNavBlue,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
+              width: 56,
+              height: 56,
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: AppColors.goldBadge,
+                shape: BoxShape.circle,
+                boxShadow: AppShadows.main,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _NavItem(
-                    icon: Icons.home_filled,
-                    label: 'Home',
-                    active: true,
-                    onTap: () => context.go(AppRoutes.home),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  _NavItem(
-                    icon: Icons.apps_rounded,
-                    label: 'Mini Apps',
-                    onTap: () {},
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  const SizedBox(width: 74),
-                  _NavItem(
-                    icon: Icons.folder_rounded,
-                    label: 'Documents',
-                    onTap: () => _openDocuments(context),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  _NavItem(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Profile',
-                    onTap: () => _openProfile(context),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                ],
-              ),
+              child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.bottomNavCenterIcon, size: 26),
             ),
           ),
-          Positioned(
-            top: -18,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 74,
-                    height: 74,
-                    decoration: const BoxDecoration(color: AppColors.lightGrayBg, shape: BoxShape.circle),
-                  ),
-                  GestureDetector(
-                    onTap: onScanTap,
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: AppColors.goldBadge,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: AppColors.bottomNavCenterIcon,
-                        size: 26,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _NavItem(icon: Icons.message_rounded, label: 'Messages', onTap: () {}),
+          _NavItem(icon: Icons.person_rounded, label: 'Profil', onTap: () {}),
         ],
       ),
     );
@@ -1592,41 +1357,29 @@ class _FloatingBottomNav extends StatelessWidget {
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final bool active;
   final VoidCallback onTap;
-  final Color? activeColor;
-  final Color? inactiveColor;
 
   const _NavItem({
     required this.icon,
     required this.label,
-    this.active = false,
     required this.onTap,
-    this.activeColor,
-    this.inactiveColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final resolvedActive = activeColor ?? AppColors.primaryBlue;
-    final resolvedInactive = inactiveColor ?? AppColors.textSecondary;
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: active ? resolvedActive : resolvedInactive,
-            size: 22,
-          ),
+          Icon(icon, color: AppColors.bottomNavInactive, size: 24),
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: const TextStyle(
+              color: AppColors.bottomNavInactive,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: active ? resolvedActive : resolvedInactive,
             ),
           ),
         ],
@@ -1635,138 +1388,55 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// FEUILLE DE DEMANDE DE COMPTE
-// ============================================================================
-
+// ---- ACCOUNT REQUEST SHEET ----
 enum _AccountRequestChoice { personal, enterprise }
 
 class AccountRequestSheet extends StatelessWidget {
-  const AccountRequestSheet({super.key});
+  const AccountRequestSheet();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.lg),
+          topRight: Radius.circular(AppRadius.lg),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 35,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.cardBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Type de compte',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: AppColors.darkText,
             ),
-            const SizedBox(height: AppSpacing.l),
-            const Text(
-              'Créer un compte',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.darkText,
-              ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, _AccountRequestChoice.personal),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
             ),
-            const SizedBox(height: AppSpacing.xl),
-            _OptionButton(
-              icon: Icons.person_outline,
-              title: 'Compte Personnel',
-              subtitle: 'Pour un profil individuel',
-              onTap: () {
-                Navigator.pop(context, _AccountRequestChoice.personal);
-              },
+            child: const Text('Compte Personnel'),
+          ),
+          const SizedBox(height: AppSpacing.m),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, _AccountRequestChoice.enterprise),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.premiumAccent,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
             ),
-            const SizedBox(height: AppSpacing.m),
-            _OptionButton(
-              icon: Icons.business_outlined,
-              title: 'Compte Entreprise',
-              subtitle: 'Pour une organisation',
-              onTap: () {
-                Navigator.pop(context, _AccountRequestChoice.enterprise);
-              },
-            ),
-            const SizedBox(height: AppSpacing.m),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OptionButton extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _OptionButton({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.m),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.cardBorder),
-          borderRadius: BorderRadius.circular(14),
-          color: AppColors.lightGrayBg,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.darkText.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: AppColors.darkText, size: 20),
-            ),
-            const SizedBox(width: AppSpacing.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.darkText,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 12,
-              color: AppColors.textSecondary,
-            ),
-          ],
-        ),
+            child: const Text('Compte Entreprise'),
+          ),
+          const SizedBox(height: AppSpacing.m),
+        ],
       ),
     );
   }
