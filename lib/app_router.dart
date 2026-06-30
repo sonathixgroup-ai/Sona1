@@ -40,6 +40,7 @@ import 'presentation/thix_media/thix_media_page.dart';
 import 'presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 import 'presentation/admin/pages/admin_media_page.dart';
+import 'presentation/thix_event/event_search_page.dart';
 
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -80,6 +81,7 @@ class AppRoutes {
   static const String thixMedia = '/thix-media';
   static const String thixMediaVideo = '/thix-media/video';
   static const String thixInfo = '/info';
+  static const String events = '/events';
 }
 
 class AppRouter {
@@ -196,6 +198,10 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.thixInfo,
           pageBuilder: (context, state) => const NoTransitionPage(child: ThixInfoHomePage()),
+        ),
+        GoRoute(
+          path: AppRoutes.events,
+          pageBuilder: (context, state) => const NoTransitionPage(child: EventSearchPage()),
         ),
         GoRoute(
           path: AppRoutes.admin,
