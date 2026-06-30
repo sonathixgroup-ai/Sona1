@@ -408,9 +408,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 context.push(AppRoutes.opportunities);
                                 break;
                               case 'evenements':
-                                // ✅ Correction définitive : utilise la constante AppRoutes.events
-                                context.push(AppRoutes.events);
-                                break;
+  context.push(AppRoutes.events);
+  break;
                               case 'reseauPro':
                                 context.push(AppRoutes.network);
                                 break;
