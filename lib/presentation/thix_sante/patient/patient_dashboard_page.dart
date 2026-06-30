@@ -200,8 +200,8 @@ class _PatientDashboardPageState
                                     Icons.calendar_month,
                                 color:
                                     const Color(
-                                  0xFF2563FF,
-                                ),
+                                      0xFF2563FF,
+                                    ),
                                 onTap: () {
                                   context.push(
                                     '/sante/patient/appointments',
@@ -215,8 +215,8 @@ class _PatientDashboardPageState
                                     Icons.video_call,
                                 color:
                                     const Color(
-                                  0xFF00B894,
-                                ),
+                                      0xFF00B894,
+                                    ),
                                 onTap: () {},
                               ),
                               _ActionItem(
@@ -310,7 +310,19 @@ class _PatientDashboardPageState
                                 height: 22,
                               ),
 
-                              _InsuranceSection(),
+                              _InsuranceCard(
+                                title: 'Assurance santé',
+                                subtitle: 'Bénéficiez d\'une couverture complète adaptée à vos besoins.',
+                                icon: Icons.shield,
+                              ),
+
+                              const SizedBox(height: 18),
+
+                              _InsuranceCard(
+                                title: 'Assurance',
+                                subtitle: 'Protégez-vous et vos proches avec nos solutions.',
+                                icon: Icons.security,
+                              ),
 
                               const SizedBox(
                                 height: 22,
@@ -321,9 +333,10 @@ class _PatientDashboardPageState
                                   articles: _articles,
                                 ),
 
-                              const SizedBox(
-                                height: 100,
-                              ),
+                              // ===== BOUTON URGENCE AJOUTÉ =====
+                              const SizedBox(height: 18),
+                              const EmergencyButton(),
+                              const SizedBox(height: 100),
                             ],
                           ),
                         ),
@@ -1210,6 +1223,9 @@ class _QuickServices
       ('Ordonnances', Icons.receipt),
       ('Hôpitaux', Icons.local_hospital),
       ('Médicaments', Icons.medication),
+      // === AJOUT : Pharmacies proches & Urgences proches ===
+      ('Pharmacies proches', Icons.local_pharmacy),
+      ('Urgences proches', Icons.emergency),
     ];
 
     return Column(
@@ -1271,8 +1287,18 @@ class _QuickServices
   }
 }
 
-class _InsuranceSection
-    extends StatelessWidget {
+// ===== NOUVEAU WIDGET : InsuranceCard réutilisable =====
+class _InsuranceCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _InsuranceCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1298,8 +1324,8 @@ class _InsuranceSection
                   BorderRadius.circular(
                       18),
             ),
-            child: const Icon(
-              Icons.shield,
+            child: Icon(
+              icon,
               color: HealthUI.primary,
             ),
           ),
@@ -1312,7 +1338,7 @@ class _InsuranceSection
                   CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Assurance santé',
+                  title,
                   style:
                       GoogleFonts.poppins(
                     fontWeight:
@@ -1322,7 +1348,7 @@ class _InsuranceSection
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Bénéficiez d’une couverture complète.',
+                  subtitle,
                   style:
                       GoogleFonts.poppins(
                     fontSize: 12,
