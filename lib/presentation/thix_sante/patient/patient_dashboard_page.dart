@@ -1287,7 +1287,7 @@ class _QuickServices
   }
 }
 
-// ===== NOUVEAU WIDGET : InsuranceCard réutilisable =====
+// ===== InsuranceCard réutilisable =====
 class _InsuranceCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -1469,8 +1469,7 @@ class _ArticlesSection
                       ),
 
                       Text(
-                        article.readTime ??
-                            '',
+                        '${article.readTime} min de lecture',
                         style:
                             GoogleFonts
                                 .poppins(
