@@ -27,7 +27,6 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    // Simuler chargement
     await Future.delayed(const Duration(milliseconds: 600));
     setState(() => _isLoading = false);
   }
@@ -47,7 +46,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
                       child: HealthHeader(
                         role: ThixRole.pharmacy,
                         onNotificationsTap: () {
-                          // Notifications
+                          // Notifications (à créer)
                         },
                       ),
                     ),
@@ -129,31 +128,41 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   }
 
   Widget _buildRecentOrders() {
+    // Simuler des commandes récentes avec ID
+    final orders = [
+      {'id': 'ord1', 'patient': 'Michel L.', 'meds': 3, 'status': 'En attente'},
+      {'id': 'ord2', 'patient': 'Sophie M.', 'meds': 2, 'status': 'En cours'},
+      {'id': 'ord3', 'patient': 'Jean P.', 'meds': 5, 'status': 'Validée'},
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Commandes récentes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        ListTile(
-          leading: const Icon(Icons.receipt, color: Colors.orange),
-          title: const Text('Commande #1234'),
-          subtitle: const Text('Patient : Michel L. • 3 médicaments'),
-          trailing: const Chip(label: Text('En attente'), backgroundColor: Colors.orange),
-        ),
-        ListTile(
-          leading: const Icon(Icons.receipt, color: Colors.blue),
-          title: const Text('Commande #1233'),
-          subtitle: const Text('Patient : Sophie M. • 2 médicaments'),
-          trailing: const Chip(label: Text('En cours'), backgroundColor: Colors.blue),
-        ),
-        ListTile(
-          leading: const Icon(Icons.receipt, color: Colors.green),
-          title: const Text('Commande #1232'),
-          subtitle: const Text('Patient : Jean P. • 5 médicaments'),
-          trailing: const Chip(label: Text('Validée'), backgroundColor: Colors.green),
-        ),
+        ...orders.map((o) => ListTile(
+              leading: const Icon(Icons.receipt),
+              title: Text('Commande #${o['id']?.substring(3)}'),
+              subtitle: Text('Patient : ${o['patient']} • ${o['meds']} médicaments'),
+              trailing: Chip(label: Text(o['status']), backgroundColor: _getStatusColor(o['status'])),
+              onTap: () {
+                context.push('/sante/pharmacy/order/${o['id']}');
+              },
+            )),
       ],
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'En attente':
+        return Colors.orange.withOpacity(0.2);
+      case 'En cours':
+        return Colors.blue.withOpacity(0.2);
+      case 'Validée':
+        return Colors.green.withOpacity(0.2);
+      default:
+        return Colors.grey.withOpacity(0.2);
+    }
   }
 
   Widget _buildQuickActions() {
@@ -166,10 +175,10 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _actionChip('Nouvelle commande', Icons.add, () => context.push('/sante/pharmacy/orders/new')),
-            _actionChip('Valider ordonnance', Icons.verified, () => context.push('/sante/pharmacy/orders/validation')),
+            _actionChip('Nouvelle commande', Icons.add, () => context.push('/sante/pharmacy/order/new')),
+            _actionChip('Valider ordonnance', Icons.verified, () => context.push('/sante/pharmacy/prescription/p1')),
             _actionChip('Inventaire', Icons.inventory, () => context.push('/sante/pharmacy/inventory')),
-            _actionChip('Rapports', Icons.bar_chart, () => context.push('/sante/pharmacy/inventory/reports')),
+            _actionChip('Rapports', Icons.bar_chart, () => context.push('/sante/pharmacy/report')),
           ],
         ),
       ],
@@ -197,7 +206,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
               title: const Text('Nouvelle commande'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/pharmacy/orders/new');
+                context.push('/sante/pharmacy/order/new');
               },
             ),
             ListTile(
@@ -205,7 +214,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
               title: const Text('Valider une ordonnance'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/pharmacy/orders/validation');
+                context.push('/sante/pharmacy/prescription/p1');
               },
             ),
             ListTile(
