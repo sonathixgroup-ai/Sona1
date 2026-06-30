@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/event_card.dart
+// lib/presentation/thix_events/widgets/event_card.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 

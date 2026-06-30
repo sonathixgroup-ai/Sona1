@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/share_button.dart
+// lib/presentation/thix_events/widgets/share_button.dart
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 

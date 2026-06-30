@@ -145,15 +145,15 @@ import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 
 // ==================== THIX ÉVÉNEMENT (IMPORTS) ====================
-import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
-import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
-import 'package:thix_id/presentation/thix_event/event_search_page.dart';
-import 'package:thix_id/presentation/thix_event/event_category_page.dart';
-import 'package:thix_id/presentation/thix_event/event_reservation_page.dart';
-import 'package:thix_id/presentation/thix_event/my_tickets_page.dart';
-import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
-import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
-import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
+import 'package:thix_id/presentation/thix_events/thix_event_home.dart';
+import 'package:thix_id/presentation/thix_events/event_detail_page.dart';
+import 'package:thix_id/presentation/thix_events/event_search_page.dart';
+import 'package:thix_id/presentation/thix_events/event_category_page.dart';
+import 'package:thix_id/presentation/thix_events/event_reservation_page.dart';
+import 'package:thix_id/presentation/thix_events/my_tickets_page.dart';
+import 'package:thix_id/presentation/thix_events/favorite_events_page.dart';
+import 'package:thix_id/presentation/thix_events/seat_selection_page.dart';
+import 'package:thix_id/presentation/thix_events/waiting_queue_page.dart';
 
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;

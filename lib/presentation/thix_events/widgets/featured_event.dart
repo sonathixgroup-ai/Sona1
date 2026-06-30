@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/featured_event.dart
+// lib/presentation/thix_events/widgets/featured_event.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';

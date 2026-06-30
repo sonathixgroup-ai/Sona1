@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/waiting_queue_page.dart
+// lib/presentation/thix_events/waiting_queue_page.dart
 import 'dart:async';  // ← AJOUTER CET IMPORT pour Timer
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/seat_map_widget.dart
+// lib/presentation/thix_events/widgets/seat_map_widget.dart
 import 'package:flutter/material.dart';
 import '../../../models/event_seat.dart';
 

@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/seat_selection_page.dart
+// lib/presentation/thix_events/seat_selection_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

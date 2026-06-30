@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/seat_legend.dart
+// lib/presentation/thix_events/widgets/seat_legend.dart
 import 'package:flutter/material.dart';
 
 class SeatLegend extends StatelessWidget {

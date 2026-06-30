@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/category_chip.dart
+// lib/presentation/thix_events/widgets/category_chip.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 

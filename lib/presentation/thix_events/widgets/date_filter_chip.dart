@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/widgets/date_filter_chip.dart
+// lib/presentation/thix_events/widgets/date_filter_chip.dart
 import 'package:flutter/material.dart';
 
 class DateFilterChip extends StatelessWidget {

@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/thix_event_home.dart
+// lib/presentation/thix_events/thix_event_home.dart
 // ============================================================
 // IMPORTS
 // ============================================================

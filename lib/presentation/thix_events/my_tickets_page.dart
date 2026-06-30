@@ -1,4 +1,4 @@
-// lib/presentation/thix_event/my_tickets_page.dart
+// lib/presentation/thix_events/my_tickets_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
