@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
-import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart'; // Réutilisation
 
 class DoctorConsultPage extends StatefulWidget {
   const DoctorConsultPage({super.key});
@@ -16,7 +15,6 @@ class _DoctorConsultPageState extends State<DoctorConsultPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Données mockées pour l'agenda
   final List<Appointment> _appointments = [
     Appointment(
       id: 'a1',
@@ -52,7 +50,6 @@ class _DoctorConsultPageState extends State<DoctorConsultPage>
     ),
   ];
 
-  // Demandes de téléexpertise
   final List<Map<String, dynamic>> _expertiseRequests = [
     {
       'id': 'e1',
@@ -119,7 +116,7 @@ class _DoctorConsultPageState extends State<DoctorConsultPage>
           } else if (index == 2) {
             _showQuickAction(context);
           } else if (index == 3) {
-            context.go('/sante/doctor/messages');
+            context.go('/sante/doctor/connect');
           } else if (index == 4) {
             context.go('/sante/doctor/profile');
           }
@@ -156,7 +153,7 @@ class _DoctorConsultPageState extends State<DoctorConsultPage>
               title: const Text('Téléconsultation'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/doctor/teleconsultation/new');
+                context.push('/sante/doctor/teleconsult');
               },
             ),
           ],
@@ -166,30 +163,14 @@ class _DoctorConsultPageState extends State<DoctorConsultPage>
   }
 }
 
-// ============================================================
-// 1. ONGLET TÉLÉCONSULTATION (Jitsi)
-// ============================================================
+// ----- Onglet Téléconsultation -----
 class _TeleconsultationTab extends StatelessWidget {
-  const _TeleconsultationTab();
-
   @override
   Widget build(BuildContext context) {
-    // Liste des téléconsultations à venir
     final consultations = [
-      {
-        'patientName': 'Michel L.',
-        'date': DateTime.now().add(const Duration(hours: 1)),
-        'link': 'https://meet.jit.si/consult1',
-        'status': 'À venir',
-      },
-      {
-        'patientName': 'Sophie M.',
-        'date': DateTime.now().add(const Duration(hours: 4)),
-        'link': 'https://meet.jit.si/consult2',
-        'status': 'Planifiée',
-      },
+      {'patientName': 'Michel L.', 'date': 'Aujourd\'hui 14:00', 'link': 'https://meet.jit.si/consult1'},
+      {'patientName': 'Sophie M.', 'date': 'Demain 10:30', 'link': 'https://meet.jit.si/consult2'},
     ];
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -213,10 +194,9 @@ class _TeleconsultationTab extends StatelessWidget {
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person, color: Colors.white), backgroundColor: Colors.purple),
                 title: Text(item['patientName'] as String),
-                subtitle: Text('${(item['date'] as DateTime).hour}h${(item['date'] as DateTime).minute.toString().padLeft(2, '0')}'),
+                subtitle: Text(item['date'] as String),
                 trailing: ElevatedButton(
                   onPressed: () {
-                    // Ouvrir la téléconsultation Jitsi
                     context.push('/sante/doctor/teleconsultation/jitsi', extra: item['link']);
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
@@ -227,8 +207,7 @@ class _TeleconsultationTab extends StatelessWidget {
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: () {
-            // Nouvelle téléconsultation (créer un lien)
-            context.push('/sante/doctor/teleconsultation/new');
+            context.push('/sante/doctor/teleconsult');
           },
           icon: const Icon(Icons.add),
           label: const Text('Créer une téléconsultation'),
@@ -238,9 +217,7 @@ class _TeleconsultationTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 2. ONGLET TÉLÉEXPERTISE
-// ============================================================
+// ----- Onglet Téléexpertise -----
 class _TeleexpertiseTab extends StatelessWidget {
   final List<Map<String, dynamic>> expertiseRequests;
   const _TeleexpertiseTab({required this.expertiseRequests});
@@ -273,7 +250,6 @@ class _TeleexpertiseTab extends StatelessWidget {
                 subtitle: Text('${req['patientName']} • ${req['specialty']}'),
                 trailing: const Chip(label: Text('En attente'), backgroundColor: Colors.orange),
                 onTap: () {
-                  // Voir la demande
                   context.push('/sante/doctor/teleexpertise/${req['id']}');
                 },
               ),
@@ -288,14 +264,13 @@ class _TeleexpertiseTab extends StatelessWidget {
                 subtitle: Text('${req['patientName']} • ${req['specialty']}'),
                 trailing: const Chip(label: Text('Répondu'), backgroundColor: Colors.green),
                 onTap: () {
-                  // Voir l'avis
+                  context.push('/sante/doctor/teleexpertise/${req['id']}');
                 },
               ),
             )),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: () {
-            // Nouvelle demande de téléexpertise
             context.push('/sante/doctor/teleexpertise/new');
           },
           icon: const Icon(Icons.add),
@@ -306,9 +281,7 @@ class _TeleexpertiseTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 3. ONGLET AGENDA
-// ============================================================
+// ----- Onglet Agenda -----
 class _AgendaTab extends StatelessWidget {
   final List<Appointment> appointments;
   const _AgendaTab({required this.appointments});
@@ -326,7 +299,6 @@ class _AgendaTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        // Mini calendrier simulé
         Container(
           height: 100,
           decoration: BoxDecoration(
@@ -353,15 +325,14 @@ class _AgendaTab extends StatelessWidget {
                   backgroundColor: appt.status == AppointmentStatus.confirmed ? Colors.green : Colors.orange,
                 ),
                 onTap: () {
-                  context.push('/sante/doctor/appointment/${appt.id}', extra: appt);
+                  context.push('/sante/doctor/agenda');
                 },
               ),
             )),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: () {
-            // Nouveau créneau
-            context.push('/sante/doctor/agenda/slots');
+            context.push('/sante/doctor/agenda');
           },
           icon: const Icon(Icons.add),
           label: const Text('Gérer les créneaux'),
@@ -371,9 +342,7 @@ class _AgendaTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 4. ONGLET MOBILE TERRAIN
-// ============================================================
+// ----- Onglet Mobile terrain -----
 class _MobileTerrainTab extends StatelessWidget {
   const _MobileTerrainTab();
 
@@ -397,40 +366,36 @@ class _MobileTerrainTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _buildTerrainTile(
+          context,
           icon: Icons.qr_code_scanner,
           title: 'Scan bracelet patient',
           subtitle: 'Identifier un patient rapidement',
           color: Colors.blue,
-          onTap: () {
-            context.push('/sante/doctor/terrain/scan');
-          },
+          route: '/sante/doctor/terrain/scan',
         ),
         _buildTerrainTile(
+          context,
           icon: Icons.mic,
           title: 'Dictée vocale',
           subtitle: 'Prenez des notes médicales par voix',
           color: Colors.orange,
-          onTap: () {
-            context.push('/sante/doctor/terrain/dictation');
-          },
+          route: '/sante/doctor/terrain/dictation',
         ),
         _buildTerrainTile(
+          context,
           icon: Icons.offline_bolt,
           title: 'Mode hors ligne',
           subtitle: 'Accédez aux dossiers sans connexion',
           color: Colors.green,
-          onTap: () {
-            context.push('/sante/doctor/terrain/offline');
-          },
+          route: '/sante/doctor/terrain/offline',
         ),
         _buildTerrainTile(
+          context,
           icon: Icons.camera_alt,
           title: 'Prise de photo',
           subtitle: 'Capturer des images de documents',
           color: Colors.purple,
-          onTap: () {
-            context.push('/sante/doctor/terrain/photo');
-          },
+          route: '/sante/doctor/terrain/photo',
         ),
         const SizedBox(height: 16),
         const Text('Derniers patients consultés sur le terrain', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -439,24 +404,25 @@ class _MobileTerrainTab extends StatelessWidget {
           title: const Text('Michel L.'),
           subtitle: const Text('Consultation à domicile - 10/03'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () => context.push('/sante/doctor/patient/p1'),
         ),
         ListTile(
           leading: const CircleAvatar(child: Text('S')),
           title: const Text('Sophie M.'),
           subtitle: const Text('Téléconsultation mobile - 09/03'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () => context.push('/sante/doctor/patient/p2'),
         ),
       ],
     );
   }
 
-  Widget _buildTerrainTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildTerrainTile(BuildContext context,
+      {required IconData icon,
+      required String title,
+      required String subtitle,
+      required Color color,
+      required String route}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -464,7 +430,9 @@ class _MobileTerrainTab extends StatelessWidget {
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
+        onTap: () {
+          context.push(route);
+        },
       ),
     );
   }
