@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/emergency_button.dart';
 
-/// Page regroupant les fonctionnalités de communication et alertes du patient
 class PatientConnectPage extends StatefulWidget {
   const PatientConnectPage({super.key});
 
@@ -46,7 +45,7 @@ class _PatientConnectPageState extends State<PatientConnectPage>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
+        children: [
           _MessagingTab(),
           _AIAssistantTab(),
           _AlertsTab(),
@@ -84,7 +83,7 @@ class _PatientConnectPageState extends State<PatientConnectPage>
               title: const Text('Prendre un rendez-vous'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/patient/appointments/new');
+                context.push('/sante/patient/appointment/new');
               },
             ),
             ListTile(
@@ -110,12 +109,8 @@ class _PatientConnectPageState extends State<PatientConnectPage>
   }
 }
 
-// ============================================================
-// 1. Onglet MESSAGERIE
-// ============================================================
+// ===== Onglet Messagerie =====
 class _MessagingTab extends StatelessWidget {
-  const _MessagingTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -128,41 +123,32 @@ class _MessagingTab extends StatelessWidget {
           lastMessage: 'Votre rendez-vous est confirmé.',
           date: 'Aujourd\'hui',
           unread: true,
-          onTap: () {
-            context.push('/sante/patient/chat/doctor1');
-          },
+          onTap: () => context.push('/sante/patient/chat/doc1', extra: 'Dr. Dupont'),
         ),
         _buildConversationTile(
           name: 'Pharmacie Centrale',
           lastMessage: 'Votre ordonnance est prête.',
           date: 'Hier',
           unread: false,
-          onTap: () {
-            context.push('/sante/patient/chat/pharmacy1');
-          },
+          onTap: () => context.push('/sante/patient/chat/pharm1', extra: 'Pharmacie Centrale'),
         ),
         _buildConversationTile(
           name: 'Assistant IA',
           lastMessage: 'Basé sur vos symptômes, je vous conseille...',
           date: 'Hier',
           unread: true,
-          onTap: () {
-            context.push('/sante/patient/ia');
-          },
+          onTap: () => context.push('/sante/patient/ia'),
         ),
         _buildConversationTile(
           name: 'Dr. Martin',
           lastMessage: 'N\'oubliez pas votre prise de sang demain.',
           date: 'Il y a 2 jours',
           unread: false,
-          onTap: () {
-            context.push('/sante/patient/chat/doctor2');
-          },
+          onTap: () => context.push('/sante/patient/chat/doc2', extra: 'Dr. Martin'),
         ),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: () {
-            // Nouvelle conversation
             context.push('/sante/patient/chat/new');
           },
           icon: const Icon(Icons.edit),
@@ -205,12 +191,8 @@ class _MessagingTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 2. Onglet ASSISTANT IA
-// ============================================================
+// ===== Onglet Assistant IA =====
 class _AIAssistantTab extends StatelessWidget {
-  const _AIAssistantTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -256,6 +238,7 @@ class _AIAssistantTab extends StatelessWidget {
                         icon: const Icon(Icons.send, color: Colors.teal),
                         onPressed: () {
                           // Simuler une réponse IA
+                          context.push('/sante/patient/ia');
                         },
                       ),
                     ],
@@ -303,7 +286,7 @@ class _AIAssistantTab extends StatelessWidget {
     return ActionChip(
       label: Text(label),
       onPressed: () {
-        // Charger la suggestion dans le chat IA
+        context.push('/sante/patient/ia');
       },
       backgroundColor: Colors.teal.withOpacity(0.1),
       avatar: const Icon(Icons.chat, size: 16, color: Colors.teal),
@@ -311,12 +294,8 @@ class _AIAssistantTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 3. Onglet ALERTES SANITAIRES
-// ============================================================
+// ===== Onglet Alertes sanitaires =====
 class _AlertsTab extends StatelessWidget {
-  const _AlertsTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -331,32 +310,26 @@ class _AlertsTab extends StatelessWidget {
           description: 'La grippe saisonnière est en hausse. Pensez à vous faire vacciner.',
           severity: 'warning',
           date: 'Aujourd\'hui',
-          onTap: () {
-            context.push('/sante/patient/alert/1');
-          },
+          onTap: () => context.push('/sante/patient/alert/1'),
         ),
         _buildAlertCard(
           title: 'Rappel vaccination COVID-19',
           description: 'Vous êtes éligible pour une dose de rappel.',
           severity: 'info',
           date: 'Hier',
-          onTap: () {
-            context.push('/sante/patient/alert/2');
-          },
+          onTap: () => context.push('/sante/patient/alert/2'),
         ),
         _buildAlertCard(
           title: 'Rappel médicament',
           description: 'Votre paracétamol est presque épuisé.',
           severity: 'critical',
           date: 'Il y a 2 jours',
-          onTap: () {
-            context.push('/sante/patient/alert/3');
-          },
+          onTap: () => context.push('/sante/patient/alert/3'),
         ),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: () {
-            context.push('/sante/patient/alerts/all');
+            context.push('/sante/patient/alerts');
           },
           icon: const Icon(Icons.view_list),
           label: const Text('Voir toutes les alertes'),
@@ -401,12 +374,8 @@ class _AlertsTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 4. Onglet CARTE URGENCES / PHARMACIES
-// ============================================================
+// ===== Onglet Carte urgences/pharmacies =====
 class _MapTab extends StatelessWidget {
-  const _MapTab();
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -458,9 +427,7 @@ class _MapTab extends StatelessWidget {
                         title: 'Pharmacies',
                         icon: Icons.local_pharmacy,
                         color: Colors.green,
-                        onTap: () {
-                          context.push('/sante/patient/map/pharmacies');
-                        },
+                        onTap: () => context.push('/sante/patient/map/pharmacies'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -469,9 +436,7 @@ class _MapTab extends StatelessWidget {
                         title: 'Hôpitaux',
                         icon: Icons.local_hospital,
                         color: Colors.blue,
-                        onTap: () {
-                          context.push('/sante/patient/map/hospitals');
-                        },
+                        onTap: () => context.push('/sante/patient/map/hospitals'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -480,9 +445,7 @@ class _MapTab extends StatelessWidget {
                         title: 'Urgences',
                         icon: Icons.emergency,
                         color: Colors.red,
-                        onTap: () {
-                          context.push('/sante/patient/map/emergencies');
-                        },
+                        onTap: () => context.push('/sante/patient/map/emergencies'),
                       ),
                     ),
                   ],
@@ -498,18 +461,14 @@ class _MapTab extends StatelessWidget {
           title: const Text('Pharmacie Centrale'),
           subtitle: const Text('1 Rue de la Santé • Ouverte'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          onTap: () {
-            context.push('/sante/patient/map/pharmacy/1');
-          },
+          onTap: () => context.push('/sante/patient/map/pharmacy/1'),
         ),
         ListTile(
           leading: const Icon(Icons.local_hospital, color: Colors.blue),
           title: const Text('Hôpital Saint-Joseph'),
           subtitle: const Text('10 Avenue des Fleurs • Urgences 24/7'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          onTap: () {
-            context.push('/sante/patient/map/hospital/1');
-          },
+          onTap: () => context.push('/sante/patient/map/hospital/1'),
         ),
       ],
     );
