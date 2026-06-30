@@ -4,9 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
-import 'package:thix_id/presentation/thix_sante/shared/widgets/health_cards.dart';
 
-/// Page des soins patient (regroupe rendez-vous, téléconsultation, dossier médical, scan ordonnance, téléexpertise)
 class PatientCarePage extends StatefulWidget {
   const PatientCarePage({super.key});
 
@@ -14,11 +12,11 @@ class PatientCarePage extends StatefulWidget {
   State<PatientCarePage> createState() => _PatientCarePageState();
 }
 
-class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProviderStateMixin {
+class _PatientCarePageState extends State<PatientCarePage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final HealthService _healthService = HealthService.instance;
 
-  // Données
   List<Appointment> _appointments = [];
   List<Prescription> _prescriptions = [];
   List<ExamResult> _examResults = [];
@@ -27,7 +25,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this); // 3 onglets : Rendez-vous, Dossier médical, Téléexpertise
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -76,7 +74,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () {
-              // Scan ordonnance : redirige vers la page de scan
               context.push('/sante/patient/scan');
             },
             tooltip: 'Scanner une ordonnance',
@@ -98,13 +95,11 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // Nouveau rendez-vous ou consultation selon l'onglet actif
           if (_tabController.index == 0) {
             _showNewAppointmentDialog();
           } else if (_tabController.index == 1) {
-            context.push('/sante/patient/record/add');
+            // Ajouter au dossier médical
           } else {
-            // Téléexpertise
             _requestTeleexpertise();
           }
         },
@@ -112,12 +107,11 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
         label: Text(_tabController.index == 0 ? 'Prendre RDV' : 'Demander avis'),
       ),
       bottomNavigationBar: HealthBottomNav(
-        currentIndex: 1, // index de l'onglet "Santé" (à ajuster selon votre nav)
+        currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
             context.go('/sante');
           } else if (index == 2) {
-            // Nouvelle action rapide (scanner, etc.)
             _showQuickAction(context);
           } else if (index == 3) {
             context.go('/sante/patient/messages');
@@ -129,9 +123,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
     );
   }
 
-  // ============================================================
-  // 1. ONGLET RENDEZ-VOUS (avec téléconsultation Jitsi)
-  // ============================================================
+  // ===== Onglet Rendez-vous =====
   Widget _buildAppointmentsTab() {
     if (_appointments.isEmpty) {
       return const Center(
@@ -147,7 +139,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
         ),
       );
     }
-    // Trier par date (plus proche en premier)
     final sorted = List<Appointment>.from(_appointments)
       ..sort((a, b) => a.date.compareTo(b.date));
 
@@ -157,7 +148,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
       itemBuilder: (context, index) {
         final appt = sorted[index];
         final isTeleconsult = appt.type == AppointmentType.teleconsultation || appt.type == AppointmentType.teleexpertise;
-
         return Card(
           elevation: 2,
           margin: const EdgeInsets.only(bottom: 12),
@@ -170,38 +160,26 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
                   children: [
                     CircleAvatar(
                       backgroundColor: isTeleconsult ? Colors.purple : Colors.blue,
-                      child: Icon(
-                        isTeleconsult ? Icons.videocam : Icons.medical_services,
-                        color: Colors.white,
-                      ),
+                      child: Icon(isTeleconsult ? Icons.videocam : Icons.medical_services, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            appt.doctorName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          Text(
-                            '${appt.doctorSpecialty ?? 'Généraliste'} • ${appt.relativeDate}',
-                            style: const TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
+                          Text(appt.doctorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('${appt.doctorSpecialty ?? 'Généraliste'} • ${appt.relativeDate}',
+                              style: const TextStyle(fontSize: 14, color: Colors.grey)),
                         ],
                       ),
                     ),
-                    // Statut
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: _getStatusColor(appt.status).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        _getStatusLabel(appt.status),
-                        style: TextStyle(color: _getStatusColor(appt.status), fontSize: 12),
-                      ),
+                      child: Text(_getStatusLabel(appt.status), style: TextStyle(color: _getStatusColor(appt.status), fontSize: 12)),
                     ),
                   ],
                 ),
@@ -214,7 +192,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
                     if (isTeleconsult && appt.teleconsultationLink != null && appt.status == AppointmentStatus.confirmed)
                       ElevatedButton.icon(
                         onPressed: () {
-                          // Lancer la téléconsultation Jitsi
                           context.push('/sante/patient/teleconsultation/${appt.id}', extra: appt.teleconsultationLink);
                         },
                         icon: const Icon(Icons.videocam),
@@ -226,17 +203,13 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
                       ),
                     if (!isTeleconsult && appt.status == AppointmentStatus.scheduled)
                       OutlinedButton(
-                        onPressed: () {
-                          // Annuler le rendez-vous
-                          _cancelAppointment(appt.id);
-                        },
+                        onPressed: () => _cancelAppointment(appt.id),
                         child: const Text('Annuler'),
                       ),
                     const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: () {
-                        // Voir détails du rendez-vous
-                        context.push('/sante/patient/appointment/${appt.id}');
+                        context.push('/sante/patient/appointment/${appt.id}', extra: appt);
                       },
                       child: const Text('Détails'),
                     ),
@@ -250,9 +223,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
     );
   }
 
-  // ============================================================
-  // 2. ONGLET DOSSIER MÉDICAL
-  // ============================================================
+  // ===== Onglet Dossier médical =====
   Widget _buildMedicalRecordTab() {
     return DefaultTabController(
       length: 3,
@@ -295,14 +266,11 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
             title: Text('Ordonnance du ${p.date.day}/${p.date.month}/${p.date.year}'),
             subtitle: Text('Dr. ${p.doctorName} • ${p.medications.length} médicaments'),
             trailing: Chip(
-              label: Text(
-                p.isExpired ? 'Expirée' : 'Active',
-                style: TextStyle(color: p.isExpired ? Colors.red : Colors.green),
-              ),
+              label: Text(p.isExpired ? 'Expirée' : 'Active',
+                  style: TextStyle(color: p.isExpired ? Colors.red : Colors.green)),
             ),
             onTap: () {
-              // Voir le détail de l'ordonnance
-              context.push('/sante/patient/prescription/${p.id}');
+              context.push('/sante/patient/prescription/${p.id}', extra: p);
             },
           ),
         );
@@ -334,7 +302,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
             ),
             onTap: () {
               if (exam.status == ExamStatus.completed) {
-                context.push('/sante/patient/exam/${exam.id}');
+                context.push('/sante/patient/exam/${exam.id}', extra: exam);
               }
             },
           ),
@@ -344,7 +312,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
   }
 
   Widget _buildMedicalHistory() {
-    // Ici on pourrait afficher un historique des consultations, antécédents, etc.
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -361,9 +328,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
     );
   }
 
-  // ============================================================
-  // 3. ONGLET TÉLÉEXPERTISE
-  // ============================================================
+  // ===== Onglet Téléexpertise =====
   Widget _buildTeleexpertiseTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -382,10 +347,8 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
                   ],
                 ),
                 SizedBox(height: 8),
-                Text(
-                  'Demandez un avis médical à distance à un spécialiste.',
-                  style: TextStyle(fontSize: 16),
-                ),
+                Text('Demandez un avis médical à distance à un spécialiste.',
+                    style: TextStyle(fontSize: 16)),
                 SizedBox(height: 16),
                 Row(
                   children: [
@@ -399,25 +362,16 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Vos demandes récentes',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        const Text('Vos demandes récentes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: Colors.purple,
-            child: Icon(Icons.person, color: Colors.white),
-          ),
+          leading: const CircleAvatar(backgroundColor: Colors.purple, child: Icon(Icons.person, color: Colors.white)),
           title: const Text('Dr. Martin - Cardiologue'),
           subtitle: const Text('Demande en attente de réponse • 2 jours'),
           trailing: const Chip(label: Text('En cours'), backgroundColor: Colors.orange),
         ),
         ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: Colors.green,
-            child: Icon(Icons.check, color: Colors.white),
-          ),
+          leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
           title: const Text('Dr. Dubois - Dermatologue'),
           subtitle: const Text('Avis reçu • 5 jours'),
           trailing: const Chip(label: Text('Terminé'), backgroundColor: Colors.green),
@@ -439,11 +393,8 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
     );
   }
 
-  // ============================================================
-  // ACTIONS
-  // ============================================================
+  // ===== Actions =====
   void _showNewAppointmentDialog() {
-    // Simuler une prise de rendez-vous
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -462,10 +413,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
               subtitle: const Text('Chez votre médecin traitant'),
               onTap: () {
                 Navigator.pop(context);
-                // Simuler
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Rendez-vous en présentiel demandé (simulé)')),
-                );
+                context.push('/sante/patient/appointment/new');
               },
             ),
             ListTile(
@@ -494,7 +442,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
   }
 
   void _requestTeleexpertise() {
-    // Simuler une demande de téléexpertise
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -524,7 +471,6 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
     );
     if (confirm == true) {
       await _healthService.cancelAppointment(id);
-      // Recharger les données
       _loadData();
     }
   }
@@ -541,7 +487,7 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
               title: const Text('Prendre un rendez-vous'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/patient/appointments/new');
+                context.push('/sante/patient/appointment/new');
               },
             ),
             ListTile(
@@ -566,36 +512,23 @@ class _PatientCarePageState extends State<PatientCarePage> with SingleTickerProv
     );
   }
 
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
   Color _getStatusColor(AppointmentStatus status) {
     switch (status) {
-      case AppointmentStatus.scheduled:
-        return Colors.blue;
-      case AppointmentStatus.confirmed:
-        return Colors.green;
-      case AppointmentStatus.completed:
-        return Colors.grey;
-      case AppointmentStatus.cancelled:
-        return Colors.red;
-      case AppointmentStatus.missed:
-        return Colors.orange;
+      case AppointmentStatus.scheduled: return Colors.blue;
+      case AppointmentStatus.confirmed: return Colors.green;
+      case AppointmentStatus.completed: return Colors.grey;
+      case AppointmentStatus.cancelled: return Colors.red;
+      case AppointmentStatus.missed: return Colors.orange;
     }
   }
 
   String _getStatusLabel(AppointmentStatus status) {
     switch (status) {
-      case AppointmentStatus.scheduled:
-        return 'Planifié';
-      case AppointmentStatus.confirmed:
-        return 'Confirmé';
-      case AppointmentStatus.completed:
-        return 'Terminé';
-      case AppointmentStatus.cancelled:
-        return 'Annulé';
-      case AppointmentStatus.missed:
-        return 'Non honoré';
+      case AppointmentStatus.scheduled: return 'Planifié';
+      case AppointmentStatus.confirmed: return 'Confirmé';
+      case AppointmentStatus.completed: return 'Terminé';
+      case AppointmentStatus.cancelled: return 'Annulé';
+      case AppointmentStatus.missed: return 'Non honoré';
     }
   }
 }
