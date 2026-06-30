@@ -48,10 +48,6 @@ class AppSpacing {
 // THIX ID — HOME (PIXEL TOKENS)
 // =============================================================================
 
-/// Tokens stricts pour reproduire la homepage iOS “fintech/gov premium”.
-///
-/// Note: On garde ces tokens isolés pour ne pas perturber les palettes existantes
-/// (Market/Admin/Learning).
 class ThixHomeColors {
   static const primaryBlue = Color(0xFF003BFF);
   static const darkNavy = Color(0xFF02134F);
@@ -77,7 +73,7 @@ class ThixHomeRadii {
 class ThixHomeShadows {
   static const main = <BoxShadow>[
     BoxShadow(
-      color: Color(0x0F000000), // rgba(0,0,0,0.06)
+      color: Color(0x0F000000),
       blurRadius: 20,
       offset: Offset(0, 4),
     ),
@@ -85,14 +81,13 @@ class ThixHomeShadows {
 
   static const secondary = <BoxShadow>[
     BoxShadow(
-      color: Color(0x0A000000), // rgba(0,0,0,0.04)
+      color: Color(0x0A000000),
       blurRadius: 8,
       offset: Offset(0, 2),
     ),
   ];
 }
 
-/// Border radius constants for consistent rounded corners
 class AppRadius {
   static const double sm = 8.0;
   static const double md = 12.0;
@@ -101,14 +96,9 @@ class AppRadius {
   static const double full = 9999.0;
 }
 
-// =============================================================================
-// TEXT STYLE EXTENSIONS
-// =============================================================================
-
 extension TextStyleContext on BuildContext {
   TextTheme get textStyles => Theme.of(this).textTheme;
 }
-
 
 extension TextStyleExtensions on TextStyle {
   TextStyle get bold => copyWith(fontWeight: FontWeight.w700);
@@ -120,30 +110,19 @@ extension TextStyleExtensions on TextStyle {
   TextStyle withSize(double size) => copyWith(fontSize: size);
 }
 
-// =============================================================================
-// COLORS
-// =============================================================================
-
 class LightModeColors {
-  /// Instance access is occasionally used in older widgets. We keep the tokens
-  /// as `static const` (preferred), but also expose instance getters for
-  /// backward compatibility.
   const LightModeColors();
 
-  // Social / pro network (Facebook-like) — bright & readable.
   static const primary = Color(0xFF1877F2);
   static const onPrimary = Color(0xFFFFFFFF);
   static const secondary = Color(0xFF0B5ED7);
   static const onSecondary = Color(0xFFFFFFFF);
   static const accent = Color(0xFF00A884);
 
-  // Legacy premium tokens still referenced by some modules.
-  // Kept for compatibility even if the main app is now “social/pro”.
   static const metalGold = Color(0xFFD4AF37);
   static const metalGoldDeep = Color(0xFFB8860B);
   static const metalGoldSoft = Color(0xFFFFF3B0);
 
-  // Neutral surfaces (Facebook-like)
   static const background = Color(0xFFF0F2F5);
   static const surface = Color(0xFFFFFFFF);
   static const onSurface = Color(0xFF111827);
@@ -152,19 +131,18 @@ class LightModeColors {
   static const hint = Color(0xFF9CA3AF);
   static const error = Color(0xFFDC2626);
   static const emergencyRed = Color(0xFFFF3B30);
-  // Medical blue palette (Emergency UI)
+
   static const medicalBlue = Color(0xFF2563EB);
   static const medicalBlueDeep = Color(0xFF1D4ED8);
   static const medicalBlueSoft = Color(0xFFEAF2FF);
   static const cyberDarkBlue = Color(0xFF0D1B2A);
+
   static const onError = Color(0xFFFFFFFF);
   static const success = Color(0xFF059669);
   static const divider = Color(0xFFE5E7EB);
   static const transparent = Color(0x00000000);
 }
 
-/// Backward-compatible instance getters for legacy code paths that do
-/// `LightModeColors().metalGold` instead of the preferred static access.
 extension LightModeColorsInstance on LightModeColors {
   Color get metalGold => LightModeColors.metalGold;
   Color get metalGoldDeep => LightModeColors.metalGoldDeep;
@@ -172,14 +150,11 @@ extension LightModeColorsInstance on LightModeColors {
 }
 
 class DarkModeColors {
-  // Deep navy base (premium)
   static const primary = Color(0xFF071A2B);
   static const onPrimary = Color(0xFFFFFFFF);
-  // Gold as secondary for premium accents
   static const secondary = metalGoldDeep;
   static const onSecondary = Color(0xFF071A2B);
   static const accent = metalGold;
-  // Premium metallic accents
   static const metalGold = Color(0xFFD4AF37);
   static const metalGoldDeep = Color(0xFFB8860B);
   static const metalGoldSoft = Color(0xFFFFF3B0);
@@ -191,7 +166,6 @@ class DarkModeColors {
   static const hint = Color(0xFF475569);
   static const error = Color(0xFFEF4444);
   static const emergencyRed = Color(0xFFFF3B30);
-  // Medical blue palette (Emergency UI)
   static const medicalBlue = Color(0xFF60A5FA);
   static const medicalBlueDeep = Color(0xFF3B82F6);
   static const medicalBlueSoft = Color(0xFF0B2336);
@@ -202,10 +176,6 @@ class DarkModeColors {
   static const transparent = Color(0x00000000);
 }
 
-/// Admin / Cyber dark theme accents (electric blue + neon glow).
-///
-/// These are *additional* tokens used by the Admin web dashboard without
-/// disrupting the existing premium gold palette used in the consumer app.
 class AdminCyberColors {
   static const black = Color(0xFF05070C);
   static const panel = Color(0xFF08121E);
@@ -220,10 +190,6 @@ class AdminCyberColors {
   static const success = Color(0xFF34D399);
 }
 
-/// Consumer-side "Learning" palette (ultra-premium dark) for Trainings.
-///
-/// We reuse the same futuristic aesthetic as Admin, but keep it separated from
-/// the general app tokens so we can apply it only to the Training ecosystem.
 class LearningCyberColors {
   static const black = Color(0xFF05070C);
   static const bg0 = Color(0xFF05070C);
@@ -240,9 +206,6 @@ class LearningCyberColors {
   static const success = Color(0xFF34D399);
 }
 
-/// User-side Events ecosystem palette (ultra-premium dark: black + electric blue + neon cyan).
-///
-/// Kept separate from Admin/Learning so we can iterate without breaking other modules.
 class EventsCyberColors {
   static const black = Color(0xFF05070C);
   static const bg0 = Color(0xFF05070C);
@@ -275,14 +238,15 @@ class EventsCyberGradients {
   static LinearGradient cinematicScrim() => LinearGradient(
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
-        colors: [Colors.black.withValues(alpha: 0.82), Colors.black.withValues(alpha: 0.35), Colors.transparent],
+        colors: [
+          Colors.black.withOpacity(0.82),
+          Colors.black.withOpacity(0.35),
+          Colors.transparent
+        ],
         stops: const [0, 0.55, 1],
       );
 }
 
-/// Institutional palette (clean navy + civic blue).
-///
-/// Used in modules that need a more “institutional” look (less premium-gold).
 class InstitutionalColors {
   static const navy = Color(0xFF0B1F36);
   static const navy2 = Color(0xFF123A63);
@@ -291,11 +255,6 @@ class InstitutionalColors {
   static const ink = Color(0xFF0F172A);
 }
 
-/// THIX Market palette (light, punchy orange accents).
-///
-/// Kept separate from the premium-gold palette so the Market module can mimic
-/// a modern marketplace look (à la Facebook Marketplace) without affecting the
-/// rest of the app.
 class MarketColors {
   static const ink = Color(0xFF0F172A);
   static const bg = Color(0xFFF7F7F8);
@@ -324,47 +283,30 @@ class AdminCyberGradients {
   static LinearGradient glowBlue() => const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          AdminCyberColors.electricBlue,
-          AdminCyberColors.neonCyan,
-        ],
+        colors: [AdminCyberColors.electricBlue, AdminCyberColors.neonCyan],
       );
 
   static LinearGradient glowViolet() => const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          AdminCyberColors.neonViolet,
-          AdminCyberColors.electricBlue,
-        ],
+        colors: [AdminCyberColors.neonViolet, AdminCyberColors.electricBlue],
       );
 }
 
-/// Premium gradients (gold metal)
 class AppPremiumGradients {
   static LinearGradient thixGold(ColorScheme scheme) => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          scheme.tertiary,
-          scheme.secondary,
-        ],
+        colors: [scheme.tertiary, scheme.secondary],
       );
 
   static LinearGradient thixNavyToGold(ColorScheme scheme) => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          scheme.primary,
-          scheme.tertiary,
-        ],
+        colors: [scheme.primary, scheme.tertiary],
       );
 }
 
-/// Emergency (SOS) premium dark template tokens.
-///
-/// This palette intentionally stays dark even in light theme to match
-/// the URGENT overlay template (better contrast for the central SOS).
 class EmergencyUrgentColors {
   static const bg0 = Color(0xFF050A14);
   static const bg1 = Color(0xFF071326);
@@ -382,35 +324,24 @@ class EmergencyUrgentColors {
   static const amber = Color(0xFFFBBF24);
   static const cyan = Color(0xFF22D3EE);
 
-  static Color scrim() => const Color(0xFF00040A).withValues(alpha: 0.62);
+  static Color scrim() => const Color(0xFF00040A).withOpacity(0.62);
 }
 
 class EmergencyUrgentGradients {
   static LinearGradient background() => const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          EmergencyUrgentColors.bg0,
-          EmergencyUrgentColors.bg1,
-        ],
+        colors: [EmergencyUrgentColors.bg0, EmergencyUrgentColors.bg1],
       );
 
   static LinearGradient panel() => const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          EmergencyUrgentColors.panel,
-          EmergencyUrgentColors.card,
-        ],
+        colors: [EmergencyUrgentColors.panel, EmergencyUrgentColors.card],
       );
 }
 
-/// Emergency form (medical/light) tokens used by action sheets like Blood request.
-///
-/// The SOS overlay stays dark (EmergencyUrgentColors) but forms should remain
-/// bright, medical, and highly readable.
 class EmergencyMedicalSheetColors {
-  // Light, clean medical background.
   static const bg0 = Color(0xFFF3F8FF);
   static const bg1 = Color(0xFFFFFFFF);
   static const panel = Color(0xFFFFFFFF);
@@ -429,7 +360,6 @@ class EmergencyMedicalSheetGradients {
       );
 }
 
-/// Urgency scale colors (used in medical forms).
 class EmergencyUrgencyScaleColors {
   static const stable = Color(0xFF22C55E);
   static const moderate = Color(0xFFFBBF24);
@@ -437,7 +367,6 @@ class EmergencyUrgencyScaleColors {
   static const critical = DarkModeColors.emergencyRed;
 }
 
-/// Font size constants
 class FontSizes {
   static const double headlineLarge = 20;
   static const double headlineMedium = 26.0;
@@ -450,10 +379,6 @@ class FontSizes {
   static const double labelMedium = 13.0;
   static const double labelSmall = 11.0;
 }
-
-// =============================================================================
-// THEMES
-// =============================================================================
 
 ThemeData get lightTheme => ThemeData(
       useMaterial3: true,
@@ -474,7 +399,8 @@ ThemeData get lightTheme => ThemeData(
       ),
       brightness: Brightness.light,
       scaffoldBackgroundColor: LightModeColors.background,
-      iconTheme: const IconThemeData(color: LightModeColors.secondaryText, size: 22),
+      iconTheme:
+          const IconThemeData(color: LightModeColors.secondaryText, size: 22),
       appBarTheme: const AppBarTheme(
         backgroundColor: LightModeColors.surface,
         surfaceTintColor: Colors.transparent,
@@ -487,9 +413,14 @@ ThemeData get lightTheme => ThemeData(
         backgroundColor: LightModeColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        indicatorColor: LightModeColors.primary.withValues(alpha: 0.12),
+        indicatorColor: LightModeColors.primary.withOpacity(0.12),
         labelTextStyle: WidgetStatePropertyAll(
-          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, height: 1.2, color: LightModeColors.secondaryText),
+          GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+            color: LightModeColors.secondaryText,
+          ),
         ),
         iconTheme: const WidgetStatePropertyAll(IconThemeData(size: 22)),
       ),
@@ -502,7 +433,9 @@ ThemeData get lightTheme => ThemeData(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
       ),
       cardTheme: CardThemeData(
         color: LightModeColors.surface,
@@ -518,8 +451,10 @@ ThemeData get lightTheme => ThemeData(
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: LightModeColors.surface,
-        hintStyle: GoogleFonts.inter(color: LightModeColors.hint, fontSize: 14, height: 1.2),
-        labelStyle: GoogleFonts.inter(color: LightModeColors.secondaryText, fontSize: 14, height: 1.2),
+        hintStyle: GoogleFonts.inter(
+            color: LightModeColors.hint, fontSize: 14, height: 1.2),
+        labelStyle: GoogleFonts.inter(
+            color: LightModeColors.secondaryText, fontSize: 14, height: 1.2),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.xl),
           borderSide: const BorderSide(color: LightModeColors.divider, width: 1),
@@ -540,19 +475,29 @@ ThemeData get lightTheme => ThemeData(
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
           ),
-          textStyle: WidgetStatePropertyAll(GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+          textStyle: WidgetStatePropertyAll(
+            GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: ButtonStyle(
           foregroundColor: const WidgetStatePropertyAll(LightModeColors.primary),
-          side: const WidgetStatePropertyAll(BorderSide(color: LightModeColors.divider, width: 1)),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: LightModeColors.divider, width: 1),
+          ),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
           ),
-          textStyle: WidgetStatePropertyAll(GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+          textStyle: WidgetStatePropertyAll(
+            GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          ),
         ),
       ),
       textTheme: _buildTextTheme(LightModeColors.primaryText),
@@ -592,7 +537,9 @@ ThemeData get darkTheme => ThemeData(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
       ),
       cardTheme: CardThemeData(
         color: DarkModeColors.surface,
@@ -652,8 +599,23 @@ TextTheme _buildTextTheme(Color textColor) {
       height: 1.1,
       color: textColor,
     ),
-    bodyLarge: GoogleFonts.inter(fontSize: FontSizes.bodyLarge, fontWeight: FontWeight.w400, height: 1.55, color: textColor),
-    bodyMedium: GoogleFonts.inter(fontSize: FontSizes.bodyMedium, fontWeight: FontWeight.w400, height: 1.45, color: textColor),
-    bodySmall: GoogleFonts.inter(fontSize: FontSizes.bodySmall, fontWeight: FontWeight.w400, height: 1.35, color: textColor),
+    bodyLarge: GoogleFonts.inter(
+      fontSize: FontSizes.bodyLarge,
+      fontWeight: FontWeight.w400,
+      height: 1.55,
+      color: textColor,
+    ),
+    bodyMedium: GoogleFonts.inter(
+      fontSize: FontSizes.bodyMedium,
+      fontWeight: FontWeight.w400,
+      height: 1.45,
+      color: textColor,
+    ),
+    bodySmall: GoogleFonts.inter(
+      fontSize: FontSizes.bodySmall,
+      fontWeight: FontWeight.w400,
+      height: 1.35,
+      color: textColor,
+    ),
   );
 }
