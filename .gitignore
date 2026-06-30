@@ -1,0 +1,30 @@
+# Flutter/Dart generated
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+build/
+
+# IDE/editor
+.idea/
+.vscode/
+*.iml
+
+# Dart/Flutter metadata
+.metadata
+
+# Android local and generated
+android/.gradle/
+android/local.properties
+android/app/build/
+
+# iOS generated
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+
+# macOS
+.DS_Store
