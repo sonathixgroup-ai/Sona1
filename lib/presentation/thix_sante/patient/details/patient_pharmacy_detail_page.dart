@@ -57,8 +57,8 @@ class _PatientPharmacyDetailPageState extends State<PatientPharmacyDetailPage> {
               const SizedBox(height: 16),
               Text(p.address.isEmpty ? 'Adresse non renseignée.' : p.address),
               const SizedBox(height: 16),
-              if (p.latitude != 0 && p.longitude != 0)
-                Text('Coordonnées: ${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}'),
+              if (p.latitude != null && p.longitude != null)
+                Text('Coordonnées: ${p.latitude!.toStringAsFixed(4)}, ${p.longitude!.toStringAsFixed(4)}'),
             ],
           );
         },

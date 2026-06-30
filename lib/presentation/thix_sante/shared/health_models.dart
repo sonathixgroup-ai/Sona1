@@ -211,6 +211,36 @@ class Medication {
         'prescribedBy': prescribedBy,
         'reminders': reminders.map((e) => e.toJson()).toList(),
       };
+
+  Medication copyWith({
+    String? id,
+    String? name,
+    String? dosage,
+    String? frequency,
+    String? duration,
+    String? instructions,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool? isActive,
+    String? prescriptionId,
+    String? prescribedBy,
+    List<MedicationReminder>? reminders,
+  }) {
+    return Medication(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      dosage: dosage ?? this.dosage,
+      frequency: frequency ?? this.frequency,
+      duration: duration ?? this.duration,
+      instructions: instructions ?? this.instructions,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      isActive: isActive ?? this.isActive,
+      prescriptionId: prescriptionId ?? this.prescriptionId,
+      prescribedBy: prescribedBy ?? this.prescribedBy,
+      reminders: reminders ?? this.reminders,
+    );
+  }
 }
 
 class MedicationReminder {
@@ -398,6 +428,28 @@ class VitalSign {
 
   String get displayValue => '$value${unit ?? ''}';
 
+  VitalSign copyWith({
+    String? id,
+    String? patientId,
+    VitalType? type,
+    double? value,
+    String? unit,
+    DateTime? date,
+    String? notes,
+    String? deviceUsed,
+  }) {
+    return VitalSign(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      type: type ?? this.type,
+      value: value ?? this.value,
+      unit: unit ?? this.unit,
+      date: date ?? this.date,
+      notes: notes ?? this.notes,
+      deviceUsed: deviceUsed ?? this.deviceUsed,
+    );
+  }
+
   static String getVitalLabel(VitalType type) {
     switch (type) {
       case VitalType.bloodPressureSystolic:
@@ -443,7 +495,7 @@ class VitalSign {
       case VitalType.oxygenSaturation:
         return Icons.air;
       case VitalType.respiratoryRate:
-        return Icons.lungs;
+        return Icons.air;
     }
   }
 }
@@ -513,6 +565,32 @@ class Prescription {
       };
 
   bool get isExpired => validUntil != null && validUntil!.isBefore(DateTime.now());
+
+  Prescription copyWith({
+    String? id,
+    String? patientId,
+    String? patientName,
+    String? doctorId,
+    String? doctorName,
+    DateTime? date,
+    DateTime? validUntil,
+    PrescriptionStatus? status,
+    List<Medication>? medications,
+    String? notes,
+  }) {
+    return Prescription(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      patientName: patientName ?? this.patientName,
+      doctorId: doctorId ?? this.doctorId,
+      doctorName: doctorName ?? this.doctorName,
+      date: date ?? this.date,
+      validUntil: validUntil ?? this.validUntil,
+      status: status ?? this.status,
+      medications: medications ?? this.medications,
+      notes: notes ?? this.notes,
+    );
+  }
 }
 
 // ============================================================
@@ -621,6 +699,26 @@ class Vaccine {
   bool get isBoosterDue {
     if (boosterDate == null) return false;
     return boosterDate!.isBefore(DateTime.now());
+  }
+
+  Vaccine copyWith({
+    String? id,
+    String? patientId,
+    String? name,
+    DateTime? dateAdministered,
+    DateTime? boosterDate,
+    String? batchNumber,
+    String? administeredBy,
+  }) {
+    return Vaccine(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      name: name ?? this.name,
+      dateAdministered: dateAdministered ?? this.dateAdministered,
+      boosterDate: boosterDate ?? this.boosterDate,
+      batchNumber: batchNumber ?? this.batchNumber,
+      administeredBy: administeredBy ?? this.administeredBy,
+    );
   }
 }
 

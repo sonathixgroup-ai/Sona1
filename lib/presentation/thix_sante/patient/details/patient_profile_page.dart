@@ -8,7 +8,9 @@ class PatientProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthController.instance.currentUser;
-    final name = user?.firstName ?? 'Michel';
+    final name = (user?.displayName.trim().isNotEmpty == true)
+        ? user!.displayName.trim()
+        : 'Utilisateur';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),

@@ -1,6 +1,7 @@
 // presentation/thix_sante/patient/patient_connect_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/emergency_button.dart';
 
@@ -254,10 +255,10 @@ class _AIAssistantTab extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _buildSuggestionChip('Que faire en cas de grippe?'),
-            _buildSuggestionChip('Mes résultats de prise de sang'),
-            _buildSuggestionChip('Posologie paracétamol'),
-            _buildSuggestionChip('Gérer mon stress'),
+            _buildSuggestionChip(context, 'Que faire en cas de grippe?'),
+            _buildSuggestionChip(context, 'Mes résultats de prise de sang'),
+            _buildSuggestionChip(context, 'Posologie paracétamol'),
+            _buildSuggestionChip(context, 'Gérer mon stress'),
           ],
         ),
         const SizedBox(height: 16),
@@ -282,7 +283,7 @@ class _AIAssistantTab extends StatelessWidget {
     );
   }
 
-  Widget _buildSuggestionChip(String label) {
+  Widget _buildSuggestionChip(BuildContext context, String label) {
     return ActionChip(
       label: Text(label),
       onPressed: () {

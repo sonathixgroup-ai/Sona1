@@ -137,7 +137,8 @@ class _PatientRecordAddPageState extends State<PatientRecordAddPage> {
     switch (t) {
       case VitalType.weight:
         return 'Poids';
-      case VitalType.bloodPressure:
+      case VitalType.bloodPressureSystolic:
+      case VitalType.bloodPressureDiastolic:
         return 'Tension artérielle';
       case VitalType.heartRate:
         return 'Fréquence cardiaque';
@@ -145,6 +146,8 @@ class _PatientRecordAddPageState extends State<PatientRecordAddPage> {
         return 'Température';
       case VitalType.glucose:
         return 'Glycémie';
+      default:
+        return VitalSign.getVitalLabel(t);
     }
   }
 }

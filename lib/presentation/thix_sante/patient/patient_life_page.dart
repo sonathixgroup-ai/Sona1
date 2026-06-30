@@ -144,7 +144,7 @@ class _PregnancyTab extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _buildStatCard('Échographies', '2 réalisées', Icons.ultrasound),
+                      child: _buildStatCard('Échographies', '2 réalisées', Icons.monitor_heart_outlined),
                     ),
                   ],
                 ),
@@ -290,6 +290,7 @@ class _WellnessTab extends StatelessWidget {
         const Text('Programmes recommandés pour vous', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         _buildProgramCard(
+          context: context,
           title: 'Gestion du stress',
           subtitle: 'Méditation et respiration',
           progress: 0.4,
@@ -298,6 +299,7 @@ class _WellnessTab extends StatelessWidget {
           programId: 'stress',
         ),
         _buildProgramCard(
+          context: context,
           title: 'Arrêt du tabac',
           subtitle: 'Programme 30 jours',
           progress: 0.7,
@@ -306,6 +308,7 @@ class _WellnessTab extends StatelessWidget {
           programId: 'stop-smoking',
         ),
         _buildProgramCard(
+          context: context,
           title: 'Nutrition équilibrée',
           subtitle: 'Menus et conseils',
           progress: 0.2,
@@ -314,6 +317,7 @@ class _WellnessTab extends StatelessWidget {
           programId: 'nutrition',
         ),
         _buildProgramCard(
+          context: context,
           title: 'Activité physique',
           subtitle: 'Programme adapté à votre condition',
           progress: 0.5,
@@ -334,6 +338,7 @@ class _WellnessTab extends StatelessWidget {
   }
 
   Widget _buildProgramCard({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required double progress,

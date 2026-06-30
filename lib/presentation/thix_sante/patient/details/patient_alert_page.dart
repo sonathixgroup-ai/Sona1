@@ -1,5 +1,6 @@
 // presentation/thix_sante/patient/details/patient_alert_page.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 

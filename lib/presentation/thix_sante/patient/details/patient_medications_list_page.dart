@@ -92,7 +92,7 @@ class _PatientMedicationsListPageState extends State<PatientMedicationsListPage>
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
             leading: Icon(
-              med.isActive ? Icons.medication : Icons.medication_off,
+              med.isActive ? Icons.medication : Icons.medication_outlined,
               color: med.isActive ? Colors.green : Colors.grey,
             ),
             title: Text(med.name),

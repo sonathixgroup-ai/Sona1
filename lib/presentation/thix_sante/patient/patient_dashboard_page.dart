@@ -7,6 +7,7 @@ import 'package:thix_id/presentation/thix_sante/shared/widgets/health_cards.dart
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_header.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/emergency_button.dart';
 import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
+import 'package:thix_id/presentation/thix_sante/shared/widgets/health_charts.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 
 class PatientDashboardPage extends StatefulWidget {

@@ -1,5 +1,6 @@
 // presentation/thix_sante/patient/details/patient_wellness_page.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class PatientWellnessPage extends StatefulWidget {
   final String? programId;

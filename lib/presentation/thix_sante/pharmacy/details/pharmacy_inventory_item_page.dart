@@ -38,8 +38,8 @@ class _PharmacyInventoryItemPageState extends State<PharmacyInventoryItemPage> {
     setState(() => _loading = true);
     try {
       final res = await SupabaseConfig.client.from('health_inventory_items').select('*').eq('id', id).maybeSingle();
-      if (res is Map) {
-        final m = res.cast<String, dynamic>();
+      final m = (res is Map) ? res.cast<String, dynamic>() : null;
+      if (m != null) {
         _nameCtrl.text = (m['name'] as String?)?.trim() ?? '';
         _skuCtrl.text = (m['sku'] as String?)?.trim() ?? '';
         _qtyCtrl.text = ((m['quantity'] as num?)?.toInt() ?? 0).toString();

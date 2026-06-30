@@ -1,5 +1,6 @@
 // presentation/thix_sante/shared/services/health_service.dart
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
@@ -53,7 +54,10 @@ class HealthService {
     bool ascending = false,
   }) async {
     try {
-      PostgrestFilterBuilder<dynamic> q = _db.from(table).select(columns);
+      // Supabase v2: select() returns PostgrestTransformBuilder, and chaining
+      // eq/order/limit returns filter/transform builders. We keep it dynamic
+      // to stay compatible across supabase versions.
+      dynamic q = _db.from(table).select(columns);
       if (eq != null) {
         for (final e in eq.entries) {
           q = q.eq(e.key, e.value);
@@ -83,7 +87,7 @@ class HealthService {
     required Map<String, dynamic> eq,
   }) async {
     try {
-      PostgrestFilterBuilder<dynamic> q = _db.from(table).select(columns);
+      dynamic q = _db.from(table).select(columns);
       for (final e in eq.entries) {
         q = q.eq(e.key, e.value);
       }
@@ -573,8 +577,8 @@ class HealthService {
             ))
         .toList();
     mapped.sort((a, b) {
-      final da = (a.latitude - lat).abs() + (a.longitude - lng).abs();
-      final db = (b.latitude - lat).abs() + (b.longitude - lng).abs();
+      final da = ((a.latitude ?? lat) - lat).abs() + ((a.longitude ?? lng) - lng).abs();
+      final db = ((b.latitude ?? lat) - lat).abs() + ((b.longitude ?? lng) - lng).abs();
       return da.compareTo(db);
     });
     return mapped.take(10).toList();

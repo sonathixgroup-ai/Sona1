@@ -113,7 +113,7 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
           ),
         if (_vaccine!.batchNumber != null)
           ListTile(
-            leading: const Icon(Icons.barcode),
+            leading: const Icon(Icons.qr_code_scanner),
             title: const Text('Lot'),
             subtitle: Text(_vaccine!.batchNumber!),
           ),

@@ -17,7 +17,8 @@ class HealthHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthController.instance.currentUser;
-    final firstName = user?.firstName ?? 'Utilisateur';
+    final dn = (user?.displayName ?? '').trim();
+    final firstName = dn.isEmpty ? 'Utilisateur' : dn.split(RegExp(r'\s+')).first;
 
     return Container(
       decoration: BoxDecoration(

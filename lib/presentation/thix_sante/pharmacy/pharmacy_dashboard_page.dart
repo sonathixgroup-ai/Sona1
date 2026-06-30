@@ -141,9 +141,9 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
         const SizedBox(height: 8),
         ...orders.map((o) => ListTile(
               leading: const Icon(Icons.receipt),
-              title: Text('Commande #${o['id']?.substring(3)}'),
+              title: Text('Commande #${(o['id'] as String).substring(3)}'),
               subtitle: Text('Patient : ${o['patient']} • ${o['meds']} médicaments'),
-              trailing: Chip(label: Text(o['status']), backgroundColor: _getStatusColor(o['status'])),
+              trailing: Chip(label: Text(o['status'] as String), backgroundColor: _getStatusColor(o['status'] as String)),
               onTap: () {
                 context.push('/sante/pharmacy/order/${o['id']}');
               },
@@ -155,13 +155,13 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'En attente':
-        return Colors.orange.withOpacity(0.2);
+        return Colors.orange.withValues(alpha: 0.2);
       case 'En cours':
-        return Colors.blue.withOpacity(0.2);
+        return Colors.blue.withValues(alpha: 0.2);
       case 'Validée':
-        return Colors.green.withOpacity(0.2);
+        return Colors.green.withValues(alpha: 0.2);
       default:
-        return Colors.grey.withOpacity(0.2);
+        return Colors.grey.withValues(alpha: 0.2);
     }
   }
 
