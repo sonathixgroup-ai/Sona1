@@ -14,9 +14,9 @@ class _PharmacyConnectPageState extends State<PharmacyConnectPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Messages mockés
   final List<Map<String, dynamic>> _messages = [
     {
+      'id': 'm1',
       'sender': 'Dr. Dupont',
       'role': 'Doctor',
       'lastMessage': 'Confirmez-vous la disponibilité ?',
@@ -24,6 +24,7 @@ class _PharmacyConnectPageState extends State<PharmacyConnectPage>
       'unread': true,
     },
     {
+      'id': 'm2',
       'sender': 'Michel L.',
       'role': 'Patient',
       'lastMessage': 'Merci pour la préparation.',
@@ -81,7 +82,7 @@ class _PharmacyConnectPageState extends State<PharmacyConnectPage>
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           if (_tabController.index == 0) {
-            context.push('/sante/pharmacy/messages/new');
+            context.push('/sante/pharmacy/chat/new');
           } else {
             // Éditer profil
           }
@@ -103,7 +104,7 @@ class _PharmacyConnectPageState extends State<PharmacyConnectPage>
               title: const Text('Nouvelle commande'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/pharmacy/orders/new');
+                context.push('/sante/pharmacy/order/new');
               },
             ),
             ListTile(
@@ -111,7 +112,7 @@ class _PharmacyConnectPageState extends State<PharmacyConnectPage>
               title: const Text('Valider ordonnance'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/sante/pharmacy/orders/validation');
+                context.push('/sante/pharmacy/prescription/p1');
               },
             ),
           ],
@@ -121,9 +122,7 @@ class _PharmacyConnectPageState extends State<PharmacyConnectPage>
   }
 }
 
-// ============================================================
-// 1. MESSAGERIE
-// ============================================================
+// ----- Onglet Messagerie -----
 class _MessagingTab extends StatelessWidget {
   final List<Map<String, dynamic>> messages;
   const _MessagingTab({required this.messages});
@@ -141,25 +140,25 @@ class _MessagingTab extends StatelessWidget {
                   backgroundColor: msg['role'] == 'Doctor' ? Colors.blue : Colors.green,
                   child: Text((msg['sender'] as String)[0], style: const TextStyle(color: Colors.white)),
                 ),
-                title: Text(msg['sender'] as String, style: TextStyle(fontWeight: (msg['unread'] as bool) ? FontWeight.bold : FontWeight.normal)),
+                title: Text(msg['sender'] as String,
+                    style: TextStyle(fontWeight: (msg['unread'] as bool) ? FontWeight.bold : FontWeight.normal)),
                 subtitle: Text(msg['lastMessage'] as String),
                 trailing: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(msg['date'] as String, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    if (msg['unread'] as bool) const CircleAvatar(radius: 5, backgroundColor: Colors.blue),
+                    if (msg['unread'] as bool)
+                      const CircleAvatar(radius: 5, backgroundColor: Colors.blue),
                   ],
                 ),
                 onTap: () {
-                  // Ouvrir la conversation
+                  context.push('/sante/pharmacy/chat/${msg['id']}', extra: msg['sender']);
                 },
               ),
             )),
         const SizedBox(height: 16),
         ElevatedButton.icon(
-          onPressed: () {
-            context.push('/sante/pharmacy/messages/new');
-          },
+          onPressed: () => context.push('/sante/pharmacy/chat/new'),
           icon: const Icon(Icons.edit),
           label: const Text('Nouveau message'),
         ),
@@ -168,9 +167,7 @@ class _MessagingTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 2. PROFIL PHARMACIE
-// ============================================================
+// ----- Onglet Profil pharmacie -----
 class _PharmacyProfileTab extends StatelessWidget {
   const _PharmacyProfileTab();
 
@@ -206,6 +203,9 @@ class _PharmacyProfileTab extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: () {
               // Éditer le profil
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Modification profil (simulé)')),
+              );
             },
             icon: const Icon(Icons.edit),
             label: const Text('Modifier le profil'),
