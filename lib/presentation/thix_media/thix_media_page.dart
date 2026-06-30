@@ -8,6 +8,9 @@ import 'package:thix_id/app_router.dart';
 import 'package:thix_id/models/media_content.dart';
 import 'package:thix_id/services/media_service.dart';
 
+// Assurez-vous que l'import de nav.dart est présent (si nécessaire)
+// mais app_router.dart définit déjà AppRoutes
+
 class ThixMediaPage extends StatefulWidget {
   const ThixMediaPage({super.key});
 
@@ -27,7 +30,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Pour le carrousel
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
@@ -123,9 +125,10 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   }
 
   void _navigateToVideo(MediaContent item) {
-    final title = Uri.encodeComponent(item.title);
-    final url = Uri.encodeComponent(item.videoUrl);
-    context.push('${AppRoutes.thixMedia}/video?title=$title&url=$url');
+    // ✅ Utilisation de la route nommée avec queryParameters
+    context.push(
+      '${AppRoutes.thixMediaVideo}?title=${Uri.encodeComponent(item.title)}&url=${Uri.encodeComponent(item.videoUrl)}',
+    );
   }
 
   void _showAll(String section) {
@@ -223,8 +226,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Favoris à venir')));
             break;
           case 3:
-            // Redirection vers le dashboard utilisateur (route définie dans app_router)
-            // On suppose que AppRoutes.userDashboard est une constante string ex: '/user-dashboard'
             context.go(AppRoutes.userDashboard);
             break;
         }
