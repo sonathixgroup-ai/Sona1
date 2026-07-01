@@ -8,18 +8,16 @@ import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/nav.dart';
-// 🔽 Remplacé FirestoreUserService par notre nouveau service Supabase
-import 'package:thix_id/services/supabase_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';        // ✅ Supabase uniquement
+import 'package:thix_id/services/user_service.dart';           // ✅ Nouveau service Supabase
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
-/// Point d’entrée principal – sans Firestore, uniquement Supabase
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Gestion des erreurs (inchangée)
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exceptionAsString()}');
@@ -65,16 +63,11 @@ class _BootstrapAppState extends State<BootstrapApp> {
       debugPrint(st.toString());
     }
 
-    // 🔽 Service utilisateur basé sur Supabase (remplace Firestore)
-    final supabaseUserService = SupabaseUserService(SupabaseConfig.client);
+    // 🔥 Services Supabase
+    final profiles = ProfileService();
+    final userService = UserService(SupabaseConfig.client);
 
-    // On garde ProfileService (pour l’authentification) mais on lui passe
-    // le service Supabase pour qu’il puisse lire/écrire les profils.
-    // Vous pouvez aussi supprimer ProfileService et utiliser directement
-    // SupabaseUserService dans AuthController si vous modifiez celui-ci.
-    final profiles = ProfileService(supabaseUserService);
-
-    // AuthController utilise toujours SupabaseAuthManager
+    // AuthController utilise SupabaseAuthManager (qui a besoin de ProfileService)
     final auth = AuthController(
       auth: SupabaseAuthManager(profiles: profiles),
     );
@@ -93,7 +86,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
     return _BootstrapResult(
       auth: auth,
       profiles: profiles,
-      supabaseUserService: supabaseUserService, // nouveau service
+      userService: userService,
       network: network,
       feed: feed,
     );
@@ -108,7 +101,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
             ? MyApp(
                 auth: snap.data!.auth,
                 profiles: snap.data!.profiles,
-                supabaseUserService: snap.data!.supabaseUserService,
+                userService: snap.data!.userService,
                 network: snap.data!.network,
                 feed: snap.data!.feed,
               )
@@ -134,19 +127,17 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 }
 
-// ─── Résultat du bootstrap ──────────────────────────────────────────────────
-
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
-  final SupabaseUserService supabaseUserService; // 🔥 nouveau type
+  final UserService userService;        // 👈 nouveau service
   final NetworkService network;
   final FeedProvider feed;
 
   const _BootstrapResult({
     required this.auth,
     required this.profiles,
-    required this.supabaseUserService,
+    required this.userService,
     required this.network,
     required this.feed,
   });
@@ -208,7 +199,7 @@ class _StartupLoadingPage extends StatelessWidget {
 class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
-  final SupabaseUserService supabaseUserService; // 🔥 remplace FirestoreUserService
+  final UserService userService;      // 👈 nouveau
   final NetworkService network;
   final FeedProvider feed;
 
@@ -216,7 +207,7 @@ class MyApp extends StatefulWidget {
     super.key,
     required this.auth,
     required this.profiles,
-    required this.supabaseUserService,
+    required this.userService,
     required this.network,
     required this.feed,
   });
@@ -243,8 +234,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
-        // 🔽 Fournir le nouveau service Supabase (à la place de FirestoreUserService)
-        Provider<SupabaseUserService>.value(value: widget.supabaseUserService),
+        Provider<UserService>.value(value: widget.userService),   // 👈 fourni
         Provider<NetworkService>.value(value: widget.network),
         ChangeNotifierProvider.value(value: widget.feed),
       ],
