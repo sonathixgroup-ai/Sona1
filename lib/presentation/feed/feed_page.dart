@@ -1,5 +1,4 @@
 // lib/presentation/feed/feed_page.dart
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -69,12 +68,10 @@ class _FeedPageState extends State<FeedPage> {
     try {
       final svc = context.read<NetworkService>();
 
-      /// ✅ CORRECTION
-      /// ❌ page:
-      /// ✅ offset:
+      /// ✅ Utilisez `start` au lieu de `offset`
       final items = await svc.getFeedPosts(
         limit: _pageSize,
-        offset: 0,
+        start: 0,
       );
 
       if (!mounted) return;
@@ -111,12 +108,10 @@ class _FeedPageState extends State<FeedPage> {
     try {
       final svc = context.read<NetworkService>();
 
-      /// ✅ CORRECTION
-      /// ❌ page:
-      /// ✅ offset:
+      /// ✅ Utilisez `start` au lieu de `offset`
       final items = await svc.getFeedPosts(
         limit: _pageSize,
-        offset: _page * _pageSize,
+        start: _page * _pageSize,
       );
 
       if (!mounted) return;
