@@ -204,7 +204,6 @@ class UserService {
     final row = await _supabase.from('profiles').select('thix_id').eq('id', uid).maybeSingle();
     final existing = (row?['thix_id'] ?? '').toString().trim();
     if (existing.isNotEmpty && existing != 'THIX-PENDING') return existing;
-    // Générer un THIX ID plus robuste (ex: THIX-XXXXXX)
     final candidate = 'THIX-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
     await _supabase.from('profiles').update({'thix_id': candidate}).eq('id', uid);
     return candidate;
@@ -238,6 +237,8 @@ class UserService {
     return _mapToAppUser(row as Map<String, dynamic>);
   }
 
+  // ==================== MÉTHODE DE MAPPING CORRIGÉE ====================
+
   AppUser _mapToAppUser(Map<String, dynamic> row) {
     // Parsing des dates
     DateTime parseDate(dynamic value) {
@@ -252,27 +253,38 @@ class UserService {
     final createdAt = row['created_at'] != null ? parseDate(row['created_at']) : DateTime.now();
     final updatedAt = row['updated_at'] != null ? parseDate(row['updated_at']) : DateTime.now();
 
-    // Récupération des listes (JSONB)
-    List<Map<String, dynamic>>? mapList(dynamic value) {
+    // ✅ Récupération des listes avec des valeurs par défaut non nullables
+    List<Map<String, dynamic>> mapList(dynamic value) {
       if (value is List) {
         return value.map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}).toList();
       }
-      return [];
+      return <Map<String, dynamic>>[];
     }
 
-    List<String>? stringList(dynamic value) {
+    List<String> stringList(dynamic value) {
       if (value is List) {
         return value.whereType<String>().toList();
       }
-      return [];
+      return <String>[];
     }
+
+    final educationList = mapList(row['education']);
+    final experienceList = mapList(row['experience']);
+    final skillsList = mapList(row['skills']);
+    final enrollmentsList = mapList(row['enrollments']);
+    final languagesList = stringList(row['languages']);
+
+    // Récupération du thixScore (nombre)
+    int thixScore = 0;
+    final score = row['thix_score'];
+    if (score is num) thixScore = score.toInt();
 
     return AppUser(
       id: row['id'] ?? '',
       thixId: row['thix_id'] ?? 'THIX-PENDING',
       thixChat: row['thix_chat'] ?? '',
-      thixScore: (row['thix_score'] as num?)?.toInt() ?? 0,
-      email: row['email'] ?? '', // On récupère depuis profiles si stocké, sinon vide
+      thixScore: thixScore,
+      email: row['email'] ?? '',
       phone: row['phone'] ?? '',
       displayName: row['display_name'] ?? 'Utilisateur',
       accountType: (row['account_type'] ?? 'personal') == 'enterprise' ? AccountType.enterprise : AccountType.personal,
@@ -294,11 +306,11 @@ class UserService {
       emergencyContactPhone: row['emergency_contact_phone'],
       emergencyContactRelation: row['emergency_contact_relation'],
       registrationStatus: row['registration_status'],
-      education: mapList(row['education']),
-      experience: mapList(row['experience']),
-      skills: mapList(row['skills']),
-      enrollments: mapList(row['enrollments']),
-      languages: stringList(row['languages']),
+      education: educationList,   // ✅ non nullable
+      experience: experienceList, // ✅ non nullable
+      skills: skillsList,         // ✅ non nullable
+      enrollments: enrollmentsList, // ✅ non nullable
+      languages: languagesList,   // ✅ non nullable
       biometricsEnabled: (row['biometrics_enabled'] as bool?) ?? true,
       twoFaEnabled: (row['two_fa_enabled'] as bool?) ?? false,
       createdAt: createdAt,
