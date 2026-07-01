@@ -204,7 +204,8 @@ class UserService {
     final row = await _supabase.from('profiles').select('thix_id').eq('id', uid).maybeSingle();
     final existing = (row?['thix_id'] ?? '').toString().trim();
     if (existing.isNotEmpty && existing != 'THIX-PENDING') return existing;
-    final candidate = 'THIX-${DateTime.now().millisecondsSinceEpoch}';
+    // Générer un THIX ID plus robuste (ex: THIX-XXXXXX)
+    final candidate = 'THIX-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
     await _supabase.from('profiles').update({'thix_id': candidate}).eq('id', uid);
     return candidate;
   }
@@ -238,21 +239,70 @@ class UserService {
   }
 
   AppUser _mapToAppUser(Map<String, dynamic> row) {
+    // Parsing des dates
+    DateTime parseDate(dynamic value) {
+      if (value is DateTime) return value;
+      if (value is String) {
+        final parsed = DateTime.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+      return DateTime.now();
+    }
+
+    final createdAt = row['created_at'] != null ? parseDate(row['created_at']) : DateTime.now();
+    final updatedAt = row['updated_at'] != null ? parseDate(row['updated_at']) : DateTime.now();
+
+    // Récupération des listes (JSONB)
+    List<Map<String, dynamic>>? mapList(dynamic value) {
+      if (value is List) {
+        return value.map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}).toList();
+      }
+      return [];
+    }
+
+    List<String>? stringList(dynamic value) {
+      if (value is List) {
+        return value.whereType<String>().toList();
+      }
+      return [];
+    }
+
     return AppUser(
-      id: row['id'],
+      id: row['id'] ?? '',
       thixId: row['thix_id'] ?? 'THIX-PENDING',
       thixChat: row['thix_chat'] ?? '',
+      thixScore: (row['thix_score'] as num?)?.toInt() ?? 0,
+      email: row['email'] ?? '', // On récupère depuis profiles si stocké, sinon vide
+      phone: row['phone'] ?? '',
       displayName: row['display_name'] ?? 'Utilisateur',
-      email: row['email'] ?? '',
-      phone: row['phone'],
+      accountType: (row['account_type'] ?? 'personal') == 'enterprise' ? AccountType.enterprise : AccountType.personal,
       photoUrl: row['photo_url'],
       bio: row['bio'],
       occupation: row['occupation'],
       countryOrOrigin: row['country_or_origin'],
-      accountType: row['account_type'] == 'enterprise' ? AccountType.enterprise : AccountType.personal,
+      contactPhone: row['contact_phone'],
+      maritalStatus: row['marital_status'],
+      gender: row['gender'],
+      profession: row['profession'],
+      dateOfBirth: row['date_of_birth'],
+      placeOfBirth: row['place_of_birth'],
+      nationality: row['nationality'],
+      address: row['address'],
+      fatherName: row['father_name'],
+      motherName: row['mother_name'],
+      emergencyContactName: row['emergency_contact_name'],
+      emergencyContactPhone: row['emergency_contact_phone'],
+      emergencyContactRelation: row['emergency_contact_relation'],
       registrationStatus: row['registration_status'],
-      createdAt: row['created_at'] != null ? DateTime.tryParse(row['created_at']) ?? DateTime.now() : DateTime.now(),
-      updatedAt: row['updated_at'] != null ? DateTime.tryParse(row['updated_at']) ?? DateTime.now() : DateTime.now(),
+      education: mapList(row['education']),
+      experience: mapList(row['experience']),
+      skills: mapList(row['skills']),
+      enrollments: mapList(row['enrollments']),
+      languages: stringList(row['languages']),
+      biometricsEnabled: (row['biometrics_enabled'] as bool?) ?? true,
+      twoFaEnabled: (row['two_fa_enabled'] as bool?) ?? false,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }
