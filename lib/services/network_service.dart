@@ -43,7 +43,7 @@ class NetworkService {
 
   /// Récupère les posts publics avec pagination (offset et limit).
   /// Utilise `.range()` de Supabase pour la pagination.
- Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0}) async {
+ Future<List<NetworkPost>> getFeedPosts({int limit = 20, int start = 0}) async {
   try {
     final currentUserId = this.currentUserId;
     if (currentUserId.isEmpty) return [];
@@ -60,7 +60,7 @@ class NetworkService {
         ''')
         .eq('is_public', true)
         .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1)  // ✅ Pagination
+     .range(start, start + limit - 1)
         .limit(limit);
 
     final posts = <NetworkPost>[];
