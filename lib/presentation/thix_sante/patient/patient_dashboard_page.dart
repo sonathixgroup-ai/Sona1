@@ -99,11 +99,42 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F7FB),
-
+        // Fond avec un motif subtil
+        backgroundColor: const Color(0xFFF0F4FF),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white,
+                const Color(0xFFF0F4FF),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadDashboardData,
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(child: _topBar()),
+                        SliverToBoxAdapter(child: _heroSection()),
+                        // Suppression de _healthScoreCard()
+                        SliverToBoxAdapter(child: _healthSummary()),
+                        SliverToBoxAdapter(child: _servicesGrid()),
+                        SliverToBoxAdapter(child: _articlesSection()),
+                        SliverToBoxAdapter(child: _emergencySection()),
+                        const SliverToBoxAdapter(child: SizedBox(height: 90)),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
         floatingActionButton: _fab(),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
         bottomNavigationBar: _BottomNav(
           currentIndex: 0,
           onTap: (index) {
@@ -111,28 +142,6 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             if (index == 2) context.go('/sante/patient/messages');
             if (index == 3) context.go('/sante/patient/profile');
           },
-        ),
-
-        body: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _loadDashboardData,
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      SliverToBoxAdapter(child: _topBar()),
-                      SliverToBoxAdapter(child: _heroSection()),
-                      SliverToBoxAdapter(child: _healthScoreCard()),
-                      // ✅ AJOUT : Résumé de santé (4 indicateurs)
-                      SliverToBoxAdapter(child: _healthSummary()),
-                      SliverToBoxAdapter(child: _servicesGrid()),
-                      SliverToBoxAdapter(child: _articlesSection()),
-                      SliverToBoxAdapter(child: _emergencySection()),
-                      const SliverToBoxAdapter(child: SizedBox(height: 90)),
-                    ],
-                  ),
-                ),
         ),
       ),
     );
@@ -252,76 +261,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // DOSSIER DE SANTÉ + SCORE
-  // =========================================================
-  Widget _healthScoreCard() {
-    final score = _summary?.healthScore ?? 85;
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.health_and_safety, size: 40, color: Color(0xFF2563FF)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dossier de santé',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Score de santé',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
-                ),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Text(
-                '$score%',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // ✅ RÉSUMÉ DE SANTÉ (4 INDICATEURS)
+  // RÉSUMÉ DE SANTÉ (4 INDICATEURS)
   // =========================================================
   Widget _healthSummary() {
     if (_summary == null) return const SizedBox.shrink();
@@ -331,7 +271,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.withOpacity(0.9),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -413,7 +353,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // SERVICES RAPIDES (GRILLE 4 COLONNES) – REDIMENSIONNÉ
+  // SERVICES RAPIDES (GRILLE 4 COLONNES)
   // =========================================================
   Widget _servicesGrid() {
     return Padding(
@@ -435,9 +375,9 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             itemCount: _services.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.85, // plus compact
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.85,
             ),
             itemBuilder: (_, index) {
               final service = _services[index];
@@ -467,28 +407,29 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
     return GestureDetector(
       onTap: () => context.push(service.route),
       child: Container(
+        // Pas de fond blanc, seulement une bordure et un fond transparent
         decoration: BoxDecoration(
-          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            )
-          ],
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 1.5,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(service.icon, color: color, size: 24), // taille réduite
-            const SizedBox(height: 4),
+            Icon(
+              service.icon,
+              color: color,
+              size: 30, // agrandi
+            ),
+            const SizedBox(height: 6),
             Text(
               service.label,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 9, // police réduite
-                fontWeight: FontWeight.w500,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
                 color: Colors.grey.shade800,
               ),
               maxLines: 2,
