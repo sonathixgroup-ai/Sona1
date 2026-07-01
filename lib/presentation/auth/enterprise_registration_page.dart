@@ -26,21 +26,23 @@ class FormLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
           Text(
             label,
-            style: context.textStyles.labelLarge?.copyWith(
-              color: context.theme.colorScheme.onSurface,
+            style: textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurface,
             ),
           ),
           if (required) ...[
             const SizedBox(width: AppSpacing.xs),
             Text(
               '*',
-              style: context.textStyles.labelLarge?.copyWith(
+              style: textTheme.labelLarge?.copyWith(
                 color: LightModeColors.error,
               ),
             ),
@@ -65,6 +67,8 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Column(
@@ -82,7 +86,7 @@ class SectionHeader extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   number,
-                  style: context.textStyles.labelLarge?.copyWith(
+                  style: textTheme.labelLarge?.copyWith(
                     color: const Color(0xFF0A2F5C),
                   ),
                 ),
@@ -91,8 +95,8 @@ class SectionHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: context.textStyles.titleLarge?.copyWith(
-                    color: context.theme.colorScheme.onSurface,
+                  style: textTheme.titleLarge?.copyWith(
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -101,7 +105,7 @@ class SectionHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle,
-            style: context.textStyles.bodyMedium?.copyWith(
+            style: textTheme.bodyMedium?.copyWith(
               color: LightModeColors.secondaryText,
             ),
           ),
@@ -276,8 +280,11 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: context.theme.scaffoldBackgroundColor,
+      backgroundColor: colorScheme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -293,7 +300,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                 ),
                 color: Colors.white,
               ),
-              child: ColoredBox(color: context.theme.scaffoldBackgroundColor.withValues(alpha: 0.92)),
+              child: ColoredBox(color: colorScheme.scaffoldBackgroundColor.withValues(alpha: 0.92)),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -301,8 +308,8 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: context.theme.colorScheme.surface,
-                    border: Border(bottom: BorderSide(color: context.theme.dividerColor)),
+                    color: colorScheme.surface,
+                    border: Border(bottom: BorderSide(color: colorScheme.dividerColor)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -314,7 +321,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                   child: Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.arrow_back_ios_new_rounded, color: context.theme.colorScheme.onSurface, size: 20),
+                        icon: Icon(Icons.arrow_back_ios_new_rounded, color: colorScheme.onSurface, size: 20),
                         onPressed: () => context.popOrGo(AppRoutes.home),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -326,13 +333,13 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                           children: [
                             Text(
                               "Compte Entreprise",
-                              style: context.textStyles.titleLarge?.copyWith(
-                                color: context.theme.colorScheme.onSurface,
+                              style: textTheme.titleLarge?.copyWith(
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             Text(
                               "Enregistrement THIX ID Institutionnel",
-                              style: context.textStyles.bodySmall?.copyWith(
+                              style: textTheme.bodySmall?.copyWith(
                                 color: LightModeColors.secondaryText,
                               ),
                             ),
@@ -347,7 +354,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                         ),
                         child: Text(
                           "ÉTAPE 1/5",
-                          style: context.textStyles.labelSmall?.copyWith(
+                          style: textTheme.labelSmall?.copyWith(
                             color: const Color(0xFF0A2F5C),
                             fontWeight: FontWeight.bold,
                           ),
@@ -365,7 +372,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                         Card(
                           margin: EdgeInsets.zero,
                           elevation: 0,
-                          color: context.theme.colorScheme.surface,
+                          color: colorScheme.surface,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(AppRadius.lg),
                             side: BorderSide(color: LightModeColors.accent.withValues(alpha: 0.75), width: 1.2),
@@ -377,12 +384,12 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.shield_rounded, color: context.theme.colorScheme.primary, size: 18),
+                                    Icon(Icons.shield_rounded, color: colorScheme.primary, size: 18),
                                     const SizedBox(width: AppSpacing.sm),
                                     Expanded(
                                       child: Text(
                                         'Identifiants Institutionnels',
-                                        style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
                                       ),
                                     ),
                                   ],
@@ -390,7 +397,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
                                   'Ces identifiants permettent à votre organisation d’accéder au tableau de bord. Un ID THIX sera généré.',
-                                  style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText),
+                                  style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
                                 Row(
@@ -428,9 +435,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: "Nom de l'entreprise",
                                     prefixIcon: const Icon(Icons.domain_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: context.theme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                    fillColor: colorScheme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -442,9 +449,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: 'Email administrateur',
                                     prefixIcon: const Icon(Icons.alternate_email_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: context.theme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                    fillColor: colorScheme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -456,9 +463,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: 'Mot de passe (min. 8 caractères)',
                                     prefixIcon: const Icon(Icons.lock_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: context.theme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                    fillColor: colorScheme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -470,9 +477,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: 'Confirmer le mot de passe',
                                     prefixIcon: const Icon(Icons.verified_user_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: context.theme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                    fillColor: colorScheme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -484,7 +491,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                       activeColor: LightModeColors.accent,
                                     ),
                                     const SizedBox(width: AppSpacing.xs),
-                                    Expanded(child: Text('Rester connecté', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
+                                    Expanded(child: Text('Rester connecté', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
                                   ],
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -498,7 +505,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     backgroundColor: LightModeColors.accent,
                                     foregroundColor: const Color(0xFF0A2F5C),
                                     padding: const EdgeInsets.symmetric(vertical: 16),
-                                    textStyle: context.textStyles.labelLarge,
+                                    textStyle: textTheme.labelLarge,
                                   ),
                                 ),
                               ],
@@ -514,7 +521,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                         Card(
                           margin: EdgeInsets.zero,
                           elevation: 0,
-                          color: context.theme.colorScheme.surface,
+                          color: colorScheme.surface,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(AppRadius.lg),
                             side: const BorderSide(color: LightModeColors.accent, width: 1),
@@ -534,9 +541,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                           width: 110,
                                           height: 110,
                                           decoration: BoxDecoration(
-                                            color: context.theme.scaffoldBackgroundColor,
+                                            color: colorScheme.scaffoldBackgroundColor,
                                             borderRadius: BorderRadius.circular(AppRadius.lg),
-                                            border: Border.all(color: context.theme.dividerColor, width: 2),
+                                            border: Border.all(color: colorScheme.dividerColor, width: 2),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Colors.black.withValues(alpha: 0.1),
@@ -557,7 +564,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                             decoration: BoxDecoration(
                                               color: LightModeColors.accent,
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: context.theme.colorScheme.surface, width: 2),
+                                              border: Border.all(color: colorScheme.surface, width: 2),
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: Colors.black.withValues(alpha: 0.1),
@@ -707,7 +714,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                             backgroundColor: LightModeColors.accent,
                             foregroundColor: const Color(0xFF0A2F5C),
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            textStyle: context.textStyles.labelLarge,
+                            textStyle: textTheme.labelLarge,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -715,7 +722,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                           onPressed: () {},
                           child: Text(
                             "Sauvegarder le brouillon",
-                            style: context.textStyles.labelLarge?.copyWith(
+                            style: textTheme.labelLarge?.copyWith(
                               color: LightModeColors.secondaryText,
                             ),
                           ),
@@ -728,7 +735,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                             const SizedBox(width: AppSpacing.sm),
                             Text(
                               "Protégé par le protocole de sécurité THIX-Shield",
-                              style: context.textStyles.bodySmall?.copyWith(
+                              style: textTheme.bodySmall?.copyWith(
                                 color: LightModeColors.secondaryText,
                               ),
                             ),
@@ -747,6 +754,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
   }
 
   Widget _buildTextField(BuildContext context, String hint, {IconData? icon, bool readOnly = false, int maxLines = 1, TextInputType? keyboardType}) {
+    final theme = Theme.of(context);
     return TextField(
       readOnly: readOnly,
       maxLines: maxLines,
@@ -755,14 +763,14 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
         hintText: hint,
         prefixIcon: icon != null ? Icon(icon, color: LightModeColors.hint) : null,
         filled: true,
-        fillColor: context.theme.scaffoldBackgroundColor,
+        fillColor: theme.scaffoldBackgroundColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: BorderSide(color: context.theme.dividerColor),
+          borderSide: BorderSide(color: theme.dividerColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: BorderSide(color: context.theme.dividerColor),
+          borderSide: BorderSide(color: theme.dividerColor),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
       ),
@@ -771,12 +779,13 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
   }
 
   Widget _buildDropdown(BuildContext context, String hint, List<String> items) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
-        color: context.theme.scaffoldBackgroundColor,
+        color: theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: context.theme.dividerColor),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -793,10 +802,4 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
       ),
     );
   }
-}
-
-// ✅ Réintroduction de l'extension ThemeHelper pour résoudre les erreurs context.theme / context.textStyles
-extension ThemeHelper on BuildContext {
-  ThemeData get theme => Theme.of(this);
-  TextTheme get textStyles => Theme.of(this).textTheme;
 }
