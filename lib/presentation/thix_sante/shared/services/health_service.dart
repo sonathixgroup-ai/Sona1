@@ -29,6 +29,14 @@ class HealthService {
   static const _tHealthAlerts = 'health_alerts';
   static const _tPharmacyOrders = 'health_pharmacy_orders';
   static const _tPharmacyInventory = 'health_pharmacy_inventory_items';
+  // Nouvelles tables
+  static const _tHealthArticles = 'health_articles';
+  static const _tSymptoms = 'health_symptoms';
+  static const _tInsuranceOffers = 'health_insurance_offers';
+  static const _tPatientRecords = 'patient_records';
+  static const _tWellnessPrograms = 'health_wellness_programs';
+  static const _tShares = 'health_shares';
+  static const _tConsents = 'health_consents';
 
   // Helpers pour extraire des valeurs sécurisées
   String _s(Map<String, dynamic> m, String k, [String d = '']) =>
@@ -270,6 +278,7 @@ class HealthService {
       final id = _s(m, 'id');
       return Medication(
         id: id,
+        patientId: _s(m, 'patient_id'),
         name: _s(m, 'name', 'Médicament'),
         dosage: _s(m, 'dosage', ''),
         frequency: _s(m, 'frequency', ''),
@@ -332,17 +341,52 @@ class HealthService {
   }
 
   // ============================================================
-  // SYMPTÔMES
+  // SYMPTÔMES (implémenté)
   // ============================================================
 
   Future<List<Symptom>> fetchSymptoms(String patientId) async {
-    // Table optionnelle, pour l'instant retourne vide
-    return const [];
+    final rows = await _safeSelect(
+      _tSymptoms,
+      eq: {'patient_id': patientId},
+      orderBy: const ['date'],
+      ascending: false,
+    );
+    return rows.map((m) {
+      return Symptom(
+        id: _s(m, 'id'),
+        name: _s(m, 'name', 'Symptôme'),
+        intensity: (m['intensity'] as int?) ?? 1,
+        date: _dt(m, 'date'),
+        notes: (m['notes'] as String?)?.trim(),
+        triggers: (m['triggers'] as List?)?.map((e) => e.toString()).toList(),
+        relievers: (m['relievers'] as List?)?.map((e) => e.toString()).toList(),
+        location: (m['location'] as String?)?.trim(),
+        duration: (m['duration'] is int) ? Duration(minutes: m['duration'] as int) : null,
+      );
+    }).toList();
   }
 
   Future<Symptom> addSymptom(Symptom symptom) async {
-    // À implémenter ultérieurement
-    throw UnimplementedError('Symptom persistence is not configured yet.');
+    try {
+      final payload = {
+        'patient_id': symptom.patientId,
+        'name': symptom.name,
+        'intensity': symptom.intensity,
+        'date': symptom.date.toIso8601String(),
+        'notes': symptom.notes,
+        'triggers': symptom.triggers,
+        'relievers': symptom.relievers,
+        'location': symptom.location,
+        'duration': symptom.duration?.inMinutes,
+      };
+      final res = await _db.from(_tSymptoms).insert(payload).select('*').single();
+      final m = (res as Map).cast<String, dynamic>();
+      return symptom.copyWith(id: _s(m, 'id', symptom.id));
+    } catch (e, st) {
+      debugPrint('HealthService: addSymptom failed err=$e');
+      debugPrint(st.toString());
+      rethrow;
+    }
   }
 
   // ============================================================
@@ -366,6 +410,8 @@ class HealthService {
         value: _d(m, 'value'),
         unit: _s(m, 'unit', ''),
         date: _dt(m, 'measured_at'),
+        notes: (m['notes'] as String?)?.trim(),
+        deviceUsed: (m['device_used'] as String?)?.trim(),
       );
     }).toList();
   }
@@ -378,6 +424,8 @@ class HealthService {
         'value': vital.value,
         'unit': vital.unit,
         'measured_at': vital.date.toIso8601String(),
+        'notes': vital.notes,
+        'device_used': vital.deviceUsed,
       };
       final res = await _db.from(_tVitals).insert(payload).select('*').single();
       final m = (res as Map).cast<String, dynamic>();
@@ -461,6 +509,8 @@ class HealthService {
         result: (m['result'] as String?)?.trim(),
         status: ExamStatus.values.firstWhere((e) => e.name == statusName, orElse: () => ExamStatus.pending),
         comments: (m['comments'] as String?)?.trim(),
+        pdfUrl: (m['pdf_url'] as String?)?.trim(),
+        imageUrl: (m['image_url'] as String?)?.trim(),
       );
     }).toList();
   }
@@ -510,23 +560,58 @@ class HealthService {
   }
 
   // ============================================================
-  // ARTICLES DE SANTÉ
+  // ARTICLES DE SANTÉ (implémenté)
   // ============================================================
 
   Future<List<HealthArticle>> fetchHealthArticles({int limit = 10}) async {
-    // Table optionnelle, retourne vide par défaut
-    // Implémentez la requête si la table existe
-    return const [];
+    final rows = await _safeSelect(
+      _tHealthArticles,
+      limit: limit,
+      orderBy: const ['publish_date'],
+      ascending: false,
+    );
+    return rows.map((m) {
+      return HealthArticle(
+        id: _s(m, 'id'),
+        title: _s(m, 'title', 'Article'),
+        subtitle: _s(m, 'subtitle', ''),
+        imageUrl: (m['image_url'] as String?)?.trim(),
+        readTime: (m['read_time'] as int?) ?? 0,
+        author: (m['author'] as String?)?.trim(),
+        publishDate: _dt(m, 'publish_date'),
+        tags: (m['tags'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        content: _s(m, 'content', ''),
+      );
+    }).toList();
   }
 
   // ============================================================
-  // ALERTES SANITAIRES
+  // ALERTES SANITAIRES (implémenté)
   // ============================================================
 
   Future<List<HealthAlert>> fetchHealthAlerts(String patientId) async {
-    // Table optionnelle, retourne vide par défaut
-    // Implémentez la requête si la table existe
-    return const [];
+    final rows = await _safeSelect(
+      _tHealthAlerts,
+      eq: {'patient_id': patientId},
+      orderBy: const ['date'],
+      ascending: false,
+    );
+    return rows.map((m) {
+      final severityName = _s(m, 'severity', AlertSeverity.info.name);
+      return HealthAlert(
+        id: _s(m, 'id'),
+        title: _s(m, 'title', 'Alerte'),
+        description: _s(m, 'description', ''),
+        severity: AlertSeverity.values.firstWhere(
+          (e) => e.name == severityName,
+          orElse: () => AlertSeverity.info,
+        ),
+        date: _dt(m, 'date'),
+        isRead: (m['is_read'] as bool?) ?? false,
+        actionUrl: (m['action_url'] as String?)?.trim(),
+        source: (m['source'] as String?)?.trim(),
+      );
+    }).toList();
   }
 
   // ============================================================
@@ -812,5 +897,116 @@ class HealthService {
       orderBy: const ['created_at'],
       ascending: false,
     );
+  }
+
+  // ============================================================
+  // NOUVELLES MÉTHODES POUR LES MODÈLES AJOUTÉS
+  // ============================================================
+
+  /// Récupère les offres d'assurance
+  Future<List<InsuranceOffer>> fetchInsuranceOffers() async {
+    final rows = await _safeSelect(
+      _tInsuranceOffers,
+      orderBy: const ['monthly_price'],
+      ascending: true,
+    );
+    return rows.map((m) => InsuranceOffer.fromJson(m)).toList();
+  }
+
+  /// Récupère les documents du dossier médical d'un patient
+  Future<List<Map<String, dynamic>>> fetchPatientRecords(String patientId) async {
+    return _safeSelect(
+      _tPatientRecords,
+      eq: {'patient_id': patientId},
+      orderBy: const ['created_at'],
+      ascending: false,
+    );
+  }
+
+  /// Ajoute un document au dossier médical
+  Future<Map<String, dynamic>> addPatientRecord({
+    required String patientId,
+    required String title,
+    required String recordType,
+    String? description,
+    DateTime? recordDate,
+    String? fileUrl,
+  }) async {
+    final payload = {
+      'patient_id': patientId,
+      'title': title,
+      'record_type': recordType,
+      'description': description,
+      'record_date': (recordDate ?? DateTime.now()).toIso8601String(),
+      'file_url': fileUrl,
+    };
+    final res = await _db.from(_tPatientRecords).insert(payload).select('*').single();
+    return (res as Map).cast<String, dynamic>();
+  }
+
+  /// Récupère les programmes bien-être d'un patient
+  Future<List<WellnessProgram>> fetchWellnessPrograms(String patientId) async {
+    final rows = await _safeSelect(
+      _tWellnessPrograms,
+      eq: {'patient_id': patientId},
+      orderBy: const ['start_date'],
+      ascending: false,
+    );
+    return rows.map((m) => WellnessProgram.fromJson(m)).toList();
+  }
+
+  /// Crée un nouveau programme bien-être
+  Future<WellnessProgram> createWellnessProgram(WellnessProgram program) async {
+    final payload = program.toJson();
+    final res = await _db.from(_tWellnessPrograms).insert(payload).select('*').single();
+    return WellnessProgram.fromJson(res);
+  }
+
+  /// Met à jour un programme bien-être (progression, statut)
+  Future<WellnessProgram> updateWellnessProgram(WellnessProgram program) async {
+    final payload = program.toJson();
+    await _db.from(_tWellnessPrograms).update(payload).eq('id', program.id);
+    return program;
+  }
+
+  /// Récupère les partages de dossier d'un patient
+  Future<List<Share>> fetchShares(String patientId) async {
+    final rows = await _safeSelect(
+      _tShares,
+      eq: {'patient_id': patientId},
+      orderBy: const ['created_at'],
+      ascending: false,
+    );
+    return rows.map((m) => Share.fromJson(m)).toList();
+  }
+
+  /// Crée un partage
+  Future<Share> createShare(Share share) async {
+    final payload = share.toJson();
+    final res = await _db.from(_tShares).insert(payload).select('*').single();
+    return Share.fromJson(res);
+  }
+
+  /// Révoque un partage
+  Future<void> revokeShare(String shareId) async {
+    await _db.from(_tShares).delete().eq('id', shareId);
+  }
+
+  /// Récupère les consentements d'un patient
+  Future<List<Consent>> fetchConsents(String patientId) async {
+    final rows = await _safeSelect(
+      _tConsents,
+      eq: {'patient_id': patientId},
+      orderBy: const ['date'],
+      ascending: false,
+    );
+    return rows.map((m) => Consent.fromJson(m)).toList();
+  }
+
+  /// Modifie un consentement
+  Future<Consent> toggleConsent(String consentId, bool granted) async {
+    await _db.from(_tConsents).update({'granted': granted}).eq('id', consentId);
+    final m = await _safeSingle(_tConsents, eq: {'id': consentId});
+    return Consent.fromJson(m!);
   }
 }
