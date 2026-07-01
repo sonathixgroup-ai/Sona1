@@ -1,5 +1,5 @@
 // presentation/thix_sante/patient/details/patient_wellness_page.dart
-// (version complète avec corrections lignes 531, 541)
+// Version corrigée – lignes 532 et 542
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -96,7 +96,6 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
         throw Exception('Utilisateur non connecté');
       }
 
-      // Récupérer les programmes du patient
       final response = await _supabase
           .from('health_wellness_programs')
           .select('*')
@@ -107,7 +106,6 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
         _programs = response.map((data) => WellnessProgram.fromJson(data)).toList();
       }
 
-      // Si un ID est fourni
       if (widget.programId != null) {
         final found = _programs.firstWhere(
           (p) => p.id == widget.programId,
@@ -153,7 +151,6 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
           endDate: _selectedProgram!.endDate,
           isActive: updated < _selectedProgram!.totalSteps,
         );
-        // Mettre à jour la liste aussi
         final index = _programs.indexWhere((p) => p.id == _selectedProgram!.id);
         if (index != -1) {
           _programs[index] = _selectedProgram!;
@@ -187,17 +184,14 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Si mode suivi (tracking)
     if (widget.isTracking && _selectedProgram != null) {
       return _buildTrackingView();
     }
 
-    // Si détail d'un programme
     if (widget.programId != null && _selectedProgram != null) {
       return _buildDetailView();
     }
 
-    // Sinon, liste des programmes
     return Scaffold(
       appBar: AppBar(
         title: const Text('Programmes bien-être'),
@@ -257,7 +251,6 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
                               onPressed: () {
-                                // Ajouter un programme
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Ajout de programme à implémenter'),
