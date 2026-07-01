@@ -9,7 +9,7 @@ import '../../nav.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';         // ✅ remplace firestore_user_service
 import 'package:thix_id/services/profile_photo_service.dart';
 import 'package:thix_id/services/platform_file_from_path_stub.dart'
     if (dart.library.io) 'package:thix_id/services/platform_file_from_path_io.dart';
@@ -119,7 +119,8 @@ class EnterpriseRegistrationPage extends StatefulWidget {
 }
 
 class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage> {
-  final _firestoreUsers = FirestoreUserService();
+  // ✅ Remplacer FirestoreUserService par ProfileService
+  final _profileService = ProfileService();
   final _photos = ProfilePhotoService();
   final _companyNameC = TextEditingController();
   final _emailC = TextEditingController();
@@ -188,13 +189,11 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
         rememberMe: _rememberMe,
         profileDraft: {
           'registration_status': 'draft',
-          // Enterprise accounts also reuse `display_name`, but we keep the value
-          // here so first login can initialize `public.profiles` reliably.
           'display_name': name,
         },
       );
       if (!mounted) return;
-       await _prepareEnterpriseAndFinishFree(companyName: name);
+      await _prepareEnterpriseAndFinishFree(companyName: name);
     } catch (e) {
       debugPrint('Enterprise registration failed: $e');
       if (!mounted) return;
@@ -212,11 +211,18 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
       return;
     }
     try {
-      await _firestoreUsers.updateProfile(uid: me.id, displayName: companyName, registrationStatus: 'draft');
+      // 1. Mettre à jour le profil (displayName, registrationStatus)
+      await _profileService.updateProfile(
+        userId: me.id,
+        displayName: companyName,
+        // registrationStatus: 'draft',
+      );
+
+      // 2. Upload de la photo si présente
       if (_pickedPhoto != null) {
         try {
           final url = await _photos.uploadProfilePhoto(uid: me.id, file: _pickedPhoto!);
-          await _firestoreUsers.updateProfile(uid: me.id, photoUrl: url);
+          await _profileService.updateProfile(userId: me.id, photoUrl: url);
         } catch (e) {
           debugPrint('EnterpriseReg: avatar upload failed uid=${me.id} err=$e');
           if (mounted) {
@@ -225,9 +231,34 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
           rethrow;
         }
       }
-      await _firestoreUsers.ensureThixId(uid: me.id);
-      await _firestoreUsers.ensureThixChat(uid: me.id, desired: '@${companyName.toLowerCase().replaceAll(RegExp(r"[^a-z0-9._]"), '')}${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}');
-      await _firestoreUsers.updateProfile(uid: me.id, registrationStatus: 'verified');
+
+      // 3. Générer un THIX ID s'il n'existe pas
+      // On vérifie d'abord le profil existant
+      final existingProfile = await _profileService.fetchPublicProfileByUserId(me.id);
+      final currentThixId = existingProfile?.thixId ?? me.thixId;
+      if (currentThixId.isEmpty || currentThixId == 'THIX-PENDING' || currentThixId == 'THIX-000000') {
+        // Générer un nouveau THIX ID
+        final newThixId = await _profileService.generateThixId(uid: me.id);
+        await _profileService.updateProfile(userId: me.id, thixId: newThixId);
+        // Mettre à jour l'utilisateur local
+        final updatedUser = me.copyWith(thixId: newThixId);
+        await context.read<AuthController>().updateCurrentUser(updatedUser);
+      }
+
+      // 4. Réserver un THIX CHAT
+      final suggestedChat = '@${companyName.toLowerCase().replaceAll(RegExp(r"[^a-z0-9._]"), '')}${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}';
+      final claimedChat = await _profileService.reserveThixChat(
+        userId: me.id,
+        desired: suggestedChat,
+      );
+      await _profileService.updateProfile(userId: me.id, thixChat: claimedChat);
+
+      // 5. Marquer le compte comme vérifié
+      await _profileService.updateProfile(
+        userId: me.id,
+        // registrationStatus: 'verified',
+      );
+
     } catch (e) {
       debugPrint('EnterpriseReg: prepare identifiers failed uid=${me.id} err=$e');
       if (mounted) {
@@ -275,7 +306,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                   colors: [Color(0xFFF9C74F), Color(0xFFD4AF37), Color(0xFF996515)],
                   stops: [0, 0.5, 1],
                 ),
-                color: Colors.white, // fallback
+                color: Colors.white,
               ),
               child: ColoredBox(color: context.theme.scaffoldBackgroundColor.withValues(alpha: 0.92)),
             ),
@@ -779,6 +810,4 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
   }
 }
 
-extension ThemeHelper on BuildContext {
-  ThemeData get theme => Theme.of(this);
-}
+// ✅ Suppression de l'extension ThemeHelper pour éviter les conflits
