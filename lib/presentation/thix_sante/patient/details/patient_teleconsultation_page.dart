@@ -8,7 +8,7 @@ import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart
 import 'package:thix_id/supabase/supabase_config.dart';
 
 class PatientTeleconsultationPage extends StatefulWidget {
-  final String? consultationId; // null = création
+  final String? consultationId;
   final bool isEditing;
 
   const PatientTeleconsultationPage({
@@ -27,16 +27,13 @@ class _PatientTeleconsultationPageState
   final SupabaseClient _supabase = SupabaseConfig.client;
   final _formKey = GlobalKey<FormState>();
 
-  // Contrôleurs du formulaire
   final _doctorNameController = TextEditingController();
   final _doctorSpecialtyController = TextEditingController();
   final _notesController = TextEditingController();
 
-  // Données du formulaire
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _selectedTime = TimeOfDay.now();
 
-  // État
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
@@ -69,8 +66,6 @@ class _PatientTeleconsultationPageState
         throw Exception('Utilisateur non connecté');
       }
 
-      // Charger la liste des médecins (pour le formulaire de création)
-      // On récupère les médecins depuis les rendez-vous passés
       final response = await _supabase
           .from('health_appointments')
           .select('doctor_id, doctor_name, doctor_specialty')
@@ -94,7 +89,6 @@ class _PatientTeleconsultationPageState
         }
       }
 
-      // Si un ID est fourni, charger les détails de la consultation
       if (widget.consultationId != null) {
         final consultationData = await _supabase
             .from('health_appointments')
@@ -183,7 +177,6 @@ class _PatientTeleconsultationPageState
         _selectedTime.minute,
       );
 
-      // Générer un lien Jitsi unique
       final link = 'https://meet.jit.si/thix_${DateTime.now().millisecondsSinceEpoch}';
 
       final payload = {
@@ -205,13 +198,13 @@ class _PatientTeleconsultationPageState
       };
 
       if (widget.consultationId == null) {
-        // Création
         final created = await _supabase
             .from('health_appointments')
             .insert(payload)
             .select()
             .single();
 
+        final createdId = created['id'] as String; // ✅ correction ici
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Téléconsultation créée avec succès'),
@@ -219,9 +212,8 @@ class _PatientTeleconsultationPageState
           ),
         );
         if (!mounted) return;
-        context.push('/sante/patient/teleconsultation/${created['id']}');
+        context.push('/sante/patient/teleconsultation/$createdId');
       } else {
-        // Mise à jour
         await _supabase
             .from('health_appointments')
             .update({
@@ -230,7 +222,7 @@ class _PatientTeleconsultationPageState
               'scheduled_at': dateTime.toIso8601String(),
               'notes': _notesController.text.trim(),
             })
-            .eq('id', widget.consultationId);
+            .eq('id', widget.consultationId!);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Téléconsultation mise à jour'),
@@ -254,6 +246,7 @@ class _PatientTeleconsultationPageState
   }
 
   Future<void> _cancelConsultation() async {
+    if (_consultation == null) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -271,7 +264,7 @@ class _PatientTeleconsultationPageState
         ],
       ),
     );
-    if (confirm != true || _consultation == null) return;
+    if (confirm != true) return;
 
     try {
       await _supabase
@@ -314,9 +307,10 @@ class _PatientTeleconsultationPageState
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
-                context.push(
-                  '/sante/patient/teleconsultation/${_consultation!.id}?edit=true',
-                );
+                // ✅ correction ligne 233
+                if (_consultation != null) {
+                  context.push('/sante/patient/teleconsultation/${_consultation!.id}?edit=true');
+                }
               },
             ),
         ],
