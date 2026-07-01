@@ -43,63 +43,62 @@ class NetworkService {
 
   /// Récupère les posts publics avec pagination (offset et limit).
   /// Utilise `.range()` de Supabase pour la pagination.
-  Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0}) async {
-    try {
-      final currentUserId = this.currentUserId;
-      if (currentUserId.isEmpty) return [];
+ Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0}) async {
+  try {
+    final currentUserId = this.currentUserId;
+    if (currentUserId.isEmpty) return [];
 
-      // Requête avec range pour la pagination
-      final response = await _supabase
-          .from('posts')
-          .select('''
-            *,
-            users:user_id (
-              display_name,
-              photo_url,
-              profession
-            )
-          ''')
-          .eq('is_public', true)
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1) // ✅ Pagination
-          .limit(limit);
+    final response = await _supabase
+        .from('posts')
+        .select('''
+          *,
+          users:user_id (
+            display_name,
+            photo_url,
+            profession
+          )
+        ''')
+        .eq('is_public', true)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1)  // ✅ Pagination
+        .limit(limit);
 
-      final posts = <NetworkPost>[];
-      for (var e in response as List) {
-        final likesData = await _supabase
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', e['id']);
+    final posts = <NetworkPost>[];
+    for (var e in response as List) {
+      final likesData = await _supabase
+          .from('post_likes')
+          .select('id')
+          .eq('post_id', e['id']);
 
-        final commentsData = await _supabase
-            .from('comments')
-            .select('id')
-            .eq('post_id', e['id']);
+      final commentsData = await _supabase
+          .from('comments')
+          .select('id')
+          .eq('post_id', e['id']);
 
-        final likedData = await _supabase
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', e['id'])
-            .eq('user_id', currentUserId);
+      final likedData = await _supabase
+          .from('post_likes')
+          .select('id')
+          .eq('post_id', e['id'])
+          .eq('user_id', currentUserId);
 
-        posts.add(NetworkPost.fromJson({
-          ...e,
-          'author_name': e['users']?['display_name'] ?? 'Utilisateur',
-          'author_avatar': e['users']?['photo_url'],
-          'author_title': e['users']?['profession'],
-          'likes_count': (likesData as List).length,
-          'comments_count': (commentsData as List).length,
-          'is_liked': (likedData as List).isNotEmpty,
-          'image_urls': _imageUrlsFromRow(e),
-        }));
-      }
-
-      return posts;
-    } catch (e) {
-      debugPrint('❌ Error getFeedPosts: $e');
-      return [];
+      posts.add(NetworkPost.fromJson({
+        ...e,
+        'author_name': e['users']?['display_name'] ?? 'Utilisateur',
+        'author_avatar': e['users']?['photo_url'],
+        'author_title': e['users']?['profession'],
+        'likes_count': (likesData as List).length,
+        'comments_count': (commentsData as List).length,
+        'is_liked': (likedData as List).isNotEmpty,
+        'image_urls': _imageUrlsFromRow(e),
+      }));
     }
+
+    return posts;
+  } catch (e) {
+    debugPrint('❌ Error getFeedPosts: $e');
+    return [];
   }
+}
 
   // ============================================================
   // SECTION 2: FEED INTELLIGENT (IA & ALGORITHME)
