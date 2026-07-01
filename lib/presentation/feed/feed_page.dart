@@ -1,10 +1,11 @@
 // lib/presentation/feed/feed_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:thix_id/models/post.dart';
+import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/presentation/feed/post_card.dart';
-import 'package:thix_id/presentation/feed/create_post_sheet.dart';
-import 'package:thix_id/services/post_service.dart';
+import 'package:thix_id/presentation/network/widgets/create_post_dialog.dart';
+import 'package:thix_id/services/network_service.dart';
 
 class FeedPage extends StatefulWidget {
   final String profileId;
@@ -16,34 +17,45 @@ class FeedPage extends StatefulWidget {
 }
 
 class _FeedPageState extends State<FeedPage> {
-  final _posts = <Post>[];
+  final _posts = <NetworkPost>[];
   bool _loading = false;
   int _page = 0;
   final _pageSize = 20;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadInitial();
-    // subscribe realtime
-    final svc = context.read<PostService>();
-    svc.streamPosts(onData: (posts) {
-      if (mounted) setState(() => _posts
-        ..clear()
-        ..addAll(posts));
+    _startRealtime();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startRealtime() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted && !_loading) {
+        _loadInitial();
+      }
     });
   }
 
   Future<void> _loadInitial() async {
     setState(() => _loading = true);
     try {
-      final svc = context.read<PostService>();
-      final items = await svc.fetchFeed(limit: _pageSize, offset: 0);
-      if (mounted) setState(() {
-        _posts.clear();
-        _posts.addAll(items);
-        _page = 1;
-      });
+      final svc = context.read<NetworkService>();
+      final items = await svc.getFeedPosts(limit: _pageSize);
+      if (mounted) {
+        setState(() {
+          _posts.clear();
+          _posts.addAll(items);
+          _page = 1;
+        });
+      }
     } catch (e) {
       debugPrint('FeedPage _loadInitial error: $e');
     } finally {
@@ -55,8 +67,8 @@ class _FeedPageState extends State<FeedPage> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final svc = context.read<PostService>();
-      final items = await svc.fetchFeed(limit: _pageSize, offset: _page * _pageSize);
+      final svc = context.read<NetworkService>();
+      final items = await svc.getFeedPosts(limit: _pageSize, offset: _page * _pageSize);
       if (items.isNotEmpty && mounted) {
         setState(() {
           _posts.addAll(items);
@@ -75,7 +87,14 @@ class _FeedPageState extends State<FeedPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Fil d\'actualité')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => CreatePostSheet.show(context, profileId: widget.profileId),
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => const CreatePostDialog(),
+          ).then((_) {
+            if (mounted) _loadInitial();
+          });
+        },
         child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
@@ -94,7 +113,7 @@ class _FeedPageState extends State<FeedPage> {
               if (index >= _posts.length) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: _loading ? CircularProgressIndicator() : SizedBox.shrink()),
+                  child: Center(child: _loading ? const CircularProgressIndicator() : const SizedBox.shrink()),
                 );
               }
               final post = _posts[index];
