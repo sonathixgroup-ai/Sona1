@@ -1,9 +1,10 @@
-// presentation/thix_sante/patient/patient_dashboard_page.dart
+import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+// GARDE TES IMPORTS EXISTANTS
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:thix_id/auth/auth_controller.dart';
@@ -17,1006 +18,966 @@ class PatientDashboardPage extends StatefulWidget {
   const PatientDashboardPage({super.key});
 
   @override
-  State<PatientDashboardPage> createState() => _PatientDashboardPageState();
+  State<PatientDashboardPage> createState() =>
+      _PatientDashboardPageState();
 }
 
-class _PatientDashboardPageState extends State<PatientDashboardPage> {
-  final HealthService _healthService = HealthService.instance;
-  bool _isLoading = true;
-  HealthSummary? _summary;
-  List<Appointment> _upcomingAppointments = [];
-  List<Medication> _currentMedications = [];
-  List<HealthArticle> _articles = [];
-  int _unreadNotifications = 0;
+class _PatientDashboardPageState
+    extends State<PatientDashboardPage> {
 
-  @override
-  void initState() {
-    super.initState();
-    _loadDashboardData();
-  }
+  int currentIndex = 0;
 
-  Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
-    try {
-      final user = AuthController.instance.currentUser;
-      if (user == null) throw Exception('Utilisateur non connecté');
-      final patientId = user.id;
+  final List<_ServiceItem> quickServices = [
+    _ServiceItem(
+      title: 'Rendez-vous',
+      icon: Icons.calendar_month_rounded,
+      color: Color(0xFF2563FF),
+      route: '/appointments',
+    ),
+    _ServiceItem(
+      title: 'Consultation',
+      icon: Icons.medical_services_rounded,
+      color: Color(0xFF0EA5E9),
+      route: '/consultation',
+    ),
+    _ServiceItem(
+      title: 'Examens',
+      icon: Icons.science_rounded,
+      color: Color(0xFF7C3AED),
+      route: '/exams',
+    ),
+    _ServiceItem(
+      title: 'Ordonnances',
+      icon: Icons.receipt_long_rounded,
+      color: Color(0xFF4F46E5),
+      route: '/prescriptions',
+    ),
+    _ServiceItem(
+      title: 'Urgences',
+      icon: Icons.favorite_rounded,
+      color: Color(0xFFE11D48),
+      route: '/emergency',
+    ),
+    _ServiceItem(
+      title: 'Plus',
+      icon: Icons.more_horiz_rounded,
+      color: Color(0xFF64748B),
+      route: '/more',
+    ),
+  ];
 
-      final summary = await _healthService.fetchHealthSummary(patientId);
-      final appointments = await _healthService.fetchUpcomingAppointments(patientId);
-      final medications = await _healthService.fetchMedications(patientId, activeOnly: true);
-      final articles = await _healthService.fetchHealthArticles(limit: 12);
-      final alerts = await _healthService.fetchHealthAlerts(patientId);
-
-      setState(() {
-        _summary = summary;
-        _upcomingAppointments = appointments;
-        _currentMedications = medications;
-        _articles = articles;
-        _unreadNotifications = alerts.length;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
+  final List<_HealthCardData> summary = [
+    _HealthCardData(
+      title: 'Consultations',
+      value: '12',
+      subtitle: 'Cette année',
+      icon: Icons.calendar_today_rounded,
+      color: Color(0xFF2563FF),
+    ),
+    _HealthCardData(
+      title: 'Examens',
+      value: '7',
+      subtitle: 'Complétés',
+      icon: Icons.science_rounded,
+      color: Color(0xFF10B981),
+    ),
+    _HealthCardData(
+      title: 'Médicaments',
+      value: '3',
+      subtitle: 'En cours',
+      icon: Icons.medication_rounded,
+      color: Color(0xFF8B5CF6),
+    ),
+    _HealthCardData(
+      title: 'Rendez-vous',
+      value: '2',
+      subtitle: 'À venir',
+      icon: Icons.access_time_rounded,
+      color: Color(0xFFF97316),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF0F2F5), // Facebook grey
-        floatingActionButton: FloatingActionButton(
-          elevation: 6,
-          backgroundColor: const Color(0xFF2563FF),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-          child: const Icon(Icons.add, color: Colors.white, size: 28),
-          onPressed: () => _showQuickActions(context),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: _BottomNav(
-          currentIndex: 0,
-          onTap: (index) {
-            if (index == 1) context.go('/sante/patient/health');
-            else if (index == 2) context.go('/sante/patient/messages');
-            else if (index == 3) context.go('/sante/patient/profile');
-          },
-        ),
-        body: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _loadDashboardData,
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      // ===== TOP BAR =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                          child: _TopBar(
-                            unreadCount: _unreadNotifications,
-                            onNotificationTap: () => context.push('/sante/patient/notifications'),
-                            onMenuTap: () => _openRoleSwitchSheet(context),
-                          ),
-                        ),
-                      ),
-                      // ===== HERO CARD =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _HeroCard(
-                            onDossierTap: () => context.push('/sante/patient/profile'),
-                            score: _summary?.healthScore ?? 0,
-                          ),
-                        ),
-                      ),
-                      // ===== RÉSUMÉ DE SANTÉ =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: _SummarySection(summary: _summary!),
-                        ),
-                      ),
-                      // ===== SERVICES RAPIDES (4×3) =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: _QuickServicesGrid(),
-                        ),
-                      ),
-                      // ===== SERVICES SANTÉ (4×3) =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: _HealthServicesGrid(),
-                        ),
-                      ),
-                      // ===== POUR VOUS (4×3) =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: _ArticlesGrid(articles: _articles),
-                        ),
-                      ),
-                      // ===== BOUTON URGENCE =====
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          child: const EmergencyButton(),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 80)),
-                    ],
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F7FB),
 
-  void _showQuickActions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _BottomSheetTile(
-                icon: Icons.calendar_today,
-                title: 'Prendre rendez-vous',
-                color: const Color(0xFF2563FF),
-                onTap: () { Navigator.pop(context); context.push('/sante/patient/appointment/new'); },
-              ),
-              _BottomSheetTile(
-                icon: Icons.camera_alt,
-                title: 'Scanner ordonnance',
-                color: Colors.purple,
-                onTap: () { Navigator.pop(context); context.push('/sante/patient/scan'); },
-              ),
-              _BottomSheetTile(
-                icon: Icons.chat,
-                title: 'Assistant IA',
-                color: Colors.green,
-                onTap: () { Navigator.pop(context); context.push('/sante/patient/ia'); },
-              ),
-              _BottomSheetTile(
-                icon: Icons.emergency,
-                title: 'Urgence',
-                color: Colors.red,
-                onTap: () { Navigator.pop(context); context.push('/sante/patient/map/emergencies'); },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.centerDocked,
 
-  Future<void> _openRoleSwitchSheet(BuildContext context) async {
-    final selected = await showModalBottomSheet<ThixRole>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.patient),
-    );
-    if (selected == null) return;
-    try {
-      ThixRoleController.instance.selectRole(selected, manual: true);
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(data: {'thix_role': selected.name}),
-      );
-      if (!context.mounted) return;
-      switch (selected) {
-        case ThixRole.patient:
-          context.go('/sante/patient/dashboard');
-        case ThixRole.doctor:
-          context.go('/sante/doctor/dashboard');
-        case ThixRole.pharmacy:
-          context.go('/sante/pharmacy/dashboard');
-      }
-    } catch (_) {}
-  }
-}
-
-// ============================================================
-// TOP BAR
-// ============================================================
-class _TopBar extends StatelessWidget {
-  final int unreadCount;
-  final VoidCallback onNotificationTap;
-  final VoidCallback onMenuTap;
-  const _TopBar({
-    required this.unreadCount,
-    required this.onNotificationTap,
-    required this.onMenuTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final user = AuthController.instance.currentUser;
-    final photo = (user?.photoUrl ?? '').trim();
-    return Row(
-      children: [
-        _CircleIconButton(icon: Icons.menu, onTap: onMenuTap, size: 40),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
-                  ),
-                ),
-                child: const Icon(Icons.health_and_safety, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'THIX SANTÉ',
-                    style: GoogleFonts.poppins(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
-                  ),
-                  Text(
-                    'Votre santé, notre priorité',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _CircleIconButton(
-              icon: Icons.notifications_none,
-              onTap: onNotificationTap,
-              size: 40,
-            ),
-            if (unreadCount > 0)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$unreadCount',
-                    style: const TextStyle(
-                      fontSize: 9,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(width: 8),
-        CircleAvatar(
-          radius: 20,
-          backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
-          child: photo.isEmpty ? const Icon(Icons.person, size: 20) : null,
-        ),
-      ],
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final double size;
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-    this.size = 40,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
+      floatingActionButton: Container(
+        width: 68,
+        height: 68,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF2563FF),
+              Color(0xFF00D2C8),
+            ],
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: const Color(0xFF2563FF).withOpacity(.35),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Icon(icon, size: 20, color: Colors.grey[700]),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// HERO CARD
-// ============================================================
-class _HeroCard extends StatelessWidget {
-  final VoidCallback onDossierTap;
-  final int score;
-  const _HeroCard({
-    required this.onDossierTap,
-    required this.score,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final user = AuthController.instance.currentUser;
-    final firstName = (user?.displayName ?? '').split(' ').first;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563FF).withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+        child: FloatingActionButton(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          onPressed: _showQuickActions,
+          child: const Icon(
+            Icons.add_rounded,
+            size: 34,
+            color: Colors.white,
           ),
-        ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+
+      bottomNavigationBar: _buildBottomBar(),
+
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+
+            // =================================================
+            // APP BAR
+            // =================================================
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+                child: Row(
                   children: [
-                    Text(
-                      'Bonjour, $firstName 👋',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+
+                    _topButton(
+                      icon: Icons.menu_rounded,
+                      onTap: () {},
+                    ),
+
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Row(
+                        children: [
+
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadius.circular(16),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF2563FF),
+                                  Color(0xFF00D2C8),
+                                ],
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.health_and_safety_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+
+                              Text(
+                                'THIX SANTÉ',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 21,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+
+                              Text(
+                                'Votre santé, notre priorité.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Votre santé entre de bonnes mains',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
+
+                    Stack(
+                      children: [
+
+                        _topButton(
+                          icon: Icons.notifications_none_rounded,
+                          onTap: () {},
+                        ),
+
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFF10B981),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '3',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Consultez, suivez et prenez soin\nde votre santé au quotidien.',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 13,
-                        height: 1.5,
+
+                    const SizedBox(width: 10),
+
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3,
+                        ),
+                        image: const DecorationImage(
+                          image: AssetImage(
+                            'assets/images/doctor.jpg',
+                          ),
+                          fit: BoxFit.cover,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                Colors.black.withOpacity(.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.medical_services,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 32,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: onDossierTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.folder_open, size: 18, color: Color(0xFF2563FF)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Dossier de santé',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: const Color(0xFF2563FF),
-                          ),
-                        ),
+            ),
+
+            // =================================================
+            // HERO
+            // =================================================
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18),
+                child: Container(
+                  height: 270,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF2563FF),
+                        Color(0xFF00D2C8),
                       ],
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2563FF)
+                            .withOpacity(.25),
+                        blurRadius: 28,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Stack(
                     children: [
-                      const Icon(Icons.analytics, size: 18, color: Colors.white),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Score $score%',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.white,
+
+                      Positioned(
+                        right: -30,
+                        top: -10,
+                        child: Container(
+                          width: 220,
+                          height: 220,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                Colors.white.withOpacity(.08),
+                          ),
+                        ),
+                      ),
+
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Row(
+                          children: [
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+
+                                  Text(
+                                    'Bonjour, Michel 👋',
+                                    style:
+                                        GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight:
+                                          FontWeight.w500,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  Text(
+                                    'Votre santé\nentre de bonnes mains',
+                                    style:
+                                        GoogleFonts.poppins(
+                                      height: 1.15,
+                                      color: Colors.white,
+                                      fontSize: 32,
+                                      fontWeight:
+                                          FontWeight.w800,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 14),
+
+                                  Text(
+                                    'Consultez, suivez et prenez soin\n'
+                                    'de votre santé au quotidien.',
+                                    style:
+                                        GoogleFonts.poppins(
+                                      color: Colors.white
+                                          .withOpacity(.92),
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                  ),
+
+                                  const Spacer(),
+
+                                  GestureDetector(
+                                    onTap: () {},
+                                    child: ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(
+                                              18),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 8,
+                                          sigmaY: 8,
+                                        ),
+                                        child: Container(
+                                          padding:
+                                              const EdgeInsets
+                                                  .symmetric(
+                                            horizontal: 18,
+                                            vertical: 14,
+                                          ),
+                                          decoration:
+                                              BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius
+                                                    .circular(
+                                                        18),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize:
+                                                MainAxisSize
+                                                    .min,
+                                            children: [
+
+                                              Container(
+                                                width: 36,
+                                                height: 36,
+                                                decoration:
+                                                    BoxDecoration(
+                                                  color:
+                                                      const Color(
+                                                          0xFF2563FF),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          12),
+                                                ),
+                                                child:
+                                                    const Icon(
+                                                  Icons
+                                                      .folder_open_rounded,
+                                                  color: Colors
+                                                      .white,
+                                                  size: 18,
+                                                ),
+                                              ),
+
+                                              const SizedBox(
+                                                  width: 12),
+
+                                              Text(
+                                                'Dossier de santé',
+                                                style:
+                                                    GoogleFonts
+                                                        .poppins(
+                                                  color:
+                                                      const Color(
+                                                          0xFF0F172A),
+                                                  fontWeight:
+                                                      FontWeight
+                                                          .w700,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+
+                                              const SizedBox(
+                                                  width: 8),
+
+                                              const Icon(
+                                                Icons
+                                                    .arrow_forward_ios_rounded,
+                                                size: 14,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 10),
+
+                            Expanded(
+                              child: Image.asset(
+                                'assets/images/doctor.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+
+            // =================================================
+            // QUICK SERVICES
+            // =================================================
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  left: 18,
+                  right: 18,
+                  top: 18,
+                ),
+                child: Row(
+                  children: quickServices.map((e) {
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Container(
+                          margin:
+                              const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          padding:
+                              const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius:
+                                BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black
+                                    .withOpacity(.04),
+                                blurRadius: 12,
+                                offset:
+                                    const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: e.color
+                                      .withOpacity(.12),
+                                  borderRadius:
+                                      BorderRadius
+                                          .circular(16),
+                                ),
+                                child: Icon(
+                                  e.icon,
+                                  color: e.color,
+                                  size: 24,
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              Text(
+                                e.title,
+                                textAlign:
+                                    TextAlign.center,
+                                style:
+                                    GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight:
+                                      FontWeight.w600,
+                                  color:
+                                      const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+            // =================================================
+            // SECTION TITLE
+            // =================================================
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    20, 26, 20, 14),
+                child: Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+
+                    Text(
+                      'Résumé de santé',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+
+                    TextButton(
+                      onPressed: () {},
+                      child: Text(
+                        'Voir tout',
+                        style: GoogleFonts.poppins(
+                          color:
+                              const Color(0xFF2563FF),
+                          fontWeight:
+                              FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // =================================================
+            // HEALTH SUMMARY
+            // =================================================
+
+            SliverPadding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18),
+              sliver: SliverGrid(
+                delegate:
+                    SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = summary[index];
+
+                    return Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius:
+                            BorderRadius.circular(26),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                Colors.black.withOpacity(
+                                    .04),
+                            blurRadius: 14,
+                            offset:
+                                const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: item.color
+                                  .withOpacity(.12),
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(16),
+                            ),
+                            child: Icon(
+                              item.icon,
+                              color: item.color,
+                              size: 24,
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          Text(
+                            item.title,
+                            style:
+                                GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight:
+                                  FontWeight.w600,
+                              color:
+                                  item.color,
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          Text(
+                            item.value,
+                            style:
+                                GoogleFonts.poppins(
+                              fontSize: 34,
+                              fontWeight:
+                                  FontWeight.w800,
+                              color:
+                                  const Color(
+                                      0xFF0F172A),
+                            ),
+                          ),
+
+                          Text(
+                            item.subtitle,
+                            style:
+                                GoogleFonts.poppins(
+                              fontSize: 12,
+                              color:
+                                  Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  childCount: summary.length,
+                ),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: .92,
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 120),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-// ============================================================
-// RÉSUMÉ DE SANTÉ
-// ============================================================
-class _SummarySection extends StatelessWidget {
-  final HealthSummary summary;
-  const _SummarySection({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        children: [
-          _SummaryCard(
-            title: 'Consultations',
-            value: summary.consultationsThisYear.toString(),
-            icon: Icons.calendar_today,
-            color: const Color(0xFF2563FF),
-            subtitle: 'Cette année',
-          ),
-          _SummaryCard(
-            title: 'Examens',
-            value: summary.examsCompleted.toString(),
-            icon: Icons.science,
-            color: Colors.green,
-            subtitle: 'Complétés',
-          ),
-          _SummaryCard(
-            title: 'Médicaments',
-            value: summary.activeMedications.toString(),
-            icon: Icons.medication,
-            color: Colors.purple,
-            subtitle: 'En cours',
-          ),
-          _SummaryCard(
-            title: 'Rendez-vous',
-            value: summary.upcomingAppointments.toString(),
-            icon: Icons.access_time,
-            color: Colors.orange,
-            subtitle: 'À venir',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-  final String subtitle;
-  const _SummaryCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
+  Widget _topButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        width: 52,
+        height: 52,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A1A2E),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
-            ),
-            Text(
-              subtitle,
-              style: GoogleFonts.poppins(
-                fontSize: 9,
-                color: Colors.grey[400],
-              ),
-            ),
-          ],
+        child: Icon(
+          icon,
+          size: 24,
+          color: const Color(0xFF0F172A),
         ),
       ),
     );
   }
-}
 
-// ============================================================
-// SERVICES RAPIDES (4×3)
-// ============================================================
-class _QuickServicesGrid extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('Consulter médecin', Icons.medical_services, '/sante/patient/appointment/new'),
-      ('Dossier médical', Icons.folder, '/sante/patient/record'),
-      ('Résultats examens', Icons.science, '/sante/patient/exams'),
-      ('Mes ordonnances', Icons.receipt, '/sante/patient/prescriptions'),
-      ('Trouver hôpital', Icons.local_hospital, '/sante/patient/map/hospitals'),
-      ('Trouver médicament', Icons.medication, '/sante/patient/map/pharmacies'),
-      ('Pharmacies proches', Icons.local_pharmacy, '/sante/patient/map/pharmacies'),
-      ('Urgences proches', Icons.emergency, '/sante/patient/map/emergencies'),
-      ('Prendre RDV', Icons.calendar_today, '/sante/patient/appointment/new'),
-      ('Téléconsultation', Icons.video_call, '/sante/patient/teleconsultation/new'),
-      ('Assistant IA', Icons.smart_toy, '/sante/patient/ia'),
-      ('Dossier partagé', Icons.share, '/sante/patient/sharing'),
-    ];
-    return _SectionGrid(title: '⚡ Services rapides', items: items);
-  }
-}
-
-// ============================================================
-// SERVICES SANTÉ (4×3)
-// ============================================================
-class _HealthServicesGrid extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('Santé enfants', Icons.child_care, '/sante/patient/family'),
-      ('Carnet vaccination', Icons.vaccines, '/sante/patient/vaccinations'),
-      ('Suivi grossesses', Icons.pregnant_woman, '/sante/patient/pregnancy'),
-      ('Dossier médical', Icons.folder_open, '/sante/patient/record'),
-      ('Assurance santé', Icons.shield, '/sante/patient/insurance'),
-      ('Assurance', Icons.security, '/sante/patient/insurance'),
-      ('Plus de services', Icons.more_horiz, '/sante/patient/health'),
-      ('Analyse prédictive', Icons.analytics, '/sante/patient/health'),
-      ('Bien-être mental', Icons.self_improvement, '/sante/patient/wellness/stress'),
-      ('Nutrition', Icons.restaurant, '/sante/patient/wellness/nutrition'),
-      ('Activité physique', Icons.fitness_center, '/sante/patient/wellness/fitness'),
-      ('Gestion stress', Icons.spa, '/sante/patient/wellness/stress'),
-    ];
-    return _SectionGrid(title: '🏥 Services santé', items: items);
-  }
-}
-
-// ============================================================
-// POUR VOUS (4×3)
-// ============================================================
-class _ArticlesGrid extends StatelessWidget {
-  final List<HealthArticle> articles;
-  const _ArticlesGrid({required this.articles});
-
-  @override
-  Widget build(BuildContext context) {
-    // Si pas assez d'articles, on les complète avec des exemples
-    final displayArticles = articles.isNotEmpty
-        ? articles.take(12).toList()
-        : [
-            HealthArticle(id: '1', title: '5 conseils pour rester en bonne santé', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '2', title: 'Alimentation équilibrée : les bases', subtitle: '', readTime: 4, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '3', title: 'Gérer le stress au quotidien', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '4', title: 'Prévention : un geste qui sauve', subtitle: '', readTime: 2, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '5', title: 'Activité physique pour tous', subtitle: '', readTime: 5, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '6', title: 'Sommeil réparateur', subtitle: '', readTime: 4, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '7', title: 'Méditation pour débutants', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '8', title: 'Santé mentale au travail', subtitle: '', readTime: 6, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '9', title: 'Nutrition avancée', subtitle: '', readTime: 5, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '10', title: 'Bien-être global', subtitle: '', readTime: 4, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '11', title: 'Sport adapté', subtitle: '', readTime: 3, publishDate: DateTime.now(), tags: [], content: ''),
-            HealthArticle(id: '12', title: 'Relaxation profonde', subtitle: '', readTime: 2, publishDate: DateTime.now(), tags: [], content: ''),
-          ];
-
-    return _SectionGrid(
-      title: '📰 Pour vous',
-      items: displayArticles.map((a) => (a.title, Icons.article, '/sante/patient/article/${a.id}')).toList(),
-      showReadTime: true,
-      articles: displayArticles,
-    );
-  }
-}
-
-// ============================================================
-// GRID GÉNÉRIQUE (4 colonnes)
-// ============================================================
-class _SectionGrid extends StatelessWidget {
-  final String title;
-  final List<(String, IconData, String)> items;
-  final bool showReadTime;
-  final List<HealthArticle>? articles;
-
-  const _SectionGrid({
-    required this.title,
-    required this.items,
-    this.showReadTime = false,
-    this.articles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A1A2E),
-            ),
-          ),
-        ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 1.1,
-          ),
-          itemCount: items.length.clamp(0, 12),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return _GridItem(
-              icon: item.$2,
-              label: item.$1,
-              onTap: () => context.push(item.$3),
-              readTime: showReadTime && articles != null && index < articles!.length
-                  ? '${articles![index].readTime} min'
-                  : null,
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-// ============================================================
-// ITEM DE GRILLE (4×3)
-// ============================================================
-class _GridItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final String? readTime;
-
-  const _GridItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.readTime,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF2563FF).withOpacity(0.15), const Color(0xFF00D2C8).withOpacity(0.15)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, size: 22, color: const Color(0xFF2563FF)),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1A2E),
-                height: 1.2,
-              ),
-            ),
-            if (readTime != null)
-              Text(
-                readTime!,
-                style: GoogleFonts.poppins(
-                  fontSize: 9,
-                  color: Colors.grey[500],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// BOTTOM SHEET TILE
-// ============================================================
-class _BottomSheetTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final VoidCallback onTap;
-  const _BottomSheetTile({
-    required this.icon,
-    required this.title,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: color, size: 22),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
-      ),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-      onTap: onTap,
-    );
-  }
-}
-
-// ============================================================
-// BOTTOM NAVIGATION
-// ============================================================
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-  const _BottomNav({required this.currentIndex, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBottomBar() {
     return BottomAppBar(
-      height: 70,
-      elevation: 20,
+      elevation: 25,
       color: Colors.white,
       shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _NavItem(icon: Icons.home, label: 'Accueil', selected: currentIndex == 0, onTap: () => onTap(0)),
-          _NavItem(icon: Icons.favorite_border, label: 'Santé', selected: currentIndex == 1, onTap: () => onTap(1)),
-          const SizedBox(width: 30),
-          _NavItem(icon: Icons.chat_bubble_outline, label: 'Messages', selected: currentIndex == 2, onTap: () => onTap(2)),
-          _NavItem(icon: Icons.person_outline, label: 'Profil', selected: currentIndex == 3, onTap: () => onTap(3)),
-        ],
+      notchMargin: 10,
+      child: SizedBox(
+        height: 78,
+        child: Row(
+          mainAxisAlignment:
+              MainAxisAlignment.spaceAround,
+          children: [
+
+            _navItem(
+              index: 0,
+              icon: Icons.home_rounded,
+              label: 'Accueil',
+            ),
+
+            _navItem(
+              index: 1,
+              icon: Icons.favorite_border_rounded,
+              label: 'Santé',
+            ),
+
+            const SizedBox(width: 40),
+
+            _navItem(
+              index: 2,
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Messages',
+            ),
+
+            _navItem(
+              index: 3,
+              icon: Icons.person_outline_rounded,
+              label: 'Profil',
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  Widget _navItem({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final selected = currentIndex == index;
 
-  @override
-  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        setState(() {
+          currentIndex = index;
+        });
+      },
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment:
+            MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 22,
-            color: selected ? const Color(0xFF2563FF) : Colors.grey,
+
+          AnimatedContainer(
+            duration:
+                const Duration(milliseconds: 250),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: selected
+                  ? const Color(0xFF2563FF)
+                      .withOpacity(.12)
+                  : Colors.transparent,
+              borderRadius:
+                  BorderRadius.circular(14),
+            ),
+            child: Icon(
+              icon,
+              color: selected
+                  ? const Color(0xFF2563FF)
+                  : Colors.grey.shade500,
+              size: 24,
+            ),
           ),
-          const SizedBox(height: 2),
+
+          const SizedBox(height: 4),
+
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: selected ? const Color(0xFF2563FF) : Colors.grey,
+              color: selected
+                  ? const Color(0xFF2563FF)
+                  : Colors.grey.shade500,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showQuickActions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(34),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius:
+                      BorderRadius.circular(20),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              _sheetTile(
+                icon: Icons.calendar_month_rounded,
+                title: 'Prendre rendez-vous',
+                color: const Color(0xFF2563FF),
+              ),
+
+              _sheetTile(
+                icon: Icons.qr_code_scanner_rounded,
+                title: 'Scanner ordonnance',
+                color: const Color(0xFF8B5CF6),
+              ),
+
+              _sheetTile(
+                icon: Icons.smart_toy_rounded,
+                title: 'Assistant IA',
+                color: const Color(0xFF10B981),
+              ),
+
+              _sheetTile(
+                icon: Icons.local_hospital_rounded,
+                title: 'Urgence médicale',
+                color: const Color(0xFFE11D48),
+              ),
+
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sheetTile({
+    required IconData icon,
+    required String title,
+    required Color color,
+  }) {
+    return ListTile(
+      contentPadding:
+          const EdgeInsets.symmetric(vertical: 6),
+      leading: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: color.withOpacity(.1),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Icon(
+          icon,
+          color: color,
+        ),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios_rounded,
+        size: 16,
+      ),
+      onTap: () {},
     );
   }
 }
 
 // ============================================================
-// ROLE SWITCH SHEET
+// MODELS
 // ============================================================
-class _RoleSwitchSheet extends StatelessWidget {
-  final ThixRole currentRole;
-  const _RoleSwitchSheet({required this.currentRole});
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Changer de rôle',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 20),
-          ),
-          const SizedBox(height: 16),
-          for (final role in ThixRoleController.availableRoles)
-            GestureDetector(
-              onTap: () => context.pop(role),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Icon(role.icon, color: role.accent, size: 24),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        role.label,
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15),
-                      ),
-                    ),
-                    if (role == currentRole)
-                      const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+class _ServiceItem {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String route;
+
+  _ServiceItem({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.route,
+  });
+}
+
+class _HealthCardData {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  _HealthCardData({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
 }
