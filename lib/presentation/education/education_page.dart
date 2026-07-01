@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/profile_service.dart';   // ✅ remplace firestore_user_service
-import 'package:thix_id/services/user_service.dart';      // ✅ ajouté pour les paiements
+import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import '../../theme.dart';
 
@@ -457,11 +457,10 @@ class EducationPage extends StatelessWidget {
                                               'progress': 0,
                                               'status': 'En cours'
                                             });
-                                            // Mettre à jour via ProfileService
-                                            // On suppose que ProfileService.updateProfile gère les enrollments
+                                            // Mettre à jour via ProfileService (ajout du paramètre enrollments)
                                             await profileService.updateProfile(
                                               userId: me.id,
-                                              enrollments: nextEnrollments,
+                                              enrollments: nextEnrollments, // ✅ ajout du paramètre
                                             );
                                             // Mettre à jour l'utilisateur local
                                             final updatedUser = me.copyWith(enrollments: nextEnrollments);
@@ -593,4 +592,10 @@ class EducationPage extends StatelessWidget {
       ),
     );
   }
+}
+
+// ✅ Réintroduction de l'extension ThemeHelper pour résoudre les erreurs context.theme / context.textStyles
+extension ThemeHelper on BuildContext {
+  ThemeData get theme => Theme.of(this);
+  TextTheme get textStyles => Theme.of(this).textTheme;
 }
