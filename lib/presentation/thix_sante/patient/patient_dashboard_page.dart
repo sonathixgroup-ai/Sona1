@@ -1,12 +1,13 @@
+// presentation/thix_sante/patient/patient_dashboard_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
-import 'package:thix_id/presentation/thix_sante/shared/widgets/emergency_button.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 
 class PatientDashboardPage extends StatefulWidget {
@@ -25,6 +26,32 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   List<Medication> _currentMedications = [];
   List<HealthArticle> _articles = [];
   int _unreadNotifications = 0;
+
+  // Liste des services avec leurs icônes, routes et couleurs
+  static const List<_Service> _services = [
+    _Service('Consulter médecin', Icons.medical_services, '/sante/patient/appointment/new'),
+    _Service('Dossier médical', Icons.folder, '/sante/patient/record'),
+    _Service('Résultats examens', Icons.science, '/sante/patient/exams'),
+    _Service('Mes ordonnances', Icons.receipt, '/sante/patient/prescriptions'),
+    _Service('Trouver hôpital', Icons.local_hospital, '/sante/patient/map/hospitals'),
+    _Service('Trouver médicament', Icons.medication, '/sante/patient/map/pharmacies'),
+    _Service('Pharmacies proches', Icons.storefront, '/sante/patient/map/pharmacies'),
+    _Service('Urgences proches', Icons.emergency, '/sante/patient/map/emergencies'),
+    _Service('Prendre RDV', Icons.calendar_today, '/sante/patient/appointment/new'),
+    _Service('Téléconsultation', Icons.video_call, '/sante/patient/teleconsultation/new'),
+    _Service('Assistant IA', Icons.smart_toy, '/sante/patient/ia'),
+    _Service('Dossier partagé', Icons.share, '/sante/patient/sharing'),
+    _Service('Santé enfants', Icons.child_care, '/sante/patient/family'),
+    _Service('Carnet vaccination', Icons.vaccines, '/sante/patient/vaccinations'),
+    _Service('Suivi grossesses', Icons.pregnant_woman, '/sante/patient/pregnancy'),
+    _Service('Assurance santé', Icons.shield, '/sante/patient/insurance'),
+    _Service('Analyse prédictive', Icons.analytics, '/sante/patient/health-score'),
+    _Service('Bien-être mental', Icons.spa, '/sante/patient/wellness/stress'),
+    _Service('Nutrition', Icons.restaurant, '/sante/patient/wellness/nutrition'),
+    _Service('Activité physique', Icons.fitness_center, '/sante/patient/wellness/fitness'),
+    _Service('Gestion stress', Icons.self_improvement, '/sante/patient/wellness/stress'),
+    _Service('Plus de services', Icons.more_horiz, '/sante/patient/health'),
+  ];
 
   @override
   void initState() {
@@ -95,12 +122,11 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
                     physics: const BouncingScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(child: _topBar()),
-                      SliverToBoxAdapter(child: _hero()),
-                      SliverToBoxAdapter(child: _summarySection()),
-                      SliverToBoxAdapter(child: _quickGrid()),
-                      SliverToBoxAdapter(child: _healthGrid()),
-                      SliverToBoxAdapter(child: _articlesGrid()),
-                      SliverToBoxAdapter(child: const EmergencyButton()),
+                      SliverToBoxAdapter(child: _heroSection()),
+                      SliverToBoxAdapter(child: _healthScoreCard()),
+                      SliverToBoxAdapter(child: _servicesGrid()),
+                      SliverToBoxAdapter(child: _articlesSection()),
+                      SliverToBoxAdapter(child: _emergencySection()),
                       const SliverToBoxAdapter(child: SizedBox(height: 90)),
                     ],
                   ),
@@ -111,19 +137,34 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // TOP BAR MODERNE GLASS
+  // TOP BAR : THIX SANTÉ
   // =========================================================
   Widget _topBar() {
-    final user = AuthController.instance.currentUser;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Row(
         children: [
-          _glassIcon(Icons.menu, onTap: () => _openRoleSwitchSheet(context)),
-
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'THIX SANTÉ',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade800,
+                ),
+              ),
+              Text(
+                'Votre santé, notre priorité',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
           const Spacer(),
-
           Stack(
             children: [
               _glassIcon(Icons.notifications_none,
@@ -136,14 +177,13 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
                 )
             ],
           ),
-
           const SizedBox(width: 10),
-
           CircleAvatar(
             radius: 22,
             backgroundColor: Colors.blue.shade100,
             child: Text(
-              (user?.displayName ?? "U").substring(0, 1),
+              (AuthController.instance.currentUser?.displayName ?? "U")
+                  .substring(0, 1),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           )
@@ -153,9 +193,9 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // HERO PREMIUM
+  // HERO : Bonjour, Alex 🎉
   // =========================================================
-  Widget _hero() {
+  Widget _heroSection() {
     final user = AuthController.instance.currentUser;
     final name = user?.displayName ?? "Utilisateur";
 
@@ -179,15 +219,28 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Bonjour $name 👋",
-                style: GoogleFonts.poppins(color: Colors.white70)),
-            const SizedBox(height: 6),
             Text(
-              "Votre santé, nouvelle génération",
+              "Bonjour, $name 🎉",
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Votre santé entre de bonnes mains",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Consultez, suivez et prenez soin de votre santé au quotidien.",
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.white70,
               ),
             ),
           ],
@@ -197,37 +250,68 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // SUMMARY
+  // DOSSIER DE SANTÉ + SCORE
   // =========================================================
-  Widget _summarySection() {
-    if (_summary == null) return const SizedBox();
+  Widget _healthScoreCard() {
+    final score = _summary?.healthScore ?? 85;
 
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          _miniCard("Consult", _summary!.consultationsThisYear, Icons.favorite),
-          _miniCard("Exam", _summary!.examsCompleted, Icons.science),
-          _miniCard("RDV", _summary!.upcomingAppointments, Icons.calendar_month),
-          _miniCard("Med", _summary!.activeMedications, Icons.medication),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniCard(String label, int value, IconData icon) {
-    return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.all(12),
-        decoration: _glass(),
-        child: Column(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF2563FF)),
-            const SizedBox(height: 6),
-            Text("$value",
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(fontSize: 10)),
+            const Icon(Icons.health_and_safety, size: 40, color: Color(0xFF2563FF)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dossier de santé',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Score de santé',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
+                ),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Text(
+                '$score%',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -235,97 +319,236 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // QUICK GRID
+  // SERVICES RAPIDES (GRILLE 4 COLONNES)
   // =========================================================
-  Widget _quickGrid() {
-    final items = [
-      ("Médecin", Icons.medical_services),
-      ("RDV", Icons.calendar_today),
-      ("Dossier", Icons.folder),
-      ("Urgence", Icons.emergency),
-      ("Pharmacie", Icons.local_pharmacy),
-      ("IA", Icons.smart_toy),
-      ("Examens", Icons.science),
-      ("Téléconsult", Icons.video_call),
-    ];
-
-    return _grid("⚡ Services rapides", items);
-  }
-
-  Widget _healthGrid() {
-    final items = [
-      ("Enfants", Icons.child_care),
-      ("Vaccins", Icons.vaccines),
-      ("Nutrition", Icons.restaurant),
-      ("Sport", Icons.fitness_center),
-      ("Stress", Icons.spa),
-      ("Assurance", Icons.shield),
-      ("Analyse", Icons.analytics),
-      ("Bien-être", Icons.self_improvement),
-    ];
-
-    return _grid("🏥 Santé", items);
-  }
-
-  Widget _grid(String title, List<(String, IconData)> items) {
+  Widget _servicesGrid() {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
+          Text(
+            'Services rapides',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: items.length,
+            itemCount: _services.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.0,
             ),
-            itemBuilder: (_, i) {
-              return Container(
-                decoration: _card(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(items[i].$2, color: const Color(0xFF2563FF)),
-                    const SizedBox(height: 6),
-                    Text(items[i].$1,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 10)),
+            itemBuilder: (_, index) {
+              final service = _services[index];
+              // Couleur cyclique
+              final color = _getColorForIndex(index);
+              return _serviceTile(service, color);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getColorForIndex(int index) {
+    final colors = [
+      Colors.blue, Colors.green, Colors.orange, Colors.pink,
+      Colors.purple, Colors.cyan, Colors.red, Colors.teal,
+      Colors.indigo, Colors.lime, Colors.amber, Colors.brown,
+      Colors.blueGrey, Colors.deepOrange, Colors.pinkAccent,
+      Colors.lightBlue, Colors.lightGreen, Colors.yellow,
+      Colors.deepPurple, Colors.orangeAccent, Colors.greenAccent,
+      Colors.blue.shade300,
+    ];
+    return colors[index % colors.length];
+  }
+
+  Widget _serviceTile(_Service service, Color color) {
+    return GestureDetector(
+      onTap: () => context.push(service.route),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(service.icon, color: color, size: 28),
+            const SizedBox(height: 6),
+            Text(
+              service.label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade800,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================
+  // POUR VOUS (ARTICLES)
+  // =========================================================
+  Widget _articlesSection() {
+    if (_articles.isEmpty) return const SizedBox.shrink();
+
+    // Prendre les 4 premiers articles pour la maquette
+    final displayed = _articles.take(4).toList();
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Pour vous',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...displayed.map((article) {
+            return GestureDetector(
+              onTap: () => context.push('/sante/patient/article/${article.id}', extra: article),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
                   ],
                 ),
-              );
-            },
-          )
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.blue.shade50,
+                      child: Text(
+                        '${article.readTime}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        article.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                  ],
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
   // =========================================================
-  // ARTICLES
+  // SECTION URGENCE (SOS)
   // =========================================================
-  Widget _articlesGrid() {
+  Widget _emergencySection() {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("📰 Pour vous",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          ..._articles.take(4).map((a) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: _glass(),
-                child: Text(a.title),
-              ))
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.sos, color: Colors.red, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'SOS',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'En cas d’urgence, nous sommes là pour vous',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  // Appeler le 15
+                  const url = 'tel:15';
+                  if (await canLaunchUrl(Uri.parse(url))) {
+                    await launchUrl(Uri.parse(url));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Impossible de passer l\'appel.')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.call, color: Colors.white),
+                label: const Text('Appeler les urgences'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -349,7 +572,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // ACTION SHEET (FIXED)
+  // ACTION SHEET
   // =========================================================
   void _showQuickActions(BuildContext context) {
     showModalBottomSheet(
@@ -362,11 +585,11 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _sheetItem(Icons.calendar_today, "RDV", Colors.blue,
+            _sheetItem(Icons.calendar_today, "Prendre RDV", Colors.blue,
                 () => context.push('/sante/patient/appointment/new')),
-            _sheetItem(Icons.chat, "IA", Colors.green,
+            _sheetItem(Icons.chat, "Assistant IA", Colors.green,
                 () => context.push('/sante/patient/ia')),
-            _sheetItem(Icons.camera_alt, "Scanner", Colors.purple,
+            _sheetItem(Icons.camera_alt, "Scanner ordonnance", Colors.purple,
                 () => context.push('/sante/patient/scan')),
           ],
         ),
@@ -387,7 +610,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // ROLE SWITCH (FIXED)
+  // ROLE SWITCH
   // =========================================================
   Future<void> _openRoleSwitchSheet(BuildContext context) async {
     final selected = await showModalBottomSheet<ThixRole>(
@@ -415,7 +638,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // STYLE
+  // STYLE HELPERS
   // =========================================================
   BoxDecoration _glass() => BoxDecoration(
         color: Colors.white.withOpacity(0.85),
@@ -428,25 +651,13 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         ],
       );
 
-  BoxDecoration _card() => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          )
-        ],
-      );
-
   Widget _glassIcon(IconData icon, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: _glass(),
-        child: Icon(icon),
+        child: Icon(icon, color: Colors.grey.shade700),
       ),
     );
   }
@@ -467,7 +678,18 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
 }
 
 // =========================================================
-// BOTTOM NAVIGATION (AJOUTÉ)
+// MODELE SERVICE
+// =========================================================
+class _Service {
+  final String label;
+  final IconData icon;
+  final String route;
+
+  const _Service(this.label, this.icon, this.route);
+}
+
+// =========================================================
+// BOTTOM NAVIGATION
 // =========================================================
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
