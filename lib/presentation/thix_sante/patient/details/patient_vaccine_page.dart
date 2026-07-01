@@ -1,5 +1,4 @@
 // presentation/thix_sante/patient/details/patient_vaccine_page.dart
-// Version corrigée – ligne 435
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,12 +10,7 @@ import 'package:thix_id/supabase/supabase_config.dart';
 class PatientVaccinePage extends StatefulWidget {
   final String? vaccineId;
   final bool isEditing;
-
-  const PatientVaccinePage({
-    super.key,
-    this.vaccineId,
-    this.isEditing = false,
-  });
+  const PatientVaccinePage({super.key, this.vaccineId, this.isEditing = false});
 
   @override
   State<PatientVaccinePage> createState() => _PatientVaccinePageState();
@@ -425,7 +419,7 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
           decoration: const InputDecoration(
             labelText: 'Numéro de lot (optionnel)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.barcode), // ✅ CORRECTION : sans const
+            prefixIcon: Icon(Icons.barcode), // ✅ Utilisation correcte
           ),
         ),
         const SizedBox(height: 12),
