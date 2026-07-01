@@ -1,4 +1,5 @@
 // presentation/thix_sante/patient/details/patient_vital_page.dart
+// (version complète avec correction ligne 363)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -56,12 +57,10 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
 
     try {
       if (widget.vitalId == null) {
-        // Nouvelle constante
         setState(() => _isLoading = false);
         return;
       }
 
-      // Récupérer la constante via Supabase directe (le service n'a pas de fetchById)
       final response = await _supabase
           .from('health_vitals')
           .select('*')
@@ -360,7 +359,7 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
           decoration: const InputDecoration(
             labelText: 'Unité (ex: kg, mmHg, bpm)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.measuring_tape),
+            prefixIcon: Icon(Icons.unit), // ✅ correction (pas de const)
           ),
         ),
         const SizedBox(height: 12),
