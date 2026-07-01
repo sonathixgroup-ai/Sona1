@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
+import 'package:thix_id/auth/auth_controller.dart';
 
 class PatientMedicationRemindersPage extends StatefulWidget {
   final String medicationId;
