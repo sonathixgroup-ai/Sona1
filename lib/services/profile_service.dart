@@ -200,6 +200,7 @@ class ProfileService {
     String? fullName,
     String? photoUrl,
     String? bio,
+    String? thixId,  
     String? profession,
     String? occupation,
     String? countryOrOrigin,
