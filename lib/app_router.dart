@@ -103,9 +103,8 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_medicati
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_medications_list_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccination_calendar_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_pharmacy_detail_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleconsultation_jitsi_page.dart';
 
-// Doctor pages
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_consult_page.dart';
