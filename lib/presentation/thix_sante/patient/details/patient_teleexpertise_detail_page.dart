@@ -105,7 +105,9 @@ class _PatientTeleexpertiseDetailPageState
           // En-tête avec statut
           Card(
             color: _statusColor(status).withOpacity(0.1),
-            shape: RoundedRectangleBorder(borderRadius: Radius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12), // ✅ corrigé
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -179,7 +181,6 @@ class _PatientTeleexpertiseDetailPageState
           if (status == 'completed' || status == 'rejected')
             OutlinedButton.icon(
               onPressed: () {
-                // Naviguer vers la page de demande
                 context.push('/sante/patient/teleexpertise/request');
               },
               icon: const Icon(Icons.add),
