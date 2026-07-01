@@ -1,5 +1,6 @@
 // presentation/thix_sante/shared/models/health_models.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 // ============================================================
 // ÉNUMÉRATIONS GLOBALES
@@ -16,6 +17,8 @@ enum ExamStatus { pending, completed, cancelled }
 enum OrderStatus { pending, validated, prepared, delivered, cancelled }
 
 enum AlertSeverity { info, warning, critical }
+
+enum NotificationType { alert, appointment, medication, general }
 
 // ============================================================
 // 1. RÉSUMÉ DE SANTÉ (Dashboard)
@@ -1010,6 +1013,24 @@ class Consent {
       };
 
   bool get isExpired => expiryDate != null && expiryDate!.isBefore(DateTime.now());
+
+  Consent copyWith({
+    String? id,
+    String? patientId,
+    String? type,
+    bool? granted,
+    DateTime? date,
+    DateTime? expiryDate,
+  }) {
+    return Consent(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      type: type ?? this.type,
+      granted: granted ?? this.granted,
+      date: date ?? this.date,
+      expiryDate: expiryDate ?? this.expiryDate,
+    );
+  }
 }
 
 // ============================================================
@@ -1276,4 +1297,217 @@ class InventoryItem {
 
   bool get isLowStock => quantity <= threshold;
   bool get isExpired => expiryDate != null && expiryDate!.isBefore(DateTime.now());
+}
+
+// ============================================================
+// 18. NOUVEAUX MODÈLES AJOUTÉS
+// ============================================================
+
+/// Modèle pour une offre d'assurance (utilisé dans patient_insurance_page)
+class InsuranceOffer {
+  final String id;
+  final String title;
+  final String description;
+  final String coverage;
+  final double monthlyPrice;
+  final double annualPrice;
+  final List<String> benefits;
+  final bool isPopular;
+
+  InsuranceOffer({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.coverage,
+    required this.monthlyPrice,
+    required this.annualPrice,
+    this.benefits = const [],
+    this.isPopular = false,
+  });
+
+  factory InsuranceOffer.fromJson(Map<String, dynamic> json) {
+    return InsuranceOffer(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String,
+      coverage: json['coverage'] as String,
+      monthlyPrice: (json['monthly_price'] as num).toDouble(),
+      annualPrice: (json['annual_price'] as num).toDouble(),
+      benefits: (json['benefits'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      isPopular: json['is_popular'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'coverage': coverage,
+        'monthly_price': monthlyPrice,
+        'annual_price': annualPrice,
+        'benefits': benefits,
+        'is_popular': isPopular,
+      };
+}
+
+/// Modèle pour un programme bien-être (utilisé dans patient_wellness_page)
+class WellnessProgram {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String description;
+  final String? imageUrl;
+  final int totalSteps;
+  final int completedSteps;
+  final String category; // 'stress', 'nutrition', 'fitness', 'stop_smoking'
+  final DateTime startDate;
+  final DateTime? endDate;
+  final bool isActive;
+
+  WellnessProgram({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    this.imageUrl,
+    required this.totalSteps,
+    required this.completedSteps,
+    required this.category,
+    required this.startDate,
+    this.endDate,
+    this.isActive = true,
+  });
+
+  factory WellnessProgram.fromJson(Map<String, dynamic> json) {
+    return WellnessProgram(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      subtitle: json['subtitle'] as String,
+      description: json['description'] as String,
+      imageUrl: json['image_url'] as String?,
+      totalSteps: json['total_steps'] as int,
+      completedSteps: json['completed_steps'] as int,
+      category: json['category'] as String,
+      startDate: DateTime.parse(json['start_date'] as String),
+      endDate: json['end_date'] != null
+          ? DateTime.parse(json['end_date'] as String)
+          : null,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'subtitle': subtitle,
+        'description': description,
+        'image_url': imageUrl,
+        'total_steps': totalSteps,
+        'completed_steps': completedSteps,
+        'category': category,
+        'start_date': startDate.toIso8601String(),
+        'end_date': endDate?.toIso8601String(),
+        'is_active': isActive,
+      };
+
+  double get progress => totalSteps > 0 ? completedSteps / totalSteps : 0;
+  String get progressLabel => '${(progress * 100).toInt()}%';
+}
+
+/// Modèle pour un partage de dossier sécurisé (utilisé dans patient_sharing_page)
+class Share {
+  final String id;
+  final String patientId;
+  final String recipientName;
+  final String recipientEmail;
+  final String accessLevel; // 'complet' ou 'limite'
+  final DateTime expiresAt;
+  final DateTime createdAt;
+
+  Share({
+    required this.id,
+    required this.patientId,
+    required this.recipientName,
+    required this.recipientEmail,
+    required this.accessLevel,
+    required this.expiresAt,
+    required this.createdAt,
+  });
+
+  factory Share.fromJson(Map<String, dynamic> json) {
+    return Share(
+      id: json['id'] as String,
+      patientId: json['patient_id'] as String,
+      recipientName: json['recipient_name'] as String,
+      recipientEmail: json['recipient_email'] as String,
+      accessLevel: json['access_level'] as String,
+      expiresAt: DateTime.parse(json['expires_at'] as String),
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'patient_id': patientId,
+        'recipient_name': recipientName,
+        'recipient_email': recipientEmail,
+        'access_level': accessLevel,
+        'expires_at': expiresAt.toIso8601String(),
+        'created_at': createdAt.toIso8601String(),
+      };
+
+  bool get isExpired => expiresAt.isBefore(DateTime.now());
+}
+
+/// Modèle pour une notification (utilisé dans patient_notifications_page)
+class NotificationItem {
+  final String id;
+  final String title;
+  final String body;
+  final NotificationType type;
+  final DateTime date;
+  final bool isRead;
+  final String? action;
+
+  NotificationItem({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.type,
+    required this.date,
+    this.isRead = false,
+    this.action,
+  });
+
+  factory NotificationItem.fromHealthAlert(HealthAlert alert) {
+    return NotificationItem(
+      id: alert.id,
+      title: alert.title,
+      body: alert.description,
+      type: NotificationType.alert,
+      date: alert.date,
+      isRead: alert.isRead,
+      action: alert.actionUrl,
+    );
+  }
+
+  NotificationItem copyWith({
+    String? id,
+    String? title,
+    String? body,
+    NotificationType? type,
+    DateTime? date,
+    bool? isRead,
+    String? action,
+  }) {
+    return NotificationItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      type: type ?? this.type,
+      date: date ?? this.date,
+      isRead: isRead ?? this.isRead,
+      action: action ?? this.action,
+    );
+  }
 }
