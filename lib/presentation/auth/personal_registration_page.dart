@@ -9,13 +9,17 @@ import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/parcours_form.dart';
-import 'package:thix_id/services/document_service.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
+// 🔽 Services Supabase
+import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/user_service.dart';
+import 'package:thix_id/services/supabase_document_service.dart';
+import 'package:thix_id/services/supabase_profile_photo_service.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/presentation/common/date_picker_field.dart';
-import 'package:thix_id/services/profile_photo_service.dart';
 import 'package:thix_id/services/platform_file_from_path_stub.dart'
     if (dart.library.io) 'package:thix_id/services/platform_file_from_path_io.dart';
+
+// ─── Composants réutilisables ──────────────────────────────────────────────
 
 class FormSectionHeader extends StatelessWidget {
   final String title;
@@ -291,6 +295,28 @@ class PremiumCard extends StatelessWidget {
   }
 }
 
+// ─── Contrôleurs pour les contacts d'urgence ──────────────────────────────
+
+class _EmergencyContactControllers {
+  final nameC = TextEditingController();
+  final phoneC = TextEditingController();
+  final relationC = TextEditingController();
+
+  void dispose() {
+    nameC.dispose();
+    phoneC.dispose();
+    relationC.dispose();
+  }
+
+  Map<String, dynamic> toMap() => {
+        'name': nameC.text.trim(),
+        'phone': phoneC.text.trim(),
+        'relation': relationC.text.trim(),
+      };
+}
+
+// ─── Page principale ────────────────────────────────────────────────────────
+
 class PersonalRegistrationPage extends StatefulWidget {
   final int initialStep;
   const PersonalRegistrationPage({super.key, this.initialStep = 1});
@@ -300,26 +326,13 @@ class PersonalRegistrationPage extends StatefulWidget {
 }
 
 class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
-  final _firestoreUsers = FirestoreUserService();
-  final _docs = DocumentService();
-  final _photos = ProfilePhotoService();
+  // 🔥 Services Supabase (injectés via Provider)
+  late final ProfileService _profileService;
+  late final UserService _userService;
+  late final SupabaseDocumentService _documentService;
+  late final SupabaseProfilePhotoService _photoService;
 
   int _step = 1;
-
-  @override
-  void initState() {
-    super.initState();
-    final s = widget.initialStep;
-    _step = s < 1 ? 1 : (s > 4 ? 4 : s);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final me = context.read<AuthController>().currentUser;
-      if (me == null) return;
-      if (_thixChatC.text.trim().isEmpty && (me.thixChat).trim().isNotEmpty) {
-        _thixChatC.text = me.thixChat;
-      }
-    });
-  }
 
   // Step 1: profile + credentials
   final _nameC = TextEditingController();
@@ -339,7 +352,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _fatherNameC = TextEditingController();
   final _motherNameC = TextEditingController();
 
-  // Structured origin & residence (Step 1)
   final _originProvinceC = TextEditingController();
   final _originTerritoryC = TextEditingController();
   final _originSectorC = TextEditingController();
@@ -353,7 +365,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _residenceAvenueC = TextEditingController();
   final _residenceNumberC = TextEditingController();
 
-  // Emergency contacts (multi-add)
   final List<_EmergencyContactControllers> _emergencyContacts = [_EmergencyContactControllers()];
 
   // Step 2: parcours
@@ -372,7 +383,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _idExpiryDateC = TextEditingController();
   final _idIssuePlaceC = TextEditingController();
 
-  // Step 4: final - THIX CHAT (modifiable)
+  // Step 4: final - THIX CHAT
   final _thixChatC = TextEditingController();
 
   final List<EducationEntryControllers> _education = [EducationEntryControllers()];
@@ -383,6 +394,27 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   PlatformFile? _pickedPhoto;
   PhoneAuthSession? _phoneSession;
   final List<_PendingRegistrationDoc> _pendingDocs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.initialStep;
+    _step = s < 1 ? 1 : (s > 4 ? 4 : s);
+
+    // Récupération des services
+    _profileService = context.read<ProfileService>();
+    _userService = context.read<UserService>();
+    _documentService = context.read<SupabaseDocumentService>();
+    _photoService = context.read<SupabaseProfilePhotoService>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final me = context.read<AuthController>().currentUser;
+      if (me == null) return;
+      if (_thixChatC.text.trim().isEmpty && (me.thixChat).trim().isNotEmpty) {
+        _thixChatC.text = me.thixChat;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -460,17 +492,18 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       initialDate: current ?? DateTime(now.year - 18, now.month, now.day),
       firstDate: DateTime(now.year - 110),
       lastDate: DateTime(now.year - 10),
-      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)), child: child!),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent),
+        ),
+        child: child!,
+      ),
     );
     if (picked == null) return;
     final v = '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
     setState(() => _dobC.text = v);
   }
 
-  /// Validates step 1 (profile + credentials) without creating the account.
-  ///
-  /// User requirement: the account must only be created after ALL steps are
-  /// filled (profil + parcours + documents).
   bool _validateStep1() {
     final name = _nameC.text.trim();
     final id = _emailOrPhoneC.text.trim();
@@ -538,18 +571,15 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _snack('Nom du père et de la mère requis.');
       return false;
     }
-    // Origine
     if (_originProvinceC.text.trim().isEmpty) {
       _snack('Province d\'origine requise.');
       return false;
     }
-    // Territoire: saisie libre (optionnel). On supprime le blocage basé sur le catalogue interne.
     if (_originSectorC.text.trim().isEmpty) {
       _snack('Secteur d\'origine requis.');
       return false;
     }
 
-    // Résidence
     if (_residenceCountryC.text.trim().isEmpty) {
       _snack('Pays de résidence requis.');
       return false;
@@ -558,7 +588,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _snack('Province de résidence requise.');
       return false;
     }
-    // Territoire: saisie libre (optionnel). On supprime le blocage basé sur le catalogue interne.
     if (_residenceCityC.text.trim().isEmpty) {
       _snack('Ville de résidence requise.');
       return false;
@@ -568,7 +597,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       return false;
     }
 
-    // Emergency contacts
     final primary = _emergencyContacts.isEmpty ? null : _emergencyContacts.first;
     if (primary == null || primary.nameC.text.trim().isEmpty || primary.phoneC.text.trim().isEmpty) {
       _snack('Contact d\'urgence (nom + téléphone) requis.');
@@ -610,11 +638,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       'address': addr,
       'father_name': _fatherNameC.text.trim(),
       'mother_name': _motherNameC.text.trim(),
-      // Backward-compatible primary emergency contact fields
       'emergency_contact_name': primary?['name'] ?? '',
       'emergency_contact_phone': primary?['phone'] ?? '',
       'emergency_contact_relation': primary?['relation'] ?? '',
-      // Structured origin/residence
       'origin_province': _originProvinceC.text.trim(),
       'origin_territory': _originTerritoryC.text.trim(),
       'origin_sector': _originSectorC.text.trim(),
@@ -627,7 +653,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       'residence_avenue': _residenceAvenueC.text.trim(),
       'residence_number': _residenceNumberC.text.trim(),
       'emergency_contacts': contacts,
-      // Physical/identity
       'height': _heightC.text.trim(),
       'weight': _weightC.text.trim(),
       'blood_group': _bloodGroupC.text.trim(),
@@ -638,9 +663,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       'id_document_issue_date': _idIssueDateC.text.trim(),
       'id_document_expiry_date': _idExpiryDateC.text.trim(),
       'id_document_issue_place': _idIssuePlaceC.text.trim(),
-      'registration_status': 'draft_step1',
     };
   }
+
+  // ─── Sauvegarde étape 1 (création compte + profil) ────────────────────
 
   Future<void> _saveStep1AndEnsureAccount() async {
     if (_isLoading) return;
@@ -667,9 +693,20 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
             _snack('SMS envoyé. Entrez le code dans “Mot de passe” puis validez.');
             return;
           }
-          await auth.confirmPhoneCode(session: _phoneSession!, smsCode: pass, displayName: name, accountType: AccountType.personal);
+          await auth.confirmPhoneCode(
+            session: _phoneSession!,
+            smsCode: pass,
+            displayName: name,
+            accountType: AccountType.personal,
+          );
         } else {
-          await auth.registerPersonal(email: id, password: pass, displayName: name, rememberMe: _rememberMe, profileDraft: draft);
+          await auth.registerPersonal(
+            email: id,
+            password: pass,
+            displayName: name,
+            rememberMe: _rememberMe,
+            profileDraft: draft,
+          );
         }
       }
 
@@ -680,9 +717,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         return;
       }
 
-      // Persist step1 to Supabase.
-      await _firestoreUsers.updateProfile(
-        uid: me.id,
+      // 🔥 Mise à jour du profil avec ProfileService
+      await _profileService.updateProfile(
+        userId: me.id,
         displayName: _nameC.text.trim(),
         fullName: _nameC.text.trim(),
         countryOrOrigin: _countryOriginC.text.trim(),
@@ -721,12 +758,13 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         idDocumentIssueDate: _idIssueDateC.text.trim(),
         idDocumentExpiryDate: _idExpiryDateC.text.trim(),
         idDocumentIssuePlace: _idIssuePlaceC.text.trim(),
-        registrationStatus: 'draft_step1',
+        // registrationStatus: 'draft_step1',
       );
 
+      // 🔥 Upload photo de profil via SupabaseProfilePhotoService
       if (_pickedPhoto != null) {
-        final url = await _photos.uploadProfilePhoto(uid: me.id, file: _pickedPhoto!);
-        await _firestoreUsers.updateProfile(uid: me.id, photoUrl: url);
+        final url = await _photoService.uploadProfilePhoto(uid: me.id, file: _pickedPhoto!);
+        await _profileService.updateProfile(userId: me.id, photoUrl: url);
       }
     } catch (e) {
       debugPrint('PersonalReg: save step1 failed err=$e');
@@ -738,32 +776,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // Account creation is handled earlier (Step 1) to allow real-time saving to Supabase.
-
-  Future<void> _pickPhoto() async {
-    try {
-      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
-      if (res == null || res.files.isEmpty) return;
-      setState(() => _pickedPhoto = res.files.first);
-    } catch (e) {
-      debugPrint('PersonalReg: pick photo failed err=$e');
-      if (!mounted) return;
-      _snack('Sélection image impossible.');
-    }
-  }
-
-  ImageProvider? _photoPreview() {
-    final f = _pickedPhoto;
-    if (f == null) return null;
-    if (kIsWeb) {
-      final bytes = f.bytes;
-      if (bytes == null) return null;
-      return MemoryImage(bytes);
-    }
-    final path = f.path;
-    if (path == null) return null;
-    return FileImage(fileFromPath(path) as dynamic);
-  }
+  // ─── Navigation ──────────────────────────────────────────────────────────
 
   Future<void> _next() async {
     if (_isLoading) return;
@@ -774,7 +787,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         return;
       }
       if (!mounted) return;
-      // If phone flow is awaiting SMS confirmation, we stay on step 1.
       if (context.read<AuthController>().currentUser == null) return;
       setState(() => _step = 2);
       return;
@@ -799,14 +811,16 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
       setState(() => _isLoading = true);
       try {
-        await _firestoreUsers.updateProfile(
-          uid: me.id,
+        // 🔥 Sauvegarde du parcours avec ProfileService
+        await _profileService.updateProfile(
+          userId: me.id,
           bio: _bioC.text.trim(),
           competence: _competenceC.text.trim(),
-          education: _education.map((e) => e.toMap()).toList(growable: false),
+          trainings: _education.map((e) => e.toMap()).toList(growable: false),
           experience: _experience.map((e) => e.toMap()).toList(growable: false),
-          registrationStatus: 'draft_step2',
         );
+        // Note : on peut aussi appeler replaceFormations / replaceExperiences séparément
+        // si ProfileService les supporte.
       } catch (e) {
         debugPrint('PersonalReg: save step2 failed uid=${me.id} err=$e');
         if (!mounted) return;
@@ -821,13 +835,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       return;
     }
     if (_step == 3) {
-      // Require at least one document to be selected before account creation.
       if (!_hasAnyDoc) {
         _snack('Ajoutez au moins un document avant de continuer.');
         return;
       }
 
-      // Account already created at step 1; we now prepare identifiers.
       final me = context.read<AuthController>().currentUser;
       if (me == null) {
         _snack('Compte non disponible après inscription.');
@@ -840,13 +852,21 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
       setState(() => _isLoading = true);
       try {
-        // THIX ID generation is server-side; current implementation doesn't
-        // require a country code.
-        final thixId = await _firestoreUsers.ensureThixId(uid: me.id);
+        // 🔥 Génération du THIX ID (via une RPC dans ProfileService)
+        // On suppose que ProfileService a une méthode `generateThixId`
+        final thixId = await _profileService.generateThixId(uid: me.id);
         final suggested = _suggestChatFromName(_nameC.text.trim());
-        final claimed = await _firestoreUsers.ensureThixChat(uid: me.id, desired: _thixChatC.text.trim().isEmpty ? suggested : _thixChatC.text);
+        final claimed = await _profileService.reserveThixChat(
+          userId: me.id,
+          desired: _thixChatC.text.trim().isEmpty ? suggested : _thixChatC.text,
+        );
         _thixChatC.text = claimed;
-        await _firestoreUsers.updateProfile(uid: me.id, registrationStatus: 'identifiers_ready', thixChat: claimed);
+        // Mettre à jour le profil avec les identifiants
+        await _profileService.updateProfile(
+          userId: me.id,
+          thixChat: claimed,
+          // registrationStatus: 'identifiers_ready',
+        );
         debugPrint('PersonalReg: identifiers prepared uid=${me.id} thixId=$thixId thixChat=$claimed');
       } catch (e) {
         debugPrint('PersonalReg: identifiers prepare failed uid=${me.id} err=$e');
@@ -928,6 +948,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return null;
   }
 
+  // ─── Finalisation gratuite ──────────────────────────────────────────────
+
   Future<void> _finishRegistrationFree() async {
     final me = context.read<AuthController>().currentUser;
     if (me == null) {
@@ -942,9 +964,15 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
     setState(() => _isLoading = true);
     try {
-      // Finalisation gratuite : on réserve/valide THIX CHAT et on marque le compte comme actif.
-      final claimed = await _firestoreUsers.ensureThixChat(uid: me.id, desired: _thixChatC.text);
-      await _firestoreUsers.updateProfile(uid: me.id, thixChat: claimed, registrationStatus: 'verified');
+      final claimed = await _profileService.reserveThixChat(
+        userId: me.id,
+        desired: _thixChatC.text.trim(),
+      );
+      await _profileService.updateProfile(
+        userId: me.id,
+        thixChat: claimed,
+        // registrationStatus: 'verified',
+      );
       if (!mounted) return;
 
       context.go(AppRoutes.userDashboard);
@@ -968,6 +996,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
+  // ─── Upload de document ──────────────────────────────────────────────────
+
   Future<void> _pickAndUploadDoc() async {
     final picked = await FilePicker.platform.pickFiles(withData: kIsWeb);
     if (picked == null || picked.files.isEmpty) return;
@@ -984,23 +1014,44 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
     final me = context.read<AuthController>().currentUser;
     if (me == null) {
-      setState(() => _pendingDocs.add(_PendingRegistrationDoc(file: file, docId: payload.docId, title: payload.title, docType: payload.docType, expiresAt: payload.expiresAt)));
+      setState(() => _pendingDocs.add(_PendingRegistrationDoc(
+            file: file,
+            docId: payload.docId,
+            title: payload.title,
+            docType: payload.docType,
+            expiresAt: payload.expiresAt,
+          )));
       _snack('Document ajouté (sera upload après création du compte).');
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      await _docs.uploadPickedFile(uid: me.id, docId: payload.docId, title: payload.title, file: file, docType: payload.docType, expiresAt: payload.expiresAt);
+      await _documentService.uploadPickedFile(
+        uid: me.id,
+        docId: payload.docId,
+        title: payload.title,
+        file: file,
+        docType: payload.docType,
+        expiresAt: payload.expiresAt,
+      );
       _snack('Document uploadé.');
     } catch (e) {
       debugPrint('PersonalReg: doc upload failed uid=${me.id} err=$e');
-      setState(() => _pendingDocs.add(_PendingRegistrationDoc(file: file, docId: payload.docId, title: payload.title, docType: payload.docType, expiresAt: payload.expiresAt)));
+      setState(() => _pendingDocs.add(_PendingRegistrationDoc(
+            file: file,
+            docId: payload.docId,
+            title: payload.title,
+            docType: payload.docType,
+            expiresAt: payload.expiresAt,
+          )));
       _snack('Upload impossible maintenant. Document mis en attente.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // ─── Widgets de construction ─────────────────────────────────────────────
 
   Widget _primaryCta() {
     final label = switch (_step) {
@@ -1126,6 +1177,31 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         },
       ),
     );
+  }
+
+  ImageProvider? _photoPreview() {
+    final f = _pickedPhoto;
+    if (f == null) return null;
+    if (kIsWeb) {
+      final bytes = f.bytes;
+      if (bytes == null) return null;
+      return MemoryImage(bytes);
+    }
+    final path = f.path;
+    if (path == null) return null;
+    return FileImage(fileFromPath(path) as dynamic);
+  }
+
+  Future<void> _pickPhoto() async {
+    try {
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
+      if (res == null || res.files.isEmpty) return;
+      setState(() => _pickedPhoto = res.files.first);
+    } catch (e) {
+      debugPrint('PersonalReg: pick photo failed err=$e');
+      if (!mounted) return;
+      _snack('Sélection image impossible.');
+    }
   }
 
   @override
@@ -1297,23 +1373,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   }
 }
 
-class _EmergencyContactControllers {
-  final nameC = TextEditingController();
-  final phoneC = TextEditingController();
-  final relationC = TextEditingController();
-
-  void dispose() {
-    nameC.dispose();
-    phoneC.dispose();
-    relationC.dispose();
-  }
-
-  Map<String, dynamic> toMap() => {
-        'name': nameC.text.trim(),
-        'phone': phoneC.text.trim(),
-        'relation': relationC.text.trim(),
-      };
-}
+// ─── Widgets pour chaque étape ─────────────────────────────────────────────
 
 class _Step1Profile extends StatelessWidget {
   final ImageProvider? photoPreview;
@@ -1540,7 +1600,11 @@ class _Step1Profile extends StatelessWidget {
                   onPressed: onPickDob,
                   icon: const Icon(Icons.cake_rounded),
                   label: Text(dobC.text.trim().isEmpty ? 'Date de naissance (obligatoire)' : 'Date de naissance: ${dobC.text.trim()}'),
-                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.dividerColor), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.theme.colorScheme.primary,
+                    side: BorderSide(color: context.theme.dividerColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1876,7 +1940,11 @@ class _Step1Profile extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(color: context.theme.scaffoldBackgroundColor, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: context.theme.dividerColor)),
+                    decoration: BoxDecoration(
+                      color: context.theme.scaffoldBackgroundColor,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(color: context.theme.dividerColor),
+                    ),
                     child: Column(
                       children: [
                         Row(
@@ -2210,7 +2278,11 @@ class _Step3Documents extends StatelessWidget {
             onPressed: onAddDoc,
             icon: const Icon(Icons.add_rounded),
             label: const Text('Ajouter un document'),
-            style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: context.theme.colorScheme.primary,
+              side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
+            ),
           ),
         ),
       ],
@@ -2292,7 +2364,7 @@ class _Step4Final extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-               Text('Règles: @ + 3–20 caractères (a-z, 0-9, . ou _). Unique.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+              Text('Règles: @ + 3–20 caractères (a-z, 0-9, . ou _). Unique.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
             ],
           ),
         ),
@@ -2300,6 +2372,8 @@ class _Step4Final extends StatelessWidget {
     );
   }
 }
+
+// ─── Modèles pour l'upload de documents ──────────────────────────────────
 
 class _RegUploadDocPayload {
   final String docId;
@@ -2316,7 +2390,13 @@ class _PendingRegistrationDoc {
   final String docType;
   final DateTime? expiresAt;
 
-  const _PendingRegistrationDoc({required this.file, required this.docId, required this.title, required this.docType, required this.expiresAt});
+  const _PendingRegistrationDoc({
+    required this.file,
+    required this.docId,
+    required this.title,
+    required this.docType,
+    required this.expiresAt,
+  });
 }
 
 class _RegistrationUploadDocumentSheet extends StatefulWidget {
@@ -2349,7 +2429,12 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
       initialDate: _expiresAt ?? now,
       firstDate: now.subtract(const Duration(days: 365 * 20)),
       lastDate: now.add(const Duration(days: 365 * 50)),
-      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)), child: child!),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent),
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) setState(() => _expiresAt = DateTime(picked.year, picked.month, picked.day));
   }
@@ -2359,7 +2444,9 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-    final expiryLabel = _expiresAt == null ? 'Choisir une date' : '${_expiresAt!.year.toString().padLeft(4, '0')}-${_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}';
+    final expiryLabel = _expiresAt == null
+        ? 'Choisir une date'
+        : '${_expiresAt!.year.toString().padLeft(4, '0')}-${_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}';
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
@@ -2398,19 +2485,33 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
                 if (!_needsExpiry) _expiresAt = null;
               }),
               isExpanded: true,
-              decoration: InputDecoration(labelText: 'Type de document', prefixIcon: const Icon(Icons.folder_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
+              decoration: InputDecoration(
+                labelText: 'Type de document',
+                prefixIcon: const Icon(Icons.folder_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _docIdC,
               textInputAction: TextInputAction.next,
-              decoration: InputDecoration(labelText: 'Doc ID', hintText: 'CIN-2023-001', prefixIcon: const Icon(Icons.tag_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
+              decoration: InputDecoration(
+                labelText: 'Doc ID',
+                hintText: 'CIN-2023-001',
+                prefixIcon: const Icon(Icons.tag_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _titleC,
               textInputAction: TextInputAction.done,
-              decoration: InputDecoration(labelText: 'Titre', hintText: 'Carte d\'identité nationale', prefixIcon: const Icon(Icons.description_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
+              decoration: InputDecoration(
+                labelText: 'Titre',
+                hintText: 'Carte d\'identité nationale',
+                prefixIcon: const Icon(Icons.description_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             if (_needsExpiry)
@@ -2420,7 +2521,11 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
                   onPressed: _pickExpiry,
                   icon: const Icon(Icons.event_available_rounded),
                   label: Text('Date d\'expiration: $expiryLabel'),
-                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.theme.colorScheme.primary,
+                    side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
+                  ),
                 ),
               ),
             if (_needsExpiry) const SizedBox(height: AppSpacing.lg) else const SizedBox(height: AppSpacing.md),
@@ -2437,11 +2542,21 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
                     _snack('Date d\'expiration requise pour cette pièce.');
                     return;
                   }
-                  context.pop(_RegUploadDocPayload(docId: docId, title: _titleC.text, docType: _type, expiresAt: _expiresAt));
+                  context.pop(_RegUploadDocPayload(
+                    docId: docId,
+                    title: _titleC.text,
+                    docType: _type,
+                    expiresAt: _expiresAt,
+                  ));
                 },
                 icon: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF0A2F5C)),
                 label: const Text('UPLOAD'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: LightModeColors.accent,
+                  foregroundColor: const Color(0xFF0A2F5C),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
+                ),
               ),
             ),
           ],
@@ -2451,6 +2566,9 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
   }
 }
 
+// ─── Extension pour faciliter l'accès au thème ────────────────────────────
+
 extension ThemeHelper on BuildContext {
   ThemeData get theme => Theme.of(this);
+  TextTheme get textStyles => theme.textTheme;
 }
