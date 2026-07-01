@@ -467,6 +467,33 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
 }
 
 // =========================================================
+// BOTTOM NAVIGATION (AJOUTÉ)
+// =========================================================
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTap;
+
+  const _BottomNav({required this.currentIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: currentIndex,
+      onTap: onTap,
+      selectedItemColor: const Color(0xFF2563FF),
+      unselectedItemColor: Colors.grey,
+      showUnselectedLabels: true,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+        BottomNavigationBarItem(icon: Icon(Icons.medical_services), label: 'Santé'),
+        BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+      ],
+    );
+  }
+}
+
+// =========================================================
 // ROLE SHEET
 // =========================================================
 class _RoleSwitchSheet extends StatelessWidget {
