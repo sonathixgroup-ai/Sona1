@@ -301,9 +301,9 @@ class MedicationReminder {
 // ============================================================
 // 4. SYMPTÔMES
 // ============================================================
-
 class Symptom {
   final String id;
+  final String? patientId; // ✅ AJOUT
   final String name;
   final int intensity; // 1-5
   final DateTime date;
@@ -315,6 +315,7 @@ class Symptom {
 
   Symptom({
     required this.id,
+    this.patientId, // ✅ AJOUT
     required this.name,
     required this.intensity,
     required this.date,
@@ -328,6 +329,7 @@ class Symptom {
   factory Symptom.fromJson(Map<String, dynamic> json) {
     return Symptom(
       id: json['id'] as String,
+      patientId: json['patientId'] as String?, // ✅ AJOUT
       name: json['name'] as String,
       intensity: json['intensity'] as int,
       date: DateTime.parse(json['date'] as String),
@@ -343,6 +345,7 @@ class Symptom {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'patientId': patientId, // ✅ AJOUT
         'name': name,
         'intensity': intensity,
         'date': date.toIso8601String(),
@@ -352,6 +355,33 @@ class Symptom {
         'location': location,
         'duration': duration?.inMinutes,
       };
+
+  // ✅ AJOUT DE copyWith
+  Symptom copyWith({
+    String? id,
+    String? patientId,
+    String? name,
+    int? intensity,
+    DateTime? date,
+    String? notes,
+    List<String>? triggers,
+    List<String>? relievers,
+    String? location,
+    Duration? duration,
+  }) {
+    return Symptom(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      name: name ?? this.name,
+      intensity: intensity ?? this.intensity,
+      date: date ?? this.date,
+      notes: notes ?? this.notes,
+      triggers: triggers ?? this.triggers,
+      relievers: relievers ?? this.relievers,
+      location: location ?? this.location,
+      duration: duration ?? this.duration,
+    );
+  }
 
   Color get intensityColor {
     switch (intensity) {
