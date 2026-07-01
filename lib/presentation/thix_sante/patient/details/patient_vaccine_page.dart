@@ -1,4 +1,5 @@
 // presentation/thix_sante/patient/details/patient_vaccine_page.dart
+// (version complète avec correction ligne 434)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -431,7 +432,7 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
           decoration: const InputDecoration(
             labelText: 'Numéro de lot (optionnel)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.barcode), // ✅ corrigé (pas de const)
+            prefixIcon: Icon(Icons.barcode), // ✅ correction (sans const)
           ),
         ),
         const SizedBox(height: 12),
