@@ -9,17 +9,68 @@ import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/parcours_form.dart';
-// 🔽 Services Supabase (corrigés)
-import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/document_service.dart';
 import 'package:thix_id/services/user_service.dart';
-import 'package:thix_id/services/document_service.dart';          // au lieu de supabase_document_service
-import 'package:thix_id/services/profile_photo_service.dart';     // au lieu de supabase_profile_photo_service
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/presentation/common/date_picker_field.dart';
+import 'package:thix_id/services/profile_photo_service.dart';
 import 'package:thix_id/services/platform_file_from_path_stub.dart'
     if (dart.library.io) 'package:thix_id/services/platform_file_from_path_io.dart';
 
-// ─── Composants réutilisables ──────────────────────────────────────────────
+// ============================================================================
+// CLASSES AUXILIAIRES (définies avant utilisation)
+// ============================================================================
+
+class _EmergencyContactControllers {
+  final nameC = TextEditingController();
+  final phoneC = TextEditingController();
+  final relationC = TextEditingController();
+
+  void dispose() {
+    nameC.dispose();
+    phoneC.dispose();
+    relationC.dispose();
+  }
+
+  Map<String, dynamic> toMap() => {
+        'name': nameC.text.trim(),
+        'phone': phoneC.text.trim(),
+        'relation': relationC.text.trim(),
+      };
+}
+
+class _PendingRegistrationDoc {
+  final PlatformFile file;
+  final String docId;
+  final String title;
+  final String docType;
+  final DateTime? expiresAt;
+
+  const _PendingRegistrationDoc({
+    required this.file,
+    required this.docId,
+    required this.title,
+    required this.docType,
+    required this.expiresAt,
+  });
+}
+
+class _RegUploadDocPayload {
+  final String docId;
+  final String title;
+  final String docType;
+  final DateTime? expiresAt;
+  const _RegUploadDocPayload({
+    required this.docId,
+    required this.title,
+    required this.docType,
+    required this.expiresAt,
+  });
+}
+
+// ============================================================================
+// WIDGETS UI
+// ============================================================================
 
 class FormSectionHeader extends StatelessWidget {
   final String title;
@@ -33,7 +84,6 @@ class FormSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Column(
@@ -52,8 +102,8 @@ class FormSectionHeader extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Text(
                 title,
-                style: textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
+                style: context.textStyles.titleMedium?.copyWith(
+                  color: context.theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -62,7 +112,7 @@ class FormSectionHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle,
-            style: textTheme.bodySmall?.copyWith(
+            style: context.textStyles.bodySmall?.copyWith(
               color: LightModeColors.secondaryText,
             ),
           ),
@@ -90,7 +140,6 @@ class InputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Column(
@@ -98,8 +147,8 @@ class InputField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
+            style: context.textStyles.labelMedium?.copyWith(
+              color: context.theme.colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -107,8 +156,8 @@ class InputField extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: Theme.of(context).dividerColor),
-              color: Theme.of(context).colorScheme.surface,
+              border: Border.all(color: context.theme.dividerColor),
+              color: context.theme.colorScheme.surface,
             ),
             clipBehavior: Clip.antiAlias,
             child: TextField(
@@ -119,7 +168,7 @@ class InputField extends StatelessWidget {
                 prefixIcon: Icon(icon, color: LightModeColors.hint),
                 border: InputBorder.none,
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surface,
+                fillColor: context.theme.colorScheme.surface,
                 contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
               ),
             ),
@@ -144,17 +193,16 @@ class StepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
         Container(
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: active ? LightModeColors.accent : Theme.of(context).colorScheme.surface,
+            color: active ? LightModeColors.accent : context.theme.colorScheme.surface,
             shape: BoxShape.circle,
             border: Border.all(
-              color: active ? LightModeColors.accent : Theme.of(context).dividerColor,
+              color: active ? LightModeColors.accent : context.theme.dividerColor,
               width: 1.5,
             ),
             boxShadow: active
@@ -170,7 +218,7 @@ class StepIndicator extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             num,
-            style: textTheme.labelSmall?.copyWith(
+            style: context.textStyles.labelSmall?.copyWith(
               color: active ? const Color(0xFF0A2F5C) : LightModeColors.secondaryText,
               fontWeight: FontWeight.w900,
             ),
@@ -179,7 +227,7 @@ class StepIndicator extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           label,
-          style: textTheme.labelSmall?.copyWith(
+          style: context.textStyles.labelSmall?.copyWith(
             color: active ? LightModeColors.accent : LightModeColors.secondaryText,
             fontWeight: FontWeight.w800,
           ),
@@ -216,12 +264,11 @@ class PremiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: context.theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: LightModeColors.accent, width: 1.5),
         boxShadow: [
@@ -263,13 +310,13 @@ class PremiumCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                         alignment: Alignment.center,
-                        child: Icon(_getIcon(headerIcon), size: 18, color: Theme.of(context).colorScheme.primary),
+                        child: Icon(_getIcon(headerIcon), size: 18, color: context.theme.colorScheme.primary),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
                         headerTitle,
-                        style: textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
+                        style: context.textStyles.titleMedium?.copyWith(
+                          color: context.theme.colorScheme.primary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -299,27 +346,9 @@ class PremiumCard extends StatelessWidget {
   }
 }
 
-// ─── Contrôleurs pour les contacts d'urgence ──────────────────────────────
-
-class _EmergencyContactControllers {
-  final nameC = TextEditingController();
-  final phoneC = TextEditingController();
-  final relationC = TextEditingController();
-
-  void dispose() {
-    nameC.dispose();
-    phoneC.dispose();
-    relationC.dispose();
-  }
-
-  Map<String, dynamic> toMap() => {
-        'name': nameC.text.trim(),
-        'phone': phoneC.text.trim(),
-        'relation': relationC.text.trim(),
-      };
-}
-
-// ─── Page principale ────────────────────────────────────────────────────────
+// ============================================================================
+// PAGE PRINCIPALE
+// ============================================================================
 
 class PersonalRegistrationPage extends StatefulWidget {
   final int initialStep;
@@ -330,13 +359,18 @@ class PersonalRegistrationPage extends StatefulWidget {
 }
 
 class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
-  // 🔥 Services (corrigés)
-  late final ProfileService _profileService;
-  late final UserService _userService;
-  late final DocumentService _documentService;          // ← type corrigé
-  late final ProfilePhotoService _photoService;         // ← type corrigé
+  final _userService = UserService(Supabase.instance.client);
+  final _docs = DocumentService();
+  final _photos = ProfilePhotoService();
 
   int _step = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.initialStep;
+    _step = s < 1 ? 1 : (s > 4 ? 4 : s);
+  }
 
   // Step 1: profile + credentials
   final _nameC = TextEditingController();
@@ -375,7 +409,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _bioC = TextEditingController();
   final _competenceC = TextEditingController();
 
-  // Physical / identity (Step 1)
+  // Physical / identity
   final _heightC = TextEditingController();
   final _weightC = TextEditingController();
   final _bloodGroupC = TextEditingController();
@@ -387,7 +421,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _idExpiryDateC = TextEditingController();
   final _idIssuePlaceC = TextEditingController();
 
-  // Step 4: final - THIX CHAT
+  // Step 4: final
   final _thixChatC = TextEditingController();
 
   final List<EducationEntryControllers> _education = [EducationEntryControllers()];
@@ -398,27 +432,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   PlatformFile? _pickedPhoto;
   PhoneAuthSession? _phoneSession;
   final List<_PendingRegistrationDoc> _pendingDocs = [];
-
-  @override
-  void initState() {
-    super.initState();
-    final s = widget.initialStep;
-    _step = s < 1 ? 1 : (s > 4 ? 4 : s);
-
-    // Récupération des services corrigés
-    _profileService = context.read<ProfileService>();
-    _userService = context.read<UserService>();
-    _documentService = context.read<DocumentService>();   // ← correction
-    _photoService = context.read<ProfilePhotoService>();  // ← correction
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final me = context.read<AuthController>().currentUser;
-      if (me == null) return;
-      if (_thixChatC.text.trim().isEmpty && (me.thixChat).trim().isNotEmpty) {
-        _thixChatC.text = me.thixChat;
-      }
-    });
-  }
 
   @override
   void dispose() {
@@ -496,12 +509,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       initialDate: current ?? DateTime(now.year - 18, now.month, now.day),
       firstDate: DateTime(now.year - 110),
       lastDate: DateTime(now.year - 10),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent),
-        ),
-        child: child!,
-      ),
+      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)), child: child!),
     );
     if (picked == null) return;
     final v = '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
@@ -583,7 +591,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _snack('Secteur d\'origine requis.');
       return false;
     }
-
     if (_residenceCountryC.text.trim().isEmpty) {
       _snack('Pays de résidence requis.');
       return false;
@@ -667,10 +674,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       'id_document_issue_date': _idIssueDateC.text.trim(),
       'id_document_expiry_date': _idExpiryDateC.text.trim(),
       'id_document_issue_place': _idIssuePlaceC.text.trim(),
+      'registration_status': 'draft_step1',
     };
   }
-
-  // ─── Sauvegarde étape 1 (création compte + profil) ────────────────────
 
   Future<void> _saveStep1AndEnsureAccount() async {
     if (_isLoading) return;
@@ -697,20 +703,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
             _snack('SMS envoyé. Entrez le code dans “Mot de passe” puis validez.');
             return;
           }
-          await auth.confirmPhoneCode(
-            session: _phoneSession!,
-            smsCode: pass,
-            displayName: name,
-            accountType: AccountType.personal,
-          );
+          await auth.confirmPhoneCode(session: _phoneSession!, smsCode: pass, displayName: name, accountType: AccountType.personal);
         } else {
-          await auth.registerPersonal(
-            email: id,
-            password: pass,
-            displayName: name,
-            rememberMe: _rememberMe,
-            profileDraft: draft,
-          );
+          await auth.registerPersonal(email: id, password: pass, displayName: name, rememberMe: _rememberMe, profileDraft: draft);
         }
       }
 
@@ -721,9 +716,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         return;
       }
 
-      // 🔥 Mise à jour du profil avec ProfileService
-      await _profileService.updateProfile(
-        userId: me.id,
+      await _userService.updateProfile(
+        uid: me.id,
         displayName: _nameC.text.trim(),
         fullName: _nameC.text.trim(),
         countryOrOrigin: _countryOriginC.text.trim(),
@@ -762,13 +756,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         idDocumentIssueDate: _idIssueDateC.text.trim(),
         idDocumentExpiryDate: _idExpiryDateC.text.trim(),
         idDocumentIssuePlace: _idIssuePlaceC.text.trim(),
-        // registrationStatus: 'draft_step1',
+        registrationStatus: 'draft_step1',
       );
 
-      // 🔥 Upload photo de profil via ProfilePhotoService
       if (_pickedPhoto != null) {
-        final url = await _photoService.uploadProfilePhoto(uid: me.id, file: _pickedPhoto!);
-        await _profileService.updateProfile(userId: me.id, photoUrl: url);
+        final url = await _photos.uploadProfilePhoto(uid: me.id, file: _pickedPhoto!);
+        await _userService.updateProfile(uid: me.id, photoUrl: url);
       }
     } catch (e) {
       debugPrint('PersonalReg: save step1 failed err=$e');
@@ -780,7 +773,34 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ─── Navigation ──────────────────────────────────────────────────────────
+  Future<void> _pickPhoto() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: kIsWeb,
+        allowMultiple: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+      setState(() => _pickedPhoto = result.files.first);
+    } catch (e) {
+      debugPrint('PersonalReg: pick photo failed err=$e');
+      if (!mounted) return;
+      _snack('Sélection image impossible.');
+    }
+  }
+
+  ImageProvider? _photoPreview() {
+    final f = _pickedPhoto;
+    if (f == null) return null;
+    if (kIsWeb) {
+      final bytes = f.bytes;
+      if (bytes == null) return null;
+      return MemoryImage(bytes);
+    }
+    final path = f.path;
+    if (path == null) return null;
+    return FileImage(fileFromPath(path) as dynamic);
+  }
 
   Future<void> _next() async {
     if (_isLoading) return;
@@ -815,13 +835,13 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
       setState(() => _isLoading = true);
       try {
-        // 🔥 Sauvegarde du parcours avec ProfileService
-        await _profileService.updateProfile(
-          userId: me.id,
+        await _userService.updateProfile(
+          uid: me.id,
           bio: _bioC.text.trim(),
           competence: _competenceC.text.trim(),
-          trainings: _education.map((e) => e.toMap()).toList(growable: false),
+          education: _education.map((e) => e.toMap()).toList(growable: false),
           experience: _experience.map((e) => e.toMap()).toList(growable: false),
+          registrationStatus: 'draft_step2',
         );
       } catch (e) {
         debugPrint('PersonalReg: save step2 failed uid=${me.id} err=$e');
@@ -854,18 +874,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
       setState(() => _isLoading = true);
       try {
-        // 🔥 Génération du THIX ID (via ProfileService)
-        final thixId = await _profileService.generateThixId(uid: me.id);
+        final thixId = await _userService.ensureThixId(uid: me.id);
         final suggested = _suggestChatFromName(_nameC.text.trim());
-        final claimed = await _profileService.reserveThixChat(
-          userId: me.id,
-          desired: _thixChatC.text.trim().isEmpty ? suggested : _thixChatC.text,
-        );
+        final claimed = await _userService.ensureThixChat(uid: me.id, desired: _thixChatC.text.trim().isEmpty ? suggested : _thixChatC.text);
         _thixChatC.text = claimed;
-        await _profileService.updateProfile(
-          userId: me.id,
-          thixChat: claimed,
-        );
+        await _userService.updateProfile(uid: me.id, registrationStatus: 'identifiers_ready', thixChat: claimed);
         debugPrint('PersonalReg: identifiers prepared uid=${me.id} thixId=$thixId thixChat=$claimed');
       } catch (e) {
         debugPrint('PersonalReg: identifiers prepare failed uid=${me.id} err=$e');
@@ -886,7 +899,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       return;
     }
     if (_step == 4) {
-      await _finishRegistrationFree();
+      await _proceedToPayment();
       return;
     }
   }
@@ -947,9 +960,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return null;
   }
 
-  // ─── Finalisation gratuite ──────────────────────────────────────────────
-
-  Future<void> _finishRegistrationFree() async {
+  Future<void> _proceedToPayment() async {
     final me = context.read<AuthController>().currentUser;
     if (me == null) {
       _snack('Session expirée.');
@@ -963,17 +974,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
     setState(() => _isLoading = true);
     try {
-      final claimed = await _profileService.reserveThixChat(
-        userId: me.id,
-        desired: _thixChatC.text.trim(),
-      );
-      await _profileService.updateProfile(
-        userId: me.id,
-        thixChat: claimed,
-      );
+      final claimed = await _userService.ensureThixChat(uid: me.id, desired: _thixChatC.text);
+      await _userService.updateProfile(uid: me.id, thixChat: claimed, registrationStatus: 'awaiting_payment');
       if (!mounted) return;
 
-      context.go(AppRoutes.userDashboard);
+      final receiptReturn = Uri.encodeComponent('/activation-receipt');
+      context.push('${AppRoutes.payment}?returnTo=$receiptReturn');
     } catch (e) {
       debugPrint('PersonalReg: submit failed uid=${me.id} err=$e');
       if (!mounted) return;
@@ -994,12 +1000,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ─── Upload de document ──────────────────────────────────────────────────
-
   Future<void> _pickAndUploadDoc() async {
-    final picked = await FilePicker.platform.pickFiles(withData: kIsWeb);
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
+    final result = await FilePicker.platform.pickFiles(withData: kIsWeb);
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
     if (!mounted) return;
 
     final payload = await showModalBottomSheet<_RegUploadDocPayload>(
@@ -1012,52 +1016,30 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
     final me = context.read<AuthController>().currentUser;
     if (me == null) {
-      setState(() => _pendingDocs.add(_PendingRegistrationDoc(
-            file: file,
-            docId: payload.docId,
-            title: payload.title,
-            docType: payload.docType,
-            expiresAt: payload.expiresAt,
-          )));
+      setState(() => _pendingDocs.add(_PendingRegistrationDoc(file: file, docId: payload.docId, title: payload.title, docType: payload.docType, expiresAt: payload.expiresAt)));
       _snack('Document ajouté (sera upload après création du compte).');
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      await _documentService.uploadPickedFile(
-        uid: me.id,
-        docId: payload.docId,
-        title: payload.title,
-        file: file,
-        docType: payload.docType,
-        expiresAt: payload.expiresAt,
-      );
+      await _docs.uploadPickedFile(uid: me.id, docId: payload.docId, title: payload.title, file: file, docType: payload.docType, expiresAt: payload.expiresAt);
       _snack('Document uploadé.');
     } catch (e) {
       debugPrint('PersonalReg: doc upload failed uid=${me.id} err=$e');
-      setState(() => _pendingDocs.add(_PendingRegistrationDoc(
-            file: file,
-            docId: payload.docId,
-            title: payload.title,
-            docType: payload.docType,
-            expiresAt: payload.expiresAt,
-          )));
+      setState(() => _pendingDocs.add(_PendingRegistrationDoc(file: file, docId: payload.docId, title: payload.title, docType: payload.docType, expiresAt: payload.expiresAt)));
       _snack('Upload impossible maintenant. Document mis en attente.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ─── Widgets de construction ─────────────────────────────────────────────
-
   Widget _primaryCta() {
-    final textTheme = Theme.of(context).textTheme;
     final label = switch (_step) {
       1 => _isLoading ? 'CRÉATION…' : 'SUIVANT (PARCOURS)',
       2 => _isLoading ? 'SAUVEGARDE…' : 'SUIVANT (DOCUMENTS)',
       3 => _isLoading ? 'PRÉPARATION…' : 'SUIVANT (IDENTIFIANTS)',
-      4 => _isLoading ? 'FINALISATION…' : 'CONFIRMER',
+      4 => _isLoading ? 'PRÉPARATION…' : 'CONFIRMER & PAYER',
       _ => 'CONTINUER',
     };
     return GestureDetector(
@@ -1084,7 +1066,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
               const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: Color(0xFF0A2F5C))),
               const SizedBox(width: AppSpacing.md),
             ],
-            Text(label, style: textTheme.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
+            Text(label, style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
             const SizedBox(width: AppSpacing.md),
             const Icon(Icons.arrow_forward_rounded, color: Color(0xFF0A2F5C), size: 24),
           ],
@@ -1178,37 +1160,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     );
   }
 
-  ImageProvider? _photoPreview() {
-    final f = _pickedPhoto;
-    if (f == null) return null;
-    if (kIsWeb) {
-      final bytes = f.bytes;
-      if (bytes == null) return null;
-      return MemoryImage(bytes);
-    }
-    final path = f.path;
-    if (path == null) return null;
-    return FileImage(fileFromPath(path) as dynamic);
-  }
-
-  Future<void> _pickPhoto() async {
-    try {
-      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
-      if (res == null || res.files.isEmpty) return;
-      setState(() => _pickedPhoto = res.files.first);
-    } catch (e) {
-      debugPrint('PersonalReg: pick photo failed err=$e');
-      if (!mounted) return;
-      _snack('Sélection image impossible.');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: colorScheme.scaffoldBackgroundColor,
+      backgroundColor: context.theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -1230,7 +1185,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                           onPressed: _isLoading ? null : _back,
                           child: Text(
                             _step <= 1 ? 'Retour' : 'Précédent',
-                            style: textTheme.labelMedium?.copyWith(color: LightModeColors.secondaryText),
+                            style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.secondaryText),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -1239,7 +1194,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(AppRadius.md),
-                            border: Border.all(color: colorScheme.dividerColor),
+                            border: Border.all(color: context.theme.dividerColor),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1248,7 +1203,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                               const SizedBox(width: AppSpacing.sm),
                               Text(
                                 "Données sécurisées par cryptage THIX ID Protocol v2.0",
-                                style: textTheme.bodySmall?.copyWith(
+                                style: context.textStyles.bodySmall?.copyWith(
                                   color: LightModeColors.secondaryText,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1309,14 +1264,14 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                           children: [
                             Text(
                               "THIX ID",
-                              style: textTheme.titleLarge?.copyWith(
+                              style: context.textStyles.titleLarge?.copyWith(
                                 color: LightModeColors.accent,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
                             Text(
                               "IDENTITÉ SÉCURISÉE",
-                              style: textTheme.labelSmall?.copyWith(
+                              style: context.textStyles.labelSmall?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.8),
                               ),
                             ),
@@ -1342,7 +1297,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: colorScheme.surface,
+                        color: context.theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(AppRadius.xl),
                         border: Border.all(color: LightModeColors.accent, width: 1.5),
                         boxShadow: [
@@ -1374,7 +1329,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   }
 }
 
-// ─── Widgets pour chaque étape ─────────────────────────────────────────────
+// ============================================================================
+// WIDGETS INTERNES
+// ============================================================================
 
 class _Step1Profile extends StatelessWidget {
   final ImageProvider? photoPreview;
@@ -1501,15 +1458,13 @@ class _Step1Profile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: colorScheme.surface,
+            color: context.theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(AppRadius.xl),
             border: Border.all(color: LightModeColors.accent.withValues(alpha: 0.55), width: 1.5),
             boxShadow: [
@@ -1521,15 +1476,15 @@ class _Step1Profile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.person_pin_rounded, size: 18, color: colorScheme.primary),
+                  Icon(Icons.person_pin_rounded, size: 18, color: context.theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text('Profil Personnel (Étape 1/4)', style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.w900)),
+                    child: Text('Profil Personnel (Étape 1/4)', style: context.textStyles.titleMedium?.copyWith(color: context.theme.colorScheme.onSurface, fontWeight: FontWeight.w900)),
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              Text('Renseignez votre identité complète, origines, filiation et contact d\'urgence.', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+              Text('Renseignez votre identité complète, origines, filiation et contact d\'urgence.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
               const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
@@ -1564,9 +1519,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Nom complet',
                   prefixIcon: const Icon(Icons.person_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1577,9 +1532,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Origines / Pays d\'origine',
                   prefixIcon: const Icon(Icons.public_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1591,9 +1546,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Contact (Téléphone personnel)',
                   prefixIcon: const Icon(Icons.call_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1603,11 +1558,7 @@ class _Step1Profile extends StatelessWidget {
                   onPressed: onPickDob,
                   icon: const Icon(Icons.cake_rounded),
                   label: Text(dobC.text.trim().isEmpty ? 'Date de naissance (obligatoire)' : 'Date de naissance: ${dobC.text.trim()}'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.primary,
-                    side: BorderSide(color: colorScheme.dividerColor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                  ),
+                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.dividerColor), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1618,9 +1569,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Lieu de naissance',
                   prefixIcon: const Icon(Icons.location_on_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1637,9 +1588,9 @@ class _Step1Profile extends StatelessWidget {
                       labelText: 'Nationalité',
                       prefixIcon: const Icon(Icons.flag_rounded),
                       filled: true,
-                      fillColor: colorScheme.scaffoldBackgroundColor,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                      fillColor: context.theme.scaffoldBackgroundColor,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                     ),
                     icon: const Icon(Icons.keyboard_arrow_down_rounded),
                   );
@@ -1654,9 +1605,9 @@ class _Step1Profile extends StatelessWidget {
                       labelText: 'État civil',
                       prefixIcon: const Icon(Icons.favorite_rounded),
                       filled: true,
-                      fillColor: colorScheme.scaffoldBackgroundColor,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                      fillColor: context.theme.scaffoldBackgroundColor,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                     ),
                     icon: const Icon(Icons.keyboard_arrow_down_rounded),
                   );
@@ -1681,9 +1632,9 @@ class _Step1Profile extends StatelessWidget {
                       labelText: 'Genre',
                       prefixIcon: const Icon(Icons.wc_rounded),
                       filled: true,
-                      fillColor: colorScheme.scaffoldBackgroundColor,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                      fillColor: context.theme.scaffoldBackgroundColor,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                     ),
                     icon: const Icon(Icons.keyboard_arrow_down_rounded),
                   );
@@ -1695,9 +1646,9 @@ class _Step1Profile extends StatelessWidget {
                       hintText: 'Profession (optionnel)',
                       prefixIcon: const Icon(Icons.work_rounded, color: LightModeColors.hint),
                       filled: true,
-                      fillColor: colorScheme.scaffoldBackgroundColor,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                      fillColor: context.theme.scaffoldBackgroundColor,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                     ),
                   );
 
@@ -1715,9 +1666,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Adresse',
                   prefixIcon: const Icon(Icons.home_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1731,9 +1682,9 @@ class _Step1Profile extends StatelessWidget {
                         hintText: 'Nom du père',
                         prefixIcon: const Icon(Icons.man_rounded, color: LightModeColors.hint),
                         filled: true,
-                        fillColor: colorScheme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                        fillColor: context.theme.scaffoldBackgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                       ),
                     ),
                   ),
@@ -1746,22 +1697,22 @@ class _Step1Profile extends StatelessWidget {
                         hintText: 'Nom de la mère',
                         prefixIcon: const Icon(Icons.woman_rounded, color: LightModeColors.hint),
                         filled: true,
-                        fillColor: colorScheme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                        fillColor: context.theme.scaffoldBackgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              Divider(color: colorScheme.dividerColor, thickness: 1),
+              Divider(color: context.theme.dividerColor, thickness: 1),
               const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
-                  Icon(Icons.map_rounded, size: 18, color: colorScheme.primary),
+                  Icon(Icons.map_rounded, size: 18, color: context.theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text('Origine', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('Origine', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -1773,9 +1724,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Commencez à saisir…',
                   prefixIcon: const Icon(Icons.map_outlined, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1786,9 +1737,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Territoire (optionnel)',
                   prefixIcon: const Icon(Icons.location_on_outlined, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1799,17 +1750,17 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Secteur',
                   prefixIcon: const Icon(Icons.hub_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
-                  Icon(Icons.my_location_rounded, size: 18, color: colorScheme.primary),
+                  Icon(Icons.my_location_rounded, size: 18, color: context.theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text('Résidence actuelle', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('Résidence actuelle', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -1820,9 +1771,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Pays',
                   prefixIcon: const Icon(Icons.public_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1834,9 +1785,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Commencez à saisir…',
                   prefixIcon: const Icon(Icons.map_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1847,9 +1798,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Territoire (optionnel)',
                   prefixIcon: const Icon(Icons.location_on_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1861,9 +1812,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Commencez à saisir…',
                   prefixIcon: const Icon(Icons.location_city_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1875,9 +1826,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Commencez à saisir…',
                   prefixIcon: const Icon(Icons.apartment_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1888,9 +1839,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Quartier',
                   prefixIcon: const Icon(Icons.people_alt_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1904,9 +1855,9 @@ class _Step1Profile extends StatelessWidget {
                         hintText: 'Avenue',
                         prefixIcon: const Icon(Icons.route_rounded, color: LightModeColors.hint),
                         filled: true,
-                        fillColor: colorScheme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                        fillColor: context.theme.scaffoldBackgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                       ),
                     ),
                   ),
@@ -1920,9 +1871,9 @@ class _Step1Profile extends StatelessWidget {
                         hintText: 'Numéro',
                         prefixIcon: const Icon(Icons.numbers_rounded, color: LightModeColors.hint),
                         filled: true,
-                        fillColor: colorScheme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                        fillColor: context.theme.scaffoldBackgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                       ),
                     ),
                   ),
@@ -1931,9 +1882,9 @@ class _Step1Profile extends StatelessWidget {
               const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
-                  Icon(Icons.contact_emergency_rounded, size: 18, color: colorScheme.primary),
+                  Icon(Icons.contact_emergency_rounded, size: 18, color: context.theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text('Contacts d\'urgence', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('Contacts d\'urgence', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -1943,11 +1894,7 @@ class _Step1Profile extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: colorScheme.scaffoldBackgroundColor,
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                      border: Border.all(color: colorScheme.dividerColor),
-                    ),
+                    decoration: BoxDecoration(color: context.theme.scaffoldBackgroundColor, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: context.theme.dividerColor)),
                     child: Column(
                       children: [
                         Row(
@@ -1960,9 +1907,9 @@ class _Step1Profile extends StatelessWidget {
                                   hintText: i == 0 ? 'Nom (principal)' : 'Nom',
                                   prefixIcon: const Icon(Icons.person_add_alt_rounded, color: LightModeColors.hint),
                                   filled: true,
-                                  fillColor: colorScheme.scaffoldBackgroundColor,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                  fillColor: context.theme.scaffoldBackgroundColor,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                                 ),
                               ),
                             ),
@@ -1987,9 +1934,9 @@ class _Step1Profile extends StatelessWidget {
                                   hintText: 'Contact',
                                   prefixIcon: const Icon(Icons.call_rounded, color: LightModeColors.hint),
                                   filled: true,
-                                  fillColor: colorScheme.scaffoldBackgroundColor,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                  fillColor: context.theme.scaffoldBackgroundColor,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                                 ),
                               ),
                             ),
@@ -2002,9 +1949,9 @@ class _Step1Profile extends StatelessWidget {
                                   hintText: 'Lien',
                                   prefixIcon: const Icon(Icons.family_restroom_rounded, color: LightModeColors.hint),
                                   filled: true,
-                                  fillColor: colorScheme.scaffoldBackgroundColor,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                  fillColor: context.theme.scaffoldBackgroundColor,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                                 ),
                               ),
                             ),
@@ -2025,14 +1972,14 @@ class _Step1Profile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              Divider(color: colorScheme.dividerColor, thickness: 1),
+              Divider(color: context.theme.dividerColor, thickness: 1),
               const SizedBox(height: AppSpacing.lg),
 
               Row(
                 children: [
-                  Icon(Icons.health_and_safety_rounded, size: 18, color: colorScheme.primary),
+                  Icon(Icons.health_and_safety_rounded, size: 18, color: context.theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text('Informations physiques & identité', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('Informations physiques & identité', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -2047,9 +1994,9 @@ class _Step1Profile extends StatelessWidget {
                         hintText: 'Taille (cm)',
                         prefixIcon: const Icon(Icons.height_rounded, color: LightModeColors.hint),
                         filled: true,
-                        fillColor: colorScheme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                        fillColor: context.theme.scaffoldBackgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                       ),
                     ),
                   ),
@@ -2063,9 +2010,9 @@ class _Step1Profile extends StatelessWidget {
                         hintText: 'Poids (kg)',
                         prefixIcon: const Icon(Icons.monitor_weight_rounded, color: LightModeColors.hint),
                         filled: true,
-                        fillColor: colorScheme.scaffoldBackgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                        fillColor: context.theme.scaffoldBackgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                       ),
                     ),
                   ),
@@ -2079,9 +2026,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Groupe sanguin (A+, O-, …)',
                   prefixIcon: const Icon(Icons.bloodtype_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -2103,9 +2050,9 @@ class _Step1Profile extends StatelessWidget {
                     hintText: 'Description du handicap',
                     prefixIcon: const Icon(Icons.notes_rounded, color: LightModeColors.hint),
                     filled: true,
-                    fillColor: colorScheme.scaffoldBackgroundColor,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                    fillColor: context.theme.scaffoldBackgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                   ),
                 ),
               ],
@@ -2117,9 +2064,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Numéro ID national',
                   prefixIcon: const Icon(Icons.badge_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -2130,9 +2077,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Type de pièce (Passeport, Carte…)',
                   prefixIcon: const Icon(Icons.credit_card_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -2167,19 +2114,19 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Lieu émission',
                   prefixIcon: const Icon(Icons.location_on_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              Divider(color: colorScheme.dividerColor, thickness: 1),
+              Divider(color: context.theme.dividerColor, thickness: 1),
               const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
-                  Icon(Icons.badge_rounded, size: 18, color: colorScheme.primary),
+                  Icon(Icons.badge_rounded, size: 18, color: context.theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text('Accès THIX ID', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('Accès THIX ID', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -2191,9 +2138,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Email ou Téléphone',
                   prefixIcon: const Icon(Icons.alternate_email_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -2205,9 +2152,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Mot de passe (ou code SMS)',
                   prefixIcon: const Icon(Icons.lock_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -2219,9 +2166,9 @@ class _Step1Profile extends StatelessWidget {
                   hintText: 'Confirmer le mot de passe',
                   prefixIcon: const Icon(Icons.verified_user_rounded, color: LightModeColors.hint),
                   filled: true,
-                  fillColor: colorScheme.scaffoldBackgroundColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                  fillColor: context.theme.scaffoldBackgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: context.theme.dividerColor)),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -2229,7 +2176,7 @@ class _Step1Profile extends StatelessWidget {
                 children: [
                   Switch(value: rememberMe, onChanged: onRememberChanged, activeColor: LightModeColors.accent),
                   const SizedBox(width: AppSpacing.xs),
-                  Expanded(child: Text('Rester connecté sur cet appareil', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
+                  Expanded(child: Text('Rester connecté sur cet appareil', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
                 ],
               ),
             ],
@@ -2247,31 +2194,30 @@ class _Step3Documents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const FormSectionHeader(title: 'Documents', subtitle: 'Ajoutez vos pièces justificatives. Plusieurs documents sont possibles.'),
         Container(
           padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: Theme.of(context).dividerColor)),
+          decoration: BoxDecoration(color: context.theme.colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: context.theme.dividerColor)),
           child: Row(
             children: [
               const Icon(Icons.info_outline_rounded, color: LightModeColors.secondaryText),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: Text('Pour les pièces d\'identité (CIN / Passeport), la date d\'expiration est obligatoire.', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
+              Expanded(child: Text('Pour les pièces d\'identité (CIN / Passeport), la date d\'expiration est obligatoire.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
         Container(
           padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: Theme.of(context).dividerColor)),
+          decoration: BoxDecoration(color: context.theme.colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: context.theme.dividerColor)),
           child: Row(
             children: [
-              Icon(Icons.folder_copy_rounded, color: Theme.of(context).colorScheme.primary),
+              Icon(Icons.folder_copy_rounded, color: context.theme.colorScheme.primary),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: Text('Documents sélectionnés: $docCount', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700))),
+              Expanded(child: Text('Documents sélectionnés: $docCount', style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w700))),
             ],
           ),
         ),
@@ -2282,11 +2228,7 @@ class _Step3Documents extends StatelessWidget {
             onPressed: onAddDoc,
             icon: const Icon(Icons.add_rounded),
             label: const Text('Ajouter un document'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-            ),
+            style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
           ),
         ),
       ],
@@ -2300,7 +2242,6 @@ class _Step4Final extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final me = context.watch<AuthController>().currentUser;
     final thixId = me?.thixId.trim().isEmpty ?? true ? '—' : me!.thixId;
     final uid = (me?.id ?? '').trim().isEmpty ? '—' : me!.id;
@@ -2310,7 +2251,7 @@ class _Step4Final extends StatelessWidget {
         const FormSectionHeader(title: 'Identifiants', subtitle: 'Vérifiez votre THIX ID et choisissez votre Chat ID avant paiement.'),
         Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.xl), border: Border.all(color: LightModeColors.accent, width: 1.5)),
+          decoration: BoxDecoration(color: context.theme.colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.xl), border: Border.all(color: LightModeColors.accent, width: 1.5)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2321,23 +2262,23 @@ class _Step4Final extends StatelessWidget {
                     height: 42,
                     decoration: BoxDecoration(color: LightModeColors.accent.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(AppRadius.md)),
                     alignment: Alignment.center,
-                    child: Icon(Icons.verified_user_rounded, color: Theme.of(context).colorScheme.primary),
+                    child: Icon(Icons.verified_user_rounded, color: context.theme.colorScheme.primary),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: Text('Votre THIX ID', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('Votre THIX ID', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(thixId, style: textTheme.displaySmall?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
+              Text(thixId, style: context.textStyles.displaySmall?.copyWith(color: context.theme.colorScheme.primary, fontWeight: FontWeight.w900)),
               const SizedBox(height: AppSpacing.sm),
-              Text('Ce code sera visible sur votre profil et utilisé pour la vérification.', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+              Text('Ce code sera visible sur votre profil et utilisé pour la vérification.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
         Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.xl), border: Border.all(color: Theme.of(context).dividerColor)),
+          decoration: BoxDecoration(color: context.theme.colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.xl), border: Border.all(color: context.theme.dividerColor)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2346,18 +2287,18 @@ class _Step4Final extends StatelessWidget {
                   Container(
                     width: 42,
                     height: 42,
-                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    decoration: BoxDecoration(color: context.theme.colorScheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(AppRadius.md)),
                     alignment: Alignment.center,
-                    child: Icon(Icons.key_rounded, color: Theme.of(context).colorScheme.primary),
+                    child: Icon(Icons.key_rounded, color: context.theme.colorScheme.primary),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: Text('UID (non modifiable)', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900))),
+                  Expanded(child: Text('UID (non modifiable)', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900))),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              SelectableText(uid, style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700)),
+              SelectableText(uid, style: context.textStyles.bodyMedium?.copyWith(color: context.theme.colorScheme.onSurface, fontWeight: FontWeight.w700)),
               const SizedBox(height: AppSpacing.lg),
-              Text('THIX CHAT (modifiable)', style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
+              Text('THIX CHAT (modifiable)', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: thixChatC,
@@ -2369,39 +2310,13 @@ class _Step4Final extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Text('Règles: @ + 3–20 caractères (a-z, 0-9, . ou _). Unique.', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+               Text('Règles: @ + 3–20 caractères (a-z, 0-9, . ou _). Unique.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
             ],
           ),
         ),
       ],
     );
   }
-}
-
-// ─── Modèles pour l'upload de documents ──────────────────────────────────
-
-class _RegUploadDocPayload {
-  final String docId;
-  final String title;
-  final String docType;
-  final DateTime? expiresAt;
-  const _RegUploadDocPayload({required this.docId, required this.title, required this.docType, required this.expiresAt});
-}
-
-class _PendingRegistrationDoc {
-  final PlatformFile file;
-  final String docId;
-  final String title;
-  final String docType;
-  final DateTime? expiresAt;
-
-  const _PendingRegistrationDoc({
-    required this.file,
-    required this.docId,
-    required this.title,
-    required this.docType,
-    required this.expiresAt,
-  });
 }
 
 class _RegistrationUploadDocumentSheet extends StatefulWidget {
@@ -2434,12 +2349,7 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
       initialDate: _expiresAt ?? now,
       firstDate: now.subtract(const Duration(days: 365 * 20)),
       lastDate: now.add(const Duration(days: 365 * 50)),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent),
-        ),
-        child: child!,
-      ),
+      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)), child: child!),
     );
     if (picked != null) setState(() => _expiresAt = DateTime(picked.year, picked.month, picked.day));
   }
@@ -2449,18 +2359,15 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-    final expiryLabel = _expiresAt == null
-        ? 'Choisir une date'
-        : '${_expiresAt!.year.toString().padLeft(4, '0')}-${_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}';
-    final textTheme = Theme.of(context).textTheme;
+    final expiryLabel = _expiresAt == null ? 'Choisir une date' : '${_expiresAt!.year.toString().padLeft(4, '0')}-${_expiresAt!.month.toString().padLeft(2, '0')}-${_expiresAt!.day.toString().padLeft(2, '0')}';
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: context.theme.colorScheme.surface,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(AppRadius.xl), topRight: Radius.circular(AppRadius.xl)),
-          border: Border.all(color: Theme.of(context).dividerColor),
+          border: Border.all(color: context.theme.dividerColor),
         ),
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
@@ -2470,11 +2377,11 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Ajouter un document', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                Text('Ajouter un document', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                 IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
               ],
             ),
-            Text(widget.fileName, style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+            Text(widget.fileName, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
             const SizedBox(height: AppSpacing.lg),
             DropdownButtonFormField<String>(
               value: _type,
@@ -2491,33 +2398,19 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
                 if (!_needsExpiry) _expiresAt = null;
               }),
               isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Type de document',
-                prefixIcon: const Icon(Icons.folder_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-              ),
+              decoration: InputDecoration(labelText: 'Type de document', prefixIcon: const Icon(Icons.folder_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _docIdC,
               textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: 'Doc ID',
-                hintText: 'CIN-2023-001',
-                prefixIcon: const Icon(Icons.tag_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-              ),
+              decoration: InputDecoration(labelText: 'Doc ID', hintText: 'CIN-2023-001', prefixIcon: const Icon(Icons.tag_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _titleC,
               textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: 'Titre',
-                hintText: 'Carte d\'identité nationale',
-                prefixIcon: const Icon(Icons.description_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-              ),
+              decoration: InputDecoration(labelText: 'Titre', hintText: 'Carte d\'identité nationale', prefixIcon: const Icon(Icons.description_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
             ),
             const SizedBox(height: AppSpacing.md),
             if (_needsExpiry)
@@ -2527,11 +2420,7 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
                   onPressed: _pickExpiry,
                   icon: const Icon(Icons.event_available_rounded),
                   label: Text('Date d\'expiration: $expiryLabel'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                  ),
+                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                 ),
               ),
             if (_needsExpiry) const SizedBox(height: AppSpacing.lg) else const SizedBox(height: AppSpacing.md),
@@ -2548,21 +2437,11 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
                     _snack('Date d\'expiration requise pour cette pièce.');
                     return;
                   }
-                  context.pop(_RegUploadDocPayload(
-                    docId: docId,
-                    title: _titleC.text,
-                    docType: _type,
-                    expiresAt: _expiresAt,
-                  ));
+                  context.pop(_RegUploadDocPayload(docId: docId, title: _titleC.text, docType: _type, expiresAt: _expiresAt));
                 },
                 icon: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF0A2F5C)),
                 label: const Text('UPLOAD'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightModeColors.accent,
-                  foregroundColor: const Color(0xFF0A2F5C),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
               ),
             ),
           ],
@@ -2570,4 +2449,8 @@ class _RegistrationUploadDocumentSheetState extends State<_RegistrationUploadDoc
       ),
     );
   }
+}
+
+extension ThemeHelper on BuildContext {
+  ThemeData get theme => Theme.of(this);
 }
