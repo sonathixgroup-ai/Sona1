@@ -1,5 +1,5 @@
 // presentation/thix_sante/patient/details/patient_vaccine_page.dart
-// (version complète avec correction ligne 434)
+// Version corrigée – ligne 435
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,18 +26,15 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
   final HealthService _healthService = HealthService.instance;
   final SupabaseClient _supabase = SupabaseConfig.client;
 
-  // Contrôleurs
   final _nameController = TextEditingController();
   final _batchController = TextEditingController();
   final _administeredByController = TextEditingController();
 
-  // Variables d'état
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
   Vaccine? _vaccine;
 
-  // Dates
   DateTime _administeredDate = DateTime.now();
   DateTime? _boosterDate;
 
@@ -63,12 +60,10 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
 
     try {
       if (widget.vaccineId == null) {
-        // Nouveau vaccin
         setState(() => _isLoading = false);
         return;
       }
 
-      // Récupérer le vaccin via Supabase
       final response = await _supabase
           .from('health_vaccines')
           .select('*')
@@ -143,10 +138,9 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
       };
 
       if (widget.vaccineId == null) {
-        // Création
         final created = await _healthService.addVaccine(
           Vaccine(
-            id: '', // sera généré par Supabase
+            id: '',
             patientId: user.id,
             name: name,
             dateAdministered: _administeredDate,
@@ -168,7 +162,6 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
         if (!mounted) return;
         context.push('/sante/patient/vaccine/${created.id}');
       } else {
-        // Mise à jour
         await _supabase
             .from('health_vaccines')
             .update(payload)
@@ -432,7 +425,7 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
           decoration: const InputDecoration(
             labelText: 'Numéro de lot (optionnel)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.barcode), // ✅ correction (sans const)
+            prefixIcon: Icon(Icons.barcode), // ✅ CORRECTION : sans const
           ),
         ),
         const SizedBox(height: 12),
