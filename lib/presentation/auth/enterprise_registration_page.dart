@@ -346,10 +346,12 @@ class _EnterpriseRegistrationPageState
           uid: me.id,
         );
 
+        // ✅ PARAMÈTRE CORRECT : 'thixId' (pas 'thixid')
         await _profileService.updateProfile(
-  userId: me.id,
-  thixId: newThixId,   // ✅ Correct : 'thixId' avec un I majuscule
-);
+          userId: me.id,
+          thixId: newThixId,
+        );
+
         final updatedUser = me.copyWith(
           thixId: newThixId,
         );
