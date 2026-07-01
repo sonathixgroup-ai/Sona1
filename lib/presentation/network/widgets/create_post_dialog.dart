@@ -91,7 +91,6 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     setState(() => _showMentions = false);
   }
 
-  // ⭐ CORRIGÉ - Utilisation de FilePicker au lieu de ImagePicker
   Future<void> _pickImages() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -114,7 +113,6 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     }
   }
 
-  // ⭐ CORRIGÉ - Utilisation de FilePicker pour la caméra (fallback)
   Future<void> _pickCamera() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -185,7 +183,8 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context);
+          // ✅ MODIFICATION : retourner true pour indiquer le succès
+          Navigator.pop(context, true);
         }
       } else {
         if (mounted) {
@@ -226,7 +225,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pop(context, false),
                   ),
                 ],
               ),
