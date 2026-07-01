@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/profile_service.dart';  // ✅ remplace firestore_user_service
+import 'package:thix_id/services/profile_service.dart';
 import '../../theme.dart';
 
 class PaymentMethodCard extends StatelessWidget {
@@ -976,4 +976,8 @@ class _PaymentStepDot extends StatelessWidget {
   }
 }
 
-// ✅ Suppression de l'extension ThemeHelper pour éviter les conflits
+// ✅ Extension réintroduite pour résoudre les erreurs context.theme / context.textStyles
+extension ThemeHelper on BuildContext {
+  ThemeData get theme => Theme.of(this);
+  TextTheme get textStyles => Theme.of(this).textTheme;
+}
