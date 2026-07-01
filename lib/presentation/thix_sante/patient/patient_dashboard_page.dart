@@ -19,161 +19,214 @@ class PatientDashboardPage extends StatefulWidget {
 class _PatientDashboardPageState extends State<PatientDashboardPage> {
   final HealthService _healthService = HealthService.instance;
 
-  bool _loading = true;
+  bool _isLoading = true;
   HealthSummary? _summary;
+  List<Appointment> _upcomingAppointments = [];
+  List<Medication> _currentMedications = [];
   List<HealthArticle> _articles = [];
-  int _alerts = 0;
+  int _unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadDashboardData();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoading = true);
 
-    final user = AuthController.instance.currentUser;
-    if (user == null) return;
+    try {
+      final user = AuthController.instance.currentUser;
+      if (user == null) throw Exception('Utilisateur non connecté');
 
-    final patientId = user.id;
+      final patientId = user.id;
 
-    final summary = await _healthService.fetchHealthSummary(patientId);
-    final articles = await _healthService.fetchHealthArticles(limit: 8);
-    final alerts = await _healthService.fetchHealthAlerts(patientId);
+      final summary = await _healthService.fetchHealthSummary(patientId);
+      final appointments = await _healthService.fetchUpcomingAppointments(patientId);
+      final medications = await _healthService.fetchMedications(patientId, activeOnly: true);
+      final articles = await _healthService.fetchHealthArticles(limit: 12);
+      final alerts = await _healthService.fetchHealthAlerts(patientId);
 
-    setState(() {
-      _summary = summary;
-      _articles = articles;
-      _alerts = alerts.length;
-      _loading = false;
-    });
+      if (!mounted) return;
+
+      setState(() {
+        _summary = summary;
+        _upcomingAppointments = appointments;
+        _currentMedications = medications;
+        _articles = articles;
+        _unreadNotifications = alerts.length;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
-      floatingActionButton: _fab(),
-      bottomNavigationBar: _nav(),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _topBar(),
-                  const SizedBox(height: 16),
-                  _hero(),
-                  const SizedBox(height: 16),
-                  _stats(),
-                  const SizedBox(height: 16),
-                  _gridTitle("⚡ Services rapides"),
-                  _grid(),
-                  const SizedBox(height: 16),
-                  _gridTitle("🧠 Pour vous"),
-                  _articlesGrid(),
-                  const SizedBox(height: 20),
-                  const EmergencyButton(),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(),
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FB),
+
+        floatingActionButton: _fab(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
+        bottomNavigationBar: _BottomNav(
+          currentIndex: 0,
+          onTap: (index) {
+            if (index == 1) context.go('/sante/patient/health');
+            if (index == 2) context.go('/sante/patient/messages');
+            if (index == 3) context.go('/sante/patient/profile');
+          },
+        ),
+
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadDashboardData,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(child: _topBar()),
+                      SliverToBoxAdapter(child: _hero()),
+                      SliverToBoxAdapter(child: _summarySection()),
+                      SliverToBoxAdapter(child: _quickGrid()),
+                      SliverToBoxAdapter(child: _healthGrid()),
+                      SliverToBoxAdapter(child: _articlesGrid()),
+                      SliverToBoxAdapter(child: const EmergencyButton()),
+                      const SliverToBoxAdapter(child: SizedBox(height: 90)),
+                    ],
+                  ),
+                ),
+        ),
+      ),
     );
   }
 
-  // ================= TOP BAR =================
+  // =========================================================
+  // TOP BAR MODERNE GLASS
+  // =========================================================
   Widget _topBar() {
     final user = AuthController.instance.currentUser;
-    return Row(
-      children: [
-        _glassIcon(Icons.menu),
-        const Spacer(),
-        Stack(
-          children: [
-            _glassIcon(Icons.notifications),
-            if (_alerts > 0)
-              Positioned(
-                right: 2,
-                top: 2,
-                child: _badge(_alerts),
-              )
-          ],
-        ),
-        const SizedBox(width: 10),
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: Colors.blue.shade100,
-          child: Text(user?.displayName?.substring(0, 1) ?? "U"),
-        )
-      ],
-    );
-  }
 
-  // ================= HERO =================
-  Widget _hero() {
-    final name = AuthController.instance.currentUser?.displayName ?? "Utilisateur";
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      child: Row(
+        children: [
+          _glassIcon(Icons.menu, onTap: () => _openRoleSwitchSheet(context)),
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
-        ),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+          const Spacer(),
+
+          Stack(
+            children: [
+              _glassIcon(Icons.notifications_none,
+                  onTap: () => context.push('/sante/patient/notifications')),
+              if (_unreadNotifications > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: _badge(_unreadNotifications),
+                )
+            ],
+          ),
+
+          const SizedBox(width: 10),
+
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.blue.shade100,
+            child: Text(
+              (user?.displayName ?? "U").substring(0, 1),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           )
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Bonjour $name 👋",
-              style: GoogleFonts.poppins(color: Colors.white70)),
-          const SizedBox(height: 6),
-          Text(
-            "Votre santé nouvelle génération",
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+    );
+  }
+
+  // =========================================================
+  // HERO PREMIUM
+  // =========================================================
+  Widget _hero() {
+    final user = AuthController.instance.currentUser;
+    final name = user?.displayName ?? "Utilisateur";
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
           ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.25),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Bonjour $name 👋",
+                style: GoogleFonts.poppins(color: Colors.white70)),
+            const SizedBox(height: 6),
+            Text(
+              "Votre santé, nouvelle génération",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================
+  // SUMMARY
+  // =========================================================
+  Widget _summarySection() {
+    if (_summary == null) return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          _miniCard("Consult", _summary!.consultationsThisYear, Icons.favorite),
+          _miniCard("Exam", _summary!.examsCompleted, Icons.science),
+          _miniCard("RDV", _summary!.upcomingAppointments, Icons.calendar_month),
+          _miniCard("Med", _summary!.activeMedications, Icons.medication),
         ],
       ),
     );
   }
 
-  // ================= STATS =================
-  Widget _stats() {
-    if (_summary == null) return const SizedBox();
-
-    return Row(
-      children: [
-        _stat("Consult", _summary!.consultationsThisYear.toString(), Icons.favorite),
-        _stat("Examens", _summary!.examsCompleted.toString(), Icons.science),
-        _stat("RDV", _summary!.upcomingAppointments.toString(), Icons.calendar_month),
-        _stat("Med", _summary!.activeMedications.toString(), Icons.medication),
-      ],
-    );
-  }
-
-  Widget _stat(String label, String value, IconData icon) {
+  Widget _miniCard(String label, int value, IconData icon) {
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.all(10),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(12),
         decoration: _glass(),
         child: Column(
           children: [
-            Icon(icon, color: Colors.blue),
+            Icon(icon, color: const Color(0xFF2563FF)),
             const SizedBox(height: 6),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text("$value",
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             Text(label, style: const TextStyle(fontSize: 10)),
           ],
         ),
@@ -181,99 +234,191 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
     );
   }
 
-  // ================= GRID =================
-  Widget _grid() {
+  // =========================================================
+  // QUICK GRID
+  // =========================================================
+  Widget _quickGrid() {
     final items = [
       ("Médecin", Icons.medical_services),
-      ("Dossier", Icons.folder),
       ("RDV", Icons.calendar_today),
-      ("Pharmacie", Icons.local_pharmacy),
+      ("Dossier", Icons.folder),
       ("Urgence", Icons.emergency),
-      ("IA Santé", Icons.smart_toy),
-      ("Téléconsult", Icons.video_call),
+      ("Pharmacie", Icons.local_pharmacy),
+      ("IA", Icons.smart_toy),
       ("Examens", Icons.science),
+      ("Téléconsult", Icons.video_call),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-      ),
-      itemBuilder: (c, i) {
-        return Container(
-          decoration: _card(),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(items[i].$2, color: Colors.blue),
-              const SizedBox(height: 6),
-              Text(items[i].$1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10)),
-            ],
-          ),
-        );
-      },
-    );
+    return _grid("⚡ Services rapides", items);
   }
 
-  // ================= ARTICLES =================
-  Widget _articlesGrid() {
-    return Column(
-      children: _articles.take(4).map((a) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: _glass(),
-          child: Row(
-            children: [
-              const Icon(Icons.article, color: Colors.blue),
-              const SizedBox(width: 10),
-              Expanded(child: Text(a.title)),
-            ],
-          ),
-        );
-      }).toList(),
-    );
+  Widget _healthGrid() {
+    final items = [
+      ("Enfants", Icons.child_care),
+      ("Vaccins", Icons.vaccines),
+      ("Nutrition", Icons.restaurant),
+      ("Sport", Icons.fitness_center),
+      ("Stress", Icons.spa),
+      ("Assurance", Icons.shield),
+      ("Analyse", Icons.analytics),
+      ("Bien-être", Icons.self_improvement),
+    ];
+
+    return _grid("🏥 Santé", items);
   }
 
-  // ================= NAV =================
-  Widget _nav() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          Icon(Icons.home),
-          Icon(Icons.favorite),
-          SizedBox(width: 40),
-          Icon(Icons.chat),
-          Icon(Icons.person),
+  Widget _grid(String title, List<(String, IconData)> items) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemBuilder: (_, i) {
+              return Container(
+                decoration: _card(),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(items[i].$2, color: const Color(0xFF2563FF)),
+                    const SizedBox(height: 6),
+                    Text(items[i].$1,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 10)),
+                  ],
+                ),
+              );
+            },
+          )
         ],
       ),
     );
   }
 
+  // =========================================================
+  // ARTICLES
+  // =========================================================
+  Widget _articlesGrid() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("📰 Pour vous",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          ..._articles.take(4).map((a) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: _glass(),
+                child: Text(a.title),
+              ))
+        ],
+      ),
+    );
+  }
+
+  // =========================================================
+  // FAB
+  // =========================================================
   Widget _fab() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2563FF), Color(0xFF00D2C8)]),
+        gradient: const LinearGradient(
+            colors: [Color(0xFF2563FF), Color(0xFF00D2C8)]),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10)],
       ),
       child: FloatingActionButton(
         backgroundColor: Colors.transparent,
-        onPressed: () {},
+        onPressed: () => _showQuickActions(context),
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  // ================= STYLE =================
+  // =========================================================
+  // ACTION SHEET (FIXED)
+  // =========================================================
+  void _showQuickActions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _sheetItem(Icons.calendar_today, "RDV", Colors.blue,
+                () => context.push('/sante/patient/appointment/new')),
+            _sheetItem(Icons.chat, "IA", Colors.green,
+                () => context.push('/sante/patient/ia')),
+            _sheetItem(Icons.camera_alt, "Scanner", Colors.purple,
+                () => context.push('/sante/patient/scan')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetItem(
+      IconData icon, String title, Color color, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  // =========================================================
+  // ROLE SWITCH (FIXED)
+  // =========================================================
+  Future<void> _openRoleSwitchSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<ThixRole>(
+      context: context,
+      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.patient),
+    );
+
+    if (selected == null) return;
+
+    try {
+      ThixRoleController.instance.selectRole(selected, manual: true);
+
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(data: {'thix_role': selected.name}),
+      );
+
+      if (!context.mounted) return;
+
+      if (selected == ThixRole.patient) context.go('/sante/patient/dashboard');
+      if (selected == ThixRole.doctor) context.go('/sante/doctor/dashboard');
+      if (selected == ThixRole.pharmacy) context.go('/sante/pharmacy/dashboard');
+    } catch (e) {
+      debugPrint("Role switch error: $e");
+    }
+  }
+
+  // =========================================================
+  // STYLE
+  // =========================================================
   BoxDecoration _glass() => BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: Colors.white.withOpacity(0.85),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -295,26 +440,63 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         ],
       );
 
-  Widget _glassIcon(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: _glass(),
-      child: Icon(icon),
+  Widget _glassIcon(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: _glass(),
+        child: Icon(icon),
+      ),
     );
   }
 
   Widget _badge(int v) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-      child: Text("$v", style: const TextStyle(color: Colors.white, fontSize: 10)),
+      decoration: const BoxDecoration(
+        color: Colors.red,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        "$v",
+        style: const TextStyle(color: Colors.white, fontSize: 10),
+      ),
     );
   }
+}
 
-  Widget _gridTitle(String t) {
+// =========================================================
+// ROLE SHEET
+// =========================================================
+class _RoleSwitchSheet extends StatelessWidget {
+  final ThixRole currentRole;
+
+  const _RoleSwitchSheet({required this.currentRole});
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            "Changer de rôle",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          for (final role in ThixRoleController.availableRoles)
+            ListTile(
+              leading: Icon(role.icon, color: role.accent),
+              title: Text(role.label),
+              trailing: role == currentRole
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : null,
+              onTap: () => context.pop(role),
+            )
+        ],
+      ),
     );
   }
 }
