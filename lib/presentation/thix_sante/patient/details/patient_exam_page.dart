@@ -95,7 +95,9 @@ class _PatientExamPageState extends State<PatientExamPage> {
           // En-tête avec statut
           Card(
             color: e.status == ExamStatus.completed ? Colors.green[50] : Colors.orange[50],
-            shape: RoundedRectangleBorder(borderRadius: Radius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12), // ✅ Correction
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
