@@ -176,10 +176,7 @@ class _MedicationCard extends StatelessWidget {
                   color: medication.isActive ? Colors.green[50] : Colors.grey[200],
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  medication.isActive
-                      ? Icons.medication
-                      : Icons.medication_off,
+                child: Icon(Icons.medication, color: Colors.grey)
                   color: medication.isActive ? Colors.green : Colors.grey,
                   size: 24,
                 ),
