@@ -26,23 +26,21 @@ class FormLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
           Text(
             label,
-            style: textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurface,
+            style: context.textStyles.labelLarge?.copyWith(
+              color: context.theme.colorScheme.onSurface,
             ),
           ),
           if (required) ...[
             const SizedBox(width: AppSpacing.xs),
             Text(
               '*',
-              style: textTheme.labelLarge?.copyWith(
+              style: context.textStyles.labelLarge?.copyWith(
                 color: LightModeColors.error,
               ),
             ),
@@ -67,8 +65,6 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Column(
@@ -86,7 +82,7 @@ class SectionHeader extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   number,
-                  style: textTheme.labelLarge?.copyWith(
+                  style: context.textStyles.labelLarge?.copyWith(
                     color: const Color(0xFF0A2F5C),
                   ),
                 ),
@@ -95,8 +91,8 @@ class SectionHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: textTheme.titleLarge?.copyWith(
-                    color: theme.colorScheme.onSurface,
+                  style: context.textStyles.titleLarge?.copyWith(
+                    color: context.theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -105,7 +101,7 @@ class SectionHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle,
-            style: textTheme.bodyMedium?.copyWith(
+            style: context.textStyles.bodyMedium?.copyWith(
               color: LightModeColors.secondaryText,
             ),
           ),
@@ -236,7 +232,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
       final currentThixId = existingProfile?.thixId ?? me.thixId;
       if (currentThixId.isEmpty || currentThixId == 'THIX-PENDING' || currentThixId == 'THIX-000000') {
         final newThixId = await _profileService.generateThixId(uid: me.id);
-        await _profileService.updateProfile(userId: me.id, thixId: newThixId);
+        await _profileService.updateProfile(userId: me.id, thixId: newThixId);  // ✅ correction du paramètre
         final updatedUser = me.copyWith(thixId: newThixId);
         await context.read<AuthController>().updateCurrentUser(updatedUser);
       }
@@ -284,7 +280,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: colorScheme.scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -300,7 +296,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                 ),
                 color: Colors.white,
               ),
-              child: ColoredBox(color: colorScheme.scaffoldBackgroundColor.withValues(alpha: 0.92)),
+              child: ColoredBox(color: theme.scaffoldBackgroundColor.withValues(alpha: 0.92)),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -309,7 +305,7 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                   decoration: BoxDecoration(
                     color: colorScheme.surface,
-                    border: Border(bottom: BorderSide(color: colorScheme.dividerColor)),
+                    border: Border(bottom: BorderSide(color: theme.dividerColor)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -435,9 +431,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: "Nom de l'entreprise",
                                     prefixIcon: const Icon(Icons.domain_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: colorScheme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -449,9 +445,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: 'Email administrateur',
                                     prefixIcon: const Icon(Icons.alternate_email_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: colorScheme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -463,9 +459,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: 'Mot de passe (min. 8 caractères)',
                                     prefixIcon: const Icon(Icons.lock_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: colorScheme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -477,9 +473,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                     hintText: 'Confirmer le mot de passe',
                                     prefixIcon: const Icon(Icons.verified_user_rounded, color: LightModeColors.hint),
                                     filled: true,
-                                    fillColor: colorScheme.scaffoldBackgroundColor,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: colorScheme.dividerColor)),
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.md),
@@ -541,9 +537,9 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
                                           width: 110,
                                           height: 110,
                                           decoration: BoxDecoration(
-                                            color: colorScheme.scaffoldBackgroundColor,
+                                            color: theme.scaffoldBackgroundColor,
                                             borderRadius: BorderRadius.circular(AppRadius.lg),
-                                            border: Border.all(color: colorScheme.dividerColor, width: 2),
+                                            border: Border.all(color: theme.dividerColor, width: 2),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Colors.black.withValues(alpha: 0.1),
@@ -802,4 +798,10 @@ class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage>
       ),
     );
   }
+}
+
+// ✅ Extension réintroduite pour résoudre les erreurs context.theme / context.textStyles
+extension ThemeHelper on BuildContext {
+  ThemeData get theme => Theme.of(this);
+  TextTheme get textStyles => Theme.of(this).textTheme;
 }
