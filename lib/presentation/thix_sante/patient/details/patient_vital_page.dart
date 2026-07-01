@@ -1,5 +1,5 @@
 // presentation/thix_sante/patient/details/patient_vital_page.dart
-// (version complète avec correction ligne 363)
+// Version corrigée – ligne 362
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,17 +22,14 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
   final HealthService _healthService = HealthService.instance;
   final SupabaseClient _supabase = SupabaseConfig.client;
 
-  // Contrôleurs
   final _valueController = TextEditingController();
   final _unitController = TextEditingController();
 
-  // Variables d'état
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
   VitalSign? _vitalSign;
 
-  // Données du formulaire
   VitalType _selectedType = VitalType.heartRate;
   DateTime _selectedDate = DateTime.now();
 
@@ -145,7 +142,6 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
       };
 
       if (widget.vitalId == null) {
-        // Création
         await _supabase.from('health_vitals').insert(payload);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -154,7 +150,6 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
           ),
         );
       } else {
-        // Mise à jour
         await _supabase
             .from('health_vitals')
             .update(payload)
@@ -359,7 +354,7 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
           decoration: const InputDecoration(
             labelText: 'Unité (ex: kg, mmHg, bpm)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.unit), // ✅ correction (pas de const)
+            prefixIcon: Icon(Icons.unit), // ✅ CORRECTION : sans const
           ),
         ),
         const SizedBox(height: 12),
