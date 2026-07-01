@@ -4,10 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../theme.dart';
 import '../../nav.dart';
-
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
@@ -28,23 +26,21 @@ class FormLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
           Text(
             label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurface,
+            style: context.textStyles.labelLarge?.copyWith(
+              color: context.theme.colorScheme.onSurface,
             ),
           ),
           if (required) ...[
             const SizedBox(width: AppSpacing.xs),
             Text(
               '*',
-              style: theme.textTheme.labelLarge?.copyWith(
+              style: context.textStyles.labelLarge?.copyWith(
                 color: LightModeColors.error,
               ),
             ),
@@ -69,8 +65,6 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Column(
@@ -88,7 +82,7 @@ class SectionHeader extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   number,
-                  style: theme.textTheme.labelLarge?.copyWith(
+                  style: context.textStyles.labelLarge?.copyWith(
                     color: const Color(0xFF0A2F5C),
                   ),
                 ),
@@ -97,8 +91,8 @@ class SectionHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: theme.colorScheme.onSurface,
+                  style: context.textStyles.titleLarge?.copyWith(
+                    color: context.theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -107,7 +101,7 @@ class SectionHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle,
-            style: theme.textTheme.bodyMedium?.copyWith(
+            style: context.textStyles.bodyMedium?.copyWith(
               color: LightModeColors.secondaryText,
             ),
           ),
@@ -121,41 +115,27 @@ class EnterpriseRegistrationPage extends StatefulWidget {
   const EnterpriseRegistrationPage({super.key});
 
   @override
-  State<EnterpriseRegistrationPage> createState() =>
-      _EnterpriseRegistrationPageState();
+  State<EnterpriseRegistrationPage> createState() => _EnterpriseRegistrationPageState();
 }
 
-class _EnterpriseRegistrationPageState
-    extends State<EnterpriseRegistrationPage> {
+class _EnterpriseRegistrationPageState extends State<EnterpriseRegistrationPage> {
   final _profileService = ProfileService();
   final _photos = ProfilePhotoService();
-
   final _companyNameC = TextEditingController();
   final _emailC = TextEditingController();
   final _passwordC = TextEditingController();
   final _confirmC = TextEditingController();
-
   bool _rememberMe = true;
   bool _isLoading = false;
 
   PlatformFile? _pickedPhoto;
   PhoneAuthSession? _phoneSession;
 
-  bool _hasSupabaseSession() {
-    return Supabase.instance.client.auth.currentSession != null;
-  }
+  bool _hasSupabaseSession() => Supabase.instance.client.auth.currentSession != null;
 
   void _handleUnauthedWrite() {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Session expirée. Connectez-vous pour continuer.',
-        ),
-      ),
-    );
-
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Session expirée. Connectez-vous pour continuer.')));
     context.go(AppRoutes.login);
   }
 
@@ -165,88 +145,39 @@ class _EnterpriseRegistrationPageState
     _emailC.dispose();
     _passwordC.dispose();
     _confirmC.dispose();
-
     super.dispose();
   }
 
   Future<void> _createEnterprise() async {
     final auth = context.read<AuthController>();
-
     final name = _companyNameC.text.trim();
     final email = _emailC.text.trim();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
-
     if (name.isEmpty || email.isEmpty || pass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Veuillez compléter Entreprise, Email et Mot de passe.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez compléter Entreprise, Email et Mot de passe.')));
       return;
     }
-
     if (pass != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Les mots de passe ne correspondent pas.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Les mots de passe ne correspondent pas.')));
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       if (_looksLikePhone(email) && !email.contains('@')) {
         if (kIsWeb) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Inscription par SMS non disponible dans la Preview web.',
-              ),
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inscription par SMS non disponible dans la Preview web. Utilisez un email ou testez sur Android/iOS.')));
           return;
         }
-
         if (_phoneSession == null) {
-          _phoneSession = await auth.startPhoneAuth(
-            phoneNumber: email,
-          );
-
+          _phoneSession = await auth.startPhoneAuth(phoneNumber: email);
           if (!mounted) return;
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'SMS envoyé. Entrez le code dans “Mot de passe”.',
-              ),
-            ),
-          );
-
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('SMS envoyé. Entrez le code dans “Mot de passe” puis validez.')));
           return;
         }
-
-        await auth.confirmPhoneCode(
-          session: _phoneSession!,
-          smsCode: pass,
-          displayName: name,
-          accountType: AccountType.enterprise,
-        );
-
+        await auth.confirmPhoneCode(session: _phoneSession!, smsCode: pass, displayName: name, accountType: AccountType.enterprise);
         if (!mounted) return;
-
-        await _prepareEnterpriseAndFinishFree(
-          companyName: name,
-        );
-
+        await _prepareEnterpriseAndFinishFree(companyName: name);
         return;
       }
 
@@ -260,45 +191,24 @@ class _EnterpriseRegistrationPageState
           'display_name': name,
         },
       );
-
       if (!mounted) return;
-
-      await _prepareEnterpriseAndFinishFree(
-        companyName: name,
-      );
+      await _prepareEnterpriseAndFinishFree(companyName: name);
     } catch (e) {
       debugPrint('Enterprise registration failed: $e');
-
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _prepareEnterpriseAndFinishFree({
-    required String companyName,
-  }) async {
+  Future<void> _prepareEnterpriseAndFinishFree({required String companyName}) async {
     final me = context.read<AuthController>().currentUser;
-
-    if (me == null) {
-      throw Exception('Session utilisateur introuvable.');
-    }
-
+    if (me == null) throw Exception('Session utilisateur introuvable.');
     if (!_hasSupabaseSession()) {
       _handleUnauthedWrite();
       return;
     }
-
     try {
       await _profileService.updateProfile(
         userId: me.id,
@@ -307,219 +217,592 @@ class _EnterpriseRegistrationPageState
 
       if (_pickedPhoto != null) {
         try {
-          final url = await _photos.uploadProfilePhoto(
-            uid: me.id,
-            file: _pickedPhoto!,
-          );
-
-          await _profileService.updateProfile(
-            userId: me.id,
-            photoUrl: url,
-          );
+          final url = await _photos.uploadProfilePhoto(uid: me.id, file: _pickedPhoto!);
+          await _profileService.updateProfile(userId: me.id, photoUrl: url);
         } catch (e) {
-          debugPrint(
-            'EnterpriseReg: avatar upload failed uid=${me.id} err=$e',
-          );
-
+          debugPrint('EnterpriseReg: avatar upload failed uid=${me.id} err=$e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(e.toString()),
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
           }
-
           rethrow;
         }
       }
 
-      final existingProfile =
-          await _profileService.fetchPublicProfileByUserId(me.id);
-
-      final currentThixId =
-          existingProfile?.thixId ?? me.thixId;
-
-      if (currentThixId.isEmpty ||
-          currentThixId == 'THIX-PENDING' ||
-          currentThixId == 'THIX-000000') {
-        final newThixId = await _profileService.generateThixId(
-          uid: me.id,
-        );
-
-        await _profileService.updateProfile(
-          userId: me.id,
-          thixId: newThixId,
-        );
-
-        final updatedUser = me.copyWith(
-          thixId: newThixId,
-        );
-
-        await context
-            .read<AuthController>()
-            .updateCurrentUser(updatedUser);
+      final existingProfile = await _profileService.fetchPublicProfileByUserId(me.id);
+      final currentThixId = existingProfile?.thixId ?? me.thixId;
+      if (currentThixId.isEmpty || currentThixId == 'THIX-PENDING' || currentThixId == 'THIX-000000') {
+        final newThixId = await _profileService.generateThixId(uid: me.id);
+        // ✅ CORRECTION : utiliser 'thixId' et non 'thixld'
+        await _profileService.updateProfile(userId: me.id, thixId: newThixId);
+        final updatedUser = me.copyWith(thixId: newThixId);
+        await context.read<AuthController>().updateCurrentUser(updatedUser);
       }
 
-      final suggestedChat =
-          '@${companyName.toLowerCase().replaceAll(RegExp(r"[^a-z0-9._]"), '')}${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}';
-
-      final claimedChat =
-          await _profileService.reserveThixChat(
+      final suggestedChat = '@${companyName.toLowerCase().replaceAll(RegExp(r"[^a-z0-9._]"), '')}${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}';
+      final claimedChat = await _profileService.reserveThixChat(
         userId: me.id,
         desired: suggestedChat,
       );
+      await _profileService.updateProfile(userId: me.id, thixChat: claimedChat);
 
-      await _profileService.updateProfile(
-        userId: me.id,
-        thixChat: claimedChat,
-      );
     } catch (e) {
-      debugPrint(
-        'EnterpriseReg: prepare identifiers failed uid=${me.id} err=$e',
-      );
-
+      debugPrint('EnterpriseReg: prepare identifiers failed uid=${me.id} err=$e');
       if (mounted) {
         final msg = e.toString();
-
-        if (msg.contains('Not authenticated') ||
-            msg.toLowerCase().contains('jwt') ||
-            msg.contains('42501')) {
+        if (msg.contains('Not authenticated') || msg.toLowerCase().contains('jwt') || msg.contains('42501')) {
           _handleUnauthedWrite();
           return;
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
-
       rethrow;
     }
-
     if (!mounted) return;
-
     context.go(AppRoutes.enterpriseDashboard);
   }
 
   Future<void> _pickPhoto() async {
     try {
-      final res = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: kIsWeb,
-        allowMultiple: false,
-      );
-
+      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
-
-      setState(() {
-        _pickedPhoto = res.files.first;
-      });
+      setState(() => _pickedPhoto = res.files.first);
     } catch (e) {
-      debugPrint(
-        'EnterpriseReg: pick photo failed err=$e',
-      );
-
+      debugPrint('EnterpriseReg: pick photo failed err=$e');
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Sélection image impossible.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sélection image impossible.')));
     }
   }
 
-  bool _looksLikePhone(String s) {
-    return RegExp(
-      r'^\+?[0-9][0-9\s\-]{7,}$',
-    ).hasMatch(s.trim());
-  }
+  bool _looksLikePhone(String s) => RegExp(r'^\+?[0-9][0-9\s\-]{7,}$').hasMatch(s.trim());
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: SingleChildScrollView(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.stretch,
+        child: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFF9C74F), Color(0xFFD4AF37), Color(0xFF996515)],
+                  stops: [0, 0.5, 1],
+                ),
+                color: Colors.white,
+              ),
+              child: ColoredBox(color: theme.scaffoldBackgroundColor.withValues(alpha: 0.92)),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      )
+                    ],
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        'Compte Entreprise',
-                        style: theme.textTheme.titleLarge,
+                      IconButton(
+                        icon: Icon(Icons.arrow_back_ios_new_rounded, color: colorScheme.onSurface, size: 20),
+                        onPressed: () => context.popOrGo(AppRoutes.home),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      TextField(
-                        controller: _companyNameC,
-                        decoration: const InputDecoration(
-                          hintText: "Nom de l'entreprise",
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Compte Entreprise",
+                              style: textTheme.titleLarge?.copyWith(
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            Text(
+                              "Enregistrement THIX ID Institutionnel",
+                              style: textTheme.bodySmall?.copyWith(
+                                color: LightModeColors.secondaryText,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      TextField(
-                        controller: _emailC,
-                        decoration: const InputDecoration(
-                          hintText: 'Email administrateur',
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: LightModeColors.accent,
+                          borderRadius: BorderRadius.circular(AppRadius.full),
                         ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      TextField(
-                        controller: _passwordC,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          hintText: 'Mot de passe',
-                        ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      TextField(
-                        controller: _confirmC,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          hintText:
-                              'Confirmer le mot de passe',
-                        ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      ElevatedButton(
-                        onPressed:
-                            _isLoading ? null : _createEnterprise,
                         child: Text(
-                          _isLoading
-                              ? 'Création...'
-                              : 'Créer le compte',
+                          "ÉTAPE 1/5",
+                          style: textTheme.labelSmall?.copyWith(
+                            color: const Color(0xFF0A2F5C),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Card(
+                          margin: EdgeInsets.zero,
+                          elevation: 0,
+                          color: colorScheme.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            side: BorderSide(color: LightModeColors.accent.withValues(alpha: 0.75), width: 1.2),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.shield_rounded, color: colorScheme.primary, size: 18),
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Expanded(
+                                      child: Text(
+                                        'Identifiants Institutionnels',
+                                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'Ces identifiants permettent à votre organisation d’accéder au tableau de bord. Un ID THIX sera généré.',
+                                  style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 72,
+                                      height: 72,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                                        border: Border.all(color: LightModeColors.accent.withValues(alpha: 0.65), width: 2),
+                                        image: DecorationImage(
+                                          image: _pickedPhoto == null
+                                              ? const AssetImage('assets/images/African_businessman_in_suit_grayscale_1775573970767.jpg')
+                                              : (kIsWeb ? MemoryImage(_pickedPhoto!.bytes!) : FileImage(fileFromPath(_pickedPhoto!.path!) as dynamic)) as ImageProvider,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: _isLoading ? null : _pickPhoto,
+                                        icon: const Icon(Icons.add_a_photo_rounded),
+                                        label: const Text('Ajouter une photo'),
+                                        style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _companyNameC,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: InputDecoration(
+                                    hintText: "Nom de l'entreprise",
+                                    prefixIcon: const Icon(Icons.domain_rounded, color: LightModeColors.hint),
+                                    filled: true,
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _emailC,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: InputDecoration(
+                                    hintText: 'Email administrateur',
+                                    prefixIcon: const Icon(Icons.alternate_email_rounded, color: LightModeColors.hint),
+                                    filled: true,
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _passwordC,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: InputDecoration(
+                                    hintText: 'Mot de passe (min. 8 caractères)',
+                                    prefixIcon: const Icon(Icons.lock_rounded, color: LightModeColors.hint),
+                                    filled: true,
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _confirmC,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.done,
+                                  decoration: InputDecoration(
+                                    hintText: 'Confirmer le mot de passe',
+                                    prefixIcon: const Icon(Icons.verified_user_rounded, color: LightModeColors.hint),
+                                    filled: true,
+                                    fillColor: theme.scaffoldBackgroundColor,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide(color: theme.dividerColor)),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Row(
+                                  children: [
+                                    Switch(
+                                      value: _rememberMe,
+                                      onChanged: _isLoading ? null : (v) => setState(() => _rememberMe = v),
+                                      activeColor: LightModeColors.accent,
+                                    ),
+                                    const SizedBox(width: AppSpacing.xs),
+                                    Expanded(child: Text('Rester connecté', style: textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _createEnterprise,
+                                  icon: _isLoading
+                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF0A2F5C)))
+                                      : const Icon(Icons.verified_rounded),
+                                  label: Text(_isLoading ? 'Création…' : 'Créer le compte et accéder au Dashboard'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: LightModeColors.accent,
+                                    foregroundColor: const Color(0xFF0A2F5C),
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    textStyle: textTheme.labelLarge,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        const SectionHeader(
+                          number: "1",
+                          title: "Informations sur l'Entreprise",
+                          subtitle: "Détails officiels et localisation de votre entité.",
+                        ),
+                        Card(
+                          margin: EdgeInsets.zero,
+                          elevation: 0,
+                          color: colorScheme.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            side: const BorderSide(color: LightModeColors.accent, width: 1),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Column(
+                                  children: [
+                                    const FormLabel(label: "Logo de l'entreprise", required: true),
+                                    Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Container(
+                                          width: 110,
+                                          height: 110,
+                                          decoration: BoxDecoration(
+                                            color: theme.scaffoldBackgroundColor,
+                                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                                            border: Border.all(color: theme.dividerColor, width: 2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.1),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 4),
+                                              )
+                                            ],
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: const Icon(Icons.business_rounded, color: LightModeColors.hint, size: 48),
+                                        ),
+                                        Positioned(
+                                          bottom: -5,
+                                          right: -5,
+                                          child: Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: LightModeColors.accent,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: colorScheme.surface, width: 2),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.1),
+                                                  blurRadius: 3,
+                                                  offset: const Offset(0, 1),
+                                                )
+                                              ],
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF0A2F5C), size: 18),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const FormLabel(label: "Nom complet de l'entreprise", required: true),
+                                    _buildTextField(context, "Ex: THIX Technologies SARL"),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const FormLabel(label: "Sigle / Acronyme", required: false),
+                                    _buildTextField(context, "Ex: THIX"),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const FormLabel(label: "Numéro RCCM", required: true),
+                                          _buildTextField(context, "CD/KNG/RCCM/..."),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const FormLabel(label: "Numéro IDNAT", required: true),
+                                          _buildTextField(context, "01-H4300-N..."),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const FormLabel(label: "Secteur d'activité", required: true),
+                                    _buildDropdown(context, "Sélectionner un secteur", ["Technologie", "Finance", "Agriculture", "Mines", "Santé", "Éducation"]),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const FormLabel(label: "Type d'entreprise", required: true),
+                                    _buildDropdown(context, "Sélectionner le statut juridique", ["SARL", "SA", "ASBL", "Entreprise Individuelle", "Coopérative"]),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const FormLabel(label: "Pays de résidence", required: true),
+                                    _buildTextField(context, "République Démocratique du Congo", icon: Icons.flag_rounded, readOnly: true),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const FormLabel(label: "Province", required: true),
+                                          _buildDropdown(context, "Province", ["Kinshasa", "Haut-Katanga", "Lualaba", "Nord-Kivu", "Sud-Kivu"]),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const FormLabel(label: "Ville / Territoire", required: true),
+                                          _buildDropdown(context, "Ville", ["Gombe", "Limete", "Ngaliema", "Lubumbashi"]),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const FormLabel(label: "Adresse complète", required: true),
+                                    _buildTextField(context, "N°, Rue, Quartier, Commune", maxLines: 2),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const FormLabel(label: "Site web", required: false),
+                                          _buildTextField(context, "https://...", keyboardType: TextInputType.url),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const FormLabel(label: "Année de fondation", required: true),
+                                          _buildTextField(context, "AAAA", keyboardType: TextInputType.number),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        ElevatedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          label: const Text("Continuer vers Représentant Légal"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: LightModeColors.accent,
+                            foregroundColor: const Color(0xFF0A2F5C),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            textStyle: textTheme.labelLarge,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextButton(
+                          onPressed: () {},
+                          child: Text(
+                            "Sauvegarder le brouillon",
+                            style: textTheme.labelLarge?.copyWith(
+                              color: LightModeColors.secondaryText,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.verified_user_rounded, color: LightModeColors.success, size: 18),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              "Protégé par le protocole de sécurité THIX-Shield",
+                              style: textTheme.bodySmall?.copyWith(
+                                color: LightModeColors.secondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildTextField(BuildContext context, String hint, {IconData? icon, bool readOnly = false, int maxLines = 1, TextInputType? keyboardType}) {
+    final theme = Theme.of(context);
+    return TextField(
+      readOnly: readOnly,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: icon != null ? Icon(icon, color: LightModeColors.hint) : null,
+        filled: true,
+        fillColor: theme.scaffoldBackgroundColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      ),
+      controller: readOnly ? TextEditingController(text: hint) : null,
+    );
+  }
+
+  Widget _buildDropdown(BuildContext context, String hint, List<String> items) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          hint: Text(hint),
+          isExpanded: true,
+          items: items.map((item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item),
+            );
+          }).toList(),
+          onChanged: (value) {},
+        ),
+      ),
+    );
+  }
+}
+
+// ✅ Extension réintroduite pour résoudre les erreurs context.theme / context.textStyles
+extension ThemeHelper on BuildContext {
+  ThemeData get theme => Theme.of(this);
+  TextTheme get textStyles => Theme.of(this).textTheme;
 }
