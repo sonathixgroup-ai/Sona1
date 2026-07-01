@@ -27,7 +27,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   List<HealthArticle> _articles = [];
   int _unreadNotifications = 0;
 
-  // Liste des services avec leurs icônes, routes et couleurs
+  // Liste des services
   static const List<_Service> _services = [
     _Service('Consulter médecin', Icons.medical_services, '/sante/patient/appointment/new'),
     _Service('Dossier médical', Icons.folder, '/sante/patient/record'),
@@ -124,6 +124,8 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
                       SliverToBoxAdapter(child: _topBar()),
                       SliverToBoxAdapter(child: _heroSection()),
                       SliverToBoxAdapter(child: _healthScoreCard()),
+                      // ✅ AJOUT : Résumé de santé (4 indicateurs)
+                      SliverToBoxAdapter(child: _healthSummary()),
                       SliverToBoxAdapter(child: _servicesGrid()),
                       SliverToBoxAdapter(child: _articlesSection()),
                       SliverToBoxAdapter(child: _emergencySection()),
@@ -137,7 +139,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // TOP BAR : THIX SANTÉ
+  // TOP BAR
   // =========================================================
   Widget _topBar() {
     return Padding(
@@ -193,7 +195,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // HERO : Bonjour, Alex 🎉
+  // HERO
   // =========================================================
   Widget _heroSection() {
     final user = AuthController.instance.currentUser;
@@ -319,7 +321,99 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // SERVICES RAPIDES (GRILLE 4 COLONNES)
+  // ✅ RÉSUMÉ DE SANTÉ (4 INDICATEURS)
+  // =========================================================
+  Widget _healthSummary() {
+    if (_summary == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _statItem(
+              icon: Icons.calendar_today,
+              value: _summary!.consultationsThisYear.toString(),
+              label: 'Consultations',
+              subtitle: 'Cette année',
+              color: Colors.blue,
+            ),
+            _statItem(
+              icon: Icons.science,
+              value: _summary!.examsCompleted.toString(),
+              label: 'Examens',
+              subtitle: 'Complétés',
+              color: Colors.green,
+            ),
+            _statItem(
+              icon: Icons.medication,
+              value: _summary!.activeMedications.toString(),
+              label: 'Médicaments',
+              subtitle: 'En cours',
+              color: Colors.orange,
+            ),
+            _statItem(
+              icon: Icons.access_time,
+              value: _summary!.upcomingAppointments.toString(),
+              label: 'Rendez-vous',
+              subtitle: 'À venir',
+              color: Colors.purple,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statItem({
+    required IconData icon,
+    required String value,
+    required String label,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
+        ),
+        Text(
+          subtitle,
+          style: GoogleFonts.poppins(fontSize: 8, color: Colors.grey.shade400),
+        ),
+      ],
+    );
+  }
+
+  // =========================================================
+  // SERVICES RAPIDES (GRILLE 4 COLONNES) – REDIMENSIONNÉ
   // =========================================================
   Widget _servicesGrid() {
     return Padding(
@@ -341,13 +435,12 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             itemCount: _services.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.0,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.85, // plus compact
             ),
             itemBuilder: (_, index) {
               final service = _services[index];
-              // Couleur cyclique
               final color = _getColorForIndex(index);
               return _serviceTile(service, color);
             },
@@ -379,22 +472,22 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
             )
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(service.icon, color: color, size: 28),
-            const SizedBox(height: 6),
+            Icon(service.icon, color: color, size: 24), // taille réduite
+            const SizedBox(height: 4),
             Text(
               service.label,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 10,
+                fontSize: 9, // police réduite
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade800,
               ),
@@ -413,7 +506,6 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   Widget _articlesSection() {
     if (_articles.isEmpty) return const SizedBox.shrink();
 
-    // Prendre les 4 premiers articles pour la maquette
     final displayed = _articles.take(4).toList();
 
     return Padding(
@@ -525,7 +617,6 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  // Appeler le 15
                   const url = 'tel:15';
                   if (await canLaunchUrl(Uri.parse(url))) {
                     await launchUrl(Uri.parse(url));
