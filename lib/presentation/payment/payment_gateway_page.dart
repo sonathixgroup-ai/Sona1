@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';  // ✅ remplace firestore_user_service
 import '../../theme.dart';
 
 class PaymentMethodCard extends StatelessWidget {
@@ -173,6 +173,21 @@ class _PaymentGatewayPageState extends State<PaymentGatewayPage> {
     return v.isEmpty || v == 'THIX-PENDING' || v == 'THIX-000000';
   }
 
+  // ✅ Méthode utilitaire pour assigner un vrai THIX ID si nécessaire
+  Future<String> _assignRealThixIdIfMissing({required String uid}) async {
+    final profileService = context.read<ProfileService>();
+    // Vérifier le profil existant
+    final profile = await profileService.fetchPublicProfileByUserId(uid);
+    if (profile != null && !_isPendingThixId(profile.thixId)) {
+      return profile.thixId;
+    }
+    // Générer un nouveau THIX ID
+    final newId = await profileService.generateThixId(uid: uid);
+    // Mettre à jour le profil
+    await profileService.updateProfile(userId: uid, thixId: newId);
+    return newId;
+  }
+
   Future<void> _completeFictiveActivation({
     required AppUser me,
     required String method,
@@ -184,12 +199,11 @@ class _PaymentGatewayPageState extends State<PaymentGatewayPage> {
     bool requireRealThixId = true,
   }) async {
     final auth = context.read<AuthController>();
-    final users = FirestoreUserService();
     String thixId = me.thixId.trim().toUpperCase();
     if (requireRealThixId && _isPendingThixId(thixId)) {
       try {
-        // ✅ Correction : retirer countryOrOrigin et displayName
-        thixId = await users.assignRealThixIdIfMissing(uid: me.id);
+        // ✅ Utilisation de la nouvelle méthode
+        thixId = await _assignRealThixIdIfMissing(uid: me.id);
       } catch (e) {
         debugPrint('PaymentGateway: THIX ID assignment failed; aborting. err=$e');
         rethrow;
@@ -206,8 +220,7 @@ class _PaymentGatewayPageState extends State<PaymentGatewayPage> {
     if (!requireRealThixId && _isPendingThixId(next.thixId)) {
       unawaited(() async {
         try {
-          // ✅ Correction : retirer countryOrOrigin et displayName
-          final real = await users.assignRealThixIdIfMissing(uid: next.id);
+          final real = await _assignRealThixIdIfMissing(uid: next.id);
           await auth.updateCurrentUser(next.copyWith(thixId: real, updatedAt: DateTime.now()));
           debugPrint('PaymentGateway: background THIX ID assigned: $real');
         } catch (e) {
@@ -963,6 +976,4 @@ class _PaymentStepDot extends StatelessWidget {
   }
 }
 
-extension ThemeHelper on BuildContext {
-  ThemeData get theme => Theme.of(this);
-}
+// ✅ Suppression de l'extension ThemeHelper pour éviter les conflits
