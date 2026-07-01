@@ -190,6 +190,11 @@ class NetworkService {
           score += 15 * previousLikes.length.clamp(0, 3);
         }
         
+        // ✅ BONUS : les posts de l'utilisateur courant sont toujours prioritaires
+        if (post.userId == currentUserId) {
+          score += 1000;
+        }
+        
         final random = DateTime.now().millisecondsSinceEpoch % 100 / 100;
         score += random * 30;
         
@@ -426,8 +431,6 @@ class NetworkService {
     );
   }
 
-  // ✅ AJOUTÉ: Alias pour addComment qui retourne un booléen
-  // Utilisé par FeedProvider.addComment()
   Future<bool> addCommentToPost(String postId, String comment) async {
     try {
       await addComment(postId, comment);
@@ -672,9 +675,6 @@ class NetworkService {
       
       return (response as List).map((e) {
         final userData = e['users'] as Map<String, dynamic>?;
-        // Normalize JSON: map DB field names to what NetworkStory.fromJson expects.
-        // - 'users' joined data → 'profiles'
-        // - 'media_url' → 'image_url' (fallback)
         return NetworkStory.fromJson({
           ...e,
           'image_url': e['image_url'] ?? e['media_url'] ?? '',
