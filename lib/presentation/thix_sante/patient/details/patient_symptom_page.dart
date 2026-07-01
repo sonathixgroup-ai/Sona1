@@ -25,17 +25,14 @@ class _PatientSymptomPageState extends State<PatientSymptomPage> {
   final HealthService _healthService = HealthService.instance;
   final SupabaseClient _supabase = SupabaseConfig.client;
 
-  // Contrôleurs
   final _nameController = TextEditingController();
   final _notesController = TextEditingController();
 
-  // Variables d'état
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
   Symptom? _symptom;
 
-  // Données du formulaire
   int _intensity = 3;
   DateTime _selectedDate = DateTime.now();
 
@@ -60,18 +57,14 @@ class _PatientSymptomPageState extends State<PatientSymptomPage> {
 
     try {
       if (widget.symptomId == null) {
-        // Nouveau symptôme : on initialise avec des valeurs par défaut
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         return;
       }
 
-      // Récupérer le symptôme depuis Supabase (le service ne gère pas encore le fetchById)
       final response = await _supabase
           .from('health_symptoms')
           .select('*')
-          .eq('id', widget.symptomId)
+          .eq('id', widget.symptomId!)
           .maybeSingle();
 
       if (response == null) {
@@ -135,13 +128,20 @@ class _PatientSymptomPageState extends State<PatientSymptomPage> {
 
       if (widget.symptomId == null) {
         // Création
-        await _supabase.from('health_symptoms').insert(payload);
+        final created = await _supabase
+            .from('health_symptoms')
+            .insert(payload)
+            .select()
+            .single();
+        final createdId = created['id'] as String; // ✅ correction
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Symptôme ajouté avec succès.'),
             backgroundColor: Colors.green,
           ),
         );
+        if (!mounted) return;
+        context.push('/sante/patient/symptom/$createdId');
       } else {
         // Mise à jour
         await _supabase
@@ -154,10 +154,9 @@ class _PatientSymptomPageState extends State<PatientSymptomPage> {
             backgroundColor: Colors.green,
           ),
         );
+        if (!mounted) return;
+        context.pop(true);
       }
-
-      if (!mounted) return;
-      context.pop(true); // Retourner en indiquant un changement
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
