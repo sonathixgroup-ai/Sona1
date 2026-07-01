@@ -1,4 +1,5 @@
 // presentation/thix_sante/patient/details/patient_wellness_page.dart
+// (version complète avec corrections lignes 531, 541)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
