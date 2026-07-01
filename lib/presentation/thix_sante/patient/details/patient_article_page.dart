@@ -32,10 +32,7 @@ class _PatientArticlePageState extends State<PatientArticlePage> {
     });
 
     try {
-      // Tenter de récupérer l'article depuis le service
-      // Comme le service n'a pas de méthode fetchArticleById, on récupère tous les articles
-      // et on filtre par ID. Dans la vraie vie, il faudrait une requête directe.
-      // On peut aussi supposer que l'article est passé en extra, mais on fait une vraie requête.
+      // Récupérer tous les articles et filtrer par ID
       final articles = await _healthService.fetchHealthArticles(limit: 50);
       final found = articles.firstWhere(
         (a) => a.id == widget.articleId,
@@ -46,7 +43,6 @@ class _PatientArticlePageState extends State<PatientArticlePage> {
         _isLoading = false;
       });
     } catch (e) {
-      // En cas d'échec, on peut afficher un article factice ou une erreur
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -56,10 +52,11 @@ class _PatientArticlePageState extends State<PatientArticlePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Si on a reçu l'article via extra (depuis le dashboard)
-    final extraArticle = state.extra as HealthArticle?;
+    // Récupérer l'article depuis les paramètres de la route (extra)
+    // Utiliser GoRouterState pour accéder à extra
+    final extraArticle = GoRouterState.of(context).extra as HealthArticle?;
     if (extraArticle != null && _article == null && !_isLoading) {
-      // Utiliser l'article passé en extra
+      // Utiliser l'article passé en extra (si disponible)
       setState(() {
         _article = extraArticle;
         _isLoading = false;
