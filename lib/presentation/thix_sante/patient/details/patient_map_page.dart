@@ -24,7 +24,7 @@ class PatientMapPage extends StatefulWidget {
 
 class _PatientMapPageState extends State<PatientMapPage> {
   final HealthService _healthService = HealthService.instance;
-  final _mapController = MapController();
+  final MapController _mapController = MapController();
 
   bool _isLoading = true;
   bool _hasLocation = false;
@@ -60,7 +60,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
 
   Future<void> _initLocation() async {
     try {
-      // Vérifier les permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -103,7 +102,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Charger les pharmacies
       final pharmacies = await _healthService.findNearbyPharmacies(
         _currentLocation!.latitude,
         _currentLocation!.longitude,
@@ -112,8 +110,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
         _pharmacies = pharmacies;
       });
 
-      // Charger les hôpitaux (depuis la même table avec type='hospital' ou table dédiée)
-      // On suppose qu'il y a une table health_hospitals
       final hospitalsData = await SupabaseConfig.client
           .from('health_hospitals')
           .select('*')
@@ -132,7 +128,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
             .toList();
       }
 
-      // Urgences = hôpitaux avec service d'urgence (ou on filtre)
       _emergencies = _hospitals.where((h) => h.isOpen).toList();
 
       setState(() {
@@ -229,7 +224,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
                     )
                   : Column(
                       children: [
-                        // Filtres (catégories)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           child: Row(
@@ -257,16 +251,13 @@ class _PatientMapPageState extends State<PatientMapPage> {
                             ],
                           ),
                         ),
-                        // Carte + liste
                         Expanded(
                           child: Stack(
                             children: [
-                              // Carte
                               if (_showList)
                                 _buildMap()
                               else
                                 _buildList(),
-                              // Bouton retour à la position
                               Positioned(
                                 bottom: 20,
                                 right: 20,
@@ -298,7 +289,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
         height: 40,
         child: GestureDetector(
           onTap: () {
-            // Afficher les infos du lieu
             _showPlaceDetails(place);
           },
           child: Container(
@@ -330,7 +320,7 @@ class _PatientMapPageState extends State<PatientMapPage> {
         initialZoom: 14,
         minZoom: 8,
         maxZoom: 18,
-        onTap: (_, __) => setState(() {}), // pour fermer les popups
+        onTap: (_, __) => setState(() {}),
       ),
       children: [
         TileLayer(
@@ -346,7 +336,6 @@ class _PatientMapPageState extends State<PatientMapPage> {
             ),
           ],
         ),
-        // Marqueur de position actuelle
         MarkerLayer(
           markers: [
             Marker(
@@ -447,8 +436,7 @@ class _PatientMapPageState extends State<PatientMapPage> {
                   if (place.latitude != null && place.longitude != null)
                     OutlinedButton(
                       onPressed: () {
-                        // Ouvrir Google Maps pour l'itinéraire
-                        // TODO: implémenter l'ouverture de Google Maps
+                        // TODO: ouvrir Google Maps
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           const SnackBar(
                             content: Text('Itinéraire à implémenter'),
