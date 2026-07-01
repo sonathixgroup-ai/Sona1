@@ -103,7 +103,6 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_telecons
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_health_score_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_insurance_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart';
 
 // Pages médecin
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
@@ -696,14 +695,15 @@ class AppRouter {
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: PatientScanPage()),
         ),
-        // Téléconsultation Jitsi (déjà existante pour rejoindre avec lien)
+        // Téléconsultation Jitsi (rejoindre)
         GoRoute(
           path: '/sante/patient/teleconsultation/:id',
           name: 'patientTeleconsultation',
           pageBuilder: (context, state) {
             final link = state.extra as String? ?? 'https://meet.jit.si/default';
             return NoTransitionPage(
-                child: JitsiTeleconsultationPage(link: link));
+              child: PatientTeleconsultationJitsiPage(link: link),
+            );
           },
         ),
         // Téléconsultation - création
@@ -1118,7 +1118,7 @@ class AppRouter {
           pageBuilder: (context, state) {
             final link = state.extra as String? ?? 'https://meet.jit.si/default';
             return NoTransitionPage(
-                child: JitsiTeleconsultationPage(link: link));
+                child: PatientTeleconsultationJitsiPage(link: link));
           },
         ),
         // Téléexpertise
