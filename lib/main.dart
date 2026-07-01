@@ -8,23 +8,18 @@ import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
-import 'package:thix_id/services/profile_service.dart';
+// 🔽 Remplacé FirestoreUserService par notre nouveau service Supabase
+import 'package:thix_id/services/supabase_user_service.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
-/// Main entry point for the application
-///
-/// This sets up:
-/// - Provider state management (ThemeProvider, CounterProvider)
-/// - go_router navigation
-/// - Material 3 theming with light/dark modes
+/// Point d’entrée principal – sans Firestore, uniquement Supabase
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Make sure we never end up with an unexplained white screen.
+  // Gestion des erreurs (inchangée)
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exceptionAsString()}');
@@ -47,12 +42,10 @@ Future<void> main() async {
     );
   };
 
-  // IMPORTANT (performance): Do NOT block first frame on network / storage.
-  // Dreamflow preview can feel very heavy if we await Supabase + auth hydration
-  // before calling runApp(). We bootstrap asynchronously and show a lightweight
-  // loading UI immediately.
   runApp(const ProviderScope(child: BootstrapApp()));
 }
+
+// ─── Bootstrap ──────────────────────────────────────────────────────────────
 
 class BootstrapApp extends StatefulWidget {
   const BootstrapApp({super.key});
@@ -72,11 +65,20 @@ class _BootstrapAppState extends State<BootstrapApp> {
       debugPrint(st.toString());
     }
 
-    // Use shared service instances across the whole app to avoid duplicated
-    // streams / closed controllers when multiple pages expect Provider access.
-    final profiles = ProfileService();
-    final users = FirestoreUserService(profiles: profiles);
-    final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
+    // 🔽 Service utilisateur basé sur Supabase (remplace Firestore)
+    final supabaseUserService = SupabaseUserService(SupabaseConfig.client);
+
+    // On garde ProfileService (pour l’authentification) mais on lui passe
+    // le service Supabase pour qu’il puisse lire/écrire les profils.
+    // Vous pouvez aussi supprimer ProfileService et utiliser directement
+    // SupabaseUserService dans AuthController si vous modifiez celui-ci.
+    final profiles = ProfileService(supabaseUserService);
+
+    // AuthController utilise toujours SupabaseAuthManager
+    final auth = AuthController(
+      auth: SupabaseAuthManager(profiles: profiles),
+    );
+
     try {
       await auth.init();
     } catch (e, st) {
@@ -88,7 +90,13 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
     feed.initRealtime();
 
-    return _BootstrapResult(auth: auth, profiles: profiles, users: users, network: network, feed: feed);
+    return _BootstrapResult(
+      auth: auth,
+      profiles: profiles,
+      supabaseUserService: supabaseUserService, // nouveau service
+      network: network,
+      feed: feed,
+    );
   }
 
   @override
@@ -100,7 +108,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
             ? MyApp(
                 auth: snap.data!.auth,
                 profiles: snap.data!.profiles,
-                users: snap.data!.users,
+                supabaseUserService: snap.data!.supabaseUserService,
                 network: snap.data!.network,
                 feed: snap.data!.feed,
               )
@@ -112,7 +120,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 home: const _StartupLoadingPage(),
               );
 
-        // Smooth transition from loader to the real app.
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           switchInCurve: Curves.easeOutCubic,
@@ -127,14 +134,25 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 }
 
+// ─── Résultat du bootstrap ──────────────────────────────────────────────────
+
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
-  final FirestoreUserService users;
+  final SupabaseUserService supabaseUserService; // 🔥 nouveau type
   final NetworkService network;
   final FeedProvider feed;
-  const _BootstrapResult({required this.auth, required this.profiles, required this.users, required this.network, required this.feed});
+
+  const _BootstrapResult({
+    required this.auth,
+    required this.profiles,
+    required this.supabaseUserService,
+    required this.network,
+    required this.feed,
+  });
 }
+
+// ─── Écran de chargement (inchangé) ───────────────────────────────────────
 
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
@@ -164,7 +182,9 @@ class _StartupLoadingPage extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Chargement sécurisé…',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
@@ -183,10 +203,12 @@ class _StartupLoadingPage extends StatelessWidget {
   }
 }
 
+// ─── Application principale ─────────────────────────────────────────────────
+
 class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
-  final FirestoreUserService users;
+  final SupabaseUserService supabaseUserService; // 🔥 remplace FirestoreUserService
   final NetworkService network;
   final FeedProvider feed;
 
@@ -194,7 +216,7 @@ class MyApp extends StatefulWidget {
     super.key,
     required this.auth,
     required this.profiles,
-    required this.users,
+    required this.supabaseUserService,
     required this.network,
     required this.feed,
   });
@@ -211,8 +233,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _localeController = LocaleController()..init();
-    // Ensure go_router refreshes when locale changes so every page rebuilds
-    // consistently (especially for route shells and cached pages).
     _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
   }
 
@@ -223,7 +243,8 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
-        Provider<FirestoreUserService>.value(value: widget.users),
+        // 🔽 Fournir le nouveau service Supabase (à la place de FirestoreUserService)
+        Provider<SupabaseUserService>.value(value: widget.supabaseUserService),
         Provider<NetworkService>.value(value: widget.network),
         ChangeNotifierProvider.value(value: widget.feed),
       ],
