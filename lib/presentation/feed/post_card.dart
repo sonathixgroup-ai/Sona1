@@ -1,106 +1,183 @@
 // lib/presentation/feed/post_card.dart
 import 'package:flutter/material.dart';
-import 'package:thix_id/models/post.dart';
-import 'package:thix_id/services/post_service.dart';
 import 'package:provider/provider.dart';
-import 'package:thix_id/utils/time_ago.dart';
+import 'package:thix_id/models/network_post.dart';
+import 'package:thix_id/services/network_service.dart';
 
-class PostCard extends StatefulWidget {
-  final Post post;
+class PostCard extends StatelessWidget {
+  final NetworkPost post;
   final String currentProfileId;
 
   const PostCard({Key? key, required this.post, required this.currentProfileId}) : super(key: key);
 
   @override
-  State<PostCard> createState() => _PostCardState();
-}
-
-class _PostCardState extends State<PostCard> {
-  bool _liked = false;
-  int _likes = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _likes = widget.post.likeCount;
-  }
-
-  Future<void> _toggleLike() async {
-    final svc = context.read<PostService>();
-    try {
-      if (_liked) {
-        await svc.unlikePost(profileId: widget.currentProfileId, postId: widget.post.id);
-        setState(() {
-          _liked = false;
-          _likes = (_likes - 1).clamp(0, 1 << 30);
-        });
-      } else {
-        await svc.likePost(profileId: widget.currentProfileId, postId: widget.post.id);
-        setState(() {
-          _liked = true;
-          _likes = _likes + 1;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final author = widget.post.author ?? {};
-    final name = author['display_name'] ?? 'Utilisateur';
-    final avatar = author['photo_url'] ?? '';
+    final isLiked = post.isLiked;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
               children: [
-                CircleAvatar(backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null, child: avatar.isEmpty ? Icon(Icons.person) : null),
+                CircleAvatar(
+                  backgroundImage: post.authorAvatar != null && post.authorAvatar!.isNotEmpty
+                      ? NetworkImage(post.authorAvatar!)
+                      : null,
+                  child: Text(post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : '?'),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: TextStyle(fontWeight: FontWeight.w800)),
-                      Text(formatTimeAgo(widget.post.createdAt), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (post.authorTitle != null && post.authorTitle!.isNotEmpty)
+                        Text(post.authorTitle!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ),
-                PopupMenuButton(itemBuilder: (_) => [PopupMenuItem(child: Text('Signaler'))]),
+                IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () {},
+                ),
               ],
             ),
-            if (widget.post.content.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(widget.post.content),
-            ],
-            if (widget.post.media.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 180,
-                child: PageView(
-                  children: widget.post.media.map((m) => Image.network(m.url, fit: BoxFit.cover)).toList(),
-                ),
-              )
-            ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+
+            // Content
+            if (post.content.isNotEmpty)
+              Text(post.content, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+
+            // Images
+            if (post.imageUrls.isNotEmpty)
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: post.imageUrls.map((url) {
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      url,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 100,
+                        height: 100,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            const SizedBox(height: 8),
+
+            // Stats
             Row(
               children: [
-                IconButton(icon: Icon(_liked ? Icons.thumb_up : Icons.thumb_up_off_alt), onPressed: _toggleLike),
-                Text('$_likes'),
+                Text('${post.likesCount} J\'aime${post.likesCount > 1 ? 's' : ''}'),
                 const SizedBox(width: 16),
-                IconButton(icon: Icon(Icons.comment_outlined), onPressed: () {}),
-                const Spacer(),
-                IconButton(icon: Icon(Icons.share_outlined), onPressed: () {}),
+                Text('${post.commentsCount} Commentaire${post.commentsCount > 1 ? 's' : ''}'),
               ],
-            )
+            ),
+            const Divider(),
+
+            // Actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildActionButton(
+                  icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                  label: 'J\'aime',
+                  color: isLiked ? Colors.red : null,
+                  onTap: () {
+                    final networkService = context.read<NetworkService>();
+                    if (isLiked) {
+                      networkService.unlikePost(post.id);
+                    } else {
+                      networkService.likePost(post.id);
+                    }
+                  },
+                ),
+                _buildActionButton(
+                  icon: Icons.comment,
+                  label: 'Commenter',
+                  onTap: () {
+                    _showCommentDialog(context, post);
+                  },
+                ),
+                _buildActionButton(
+                  icon: Icons.share,
+                  label: 'Partager',
+                  onTap: () {
+                    // Partager le post
+                  },
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color ?? Colors.grey),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: color ?? Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCommentDialog(BuildContext context, NetworkPost post) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ajouter un commentaire'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Écrivez votre commentaire…'),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () async {
+              final content = controller.text.trim();
+              if (content.isNotEmpty) {
+                final networkService = context.read<NetworkService>();
+                await networkService.addComment(post.id, content);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Publier'),
+          ),
+        ],
       ),
     );
   }
