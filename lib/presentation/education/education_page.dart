@@ -469,9 +469,7 @@ class EducationPage extends StatelessWidget {
   }
 }
 
-/// Extension helper
+/// ✅ Extension corrigée
 extension ThemeHelper on BuildContext {
   ThemeData get theme => Theme.of(this);
-
-  TextTheme get textStyles => Theme.of(this).textTheme;
 }
