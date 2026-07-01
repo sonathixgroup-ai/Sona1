@@ -7,7 +7,7 @@ import 'package:nfc_manager/nfc_manager.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/document_service.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';         // ✅ remplace firestore_user_service
 import 'package:thix_id/services/thix_id_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
@@ -214,9 +214,6 @@ class _ThixNfcScanBottomSheetState extends State<_ThixNfcScanBottomSheet> {
         pollingOptions: const {NfcPollingOption.iso14443, NfcPollingOption.iso15693, NfcPollingOption.iso18092},
         onDiscovered: (tag) async {
           try {
-            // nfc_manager v4 exposes tags through a generic Map structure.
-            // We keep this robust by displaying the raw payload and letting the
-            // backend/UI parse a THIX ID if present.
             final text = tag.data.toString();
             if (!mounted) return;
             setState(() {
@@ -351,7 +348,8 @@ class _ThixVerifyBottomSheet extends StatefulWidget {
 }
 
 class _ThixVerifyBottomSheetState extends State<_ThixVerifyBottomSheet> {
-  final _users = FirestoreUserService();
+  // ✅ remplace FirestoreUserService par ProfileService
+  final _profileService = ProfileService();
   late final TextEditingController _uidController;
   late final TextEditingController _docController;
   bool _loading = false;
@@ -400,7 +398,11 @@ class _ThixVerifyBottomSheetState extends State<_ThixVerifyBottomSheet> {
 
     setState(() => _loading = true);
     try {
-      final other = isThix ? await _users.fetchUserByThixId(uidNormalized.toUpperCase()) : await _users.fetchUserByUid(uidRaw);
+      // ✅ Appels corrigés avec ProfileService
+      final other = isThix 
+          ? await _profileService.fetchPublicProfileByThixId(uidNormalized.toUpperCase()) 
+          : await _profileService.fetchPublicProfileByUserId(uidRaw);
+
       if (other == null) throw Exception(isThix ? 'THIX ID introuvable.' : 'UID introuvable.');
 
       if (doc.isNotEmpty) {
@@ -408,7 +410,7 @@ class _ThixVerifyBottomSheetState extends State<_ThixVerifyBottomSheet> {
         final row = await SupabaseConfig.client
             .from(DocumentService.table)
             .select('id')
-            .eq('user_id', other.id)
+            .eq('user_id', other.userId)   // ✅ other.userId au lieu de other.id
             .eq('doc_id', docId)
             .limit(1)
             .maybeSingle();
@@ -568,7 +570,6 @@ class _ThixQrScanBottomSheetState extends State<_ThixQrScanBottomSheet> {
       }
     }
     if (v.toLowerCase().startsWith('thix-')) return (uid: v, docId: null);
-    // Allow raw Firebase UID in QR.
     if (RegExp(r'^[A-Za-z0-9_\-]{20,}$').hasMatch(v)) return (uid: v, docId: null);
     return (uid: null, docId: null);
   }
