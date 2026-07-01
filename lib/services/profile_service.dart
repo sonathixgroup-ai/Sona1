@@ -34,8 +34,12 @@ class ProfileService {
       await SupabaseConfig.client.rpc('pgrst_schema_reload');
       debugPrint('ProfileService: schema reloaded via RPC');
     } catch (_) {
-      await SupabaseConfig.client.functions.invoke('pgrst_schema_reload', body: {});
-      debugPrint('ProfileService: schema reloaded via edge function');
+      try {
+        await SupabaseConfig.client.functions.invoke('pgrst_schema_reload', body: {});
+        debugPrint('ProfileService: schema reloaded via edge function');
+      } catch (e) {
+        debugPrint('ProfileService: schema reload failed: $e');
+      }
     }
   }
 
@@ -57,7 +61,12 @@ class ProfileService {
           .select()
           .order('updated_at', ascending: false)
           .limit(limit);
-      final rows = (res is List) ? res.cast<Map<String, dynamic>>() : const [];
+
+      if (res is! List) return const [];
+      
+      // ✅ Correction : transformation explicite en List<Map<String, dynamic>>
+      final rows = res.map((e) => e as Map<String, dynamic>).toList();
+      
       return rows
           .map(ThixProfile.fromPrivateRow)
           .where((p) => p.thixId.trim().isNotEmpty)
@@ -133,7 +142,11 @@ class ProfileService {
     final uid = userId.trim();
     if (uid.isEmpty) return null;
     try {
-      final row = await SupabaseService.selectSingle(table, filters: {'id': uid});
+      final row = await SupabaseConfig.client
+          .from(table)
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
       return row != null ? ThixProfile.fromPrivateRow(row) : null;
     } catch (e) {
       debugPrint('fetchPublicProfileByUserId error: $e');
@@ -145,10 +158,11 @@ class ProfileService {
     final normalized = thixId.trim().toUpperCase();
     if (normalized.isEmpty) return null;
     try {
-      final row = await SupabaseService.selectSingle(
-        table,
-        filters: {'thix_id': normalized},
-      );
+      final row = await SupabaseConfig.client
+          .from(table)
+          .select()
+          .eq('thix_id', normalized)
+          .maybeSingle();
       return row != null ? ThixProfile.fromPrivateRow(row) : null;
     } catch (e) {
       debugPrint('fetchPublicProfileByThixId error: $e');
@@ -329,7 +343,7 @@ class ProfileService {
     put('contacts', contacts);
     if (visibility != null) data['visibility_settings'] = visibility.toJson();
 
-    // Mise à jour directe dans Supabase (pas de cache local)
+    // Mise à jour directe dans Supabase
     try {
       await SupabaseSafeWrite.update(
         client: SupabaseConfig.client,
@@ -355,7 +369,7 @@ class ProfileService {
       }
     } catch (e) {
       debugPrint('updateProfile failed: $e');
-      rethrow; // L’appelant pourra gérer l’erreur
+      rethrow;
     }
   }
 
@@ -427,7 +441,7 @@ class ProfileService {
     }
   }
 
-  // ─── Transformation des entrées (inchangé) ───────────────────────────
+  // ─── Transformation des entrées ──────────────────────────────────────
 
   Map<String, dynamic> _trainingEntryToFormationRow(Map<String, dynamic> entry) {
     final title = (entry['title'] ?? entry['name'] ?? entry['degree'] ?? entry['level'] ?? '').toString().trim();
@@ -533,5 +547,34 @@ class ProfileService {
     required ThixVisibilitySettings visibility,
   }) async {
     await updateProfile(userId: userId, visibility: visibility);
+  }
+
+  // ✅ AJOUT : Génération d'un THIX ID unique via une RPC Supabase
+  Future<String> generateThixId({required String uid}) async {
+    try {
+      final res = await SupabaseConfig.client.rpc('thix_generate_id', params: {'p_user_id': uid});
+      final id = (res is String) ? res : (res?.toString() ?? '').trim();
+      if (id.isEmpty) throw Exception('Génération THIX ID échouée');
+      return id;
+    } catch (e) {
+      debugPrint('ProfileService.generateThixId error: $e');
+      rethrow;
+    }
+  }
+
+  // ✅ AJOUT : Réservation d'un THIX CHAT unique via une RPC Supabase
+  Future<String> reserveThixChat({required String userId, required String desired}) async {
+    try {
+      final res = await SupabaseConfig.client.rpc('thix_reserve_chat', params: {
+        'p_user_id': userId,
+        'p_desired': desired.trim(),
+      });
+      final chat = (res is String) ? res : (res?.toString() ?? '').trim();
+      if (chat.isEmpty) throw Exception('Réservation THIX CHAT échouée');
+      return chat;
+    } catch (e) {
+      debugPrint('ProfileService.reserveThixChat error: $e');
+      rethrow;
+    }
   }
 }
