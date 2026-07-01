@@ -58,14 +58,9 @@ class _PatientChatPageState extends State<PatientChatPage> {
         throw Exception('Utilisateur non connecté');
       }
 
-      // Récupérer le nom du destinataire
       _recipientName = widget.recipientName ?? 'Interlocuteur';
 
-      // Récupérer l'ID du destinataire (si le chatId est un email ou un ID)
-      // Dans une vraie app, on aurait une table de correspondance
-      // Pour cet exemple, on utilise l'extra ou on simule
       if (widget.chatId.contains('@')) {
-        // C'est probablement un email
         final response = await _supabase
             .from('profiles')
             .select('id')
@@ -74,14 +69,12 @@ class _PatientChatPageState extends State<PatientChatPage> {
         if (response != null) {
           _recipientId = response['id'];
         } else {
-          _recipientId = widget.chatId; // fallback
+          _recipientId = widget.chatId;
         }
       } else {
         _recipientId = widget.chatId;
       }
 
-      // Charger les messages existants (pour l'exemple, on charge depuis une table health_messages)
-      // Si la table n'existe pas, on charge des messages mockés
       try {
         final response = await _supabase
             .from('health_messages')
@@ -94,11 +87,9 @@ class _PatientChatPageState extends State<PatientChatPage> {
         if (response is List && response.isNotEmpty) {
           _messages = response.map((e) => e as Map<String, dynamic>).toList();
         } else {
-          // Pas de messages en base, charger des messages mockés pour l'exemple
           _loadMockMessages(user.id);
         }
       } catch (e) {
-        // Si la table n'existe pas, charger des messages mockés
         _loadMockMessages(user.id);
       }
 
@@ -107,7 +98,6 @@ class _PatientChatPageState extends State<PatientChatPage> {
         _isInitialized = true;
       });
 
-      // Scroll en bas après chargement
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
       });
@@ -120,7 +110,6 @@ class _PatientChatPageState extends State<PatientChatPage> {
   }
 
   void _loadMockMessages(String userId) {
-    // Messages mockés
     _messages = [
       {
         'id': 'msg1',
@@ -185,7 +174,6 @@ class _PatientChatPageState extends State<PatientChatPage> {
         'sender_name': user.displayName ?? 'Moi',
       };
 
-      // Envoyer le message à la base de données (si la table existe)
       try {
         await _supabase.from('health_messages').insert({
           'sender_id': user.id,
@@ -193,9 +181,7 @@ class _PatientChatPageState extends State<PatientChatPage> {
           'content': text,
           'is_read': false,
         });
-      } catch (_) {
-        // Si la table n'existe pas, on garde le message en local
-      }
+      } catch (_) {}
 
       setState(() {
         _messages.add(newMessage);
@@ -205,8 +191,7 @@ class _PatientChatPageState extends State<PatientChatPage> {
 
       _scrollToBottom();
 
-      // Simuler une réponse automatique (pour la démo)
-      if (!_recipientId?.contains('assistant') ?? false) {
+      if (!(_recipientId?.contains('assistant') ?? false)) {
         _simulateReply(user.id);
       }
     } catch (e) {
@@ -297,7 +282,6 @@ class _PatientChatPageState extends State<PatientChatPage> {
                 )
               : Column(
                   children: [
-                    // Liste des messages
                     Expanded(
                       child: ListView.builder(
                         controller: _scrollController,
@@ -315,7 +299,6 @@ class _PatientChatPageState extends State<PatientChatPage> {
                         },
                       ),
                     ),
-                    // Zone de saisie
                     _buildMessageInput(),
                   ],
                 ),
