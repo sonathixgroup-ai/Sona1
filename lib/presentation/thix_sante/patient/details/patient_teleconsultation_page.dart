@@ -1,5 +1,4 @@
 // presentation/thix_sante/patient/details/patient_teleconsultation_page.dart
-// (version complète avec correction ligne 96)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -205,7 +204,8 @@ class _PatientTeleconsultationPageState
             .select()
             .single();
 
-        final createdId = created['id'] as String; // ✅ correction
+        // ✅ Correction : convertir en String non nullable
+        final createdId = created['id'] as String;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Téléconsultation créée avec succès'),
