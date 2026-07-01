@@ -29,13 +29,15 @@ class _FeedPageState extends State<FeedPage> {
   bool _hasMore = true;
 
   int _page = 0;
-  final int _pageSize = 20;
+
+  static const int _pageSize = 20;
 
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+
     _loadInitial();
     _startRealtime();
   }
@@ -49,7 +51,7 @@ class _FeedPageState extends State<FeedPage> {
   void _startRealtime() {
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 10),
-      (timer) {
+      (_) {
         if (mounted && !_loading) {
           _loadInitial();
         }
@@ -67,26 +69,34 @@ class _FeedPageState extends State<FeedPage> {
     try {
       final svc = context.read<NetworkService>();
 
-      // ✅ CORRECTION
+      /// ✅ CORRECTION
+      /// ❌ page:
+      /// ✅ offset:
       final items = await svc.getFeedPosts(
-        page: 0,
         limit: _pageSize,
+        offset: 0,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _posts.clear();
-        _posts.addAll(items);
+        _posts
+          ..clear()
+          ..addAll(items);
 
         _page = 1;
+
         _hasMore = items.length >= _pageSize;
       });
     } catch (e) {
-      debugPrint('FeedPage _loadInitial error: $e');
+      debugPrint(
+        'FeedPage _loadInitial error: $e',
+      );
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+        });
       }
     }
   }
@@ -94,53 +104,76 @@ class _FeedPageState extends State<FeedPage> {
   Future<void> _loadMore() async {
     if (_loading || !_hasMore) return;
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+    });
 
     try {
       final svc = context.read<NetworkService>();
 
-      // ✅ CORRECTION
+      /// ✅ CORRECTION
+      /// ❌ page:
+      /// ✅ offset:
       final items = await svc.getFeedPosts(
-        page: _page,
         limit: _pageSize,
+        offset: _page * _pageSize,
       );
 
       if (!mounted) return;
 
-      if (items.isNotEmpty) {
-        setState(() {
-          _posts.addAll(items);
+      setState(() {
+        _posts.addAll(items);
 
-          _page++;
+        _page++;
 
-          _hasMore = items.length >= _pageSize;
-        });
-      } else {
-        setState(() {
-          _hasMore = false;
-        });
-      }
+        _hasMore = items.length >= _pageSize;
+      });
     } catch (e) {
-      debugPrint('FeedPage _loadMore error: $e');
+      debugPrint(
+        'FeedPage _loadMore error: $e',
+      );
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+        });
       }
     }
+  }
+
+  bool _onScroll(
+    ScrollNotification notification,
+  ) {
+    if (_loading || !_hasMore) {
+      return false;
+    }
+
+    final metrics = notification.metrics;
+
+    if (metrics.pixels >=
+        metrics.maxScrollExtent - 200) {
+      _loadMore();
+    }
+
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fil d\'actualité'),
+        title: const Text(
+          'Fil d\'actualité',
+        ),
       ),
 
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton:
+          FloatingActionButton(
         onPressed: () {
           showDialog(
             context: context,
-            builder: (_) => const CreatePostDialog(),
+            builder: (_) =>
+                const CreatePostDialog(),
           ).then((_) {
             if (mounted) {
               _loadInitial();
@@ -153,33 +186,33 @@ class _FeedPageState extends State<FeedPage> {
       body: RefreshIndicator(
         onRefresh: _loadInitial,
 
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (scrollInfo) {
-            if (!_loading &&
-                _hasMore &&
-                scrollInfo.metrics.pixels >=
-                    scrollInfo.metrics.maxScrollExtent - 200) {
-              _loadMore();
-            }
-
-            return false;
-          },
+        child:
+            NotificationListener<
+                ScrollNotification>(
+          onNotification: _onScroll,
 
           child: ListView.builder(
             padding: const EdgeInsets.all(12),
 
             itemCount: _posts.length + 1,
 
-            itemBuilder: (context, index) {
+            itemBuilder: (
+              context,
+              index,
+            ) {
               if (index >= _posts.length) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-
+                  padding:
+                      const EdgeInsets.symmetric(
+                    vertical: 24,
+                  ),
                   child: Center(
                     child: _loading
                         ? const CircularProgressIndicator()
                         : !_hasMore
-                            ? const Text('Fin du fil')
+                            ? const Text(
+                                'Fin du fil',
+                              )
                             : const SizedBox.shrink(),
                   ),
                 );
@@ -189,7 +222,8 @@ class _FeedPageState extends State<FeedPage> {
 
               return PostCard(
                 post: post,
-                currentProfileId: widget.profileId,
+                currentProfileId:
+                    widget.profileId,
               );
             },
           ),
