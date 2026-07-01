@@ -48,8 +48,6 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     )..repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Ensure feed realtime is initialised when the user lands on Réseau Pro.
-      // This is safe even if called multiple times thanks to FeedProvider guards.
       try {
         Provider.of<FeedProvider>(context, listen: false).initRealtime();
       } catch (e) {
@@ -106,6 +104,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
   }
 
   Future<void> _loadPosts() async {
+    // On garde cette méthode pour les appels de rafraîchissement par filtre
     if (!mounted) return;
     final feedProvider = Provider.of<FeedProvider>(context, listen: false);
     setState(() => _loadingPosts = true);
@@ -176,11 +175,8 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
         color: ThixHomeColors.primaryBlue,
         child: CustomScrollView(
           slivers: [
-            // Search bar
             SliverToBoxAdapter(child: _buildSearchBar()),
-            // Stories row
             SliverToBoxAdapter(child: _buildStoriesRow()),
-            // Feed filter chips
             SliverToBoxAdapter(child: _buildFilterChips()),
             if (isLoading && posts.isEmpty)
               const SliverFillRemaining(
@@ -199,7 +195,6 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
                   childCount: posts.length,
                 ),
               ),
-            // Suggestions section
             if (_suggestions.isNotEmpty)
               SliverToBoxAdapter(child: _buildSuggestionsSection()),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -763,16 +758,19 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     );
   }
 
+  // ✅ MODIFICATION ICI : avec délai et _loadAllData()
   Widget _buildFAB() {
     return FloatingActionButton.extended(
       onPressed: () {
-        showDialog(
+        showDialog<bool>(
           context: context,
           builder: (context) => const CreatePostDialog(),
-        ).then((_) {
-          // Reload feed after dialog closes as a safety net (CreatePostDialog
-          // already reloads internally, but this guards against edge cases).
-          if (mounted) _loadPosts();
+        ).then((success) {
+          if (success == true) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) _loadAllData();
+            });
+          }
         });
       },
       label: const Text('Publier'),
@@ -826,6 +824,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
     );
   }
 
+  // ✅ MODIFICATION ICI : avec délai et _loadAllData()
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -845,11 +844,15 @@ class _NetworkProHomeState extends State<NetworkProHome> with TickerProviderStat
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () {
-                showDialog(
+                showDialog<bool>(
                   context: context,
                   builder: (context) => const CreatePostDialog(),
-                ).then((_) {
-                  if (mounted) _loadPosts();
+                ).then((success) {
+                  if (success == true) {
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      if (mounted) _loadAllData();
+                    });
+                  }
                 });
               },
               icon: const Icon(Icons.add, size: 16),
