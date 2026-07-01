@@ -1,5 +1,4 @@
 // presentation/thix_sante/patient/details/patient_vital_page.dart
-// Version corrigée – ligne 362
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,7 +10,6 @@ import 'package:thix_id/supabase/supabase_config.dart';
 class PatientVitalPage extends StatefulWidget {
   final String? vitalId;
   final bool isEditing;
-
   const PatientVitalPage({super.key, this.vitalId, this.isEditing = false});
 
   @override
@@ -354,7 +352,7 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
           decoration: const InputDecoration(
             labelText: 'Unité (ex: kg, mmHg, bpm)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.unit), // ✅ CORRECTION : sans const
+            prefixIcon: Icon(Icons.measuring_tape), // ✅ Remplacé par une icône existante
           ),
         ),
         const SizedBox(height: 12),
