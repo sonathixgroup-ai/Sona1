@@ -1,4 +1,5 @@
 // presentation/thix_sante/patient/details/patient_teleconsultation_page.dart
+// (version complète avec correction ligne 96)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -204,7 +205,7 @@ class _PatientTeleconsultationPageState
             .select()
             .single();
 
-        final createdId = created['id'] as String; // ✅ correction ici
+        final createdId = created['id'] as String; // ✅ correction
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Téléconsultation créée avec succès'),
@@ -307,7 +308,6 @@ class _PatientTeleconsultationPageState
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
-                // ✅ correction ligne 233
                 if (_consultation != null) {
                   context.push('/sante/patient/teleconsultation/${_consultation!.id}?edit=true');
                 }
