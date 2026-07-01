@@ -1,10 +1,8 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
-import 'package:thix_id/services/local_profile_store.dart';
 import 'package:thix_id/services/supabase_safe_write.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
@@ -15,29 +13,29 @@ class ProfileService {
   static const String emergencyContactsTable = 'contacts_urgence';
   static const String credentialsBucket = 'thix-credentials';
 
+  // Désactivation automatique des tables optionnelles si elles n'existent pas
   static final Set<String> _disabledOptionalTables = <String>{};
-  static bool _isMissingTableError(Object e) => e is PostgrestException && (e.code == 'PGRST205' || e.message.contains('Could not find the table'));
+
+  static bool _isMissingTableError(Object e) =>
+      e is PostgrestException &&
+      (e.code == 'PGRST205' || e.message.contains('Could not find the table'));
+
   static bool _isUnknownColumnError(Object e) {
     if (e is! PostgrestException) return false;
-    return e.code == 'PGRST204' || e.code == '42703' || e.message.contains("Could not find the '") || e.message.toLowerCase().contains('does not exist');
+    return e.code == 'PGRST204' ||
+        e.code == '42703' ||
+        e.message.contains("Could not find the '") ||
+        e.message.toLowerCase().contains('does not exist');
   }
 
-  final LocalProfileStore _local = LocalProfileStore();
-
+  /// Recharge le cache de schéma PostgREST (utile après une migration)
   Future<void> _reloadSchemaCache() async {
     try {
-      try {
-        await SupabaseConfig.client.rpc('pgrst_schema_reload');
-        debugPrint('ProfileService: requested PostgREST schema reload via RPC');
-        return;
-      } catch (e) {
-        debugPrint('ProfileService: schema reload RPC failed (will try edge function) err=$e');
-      }
-      await SupabaseConfig.client.functions.invoke('pgrst_schema_reload', body: const {});
-      debugPrint('ProfileService: requested PostgREST schema reload via edge function');
-    } catch (e) {
-      debugPrint('ProfileService: schema reload invoke failed err=$e');
-      rethrow;
+      await SupabaseConfig.client.rpc('pgrst_schema_reload');
+      debugPrint('ProfileService: schema reloaded via RPC');
+    } catch (_) {
+      await SupabaseConfig.client.functions.invoke('pgrst_schema_reload', body: {});
+      debugPrint('ProfileService: schema reloaded via edge function');
     }
   }
 
@@ -50,19 +48,34 @@ class ProfileService {
     return t;
   }
 
+  // ─── Récupération publique ──────────────────────────────────────────────
+
   Future<List<ThixProfile>> fetchPublicSuggestions({int limit = 12}) async {
     try {
-      final res = await SupabaseConfig.client.from(table).select().order('updated_at', ascending: false).limit(limit);
-      final rows = (res is List) ? res.cast<Map<String, dynamic>>() : const <Map<String, dynamic>>[];
-      return rows.map(ThixProfile.fromPrivateRow).where((p) => p.thixId.trim().isNotEmpty).toList(growable: false);
+      final res = await SupabaseConfig.client
+          .from(table)
+          .select()
+          .order('updated_at', ascending: false)
+          .limit(limit);
+      final rows = (res is List) ? res.cast<Map<String, dynamic>>() : const [];
+      return rows
+          .map(ThixProfile.fromPrivateRow)
+          .where((p) => p.thixId.trim().isNotEmpty)
+          .toList(growable: false);
     } catch (e) {
-      debugPrint('ProfileService.fetchPublicSuggestions failed err=$e');
+      debugPrint('fetchPublicSuggestions error: $e');
       return const [];
     }
   }
 
+  // ─── Garantir l’existence d’un profil ──────────────────────────────────
+
   Future<void> ensureProfileExists({required AppUser user}) async {
-    final base = ThixProfile.fallback(userId: user.id, thixId: user.thixId, displayName: user.displayName);
+    final base = ThixProfile.fallback(
+      userId: user.id,
+      thixId: user.thixId,
+      displayName: user.displayName,
+    );
     try {
       await SupabaseSafeWrite.upsert(
         client: SupabaseConfig.client,
@@ -75,108 +88,55 @@ class ProfileService {
         onUnknownColumn: _reloadSchemaCache,
       );
     } catch (e) {
-      debugPrint('ProfileService.ensureProfileExists failed err=$e');
+      debugPrint('ensureProfileExists failed: $e');
     }
   }
 
+  // ─── Streams en temps réel (Supabase Realtime) ────────────────────────
+
+  /// Stream du profil de l'utilisateur courant
   Stream<ThixProfile?> streamMyProfile(String userId) {
-    final controller = StreamController<ThixProfile?>.broadcast();
-    Timer? pollTimer;
-    var didEmitCached = false;
-    var didRunBeforeFetch = false;
-
-    bool canAdd() => !controller.isClosed;
-
-    Future<ThixProfile?> loadCached() => _local.loadMyProfile(userId);
-
-    Future<void> emitCached() async {
-      if (didEmitCached) return;
-      didEmitCached = true;
-      try {
-        final cached = await loadCached();
-        if (!canAdd()) return;
-        if (cached != null) controller.add(cached);
-      } catch (e) {
-        debugPrint('ProfileService.streamMyProfile emitCached failed userId=$userId err=$e');
-      }
-    }
-
-    Future<void> emitLatest() async {
-      try {
-        if (!canAdd()) return;
-        if (!didRunBeforeFetch) {
-          didRunBeforeFetch = true;
-          await flushPendingProfileWrites(userId);
-        }
-        final row = await SupabaseService.selectSingle(table, filters: {'id': userId});
-        if (row == null) {
-          if (!didEmitCached && canAdd()) controller.add(null);
-          return;
-        }
-        final cached = await loadCached();
-        final merged = <String, dynamic>{...?(cached?.toPrivateRowJson()), ...row};
-        final mapped = ThixProfile.fromPrivateRow(merged);
-        if (!canAdd()) return;
-        controller.add(mapped);
-        unawaited(() async {
-          await _local.saveMyProfile(mapped);
-          if (mapped.thixId.trim().isNotEmpty) await _local.savePublicProfile(mapped);
-        }());
-      } catch (e) {
-        debugPrint('ProfileService.streamMyProfile emitLatest failed userId=$userId err=$e');
-        if (!didEmitCached && canAdd()) controller.add(null);
-      }
-    }
-
-    controller.onListen = () {
-      unawaited(emitCached());
-      unawaited(emitLatest());
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-        if (controller.isClosed) return;
-        unawaited(emitLatest());
-      });
-    };
-
-    controller.onCancel = () {
-      pollTimer?.cancel();
-      controller.close();
-    };
-
-    return controller.stream;
+    return _streamProfileById(userId);
   }
 
+  /// Stream d'un profil public par thix_id
   Stream<ThixProfile?> streamPublicProfileByThixId(String thixId) {
     final normalized = thixId.trim().toUpperCase();
-    return _streamSingleByEq(
-      table,
-      key: 'thix_id',
-      value: normalized,
-      mapper: ThixProfile.fromPrivateRow,
-      loadCached: () => _local.loadPublicProfile(normalized),
-      saveCached: (p) => _local.savePublicProfile(p),
-    );
+    return _streamProfileByEq('thix_id', normalized);
   }
 
+  /// Stream d'un profil public par user_id
   Stream<ThixProfile?> streamPublicProfileByUserId(String userId) {
     final uid = userId.trim();
     if (uid.isEmpty) return const Stream<ThixProfile?>.empty();
-    return _streamSingleByEq(
-      table,
-      key: 'id',
-      value: uid,
-      mapper: ThixProfile.fromPrivateRow,
-    );
+    return _streamProfileByEq('id', uid);
   }
+
+  Stream<ThixProfile?> _streamProfileById(String userId) {
+    return _streamProfileByEq('id', userId);
+  }
+
+  Stream<ThixProfile?> _streamProfileByEq(String column, String value) {
+    return SupabaseConfig.client
+        .from(table)
+        .stream(primaryKey: ['id'])
+        .eq(column, value)
+        .map((rows) {
+          if (rows.isEmpty) return null;
+          return ThixProfile.fromPrivateRow(rows.first);
+        });
+  }
+
+  // ─── Fetch ponctuels (sans cache) ──────────────────────────────────────
 
   Future<ThixProfile?> fetchPublicProfileByUserId(String userId) async {
     final uid = userId.trim();
     if (uid.isEmpty) return null;
     try {
       final row = await SupabaseService.selectSingle(table, filters: {'id': uid});
-      if (row == null) return null;
-      return ThixProfile.fromPrivateRow(row);
+      return row != null ? ThixProfile.fromPrivateRow(row) : null;
     } catch (e) {
-      debugPrint('ProfileService.fetchPublicProfileByUserId failed uid=$uid err=$e');
+      debugPrint('fetchPublicProfileByUserId error: $e');
       return null;
     }
   }
@@ -185,43 +145,40 @@ class ProfileService {
     final normalized = thixId.trim().toUpperCase();
     if (normalized.isEmpty) return null;
     try {
-      final row = await SupabaseService.selectSingle(table, filters: {'thix_id': normalized});
-      if (row == null) return null;
-      final p = ThixProfile.fromPrivateRow(row);
-      unawaited(_local.savePublicProfile(p));
-      return p;
+      final row = await SupabaseService.selectSingle(
+        table,
+        filters: {'thix_id': normalized},
+      );
+      return row != null ? ThixProfile.fromPrivateRow(row) : null;
     } catch (e) {
-      debugPrint('ProfileService.fetchPublicProfileByThixId failed err=$e');
-      return _local.loadPublicProfile(normalized);
+      debugPrint('fetchPublicProfileByThixId error: $e');
+      return null;
     }
   }
 
-  Future<void> flushPendingProfileWrites(String userId) async {
-    final patches = await _local.loadPendingPatches(userId);
-    if (patches.isEmpty) return;
+  // ─── Streams des sous‑tables (Realtime) ───────────────────────────────
 
-    final remaining = <Map<String, dynamic>>[];
-    for (final patch in patches) {
-      try {
-        await SupabaseSafeWrite.update(
-          client: SupabaseConfig.client,
-          table: table,
-          patch: patch,
-          filters: {'id': userId},
-          onUnknownColumn: _reloadSchemaCache,
-        );
-      } catch (e) {
-        debugPrint('ProfileService.flushPendingProfileWrites failed userId=$userId err=$e');
-        remaining.add(patch);
-        final idx = patches.indexOf(patch);
-        if (idx + 1 < patches.length) {
-          remaining.addAll(patches.sublist(idx + 1));
-        }
-        break;
-      }
+  Stream<List<Map<String, dynamic>>> streamFormations(String userId) =>
+      _streamSubTable(formationsTable, userId);
+
+  Stream<List<Map<String, dynamic>>> streamExperiences(String userId) =>
+      _streamSubTable(experiencesTable, userId);
+
+  Stream<List<Map<String, dynamic>>> streamEmergencyContacts(String userId) =>
+      _streamSubTable(emergencyContactsTable, userId);
+
+  Stream<List<Map<String, dynamic>>> _streamSubTable(String tableName, String userId) {
+    if (_disabledOptionalTables.contains(tableName)) {
+      return const Stream<List<Map<String, dynamic>>>.empty();
     }
-    await _local.setPendingPatches(userId, remaining);
+    return SupabaseConfig.client
+        .from(tableName)
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((rows) => rows.cast<Map<String, dynamic>>());
   }
+
+  // ─── Mises à jour du profil principal ──────────────────────────────────
 
   Future<void> updateProfile({
     required String userId,
@@ -284,7 +241,9 @@ class ProfileService {
     ThixVisibilitySettings? visibility,
   }) async {
     final authedUid = SupabaseConfig.client.auth.currentUser?.id;
-    final effectiveUserId = (authedUid != null && authedUid.trim().isNotEmpty) ? authedUid : userId;
+    final effectiveUserId = (authedUid != null && authedUid.trim().isNotEmpty)
+        ? authedUid
+        : userId;
 
     final data = <String, dynamic>{};
     void put(String k, Object? v) {
@@ -370,17 +329,7 @@ class ProfileService {
     put('contacts', contacts);
     if (visibility != null) data['visibility_settings'] = visibility.toJson();
 
-    try {
-      final cur = await _local.loadMyProfile(effectiveUserId);
-      if (cur != null) {
-        final next = ThixProfile.fromPrivateRow({...cur.toPrivateRowJson(), ...data});
-        await _local.saveMyProfile(next);
-        if (next.thixId.trim().isNotEmpty) await _local.savePublicProfile(next);
-      }
-    } catch (e) {
-      debugPrint('ProfileService.updateProfile local optimistic update failed userId=$effectiveUserId err=$e');
-    }
-
+    // Mise à jour directe dans Supabase (pas de cache local)
     try {
       await SupabaseSafeWrite.update(
         client: SupabaseConfig.client,
@@ -389,106 +338,96 @@ class ProfileService {
         filters: {'id': effectiveUserId},
         onUnknownColumn: _reloadSchemaCache,
       );
-      unawaited(flushPendingProfileWrites(effectiveUserId));
 
+      // Mise à jour des sous‑tables si fournies
       if (trainings != null || education != null) {
-        unawaited(() async {
-          try {
-            final cur = await _local.loadMyProfile(effectiveUserId);
-            final merged = <Map<String, dynamic>>[];
-            merged.addAll(trainings ?? cur?.trainings ?? const []);
-            merged.addAll(education ?? cur?.education ?? const []);
-            await replaceFormations(userId: effectiveUserId, entries: merged);
-          } catch (e) {
-            debugPrint('ProfileService: failed to mirror formations (merged) userId=$effectiveUserId err=$e');
-          }
-        }());
+        final merged = <Map<String, dynamic>>[];
+        merged.addAll(trainings ?? []);
+        merged.addAll(education ?? []);
+        await replaceFormations(userId: effectiveUserId, entries: merged);
       }
-      if (experience != null) unawaited(replaceExperiences(userId: effectiveUserId, entries: experience));
-      if (emergencyContacts != null) unawaited(replaceEmergencyContacts(userId: effectiveUserId, entries: emergencyContacts));
+      if (experience != null) {
+        await replaceExperiences(userId: effectiveUserId, entries: experience!);
+      }
+      if (emergencyContacts != null) {
+        await replaceEmergencyContacts(
+            userId: effectiveUserId, entries: emergencyContacts!);
+      }
     } catch (e) {
-      await _local.enqueuePendingPatch(effectiveUserId, data);
-      debugPrint('ProfileService.updateProfile queued patch for later userId=$effectiveUserId err=$e');
-      return;
+      debugPrint('updateProfile failed: $e');
+      rethrow; // L’appelant pourra gérer l’erreur
     }
   }
 
-  Stream<List<Map<String, dynamic>>> streamFormations(String userId) => _streamListByEq(
-        formationsTable,
-        key: 'user_id',
-        value: userId,
-        orderBy: null,
-      );
+  // ─── Gestion des sous‑tables (remplacement complet) ──────────────────
 
-  Stream<List<Map<String, dynamic>>> streamExperiences(String userId) => _streamListByEq(
-        experiencesTable,
-        key: 'user_id',
-        value: userId,
-        orderBy: null,
-      );
+  Future<void> replaceFormations({
+    required String userId,
+    required List<Map<String, dynamic>> entries,
+  }) async =>
+      _replaceSubTable(formationsTable, userId, entries);
 
-  Stream<List<Map<String, dynamic>>> streamEmergencyContacts(String userId) => _streamListByEq(
-        emergencyContactsTable,
-        key: 'user_id',
-        value: userId,
-        orderBy: null,
-      );
+  Future<void> replaceExperiences({
+    required String userId,
+    required List<Map<String, dynamic>> entries,
+  }) async =>
+      _replaceSubTable(experiencesTable, userId, entries);
 
-  Future<void> replaceFormations({required String userId, required List<Map<String, dynamic>> entries}) async => _replaceLinked(
-        tableName: formationsTable,
-        userId: userId,
-        entries: entries,
-      );
+  Future<void> replaceEmergencyContacts({
+    required String userId,
+    required List<Map<String, dynamic>> entries,
+  }) async =>
+      _replaceSubTable(emergencyContactsTable, userId, entries);
 
-  Future<void> replaceExperiences({required String userId, required List<Map<String, dynamic>> entries}) async => _replaceLinked(
-        tableName: experiencesTable,
-        userId: userId,
-        entries: entries,
-      );
-
-  Future<void> replaceEmergencyContacts({required String userId, required List<Map<String, dynamic>> entries}) async => _replaceLinked(
-        tableName: emergencyContactsTable,
-        userId: userId,
-        entries: entries,
-      );
-
-  Future<void> _replaceLinked({required String tableName, required String userId, required List<Map<String, dynamic>> entries}) async {
-    final uid = SupabaseConfig.client.auth.currentUser?.id;
-    if (uid == null) return;
+  Future<void> _replaceSubTable(
+    String tableName,
+    String userId,
+    List<Map<String, dynamic>> entries,
+  ) async {
     if (_disabledOptionalTables.contains(tableName)) return;
-    if (uid != userId) return;
+    final uid = SupabaseConfig.client.auth.currentUser?.id;
+    if (uid == null || uid != userId) return;
 
     try {
+      // Supprimer les anciennes entrées
       await SupabaseConfig.client.from(tableName).delete().eq('user_id', userId);
+
       if (entries.isEmpty) return;
 
+      // Transformer les entrées selon la table
+      List<Map<String, dynamic>> rows;
       if (tableName == formationsTable) {
-        await _insertFormations(userId: userId, entries: entries);
-        return;
-      }
-      if (tableName == experiencesTable) {
-        await _insertExperiences(userId: userId, entries: entries);
-        return;
+        rows = entries.map(_trainingEntryToFormationRow).toList();
+      } else if (tableName == experiencesTable) {
+        rows = entries.map(_experienceEntryToRow).toList();
+      } else {
+        // Pour emergency_contacts, on stocke le payload brut
+        rows = entries.map((e) => {'user_id': userId, 'payload': e}).toList();
       }
 
-      final payload = <Map<String, dynamic>>[];
-      for (var i = 0; i < entries.length; i++) {
-        payload.add({'user_id': userId, 'payload': entries[i]});
-      }
-      await SupabaseConfig.client.from(tableName).insert(payload);
+      if (rows.isEmpty) return;
+
+      await SupabaseSafeWrite.insertMany(
+        client: SupabaseConfig.client,
+        table: tableName,
+        rows: rows,
+        onUnknownColumn: _reloadSchemaCache,
+      );
     } catch (e) {
       if (_isMissingTableError(e)) {
         _disabledOptionalTables.add(tableName);
-        debugPrint('ProfileService: optional table missing ($tableName). Disabling linked writes for it.');
+        debugPrint('Table optionnelle $tableName manquante, désactivée.');
         return;
       }
       if (_isUnknownColumnError(e)) {
-        debugPrint('ProfileService: linked table schema mismatch (ignored) table=$tableName err=$e');
+        debugPrint('Schéma de $tableName inconnu, ignore.');
         return;
       }
-      debugPrint('ProfileService._replaceLinked failed table=$tableName userId=$userId err=$e');
+      debugPrint('_replaceSubTable error for $tableName: $e');
     }
   }
+
+  // ─── Transformation des entrées (inchangé) ───────────────────────────
 
   Map<String, dynamic> _trainingEntryToFormationRow(Map<String, dynamic> entry) {
     final title = (entry['title'] ?? entry['name'] ?? entry['degree'] ?? entry['level'] ?? '').toString().trim();
@@ -507,12 +446,14 @@ class ProfileService {
       'type': type.isEmpty ? null : type,
       'organizer': organizer.isEmpty ? null : organizer,
       'organized_by': organizer.isEmpty ? null : organizer,
-      'start_date': (startDate == null || startDate.isEmpty) ? null : startDate,
-      'end_date': (endDate == null || endDate.isEmpty) ? null : endDate,
+      'start_date': startDate?.isEmpty == true ? null : startDate,
+      'end_date': endDate?.isEmpty == true ? null : endDate,
       'duration': duration.isEmpty ? null : duration,
       'skills': skills.isEmpty ? null : skills,
       'skills_acquired': skills.isEmpty ? null : skills,
-      'description': (entry['description'] ?? entry['details'] ?? '').toString().trim().isEmpty ? null : (entry['description'] ?? entry['details']).toString().trim(),
+      'description': (entry['description'] ?? entry['details'] ?? '').toString().trim().isEmpty
+          ? null
+          : (entry['description'] ?? entry['details']).toString().trim(),
       'verification_status': (entry['verification_status'] ?? entry['verificationStatus'] ?? 'pending').toString(),
       'evidence': entry['evidence'],
     }..removeWhere((k, v) => v == null);
@@ -539,8 +480,8 @@ class ProfileService {
       'employer': companyName.isEmpty ? null : companyName,
       'position': position.isEmpty ? null : position,
       'title': position.isEmpty ? null : position,
-      'start_date': (startDate == null || startDate.isEmpty) ? null : startDate,
-      'end_date': (endDate == null || endDate.isEmpty) ? null : endDate,
+      'start_date': startDate?.isEmpty == true ? null : startDate,
+      'end_date': endDate?.isEmpty == true ? null : endDate,
       'description': description.isEmpty ? null : description,
       'missions': missions.isEmpty ? null : missions,
       'sector': sector.isEmpty ? null : sector,
@@ -550,105 +491,7 @@ class ProfileService {
     }..removeWhere((k, v) => v == null);
   }
 
-  Future<void> _insertFormations({required String userId, required List<Map<String, dynamic>> entries}) async {
-    final tableName = formationsTable;
-    if (_disabledOptionalTables.contains(tableName)) return;
-
-    final rows = entries
-        .map(_trainingEntryToFormationRow)
-        .where((m) => m.isNotEmpty)
-        .map((m) => {'user_id': userId, ...m})
-        .toList(growable: false);
-    if (rows.isEmpty) return;
-
-    try {
-      await SupabaseSafeWrite.insertMany(client: SupabaseConfig.client, table: tableName, rows: rows, onUnknownColumn: _reloadSchemaCache);
-    } catch (e) {
-      if (_isUnknownColumnError(e)) {
-        debugPrint('ProfileService: formations schema mismatch; falling back to payload rows. err=$e');
-        final legacy = entries.map((m) => {'user_id': userId, 'payload': m}).toList(growable: false);
-        await SupabaseSafeWrite.insertMany(client: SupabaseConfig.client, table: tableName, rows: legacy, onUnknownColumn: _reloadSchemaCache);
-        return;
-      }
-      rethrow;
-    }
-  }
-
-  Future<void> _insertExperiences({required String userId, required List<Map<String, dynamic>> entries}) async {
-    final tableName = experiencesTable;
-    if (_disabledOptionalTables.contains(tableName)) return;
-
-    final rows = entries
-        .map(_experienceEntryToRow)
-        .where((m) => m.isNotEmpty)
-        .map((m) => {'user_id': userId, ...m})
-        .toList(growable: false);
-    if (rows.isEmpty) return;
-
-    try {
-      await SupabaseSafeWrite.insertMany(client: SupabaseConfig.client, table: tableName, rows: rows, onUnknownColumn: _reloadSchemaCache);
-    } catch (e) {
-      if (_isUnknownColumnError(e)) {
-        debugPrint('ProfileService: experiences schema mismatch; falling back to payload rows. err=$e');
-        final legacy = entries.map((m) => {'user_id': userId, 'payload': m}).toList(growable: false);
-        await SupabaseSafeWrite.insertMany(client: SupabaseConfig.client, table: tableName, rows: legacy, onUnknownColumn: _reloadSchemaCache);
-        return;
-      }
-      rethrow;
-    }
-  }
-
-  Stream<List<Map<String, dynamic>>> _streamListByEq(
-    String table, {
-    required String key,
-    required String value,
-    String? orderBy,
-  }) {
-    if (_disabledOptionalTables.contains(table)) return const Stream<List<Map<String, dynamic>>>.empty();
-    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
-    Timer? pollTimer;
-    var didEmitOnce = false;
-
-    Future<void> emitLatest() async {
-      try {
-        final rows = await SupabaseService.select(
-          table,
-          filters: {key: value},
-          orderBy: orderBy,
-          ascending: true,
-        );
-        controller.add(rows);
-        didEmitOnce = true;
-      } catch (e) {
-        if (_isMissingTableError(e)) {
-          _disabledOptionalTables.add(table);
-          debugPrint('ProfileService: optional table missing ($table). Disabling its stream.');
-          if (!didEmitOnce) controller.add(const []);
-          await controller.close();
-          return;
-        }
-        debugPrint('ProfileService._streamListByEq emitLatest failed table=$table err=$e');
-        if (!didEmitOnce) controller.add(const []);
-      }
-    }
-
-    controller.onListen = () {
-      unawaited(emitLatest());
-      if (_disabledOptionalTables.contains(table)) return;
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => unawaited(emitLatest()));
-    };
-
-    controller.onCancel = () {
-      pollTimer?.cancel();
-      controller.close();
-    };
-
-    return controller.stream;
-  }
-
-  Future<void> updateVisibility({required String userId, required ThixVisibilitySettings visibility}) async {
-    await updateProfile(userId: userId, visibility: visibility);
-  }
+  // ─── Activation du compte (RPC) ────────────────────────────────────────
 
   Future<String> activateAccountAfterPayment({
     required String userId,
@@ -678,67 +521,17 @@ class ProfileService {
       if (thixId.isEmpty) throw Exception('Activation RPC returned empty THIX UID.');
       return thixId;
     } catch (e) {
-      debugPrint('ProfileService.activateAccountAfterPayment failed uid=$userId err=$e');
+      debugPrint('activateAccountAfterPayment failed: $e');
       rethrow;
     }
   }
 
-  Stream<T?> _streamSingleByEq<T>(
-    String table, {
-    required String key,
-    required String value,
-    required T Function(Map<String, dynamic>) mapper,
-    Future<T?> Function()? loadCached,
-    Future<void> Function(T value)? saveCached,
-    Future<void> Function()? onBeforeFirstRemoteFetch,
-  }) {
-    final controller = StreamController<T?>.broadcast();
-    Timer? pollTimer;
-    var didEmitCached = false;
-    var didRunBeforeFetch = false;
+  // ─── Visibilité ─────────────────────────────────────────────────────────
 
-    Future<void> emitCached() async {
-      if (loadCached == null || didEmitCached) return;
-      didEmitCached = true;
-      try {
-        final cached = await loadCached();
-        if (cached != null) controller.add(cached);
-      } catch (e) {
-        debugPrint('ProfileService.streamSingle emitCached failed table=$table err=$e');
-      }
-    }
-
-    Future<void> emitLatest() async {
-      try {
-        if (!didRunBeforeFetch && onBeforeFirstRemoteFetch != null) {
-          didRunBeforeFetch = true;
-          await onBeforeFirstRemoteFetch();
-        }
-        final row = await SupabaseService.selectSingle(table, filters: {key: value});
-        if (row == null) {
-          controller.add(null);
-          return;
-        }
-        final mapped = mapper(row);
-        controller.add(mapped);
-        if (saveCached != null) unawaited(saveCached(mapped));
-      } catch (e) {
-        debugPrint('ProfileService.streamSingle emitLatest failed table=$table err=$e');
-        if (!didEmitCached) controller.add(null);
-      }
-    }
-
-    controller.onListen = () {
-      unawaited(emitCached());
-      unawaited(emitLatest());
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => unawaited(emitLatest()));
-    };
-
-    controller.onCancel = () {
-      pollTimer?.cancel();
-      controller.close();
-    };
-
-    return controller.stream;
+  Future<void> updateVisibility({
+    required String userId,
+    required ThixVisibilitySettings visibility,
+  }) async {
+    await updateProfile(userId: userId, visibility: visibility);
   }
 }
