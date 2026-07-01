@@ -360,7 +360,7 @@ class _PatientVitalPageState extends State<PatientVitalPage> {
           decoration: const InputDecoration(
             labelText: 'Unité (ex: kg, mmHg, bpm)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.unit),
+            prefixIcon: Icon(Icons.measuring_tape),
           ),
         ),
         const SizedBox(height: 12),
