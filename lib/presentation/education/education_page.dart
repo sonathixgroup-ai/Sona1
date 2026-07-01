@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';   // ✅ remplace firestore_user_service
+import 'package:thix_id/services/user_service.dart';      // ✅ ajouté pour les paiements
+import 'package:thix_id/supabase/supabase_config.dart';
 import '../../theme.dart';
 
 class EduCategoryChip extends StatelessWidget {
@@ -189,6 +191,9 @@ class EducationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profileService = ProfileService();
+    final userService = UserService(SupabaseConfig.client);
+
     return Scaffold(
       backgroundColor: context.theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -384,7 +389,8 @@ class EducationPage extends StatelessWidget {
                                     const SizedBox(height: AppSpacing.md),
                                     ElevatedButton(
                                       onPressed: () async {
-                                        final me = context.read<AuthController>().currentUser;
+                                        final auth = context.read<AuthController>();
+                                        final me = auth.currentUser;
                                         if (me == null) {
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connexion requise.')));
                                           return;
@@ -438,17 +444,40 @@ class EducationPage extends StatelessWidget {
                                         );
                                         if (confirmed != true) return;
 
-                                        final users = FirestoreUserService();
                                         try {
-                                          final current = await users.fetchUserByUid(me.id);
-                                          final existing = current?.enrollments ?? const [];
-                                          final next = [...existing];
-                                          final exists = next.any((e) => ((e['title'] as String?) ?? '').toLowerCase().contains('souveraineté'));
+                                          // 1. Récupérer le profil actuel (ou utiliser me directement)
+                                          // On utilise me.enrollments (dans AppUser)
+                                          final currentEnrollments = me.enrollments ?? [];
+                                          final nextEnrollments = List<Map<String, dynamic>>.from(currentEnrollments);
+                                          final exists = nextEnrollments.any((e) => ((e['title'] as String?) ?? '').toLowerCase().contains('souveraineté'));
                                           if (!exists) {
-                                            next.add({'title': 'Expert en Souveraineté Numérique', 'provider': 'Cabinet du Numérique', 'progress': 0, 'status': 'En cours'});
-                                            await users.updateProfile(uid: me.id, enrollments: next);
+                                            nextEnrollments.add({
+                                              'title': 'Expert en Souveraineté Numérique',
+                                              'provider': 'Cabinet du Numérique',
+                                              'progress': 0,
+                                              'status': 'En cours'
+                                            });
+                                            // Mettre à jour via ProfileService
+                                            // On suppose que ProfileService.updateProfile gère les enrollments
+                                            await profileService.updateProfile(
+                                              userId: me.id,
+                                              enrollments: nextEnrollments,
+                                            );
+                                            // Mettre à jour l'utilisateur local
+                                            final updatedUser = me.copyWith(enrollments: nextEnrollments);
+                                            await auth.updateCurrentUser(updatedUser);
                                           }
-                                          await users.addPaymentTransaction(uid: me.id, title: 'Inscription formation', amount: 45, currency: 'USD', method: 'Simulé', status: 'paid', meta: {'formation': 'Expert en Souveraineté Numérique'});
+
+                                          // 2. Enregistrer la transaction de paiement
+                                          await userService.addPaymentTransaction(
+                                            uid: me.id,
+                                            title: 'Inscription formation',
+                                            amount: 45,
+                                            currency: 'USD',
+                                            method: 'Simulé',
+                                            status: 'paid',
+                                          );
+
                                           if (!context.mounted) return;
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inscription enregistrée.')));
                                         } catch (e) {
@@ -564,8 +593,4 @@ class EducationPage extends StatelessWidget {
       ),
     );
   }
-}
-
-extension ThemeHelper on BuildContext {
-  ThemeData get theme => Theme.of(this);
 }
