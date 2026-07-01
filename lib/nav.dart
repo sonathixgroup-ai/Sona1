@@ -949,6 +949,30 @@ class AppRouter {
             return NoTransitionPage(child: PatientAlertPage(alertId: id));
           },
         ),
+         // Grossesse - liste (sans ID)
+GoRoute(
+  path: '/sante/patient/pregnancy',
+  name: 'patientPregnancyList',
+  pageBuilder: (context, state) =>
+      const NoTransitionPage(child: PatientPregnancyPage()),
+),
+
+// Famille - liste (sans ID)
+GoRoute(
+  path: '/sante/patient/family',
+  name: 'patientFamilyList',
+  pageBuilder: (context, state) =>
+      const NoTransitionPage(child: PatientFamilyPage()),
+),
+
+// Partage - liste (sans ID)
+GoRoute(
+  path: '/sante/patient/sharing',
+  name: 'patientSharingList',
+  pageBuilder: (context, state) =>
+      const NoTransitionPage(child: PatientSharingPage()),
+),
+        
         // Map
         GoRoute(
           path: '/sante/patient/map/:type',
