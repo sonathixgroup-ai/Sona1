@@ -431,7 +431,7 @@ class _PatientVaccinePageState extends State<PatientVaccinePage> {
           decoration: const InputDecoration(
             labelText: 'Numéro de lot (optionnel)',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.barcode),
+            prefixIcon: Icon(Icons.barcode), // ✅ corrigé (pas de const)
           ),
         ),
         const SizedBox(height: 12),
