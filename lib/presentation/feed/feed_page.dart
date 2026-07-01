@@ -22,6 +22,7 @@ class _FeedPageState extends State<FeedPage> {
   int _page = 0;
   final _pageSize = 20;
   Timer? _refreshTimer;
+  bool _hasMore = true; // ✅ pour savoir s'il y a plus de posts
 
   @override
   void initState() {
@@ -45,15 +46,20 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _loadInitial() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _page = 0;
+      _hasMore = true;
+    });
     try {
       final svc = context.read<NetworkService>();
-      final items = await svc.getFeedPosts(limit: _pageSize);
+      final items = await svc.getFeedPosts(limit: _pageSize, offset: 0);
       if (mounted) {
         setState(() {
           _posts.clear();
           _posts.addAll(items);
           _page = 1;
+          _hasMore = items.length >= _pageSize;
         });
       }
     } catch (e) {
@@ -64,7 +70,7 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _loadMore() async {
-    if (_loading) return;
+    if (_loading || !_hasMore) return; // ✅ ne pas charger si déjà en cours ou plus de posts
     setState(() => _loading = true);
     try {
       final svc = context.read<NetworkService>();
@@ -73,7 +79,10 @@ class _FeedPageState extends State<FeedPage> {
         setState(() {
           _posts.addAll(items);
           _page++;
+          _hasMore = items.length >= _pageSize;
         });
+      } else {
+        setState(() => _hasMore = false);
       }
     } catch (e) {
       debugPrint('FeedPage _loadMore error: $e');
@@ -101,7 +110,8 @@ class _FeedPageState extends State<FeedPage> {
         onRefresh: _loadInitial,
         child: NotificationListener<ScrollNotification>(
           onNotification: (scrollInfo) {
-            if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+            if (!_loading && _hasMore &&
+                scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
               _loadMore();
             }
             return false;
@@ -113,7 +123,11 @@ class _FeedPageState extends State<FeedPage> {
               if (index >= _posts.length) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: _loading ? const CircularProgressIndicator() : const SizedBox.shrink()),
+                  child: Center(
+                    child: _loading
+                        ? const CircularProgressIndicator()
+                        : _hasMore ? const SizedBox.shrink() : const Text('Fin du fil'),
+                  ),
                 );
               }
               final post = _posts[index];
