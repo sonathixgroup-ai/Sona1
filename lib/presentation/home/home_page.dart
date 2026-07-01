@@ -7,12 +7,13 @@ import 'package:provider/provider.dart';
 
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/models/thix_profile.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/full_screen_message.dart';
 import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
 import 'package:thix_id/presentation/emergency/emergency_overlay.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
+import 'package:thix_id/services/profile_service.dart';           // ← remplace firestore_user_service
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/thix_id_service.dart';
@@ -121,6 +122,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
   final _notifications = NotificationService();
   final _counters = NotificationCountersService();
+  final _profileService = ProfileService();  // ← nouveau service
 
   static final RegExp _uidLikeRegex = RegExp(r'^[A-Za-z0-9_-]{20,}$');
 
@@ -186,20 +188,18 @@ class _HomePagePremiumState extends State<HomePagePremium>
     setState(() => _searching = true);
 
     try {
-      // Performance/architecture: reuse the app-wide instance instead of
-      // creating a new service (which can create extra clients/streams).
-      final userService = context.read<FirestoreUserService>();
-      AppUser? user;
+      // 🔥 Utilisation de ProfileService au lieu de FirestoreUserService
+      ThixProfile? profile;
 
       if (isThix) {
-        user = await userService.fetchUserByThixId(normalized);
+        profile = await _profileService.fetchPublicProfileByThixId(normalized);
       } else {
-        user = await userService.fetchUserByUid(raw);
+        profile = await _profileService.fetchPublicProfileByUserId(raw);
       }
 
       if (!mounted) return;
 
-      if (user == null) {
+      if (profile == null) {
         await FullScreenMessage.showError(
           context,
           title: 'Profil introuvable',
@@ -208,14 +208,15 @@ class _HomePagePremiumState extends State<HomePagePremium>
         return;
       }
 
-      final thix = user.thixId.trim().toUpperCase();
+      final thix = profile.thixId.trim().toUpperCase();
 
       if (thix.isNotEmpty && ThixIdService.isValid(thix)) {
         context.push('${AppRoutes.publicProfile}?thixId=$thix');
       } else {
+        // Fallback : afficher la fiche via UID
         await ThixIdentitySheets.showVerifySheet(
           context,
-          initialUidOrThixId: user.id,
+          initialUidOrThixId: profile.userId,
         );
       }
     } catch (e) {
@@ -352,7 +353,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _HeadlinesCarousel(
                     controller: _headlinesController,
-                      onThixInfoTap: () => context.push(AppRoutes.thixInfo),
+                    onThixInfoTap: () => context.push(AppRoutes.thixInfo),
                     onOpportunityTap: () => context.push(AppRoutes.opportunities),
                   ),
                 ),
@@ -408,7 +409,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 context.push(AppRoutes.opportunities);
                                 break;
                               case 'evenements':
-                                // ✅ Correction : utiliser la route directe vers la page des événements
                                 context.push('/thix-event');
                                 break;
                               case 'reseauPro':
