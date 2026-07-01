@@ -1,12 +1,10 @@
 // presentation/thix_sante/patient/details/patient_wellness_page.dart
-// Version corrigée – lignes 532 et 542
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
-// Modèle local pour un programme bien-être
 class WellnessProgram {
   final String id;
   final String title;
@@ -15,7 +13,7 @@ class WellnessProgram {
   final String? imageUrl;
   final int totalSteps;
   final int completedSteps;
-  final String category; // 'stress', 'nutrition', 'fitness', 'stop_smoking'
+  final String category;
   final DateTime startDate;
   final DateTime? endDate;
   final bool isActive;
@@ -53,19 +51,13 @@ class WellnessProgram {
   }
 
   double get progress => totalSteps > 0 ? completedSteps / totalSteps : 0;
-
   String get progressLabel => '${(progress * 100).toInt()}%';
 }
 
 class PatientWellnessPage extends StatefulWidget {
   final String? programId;
   final bool isTracking;
-
-  const PatientWellnessPage({
-    super.key,
-    this.programId,
-    this.isTracking = false,
-  });
+  const PatientWellnessPage({super.key, this.programId, this.isTracking = false});
 
   @override
   State<PatientWellnessPage> createState() => _PatientWellnessPageState();
@@ -116,9 +108,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
         _selectedProgram = _programs.first;
       }
 
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -227,34 +217,16 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.self_improvement,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
+                            Icon(Icons.self_improvement, size: 64, color: Colors.grey[400]),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Aucun programme en cours.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
+                            const Text('Aucun programme en cours.', style: TextStyle(fontSize: 16, color: Colors.grey)),
                             const SizedBox(height: 8),
-                            Text(
-                              'Commencez un programme pour améliorer votre bien-être.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
+                            Text('Commencez un programme pour améliorer votre bien-être.', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Ajout de programme à implémenter'),
-                                  ),
+                                  const SnackBar(content: Text('Ajout de programme à implémenter')),
                                 );
                               },
                               icon: const Icon(Icons.add),
@@ -277,12 +249,8 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                           final program = _programs[index];
                           return _ProgramCard(
                             program: program,
-                            onTap: () {
-                              context.push('/sante/patient/wellness/${program.id}');
-                            },
-                            onTrack: () {
-                              context.push('/sante/patient/wellness/${program.id}/track');
-                            },
+                            onTap: () => context.push('/sante/patient/wellness/${program.id}'),
+                            onTrack: () => context.push('/sante/patient/wellness/${program.id}/track'),
                           );
                         },
                       ),
@@ -293,18 +261,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
   Widget _buildDetailView() {
     final p = _selectedProgram!;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Programme'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.play_arrow),
-            onPressed: () {
-              context.push('/sante/patient/wellness/${p.id}/track');
-            },
-            tooltip: 'Suivre le programme',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Programme')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -313,21 +270,10 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
             if (p.imageUrl != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  p.imageUrl!,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.network(p.imageUrl!, height: 180, width: double.infinity, fit: BoxFit.cover),
               ),
             const SizedBox(height: 16),
-            Text(
-              p.title,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text(p.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -335,31 +281,12 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                 color: _categoryColor(p.category),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                _categoryLabel(p.category),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              child: Text(_categoryLabel(p.category), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
             ),
             const SizedBox(height: 12),
-            Text(
-              p.subtitle,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[700],
-              ),
-            ),
+            Text(p.subtitle, style: TextStyle(fontSize: 16, color: Colors.grey[700])),
             const SizedBox(height: 12),
-            Text(
-              p.description,
-              style: const TextStyle(
-                fontSize: 15,
-                height: 1.5,
-              ),
-            ),
+            Text(p.description, style: const TextStyle(fontSize: 15, height: 1.5)),
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -369,20 +296,8 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Progression',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          p.progressLabel,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text('Progression', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                        Text(p.progressLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -397,20 +312,8 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${p.completedSteps} étapes terminées',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          'sur ${p.totalSteps}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                        Text('${p.completedSteps} étapes terminées', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                        Text('sur ${p.totalSteps}', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                       ],
                     ),
                   ],
@@ -422,9 +325,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      context.push('/sante/patient/wellness/${p.id}/track');
-                    },
+                    onPressed: () => context.push('/sante/patient/wellness/${p.id}/track'),
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Suivre'),
                     style: ElevatedButton.styleFrom(
@@ -438,9 +339,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => context.pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                     child: const Text('Retour'),
                   ),
                 ),
@@ -457,29 +356,15 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
     final steps = _getStepsForProgram(p.category);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Suivi du programme'),
-      ),
+      appBar: AppBar(title: const Text('Suivi du programme')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              p.title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text(p.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text(
-              'Progression : ${p.progressLabel}',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-              ),
-            ),
+            Text('Progression : ${p.progressLabel}', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
             const SizedBox(height: 8),
             LinearProgressIndicator(
               value: p.progress,
@@ -489,13 +374,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
               borderRadius: BorderRadius.circular(4),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Étapes du programme :',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Étapes du programme :', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Expanded(
               child: ListView.builder(
@@ -506,17 +385,9 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                   final isCurrent = index == p.completedSteps && !isCompleted;
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: isCompleted
-                          ? Colors.green
-                          : isCurrent
-                              ? const Color(0xFF2563FF)
-                              : Colors.grey[300],
+                      backgroundColor: isCompleted ? Colors.green : (isCurrent ? const Color(0xFF2563FF) : Colors.grey[300]),
                       child: Icon(
-                        isCompleted
-                            ? Icons.check
-                            : isCurrent
-                                ? Icons.play_arrow
-                                : Icons.circle_outlined,
+                        isCompleted ? Icons.check : (isCurrent ? Icons.play_arrow : Icons.circle_outlined),
                         color: Colors.white,
                         size: 16,
                       ),
@@ -524,12 +395,8 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                     title: Text(
                       step['title'],
                       style: TextStyle(
-                        fontWeight: isCompleted || isCurrent
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: isCompleted || isCurrent
-                            ? Colors.black
-                            : Colors.grey[500],
+                        fontWeight: isCompleted || isCurrent ? FontWeight.w600 : FontWeight.normal,
+                        color: isCompleted || isCurrent ? Colors.black : Colors.grey[500],
                       ),
                     ),
                     subtitle: Text(step['description']),
@@ -541,10 +408,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF2563FF),
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 ),
                                 child: const Text('Valider'),
                               )
@@ -556,9 +420,7 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: () => context.pop(),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-              ),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
               child: const Text('Retour'),
             ),
           ],
@@ -608,31 +470,21 @@ class _PatientWellnessPageState extends State<PatientWellnessPage> {
 
   Color _categoryColor(String category) {
     switch (category) {
-      case 'stress':
-        return Colors.blue;
-      case 'nutrition':
-        return Colors.orange;
-      case 'fitness':
-        return Colors.green;
-      case 'stop_smoking':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'stress': return Colors.blue;
+      case 'nutrition': return Colors.orange;
+      case 'fitness': return Colors.green;
+      case 'stop_smoking': return Colors.red;
+      default: return Colors.grey;
     }
   }
 
   String _categoryLabel(String category) {
     switch (category) {
-      case 'stress':
-        return 'Gestion du stress';
-      case 'nutrition':
-        return 'Nutrition';
-      case 'fitness':
-        return 'Activité physique';
-      case 'stop_smoking':
-        return 'Arrêt du tabac';
-      default:
-        return category;
+      case 'stress': return 'Gestion du stress';
+      case 'nutrition': return 'Nutrition';
+      case 'fitness': return 'Activité physique';
+      case 'stop_smoking': return 'Arrêt du tabac';
+      default: return category;
     }
   }
 }
@@ -641,21 +493,14 @@ class _ProgramCard extends StatelessWidget {
   final WellnessProgram program;
   final VoidCallback onTap;
   final VoidCallback onTrack;
-
-  const _ProgramCard({
-    required this.program,
-    required this.onTap,
-    required this.onTrack,
-  });
+  const _ProgramCard({required this.program, required this.onTap, required this.onTrack});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -673,30 +518,15 @@ class _ProgramCard extends StatelessWidget {
                       color: _categoryColor(program.category).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      _categoryIcon(program.category),
-                      color: _categoryColor(program.category),
-                    ),
+                    child: Icon(_categoryIcon(program.category), color: _categoryColor(program.category)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          program.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          program.subtitle,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                        Text(program.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text(program.subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                       ],
                     ),
                   ),
@@ -706,14 +536,7 @@ class _ProgramCard extends StatelessWidget {
                       color: _categoryColor(program.category),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      program.progressLabel,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: Text(program.progressLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white)),
                   ),
                 ],
               ),
@@ -730,9 +553,7 @@ class _ProgramCard extends StatelessWidget {
                 children: [
                   TextButton(
                     onPressed: onTrack,
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF2563FF),
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF2563FF)),
                     child: const Text('Suivre'),
                   ),
                 ],
@@ -746,31 +567,21 @@ class _ProgramCard extends StatelessWidget {
 
   Color _categoryColor(String category) {
     switch (category) {
-      case 'stress':
-        return Colors.blue;
-      case 'nutrition':
-        return Colors.orange;
-      case 'fitness':
-        return Colors.green;
-      case 'stop_smoking':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'stress': return Colors.blue;
+      case 'nutrition': return Colors.orange;
+      case 'fitness': return Colors.green;
+      case 'stop_smoking': return Colors.red;
+      default: return Colors.grey;
     }
   }
 
   IconData _categoryIcon(String category) {
     switch (category) {
-      case 'stress':
-        return Icons.self_improvement;
-      case 'nutrition':
-        return Icons.restaurant;
-      case 'fitness':
-        return Icons.fitness_center;
-      case 'stop_smoking':
-        return Icons.smoke_free;
-      default:
-        return Icons.article;
+      case 'stress': return Icons.self_improvement;
+      case 'nutrition': return Icons.restaurant;
+      case 'fitness': return Icons.fitness_center;
+      case 'stop_smoking': return Icons.smoke_free;
+      default: return Icons.article;
     }
   }
 }
