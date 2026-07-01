@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
@@ -60,24 +61,25 @@ class _PatientAppointmentPageState extends State<PatientAppointmentPage> {
     }
 
     try {
-      final appointments = await _healthService.fetchAppointments(
-        _healthService._currentPatientId ?? '', // à adapter : on récupère l'id depuis AuthController
-        // Pour l'instant on utilise un id factice, à remplacer par l'id réel du patient
-        // On va plutôt utiliser une méthode qui fetch un seul appointment si le service l'offre,
-        // mais on n'a que fetchAppointments qui prend un patientId.
-        // Pour simplifier, on passera un patientId factice ou on utilisera un autre moyen.
-        // Comme on n'a pas de méthode fetchAppointmentById, on va faire une requête directe Supabase.
-        // Pour rester cohérent avec le service, on va ajouter une méthode fetchAppointmentById.
-        // Mais pour l'instant, on fait une requête directe.
-      );
-      // Si on utilise fetchAppointments, on filtre
+      // Récupérer le patientId depuis AuthController
+      final user = AuthController.instance.currentUser;
+      if (user == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+      final patientId = user.id;
+
+      // Récupérer tous les rendez-vous du patient et filtrer par ID
+      final appointments = await _healthService.fetchAppointments(patientId);
       final found = appointments.firstWhere(
         (a) => a.id == widget.appointmentId,
         orElse: () => throw Exception('Rendez-vous introuvable'),
       );
-      _appointment = found;
-      _fillControllersFromAppointment(found);
-      setState(() => _isLoading = false);
+
+      setState(() {
+        _appointment = found;
+        _fillControllersFromAppointment(found);
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -86,22 +88,6 @@ class _PatientAppointmentPageState extends State<PatientAppointmentPage> {
           backgroundColor: Colors.red,
         ),
       );
-    }
-  }
-
-  // Méthode temporaire pour récupérer un appointment par ID directement depuis Supabase
-  Future<Appointment?> _fetchAppointmentById(String id) async {
-    try {
-      final response = await _supabase
-          .from('health_appointments')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-      if (response == null) return null;
-      // Convertir en Appointment
-      return Appointment.fromJson(response);
-    } catch (e) {
-      return null;
     }
   }
 
@@ -129,6 +115,11 @@ class _PatientAppointmentPageState extends State<PatientAppointmentPage> {
     setState(() => _isSaving = true);
 
     try {
+      final user = AuthController.instance.currentUser;
+      if (user == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+
       final dateTime = DateTime(
         _selectedDate.year,
         _selectedDate.month,
@@ -138,14 +129,14 @@ class _PatientAppointmentPageState extends State<PatientAppointmentPage> {
       );
 
       final appointment = Appointment(
-        id: widget.appointmentId ?? '', // si création, l'id sera généré par le service
-        doctorId: '', // à remplacer par l'id réel du médecin si disponible
+        id: widget.appointmentId ?? '',
+        doctorId: '',
         doctorName: _doctorNameController.text.trim(),
         doctorSpecialty: _doctorSpecialtyController.text.trim().isNotEmpty
             ? _doctorSpecialtyController.text.trim()
             : null,
-        patientId: AuthController.instance.currentUser?.id ?? '',
-        patientName: AuthController.instance.currentUser?.displayName ?? '',
+        patientId: user.id,
+        patientName: user.displayName ?? '',
         date: dateTime,
         type: _selectedType,
         status: _selectedStatus,
@@ -258,7 +249,6 @@ class _PatientAppointmentPageState extends State<PatientAppointmentPage> {
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
-                // Passer en mode édition
                 context.push('/sante/patient/appointment/${widget.appointmentId}?edit=true');
               },
             ),
