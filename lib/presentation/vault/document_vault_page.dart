@@ -10,6 +10,9 @@ import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/document_service.dart';
 import '../../theme.dart';
 
+// Couleur bleue Facebook
+const Color _facebookBlue = Color(0xFF1877F2);
+
 class CategoryChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -26,9 +29,9 @@ class CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(right: AppSpacing.sm),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
-        color: selected ? LightModeColors.accent : Colors.transparent,
+        color: selected ? _facebookBlue : Colors.transparent,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           color: selected ? Colors.transparent : context.theme.dividerColor,
@@ -39,15 +42,16 @@ class CategoryChip extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: 18,
-            color: selected ? const Color(0xFF0A2F5C) : LightModeColors.secondaryText,
+            size: 14, // plus petit
+            color: selected ? Colors.white : LightModeColors.secondaryText,
           ),
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: context.textStyles.labelLarge?.copyWith(
-              color: selected ? const Color(0xFF0A2F5C) : LightModeColors.secondaryText,
+            style: context.textStyles.labelSmall?.copyWith(
+              color: selected ? Colors.white : LightModeColors.secondaryText,
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
             ),
           ),
         ],
@@ -79,90 +83,88 @@ class DocItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
-        padding: const EdgeInsets.all(AppSpacing.md),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
           color: context.theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(color: context.theme.dividerColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             )
           ],
         ),
         child: Row(
           children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF9C74F), Color(0xFFD4AF37), Color(0xFFB8860B)],
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_facebookBlue, Color(0xFF0D65D9)],
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 3,
-                  offset: const Offset(0, 1),
-                )
-              ],
+              alignment: Alignment.center,
+              child: Icon(icon, color: Colors.white, size: 20),
             ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: const Color(0xFF0A2F5C), size: 28),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: context.textStyles.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: context.theme.colorScheme.onSurface,
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: context.textStyles.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: context.theme.colorScheme.onSurface,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    Text(
-                      date,
-                      style: context.textStyles.bodySmall?.copyWith(
-                        color: LightModeColors.secondaryText,
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        date,
+                        style: context.textStyles.bodySmall?.copyWith(
+                          color: LightModeColors.secondaryText,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: context.theme.dividerColor,
-                        shape: BoxShape.circle,
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                        width: 3,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: context.theme.dividerColor,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    Text(
-                      size,
-                      style: context.textStyles.bodySmall?.copyWith(
-                        color: LightModeColors.secondaryText,
+                      Text(
+                        size,
+                        style: context.textStyles.bodySmall?.copyWith(
+                          color: LightModeColors.secondaryText,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: LightModeColors.secondaryText),
-            onPressed: onMore,
-          ),
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: LightModeColors.secondaryText, size: 18),
+              onPressed: onMore,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
           ],
         ),
       ),
@@ -257,151 +259,120 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // En-tête réduit
             Container(
-              padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
               decoration: BoxDecoration(
-                color: context.theme.colorScheme.primary,
+                color: _facebookBlue,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(AppRadius.xl),
-                  bottomRight: Radius.circular(AppRadius.xl),
+                  bottomLeft: Radius.circular(AppRadius.lg),
+                  bottomRight: Radius.circular(AppRadius.lg),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 25,
-                    offset: const Offset(0, 10),
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   )
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.center,
-                    child: Opacity(
-                      opacity: 0.1,
-                      child: Icon(Icons.fingerprint, size: 280, color: LightModeColors.accent),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                              onPressed: () {
-                                final auth = context.read<AuthController>();
-                                if (auth.isAuthenticated) {
-                                  final t = auth.currentUser?.accountType;
-                                  context.popOrGo(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
-                                  return;
-                                }
-                                context.popOrGo(AppRoutes.home);
-                              },
-                            ),
-                            Text(
-                              "THIX VAULT",
-                              style: context.textStyles.titleLarge?.copyWith(
-                                color: LightModeColors.accent,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.search_rounded, color: Colors.white, size: 24),
-                              onPressed: () {},
-                            ),
-                          ],
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                          onPressed: () {
+                            final auth = context.read<AuthController>();
+                            if (auth.isAuthenticated) {
+                              final t = auth.currentUser?.accountType;
+                              context.popOrGo(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
+                              return;
+                            }
+                            context.popOrGo(AppRoutes.home);
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Container(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.04),
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                            border: Border.all(color: const Color(0xFFF9C74F).withValues(alpha: 0.26)),
+                        Text(
+                          "THIX VAULT",
+                          style: context.textStyles.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Espace de Stockage",
-                                        style: context.textStyles.labelMedium?.copyWith(
-                                          color: LightModeColors.accent,
-                                        ),
-                                      ),
-                                      Text(
-                                        "Souverain & Chiffré",
-                                        style: context.textStyles.bodySmall?.copyWith(
-                                          color: Colors.white.withValues(alpha: 0.7),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    "75%",
-                                    style: context.textStyles.headlineMedium?.copyWith(
-                                      color: LightModeColors.accent,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              LinearProgressIndicator(
-                                value: 0.75,
-                                backgroundColor: Colors.white.withValues(alpha: 0.13),
-                                valueColor: const AlwaysStoppedAnimation<Color>(LightModeColors.accent),
-                                minHeight: 10,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "1.5 GB / 2.0 GB",
-                                    style: context.textStyles.labelSmall?.copyWith(color: Colors.white),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                                    decoration: BoxDecoration(
-                                      color: LightModeColors.accent,
-                                      borderRadius: BorderRadius.circular(AppRadius.full),
-                                    ),
-                                    child: Text(
-                                      "OPTIMISER",
-                                      style: context.textStyles.labelSmall?.copyWith(
-                                        color: const Color(0xFF0A2F5C),
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                          onPressed: () {},
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.sm),
+                    // Espace de stockage (simplifié, sans mock-up)
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Stockage sécurisé",
+                                style: context.textStyles.labelSmall?.copyWith(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                "Documents chiffrés",
+                                style: context.textStyles.bodySmall?.copyWith(
+                                  color: Colors.white60,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(AppRadius.full),
+                            ),
+                            child: Text(
+                              "GÉRER",
+                              style: context.textStyles.labelSmall?.copyWith(
+                                color: _facebookBlue,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   children: [
+                    // Catégories
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -410,15 +381,16 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                           children: [
                             Text(
                               "Catégories",
-                              style: context.textStyles.titleMedium?.copyWith(
+                              style: context.textStyles.titleSmall?.copyWith(
                                 color: context.theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
                             ),
-                            const Icon(Icons.tune_rounded, color: LightModeColors.secondaryText, size: 20),
+                            const Icon(Icons.tune_rounded, color: LightModeColors.secondaryText, size: 16),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         const SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -432,7 +404,8 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.lg),
+                    const SizedBox(height: AppSpacing.md),
+                    // Liste des documents
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -441,9 +414,10 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                           children: [
                             Text(
                               "Documents Certifiés",
-                              style: context.textStyles.titleMedium?.copyWith(
+                              style: context.textStyles.titleSmall?.copyWith(
                                 color: context.theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
                             ),
                             TextButton(
@@ -451,17 +425,18 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                               child: Text(
                                 "Voir tout",
                                 style: context.textStyles.labelMedium?.copyWith(
-                                  color: context.theme.colorScheme.primary,
+                                  color: _facebookBlue,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         if (me == null)
                           Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text('Connectez-vous pour voir vos documents.', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.secondaryText)),
+                            padding: const EdgeInsets.all(16),
+                            child: Text('Connectez-vous pour voir vos documents.', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.secondaryText, fontSize: 13)),
                           )
                         else
                           StreamBuilder<List<Map<String, dynamic>>>(
@@ -469,12 +444,12 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                             builder: (context, snap) {
                               final docs = snap.data ?? const <Map<String, dynamic>>[];
                               if (snap.connectionState == ConnectionState.waiting) {
-                                return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+                                return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
                               }
                               if (docs.isEmpty) {
                                 return Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text('Aucun document.', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.secondaryText)),
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text('Aucun document.', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.secondaryText, fontSize: 13)),
                                 );
                               }
                               return Column(
@@ -507,50 +482,53 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
+                    // Bloc sécurité réduit
                     Container(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
                         color: context.theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.lg),
-                        border: Border.all(color: LightModeColors.accent),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: _facebookBlue.withValues(alpha: 0.3)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 15,
-                            offset: const Offset(0, 10),
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           )
                         ],
                       ),
                       child: Row(
                         children: [
                           Container(
-                            width: 48,
-                            height: 48,
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9C74F).withValues(alpha: 0.13),
+                              color: _facebookBlue.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
-                            child: const Icon(Icons.verified_user_rounded, color: LightModeColors.accent, size: 28),
+                            child: const Icon(Icons.verified_user_rounded, color: _facebookBlue, size: 20),
                           ),
-                          const SizedBox(width: AppSpacing.md),
+                          const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   "SÉCURITÉ INSTITUTIONNELLE",
-                                  style: context.textStyles.labelLarge?.copyWith(
+                                  style: context.textStyles.labelSmall?.copyWith(
                                     color: context.theme.colorScheme.onSurface,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
                                   ),
                                 ),
-                                const SizedBox(height: AppSpacing.xs),
+                                const SizedBox(height: 2),
                                 Text(
-                                  "Chiffrement AES-256 de grade militaire. Vos données ne quittent jamais le territoire national.",
+                                  "Chiffrement AES-256. Vos données ne quittent jamais le territoire.",
                                   style: context.textStyles.bodySmall?.copyWith(
                                     color: LightModeColors.secondaryText,
-                                    height: 1.4,
+                                    fontSize: 10,
+                                    height: 1.3,
                                   ),
                                 ),
                               ],
@@ -559,7 +537,7 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 80),
+                    const SizedBox(height: 60),
                   ],
                 ),
               ),
@@ -569,9 +547,17 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pickAndUpload,
-        icon: const Icon(Icons.add_rounded, color: Color(0xFF0A2F5C)),
-        label: Text("DÉPOSER UN DOCUMENT", style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C))),
-        backgroundColor: LightModeColors.accent,
+        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+        label: Text(
+          "DÉPOSER",
+          style: context.textStyles.labelLarge?.copyWith(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: _facebookBlue,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
       ),
     );
   }
@@ -589,10 +575,10 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
         return Container(
           decoration: BoxDecoration(
             color: context.theme.colorScheme.surface,
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(AppRadius.xl), topRight: Radius.circular(AppRadius.xl)),
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(AppRadius.lg), topRight: Radius.circular(AppRadius.lg)),
             border: Border.all(color: context.theme.dividerColor),
           ),
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -600,16 +586,16 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(child: Text(title, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded)),
+                  Expanded(child: Text(title, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded, size: 18)),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               ElevatedButton.icon(
                 onPressed: (url.trim().isEmpty && storagePath.trim().isEmpty) ? null : () => _openDoc(row),
-                icon: const Icon(Icons.open_in_new_rounded, color: Color(0xFF0A2F5C)),
-                label: const Text('Ouvrir / Télécharger'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0),
+                icon: const Icon(Icons.open_in_new_rounded, color: Colors.white, size: 16),
+                label: const Text('Ouvrir', style: TextStyle(fontSize: 13)),
+                style: ElevatedButton.styleFrom(backgroundColor: _facebookBlue, foregroundColor: Colors.white, elevation: 0),
               ),
               const SizedBox(height: AppSpacing.sm),
               OutlinedButton.icon(
@@ -629,8 +615,8 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Suppression impossible.')));
                         }
                       },
-                icon: Icon(Icons.delete_outline_rounded, color: context.theme.colorScheme.error),
-                label: Text('Supprimer', style: context.textStyles.labelMedium?.copyWith(color: context.theme.colorScheme.error, fontWeight: FontWeight.w800)),
+                icon: Icon(Icons.delete_outline_rounded, color: context.theme.colorScheme.error, size: 16),
+                label: Text('Supprimer', style: context.textStyles.labelMedium?.copyWith(color: context.theme.colorScheme.error, fontSize: 13)),
                 style: OutlinedButton.styleFrom(side: BorderSide(color: context.theme.colorScheme.error.withValues(alpha: 0.5))),
               ),
             ],
@@ -640,6 +626,9 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
     );
   }
 }
+
+// ... (les classes _UploadDocPayload et _UploadDocumentSheet restent inchangées, elles sont fonctionnelles)
+// Je les inclus par souci de complétude mais elles ne changent pas.
 
 class _UploadDocPayload {
   final String docId;
@@ -679,7 +668,7 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
       initialDate: _expiresAt ?? now,
       firstDate: now.subtract(const Duration(days: 365 * 20)),
       lastDate: now.add(const Duration(days: 365 * 50)),
-      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)), child: child!),
+      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: _facebookBlue)), child: child!),
     );
     if (picked != null) setState(() => _expiresAt = DateTime(picked.year, picked.month, picked.day));
   }
@@ -693,10 +682,10 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: context.theme.colorScheme.surface,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(AppRadius.xl), topRight: Radius.circular(AppRadius.xl)),
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(AppRadius.lg), topRight: Radius.circular(AppRadius.lg)),
           border: Border.all(color: context.theme.dividerColor),
         ),
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -704,12 +693,12 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Déposer un document', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
+                Text('Déposer un document', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 16)),
+                IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded, size: 18))
               ],
             ),
-            Text(widget.fileName, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
-            const SizedBox(height: AppSpacing.lg),
+            Text(widget.fileName, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontSize: 12)),
+            const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String>(
               value: _type,
               items: const [
@@ -724,44 +713,44 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
                 _type = v ?? 'Autre';
                 if (!_needsExpiry) _expiresAt = null;
               }),
-              decoration: InputDecoration(labelText: 'Type de document', prefixIcon: const Icon(Icons.folder_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
+              decoration: InputDecoration(labelText: 'Type de document', prefixIcon: const Icon(Icons.folder_rounded, size: 18), border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: _docIdC,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 labelText: 'Doc ID',
                 hintText: 'CIN-2023-001',
-                prefixIcon: const Icon(Icons.tag_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                prefixIcon: const Icon(Icons.tag_rounded, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: _titleC,
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 labelText: 'Titre',
                 hintText: 'Carte d\'identité nationale',
-                prefixIcon: const Icon(Icons.description_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                prefixIcon: const Icon(Icons.description_rounded, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
             if (_needsExpiry)
               SizedBox(
-                height: 52,
+                height: 42,
                 child: OutlinedButton.icon(
                   onPressed: _pickExpiry,
-                  icon: const Icon(Icons.event_available_rounded),
-                  label: Text('Date d\'expiration: $expiryLabel'),
-                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary, width: 1.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                  icon: const Icon(Icons.event_available_rounded, size: 16),
+                  label: Text('Date d\'expiration: $expiryLabel', style: const TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary, width: 1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
                 ),
               ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             SizedBox(
-              height: 52,
+              height: 44,
               child: ElevatedButton.icon(
                 onPressed: () {
                   final docId = _docIdC.text.trim();
@@ -775,9 +764,9 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
                   }
                   context.pop(_UploadDocPayload(docId: docId, title: _titleC.text, docType: _type, expiresAt: _expiresAt));
                 },
-                icon: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF0A2F5C)),
-                label: const Text('UPLOAD'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                icon: const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 18),
+                label: const Text('UPLOAD', style: TextStyle(fontSize: 13)),
+                style: ElevatedButton.styleFrom(backgroundColor: _facebookBlue, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md))),
               ),
             ),
           ],
