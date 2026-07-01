@@ -13,8 +13,7 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/firestore_user_service.dart';
-import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/profile_service.dart';  // ✅ remplace firestore_user_service
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
@@ -53,6 +52,20 @@ class _ActivationReceiptPageState extends State<ActivationReceiptPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureRealThixId());
   }
 
+  // ✅ Méthode locale pour assigner un vrai THIX ID
+  Future<String> _assignRealThixIdIfMissing({required String uid}) async {
+    // Vérifier le profil existant
+    final profile = await _profiles.fetchPublicProfileByUserId(uid);
+    if (profile != null && !_isPendingThixId(profile.thixId)) {
+      return profile.thixId;
+    }
+    // Générer un nouveau THIX ID
+    final newId = await _profiles.generateThixId(uid: uid);
+    // Mettre à jour le profil
+    await _profiles.updateProfile(userId: uid, thixId: newId);
+    return newId;
+  }
+
   Future<void> _ensureRealThixId() async {
     if (_ensuringThixId) return;
     final auth = context.read<AuthController>();
@@ -61,8 +74,7 @@ class _ActivationReceiptPageState extends State<ActivationReceiptPage> {
     if (!_isPendingThixId(me.thixId)) return;
     setState(() => _ensuringThixId = true);
     try {
-      final users = FirestoreUserService();
-      final real = await users.assignRealThixIdIfMissing(uid: me.id);
+      final real = await _assignRealThixIdIfMissing(uid: me.id);
       await auth.updateCurrentUser(me.copyWith(thixId: real, updatedAt: DateTime.now()));
     } catch (e) {
       debugPrint('ActivationReceipt: ensureRealThixId failed err=$e');
@@ -82,7 +94,6 @@ class _ActivationReceiptPageState extends State<ActivationReceiptPage> {
 
   Future<Map<String, dynamic>?> _fetchLatestPayment(String uid) async {
     try {
-      // If this receipt was opened with explicit (fictive) parameters, don't hit Supabase.
       if ((widget.txRef ?? '').trim().isNotEmpty) {
         return {
           'tx_ref': widget.txRef,
@@ -175,8 +186,6 @@ class _ActivationReceiptPageState extends State<ActivationReceiptPage> {
         final country = (countryRaw ?? '—').trim().isEmpty ? '—' : (countryRaw ?? '—').trim();
         final url = 'https://thix.id/user/$thixId';
 
-        // If we still see a pending id (should be rare), try again after the
-        // profile stream produces data.
         if (_isPendingThixId(thixId) && !_ensuringThixId) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _ensureRealThixId());
         }
@@ -197,308 +206,308 @@ class _ActivationReceiptPageState extends State<ActivationReceiptPage> {
                     : null;
             final dateTime = _fmtTs(widget.paidAt ?? paidAt);
 
-        Future<void> downloadPdf() async {
-          if (_busy) return;
-          setState(() => _busy = true);
-          try {
-            final bytes = await _buildPdf(
-              thixId: thixId,
-              chatId: chatId,
-              fullName: fullName,
-              country: country,
-              txId: txId,
-              amount: amount,
-              currency: currency,
-              dateTime: dateTime,
-            );
-            await Printing.sharePdf(bytes: bytes, filename: 'THIX_ID_Receipt_$thixId.pdf');
-          } catch (e) {
-            debugPrint('ActivationReceipt: pdf failed err=$e');
-          } finally {
-            if (mounted) setState(() => _busy = false);
-          }
-        }
+            Future<void> downloadPdf() async {
+              if (_busy) return;
+              setState(() => _busy = true);
+              try {
+                final bytes = await _buildPdf(
+                  thixId: thixId,
+                  chatId: chatId,
+                  fullName: fullName,
+                  country: country,
+                  txId: txId,
+                  amount: amount,
+                  currency: currency,
+                  dateTime: dateTime,
+                );
+                await Printing.sharePdf(bytes: bytes, filename: 'THIX_ID_Receipt_$thixId.pdf');
+              } catch (e) {
+                debugPrint('ActivationReceipt: pdf failed err=$e');
+              } finally {
+                if (mounted) setState(() => _busy = false);
+              }
+            }
 
-        Future<void> shareReceipt() async {
-          final text = 'THIX ID Activated\n\nTHIX ID: $thixId\nChat ID: $chatId\nName: $fullName\nCountry: $country\nTX: $txId\nAmount: $amount $currency\nStatus: VERIFIED\n\n$url';
-          try {
-            await Share.share(text);
-          } catch (e) {
-            debugPrint('ActivationReceipt: share failed err=$e');
-          }
-        }
+            Future<void> shareReceipt() async {
+              final text = 'THIX ID Activated\n\nTHIX ID: $thixId\nChat ID: $chatId\nName: $fullName\nCountry: $country\nTX: $txId\nAmount: $amount $currency\nStatus: VERIFIED\n\n$url';
+              try {
+                await Share.share(text);
+              } catch (e) {
+                debugPrint('ActivationReceipt: share failed err=$e');
+              }
+            }
 
             final showPendingOverlay = _isPendingThixId(thixId);
 
             return Scaffold(
-          backgroundColor: const Color(0xFF0A2F5C),
-          body: SafeArea(
-            child: Stack(
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.topCenter,
-                      radius: 1.6,
-                      colors: [Color(0xFF0F2B4A), Color(0xFF0A2F5C)],
+              backgroundColor: const Color(0xFF0A2F5C),
+              body: SafeArea(
+                child: Stack(
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.topCenter,
+                          radius: 1.6,
+                          colors: [Color(0xFF0F2B4A), Color(0xFF0A2F5C)],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Opacity(
-                    opacity: 0.08,
-                    child: Image.asset(
-                      'assets/images/gold_fingerprint_abstract_transparent_1775573968885.png',
-                      height: 420,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => const Icon(Icons.fingerprint, size: 420, color: LightModeColors.accent),
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Opacity(
+                        opacity: 0.08,
+                        child: Image.asset(
+                          'assets/images/gold_fingerprint_abstract_transparent_1775573968885.png',
+                          height: 420,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => const Icon(Icons.fingerprint, size: 420, color: LightModeColors.accent),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
 
-                if (showPendingOverlay)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        alignment: Alignment.center,
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: context.theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                            border: Border.all(color: context.theme.dividerColor),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                    if (showPendingOverlay)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            alignment: Alignment.center,
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: context.theme.colorScheme.surface,
+                                borderRadius: BorderRadius.circular(AppRadius.lg),
+                                border: Border.all(color: context.theme.dividerColor),
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Attribution du THIX ID…',
-                                style: context.textStyles.bodyMedium?.copyWith(color: context.theme.colorScheme.onSurface),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Attribution du THIX ID…',
+                                    style: context.textStyles.bodyMedium?.copyWith(color: context.theme.colorScheme.onSurface),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  final t = auth.currentUser?.accountType;
+                                  context.go(t == null ? AppRoutes.home : (t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard));
+                                },
+                                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Text('Reçu d\'activation', style: context.textStyles.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            onPressed: () {
-                              final t = auth.currentUser?.accountType;
-                              context.go(t == null ? AppRoutes.home : (t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard));
-                            },
-                            icon: const Icon(Icons.close_rounded, color: Colors.white),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text('Reçu d\'activation', style: context.textStyles.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xl),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(AppSpacing.lg),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(AppRadius.xl),
-                                boxShadow: [
-                                  BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 24, offset: const Offset(0, 18)),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xl),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(AppSpacing.lg),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 24, offset: const Offset(0, 18)),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF17B26A).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: const Icon(Icons.check_circle_rounded, color: Color(0xFF17B26A), size: 30),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF17B26A).withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(AppRadius.lg),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(Icons.check_circle_rounded, color: Color(0xFF17B26A), size: 30),
+                                          ),
+                                          const SizedBox(width: AppSpacing.md),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text('THIX ID Successfully Activated', style: context.textStyles.titleLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w900)),
+                                                const SizedBox(height: 4),
+                                                Text('Status: VERIFIED', style: context.textStyles.bodySmall?.copyWith(color: const Color(0xFF17B26A), fontWeight: FontWeight.w800)),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: AppSpacing.md),
-                                      Expanded(
+                                      const SizedBox(height: AppSpacing.lg),
+                                      Container(
+                                        padding: const EdgeInsets.all(AppSpacing.md),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0A3D62).withValues(alpha: 0.06),
+                                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                                          border: Border.all(color: const Color(0xFF0A3D62).withValues(alpha: 0.08)),
+                                        ),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
                                           children: [
-                                            Text('THIX ID Successfully Activated', style: context.textStyles.titleLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w900)),
-                                            const SizedBox(height: 4),
-                                            Text('Status: VERIFIED', style: context.textStyles.bodySmall?.copyWith(color: const Color(0xFF17B26A), fontWeight: FontWeight.w800)),
+                                            Text('THIX ID', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w900)),
+                                            const SizedBox(height: 6),
+                                            SelectableText(
+                                              thixId,
+                                              style: context.textStyles.headlineSmall?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w900, letterSpacing: 0.6),
+                                            ),
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  Container(
-                                    padding: const EdgeInsets.all(AppSpacing.md),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0A3D62).withValues(alpha: 0.06),
-                                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                                      border: Border.all(color: const Color(0xFF0A3D62).withValues(alpha: 0.08)),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Text('THIX ID', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w900)),
-                                        const SizedBox(height: 6),
-                                        SelectableText(
-                                          thixId,
-                                          style: context.textStyles.headlineSmall?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w900, letterSpacing: 0.6),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.md),
-                                  _ReceiptRow(label: 'Chat ID', value: chatId.isEmpty ? '—' : chatId),
-                                  _ReceiptRow(label: 'Full Name', value: fullName),
-                                  _ReceiptRow(label: 'Country', value: country),
-                                  _ReceiptRow(label: 'Date & Time', value: dateTime),
-                                  _ReceiptRow(label: 'Transaction ID', value: txId),
-                                  _ReceiptRow(label: 'Payment', value: '$amount $currency · $method'),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  Row(
-                                    children: [
-                                      Expanded(
+                                      const SizedBox(height: AppSpacing.md),
+                                      _ReceiptRow(label: 'Chat ID', value: chatId.isEmpty ? '—' : chatId),
+                                      _ReceiptRow(label: 'Full Name', value: fullName),
+                                      _ReceiptRow(label: 'Country', value: country),
+                                      _ReceiptRow(label: 'Date & Time', value: dateTime),
+                                      _ReceiptRow(label: 'Transaction ID', value: txId),
+                                      _ReceiptRow(label: 'Payment', value: '$amount $currency · $method'),
+                                      const SizedBox(height: AppSpacing.lg),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Container(
+                                              padding: const EdgeInsets.all(AppSpacing.md),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF0A3D62).withValues(alpha: 0.04),
+                                                borderRadius: BorderRadius.circular(AppRadius.lg),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('Sender', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+                                                  const SizedBox(height: 6),
+                                                  Text('THIX System', style: context.textStyles.bodyLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w800)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: AppSpacing.md),
+                                          Expanded(
+                                            child: Container(
+                                              padding: const EdgeInsets.all(AppSpacing.md),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF0A3D62).withValues(alpha: 0.04),
+                                                borderRadius: BorderRadius.circular(AppRadius.lg),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('Receiver', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+                                                  const SizedBox(height: 6),
+                                                  Text(fullName, style: context.textStyles.bodyLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: AppSpacing.lg),
+                                      Center(
                                         child: Container(
-                                          padding: const EdgeInsets.all(AppSpacing.md),
+                                          padding: const EdgeInsets.all(AppSpacing.sm),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF0A3D62).withValues(alpha: 0.04),
+                                            color: Colors.white,
                                             borderRadius: BorderRadius.circular(AppRadius.lg),
+                                            border: Border.all(color: const Color(0xFF0A3D62).withValues(alpha: 0.10)),
                                           ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text('Sender', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
-                                              const SizedBox(height: 6),
-                                              Text('THIX System', style: context.textStyles.bodyLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w800)),
-                                            ],
+                                          child: QrImageView(
+                                            data: url,
+                                            size: 140,
+                                            backgroundColor: Colors.white,
+                                            eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0A3D62)),
+                                            dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0A3D62)),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: AppSpacing.md),
-                                      Expanded(
-                                        child: Container(
-                                          padding: const EdgeInsets.all(AppSpacing.md),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF0A3D62).withValues(alpha: 0.04),
-                                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text('Receiver', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
-                                              const SizedBox(height: 6),
-                                              Text(fullName, style: context.textStyles.bodyLarge?.copyWith(color: const Color(0xFF0A3D62), fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                      const SizedBox(height: AppSpacing.sm),
+                                      Text(url, textAlign: TextAlign.center, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                                     ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(AppSpacing.sm),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(AppRadius.lg),
-                                        border: Border.all(color: const Color(0xFF0A3D62).withValues(alpha: 0.10)),
-                                      ),
-                                      child: QrImageView(
-                                        data: url,
-                                        size: 140,
-                                        backgroundColor: Colors.white,
-                                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0A3D62)),
-                                        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0A3D62)),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Text(url, textAlign: TextAlign.center, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _busy ? null : downloadPdf,
-                                    icon: Icon(Icons.download_rounded, color: context.theme.colorScheme.onPrimary),
-                                    label: Text(_busy ? 'Préparation…' : 'Download', style: TextStyle(color: context.theme.colorScheme.onPrimary)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: context.theme.colorScheme.primary,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      elevation: 0,
-                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: AppSpacing.md),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: shareReceipt,
-                                    icon: Icon(Icons.share_rounded, color: context.theme.colorScheme.primary),
-                                    label: Text('Share', style: TextStyle(color: context.theme.colorScheme.primary)),
-                                    style: OutlinedButton.styleFrom(
+                                const SizedBox(height: AppSpacing.lg),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _busy ? null : downloadPdf,
+                                        icon: Icon(Icons.download_rounded, color: context.theme.colorScheme.onPrimary),
+                                        label: Text(_busy ? 'Préparation…' : 'Download', style: TextStyle(color: context.theme.colorScheme.onPrimary)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: context.theme.colorScheme.primary,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          elevation: 0,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: shareReceipt,
+                                        icon: Icon(Icons.share_rounded, color: context.theme.colorScheme.primary),
+                                        label: Text('Share', style: TextStyle(color: context.theme.colorScheme.primary)),
+                                        style: OutlinedButton.styleFrom(
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
+                                          side: BorderSide(color: context.theme.colorScheme.primary, width: 1.4),
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                SizedBox(
+                                  height: 52,
+                                  child: ElevatedButton.icon(
+                                    onPressed: thixId.trim().isEmpty
+                                        ? null
+                                        : () => context.go('${AppRoutes.publicProfile}?thixId=${Uri.encodeComponent(thixId)}'),
+                                    icon: Icon(Icons.public_rounded, color: const Color(0xFF0A2F5C)),
+                                    label: const Text('View Public Profile', style: TextStyle(color: Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: LightModeColors.accent,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                                      side: BorderSide(color: context.theme.colorScheme.primary, width: 1.4),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      elevation: 0,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: AppSpacing.md),
-                            SizedBox(
-                              height: 52,
-                              child: ElevatedButton.icon(
-                                onPressed: thixId.trim().isEmpty
-                                    ? null
-                                    : () => context.go('${AppRoutes.publicProfile}?thixId=${Uri.encodeComponent(thixId)}'),
-                                icon: Icon(Icons.public_rounded, color: const Color(0xFF0A2F5C)),
-                                label: const Text('View Public Profile', style: TextStyle(color: Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: LightModeColors.accent,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                                  elevation: 0,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
             );
           },
         );
