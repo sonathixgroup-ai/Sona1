@@ -1,7 +1,7 @@
 // presentation/thix_sante/doctor/details/doctor_teleconsult_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:thix_id/presentation/thix_sante/patient/jitsi_teleconsultation_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleconsultation_jitsi_page.dart';
 
 class DoctorTeleconsultPage extends StatefulWidget {
   final String? consultationId;
