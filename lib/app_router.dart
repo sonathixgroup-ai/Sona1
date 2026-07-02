@@ -64,8 +64,8 @@ import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart'; 
+import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart' as patient;
 import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_life_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_connect_page.dart';
@@ -556,7 +556,7 @@ class AppRouter {
         GoRoute(
           path: '/sante/patient/dashboard',
           name: 'patientDashboard',
-          pageBuilder: (context, state) => const NoTransitionPage(child: PatientDashboardPage()),
+          pageBuilder: (context, state) =>  NoTransitionPage(child: PatientDashboardPage()),
         ),
         GoRoute(
           path: '/sante/patient/health',
