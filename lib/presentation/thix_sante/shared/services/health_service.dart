@@ -30,7 +30,6 @@ class HealthService {
   static const _tHealthAlerts = 'health_alerts';
   static const _tPharmacyOrders = 'health_pharmacy_orders';
   static const _tPharmacyInventory = 'health_pharmacy_inventory_items';
-  // Nouvelles tables
   static const _tHealthArticles = 'health_articles';
   static const _tSymptoms = 'health_symptoms';
   static const _tInsuranceOffers = 'health_insurance_offers';
@@ -38,6 +37,9 @@ class HealthService {
   static const _tWellnessPrograms = 'health_wellness_programs';
   static const _tShares = 'health_shares';
   static const _tConsents = 'health_consents';
+  // Nouvelles tables pour le catalogue produits et commandes
+  static const _tProducts = 'health_products';          // Catalogue de médicaments
+  static const _tOrderItems = 'health_order_items';      // Lignes de commande
 
   // Helpers pour extraire des valeurs sécurisées
   String _s(Map<String, dynamic> m, String k, [String d = '']) =>
@@ -342,7 +344,7 @@ class HealthService {
   }
 
   // ============================================================
-  // SYMPTÔMES (implémenté)
+  // SYMPTÔMES
   // ============================================================
 
   Future<List<Symptom>> fetchSymptoms(String patientId) async {
@@ -561,7 +563,7 @@ class HealthService {
   }
 
   // ============================================================
-  // ARTICLES DE SANTÉ (implémenté)
+  // ARTICLES DE SANTÉ
   // ============================================================
 
   Future<List<HealthArticle>> fetchHealthArticles({int limit = 10}) async {
@@ -587,7 +589,7 @@ class HealthService {
   }
 
   // ============================================================
-  // ALERTES SANITAIRES (implémenté)
+  // ALERTES SANITAIRES
   // ============================================================
 
   Future<List<HealthAlert>> fetchHealthAlerts(String patientId) async {
@@ -901,10 +903,109 @@ class HealthService {
   }
 
   // ============================================================
-  // NOUVELLES MÉTHODES POUR LES MODÈLES AJOUTÉS
+  // NOUVELLES MÉTHODES POUR LE CATALOGUE PRODUITS (PHARMACIE)
   // ============================================================
 
-  /// Récupère les offres d'assurance
+  /// Récupère la liste des produits (médicaments) avec recherche et filtres
+  Future<List<Map<String, dynamic>>> fetchProducts({
+    String? searchQuery,
+    String? category,
+    int limit = 50,
+  }) async {
+    try {
+      dynamic q = _db.from(_tProducts).select('*');
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        q = q.ilike('name', '%$searchQuery%');
+      }
+      if (category != null && category.isNotEmpty && category != 'Tous') {
+        q = q.eq('category', category);
+      }
+      q = q.order('name', ascending: true);
+      if (limit > 0) q = q.limit(limit);
+      final res = await q;
+      if (res is List) {
+        return res.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      }
+      return const [];
+    } catch (e, st) {
+      debugPrint('HealthService: fetchProducts failed err=$e');
+      debugPrint(st.toString());
+      return const [];
+    }
+  }
+
+  /// Récupère un produit par son ID
+  Future<Map<String, dynamic>?> fetchProductById(String productId) async {
+    return _safeSingle(_tProducts, eq: {'id': productId});
+  }
+
+  /// Crée une commande à partir du panier (liste d'articles)
+  /// Retourne l'ID de la commande créée
+  Future<String> createOrderFromCart({
+    required String pharmacyId,
+    required String patientId,
+    required List<Map<String, dynamic>> cartItems,
+    String? notes,
+  }) async {
+    try {
+      // Calculer le total
+      double total = 0;
+      for (final item in cartItems) {
+        total += (item['price'] as double) * (item['quantity'] as int);
+      }
+
+      // Insérer la commande
+      final orderPayload = {
+        'pharmacy_id': pharmacyId,
+        'patient_id': patientId,
+        'patient_name': (await AuthController.instance.currentUser)?.displayName ?? 'Patient',
+        'status': 'En attente',
+        'order_date': DateTime.now().toIso8601String(),
+        'total_amount': total,
+        'notes': notes,
+      };
+      final orderRes = await _db.from(_tPharmacyOrders).insert(orderPayload).select('id').single();
+      final orderId = orderRes['id'] as String;
+
+      // Insérer les lignes de commande
+      for (final item in cartItems) {
+        final itemPayload = {
+          'order_id': orderId,
+          'product_name': item['name'] as String,
+          'quantity': item['quantity'] as int,
+          'unit_price': item['price'] as double,
+          'dosage': item['dosage'] as String?,
+        };
+        await _db.from(_tOrderItems).insert(itemPayload);
+      }
+
+      return orderId;
+    } catch (e, st) {
+      debugPrint('HealthService: createOrderFromCart failed err=$e');
+      debugPrint(st.toString());
+      rethrow;
+    }
+  }
+
+  /// Récupère les détails d'une commande (avec les articles)
+  Future<Map<String, dynamic>?> fetchOrderWithItems(String orderId) async {
+    try {
+      final order = await _safeSingle(_tPharmacyOrders, eq: {'id': orderId});
+      if (order == null) return null;
+      final items = await _safeSelect(_tOrderItems, eq: {'order_id': orderId});
+      order['items'] = items;
+      return order;
+    } catch (e, st) {
+      debugPrint('HealthService: fetchOrderWithItems failed err=$e');
+      debugPrint(st.toString());
+      return null;
+    }
+  }
+
+  // ============================================================
+  // AUTRES MÉTHODES DÉJÀ PRÉSENTES (assurance, wellness, shares, consents)
+  // ============================================================
+
   Future<List<InsuranceOffer>> fetchInsuranceOffers() async {
     final rows = await _safeSelect(
       _tInsuranceOffers,
@@ -914,7 +1015,6 @@ class HealthService {
     return rows.map((m) => InsuranceOffer.fromJson(m)).toList();
   }
 
-  /// Récupère les documents du dossier médical d'un patient
   Future<List<Map<String, dynamic>>> fetchPatientRecords(String patientId) async {
     return _safeSelect(
       _tPatientRecords,
@@ -924,7 +1024,6 @@ class HealthService {
     );
   }
 
-  /// Ajoute un document au dossier médical
   Future<Map<String, dynamic>> addPatientRecord({
     required String patientId,
     required String title,
@@ -945,7 +1044,6 @@ class HealthService {
     return (res as Map).cast<String, dynamic>();
   }
 
-  /// Récupère les programmes bien-être d'un patient
   Future<List<WellnessProgram>> fetchWellnessPrograms(String patientId) async {
     final rows = await _safeSelect(
       _tWellnessPrograms,
@@ -956,21 +1054,18 @@ class HealthService {
     return rows.map((m) => WellnessProgram.fromJson(m)).toList();
   }
 
-  /// Crée un nouveau programme bien-être
   Future<WellnessProgram> createWellnessProgram(WellnessProgram program) async {
     final payload = program.toJson();
     final res = await _db.from(_tWellnessPrograms).insert(payload).select('*').single();
     return WellnessProgram.fromJson(res);
   }
 
-  /// Met à jour un programme bien-être (progression, statut)
   Future<WellnessProgram> updateWellnessProgram(WellnessProgram program) async {
     final payload = program.toJson();
     await _db.from(_tWellnessPrograms).update(payload).eq('id', program.id);
     return program;
   }
 
-  /// Récupère les partages de dossier d'un patient
   Future<List<Share>> fetchShares(String patientId) async {
     final rows = await _safeSelect(
       _tShares,
@@ -981,19 +1076,16 @@ class HealthService {
     return rows.map((m) => Share.fromJson(m)).toList();
   }
 
-  /// Crée un partage
   Future<Share> createShare(Share share) async {
     final payload = share.toJson();
     final res = await _db.from(_tShares).insert(payload).select('*').single();
     return Share.fromJson(res);
   }
 
-  /// Révoque un partage
   Future<void> revokeShare(String shareId) async {
     await _db.from(_tShares).delete().eq('id', shareId);
   }
 
-  /// Récupère les consentements d'un patient
   Future<List<Consent>> fetchConsents(String patientId) async {
     final rows = await _safeSelect(
       _tConsents,
@@ -1004,7 +1096,6 @@ class HealthService {
     return rows.map((m) => Consent.fromJson(m)).toList();
   }
 
-  /// Modifie un consentement
   Future<Consent> toggleConsent(String consentId, bool granted) async {
     await _db.from(_tConsents).update({'granted': granted}).eq('id', consentId);
     final m = await _safeSingle(_tConsents, eq: {'id': consentId});
