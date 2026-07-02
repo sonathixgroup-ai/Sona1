@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/services/admin_user_service.dart';
 import 'package:thix_id/theme.dart';
-
+import 'package:thix_id/supabase/supabase_service.dart';
 class AdminUserManagementPage extends StatefulWidget {
   const AdminUserManagementPage({super.key});
 
