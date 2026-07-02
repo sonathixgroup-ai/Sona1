@@ -1,25 +1,17 @@
 // lib/presentation/chat/conversation_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-// State Management
-import 'core/chat_bloc.dart';
-import 'core/chat_states.dart';
-import 'core/chat_events.dart';
-
-// Widgets
+import '../../providers/chat_provider.dart';
+import '../../models/chat_models.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/pinned_message.dart';
 import 'widgets/reaction_picker.dart';
 import 'widgets/attachment_picker.dart';
-import 'polls/inline_poll_widget.dart';
-import 'polls/poll_creator_sheet.dart';
-import 'location/location_share_bubble.dart';
-import 'voice/voice_message_bubble.dart';
 
 class ConversationPage extends StatefulWidget {
   final String chatId;
@@ -38,38 +30,54 @@ class ConversationPage extends StatefulWidget {
 }
 
 class _ConversationPageState extends State<ConversationPage> {
-  late ChatBloc _chatBloc;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _messageController = TextEditingController();
+  late ChatProvider _chatProvider;
 
   @override
   void initState() {
     super.initState();
-    _chatBloc = context.read<ChatBloc>();
-    _chatBloc.add(LoadMessages(widget.chatId));
-    _chatBloc.add(LoadConversationDetails(widget.chatId));
+    _chatProvider = context.read<ChatProvider>();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    await _chatProvider.loadMessages(widget.chatId);
+    _scrollToBottom();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     _messageController.dispose();
-    _chatBloc.add(ClearTyping(widget.chatId));
     super.dispose();
   }
 
   void _sendMessage(String content, {String? mediaUrl, String? type}) {
     if (content.trim().isEmpty && mediaUrl == null) return;
-    _chatBloc.add(
-      SendMessage(
-        conversationId: widget.chatId,
-        content: content.trim(),
-        type: type ?? 'text',
-        mediaUrl: mediaUrl,
-      ),
+    _chatProvider.sendMessage(
+      conversationId: widget.chatId,
+      content: content.trim(),
+      type: _stringToMessageType(type ?? 'text'),
+      mediaURL: mediaUrl,
     );
     _messageController.clear();
     _scrollToBottom();
+  }
+
+  MessageType _stringToMessageType(String type) {
+    switch (type) {
+      case 'image':
+        return MessageType.image;
+      case 'audio':
+        return MessageType.audio;
+      case 'video':
+        return MessageType.video;
+      case 'file':
+        return MessageType.file;
+      default:
+        return MessageType.text;
+    }
   }
 
   void _scrollToBottom() {
@@ -84,41 +92,22 @@ class _ConversationPageState extends State<ConversationPage> {
     });
   }
 
-  void _showPollCreator() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PollCreatorSheet(
-        conversationId: widget.chatId,
-        onPollCreated: (poll) {
-          _chatBloc.add(SendPollMessage(
-            conversationId: widget.chatId,
-            poll: poll,
-          ));
-        },
-      ),
-    );
-  }
-
   void _showAttachmentPicker() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => AttachmentPicker(
         onImageSelected: (file) {
-          _chatBloc.add(SendMediaMessage(
-            conversationId: widget.chatId,
-            file: file,
-            type: 'image',
-          ));
+          // Implémenter l'envoi d'image
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Image sélectionnée (à implémenter)')),
+          );
         },
         onFileSelected: (file) {
-          _chatBloc.add(SendMediaMessage(
-            conversationId: widget.chatId,
-            file: file,
-            type: 'file',
-          ));
+          // Implémenter l'envoi de fichier
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fichier sélectionné (à implémenter)')),
+          );
         },
       ),
     );
@@ -130,73 +119,64 @@ class _ConversationPageState extends State<ConversationPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => ReactionPicker(
         onReactionSelected: (emoji) {
-          _chatBloc.add(AddReaction(
-            messageId: messageId,
-            emoji: emoji,
-          ));
+          _chatProvider.reactToMessage(messageId, emoji);
         },
       ),
     );
   }
 
   void _togglePinMessage(String messageId) {
-    _chatBloc.add(TogglePinMessage(
-      conversationId: widget.chatId,
-      messageId: messageId,
-    ));
+    _chatProvider.pinMessage(widget.chatId, messageId);
   }
 
   void _replyToMessage(String messageId) {
-    _chatBloc.add(ReplyToMessage(
-      conversationId: widget.chatId,
-      messageId: messageId,
-    ));
+    // Implémenter la réponse à un message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Répondre au message $messageId (à implémenter)')),
+    );
+  }
+
+  void _deleteMessage(String messageId) {
+    // Implémenter la suppression
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Supprimer le message $messageId (à implémenter)')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<ChatBloc, ChatState>(
-      listener: (context, state) {
-        if (state is MessageSent || state is MessagesLoaded) {
-          _scrollToBottom();
-        }
-        if (state is ChatError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
-          );
-        }
-      },
-      builder: (context, state) {
-        return Scaffold(
-          appBar: _buildAppBar(state),
-          body: Column(
-            children: [
-              if (state is MessagesLoaded && state.pinnedMessage != null)
-                PinnedMessage(
-                  message: state.pinnedMessage!,
-                  onTap: () => _scrollToBottom(),
-                  onUnpin: () => _togglePinMessage(state.pinnedMessage!.id),
-                ),
-              Expanded(
-                child: state is MessagesLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : state is MessagesLoaded
-                        ? _buildMessageList(state)
-                        : const Center(child: Text('Aucun message')),
-              ),
-              _buildInputBar(state),
-            ],
+    final chatProvider = Provider.of<ChatProvider>(context);
+    final messages = chatProvider.messages;
+    final isLoading = chatProvider.isLoading;
+    final pinnedMessage = messages.firstWhere((m) => m.isPinned, orElse: () => null as ChatMessage);
+
+    return Scaffold(
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          if (pinnedMessage != null)
+            PinnedMessage(
+              message: pinnedMessage,
+              onTap: () => _scrollToBottom(),
+              onUnpin: () => _togglePinMessage(pinnedMessage.id),
+            ),
+          Expanded(
+            child: isLoading && messages.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : messages.isEmpty
+                    ? const Center(child: Text('Aucun message'))
+                    : _buildMessageList(messages),
           ),
-        );
-      },
+          _buildInputBar(),
+        ],
+      ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(ChatState state) {
-    String subtitle = 'En ligne';
-    if (state is ConversationDetailsLoaded) {
-      subtitle = state.isOnline ? 'En ligne' : 'Dernière connexion: ${_formatLastSeen(state.lastSeen)}';
-    }
+  PreferredSizeWidget _buildAppBar() {
+    // Récupérer le statut du contact (simplifié)
+    final isOnline = false; // À remplacer par la logique réelle
+
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -212,25 +192,23 @@ class _ConversationPageState extends State<ConversationPage> {
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           Text(
-            subtitle,
-            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+            isOnline ? 'En ligne' : 'Hors ligne',
+            style: TextStyle(fontSize: 10, color: isOnline ? Colors.green : Colors.grey[500]),
           ),
         ],
       ),
       actions: [
         IconButton(
           icon: const Icon(Icons.phone, size: 20),
-          onPressed: () => _chatBloc.add(InitiateCall(
-            conversationId: widget.chatId,
-            type: 'audio',
-          )),
+          onPressed: () {
+            // Implémenter appel audio
+          },
         ),
         IconButton(
           icon: const Icon(Icons.videocam, size: 20),
-          onPressed: () => _chatBloc.add(InitiateCall(
-            conversationId: widget.chatId,
-            type: 'video',
-          )),
+          onPressed: () {
+            // Implémenter appel vidéo
+          },
         ),
         PopupMenuButton(
           icon: const Icon(Icons.more_vert, size: 20),
@@ -247,21 +225,17 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  Widget _buildMessageList(MessagesLoaded state) {
-    final messages = state.messages;
-    final typingUsers = state.typingUsers ?? [];
-
+  Widget _buildMessageList(List<ChatMessage> messages) {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      itemCount: messages.length + (typingUsers.isNotEmpty ? 1 : 0),
+      itemCount: messages.length,
       itemBuilder: (context, index) {
-        if (index == messages.length && typingUsers.isNotEmpty) {
-          return _buildTypingIndicator(typingUsers);
-        }
         final message = messages[index];
+        final isMe = message.senderId == _chatProvider._chatService.currentUserId;
         return ChatBubble(
           message: message,
+          isMe: isMe,
           onLongPress: () => _showMessageOptions(message),
           onReactionTap: () => _showReactionPicker(message.id),
           onReplyTap: () => _replyToMessage(message.id),
@@ -272,52 +246,25 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  Widget _buildTypingIndicator(List<String> users) {
-    final names = users.map((id) => 'Utilisateur').join(', ');
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 40,
-            height: 20,
-            child: Row(
-              children: [
-                _Dot(delay: 0),
-                SizedBox(width: 4),
-                _Dot(delay: 1),
-                SizedBox(width: 4),
-                _Dot(delay: 2),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$names est en train d\'écrire...',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputBar(ChatState state) {
+  Widget _buildInputBar() {
     return ChatInputBar(
       onSendMessage: _sendMessage,
       controller: _messageController,
       onTyping: (isTyping) {
-        if (isTyping) {
-          _chatBloc.add(StartTyping(widget.chatId));
-        } else {
-          _chatBloc.add(StopTyping(widget.chatId));
-        }
+        // Implémenter l'indicateur de saisie
       },
       onAttachmentPressed: _showAttachmentPicker,
-      onPollPressed: _showPollCreator,
-      onMicrophonePressed: () {
-        _chatBloc.add(StartVoiceRecording(widget.chatId));
+      onPollPressed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Créer un sondage (à implémenter)')),
+        );
       },
-      isSending: state is MessageSending,
+      onMicrophonePressed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enregistrement vocal (à implémenter)')),
+        );
+      },
+      isSending: false,
     );
   }
 
@@ -365,7 +312,7 @@ class _ConversationPageState extends State<ConversationPage> {
               title: const Text('Copier', style: TextStyle(fontSize: 13)),
               onTap: () {
                 Navigator.pop(context);
-                Clipboard.setData(ClipboardData(text: message.content));
+                // Copier le texte
               },
             ),
             ListTile(
@@ -373,33 +320,12 @@ class _ConversationPageState extends State<ConversationPage> {
               title: const Text('Supprimer', style: TextStyle(fontSize: 13, color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
-                _chatBloc.add(DeleteMessage(messageId: message.id));
+                _deleteMessage(message.id);
               },
             ),
           ],
         ),
       ),
-    );
-  }
-
-  String _formatLastSeen(DateTime? lastSeen) {
-    if (lastSeen == null) return 'inconnue';
-    return timeago.format(lastSeen, locale: 'fr');
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final int delay;
-  const _Dot({required this.delay});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: Duration(milliseconds: 400 + (delay * 200)),
-      curve: Curves.easeInOut,
-      width: 6,
-      height: 6,
-      decoration: const BoxDecoration(color: Colors.grey, shape: BoxShape.circle),
     );
   }
 }
