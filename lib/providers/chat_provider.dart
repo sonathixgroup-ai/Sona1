@@ -1,4 +1,3 @@
-
 // lib/providers/chat_provider.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -17,6 +16,7 @@ class ChatProvider extends ChangeNotifier {
   List<Story> _stories = [];
   List<Space> _spaces = [];
   List<Conversation> _filteredConversations = [];
+  List<Conversation> _archivedConversations = [];
   ChatStats _stats = ChatStats(
     onlineCount: 0,
     newMessagesCount: 0,
@@ -46,6 +46,7 @@ class ChatProvider extends ChangeNotifier {
   
   List<Conversation> get conversations => _conversations;
   List<Conversation> get filteredConversations => _filteredConversations;
+  List<Conversation> get archivedConversations => _archivedConversations;
   List<ChatMessage> get messages => _messages;
   List<Story> get stories => _stories;
   List<Space> get spaces => _spaces;
@@ -201,7 +202,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
   
-  // ✅ NOUVELLE MÉTHODE : envoi de message avec paramètres nommés
+  // ✅ Envoi de message avec paramètres nommés
   Future<void> sendMessage({
     required String conversationId,
     required String content,
@@ -230,7 +231,7 @@ class ChatProvider extends ChangeNotifier {
       _messages.insert(0, tempMessage);
       notifyListeners();
 
-      // Appel au service (selon le type)
+      // Appel au service
       ChatMessage sentMessage;
       if (mediaUrl != null && mediaUrl.isNotEmpty) {
         sentMessage = await _service.sendMedia(conversationId, mediaUrl, type ?? 'file');
@@ -244,7 +245,6 @@ class ChatProvider extends ChangeNotifier {
         _messages[index] = sentMessage;
         notifyListeners();
       }
-      // Mettre à jour la liste des conversations
       await loadConversations();
     } catch (e) {
       _error = e.toString();
@@ -253,7 +253,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
   
-  // Ancienne méthode sendMessage (à conserver pour compatibilité)
+  // Ancienne méthode sendMessage (pour compatibilité)
   Future<void> sendTextMessage(String conversationId, String content) async {
     await sendMessage(conversationId: conversationId, content: content, type: 'text');
   }
@@ -293,9 +293,9 @@ class ChatProvider extends ChangeNotifier {
         final message = _messages[index];
         final reactions = Map<String, List<String>>.from(message.reactions);
         if (reactions.containsKey(emoji)) {
-          reactions[emoji]!.add(Supabase.instance.client.auth.currentUser!.id);
+          reactions[emoji]!.add(_service.currentUserId);
         } else {
-          reactions[emoji] = [Supabase.instance.client.auth.currentUser!.id];
+          reactions[emoji] = [_service.currentUserId];
         }
         _messages[index] = message.copyWith(reactions: reactions);
         notifyListeners();
@@ -323,7 +323,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
   
-  // ✅ NOUVELLE MÉTHODE : suppression d'un message
+  // ✅ Suppression d'un message
   Future<void> deleteMessage(String messageId) async {
     try {
       await _service.deleteMessage(messageId);
@@ -381,6 +381,57 @@ class ChatProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error posting story: $e');
       return false;
+    }
+  }
+  
+  // ============================================================
+  // ARCHIVES
+  // ============================================================
+  
+  Future<void> loadArchivedConversations() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _archivedConversations = await _service.getArchivedConversations();
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  Future<void> unarchiveConversation(String conversationId) async {
+    try {
+      await _service.unarchiveConversation(conversationId);
+      await loadArchivedConversations();
+      await loadConversations();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+  
+  Future<void> deleteArchivedConversation(String conversationId) async {
+    try {
+      await _service.deleteArchivedConversation(conversationId);
+      await loadArchivedConversations();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+  
+  Future<void> searchArchivedConversations(Map<String, dynamic> filters) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _archivedConversations = await _service.searchArchivedConversations(filters);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
   
