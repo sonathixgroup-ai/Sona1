@@ -1,3 +1,4 @@
+// lib/services/chat_service.dart
 import 'dart:async';
 import 'dart:convert';
 
@@ -7,6 +8,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/services/platform_file_from_path_stub.dart' if (dart.library.io) 'package:thix_id/services/platform_file_from_path_io.dart';
+
+// ============================================================
+// CLASSES DE DONNÉES
+// ============================================================
 
 class ChatSummary {
   final String id;
@@ -164,6 +169,10 @@ DateTime? _tryParseDate(Object? v) {
   return null;
 }
 
+// ============================================================
+// SERVICE PRINCIPAL
+// ============================================================
+
 class ChatService {
   static const String moneyTransferMarker = '[[THIX_MONEY_TRANSFER_V1]]';
 
@@ -180,6 +189,16 @@ class ChatService {
   final Map<String, ChatProfileBasics> _profileCache = <String, ChatProfileBasics>{};
   bool? _legacySchema;
 
+  // ============================================================
+  // GETTERS
+  // ============================================================
+
+  String get currentUserId => _client.auth.currentUser?.id ?? '';
+
+  // ============================================================
+  // SCHEMA DETECTION
+  // ============================================================
+
   Future<bool> _isLegacySchema() async {
     final cached = _legacySchema;
     if (cached != null) return cached;
@@ -194,120 +213,282 @@ class ChatService {
     }
   }
 
-  String directChatIdForUids(String a, String b) => 'direct:${_directKey(a, b)}';
+  // ============================================================
+  // MÉTHODES D'ARCHIVE (NOUVEAU)
+  // ============================================================
 
-  ({String a, String b})? _parseDirectChatVirtualId(String chatId) {
-    final raw = chatId.trim();
-    if (!raw.startsWith('direct:')) return null;
-    final key = raw.substring('direct:'.length);
-    final parts = key.split('_');
-    if (parts.length != 2) return null;
-    final a = parts[0].trim();
-    final b = parts[1].trim();
-    if (a.isEmpty || b.isEmpty) return null;
-    return (a: a, b: b);
-  }
-
-  Future<String> _resolveChatUuid(String chatId, {AppUser? me}) async {
-    final raw = chatId.trim();
-    if (isUuidLike(raw)) return raw;
-    final parsed = _parseDirectChatVirtualId(raw);
-    if (parsed == null) throw Exception('ChatId invalide.');
-    final a = parsed.a;
-    final b = parsed.b;
-    final key = _directKey(a, b);
-    return _getOrCreateChatByDirectKey(key: key, a: a, b: b, me: me);
-  }
-
-  Stream<T> _poll<T>(Future<T> Function() fetch, {Duration interval = const Duration(seconds: 2)}) async* {
-    while (true) {
-      try {
-        yield await fetch();
-      } catch (e) {
-        debugPrint('ChatService: poll error=$e');
-      }
-      await Future<void>.delayed(interval);
+  Future<List<Conversation>> getArchivedConversations() async {
+    try {
+      final response = await _client
+          .from(chatsTable)
+          .select('*')
+          .eq('is_archived', true)
+          .contains('participants', [currentUserId])
+          .order('updated_at', ascending: false);
+      if (response is! List) return [];
+      return response.map((e) => Conversation.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('ChatService: getArchivedConversations error: $e');
+      return [];
     }
   }
 
-  Stream<List<ChatSummary>> streamChatsForUser(String uid) {
-    final controller = StreamController<List<ChatSummary>>.broadcast();
-    Timer? pollTimer;
-    bool isActive = true;
+  Future<void> unarchiveConversation(String conversationId) async {
+    try {
+      await _client
+          .from(chatsTable)
+          .update({'is_archived': false})
+          .eq('id', conversationId);
+    } catch (e) {
+      debugPrint('ChatService: unarchiveConversation error: $e');
+      rethrow;
+    }
+  }
 
-    Future<void> fetch() async {
-      if (!isActive) return;
-      try {
-        final legacy = await _isLegacySchema();
-        if (legacy) {
-          final rows = await _selectLegacyChatMessagesForUser(uid);
-          final summaries = await _summariesFromLegacyMessageRows(uid, rows);
-          if (!controller.isClosed) controller.add(summaries);
-          return;
-        }
-        final chats = await _selectChatsForUser(uid);
-        if (chats.isEmpty) {
-          if (!controller.isClosed) controller.add([]);
-          return;
-        }
-        final otherUids = <String>{};
-        for (final c in chats) {
-          final parts = ChatSummary._parseParticipants(c['participants']);
-          for (final p in parts) {
-            if (p != uid) otherUids.add(p);
-          }
-        }
-        final profiles = await _fetchProfileBasics(otherUids.toList(growable: false));
+  Future<void> deleteArchivedConversation(String conversationId) async {
+    try {
+      await _client
+          .from(chatsTable)
+          .delete()
+          .eq('id', conversationId);
+    } catch (e) {
+      debugPrint('ChatService: deleteArchivedConversation error: $e');
+      rethrow;
+    }
+  }
 
-        final summaries = chats.map((c) {
-          final id = (c['id'] as String?) ?? '';
-          final parts = ChatSummary._parseParticipants(c['participants']);
-          final pnRaw = (c['participant_name'] as Map?)?.cast<String, dynamic>() ?? const {};
-          final ptRaw = (c['participant_thix'] as Map?)?.cast<String, dynamic>() ?? const {};
-          final type = (c['type'] as String?) ?? 'direct';
-          final participantName = pnRaw.map((k, v) => MapEntry(k, (v as String?) ?? 'Utilisateur'));
-          final participantThix = ptRaw.map((k, v) => MapEntry(k, (v as String?) ?? ''));
-          final dk = (c['direct_key'] as String?)?.trim();
+  Future<List<Conversation>> searchArchivedConversations(Map<String, dynamic> filters) async {
+    try {
+      var query = _client
+          .from(chatsTable)
+          .select('*')
+          .eq('is_archived', true)
+          .contains('participants', [currentUserId]);
 
-          final patchedNames = Map<String, String>.from(participantName);
-          for (final p in parts) {
-            if (p == uid) {
-              patchedNames.putIfAbsent(p, () => 'Moi');
-            } else {
-              patchedNames.putIfAbsent(p, () => profiles[p]?.displayName ?? 'Utilisateur');
-            }
-          }
-
-          return ChatSummary(
-            id: id,
-            type: type,
-            directKey: (dk == null || dk.isEmpty) ? null : dk,
-            participants: parts,
-            participantName: patchedNames,
-            participantThix: Map<String, String>.from(participantThix),
-            lastMessage: (c['last_message'] as String?) ?? '',
-            lastMessageAt: _tryParseDate(c['last_message_at']),
-          );
-        }).toList(growable: false);
-        if (!controller.isClosed) controller.add(summaries);
-      } catch (e) {
-        debugPrint('ChatService: fetch chats failed uid=$uid err=$e');
-        if (!controller.isClosed) controller.add([]);
+      if (filters['name'] != null && filters['name'].toString().isNotEmpty) {
+        query = query.ilike('name', '%${filters['name']}%');
       }
+      if (filters['type'] != null && filters['type'] != 'all') {
+        query = query.eq('type', filters['type']);
+      }
+      if (filters['startDate'] != null) {
+        query = query.gte('updated_at', filters['startDate']);
+      }
+      if (filters['endDate'] != null) {
+        query = query.lte('updated_at', filters['endDate']);
+      }
+      final response = await query.order('updated_at', ascending: false);
+      if (response is! List) return [];
+      return response.map((e) => Conversation.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('ChatService: searchArchivedConversations error: $e');
+      return [];
+    }
+  }
+
+  // ============================================================
+  // MÉTHODES DE MESSAGERIE (ADAPTÉES POUR CHATPROVIDER)
+  // ============================================================
+
+  Future<List<ChatMessage>> fetchMessages(String conversationId) async {
+    final uuid = await _resolveChatUuid(conversationId);
+    final response = await _client
+        .from(messagesTable)
+        .select('*')
+        .eq('chat_id', uuid)
+        .order('created_at', ascending: false)
+        .limit(200);
+    if (response is! List) return [];
+    final enriched = await _applyProfileEnrichmentForMessageRows(response.cast<Map<String, dynamic>>());
+    return enriched.map((e) => ChatMessage.fromRow(e)).toList();
+  }
+
+  Future<ChatMessage> sendMessage(String conversationId, String content) async {
+    return sendMessageWithType(conversationId, content, 'text');
+  }
+
+  Future<ChatMessage> sendMessageWithType(String conversationId, String content, String type) async {
+    final authUid = _client.auth.currentUser?.id;
+    if (authUid == null) throw Exception('User not logged in');
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    final uuid = await _resolveChatUuid(conversationId);
+    final inserted = await _client.from(messagesTable).insert({
+      'chat_id': uuid,
+      'type': type,
+      'sender_id': authUid,
+      'sender_name': '', // sera enrichi
+      'sender_thix_id': '',
+      'text': content,
+      'created_at': now,
+      'updated_at': now,
+    }).select().single();
+
+    // Mettre à jour le dernier message du chat
+    try {
+      await _client.from(chatsTable).update({
+        'last_message': content,
+        'last_message_at': now,
+        'updated_at': now,
+      }).eq('id', uuid);
+    } catch (e) {
+      debugPrint('ChatService: update chat preview failed (ignored) err=$e');
     }
 
-    controller.onListen = () {
-      isActive = true;
-      fetch();
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => fetch());
-    };
-    controller.onCancel = () {
-      isActive = false;
-      pollTimer?.cancel();
-      controller.close();
-    };
-    return controller.stream;
+    return ChatMessage.fromRow(inserted);
   }
+
+  Future<ChatMessage> sendMedia(String conversationId, String filePath, String type) async {
+    final authUid = _client.auth.currentUser?.id;
+    if (authUid == null) throw Exception('User not logged in');
+    final uuid = await _resolveChatUuid(conversationId);
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final fileName = filePath.split('/').last;
+    final objectPath = 'chats/$uuid/${ts}_$fileName';
+    final storage = _client.storage.from(attachmentsBucket);
+
+    final file = fileFromPath(filePath);
+    await storage.upload(objectPath, file as dynamic);
+    final url = storage.getPublicUrl(objectPath);
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final inserted = await _client.from(messagesTable).insert({
+      'chat_id': uuid,
+      'type': type,
+      'sender_id': authUid,
+      'sender_name': '',
+      'sender_thix_id': '',
+      'text': '',
+      'download_url': url,
+      'file_name': fileName,
+      'file_size': 0,
+      'created_at': now,
+      'updated_at': now,
+    }).select().single();
+
+    // Mettre à jour le dernier message
+    await _client.from(chatsTable).update({
+      'last_message': 'Média partagé',
+      'last_message_at': now,
+      'updated_at': now,
+    }).eq('id', uuid);
+
+    return ChatMessage.fromRow(inserted);
+  }
+
+  Future<void> toggleLike(String messageId) async {
+    // TODO: implémenter si nécessaire
+  }
+
+  Future<void> addReaction(String messageId, String emoji) async {
+    // Récupérer les réactions existantes
+    final row = await _client
+        .from(messagesTable)
+        .select('reactions')
+        .eq('id', messageId)
+        .maybeSingle();
+    Map<String, List<String>> reactions = {};
+    if (row != null && row['reactions'] != null) {
+      reactions = Map<String, List<String>>.from(row['reactions']);
+    }
+    final userId = currentUserId;
+    if (!reactions.containsKey(emoji)) {
+      reactions[emoji] = [];
+    }
+    if (!reactions[emoji]!.contains(userId)) {
+      reactions[emoji]!.add(userId);
+    }
+    await _client
+        .from(messagesTable)
+        .update({'reactions': reactions})
+        .eq('id', messageId);
+  }
+
+  Future<void> pinMessage(String messageId) async {
+    await _client
+        .from(messagesTable)
+        .update({'is_pinned': true})
+        .eq('id', messageId);
+  }
+
+  Future<void> deleteMessage(String messageId) async {
+    await _client
+        .from(messagesTable)
+        .delete()
+        .eq('id', messageId);
+  }
+
+  Future<void> markMessagesAsRead(String conversationId) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) return;
+    final uuid = await _resolveChatUuid(conversationId);
+    await _client.from(readsTable).upsert({
+      'chat_id': uuid,
+      'user_id': uid,
+      'read_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  // ============================================================
+  // STATS, STORIES, SPACES (pour ChatProvider)
+  // ============================================================
+
+  Future<ChatStats> getStats() async {
+    // Simulation de stats
+    return ChatStats(
+      onlineCount: 0,
+      newMessagesCount: 0,
+      activeCallsCount: 0,
+      securityAlertsCount: 0,
+    );
+  }
+
+  Future<List<Story>> getStories() async {
+    // À implémenter selon votre modèle
+    return [];
+  }
+
+  Future<List<Space>> getSpaces() async {
+    // À implémenter
+    return [];
+  }
+
+  Future<List<Story>> getMyStories() async {
+    return [];
+  }
+
+  Future<void> createStory(File imageFile, String type) async {
+    // À implémenter
+  }
+
+  Future<void> createStoryText(String text) async {
+    // À implémenter
+  }
+
+  // ============================================================
+  // CONVERSATIONS EXISTANTES
+  // ============================================================
+
+  Future<List<Conversation>> getConversations() async {
+    final summaries = await _selectChatsForUser(currentUserId);
+    return summaries.map((s) => Conversation(
+      id: s['id'],
+      type: s['type'] == 'group' ? ConversationType.group : ConversationType.private,
+      name: s['title'],
+      avatarURL: s['avatar_url'],
+      createdBy: s['created_by'],
+      participantIds: ChatSummary._parseParticipants(s['participants']),
+      lastMessageId: null,
+      lastMessageAt: _tryParseDate(s['last_message_at']),
+      status: ConversationStatus.active,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    )).toList();
+  }
+
+  // ============================================================
+  // MÉTHODES INTERNES
+  // ============================================================
 
   Future<List<Map<String, dynamic>>> _selectChatsForUser(String uid) async {
     try {
@@ -322,174 +503,12 @@ class ChatService {
       return rows.map((r) => (r as Map).cast<String, dynamic>()).toList(growable: false);
     } catch (e) {
       debugPrint('ChatService: _selectChatsForUser canonical select failed uid=$uid err=$e');
+      return [];
     }
-    return const <Map<String, dynamic>>[];
-  }
-
-  Future<List<Map<String, dynamic>>> _selectLegacyChatMessagesForUser(String uid) async {
-    final rows = await _client
-        .from(chatsTable)
-        .select('id, direct_key, sender_id, receiver_id, message_content, created_at, updated_at, type, participants')
-        .or('sender_id.eq.$uid,receiver_id.eq.$uid')
-        .order('created_at', ascending: false)
-        .limit(300);
-    if (rows is! List) return const <Map<String, dynamic>>[];
-    return rows.map((r) => (r as Map).cast<String, dynamic>()).toList(growable: false);
-  }
-
-  Future<List<ChatSummary>> _summariesFromLegacyMessageRows(String uid, List<Map<String, dynamic>> rows) async {
-    final latestByKey = <String, Map<String, dynamic>>{};
-    for (final r in rows) {
-      final key = (r['direct_key'] as String?)?.trim() ?? '';
-      if (key.isEmpty) continue;
-      latestByKey.putIfAbsent(key, () => r);
-    }
-
-    final otherUids = <String>{};
-    for (final entry in latestByKey.entries) {
-      final r = entry.value;
-      final sender = (r['sender_id'] as String?)?.trim() ?? '';
-      final receiver = (r['receiver_id'] as String?)?.trim() ?? '';
-      final other = sender == uid ? receiver : sender;
-      if (other.isNotEmpty) otherUids.add(other);
-    }
-
-    final profiles = await _fetchProfileBasics(otherUids.toList(growable: false));
-    final out = <ChatSummary>[];
-    for (final entry in latestByKey.entries) {
-      final key = entry.key;
-      final r = entry.value;
-      final sender = (r['sender_id'] as String?)?.trim() ?? '';
-      final receiver = (r['receiver_id'] as String?)?.trim() ?? '';
-      final participants = <String>[];
-      if (sender.isNotEmpty) participants.add(sender);
-      if (receiver.isNotEmpty && receiver != sender) participants.add(receiver);
-      final other = sender == uid ? receiver : sender;
-      final names = <String, String>{
-        uid: 'Moi',
-        if (other.isNotEmpty) other: profiles[other]?.displayName ?? 'Utilisateur',
-      };
-      out.add(ChatSummary(
-        id: 'direct:$key',
-        type: 'direct',
-        directKey: key,
-        participants: participants,
-        participantName: names,
-        participantThix: const {},
-        lastMessage: (r['message_content'] as String?) ?? '',
-        lastMessageAt: _tryParseDate(r['created_at']) ?? _tryParseDate(r['updated_at']),
-      ));
-    }
-
-    out.sort((a, b) {
-      final ad = a.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bd = b.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bd.compareTo(ad);
-    });
-    return out;
-  }
-
-  Future<ChatSummary?> fetchChatById({required String chatId}) async => null;
-
-  bool isUuidLike(String v) => RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(v.trim());
-
-  Stream<List<ChatContact>> streamRecentContacts({required String uid, int limit = 8}) {
-    final controller = StreamController<List<ChatContact>>.broadcast();
-    Timer? pollTimer;
-    bool isActive = true;
-
-    Future<void> fetch() async {
-      if (!isActive) return;
-      final chats = await _selectChatsForUser(uid);
-      final contacts = <String, ChatContact>{};
-      for (final c in chats) {
-        final participants = ChatSummary._parseParticipants(c['participants']);
-        final otherUid = participants.firstWhere((p) => p != uid, orElse: () => '');
-        if (otherUid.isEmpty) continue;
-        final pnRaw = (c['participant_name'] as Map?)?.cast<String, dynamic>() ?? const {};
-        final otherName = pnRaw[otherUid]?.toString() ?? 'Utilisateur';
-        final ptRaw = (c['participant_thix'] as Map?)?.cast<String, dynamic>() ?? const {};
-        final otherThix = ptRaw[otherUid]?.toString() ?? '';
-        contacts.putIfAbsent(otherUid, () => ChatContact(uid: otherUid, displayName: otherName, thixId: otherThix));
-        if (contacts.length >= limit) break;
-      }
-      if (!controller.isClosed) controller.add(contacts.values.toList(growable: false));
-    }
-
-    controller.onListen = () {
-      isActive = true;
-      fetch();
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => fetch());
-    };
-    controller.onCancel = () {
-      isActive = false;
-      pollTimer?.cancel();
-      controller.close();
-    };
-    return controller.stream;
-  }
-
-  Stream<List<ChatMessage>> streamMessages(String chatId) {
-    final controller = StreamController<List<ChatMessage>>.broadcast();
-    Timer? pollTimer;
-    bool isActive = true;
-    String? uuid;
-
-    Future<void> fetch() async {
-      if (!isActive) return;
-      try {
-        final legacy = await _isLegacySchema();
-        if (legacy) {
-          final parsed = _parseDirectChatVirtualId(chatId);
-          if (parsed == null) throw Exception('ChatId invalide.');
-          final key = _directKey(parsed.a, parsed.b);
-          final rows = await _client
-              .from(chatsTable)
-              .select('id,direct_key,sender_id,receiver_id,message_content,created_at,updated_at,type')
-              .eq('direct_key', key)
-              .order('created_at', ascending: false)
-              .limit(200);
-          final base = (rows is List) ? rows.map((r) => (r as Map).cast<String, dynamic>()).toList(growable: false) : const <Map<String, dynamic>>[];
-          final normalized = base.map((r) {
-            final out = Map<String, dynamic>.from(r);
-            out['chat_id'] = chatId;
-            out['text'] = (r['message_content'] as String?) ?? '';
-            out['sender_name'] = '';
-            out['sender_thix_id'] = '';
-            return out;
-          }).toList(growable: false);
-          final enriched = await _applyProfileEnrichmentForMessageRows(normalized);
-          if (!controller.isClosed) controller.add(enriched.map(ChatMessage.fromRow).toList(growable: false));
-          return;
-        }
-
-        final id = uuid ?? await _resolveChatUuid(chatId);
-        uuid ??= id;
-        final rows = await _client.from(messagesTable).select('*').eq('chat_id', id).order('created_at', ascending: false).limit(200);
-        final base = (rows is List) ? rows.map((r) => (r as Map).cast<String, dynamic>()).toList(growable: false) : const <Map<String, dynamic>>[];
-        final enriched = await _applyProfileEnrichmentForMessageRows(base);
-        if (!controller.isClosed) controller.add(enriched.map(ChatMessage.fromRow).toList(growable: false));
-      } catch (e) {
-        debugPrint('ChatService: fetch messages failed chat=$chatId err=$e');
-        if (!controller.isClosed) controller.add([]);
-      }
-    }
-
-    controller.onListen = () {
-      isActive = true;
-      fetch();
-      pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => fetch());
-    };
-    controller.onCancel = () {
-      isActive = false;
-      pollTimer?.cancel();
-      controller.close();
-    };
-    return controller.stream;
   }
 
   Future<Map<String, ChatProfileBasics>> _fetchProfileBasics(List<String> uids) async {
-    if (uids.isEmpty) return const {};
+    if (uids.isEmpty) return {};
     final missing = <String>{};
     for (final id in uids) {
       final v = id.trim();
@@ -508,9 +527,7 @@ class ChatService {
             final id = (row['id'] as String?) ?? '';
             if (id.isEmpty) continue;
             final fullName = (row['full_name'] as String?)?.trim();
-            final displayName = (fullName != null && fullName.isNotEmpty)
-                ? fullName
-                : ((row['display_name'] as String?)?.trim() ?? 'Utilisateur');
+            final displayName = (fullName != null && fullName.isNotEmpty) ? fullName : ((row['display_name'] as String?)?.trim() ?? 'Utilisateur');
             final avatarUrl = (row['avatar_url'] as String?)?.trim();
             final certified = ((row['national_id_number'] as String?) ?? '').trim().isNotEmpty;
             _profileCache[id] = ChatProfileBasics(uid: id, displayName: displayName, avatarUrl: avatarUrl, certified: certified);
@@ -520,7 +537,6 @@ class ChatService {
         debugPrint('ChatService: profile basics fetch failed err=$e');
       }
     }
-
     final out = <String, ChatProfileBasics>{};
     for (final id in uids) {
       final p = _profileCache[id];
@@ -551,285 +567,34 @@ class ChatService {
     }).toList(growable: false);
   }
 
-  Stream<DateTime?> streamReadAt({required String chatId, required String uid}) {
-    final controller = StreamController<DateTime?>.broadcast();
-    Timer? pollTimer;
-    bool isActive = true;
-
-    Future<void> fetch() async {
-      if (!isActive) return;
-      try {
-        final uuid = await _resolveChatUuid(chatId);
-        final row = await _client.from(readsTable).select('read_at').eq('chat_id', uuid).eq('user_id', uid).maybeSingle();
-        if (row == null) {
-          if (!controller.isClosed) controller.add(null);
-          return;
-        }
-        if (!controller.isClosed) controller.add(_tryParseDate((row as Map)['read_at']));
-      } catch (e) {
-        debugPrint('ChatService: streamReadAt failed chat=$chatId uid=$uid err=$e');
-        if (!controller.isClosed) controller.add(null);
-      }
-    }
-
-    controller.onListen = () {
-      isActive = true;
-      fetch();
-      pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => fetch());
-    };
-    controller.onCancel = () {
-      isActive = false;
-      pollTimer?.cancel();
-      controller.close();
-    };
-    return controller.stream;
+  Future<String> _resolveChatUuid(String chatId, {AppUser? me}) async {
+    final raw = chatId.trim();
+    if (isUuidLike(raw)) return raw;
+    final parsed = _parseDirectChatVirtualId(raw);
+    if (parsed == null) throw Exception('ChatId invalide.');
+    final a = parsed.a;
+    final b = parsed.b;
+    final key = _directKey(a, b);
+    return _getOrCreateChatByDirectKey(key: key, a: a, b: b, me: me);
   }
 
-  Future<void> markChatRead({required String chatId, required String uid}) async {
-    try {
-      final uuid = await _resolveChatUuid(chatId);
-      await _client.from(readsTable).upsert({
-        'chat_id': uuid,
-        'user_id': uid,
-        'read_at': DateTime.now().toUtc().toIso8601String(),
-      });
-    } catch (e) {
-      debugPrint('ChatService: markChatRead failed chat=$chatId uid=$uid err=$e');
-    }
+  ({String a, String b})? _parseDirectChatVirtualId(String chatId) {
+    final raw = chatId.trim();
+    if (!raw.startsWith('direct:')) return null;
+    final key = raw.substring('direct:'.length);
+    final parts = key.split('_');
+    if (parts.length != 2) return null;
+    final a = parts[0].trim();
+    final b = parts[1].trim();
+    if (a.isEmpty || b.isEmpty) return null;
+    return (a: a, b: b);
   }
 
-  Future<String> getOrCreateDirectChat({required AppUser me, required AppUser other}) async {
-    final key = _directKey(me.id, other.id);
-    return _getOrCreateChatByDirectKey(key: key, a: me.id, b: other.id, me: me);
-  }
+  bool isUuidLike(String v) => RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(v.trim());
 
-  Future<void> sendMessage({required String chatId, required AppUser sender, required String text}) async {
-    final msg = text.trim();
-    if (msg.isEmpty) return;
-    await sendPayload(chatId: chatId, sender: sender, type: 'text', text: msg, previewText: msg, extra: const {});
-  }
-
-  Future<void> sendSticker({required String chatId, required AppUser sender, required String sticker}) async {
-    final s = sticker.trim();
-    if (s.isEmpty) return;
-    await sendPayload(chatId: chatId, sender: sender, type: 'sticker', text: '', previewText: 'Sticker $s', extra: {'sticker': s});
-  }
-
-  Future<void> sendMeetingInvite({
-    required String chatId,
-    required AppUser sender,
-    required String title,
-    required DateTime scheduledAt,
-    required int durationMinutes,
-    String? location,
-    String? note,
-  }) async {
-    final safeTitle = title.trim().isEmpty ? 'Meeting' : title.trim();
-    await sendPayload(
-      chatId: chatId,
-      sender: sender,
-      type: 'meeting',
-      text: '',
-      previewText: 'Meeting: $safeTitle',
-      extra: {
-        'meeting_title': safeTitle,
-        'meeting_scheduled_at': scheduledAt.toUtc().toIso8601String(),
-        'meeting_duration_min': durationMinutes,
-        'meeting_location': (location ?? '').trim().isEmpty ? null : location!.trim(),
-        'meeting_note': (note ?? '').trim().isEmpty ? null : note!.trim(),
-      },
-    );
-  }
-
-  Future<void> sendCallRequest({required String chatId, required AppUser sender, required String kind}) async {
-    final safeKind = (kind == 'video') ? 'video' : 'audio';
-    await sendPayload(
-      chatId: chatId,
-      sender: sender,
-      type: 'call_request',
-      text: '',
-      previewText: safeKind == 'video' ? 'Appel vidéo' : 'Appel audio',
-      extra: {
-        'call_kind': safeKind,
-        'call_status': 'requested',
-      },
-    );
-  }
-
-  Future<void> sendMoneyTransfer({
-    required String chatId,
-    required AppUser sender,
-    required String senderPhone,
-    required String receiverPhone,
-    required String network,
-    required String amount,
-    required String currency,
-    String? note,
-  }) async {
-    final safeSender = senderPhone.trim();
-    final safeReceiver = receiverPhone.trim();
-    final safeNetwork = network.trim();
-    final safeAmount = amount.trim();
-    final safeCurrency = currency.trim().toUpperCase();
-    if (safeSender.isEmpty || safeReceiver.isEmpty || safeNetwork.isEmpty || safeAmount.isEmpty) {
-      throw Exception('Paramètres transfert invalides.');
-    }
-
-    final payload = {
-      'sender_phone': safeSender,
-      'receiver_phone': safeReceiver,
-      'network': safeNetwork,
-      'amount': safeAmount,
-      'currency': safeCurrency,
-      'note': (note ?? '').trim().isEmpty ? null : (note ?? '').trim(),
-      'status': 'pending',
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-    };
-
-    final summary = '💸 Transfert $safeAmount $safeCurrency • $safeNetwork';
-    final text = '$moneyTransferMarker${jsonEncode(payload)}\n$summary';
-    await sendPayload(chatId: chatId, sender: sender, type: 'money_transfer', text: text, previewText: summary, extra: payload);
-  }
-
-  Future<void> updateMessage({
-    required String messageId,
-    required Map<String, dynamic> patch,
-  }) async {
-    try {
-      final safe = Map<String, dynamic>.from(patch);
-      safe['updated_at'] = DateTime.now().toUtc().toIso8601String();
-      await _client.from(messagesTable).update(safe).eq('id', messageId);
-    } catch (e) {
-      debugPrint('ChatService: updateMessage failed id=$messageId err=$e');
-      rethrow;
-    }
-  }
-
-  Future<void> sendAttachment({required String chatId, required AppUser sender, required PlatformFile file}) async {
-    try {
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final objectPath = 'chats/$chatId/${ts}_${file.name}';
-      final storage = _client.storage.from(attachmentsBucket);
-
-      if (kIsWeb) {
-        final bytes = file.bytes;
-        if (bytes == null) throw Exception('Impossible de lire le fichier (web).');
-        await storage.uploadBinary(objectPath, bytes);
-      } else {
-        final path = file.path;
-        if (path == null) throw Exception('Chemin fichier invalide.');
-        final f = fileFromPath(path);
-        await storage.upload(objectPath, f as dynamic);
-      }
-
-      final url = storage.getPublicUrl(objectPath);
-      await sendPayload(
-        chatId: chatId,
-        sender: sender,
-        type: 'attachment',
-        text: '',
-        previewText: 'Document: ${file.name}',
-        extra: {
-          'file_name': file.name,
-          'file_ext': file.extension,
-          'file_size': file.size,
-          'download_url': url,
-          'storage_path': objectPath,
-        },
-      );
-    } catch (e) {
-      debugPrint('ChatService: sendAttachment failed chat=$chatId err=$e');
-      rethrow;
-    }
-  }
-
-  Future<void> sendPayload({
-    required String chatId,
-    required AppUser sender,
-    required String type,
-    required String text,
-    required String previewText,
-    required Map<String, dynamic> extra,
-  }) async {
-    try {
-      final authUid = _client.auth.currentUser?.id;
-      final senderId = (authUid != null && authUid.trim().isNotEmpty) ? authUid : sender.id;
-      final now = DateTime.now().toUtc().toIso8601String();
-
-      final legacy = await _isLegacySchema();
-      if (legacy) {
-        final parsed = _parseDirectChatVirtualId(chatId);
-        if (parsed == null) throw Exception('ChatId invalide.');
-        final key = _directKey(parsed.a, parsed.b);
-        final receiverId = senderId == parsed.a ? parsed.b : parsed.a;
-        await _client.from(chatsTable).insert({
-          'type': type,
-          'direct_key': key,
-          'sender_id': senderId,
-          'receiver_id': receiverId,
-          'participants': [parsed.a, parsed.b],
-          'message_content': text.isEmpty ? previewText : text,
-          'is_read': false,
-          'created_at': now,
-          'updated_at': now,
-        });
-        return;
-      }
-
-      final uuid = await _resolveChatUuid(chatId, me: sender);
-      await _client.from(messagesTable).insert({
-        'chat_id': uuid,
-        'type': type,
-        'sender_id': senderId,
-        'sender_name': sender.displayName,
-        'sender_thix_id': sender.thixId,
-        'text': text,
-        ..._extraToMessageColumns(extra),
-        'created_at': now,
-        'updated_at': now,
-      });
-
-      try {
-        await _client.from(chatsTable).update({
-          'last_message': previewText,
-          'last_message_at': now,
-          'updated_at': now,
-        }).eq('id', uuid);
-      } catch (e) {
-        debugPrint('ChatService: update chat preview failed (ignored) chat=$uuid err=$e');
-        try {
-          await _client.from(chatsTable).update({'updated_at': now}).eq('id', uuid);
-        } catch (e2) {
-          debugPrint('ChatService: update updated_at failed (ignored) chat=$uuid err=$e2');
-        }
-      }
-    } catch (e) {
-      debugPrint('ChatService: sendPayload failed chat=$chatId type=$type err=$e');
-      rethrow;
-    }
-  }
-
-  Map<String, dynamic> _extraToMessageColumns(Map<String, dynamic> extra) {
-    final out = <String, dynamic>{};
-    void set(String col, String key) {
-      final v = extra[key];
-      if (v == null) return;
-      out[col] = v;
-    }
-    set('sticker', 'sticker');
-    set('file_name', 'file_name');
-    set('file_ext', 'file_ext');
-    set('file_size', 'file_size');
-    set('download_url', 'download_url');
-    set('storage_path', 'storage_path');
-    set('meeting_title', 'meeting_title');
-    set('meeting_scheduled_at', 'meeting_scheduled_at');
-    set('meeting_duration_min', 'meeting_duration_min');
-    set('meeting_location', 'meeting_location');
-    set('meeting_note', 'meeting_note');
-    set('call_kind', 'call_kind');
-    set('call_status', 'call_status');
-    return out;
+  String _directKey(String a, String b) {
+    final pair = [a, b]..sort();
+    return pair.join('_');
   }
 
   Future<String> _getOrCreateChatByDirectKey({
@@ -839,11 +604,10 @@ class ChatService {
     AppUser? me,
   }) async {
     if (await _isLegacySchema()) return 'direct:$key';
-
     try {
       final existing = await _client.from(chatsTable).select('id').eq('direct_key', key).maybeSingle();
       if (existing != null) {
-        final id = ((existing as Map)['id'] as String?) ?? '';
+        final id = (existing['id'] as String?) ?? '';
         if (id.isNotEmpty) return id;
       }
     } catch (e) {
@@ -859,217 +623,25 @@ class ChatService {
     };
 
     try {
-      final inserted = await _insertChatRowWithFallbacks(payload: {
+      final inserted = await _client.from(chatsTable).insert({
         'type': 'direct',
         'direct_key': key,
         'participants': participants,
         'participant_name': participantName,
-        'participant_thix': const {},
+        'participant_thix': {},
         'last_message': '',
         'last_message_at': null,
         'created_at': now,
         'updated_at': now,
-      });
-      return (inserted['id'] as String?) ?? '';
+      }).select('id').single();
+      return inserted['id'] as String;
     } catch (e) {
       debugPrint('ChatService: getOrCreateChatByDirectKey insert failed key=$key err=$e');
       final existing = await _client.from(chatsTable).select('id').eq('direct_key', key).maybeSingle();
       if (existing != null) {
-        return ((existing as Map)['id'] as String?) ?? '';
+        return existing['id'] as String;
       }
       rethrow;
     }
-  }
-
-  Future<Map<String, dynamic>> _insertChatRowWithFallbacks({required Map<String, dynamic> payload}) async {
-    final attempts = <Map<String, dynamic>>[
-      payload,
-      {
-        'type': payload['type'],
-        'direct_key': payload['direct_key'],
-        'participants': payload['participants'],
-        'created_at': payload['created_at'],
-        'updated_at': payload['updated_at'],
-      },
-      {
-        'type': payload['type'],
-        'direct_key': payload['direct_key'],
-        'participants': payload['participants'],
-      },
-    ];
-
-    Object? lastErr;
-    for (final p in attempts) {
-      try {
-        final inserted = await _client.from(chatsTable).insert(p).select('id').single();
-        return (inserted as Map).cast<String, dynamic>();
-      } catch (e) {
-        lastErr = e;
-        debugPrint('ChatService: insert chat retry failed keys=${p.keys.toList()} err=$e');
-      }
-    }
-    throw lastErr ?? Exception('Insert chat failed.');
-  }
-
-  Future<String> createGroup({required AppUser me, required String title, required List<String> memberUids}) async {
-    final now = DateTime.now().toUtc().toIso8601String();
-    final set = <String>{me.id, ...memberUids.map((e) => e.trim()).where((e) => e.isNotEmpty)};
-    final participants = set.toList(growable: false);
-    final profiles = await _fetchProfileBasics(participants);
-    final names = <String, String>{};
-    for (final id in participants) {
-      if (id == me.id) {
-        names[id] = me.displayName;
-      } else {
-        names[id] = profiles[id]?.displayName ?? 'Utilisateur';
-      }
-    }
-    final inserted = await _insertChatRowWithFallbacks(payload: {
-      'type': 'group',
-      'title': title.trim().isEmpty ? 'Groupe' : title.trim(),
-      'created_by': me.id,
-      'participants': participants,
-      'participant_name': names,
-      'participant_thix': const {},
-      'last_message': '',
-      'last_message_at': null,
-      'created_at': now,
-      'updated_at': now,
-    });
-    return (inserted['id'] as String?) ?? '';
-  }
-
-  Future<List<ChatContact>> searchProfiles(String query, {int limit = 20}) async {
-    final q = query.trim();
-    if (q.isEmpty) return const <ChatContact>[];
-    try {
-      final rows = await _client
-          .from(profilesTable)
-          .select('id, display_name, full_name, thix_id, thix_chat')
-          .or('display_name.ilike.%$q%,full_name.ilike.%$q%,thix_id.ilike.%$q%,thix_chat.ilike.%$q%')
-          .limit(limit);
-      if (rows is! List) return const <ChatContact>[];
-      return rows
-          .map((r) => (r as Map).cast<String, dynamic>())
-          .map((r) {
-            final id = (r['id'] as String?) ?? '';
-            final full = (r['full_name'] as String?)?.trim();
-            final display = (full != null && full.isNotEmpty) ? full : ((r['display_name'] as String?)?.trim() ?? 'Utilisateur');
-            final thix = (r['thix_id'] as String?)?.trim() ?? '';
-            return ChatContact(uid: id, displayName: display, thixId: thix);
-          })
-          .where((c) => c.uid.isNotEmpty)
-          .toList(growable: false);
-    } catch (e) {
-      debugPrint('ChatService: searchProfiles failed q=$q err=$e');
-      return const <ChatContact>[];
-    }
-  }
-
-  Future<ChatContact?> fetchProfileByThixId(String thixId) async {
-    final v = thixId.trim();
-    if (v.isEmpty) return null;
-    try {
-      final row = await _client.from(profilesTable).select('id, display_name, full_name, thix_id').eq('thix_id', v).maybeSingle();
-      if (row == null) return null;
-      final r = (row as Map).cast<String, dynamic>();
-      final id = (r['id'] as String?) ?? '';
-      if (id.isEmpty) return null;
-      final full = (r['full_name'] as String?)?.trim();
-      final display = (full != null && full.isNotEmpty) ? full : ((r['display_name'] as String?)?.trim() ?? 'Utilisateur');
-      final thix = (r['thix_id'] as String?)?.trim() ?? '';
-      return ChatContact(uid: id, displayName: display, thixId: thix);
-    } catch (e) {
-      debugPrint('ChatService: fetchProfileByThixId failed thixId=$v err=$e');
-      return null;
-    }
-  }
-
-  Future<ChatContact?> fetchProfileByThixIdOrHandle(String input) async {
-    final v = input.trim();
-    if (v.isEmpty) return null;
-    try {
-      final row = await _client
-          .from(profilesTable)
-          .select('id, display_name, full_name, thix_id, thix_chat')
-          .or('thix_id.eq.$v,thix_chat.eq.$v')
-          .maybeSingle();
-      if (row == null) return null;
-      final r = (row as Map).cast<String, dynamic>();
-      final id = (r['id'] as String?) ?? '';
-      if (id.isEmpty) return null;
-      final full = (r['full_name'] as String?)?.trim();
-      final display = (full != null && full.isNotEmpty) ? full : ((r['display_name'] as String?)?.trim() ?? 'Utilisateur');
-      final thix = (r['thix_id'] as String?)?.trim() ?? '';
-      return ChatContact(uid: id, displayName: display, thixId: thix);
-    } catch (e) {
-      debugPrint('ChatService: fetchProfileByThixIdOrHandle failed input=$v err=$e');
-      return null;
-    }
-  }
-
-  Future<void> setTyping({required String chatId, required bool isTyping}) async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return;
-    try {
-      final uuid = await _resolveChatUuid(chatId);
-      await _client.from(typingTable).upsert({
-        'chat_id': uuid,
-        'user_id': uid,
-        'is_typing': isTyping,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      });
-    } catch (e) {
-      debugPrint('ChatService: setTyping failed chat=$chatId typing=$isTyping err=$e');
-    }
-  }
-
-  Stream<List<String>> streamTypingUsers({required String chatId, required String excludeUid}) {
-    final controller = StreamController<List<String>>.broadcast();
-    Timer? pollTimer;
-    bool isActive = true;
-
-    Future<void> fetch() async {
-      if (!isActive) return;
-      try {
-        final uuid = await _resolveChatUuid(chatId);
-        final rows = await _client
-            .from(typingTable)
-            .select('user_id,is_typing,updated_at')
-            .eq('chat_id', uuid)
-            .eq('is_typing', true)
-            .order('updated_at', ascending: false)
-            .limit(10);
-        if (rows is! List) {
-          if (!controller.isClosed) controller.add([]);
-          return;
-        }
-        final typingUsers = rows
-            .map((r) => (r as Map)['user_id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty && id != excludeUid)
-            .toList(growable: false);
-        if (!controller.isClosed) controller.add(typingUsers);
-      } catch (e) {
-        debugPrint('ChatService: streamTypingUsers failed chat=$chatId err=$e');
-        if (!controller.isClosed) controller.add([]);
-      }
-    }
-
-    controller.onListen = () {
-      isActive = true;
-      fetch();
-      pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => fetch());
-    };
-    controller.onCancel = () {
-      isActive = false;
-      pollTimer?.cancel();
-      controller.close();
-    };
-    return controller.stream;
-  }
-
-  String _directKey(String a, String b) {
-    final pair = [a, b]..sort();
-    return pair.join('_');
   }
 }
