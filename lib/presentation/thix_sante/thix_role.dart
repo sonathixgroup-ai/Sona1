@@ -122,6 +122,10 @@ class ThixRoleController extends ChangeNotifier {
 
   // Getters
   ThixRole get role => _role;
+
+  /// ✅ AJOUTÉ : getter `currentRole` pour compatibilité avec les autres pages
+  ThixRole get currentRole => _role;
+
   ThixRole? get verifiedRole => _verifiedRole;
   bool get hasManualSelection => _manualSelection;
 
