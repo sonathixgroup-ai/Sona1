@@ -29,11 +29,12 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   int _deliveriesToday = 0;
   List<Map<String, dynamic>> _recentOrders = const [];
 
-  // Quick actions
+  // Quick actions (incluant le catalogue)
   static const List<_QuickAction> _quickActions = [
     _QuickAction('Nouvelle commande', Icons.add_shopping_cart, '/sante/pharmacy/order/new'),
     _QuickAction('Valider ordonnance', Icons.verified, '/sante/pharmacy/prescription/p1'),
     _QuickAction('Inventaire', Icons.inventory, '/sante/pharmacy/inventory'),
+    _QuickAction('Catalogue', Icons.storefront, '/sante/pharmacy/products'), // 👈 Nouveau
     _QuickAction('Rapports', Icons.bar_chart, '/sante/pharmacy/report'),
   ];
 
@@ -111,7 +112,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   }
 
   // =========================================================
-  // TOP BAR (comme dans le dashboard patient)
+  // TOP BAR
   // =========================================================
   Widget _topBar() {
     final user = AuthController.instance.currentUser;
@@ -148,7 +149,6 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
                 // Naviguer vers les notifications (si implémenté)
                 // context.push('/sante/pharmacy/notifications');
               }),
-              // On peut ajouter un badge si nécessaire
             ],
           ),
           const SizedBox(width: 10),
@@ -351,7 +351,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
   }
 
   // =========================================================
-  // ACTIONS RAPIDES (GRILLE 2x2)
+  // ACTIONS RAPIDES (GRILLE 2x2 → maintenant 5 éléments)
   // =========================================================
   Widget _quickActionsSection() {
     return Padding(
@@ -379,7 +379,7 @@ class _PharmacyDashboardPageState extends State<PharmacyDashboardPage> {
             itemCount: _quickActions.length,
             itemBuilder: (_, index) {
               final action = _quickActions[index];
-              final colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple];
+              final colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal];
               final color = colors[index % colors.length];
               return _quickActionTile(action, color);
             },
@@ -528,7 +528,7 @@ class _QuickAction {
 }
 
 // =========================================================
-// BOTTOM NAVIGATION (identique à celui du patient)
+// BOTTOM NAVIGATION
 // =========================================================
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
