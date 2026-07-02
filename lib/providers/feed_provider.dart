@@ -7,32 +7,32 @@ import '../models/network_post.dart';
 class FeedProvider extends ChangeNotifier {
   final NetworkService _networkService;
   final SupabaseClient? _supabase;
-  
+
   List<NetworkPost> _posts = [];
   bool _isLoading = false;
   bool _hasMore = true;
   String _currentFeedType = 'smart';
   String? _error;
   bool _realtimeInitialized = false;
-  
+
   // Real-time listening
   RealtimeChannel? _realtimeChannel;
   Timer? _autoRefreshTimer;
   DateTime? _lastRefresh;
-  
+
   FeedProvider(this._networkService, {SupabaseClient? supabase}) : _supabase = supabase;
-  
+
   // Getters
   List<NetworkPost> get posts => _posts;
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
   String get currentFeedType => _currentFeedType;
   String? get error => _error;
-  
+
   // ============================================================
   // INITIALISATION REALTIME
   // ============================================================
-  
+
   void initRealtime() {
     if (_realtimeInitialized) {
       debugPrint('⚠️ FeedProvider: Realtime déjà initialisé, skip');
@@ -43,19 +43,19 @@ class FeedProvider extends ChangeNotifier {
     _setupRealtimeListener();
     _setupAutoRefresh();
   }
-  
+
   void disposeRealtime() {
     _realtimeChannel?.unsubscribe();
     _autoRefreshTimer?.cancel();
   }
-  
+
   void _setupRealtimeListener() {
     try {
       if (_supabase == null) {
         debugPrint('❌ FeedProvider: Supabase client manquant');
         return;
       }
-      
+
       _realtimeChannel = _supabase!
           .channel('public:posts_feed')
           .onPostgresChanges(
@@ -85,7 +85,7 @@ class FeedProvider extends ChangeNotifier {
               _onPostDeleted(payload.oldRecord);
             },
           );
-      
+
       _realtimeChannel!.subscribe((status, err) {
         if (err != null) {
           debugPrint('❌ FeedProvider Realtime error: $err');
@@ -97,7 +97,7 @@ class FeedProvider extends ChangeNotifier {
       debugPrint('❌ FeedProvider _setupRealtimeListener error: $e');
     }
   }
-  
+
   void _setupAutoRefresh() {
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
@@ -107,7 +107,7 @@ class FeedProvider extends ChangeNotifier {
     });
     debugPrint('✅ FeedProvider: Auto-refresh activé (10s)');
   }
-  
+
   Future<void> _autoRefresh() async {
     try {
       final now = DateTime.now();
@@ -120,17 +120,17 @@ class FeedProvider extends ChangeNotifier {
       debugPrint('❌ FeedProvider _autoRefresh error: $e');
     }
   }
-  
+
   Future<void> _onPostInserted() async {
     debugPrint('📬 FeedProvider: Nouveau post inséré - rechargement du feed...');
     await loadFeed(feedType: _currentFeedType);
   }
-  
+
   Future<void> _onPostUpdated() async {
     debugPrint('📝 FeedProvider: Post mis à jour - rechargement du feed...');
     await loadFeed(feedType: _currentFeedType);
   }
-  
+
   void _onPostDeleted(dynamic deletedRecord) {
     try {
       if (deletedRecord == null) return;
@@ -155,37 +155,32 @@ class FeedProvider extends ChangeNotifier {
   // CHARGEMENT DU FEED
   // ============================================================
 
-  /// Charge le feed avec possibilité de forcer le rechargement
-  /// même si _isLoading est true.
+  /// Charge le feed.
+  /// Pour l'instant, on utilise toujours getFeedPosts() pour garantir
+  /// l'affichage (le smart feed peut échouer silencieusement).
   Future<void> loadFeed({String? feedType, int limit = 20, bool force = false}) async {
-    if (_isLoading && !force) return;  // ✅ Ajout de force
-    
+    if (_isLoading && !force) return;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     try {
       if (feedType != null) _currentFeedType = feedType;
-      
-      late List<NetworkPost> newPosts;
-      
-      switch (_currentFeedType) {
-        case 'smart':
-          newPosts = await _networkService.getSmartFeed(limit: limit);
-          break;
-        case 'popular':
-          final allPosts = await _networkService.getFeedPosts(limit: 50);
-          allPosts.sort((a, b) => b.likesCount.compareTo(a.likesCount));
-          newPosts = allPosts.take(limit).toList();
-          break;
-        default:
-          newPosts = await _networkService.getFeedPosts(limit: limit);
-      }
-      
+
+      // ✅ FIX : On utilise toujours getFeedPosts (flux simple)
+      // Le smart feed (getSmartFeed) peut retourner 0 à cause de requêtes
+      // supplémentaires qui échouent (ex: table 'connections' absente).
+      debugPrint('🔄 loadFeed: utilisation de getFeedPosts (mode simplifié)');
+      final newPosts = await _networkService.getFeedPosts(limit: limit);
+
+      // Optionnel : on pourrait plus tard réintroduire le switch
+      // en fonction du feedType, mais pour l'instant c'est plus sûr.
+
       _posts = newPosts;
       _hasMore = newPosts.length >= limit;
       _lastRefresh = DateTime.now();
-      
+
     } catch (e) {
       _error = e.toString();
       debugPrint('❌ FeedProvider loadFeed error: $e');
@@ -194,11 +189,11 @@ class FeedProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   // ============================================================
   // CRÉATION DE POST
   // ============================================================
-  
+
   Future<bool> createPost(String content, List<String> images) async {
     try {
       debugPrint('📝 FeedProvider: création du post...');
@@ -208,7 +203,7 @@ class FeedProvider extends ChangeNotifier {
         return false;
       }
       debugPrint('✅ FeedProvider: post créé avec ID: $postId');
-      await loadFeed(feedType: _currentFeedType, force: true); // ✅ Force refresh
+      await loadFeed(feedType: _currentFeedType, force: true);
       return true;
     } catch (e) {
       debugPrint('❌ FeedProvider createPost error: $e');
@@ -217,19 +212,19 @@ class FeedProvider extends ChangeNotifier {
       return false;
     }
   }
-  
+
   // ============================================================
   // INTERACTIONS (LIKE, COMMENTAIRE)
   // ============================================================
-  
+
   Future<void> toggleLike(String postId) async {
     try {
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index == -1) return;
-      
+
       final post = _posts[index];
       final currentLikeStatus = post.isLiked;
-      
+
       if (currentLikeStatus) {
         await _networkService.unlikePost(postId);
         _posts[index] = post.copyWith(
@@ -243,17 +238,17 @@ class FeedProvider extends ChangeNotifier {
           isLiked: true,
         );
       }
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('❌ FeedProvider toggleLike error: $e');
     }
   }
-  
+
   Future<void> addComment(String postId, String comment) async {
     try {
       await _networkService.addComment(postId, comment);
-      
+
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index != -1) {
         final post = _posts[index];
