@@ -1087,7 +1087,7 @@ class AppRouter {
         GoRoute(
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
-          pageBuilder: (context, state) => NoTransitionPage(child: DoctorChatPage(chatId: '')), // chatId
+          pageBuilder: (context, state) => NoTransitionPage(child: DoctorChatPage(chatId: Id)), // chatId
         ),
         GoRoute(
           path: '/sante/doctor/alerts',
