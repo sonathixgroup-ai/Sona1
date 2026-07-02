@@ -85,7 +85,54 @@ class ChatMessage {
   final String text;
   final DateTime? createdAt;
   final Map<String, dynamic> extra;
+  // ============================================================
+// CLASSES DE DONNÉES SUPPLÉMENTAIRES
+// ============================================================
 
+class Story {
+  final String id;
+  final String userId;
+  final String mediaUrl;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+
+  Story({
+    required this.id,
+    required this.userId,
+    required this.mediaUrl,
+    required this.createdAt,
+    required this.expiresAt,
+  });
+}
+
+class Space {
+  final String id;
+  final String name;
+  final String? description;
+  final List<String> members;
+
+  Space({
+    required this.id,
+    required this.name,
+    this.description,
+    this.members = const [],
+  });
+}
+
+class ChatStats {
+  final int onlineCount;
+  final int newMessagesCount;
+  final int activeCallsCount;
+  final int securityAlertsCount;
+
+  const ChatStats({
+    this.onlineCount = 0,
+    this.newMessagesCount = 0,
+    this.activeCallsCount = 0,
+    this.securityAlertsCount = 0,
+  });
+}
+  
   const ChatMessage({
     required this.id,
     required this.chatId,
