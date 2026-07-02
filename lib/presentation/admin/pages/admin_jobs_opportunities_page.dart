@@ -9,6 +9,7 @@ import 'package:thix_id/services/job_service.dart';
 import 'package:thix_id/services/opportunity_service.dart';
 import 'package:thix_id/services/supabase_safe_write.dart';
 import 'package:thix_id/theme.dart';
+import 'package:thix_id/supabase/supabase_service.dart';
 
 class AdminJobsOpportunitiesPage extends StatefulWidget {
   const AdminJobsOpportunitiesPage({super.key});
