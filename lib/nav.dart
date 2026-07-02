@@ -54,7 +54,7 @@ import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
 
 // ===== IMPORTS THIX SANTÉ =====
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
-import 'package:thix_id/presentation/thix_sante/thix_role.dart';
+import 'package:thix_id/presentation/thix_sante/thix_role.dart' as role;
 import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 
 
