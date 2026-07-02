@@ -1,828 +1,394 @@
-
-// presentation/thix_sante/patient/patient_dashboard_page.dart
-import 'dart:ui';
-
+// presentation/thix_sante/doctor/doctor_dashboard_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
+import 'package:thix_id/presentation/thix_sante/health_constants.dart';
 import 'package:thix_id/presentation/thix_sante/shared/services/health_services.dart';
+import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
+import 'package:thix_id/presentation/thix_sante/shared/widgets/health_header.dart';
+import 'package:thix_id/presentation/thix_sante/shared/widgets/health_bottom_nav.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 
-class PatientDashboardPage extends StatefulWidget {
-  const PatientDashboardPage({super.key});
+class DoctorDashboardPage extends StatefulWidget {
+  const DoctorDashboardPage({super.key});
 
   @override
-  State<PatientDashboardPage> createState() => _PatientDashboardPageState();
+  State<DoctorDashboardPage> createState() => _DoctorDashboardPageState();
 }
 
-class _PatientDashboardPageState extends State<PatientDashboardPage> {
-  final HealthService _healthService = HealthService.instance;
-
+class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
+  final HealthService _service = HealthService.instance;
   bool _isLoading = true;
-  HealthSummary? _summary;
-  List<Appointment> _upcomingAppointments = [];
-  List<Medication> _currentMedications = [];
-  List<HealthArticle> _articles = [];
-  int _unreadNotifications = 0;
-
-  // Liste des services
-  static const List<_Service> _services = [
-    _Service('Consulter médecin', Icons.medical_services, '/sante/patient/appointment/new'),
-    _Service('Dossier médical', Icons.folder, '/sante/patient/record'),
-    _Service('Résultats examens', Icons.science, '/sante/patient/exams'),
-    _Service('Mes ordonnances', Icons.receipt, '/sante/patient/prescriptions'),
-    _Service('Trouver hôpital', Icons.local_hospital, '/sante/patient/map/hospitals'),
-    _Service('Trouver médicament', Icons.medication, '/sante/patient/map/pharmacies'),
-    _Service('Pharmacies proches', Icons.storefront, '/sante/patient/map/pharmacies'),
-    _Service('Urgences proches', Icons.emergency, '/sante/patient/map/emergencies'),
-    _Service('Prendre RDV', Icons.calendar_today, '/sante/patient/appointment/new'),
-    _Service('Téléconsultation', Icons.video_call, '/sante/patient/teleconsultation/new'),
-    _Service('Assistant IA', Icons.smart_toy, '/sante/patient/ia'),
-    _Service('Dossier partagé', Icons.share, '/sante/patient/sharing'),
-    _Service('Santé enfants', Icons.child_care, '/sante/patient/family'),
-    _Service('Carnet vaccination', Icons.vaccines, '/sante/patient/vaccinations'),
-    _Service('Suivi grossesses', Icons.pregnant_woman, '/sante/patient/pregnancy'),
-    _Service('Assurance santé', Icons.shield, '/sante/patient/insurance'),
-    _Service('Analyse prédictive', Icons.analytics, '/sante/patient/health-score'),
-    _Service('Bien-être mental', Icons.spa, '/sante/patient/wellness/stress'),
-    _Service('Nutrition', Icons.restaurant, '/sante/patient/wellness/nutrition'),
-    _Service('Activité physique', Icons.fitness_center, '/sante/patient/wellness/fitness'),
-    _Service('Gestion stress', Icons.self_improvement, '/sante/patient/wellness/stress'),
-    _Service('Plus de services', Icons.more_horiz, '/sante/patient/health'),
-  ];
+  int _patientsCount = 0;
+  int _appointmentsToday = 0;
+  int _pendingTeleexpertise = 0;
+  int _criticalAlerts = 0;
+  List<Appointment> _todayAppointments = [];
+  List<Doctor> _recentPatients = [];
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    _loadData();
   }
 
-  Future<void> _loadDashboardData() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
-
     try {
       final user = AuthController.instance.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
 
-      final patientId = user.id;
-
-      final summary = await _healthService.fetchHealthSummary(patientId);
-      final appointments = await _healthService.fetchUpcomingAppointments(patientId);
-      final medications = await _healthService.fetchMedications(patientId, activeOnly: true);
-      final articles = await _healthService.fetchHealthArticles(limit: 12);
-      final alerts = await _healthService.fetchHealthAlerts(patientId);
+      final doctorId = user.id;
+      final today = DateTime.now();
+      final appts = await _service.fetchDoctorAppointmentsForDay(doctorId, today);
+      final patientsCount = await _service.fetchDoctorDistinctPatientsCount(doctorId);
+      final teleCount = await _service.fetchDoctorPendingTeleexpertiseCount(doctorId);
+      final alertsCount = await _service.fetchDoctorCriticalAlertsCount(doctorId);
+      final recentPatients = _deriveRecentPatients(appts);
 
       if (!mounted) return;
-
       setState(() {
-        _summary = summary;
-        _upcomingAppointments = appointments;
-        _currentMedications = medications;
-        _articles = articles;
-        _unreadNotifications = alerts.length;
+        _patientsCount = patientsCount;
+        _appointmentsToday = appts.length;
+        _pendingTeleexpertise = teleCount;
+        _criticalAlerts = alertsCount;
+        _todayAppointments = appts;
+        _recentPatients = recentPatients;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-      );
+      debugPrint('DoctorDashboard: load failed: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  List<Doctor> _deriveRecentPatients(List<Appointment> appts) {
+    final seen = <String>{};
+    final res = <Doctor>[];
+    for (final a in appts) {
+      final pid = (a.patientId ?? '').trim();
+      if (pid.isEmpty || !seen.add(pid)) continue;
+      final name = (a.patientName ?? '').trim();
+      final parts = name.split(' ').where((e) => e.trim().isNotEmpty).toList();
+      final first = parts.isNotEmpty ? parts.first : 'Patient';
+      final last = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      res.add(Doctor(id: pid, firstName: first, lastName: last, specialty: ''));
+      if (res.length >= 5) break;
+    }
+    return res;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        textTheme: GoogleFonts.poppinsTextTheme(),
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF0F4FF),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white,
-                const Color(0xFFF0F4FF),
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _loadDashboardData,
-                    child: CustomScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(child: _topBar()),
-                        SliverToBoxAdapter(child: _heroSection()),
-                        SliverToBoxAdapter(child: _healthSummary()),
-                        SliverToBoxAdapter(child: _servicesGrid()),
-                        SliverToBoxAdapter(child: _articlesSection()),
-                        SliverToBoxAdapter(child: _emergencySection()),
-                        const SliverToBoxAdapter(child: SizedBox(height: 90)),
-                      ],
-                    ),
-                  ),
-          ),
-        ),
-        floatingActionButton: _fab(),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
-        bottomNavigationBar: _BottomNav(
-          currentIndex: 0,
-          onTap: (index) {
-            if (index == 1) context.go('/sante/patient/health');
-            if (index == 2) context.go('/sante/patient/messages');
-            if (index == 3) context.go('/sante/patient/profile');
-          },
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // TOP BAR (avec bouton de changement de rôle)
-  // =========================================================
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'THIX SANTÉ',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade800,
-                ),
-              ),
-              Text(
-                'Votre santé, notre priorité',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          _roleSwitchButton(),
-          const SizedBox(width: 8),
-          Stack(
-            children: [
-              _glassIcon(Icons.notifications_none,
-                  onTap: () => context.push('/sante/patient/notifications')),
-              if (_unreadNotifications > 0)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: _badge(_unreadNotifications),
-                )
-            ],
-          ),
-          const SizedBox(width: 10),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: Colors.blue.shade100,
-            child: Text(
-              (AuthController.instance.currentUser?.displayName ?? "U")
-                  .substring(0, 1),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _roleSwitchButton() {
-    final role = ThixRoleController.instance.currentRole;
-    return GestureDetector(
-      onTap: () => _openRoleSwitchSheet(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: role.accent.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: role.accent, width: 1),
-        ),
-        child: Row(
-          children: [
-            Icon(role.icon, size: 16, color: role.accent),
-            const SizedBox(width: 4),
-            Text(
-              role.label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: role.accent,
-              ),
-            ),
-            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // HERO
-  // =========================================================
-  Widget _heroSection() {
-    final user = AuthController.instance.currentUser;
-    final name = user?.displayName ?? "Utilisateur";
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2563FF), Color(0xFF00D2C8)],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.25),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Bonjour, $name 🎉",
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Votre santé entre de bonnes mains",
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "Consultez, suivez et prenez soin de votre santé au quotidien.",
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.white70,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // RÉSUMÉ DE SANTÉ (4 INDICATEURS)
-  // =========================================================
-  Widget _healthSummary() {
-    if (_summary == null) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _statItem(
-              icon: Icons.calendar_today,
-              value: _summary!.consultationsThisYear.toString(),
-              label: 'Consultations',
-              subtitle: 'Cette année',
-              color: Colors.blue,
-            ),
-            _statItem(
-              icon: Icons.science,
-              value: _summary!.examsCompleted.toString(),
-              label: 'Examens',
-              subtitle: 'Complétés',
-              color: Colors.green,
-            ),
-            _statItem(
-              icon: Icons.medication,
-              value: _summary!.activeMedications.toString(),
-              label: 'Médicaments',
-              subtitle: 'En cours',
-              color: Colors.orange,
-            ),
-            _statItem(
-              icon: Icons.access_time,
-              value: _summary!.upcomingAppointments.toString(),
-              label: 'Rendez-vous',
-              subtitle: 'À venir',
-              color: Colors.purple,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
-        ),
-        Text(
-          subtitle,
-          style: GoogleFonts.poppins(fontSize: 8, color: Colors.grey.shade400),
-        ),
-      ],
-    );
-  }
-
-  // =========================================================
-  // SERVICES RAPIDES (GRILLE 4 COLONNES) - MODIFIÉ
-  // =========================================================
-  Widget _servicesGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Services rapides',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _services.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 0.9,
-                    ),
-                    itemBuilder: (_, index) {
-                      final service = _services[index];
-                      final color = _getColorForIndex(index);
-                      return _serviceTile(service, color);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getColorForIndex(int index) {
-    final colors = [
-      Colors.blue, Colors.green, Colors.orange, Colors.pink,
-      Colors.purple, Colors.cyan, Colors.red, Colors.teal,
-      Colors.indigo, Colors.lime, Colors.amber, Colors.brown,
-      Colors.blueGrey, Colors.deepOrange, Colors.pinkAccent,
-      Colors.lightBlue, Colors.lightGreen, Colors.yellow,
-      Colors.deepPurple, Colors.orangeAccent, Colors.greenAccent,
-      Colors.blue.shade300,
-    ];
-    return colors[index % colors.length];
-  }
-
-  Widget _serviceTile(_Service service, Color color) {
-    return GestureDetector(
-      onTap: () => context.push(service.route),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              service.icon,
-              color: color,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              service.label,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // POUR VOUS (ARTICLES)
-  // =========================================================
-  Widget _articlesSection() {
-    if (_articles.isEmpty) return const SizedBox.shrink();
-
-    final displayed = _articles.take(4).toList();
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Pour vous',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...displayed.map((article) {
-            return GestureDetector(
-              onTap: () => context.push('/sante/patient/article/${article.id}', extra: article),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.blue.shade50,
-                      child: Text(
-                        '${article.readTime}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _loadData,
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: HealthHeader(
+                        role: ThixRole.doctor,
+                        onSwitchRoleTap: () => _openRoleSwitchSheet(context),
+                        onNotificationsTap: () {
+                          // Notifications
+                        },
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        article.title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _statCard('Patients', _patientsCount.toString(), Icons.people, Colors.blue),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _statCard('RDV aujourd\'hui', _appointmentsToday.toString(), Icons.calendar_today, Colors.green),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _statCard('Téléexpertises', _pendingTeleexpertise.toString(), Icons.medical_services, Colors.purple),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _statCard('Alertes', _criticalAlerts.toString(), Icons.warning, Colors.red),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTodayAppointments(),
+                          const SizedBox(height: 16),
+                          _buildRecentPatients(),
+                          const SizedBox(height: 16),
+                        ]),
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                   ],
                 ),
               ),
-            );
-          }),
-        ],
+      ),
+      bottomNavigationBar: HealthBottomNav(
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 1) {
+            context.go('/sante/doctor/care');
+          } else if (index == 2) {
+            _showQuickActions(context);
+          } else if (index == 3) {
+            context.go('/sante/doctor/connect');
+          } else if (index == 4) {
+            context.go('/sante/doctor/profile');
+          }
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.push('/sante/doctor/consult');
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  // =========================================================
-  // SECTION URGENCE (SOS)
-  // =========================================================
-  Widget _emergencySection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.red.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.sos, color: Colors.red, size: 24),
-                SizedBox(width: 8),
-                Text(
-                  'SOS',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'En cas d’urgence, nous sommes là pour vous',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  const url = 'tel:15';
-                  if (await canLaunchUrl(Uri.parse(url))) {
-                    await launchUrl(Uri.parse(url));
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Impossible de passer l\'appel.')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.call, color: Colors.white),
-                label: const Text('Appeler les urgences'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // FAB (repositionné)
-  // =========================================================
-  Widget _fab() {
-    return FloatingActionButton(
-      backgroundColor: const Color(0xFF2563FF),
-      onPressed: () => _showQuickActions(context),
-      child: const Icon(Icons.add, color: Colors.white),
-    );
-  }
-
-  // =========================================================
-  // ACTION SHEET
-  // =========================================================
-  void _showQuickActions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _sheetItem(Icons.calendar_today, "Prendre RDV", Colors.blue,
-                () => context.push('/sante/patient/appointment/new')),
-            _sheetItem(Icons.chat, "Assistant IA", Colors.green,
-                () => context.push('/sante/patient/ia')),
-            _sheetItem(Icons.camera_alt, "Scanner ordonnance", Colors.purple,
-                () => context.push('/sante/patient/scan')),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sheetItem(
-      IconData icon, String title, Color color, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title),
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
-    );
-  }
-
-  // =========================================================
-  // ROLE SWITCH
-  // =========================================================
   Future<void> _openRoleSwitchSheet(BuildContext context) async {
     final selected = await showModalBottomSheet<ThixRole>(
       context: context,
-      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.patient),
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => const _RoleSwitchSheet(currentRole: ThixRole.doctor),
     );
 
-    if (selected == null) return;
+    if (selected == null || selected == ThixRole.doctor) return;
+    await _selectRoleAndNavigate(context, selected);
+  }
 
+  Future<void> _selectRoleAndNavigate(BuildContext context, ThixRole role) async {
     try {
-      ThixRoleController.instance.selectRole(selected, manual: true);
-
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(data: {'thix_role': selected.name}),
-      );
+      ThixRoleController.instance.selectRole(role, manual: true);
+      try {
+        await Supabase.instance.client.auth.updateUser(UserAttributes(data: {'thix_role': role.name}));
+      } catch (e) {
+        debugPrint('THIX Santé: role metadata update failed: $e');
+      }
 
       if (!context.mounted) return;
-
-      if (selected == ThixRole.patient) context.go('/sante/patient/dashboard');
-      if (selected == ThixRole.doctor) context.go('/sante/doctor/dashboard');
-      if (selected == ThixRole.pharmacy) context.go('/sante/pharmacy/dashboard');
-    } catch (e) {
-      debugPrint("Role switch error: $e");
+      switch (role) {
+        case ThixRole.patient:
+          context.go('/sante/patient/dashboard');
+        case ThixRole.doctor:
+          context.go('/sante/doctor/dashboard');
+        case ThixRole.pharmacy:
+          context.go('/sante/pharmacy/dashboard');
+      }
+    } catch (e, st) {
+      debugPrint('THIX Santé: selectRoleAndNavigate failed: $e');
+      debugPrint(st.toString());
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(HealthConstants.errorGeneric), backgroundColor: Colors.red),
+      );
     }
   }
 
-  // =========================================================
-  // STYLE HELPERS
-  // =========================================================
-  BoxDecoration _glass() => BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-          )
-        ],
-      );
-
-  Widget _glassIcon(IconData icon, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: _glass(),
-        child: Icon(icon, color: Colors.grey.shade700),
+  Widget _statCard(String label, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _badge(int v) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        color: Colors.red,
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        "$v",
-        style: const TextStyle(color: Colors.white, fontSize: 10),
-      ),
-    );
-  }
-}
-
-// =========================================================
-// MODELE SERVICE
-// =========================================================
-class _Service {
-  final String label;
-  final IconData icon;
-  final String route;
-
-  const _Service(this.label, this.icon, this.route);
-}
-
-// =========================================================
-// BOTTOM NAVIGATION
-// =========================================================
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-
-  const _BottomNav({required this.currentIndex, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: onTap,
-      selectedItemColor: const Color(0xFF2563FF),
-      unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-        BottomNavigationBarItem(icon: Icon(Icons.medical_services), label: 'Santé'),
-        BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+  Widget _buildTodayAppointments() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Rendez-vous du jour', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ..._todayAppointments.map((appt) => Card(
+              elevation: 1,
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: appt.type == AppointmentType.teleconsultation ? Colors.purple : Colors.blue,
+                  child: Icon(appt.type == AppointmentType.teleconsultation ? Icons.videocam : Icons.person, color: Colors.white),
+                ),
+                title: Text(appt.patientName ?? 'Patient'),
+                subtitle: Text('${appt.date.hour}h${appt.date.minute.toString().padLeft(2, '0')} • ${appt.type.name}'),
+                trailing: Chip(
+                  label: Text(
+                    appt.status == AppointmentStatus.confirmed ? 'Confirmé' : 'Planifié',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  backgroundColor: appt.status == AppointmentStatus.confirmed ? Colors.green : Colors.orange,
+                ),
+                onTap: () {
+                  context.push('/sante/doctor/agenda');
+                },
+              ),
+            )),
+        if (_todayAppointments.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('Aucun rendez-vous aujourd\'hui.', style: TextStyle(color: Colors.grey)),
+          ),
+        TextButton(
+          onPressed: () => context.push('/sante/doctor/agenda'),
+          child: const Text('Voir l\'agenda complet'),
+        ),
       ],
     );
   }
+
+  Widget _buildRecentPatients() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Patients récents', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ..._recentPatients.map((patient) => ListTile(
+              leading: CircleAvatar(child: Text(patient.firstName[0])),
+              title: Text('${patient.firstName} ${patient.lastName}'),
+              subtitle: Text('Dernière consultation : il y a 2 jours'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.push('/sante/doctor/patient/${patient.id}', extra: patient);
+              },
+            )),
+        TextButton(
+          onPressed: () => context.push('/sante/doctor/patients'),
+          child: const Text('Voir tous les patients'),
+        ),
+      ],
+    );
+  }
+
+  void _showQuickActions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_add, color: Colors.blue),
+              title: const Text('Nouveau patient'),
+              onTap: () {
+                context.pop();
+                context.push('/sante/doctor/patient/new');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt, color: Colors.green),
+              title: const Text('Nouvelle prescription'),
+              onTap: () {
+                context.pop();
+                context.push('/sante/doctor/prescription/new');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: Colors.purple),
+              title: const Text('Téléconsultation'),
+              onTap: () {
+                context.pop();
+                context.push('/sante/doctor/teleconsult');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-// =========================================================
-// ROLE SHEET
-// =========================================================
 class _RoleSwitchSheet extends StatelessWidget {
   final ThixRole currentRole;
-
   const _RoleSwitchSheet({required this.currentRole});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "Changer de rôle",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          for (final role in ThixRoleController.availableRoles)
-            ListTile(
-              leading: Icon(role.icon, color: role.accent),
-              title: Text(role.label),
-              trailing: role == currentRole
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () => context.pop(role),
-            )
-        ],
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Changer de rôle', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Quitter le mode médecin et accéder à un autre espace.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor)),
+            const SizedBox(height: 12),
+            for (final role in ThixRoleController.availableRoles)
+              _RoleTile(role: role, selected: role == currentRole, onTap: () => context.pop(role)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleTile extends StatelessWidget {
+  final ThixRole role;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleTile({required this.role, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? role.accent : Colors.transparent, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(color: role.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
+              child: Icon(role.icon, color: role.accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(role.label, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(role.shortLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                ],
+              ),
+            ),
+            if (selected) const Icon(Icons.check_circle, color: HealthConstants.primaryColor),
+          ],
+        ),
       ),
     );
   }
