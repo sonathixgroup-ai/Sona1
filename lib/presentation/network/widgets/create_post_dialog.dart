@@ -168,8 +168,17 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
       if (postId.isNotEmpty) {
         debugPrint('✅ Post published successfully: $postId');
         
+        // ✅ Petit délai pour laisser Supabase propager l'enregistrement
+        await Future.delayed(const Duration(milliseconds: 500));
+        
         // ✅ Forcer le rechargement du feed
-        await feedProvider.loadFeed(force: true);
+        try {
+          await feedProvider.loadFeed(force: true);
+          debugPrint('✅ Feed rechargé avec succès');
+        } catch (e) {
+          debugPrint('❌ Erreur lors du rechargement du feed: $e');
+          // Ne pas bloquer la navigation si le rechargement échoue
+        }
         
         // Call callback if provided
         widget.onPostCreated?.call();
