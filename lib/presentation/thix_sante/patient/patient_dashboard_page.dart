@@ -1,4 +1,7 @@
+
 // presentation/thix_sante/patient/patient_dashboard_page.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -99,7 +102,6 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
       child: Scaffold(
-        // Fond avec un motif subtil
         backgroundColor: const Color(0xFFF0F4FF),
         body: Container(
           decoration: BoxDecoration(
@@ -122,7 +124,6 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
                       slivers: [
                         SliverToBoxAdapter(child: _topBar()),
                         SliverToBoxAdapter(child: _heroSection()),
-                        // Suppression de _healthScoreCard()
                         SliverToBoxAdapter(child: _healthSummary()),
                         SliverToBoxAdapter(child: _servicesGrid()),
                         SliverToBoxAdapter(child: _articlesSection()),
@@ -134,7 +135,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
           ),
         ),
         floatingActionButton: _fab(),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
         bottomNavigationBar: _BottomNav(
           currentIndex: 0,
           onTap: (index) {
@@ -148,7 +149,7 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // TOP BAR
+  // TOP BAR (avec bouton de changement de rôle)
   // =========================================================
   Widget _topBar() {
     return Padding(
@@ -176,6 +177,8 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             ],
           ),
           const Spacer(),
+          _roleSwitchButton(),
+          const SizedBox(width: 8),
           Stack(
             children: [
               _glassIcon(Icons.notifications_none,
@@ -199,6 +202,36 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             ),
           )
         ],
+      ),
+    );
+  }
+
+  Widget _roleSwitchButton() {
+    final role = ThixRoleController.instance.currentRole;
+    return GestureDetector(
+      onTap: () => _openRoleSwitchSheet(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: role.accent.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: role.accent, width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(role.icon, size: 16, color: role.accent),
+            const SizedBox(width: 4),
+            Text(
+              role.label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: role.accent,
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
@@ -353,39 +386,63 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // SERVICES RAPIDES (GRILLE 4 COLONNES)
+  // SERVICES RAPIDES (GRILLE 4 COLONNES) - MODIFIÉ
   // =========================================================
   Widget _servicesGrid() {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Services rapides',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Services rapides',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _services.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.9,
+                    ),
+                    itemBuilder: (_, index) {
+                      final service = _services[index];
+                      final color = _getColorForIndex(index);
+                      return _serviceTile(service, color);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _services.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.85,
-            ),
-            itemBuilder: (_, index) {
-              final service = _services[index];
-              final color = _getColorForIndex(index);
-              return _serviceTile(service, color);
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -407,13 +464,9 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
     return GestureDetector(
       onTap: () => context.push(service.route),
       child: Container(
-        // Pas de fond blanc, seulement une bordure et un fond transparent
         decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 1.5,
-          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -421,16 +474,16 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             Icon(
               service.icon,
               color: color,
-              size: 30, // agrandi
+              size: 24,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               service.label,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade800,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -586,20 +639,13 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
   }
 
   // =========================================================
-  // FAB
+  // FAB (repositionné)
   // =========================================================
   Widget _fab() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-            colors: [Color(0xFF2563FF), Color(0xFF00D2C8)]),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: FloatingActionButton(
-        backgroundColor: Colors.transparent,
-        onPressed: () => _showQuickActions(context),
-        child: const Icon(Icons.add),
-      ),
+    return FloatingActionButton(
+      backgroundColor: const Color(0xFF2563FF),
+      onPressed: () => _showQuickActions(context),
+      child: const Icon(Icons.add, color: Colors.white),
     );
   }
 
