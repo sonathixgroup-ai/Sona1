@@ -14,7 +14,7 @@ class UserService {
     String? registrationStatus,
     String? thixChat,
     String? bio,
-    String? chatid,
+    String? chatId,
     String? competence,
     String? countryOrOrigin,
     String? contactPhone,
