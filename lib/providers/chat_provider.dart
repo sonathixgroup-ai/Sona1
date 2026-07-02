@@ -1,332 +1,193 @@
-// lib/providers/chat_provider.dart
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:async';
 import 'dart:io';
-
-import '../services/chat_service.dart';
-import '../models/chat_models.dart';
+import 'package:flutter/material.dart';
+import 'package:thix_id/services/chat_service.dart';
 
 class ChatProvider extends ChangeNotifier {
-  late ChatService _service;
-  
-  // Données
+  final ChatService _chatService;
+
+  // États
   List<Conversation> _conversations = [];
+  List<Conversation> _archivedConversations = [];
   List<ChatMessage> _messages = [];
   List<Story> _stories = [];
   List<Space> _spaces = [];
-  List<Conversation> _filteredConversations = [];
-  List<Conversation> _archivedConversations = [];
-  ChatStats _stats = ChatStats(
-    onlineCount: 0,
-    newMessagesCount: 0,
-    activeCallsCount: 0,
-    securityAlertsCount: 0,
-  );
-  
-  // États
+  ChatStats _stats = const ChatStats();
+
   bool _isLoading = false;
-  bool _isTyping = false;
   String? _error;
-  ChatMessage? _pinnedMessage;
-  bool _isTypingInConversation = false;
-  
-  // Realtime
-  RealtimeChannel? _messagesChannel;
-  Timer? _typingTimer;
-  String? _currentConversationId;
-  
-  ChatProvider() {
-    _service = ChatService(Supabase.instance.client);
-  }
-  
-  // ============================================================
-  // GETTERS
-  // ============================================================
-  
+
+  // Getters
   List<Conversation> get conversations => _conversations;
-  List<Conversation> get filteredConversations => _filteredConversations;
   List<Conversation> get archivedConversations => _archivedConversations;
   List<ChatMessage> get messages => _messages;
   List<Story> get stories => _stories;
   List<Space> get spaces => _spaces;
   ChatStats get stats => _stats;
   bool get isLoading => _isLoading;
-  bool get isTyping => _isTyping;
-  bool get isTypingInConversation => _isTypingInConversation;
   String? get error => _error;
-  ChatMessage? get pinnedMessage => _pinnedMessage;
-  
-  // ============================================================
-  // INITIALISATION
-  // ============================================================
-  
-  void initRealtime() {
-    _setupRealtimeListener();
-  }
-  
-  void initConversationRealtime(String conversationId) {
-    _currentConversationId = conversationId;
-    _setupConversationListener(conversationId);
-  }
-  
-  void _setupRealtimeListener() {
-    try {
-      final supabase = Supabase.instance.client;
-      _messagesChannel = supabase
-          .channel('public:messages')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.insert,
-            schema: 'public',
-            table: 'messages',
-            callback: (payload) {
-              debugPrint('📬 Nouveau message détecté');
-              _onNewMessage(payload.newRecord);
-            },
-          )
-          .subscribe();
-    } catch (e) {
-      debugPrint('Error setting up realtime: $e');
-    }
-  }
-  
-  void _setupConversationListener(String conversationId) {
-    // Logique pour écouter les messages d'une conversation spécifique
-  }
-  
-  void _onNewMessage(dynamic payload) {
-    // Mettre à jour la liste des messages
-    notifyListeners();
-  }
-  
+
+  ChatProvider(this._chatService);
+
   // ============================================================
   // CONVERSATIONS
   // ============================================================
-  
+
   Future<void> loadConversations() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    
+    _setLoading(true);
     try {
-      _conversations = await _service.getConversations();
-      _filteredConversations = List.from(_conversations);
-      await loadStats();
-      await loadStories();
+      _conversations = await _chatService.getConversations();
+      _error = null;
     } catch (e) {
       _error = e.toString();
-      debugPrint('Error loading conversations: $e');
     } finally {
-      _isLoading = false;
+      _setLoading(false);
+    }
+  }
+
+  Future<void> loadArchivedConversations() async {
+    _setLoading(true);
+    try {
+      _archivedConversations = await _chatService.getArchivedConversations();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> archiveConversation(String conversationId) async {
+    try {
+      await _chatService.archiveConversation(conversationId);
+      _conversations.removeWhere((c) => c.id == conversationId);
       notifyListeners();
-    }
-  }
-  
-  Future<void> loadStats() async {
-    try {
-      _stats = await _service.getStats();
     } catch (e) {
-      debugPrint('Error loading stats: $e');
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
     }
-    notifyListeners();
   }
-  
-  Future<void> loadStories() async {
+
+  Future<void> unarchiveConversation(String conversationId) async {
     try {
-      _stories = await _service.getStories();
+      await _chatService.unarchiveConversation(conversationId);
+      _archivedConversations.removeWhere((c) => c.id == conversationId);
+      await loadConversations(); // Recharge la liste active
     } catch (e) {
-      debugPrint('Error loading stories: $e');
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
     }
-    notifyListeners();
   }
-  
-  Future<void> loadSpaces() async {
+
+  Future<void> deleteArchivedConversation(String conversationId) async {
     try {
-      _spaces = await _service.getSpaces();
+      await _chatService.deleteArchivedConversation(conversationId);
+      _archivedConversations.removeWhere((c) => c.id == conversationId);
+      notifyListeners();
     } catch (e) {
-      debugPrint('Error loading spaces: $e');
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
     }
-    notifyListeners();
   }
-  
-  Conversation? getConversation(String id) {
+
+  Future<void> searchArchivedConversations(Map<String, dynamic> filters) async {
+    _setLoading(true);
     try {
-      return _conversations.firstWhere((c) => c.id == id);
+      _archivedConversations = await _chatService.searchArchivedConversations(filters);
+      _error = null;
     } catch (e) {
-      return null;
+      _error = e.toString();
+    } finally {
+      _setLoading(false);
     }
   }
-  
-  void filterConversations(String? filter) {
-    if (filter == null) {
-      _filteredConversations = List.from(_conversations);
-    } else if (filter == 'group') {
-      _filteredConversations = _conversations.where((c) => c.type == 'group').toList();
-    } else {
-      _filteredConversations = _conversations;
-    }
-    notifyListeners();
-  }
-  
-  Future<void> searchConversations(String query) async {
-    if (query.isEmpty) {
-      _filteredConversations = List.from(_conversations);
-    } else {
-      _filteredConversations = _conversations
-          .where((c) => c.name.toLowerCase().contains(query.toLowerCase()))
-          .toList();
-    }
-    notifyListeners();
-  }
-  
+
   // ============================================================
   // MESSAGES
   // ============================================================
-  
+
   Future<void> loadMessages(String conversationId) async {
-    _isLoading = true;
-    notifyListeners();
-    
+    _setLoading(true);
     try {
-      _messages = await _service.getMessages(conversationId);
-      _pinnedMessage = _messages.firstWhere(
-        (m) => m.isPinned,
-        orElse: () => null as ChatMessage,
-      );
-      await markMessagesAsRead(conversationId);
-    } catch (e) {
-      debugPrint('Error loading messages: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-  
-  // ✅ Envoi de message avec paramètres nommés
-  Future<void> sendMessage({
-    required String conversationId,
-    required String content,
-    String? type,
-    String? mediaUrl,
-  }) async {
-    if (content.trim().isEmpty && (mediaUrl == null || mediaUrl.isEmpty)) return;
-
-    try {
-      // Création optimiste
-      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
-      final tempMessage = ChatMessage(
-        id: tempId,
-        conversationId: conversationId,
-        senderId: _service.currentUserId,
-        type: _stringToMessageType(type ?? 'text'),
-        content: content.trim(),
-        mediaURL: mediaUrl,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        reactions: {},
-        isPinned: false,
-        isPriority: false,
-      );
-
-      _messages.insert(0, tempMessage);
-      notifyListeners();
-
-      // Appel au service
-      ChatMessage sentMessage;
-      if (mediaUrl != null && mediaUrl.isNotEmpty) {
-        sentMessage = await _service.sendMedia(conversationId, mediaUrl, type ?? 'file');
-      } else {
-        sentMessage = await _service.sendMessage(conversationId, content.trim());
-      }
-
-      // Remplacer le message temporaire
-      final index = _messages.indexWhere((m) => m.id == tempId);
-      if (index != -1) {
-        _messages[index] = sentMessage;
-        notifyListeners();
-      }
-      await loadConversations();
+      _messages = await _chatService.fetchMessages(conversationId);
+      _error = null;
     } catch (e) {
       _error = e.toString();
-      _messages.removeWhere((m) => m.id.startsWith(tempId));
-      notifyListeners();
+    } finally {
+      _setLoading(false);
     }
   }
-  
-  // Ancienne méthode sendMessage (pour compatibilité)
-  Future<void> sendTextMessage(String conversationId, String content) async {
-    await sendMessage(conversationId: conversationId, content: content, type: 'text');
-  }
-  
-  Future<void> sendMedia(String conversationId, String filePath, String type) async {
+
+  Future<ChatMessage> sendMessage(String conversationId, String content) async {
     try {
-      final message = await _service.sendMedia(conversationId, filePath, type);
-      _messages.add(message);
+      final msg = await _chatService.sendMessage(conversationId, content);
+      _messages.insert(0, msg);
+      _error = null;
       notifyListeners();
+      return msg;
     } catch (e) {
-      debugPrint('Error sending media: $e');
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
     }
   }
-  
+
+  Future<ChatMessage> sendMedia(String conversationId, String filePath, String type) async {
+    try {
+      final msg = await _chatService.sendMedia(conversationId, filePath, type);
+      _messages.insert(0, msg);
+      _error = null;
+      notifyListeners();
+      return msg;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> markAsRead(String conversationId) async {
+    try {
+      await _chatService.markMessagesAsRead(conversationId);
+      // Optionnel : mettre à jour les compteurs de messages non lus
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> toggleLike(String messageId) async {
     try {
-      await _service.toggleLike(messageId);
-      final index = _messages.indexWhere((m) => m.id == messageId);
-      if (index != -1) {
-        final message = _messages[index];
-        _messages[index] = message.copyWith(
-          isLiked: !message.isLiked,
-          likesCount: message.isLiked ? message.likesCount - 1 : message.likesCount + 1,
-        );
-        notifyListeners();
-      }
+      await _chatService.toggleLike(messageId);
     } catch (e) {
-      debugPrint('Error toggling like: $e');
+      _error = e.toString();
+      notifyListeners();
     }
   }
-  
+
   Future<void> addReaction(String messageId, String emoji) async {
     try {
-      await _service.addReaction(messageId, emoji);
-      final index = _messages.indexWhere((m) => m.id == messageId);
-      if (index != -1) {
-        final message = _messages[index];
-        final reactions = Map<String, List<String>>.from(message.reactions);
-        if (reactions.containsKey(emoji)) {
-          reactions[emoji]!.add(_service.currentUserId);
-        } else {
-          reactions[emoji] = [_service.currentUserId];
-        }
-        _messages[index] = message.copyWith(reactions: reactions);
-        notifyListeners();
-      }
+      await _chatService.addReaction(messageId, emoji);
     } catch (e) {
-      debugPrint('Error adding reaction: $e');
+      _error = e.toString();
+      notifyListeners();
     }
   }
-  
-  Future<void> pinMessage(String conversationId, String messageId) async {
+
+  Future<void> pinMessage(String messageId) async {
     try {
-      await _service.pinMessage(messageId);
-      await loadMessages(conversationId);
+      await _chatService.pinMessage(messageId);
     } catch (e) {
-      debugPrint('Error pinning message: $e');
+      _error = e.toString();
+      notifyListeners();
     }
   }
-  
-  Future<void> markMessagesAsRead(String conversationId) async {
-    try {
-      await _service.markMessagesAsRead(conversationId);
-      await loadConversations();
-    } catch (e) {
-      debugPrint('Error marking messages as read: $e');
-    }
-  }
-  
-  // ✅ Suppression d'un message
+
   Future<void> deleteMessage(String messageId) async {
     try {
-      await _service.deleteMessage(messageId);
+      await _chatService.deleteMessage(messageId);
       _messages.removeWhere((m) => m.id == messageId);
       notifyListeners();
     } catch (e) {
@@ -334,131 +195,87 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  
-  void sendTypingStatus(String conversationId, bool isTyping) {
-    _isTypingInConversation = isTyping;
-    notifyListeners();
-  }
-  
+
   // ============================================================
-  // STORIES
+  // STORIES, SPACES & STATS
   // ============================================================
-  
-  Future<void> loadMyStories() async {
+
+  Future<void> loadStories() async {
     try {
-      _stories = await _service.getMyStories();
-    } catch (e) {
-      debugPrint('Error loading my stories: $e');
-    }
-    notifyListeners();
-  }
-  
-  Future<void> loadContactsStatus() async {
-    try {
-      // Implémenter le chargement des statuts des contacts
-    } catch (e) {
-      debugPrint('Error loading contacts status: $e');
-    }
-    notifyListeners();
-  }
-  
-  Future<bool> postStoryImage(File imageFile) async {
-    try {
-      await _service.createStory(imageFile, 'image');
-      await loadMyStories();
-      return true;
-    } catch (e) {
-      debugPrint('Error posting story: $e');
-      return false;
-    }
-  }
-  
-  Future<bool> postStoryText(String text) async {
-    try {
-      await _service.createStoryText(text);
-      await loadMyStories();
-      return true;
-    } catch (e) {
-      debugPrint('Error posting story: $e');
-      return false;
-    }
-  }
-  
-  // ============================================================
-  // ARCHIVES
-  // ============================================================
-  
-  Future<void> loadArchivedConversations() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _archivedConversations = await _service.getArchivedConversations();
+      _stories = await _chatService.getStories();
+      _error = null;
     } catch (e) {
       _error = e.toString();
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
-  
-  Future<void> unarchiveConversation(String conversationId) async {
+
+  Future<void> loadSpaces() async {
     try {
-      await _service.unarchiveConversation(conversationId);
-      await loadArchivedConversations();
-      await loadConversations();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-  
-  Future<void> deleteArchivedConversation(String conversationId) async {
-    try {
-      await _service.deleteArchivedConversation(conversationId);
-      await loadArchivedConversations();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-  
-  Future<void> searchArchivedConversations(Map<String, dynamic> filters) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _archivedConversations = await _service.searchArchivedConversations(filters);
+      _spaces = await _chatService.getSpaces();
+      _error = null;
     } catch (e) {
       _error = e.toString();
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
-  
+
+  Future<void> loadStats() async {
+    try {
+      _stats = await _chatService.getStats();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> createStoryText(String text) async {
+    try {
+      await _chatService.createStoryText(text);
+      await loadStories();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> createStory(File imageFile, String type) async {
+    try {
+      await _chatService.createStory(imageFile, type);
+      await loadStories();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   // ============================================================
   // UTILITAIRES
   // ============================================================
-  
-  MessageType _stringToMessageType(String type) {
-    switch (type) {
-      case 'image': return MessageType.image;
-      case 'audio': return MessageType.audio;
-      case 'video': return MessageType.video;
-      case 'file': return MessageType.file;
-      case 'reaction': return MessageType.reaction;
-      default: return MessageType.text;
-    }
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
   }
-  
+
   void clearError() {
     _error = null;
     notifyListeners();
   }
-  
-  @override
-  void dispose() {
-    _messagesChannel?.unsubscribe();
-    _typingTimer?.cancel();
-    super.dispose();
+
+  void reset() {
+    _conversations = [];
+    _archivedConversations = [];
+    _messages = [];
+    _stories = [];
+    _spaces = [];
+    _stats = const ChatStats();
+    _isLoading = false;
+    _error = null;
+    notifyListeners();
   }
 }
