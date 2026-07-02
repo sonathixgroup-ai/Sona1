@@ -1,7 +1,9 @@
+
 // lib/providers/chat_provider.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'dart:io';
 
 import '../services/chat_service.dart';
 import '../models/chat_models.dart';
@@ -199,15 +201,61 @@ class ChatProvider extends ChangeNotifier {
     }
   }
   
-  Future<void> sendMessage(String conversationId, String content) async {
+  // ✅ NOUVELLE MÉTHODE : envoi de message avec paramètres nommés
+  Future<void> sendMessage({
+    required String conversationId,
+    required String content,
+    String? type,
+    String? mediaUrl,
+  }) async {
+    if (content.trim().isEmpty && (mediaUrl == null || mediaUrl.isEmpty)) return;
+
     try {
-      final message = await _service.sendMessage(conversationId, content);
-      _messages.add(message);
-      await loadConversations(); // Mettre à jour la dernière conversation
+      // Création optimiste
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final tempMessage = ChatMessage(
+        id: tempId,
+        conversationId: conversationId,
+        senderId: _service.currentUserId,
+        type: _stringToMessageType(type ?? 'text'),
+        content: content.trim(),
+        mediaURL: mediaUrl,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        reactions: {},
+        isPinned: false,
+        isPriority: false,
+      );
+
+      _messages.insert(0, tempMessage);
       notifyListeners();
+
+      // Appel au service (selon le type)
+      ChatMessage sentMessage;
+      if (mediaUrl != null && mediaUrl.isNotEmpty) {
+        sentMessage = await _service.sendMedia(conversationId, mediaUrl, type ?? 'file');
+      } else {
+        sentMessage = await _service.sendMessage(conversationId, content.trim());
+      }
+
+      // Remplacer le message temporaire
+      final index = _messages.indexWhere((m) => m.id == tempId);
+      if (index != -1) {
+        _messages[index] = sentMessage;
+        notifyListeners();
+      }
+      // Mettre à jour la liste des conversations
+      await loadConversations();
     } catch (e) {
-      debugPrint('Error sending message: $e');
+      _error = e.toString();
+      _messages.removeWhere((m) => m.id.startsWith(tempId));
+      notifyListeners();
     }
+  }
+  
+  // Ancienne méthode sendMessage (à conserver pour compatibilité)
+  Future<void> sendTextMessage(String conversationId, String content) async {
+    await sendMessage(conversationId: conversationId, content: content, type: 'text');
   }
   
   Future<void> sendMedia(String conversationId, String filePath, String type) async {
@@ -275,8 +323,19 @@ class ChatProvider extends ChangeNotifier {
     }
   }
   
+  // ✅ NOUVELLE MÉTHODE : suppression d'un message
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      await _service.deleteMessage(messageId);
+      _messages.removeWhere((m) => m.id == messageId);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+  
   void sendTypingStatus(String conversationId, bool isTyping) {
-    // Implémenter l'envoi du statut de frappe
     _isTypingInConversation = isTyping;
     notifyListeners();
   }
@@ -328,6 +387,17 @@ class ChatProvider extends ChangeNotifier {
   // ============================================================
   // UTILITAIRES
   // ============================================================
+  
+  MessageType _stringToMessageType(String type) {
+    switch (type) {
+      case 'image': return MessageType.image;
+      case 'audio': return MessageType.audio;
+      case 'video': return MessageType.video;
+      case 'file': return MessageType.file;
+      case 'reaction': return MessageType.reaction;
+      default: return MessageType.text;
+    }
+  }
   
   void clearError() {
     _error = null;
