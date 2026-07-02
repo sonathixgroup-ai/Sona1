@@ -4,7 +4,7 @@ import 'package:thix_id/models/market_live.dart';
 import 'package:thix_id/models/market_product.dart';
 import 'package:thix_id/models/market_store.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
-import 'package:thix_id/supabase/supabase_service.dart';
+
 class ThixMarketService {
   ThixMarketService();
 
