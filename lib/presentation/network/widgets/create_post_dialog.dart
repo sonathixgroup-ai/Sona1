@@ -1,4 +1,3 @@
-// lib/presentation/network/widgets/create_post_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
@@ -169,8 +168,8 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
       if (postId.isNotEmpty) {
         debugPrint('✅ Post published successfully: $postId');
         
-        // Reload feed
-        await feedProvider.loadFeed();
+        // ✅ Forcer le rechargement du feed
+        await feedProvider.loadFeed(force: true);
         
         // Call callback if provided
         widget.onPostCreated?.call();
@@ -183,7 +182,6 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
               backgroundColor: Colors.green,
             ),
           );
-          // ✅ MODIFICATION : retourner true pour indiquer le succès
           Navigator.pop(context, true);
         }
       } else {
