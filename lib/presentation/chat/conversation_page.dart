@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../../providers/chat_provider.dart';
 import '../../models/chat_models.dart';
 import 'widgets/chat_bubble.dart';
-import 'widgets/chat_input_bar.dart';
 import 'widgets/pinned_message.dart';
 import 'widgets/reaction_picker.dart';
 import 'widgets/attachment_picker.dart';
@@ -53,6 +53,7 @@ class _ConversationPageState extends State<ConversationPage> {
     super.dispose();
   }
 
+  // ✅ Envoi de message
   void _sendMessage(String content, {String? mediaUrl, String? type}) {
     if (content.trim().isEmpty && mediaUrl == null) return;
     _chatProvider.sendMessage(
@@ -92,63 +93,136 @@ class _ConversationPageState extends State<ConversationPage> {
     });
   }
 
+  // ✅ Pièces jointes
   void _showAttachmentPicker() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => AttachmentPicker(
-        onImageSelected: (file) {
-          // Implémenter l'envoi d'image
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image sélectionnée (à implémenter)')),
-          );
-        },
-        onFileSelected: (file) {
-          // Implémenter l'envoi de fichier
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Fichier sélectionné (à implémenter)')),
-          );
-        },
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _attachmentButton(Icons.image, 'Image', () {
+                  Navigator.pop(context);
+                  // TODO: implémenter l'envoi d'image
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Image (à implémenter)')),
+                  );
+                }),
+                _attachmentButton(Icons.insert_drive_file, 'Fichier', () {
+                  Navigator.pop(context);
+                  // TODO: implémenter l'envoi de fichier
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Fichier (à implémenter)')),
+                  );
+                }),
+                _attachmentButton(Icons.location_on, 'Position', () {
+                  Navigator.pop(context);
+                  // TODO: partager position
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Position (à implémenter)')),
+                  );
+                }),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  Widget _attachmentButton(IconData icon, String label, VoidCallback onTap) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 24, color: Colors.grey[700]),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 11)),
+      ],
+    );
+  }
+
+  // ✅ Réactions
   void _showReactionPicker(String messageId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => ReactionPicker(
         onReactionSelected: (emoji) {
-          _chatProvider.reactToMessage(messageId, emoji);
+          _chatProvider.addReaction(messageId, emoji);
         },
       ),
     );
   }
 
+  // ✅ Message épinglé
   void _togglePinMessage(String messageId) {
     _chatProvider.pinMessage(widget.chatId, messageId);
   }
 
   void _replyToMessage(String messageId) {
-    // Implémenter la réponse à un message
+    // TODO: implémenter la réponse
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Répondre au message $messageId (à implémenter)')),
     );
   }
 
   void _deleteMessage(String messageId) {
-    // Implémenter la suppression
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Supprimer le message $messageId (à implémenter)')),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer le message'),
+        content: const Text('Voulez-vous vraiment supprimer ce message ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              _chatProvider.deleteMessage(messageId);
+              Navigator.pop(context);
+            },
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
     );
   }
 
+  // ✅ Build principal
   @override
   Widget build(BuildContext context) {
     final chatProvider = Provider.of<ChatProvider>(context);
     final messages = chatProvider.messages;
     final isLoading = chatProvider.isLoading;
-    final pinnedMessage = messages.firstWhere((m) => m.isPinned, orElse: () => null as ChatMessage);
+    final pinnedMessage = messages.firstWhere(
+      (m) => m.isPinned,
+      orElse: () => null as ChatMessage,
+    );
 
     return Scaffold(
       appBar: _buildAppBar(),
@@ -157,7 +231,7 @@ class _ConversationPageState extends State<ConversationPage> {
           if (pinnedMessage != null)
             PinnedMessage(
               message: pinnedMessage,
-              onTap: () => _scrollToBottom(),
+              onTap: _scrollToBottom,
               onUnpin: () => _togglePinMessage(pinnedMessage.id),
             ),
           Expanded(
@@ -173,8 +247,8 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
+  // ✅ AppBar
   PreferredSizeWidget _buildAppBar() {
-    // Récupérer le statut du contact (simplifié)
     final isOnline = false; // À remplacer par la logique réelle
 
     return AppBar(
@@ -193,7 +267,10 @@ class _ConversationPageState extends State<ConversationPage> {
           ),
           Text(
             isOnline ? 'En ligne' : 'Hors ligne',
-            style: TextStyle(fontSize: 10, color: isOnline ? Colors.green : Colors.grey[500]),
+            style: TextStyle(
+              fontSize: 10,
+              color: isOnline ? Colors.green : Colors.grey[500],
+            ),
           ),
         ],
       ),
@@ -201,13 +278,13 @@ class _ConversationPageState extends State<ConversationPage> {
         IconButton(
           icon: const Icon(Icons.phone, size: 20),
           onPressed: () {
-            // Implémenter appel audio
+            // TODO: appeler
           },
         ),
         IconButton(
           icon: const Icon(Icons.videocam, size: 20),
           onPressed: () {
-            // Implémenter appel vidéo
+            // TODO: appeler vidéo
           },
         ),
         PopupMenuButton(
@@ -225,14 +302,18 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
+  // ✅ Liste des messages
   Widget _buildMessageList(List<ChatMessage> messages) {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
+
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
-        final isMe = message.senderId == _chatProvider._chatService.currentUserId;
+        final isMe = message.senderId == currentUserId;
+
         return ChatBubble(
           message: message,
           isMe: isMe,
@@ -246,28 +327,57 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
+  // ✅ Barre de saisie simplifiée
   Widget _buildInputBar() {
-    return ChatInputBar(
-      onSendMessage: _sendMessage,
-      controller: _messageController,
-      onTyping: (isTyping) {
-        // Implémenter l'indicateur de saisie
-      },
-      onAttachmentPressed: _showAttachmentPicker,
-      onPollPressed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Créer un sondage (à implémenter)')),
-        );
-      },
-      onMicrophonePressed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enregistrement vocal (à implémenter)')),
-        );
-      },
-      isSending: false,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.attach_file, size: 20),
+            onPressed: _showAttachmentPicker,
+          ),
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: 'Tapez un message...',
+                hintStyle: const TextStyle(fontSize: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.grey[100],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              style: const TextStyle(fontSize: 13),
+              onChanged: (text) {
+                // Indicateur de saisie (à implémenter)
+              },
+              onSubmitted: (text) => _sendMessage(text),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.send, size: 20, color: Color(0xFFD4AF37)),
+            onPressed: () => _sendMessage(_messageController.text),
+          ),
+        ],
+      ),
     );
   }
 
+  // ✅ Menu des options du message
   void _showMessageOptions(ChatMessage message) {
     showModalBottomSheet(
       context: context,
@@ -281,51 +391,46 @@ class _ConversationPageState extends State<ConversationPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.reply, size: 20),
-              title: const Text('Répondre', style: TextStyle(fontSize: 13)),
-              onTap: () {
-                Navigator.pop(context);
-                _replyToMessage(message.id);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.emoji_emotions, size: 20),
-              title: const Text('Réagir', style: TextStyle(fontSize: 13)),
-              onTap: () {
-                Navigator.pop(context);
-                _showReactionPicker(message.id);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.push_pin, size: 20),
-              title: const Text('Épingler', style: TextStyle(fontSize: 13)),
-              onTap: () {
-                Navigator.pop(context);
-                _togglePinMessage(message.id);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.content_copy, size: 20),
-              title: const Text('Copier', style: TextStyle(fontSize: 13)),
-              onTap: () {
-                Navigator.pop(context);
-                // Copier le texte
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-              title: const Text('Supprimer', style: TextStyle(fontSize: 13, color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteMessage(message.id);
-              },
-            ),
+            _optionTile(Icons.reply, 'Répondre', () {
+              Navigator.pop(context);
+              _replyToMessage(message.id);
+            }),
+            _optionTile(Icons.emoji_emotions, 'Réagir', () {
+              Navigator.pop(context);
+              _showReactionPicker(message.id);
+            }),
+            _optionTile(Icons.push_pin, 'Épingler', () {
+              Navigator.pop(context);
+              _togglePinMessage(message.id);
+            }),
+            _optionTile(Icons.content_copy, 'Copier', () {
+              Navigator.pop(context);
+              // Copier le contenu
+            }),
+            _optionTile(Icons.delete_outline, 'Supprimer', () {
+              Navigator.pop(context);
+              _deleteMessage(message.id);
+            }, color: Colors.red),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _optionTile(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+    return ListTile(
+      leading: Icon(icon, size: 20, color: color ?? Colors.grey[700]),
+      title: Text(title, style: TextStyle(fontSize: 13, color: color ?? Colors.black87)),
+      onTap: onTap,
     );
   }
 }
