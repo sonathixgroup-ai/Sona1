@@ -113,7 +113,7 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_insuranc
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_page.dart';
 
 // ---- Import doctor ----
-import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart' as role;
+import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_consult_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_connect_page.dart';
