@@ -8,7 +8,7 @@ class SupabaseService {
 
   SupabaseClient get client => Supabase.instance.client;
 
-  // Méthodes statiques pour un appel simple
+  // Méthodes statiques
   static Future<List<Map<String, dynamic>>> select(
     String table, {
     String select = '*',
@@ -55,16 +55,23 @@ class SupabaseService {
     int limit = 200,
     Map<String, dynamic>? filters,
   }) async {
-    var query = client.from(table).select(select);
+    // Utiliser dynamic pour permettre les changements de type (FilterBuilder -> TransformBuilder)
+    dynamic query = client.from(table).select(select);
+
     if (filters != null) {
       filters.forEach((key, value) {
         query = query.match({key: value});
       });
     }
+
     if (orderBy != null) {
       query = query.order(orderBy, ascending: ascending);
     }
-    query = query.limit(limit);
+
+    if (limit > 0) {
+      query = query.limit(limit);
+    }
+
     final response = await query;
     return response.map((e) => Map<String, dynamic>.from(e)).toList();
   }
@@ -78,7 +85,7 @@ class SupabaseService {
     Map<String, dynamic> data, {
     required Map<String, dynamic> filters,
   }) async {
-    var query = client.from(table).update(data);
+    dynamic query = client.from(table).update(data);
     filters.forEach((key, value) {
       query = query.match({key: value});
     });
@@ -89,7 +96,7 @@ class SupabaseService {
     String table, {
     required Map<String, dynamic> filters,
   }) async {
-    var query = client.from(table).delete();
+    dynamic query = client.from(table).delete();
     filters.forEach((key, value) {
       query = query.match({key: value});
     });
