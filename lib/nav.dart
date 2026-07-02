@@ -1,3 +1,4 @@
+
 // Temporary fix: keep Dreamflow preview on a reliable landing page.
 // This prevents nested redirects or stale web locations from landing on a blank screen.
 // The full homepage remains available at AppRoutes.home.
@@ -141,10 +142,10 @@ import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_invent
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_stock_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_report_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_page.dart';
-import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_products_page.dart
-import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_product_detail_page.dart
-import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_cart_page.dart
-
+// ---- CORRECTION : imports des pages produits, détail et panier (dans details/) ----
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_products_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_product_detail_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_cart_page.dart';
 
 // Autres modules
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
@@ -258,7 +259,7 @@ class AppRouter {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
-      overridePlatformDefaultLocation: true,
+      urlPathStrategy: UrlPathStrategy.path, // Correction : remplace overridePlatformDefaultLocation
       refreshListenable: refresh,
       redirect: (context, state) {
         final location = state.matchedLocation;
@@ -303,19 +304,19 @@ class AppRouter {
           path: AppRoutes.start,
           name: 'start',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixIdStartPage()),
+              NoTransitionPage(child: ThixIdStartPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.home,
           name: 'home',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: HomePagePremium()),
+              NoTransitionPage(child: HomePagePremium()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.login,
           name: 'login',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: LoginPage()),
+              NoTransitionPage(child: LoginPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.personalReg,
@@ -331,7 +332,7 @@ class AppRouter {
           path: AppRoutes.enterpriseReg,
           name: 'enterpriseReg',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: EnterpriseRegistrationPage()),
+              NoTransitionPage(child: EnterpriseRegistrationPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.payment,
@@ -369,13 +370,13 @@ class AppRouter {
           path: AppRoutes.userDashboard,
           name: 'userDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: UserDashboardPage()),
+              NoTransitionPage(child: UserDashboardPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.enterpriseDashboard,
           name: 'enterpriseDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: EnterpriseDashboardPage()),
+              NoTransitionPage(child: EnterpriseDashboardPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.enterprise,
@@ -429,7 +430,7 @@ class AppRouter {
           path: AppRoutes.chat,
           name: 'chat',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixChatPage()),
+              NoTransitionPage(child: ThixChatPage()), // const retiré
           routes: [
             GoRoute(
               path: ':chatId',
@@ -452,38 +453,38 @@ class AppRouter {
           path: AppRoutes.vault,
           name: 'vault',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DocumentVaultPage()),
+              NoTransitionPage(child: DocumentVaultPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.settings,
           name: 'settings',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: SettingsPage()),
+              NoTransitionPage(child: SettingsPage()), // const retiré
         ),
         // ---- Réseau ----
         GoRoute(
           path: AppRoutes.network,
           name: 'network',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: NetworkProHome()),
+              NoTransitionPage(child: NetworkProHome()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.networkSearch,
           name: 'networkSearch',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: SearchNetworkPage()),
+              NoTransitionPage(child: SearchNetworkPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.networkNotifications,
           name: 'networkNotifications',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: NotificationsPage()),
+              NoTransitionPage(child: NotificationsPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.networkMessages,
           name: 'networkMessages',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ConversationsList()),
+              NoTransitionPage(child: ConversationsList()), // const retiré
         ),
         GoRoute(
           path: '${AppRoutes.networkChatBasePath}/:userId',
@@ -513,19 +514,19 @@ class AppRouter {
           path: AppRoutes.networkConnections,
           name: 'networkConnections',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ConnectionsListPage()),
+              NoTransitionPage(child: ConnectionsListPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.networkProfileSettings,
           name: 'networkProfileSettings',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ProfileSettingsPage()),
+              NoTransitionPage(child: ProfileSettingsPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.networkBlockedUsers,
           name: 'networkBlockedUsers',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: BlockedUsersPage()),
+              NoTransitionPage(child: BlockedUsersPage()), // const retiré
         ),
         GoRoute(
           path: '${AppRoutes.networkPostBasePath}/:postId',
@@ -556,14 +557,14 @@ class AppRouter {
           path: AppRoutes.profile,
           name: 'profile',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ProfilePage()),
+              NoTransitionPage(child: ProfilePage()), // const retiré
         ),
         // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
           name: 'thixMarket',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixMarketPage()),
+              NoTransitionPage(child: ThixMarketPage()), // const retiré
         ),
         // ---- THIX Santé ----
         // Point d'entrée principal
@@ -571,7 +572,7 @@ class AppRouter {
           path: AppRoutes.thixSante,
           name: 'thixSante',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixSantePage()),
+              NoTransitionPage(child: ThixSantePage()), // const retiré
         ),
         // Sélection de rôle
         GoRoute(
@@ -599,31 +600,31 @@ class AppRouter {
           path: '/sante/patient/dashboard',
           name: 'patientDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientDashboardPage()),
+              NoTransitionPage(child: PatientDashboardPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/health',
           name: 'patientHealth',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientHealthPage()),
+              NoTransitionPage(child: PatientHealthPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/care',
           name: 'patientCare',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientCarePage()),
+              NoTransitionPage(child: PatientCarePage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/life',
           name: 'patientLife',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientLifePage()),
+              NoTransitionPage(child: PatientLifePage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/connect',
           name: 'patientConnect',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientConnectPage()),
+              NoTransitionPage(child: PatientConnectPage()), // const retiré
         ),
 
         // Détails Patient
@@ -632,7 +633,7 @@ class AppRouter {
           path: '/sante/patient/appointments',
           name: 'patientAppointmentsList',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientAppointmentsListPage()),
+              NoTransitionPage(child: PatientAppointmentsListPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/appointment/:id',
@@ -649,7 +650,7 @@ class AppRouter {
           path: '/sante/patient/appointment/new',
           name: 'patientAppointmentNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientAppointmentPage()),
+              NoTransitionPage(child: PatientAppointmentPage()), // const retiré
         ),
         // Consultation
         GoRoute(
@@ -666,7 +667,7 @@ class AppRouter {
           path: '/sante/patient/prescriptions',
           name: 'patientPrescriptions',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientPrescriptionsListPage()),
+              NoTransitionPage(child: PatientPrescriptionsListPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/prescription/:id',
@@ -682,7 +683,7 @@ class AppRouter {
           path: '/sante/patient/exams',
           name: 'patientExams',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientExamsListPage()),
+              NoTransitionPage(child: PatientExamsListPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/exam/:id',
@@ -697,7 +698,7 @@ class AppRouter {
           path: '/sante/patient/scan',
           name: 'patientScan',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientScanPage()),
+              NoTransitionPage(child: PatientScanPage()), // const retiré
         ),
         // Téléconsultation Jitsi (rejoindre)
         GoRoute(
@@ -715,7 +716,7 @@ class AppRouter {
           path: '/sante/patient/teleconsultation/new',
           name: 'patientTeleconsultationNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientTeleconsultationPage()),
+              NoTransitionPage(child: PatientTeleconsultationPage()), // const retiré
         ),
         // Téléconsultation - détail / édition
         GoRoute(
@@ -748,21 +749,21 @@ class AppRouter {
           path: '/sante/patient/health-score',
           name: 'patientHealthScore',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientHealthScorePage()),
+              NoTransitionPage(child: PatientHealthScorePage()), // const retiré
         ),
         // Assurance
         GoRoute(
           path: '/sante/patient/insurance',
           name: 'patientInsurance',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientInsurancePage()),
+              NoTransitionPage(child: PatientInsurancePage()), // const retiré
         ),
         // Dossier médical
         GoRoute(
           path: '/sante/patient/record',
           name: 'patientRecord',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientRecordPage()),
+              NoTransitionPage(child: PatientRecordPage()), // const retiré
         ),
         // Téléexpertise
         GoRoute(
@@ -779,7 +780,7 @@ class AppRouter {
           path: '/sante/patient/teleexpertise/request',
           name: 'patientTeleexpertiseRequest',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientTeleexpertiseRequestPage()),
+              NoTransitionPage(child: PatientTeleexpertiseRequestPage()), // const retiré
         ),
         // Symptômes
         GoRoute(
@@ -794,7 +795,7 @@ class AppRouter {
           path: '/sante/patient/symptom/new',
           name: 'patientSymptomNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientSymptomPage()),
+              NoTransitionPage(child: PatientSymptomPage()), // const retiré
         ),
         // Constantes
         GoRoute(
@@ -809,26 +810,26 @@ class AppRouter {
           path: '/sante/patient/vital/new',
           name: 'patientVitalNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientVitalPage()),
+              NoTransitionPage(child: PatientVitalPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/vitals/chart',
           name: 'patientVitalChart',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientVitalChartPage()),
+              NoTransitionPage(child: PatientVitalChartPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/record/add',
           name: 'patientRecordAdd',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientRecordAddPage()),
+              NoTransitionPage(child: PatientRecordAddPage()), // const retiré
         ),
         // Médicaments
         GoRoute(
           path: '/sante/patient/medications',
           name: 'patientMedications',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientMedicationsListPage()),
+              NoTransitionPage(child: PatientMedicationsListPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/medication/:id',
@@ -843,7 +844,7 @@ class AppRouter {
           path: '/sante/patient/medication/new',
           name: 'patientMedicationNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientMedicationPage()),
+              NoTransitionPage(child: PatientMedicationPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/medication/:id/reminders',
@@ -860,7 +861,7 @@ class AppRouter {
           path: '/sante/patient/vaccinations',
           name: 'patientVaccinations',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientVaccinationCalendarPage()),
+              NoTransitionPage(child: PatientVaccinationCalendarPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/vaccine/:id',
@@ -874,7 +875,7 @@ class AppRouter {
           path: '/sante/patient/vaccine/new',
           name: 'patientVaccineNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientVaccinePage()),
+              NoTransitionPage(child: PatientVaccinePage()), // const retiré
         ),
         // Grossesse
         GoRoute(
@@ -890,7 +891,7 @@ class AppRouter {
           path: '/sante/patient/pregnancy/new',
           name: 'patientPregnancyNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientPregnancyPage()),
+              NoTransitionPage(child: PatientPregnancyPage()), // const retiré
         ),
         // Famille
         GoRoute(
@@ -905,7 +906,7 @@ class AppRouter {
           path: '/sante/patient/family/new',
           name: 'patientFamilyNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientFamilyPage()),
+              NoTransitionPage(child: PatientFamilyPage()), // const retiré
         ),
         // Partage
         GoRoute(
@@ -920,14 +921,14 @@ class AppRouter {
           path: '/sante/patient/sharing/new',
           name: 'patientSharingNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientSharingPage()),
+              NoTransitionPage(child: PatientSharingPage()), // const retiré
         ),
         // IA Chat
         GoRoute(
           path: '/sante/patient/ia',
           name: 'patientIA',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientAIChatPage()),
+              NoTransitionPage(child: PatientAIChatPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/ia/history/:id',
@@ -943,7 +944,7 @@ class AppRouter {
           path: '/sante/patient/alerts',
           name: 'patientAlerts',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientAlertPage()),
+              NoTransitionPage(child: PatientAlertPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/alert/:id',
@@ -954,29 +955,26 @@ class AppRouter {
           },
         ),
          // Grossesse - liste (sans ID)
-GoRoute(
-  path: '/sante/patient/pregnancy',
-  name: 'patientPregnancyList',
-  pageBuilder: (context, state) =>
-      const NoTransitionPage(child: PatientPregnancyPage()),
-),
-
-// Famille - liste (sans ID)
-GoRoute(
-  path: '/sante/patient/family',
-  name: 'patientFamilyList',
-  pageBuilder: (context, state) =>
-      const NoTransitionPage(child: PatientFamilyPage()),
-),
-
-// Partage - liste (sans ID)
-GoRoute(
-  path: '/sante/patient/sharing',
-  name: 'patientSharingList',
-  pageBuilder: (context, state) =>
-      const NoTransitionPage(child: PatientSharingPage()),
-),
-        
+        GoRoute(
+          path: '/sante/patient/pregnancy',
+          name: 'patientPregnancyList',
+          pageBuilder: (context, state) =>
+              NoTransitionPage(child: PatientPregnancyPage()),
+        ),
+        // Famille - liste (sans ID)
+        GoRoute(
+          path: '/sante/patient/family',
+          name: 'patientFamilyList',
+          pageBuilder: (context, state) =>
+              NoTransitionPage(child: PatientFamilyPage()),
+        ),
+        // Partage - liste (sans ID)
+        GoRoute(
+          path: '/sante/patient/sharing',
+          name: 'patientSharingList',
+          pageBuilder: (context, state) =>
+              NoTransitionPage(child: PatientSharingPage()),
+        ),
         // Map
         GoRoute(
           path: '/sante/patient/map/:type',
@@ -1018,7 +1016,7 @@ GoRoute(
           path: '/sante/patient/consents',
           name: 'patientConsents',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientConsentPage()),
+              NoTransitionPage(child: PatientConsentPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/patient/consent/:id',
@@ -1033,14 +1031,14 @@ GoRoute(
           path: '/sante/patient/notifications',
           name: 'patientNotifications',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientNotificationsPage()),
+              NoTransitionPage(child: PatientNotificationsPage()), // const retiré
         ),
         // Profil
         GoRoute(
           path: '/sante/patient/profile',
           name: 'patientProfile',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientProfilePage()),
+              NoTransitionPage(child: PatientProfilePage()), // const retiré
         ),
         // Article
         GoRoute(
@@ -1066,7 +1064,7 @@ GoRoute(
           path: '/sante/patient/chat/new',
           name: 'patientChatNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PatientChatNewPage()),
+              NoTransitionPage(child: PatientChatNewPage()), // const retiré
         ),
 
         // ----- Module Médecin -----
@@ -1075,25 +1073,25 @@ GoRoute(
           path: '/sante/doctor/dashboard',
           name: 'doctorDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorDashboardPage()),
+              NoTransitionPage(child: DoctorDashboardPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/care',
           name: 'doctorCare',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorCarePage()),
+              NoTransitionPage(child: DoctorCarePage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/consult',
           name: 'doctorConsult',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorConsultPage()),
+              NoTransitionPage(child: DoctorConsultPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/connect',
           name: 'doctorConnect',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorConnectPage()),
+              NoTransitionPage(child: DoctorConnectPage()), // const retiré
         ),
         // Détails Médecin
         // Patients
@@ -1101,7 +1099,7 @@ GoRoute(
           path: '/sante/doctor/patients',
           name: 'doctorPatients',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorPatientsPage()),
+              NoTransitionPage(child: DoctorPatientsPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/patient/:id',
@@ -1115,14 +1113,14 @@ GoRoute(
           path: '/sante/doctor/patient/new',
           name: 'doctorPatientNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorPatientAddPage()),
+              NoTransitionPage(child: DoctorPatientAddPage()), // const retiré
         ),
         // Prescriptions
         GoRoute(
           path: '/sante/doctor/prescription/new',
           name: 'doctorPrescriptionNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorPrescriptionPage()),
+              NoTransitionPage(child: DoctorPrescriptionPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/prescription/:id',
@@ -1138,7 +1136,7 @@ GoRoute(
           path: '/sante/doctor/teleconsult',
           name: 'doctorTeleconsult',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorTeleconsultPage()),
+              NoTransitionPage(child: DoctorTeleconsultPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/teleconsultation/jitsi',
@@ -1163,20 +1161,20 @@ GoRoute(
           path: '/sante/doctor/teleexpertise/new',
           name: 'doctorTeleexpertiseNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorTeleexpertisePage()),
+              NoTransitionPage(child: DoctorTeleexpertisePage()), // const retiré
         ),
         // Agenda
         GoRoute(
           path: '/sante/doctor/agenda',
           name: 'doctorAgenda',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorAgendaPage()),
+              NoTransitionPage(child: DoctorAgendaPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/agenda/slots',
           name: 'doctorAgendaSlots',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorSlotManagementPage()),
+              NoTransitionPage(child: DoctorSlotManagementPage()), // const retiré
         ),
         // Notes
         GoRoute(
@@ -1191,39 +1189,39 @@ GoRoute(
           path: '/sante/doctor/note/new',
           name: 'doctorNoteNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorNotePage()),
+              NoTransitionPage(child: DoctorNotePage()), // const retiré
         ),
         // Statistiques
         GoRoute(
           path: '/sante/doctor/statistics',
           name: 'doctorStatistics',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorStatisticsPage()),
+              NoTransitionPage(child: DoctorStatisticsPage()), // const retiré
         ),
         // Terrain
         GoRoute(
           path: '/sante/doctor/terrain/scan',
           name: 'doctorTerrainScan',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorScanBraceletPage()),
+              NoTransitionPage(child: DoctorScanBraceletPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/terrain/dictation',
           name: 'doctorTerrainDictation',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorVoiceDictationPage()),
+              NoTransitionPage(child: DoctorVoiceDictationPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/terrain/offline',
           name: 'doctorTerrainOffline',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorOfflinePatientsPage()),
+              NoTransitionPage(child: DoctorOfflinePatientsPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/terrain/photo',
           name: 'doctorTerrainPhoto',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorPhotoCapturePage()),
+              NoTransitionPage(child: DoctorPhotoCapturePage()), // const retiré
         ),
         // Chat
         GoRoute(
@@ -1240,14 +1238,14 @@ GoRoute(
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorNewMessagePage()),
+              NoTransitionPage(child: DoctorNewMessagePage()), // const retiré
         ),
         // Alertes
         GoRoute(
           path: '/sante/doctor/alerts',
           name: 'doctorAlerts',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: DoctorAlertPage()),
+              NoTransitionPage(child: DoctorAlertPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/doctor/alert/:patientName',
@@ -1264,25 +1262,25 @@ GoRoute(
           path: '/sante/pharmacy/dashboard',
           name: 'pharmacyDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyDashboardPage()),
+              NoTransitionPage(child: PharmacyDashboardPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/pharmacy/orders',
           name: 'pharmacyOrders',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyOrdersPage()),
+              NoTransitionPage(child: PharmacyOrdersPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/pharmacy/inventory',
           name: 'pharmacyInventory',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyInventoryPage()),
+              NoTransitionPage(child: PharmacyInventoryPage()), // const retiré
         ),
         GoRoute(
           path: '/sante/pharmacy/connect',
           name: 'pharmacyConnect',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyConnectPage()),
+              NoTransitionPage(child: PharmacyConnectPage()), // const retiré
         ),
         // Détails Pharmacie
         // Commandes
@@ -1299,7 +1297,7 @@ GoRoute(
           path: '/sante/pharmacy/order/new',
           name: 'pharmacyOrderNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyOrderPage()),
+              NoTransitionPage(child: PharmacyOrderPage()), // const retiré
         ),
         // Prescription validation
         GoRoute(
@@ -1316,14 +1314,14 @@ GoRoute(
           path: '/sante/pharmacy/dispensing',
           name: 'pharmacyDispensing',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyDispensingPage()),
+              NoTransitionPage(child: PharmacyDispensingPage()), // const retiré
         ),
         // Livraisons
         GoRoute(
           path: '/sante/pharmacy/delivery',
           name: 'pharmacyDelivery',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyDeliveryPage()),
+              NoTransitionPage(child: PharmacyDeliveryPage()), // const retiré
         ),
         // Inventaire
         GoRoute(
@@ -1339,21 +1337,21 @@ GoRoute(
           path: '/sante/pharmacy/inventory/item/new',
           name: 'pharmacyInventoryItemNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyInventoryItemPage()),
+              NoTransitionPage(child: PharmacyInventoryItemPage()), // const retiré
         ),
         // Stock
         GoRoute(
           path: '/sante/pharmacy/stock',
           name: 'pharmacyStock',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyStockPage()),
+              NoTransitionPage(child: PharmacyStockPage()), // const retiré
         ),
         // Rapports
         GoRoute(
           path: '/sante/pharmacy/report',
           name: 'pharmacyReport',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyReportPage()),
+              NoTransitionPage(child: PharmacyReportPage()), // const retiré
         ),
         // Chat
         GoRoute(
@@ -1370,7 +1368,31 @@ GoRoute(
           path: '/sante/pharmacy/chat/new',
           name: 'pharmacyChatNew',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: PharmacyChatPage()),
+              NoTransitionPage(child: PharmacyChatPage()), // const retiré
+        ),
+
+        // ---- Pages produits, détail produit et panier (corrigés) ----
+        GoRoute(
+          path: '/sante/pharmacy/products',
+          name: 'pharmacyProducts',
+          pageBuilder: (context, state) =>
+              NoTransitionPage(child: PharmacyProductsPage()),
+        ),
+        GoRoute(
+          path: '/sante/pharmacy/product/:id',
+          name: 'pharmacyProductDetail',
+          pageBuilder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(
+              child: PharmacyProductDetailPage(productId: id),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/sante/pharmacy/cart',
+          name: 'pharmacyCart',
+          pageBuilder: (context, state) =>
+              NoTransitionPage(child: PharmacyCartPage()),
         ),
 
         // ---- Autres modules THIX ----
@@ -1378,38 +1400,14 @@ GoRoute(
           path: AppRoutes.thixMoney,
           name: 'thixMoney',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixMoneyPage()),
+              NoTransitionPage(child: ThixMoneyPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.thixMedia,
           name: 'thixMedia',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixMediaPage()),
+              NoTransitionPage(child: ThixMediaPage()), // const retiré
         ),
-         // Catalogue produits (Market)
-GoRoute(
-  path: '/sante/pharmacy/products',
-  name: 'pharmacyProducts',
-  pageBuilder: (context, state) =>
-      const NoTransitionPage(child: PharmacyProductsPage()),
-),
-GoRoute(
-  path: '/sante/pharmacy/product/:id',
-  name: 'pharmacyProductDetail',
-  pageBuilder: (context, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(
-      child: PharmacyProductDetailPage(productId: id),
-    );
-  },
-),
-GoRoute(
-  path: '/sante/pharmacy/cart',
-  name: 'pharmacyCart',
-  pageBuilder: (context, state) =>
-      const NoTransitionPage(child: PharmacyCartPage()),
-),
-        
         GoRoute(
           path: AppRoutes.thixMediaVideo,
           name: 'thixMediaVideo',
@@ -1428,7 +1426,7 @@ GoRoute(
           path: AppRoutes.thixInfo,
           name: 'thixInfo',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixInfoHomePage()),
+              NoTransitionPage(child: ThixInfoHomePage()), // const retiré
         ),
         GoRoute(
           path: '${AppRoutes.thixInfoArticleBasePath}/:id',
@@ -1442,7 +1440,7 @@ GoRoute(
           path: AppRoutes.reservation,
           name: 'reservation',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixReservationPage()),
+              NoTransitionPage(child: ThixReservationPage()), // const retiré
         ),
 
         // ==================== THIX ÉVÉNEMENT ====================
@@ -1450,7 +1448,7 @@ GoRoute(
           path: AppRoutes.thixEvent,
           name: 'thixEvent',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: ThixEventHome()),
+              NoTransitionPage(child: ThixEventHome()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.thixEventDetail,
@@ -1464,7 +1462,7 @@ GoRoute(
           path: AppRoutes.thixEventSearch,
           name: 'thixEventSearch',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: EventSearchPage()),
+              NoTransitionPage(child: EventSearchPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.thixEventCategory,
@@ -1487,13 +1485,13 @@ GoRoute(
           path: AppRoutes.thixEventMyTickets,
           name: 'thixEventMyTickets',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: MyTicketsPage()),
+              NoTransitionPage(child: MyTicketsPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.thixEventFavorites,
           name: 'thixEventFavorites',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: FavoriteEventsPage()),
+              NoTransitionPage(child: FavoriteEventsPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.thixEventSeatSelection,
@@ -1518,26 +1516,26 @@ GoRoute(
           path: AppRoutes.jobs,
           name: 'jobs',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: JobsPage()),
+              NoTransitionPage(child: JobsPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.jobDashboard,
           name: 'jobDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: JobDashboardPage()),
+              NoTransitionPage(child: JobDashboardPage()), // const retiré
         ),
         GoRoute(
           path: AppRoutes.recruiter,
           name: 'recruiter',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: RecruiterPortalPage()),
+              NoTransitionPage(child: RecruiterPortalPage()), // const retiré
         ),
         // Opportunités
         GoRoute(
           path: AppRoutes.opportunities,
           name: 'opportunities',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: OpportunitiesPage()),
+              NoTransitionPage(child: OpportunitiesPage()), // const retiré
         ),
         GoRoute(
           path: '/opportunities/:opportunityId',
@@ -1583,14 +1581,14 @@ GoRoute(
           path: AppRoutes.education,
           name: 'education',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: EducationPage()),
+              NoTransitionPage(child: EducationPage()), // const retiré
         ),
         // Training
         GoRoute(
           path: AppRoutes.trainingHome,
           name: 'trainingHome',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: TrainingHomePage()),
+              NoTransitionPage(child: TrainingHomePage()), // const retiré
         ),
         GoRoute(
           path: '${AppRoutes.trainingDetailsBasePath}/:trainingId',
@@ -1604,7 +1602,7 @@ GoRoute(
           path: AppRoutes.learningDashboard,
           name: 'learningDashboard',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: LearningDashboardPage()),
+              NoTransitionPage(child: LearningDashboardPage()), // const retiré
         ),
         GoRoute(
           path: '${AppRoutes.lessonPlayer}/:enrollmentId',
@@ -1633,7 +1631,7 @@ GoRoute(
           path: AppRoutes.adminMedia,
           name: 'adminMedia',
           pageBuilder: (context, state) =>
-              const NoTransitionPage(child: AdminMediaPage()),
+              NoTransitionPage(child: AdminMediaPage()), // const retiré
         ),
       ],
     );
