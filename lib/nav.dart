@@ -168,6 +168,62 @@ import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
 import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
 import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
 
+// ===== THIX Chat – Écrans principaux =====
+import 'package:thix_id/presentation/chat/screens/chat_status_screen.dart';
+import 'package:thix_id/presentation/chat/screens/chat_status_update_screen.dart';
+import 'package:thix_id/presentation/chat/screens/chat_spaces_screen.dart';
+import 'package:thix_id/presentation/chat/screens/chat_call_screen.dart';
+import 'package:thix_id/presentation/chat/screens/chat_incoming_call_screen.dart';
+
+// ===== THIX Chat – Paramètres & personnalisation =====
+import 'package:thix_id/presentation/chat/settings/ephemeral_settings_screen.dart';
+import 'package:thix_id/presentation/chat/settings/translation_settings_screen.dart';
+import 'package:thix_id/presentation/chat/settings/theme_selector_screen.dart';
+import 'package:thix_id/presentation/chat/settings/bubble_customizer_screen.dart';
+import 'package:thix_id/presentation/chat/settings/notification_sounds_screen.dart';
+import 'package:thix_id/presentation/chat/settings/chat_wallpaper_screen.dart';
+import 'package:thix_id/presentation/chat/settings/font_size_selector_screen.dart';
+import 'package:thix_id/presentation/chat/settings/theme_preview_screen.dart';
+import 'package:thix_id/presentation/chat/settings/status_settings_screen.dart';
+import 'package:thix_id/presentation/chat/settings/availability_schedule_screen.dart';
+import 'package:thix_id/presentation/chat/settings/status_presets_screen.dart';
+
+// ===== THIX Chat – Archives =====
+import 'package:thix_id/presentation/chat/archive/archive_screen.dart';
+import 'package:thix_id/presentation/chat/archive/export_chat_screen.dart';
+import 'package:thix_id/presentation/chat/archive/export_encrypted_screen.dart';
+
+// ===== THIX Chat – Économie de données =====
+import 'package:thix_id/presentation/chat/data_saver/low_data_mode_screen.dart';
+
+// ===== THIX Chat – Widgets maison =====
+import 'package:thix_id/presentation/chat/home_widgets/chat_widget_config_screen.dart';
+import 'package:thix_id/presentation/chat/home_widgets/widget_preview_screen.dart';
+
+// ===== THIX Chat – Sécurité avancée =====
+import 'package:thix_id/presentation/chat/security/fingerprint_lock_screen.dart';
+import 'package:thix_id/presentation/chat/security/secret_chat_folder_screen.dart';
+import 'package:thix_id/presentation/chat/security/secret_conversation_screen.dart';
+import 'package:thix_id/presentation/chat/security/self_destruct_screen.dart';
+import 'package:thix_id/presentation/chat/security/anti_screenshot_screen.dart';
+import 'package:thix_id/presentation/chat/security/fake_interface_screen.dart';
+import 'package:thix_id/presentation/chat/security/theft_protection_screen.dart';
+import 'package:thix_id/presentation/chat/security/session_manager_screen.dart';
+import 'package:thix_id/presentation/chat/security/encryption_screen.dart';
+
+// ===== THIX Chat – Hors ligne =====
+import 'package:thix_id/presentation/chat/offline/offline_settings_screen.dart';
+
+// ===== THIX Chat – Fonctionnalités diverses =====
+import 'package:thix_id/presentation/chat/contact_share/contact_share_screen.dart';
+import 'package:thix_id/presentation/chat/video_message/video_message_screen.dart';
+import 'package:thix_id/presentation/chat/message_reminder/message_reminder_screen.dart';
+import 'package:thix_id/presentation/chat/confidential_message/confidential_message_screen.dart';
+import 'package:thix_id/presentation/chat/smart_notifications/smart_notifications_screen.dart';
+import 'package:thix_id/presentation/chat/voice_translation/voice_translation_screen.dart';
+import 'package:thix_id/presentation/chat/group_waiting_room/waiting_room_screen.dart';
+import 'package:thix_id/presentation/chat/scheduled_recurring/recurring_schedule_screen.dart';
+
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
@@ -234,6 +290,62 @@ class AppRoutes {
   static const String thixInfo = '/info';
   static const String thixInfoArticleBasePath = '/info/a';
 
+// ===== THIX Chat – Routes principales =====
+static const String chatStatus = '/chat/status';
+static const String chatStatusUpdate = '/chat/status/update';
+static const String chatSpaces = '/chat/spaces';
+static const String chatCall = '/chat/call';
+static const String chatIncomingCall = '/chat/incoming';
+
+// ===== THIX Chat – Paramètres & personnalisation =====
+static const String chatEphemeralSettings = '/chat/ephemeral/settings';
+static const String chatTranslationSettings = '/chat/translation/settings';
+static const String chatThemes = '/chat/themes';
+static const String chatBubbleCustomize = '/chat/bubble/customize';
+static const String chatNotificationSounds = '/chat/notification/sounds';
+static const String chatWallpaper = '/chat/wallpaper';
+static const String chatFontSize = '/chat/font/size';
+static const String chatThemePreview = '/chat/theme/preview';
+static const String chatStatusSettings = '/chat/status/settings';
+static const String chatAvailabilitySchedule = '/chat/availability/schedule';
+static const String chatStatusPresets = '/chat/status/presets';
+
+// ===== THIX Chat – Archives & export =====
+static const String chatArchive = '/chat/archive';
+static const String chatExport = '/chat/export/:id';
+static const String chatExportEncrypted = '/chat/export/encrypted/:id';
+
+// ===== THIX Chat – Économie de données =====
+static const String chatDataSaver = '/chat/data/saver';
+
+// ===== THIX Chat – Widgets maison =====
+static const String chatWidgetsConfig = '/chat/widgets/config';
+static const String chatWidgetsPreview = '/chat/widgets/preview';
+
+// ===== THIX Chat – Sécurité avancée =====
+static const String chatSecurityLock = '/chat/security/lock';
+static const String chatSecretFolder = '/chat/secret/folder';
+static const String chatSecretConversation = '/chat/secret/conversation/:id';
+static const String chatSelfDestruct = '/chat/self-destruct';
+static const String chatAntiScreenshot = '/chat/anti-screenshot';
+static const String chatFakeInterface = '/chat/fake-interface';
+static const String chatTheftProtection = '/chat/theft-protection';
+static const String chatSessionManager = '/chat/session';
+static const String chatEncryption = '/chat/encryption';
+
+// ===== THIX Chat – Hors ligne =====
+static const String chatOfflineSettings = '/chat/offline/settings';
+
+// ===== THIX Chat – Fonctionnalités diverses =====
+static const String chatContactShare = '/chat/contact/share/:userId';
+static const String chatVideoMessage = '/chat/video-message';
+static const String chatMessageReminder = '/chat/reminder';
+static const String chatConfidentialMessage = '/chat/confidential';
+static const String chatSmartNotifications = '/chat/smart-notifications';
+static const String chatVoiceTranslation = '/chat/voice-translation';
+static const String chatGroupWaitingRoom = '/chat/group/waiting-room';
+static const String chatRecurringSchedule = '/chat/scheduled/recurring';
+  
   // THIX ÉVÉNEMENT
   static const String thixEvent = '/thix-event';
   static const String thixEventDetail = '/thix-event/event/:eventId';
@@ -1025,6 +1137,276 @@ class AppRouter {
             return NoTransitionPage(child: PatientConsentPage(consentId: id));
           },
         ),
+           // ==================== THIX Chat – Fonctionnalités avancées ====================
+
+// Statut
+GoRoute(
+  path: AppRoutes.chatStatus,
+  name: 'chatStatus',
+  pageBuilder: (context, state) => NoTransitionPage(child: ChatStatusScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatStatusUpdate,
+  name: 'chatStatusUpdate',
+  pageBuilder: (context, state) => NoTransitionPage(child: ChatStatusUpdateScreen()),
+),
+
+// Espaces
+GoRoute(
+  path: AppRoutes.chatSpaces,
+  name: 'chatSpaces',
+  pageBuilder: (context, state) => NoTransitionPage(child: ChatSpacesScreen()),
+),
+
+// Appels
+GoRoute(
+  path: AppRoutes.chatCall,
+  name: 'chatCall',
+  pageBuilder: (context, state) {
+    final extra = state.extra as Map?;
+    return NoTransitionPage(
+      child: ChatCallScreen(
+        callId: extra?['callId'] ?? '',
+        callName: extra?['callName'] ?? 'Appel',
+        participants: extra?['participants'] ?? [],
+        isVideoCall: extra?['isVideoCall'] ?? false,
+      ),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatIncomingCall,
+  name: 'chatIncomingCall',
+  pageBuilder: (context, state) {
+    final extra = state.extra as Map?;
+    return NoTransitionPage(
+      child: ChatIncomingCallScreen(
+        callerName: extra?['callerName'] ?? 'Appel entrant',
+        callType: extra?['callType'] ?? 'audio',
+      ),
+    );
+  },
+),
+
+// Paramètres éphémères
+GoRoute(
+  path: AppRoutes.chatEphemeralSettings,
+  name: 'chatEphemeralSettings',
+  pageBuilder: (context, state) => NoTransitionPage(child: EphemeralSettingsScreen()),
+),
+
+// Traduction
+GoRoute(
+  path: AppRoutes.chatTranslationSettings,
+  name: 'chatTranslationSettings',
+  pageBuilder: (context, state) => NoTransitionPage(child: TranslationSettingsScreen()),
+),
+
+// Thèmes & personnalisation
+GoRoute(
+  path: AppRoutes.chatThemes,
+  name: 'chatThemes',
+  pageBuilder: (context, state) => NoTransitionPage(child: ThemeSelectorScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatBubbleCustomize,
+  name: 'chatBubbleCustomize',
+  pageBuilder: (context, state) => NoTransitionPage(child: BubbleCustomizerScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatNotificationSounds,
+  name: 'chatNotificationSounds',
+  pageBuilder: (context, state) => NoTransitionPage(child: NotificationSoundsScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatWallpaper,
+  name: 'chatWallpaper',
+  pageBuilder: (context, state) => NoTransitionPage(child: ChatWallpaperScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatFontSize,
+  name: 'chatFontSize',
+  pageBuilder: (context, state) => NoTransitionPage(child: FontSizeSelectorScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatThemePreview,
+  name: 'chatThemePreview',
+  pageBuilder: (context, state) => NoTransitionPage(child: ThemePreviewScreen()),
+),
+
+// Paramètres de statut en ligne
+GoRoute(
+  path: AppRoutes.chatStatusSettings,
+  name: 'chatStatusSettings',
+  pageBuilder: (context, state) => NoTransitionPage(child: StatusSettingsScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatAvailabilitySchedule,
+  name: 'chatAvailabilitySchedule',
+  pageBuilder: (context, state) => NoTransitionPage(child: AvailabilityScheduleScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatStatusPresets,
+  name: 'chatStatusPresets',
+  pageBuilder: (context, state) => NoTransitionPage(child: StatusPresetsScreen()),
+),
+
+// Archives
+GoRoute(
+  path: AppRoutes.chatArchive,
+  name: 'chatArchive',
+  pageBuilder: (context, state) => NoTransitionPage(child: ArchiveScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatExport,
+  name: 'chatExport',
+  pageBuilder: (context, state) {
+    final conversationId = state.pathParameters['id']!;
+    final conversationName = state.uri.queryParameters['name'] ?? 'Conversation';
+    return NoTransitionPage(
+      child: ExportChatScreen(
+        conversationId: conversationId,
+        conversationName: conversationName,
+      ),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatExportEncrypted,
+  name: 'chatExportEncrypted',
+  pageBuilder: (context, state) {
+    final conversationId = state.pathParameters['id']!;
+    return NoTransitionPage(
+      child: ExportEncryptedScreen(conversationId: conversationId),
+    );
+  },
+),
+
+// Économie de données
+GoRoute(
+  path: AppRoutes.chatDataSaver,
+  name: 'chatDataSaver',
+  pageBuilder: (context, state) => NoTransitionPage(child: LowDataModeScreen()),
+),
+
+// Widgets maison
+GoRoute(
+  path: AppRoutes.chatWidgetsConfig,
+  name: 'chatWidgetsConfig',
+  pageBuilder: (context, state) => NoTransitionPage(child: ChatWidgetConfigScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatWidgetsPreview,
+  name: 'chatWidgetsPreview',
+  pageBuilder: (context, state) => NoTransitionPage(child: WidgetPreviewScreen()),
+),
+
+// Sécurité avancée
+GoRoute(
+  path: AppRoutes.chatSecurityLock,
+  name: 'chatSecurityLock',
+  pageBuilder: (context, state) => NoTransitionPage(child: FingerprintLockScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatSecretFolder,
+  name: 'chatSecretFolder',
+  pageBuilder: (context, state) => NoTransitionPage(child: SecretChatFolderScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatSecretConversation,
+  name: 'chatSecretConversation',
+  pageBuilder: (context, state) {
+    final conversationId = state.pathParameters['id']!;
+    return NoTransitionPage(
+      child: SecretConversationScreen(conversationId: conversationId),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatSelfDestruct,
+  name: 'chatSelfDestruct',
+  pageBuilder: (context, state) => NoTransitionPage(child: SelfDestructScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatAntiScreenshot,
+  name: 'chatAntiScreenshot',
+  pageBuilder: (context, state) => NoTransitionPage(child: AntiScreenshotScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatFakeInterface,
+  name: 'chatFakeInterface',
+  pageBuilder: (context, state) => NoTransitionPage(child: FakeInterfaceScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatTheftProtection,
+  name: 'chatTheftProtection',
+  pageBuilder: (context, state) => NoTransitionPage(child: TheftProtectionScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatSessionManager,
+  name: 'chatSessionManager',
+  pageBuilder: (context, state) => NoTransitionPage(child: SessionManagerScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatEncryption,
+  name: 'chatEncryption',
+  pageBuilder: (context, state) => NoTransitionPage(child: EncryptionScreen()),
+),
+
+// Hors ligne
+GoRoute(
+  path: AppRoutes.chatOfflineSettings,
+  name: 'chatOfflineSettings',
+  pageBuilder: (context, state) => NoTransitionPage(child: OfflineSettingsScreen()),
+),
+
+// Fonctionnalités diverses
+GoRoute(
+  path: AppRoutes.chatContactShare,
+  name: 'chatContactShare',
+  pageBuilder: (context, state) {
+    final userId = state.pathParameters['userId']!;
+    return NoTransitionPage(
+      child: ContactShareScreen(userId: userId),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatVideoMessage,
+  name: 'chatVideoMessage',
+  pageBuilder: (context, state) => NoTransitionPage(child: VideoMessageScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatMessageReminder,
+  name: 'chatMessageReminder',
+  pageBuilder: (context, state) => NoTransitionPage(child: MessageReminderScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatConfidentialMessage,
+  name: 'chatConfidentialMessage',
+  pageBuilder: (context, state) => NoTransitionPage(child: ConfidentialMessageScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatSmartNotifications,
+  name: 'chatSmartNotifications',
+  pageBuilder: (context, state) => NoTransitionPage(child: SmartNotificationsScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatVoiceTranslation,
+  name: 'chatVoiceTranslation',
+  pageBuilder: (context, state) => NoTransitionPage(child: VoiceTranslationScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatGroupWaitingRoom,
+  name: 'chatGroupWaitingRoom',
+  pageBuilder: (context, state) => NoTransitionPage(child: WaitingRoomScreen()),
+),
+GoRoute(
+  path: AppRoutes.chatRecurringSchedule,
+  name: 'chatRecurringSchedule',
+  pageBuilder: (context, state) => NoTransitionPage(child: RecurringScheduleScreen()),
+),
+         
         // Notifications
         GoRoute(
           path: '/sante/patient/notifications',
