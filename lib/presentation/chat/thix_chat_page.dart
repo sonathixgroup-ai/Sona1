@@ -5,7 +5,7 @@ import 'package:thix_id/presentation/chat/chat_home_screen.dart';
 ///
 /// The actual implementation lives in [ChatHomeScreen].
 class ThixChatPage extends StatelessWidget {
-  const ThixChatPage({super.key});
+  const ThixChatPage(chatld: ...);
 
   @override
   Widget build(BuildContext context) => const ChatHomeScreen();
