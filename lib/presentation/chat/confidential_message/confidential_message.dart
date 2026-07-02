@@ -3,9 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
-import '../core/chat_models.dart';
-import '../core/chat_bloc.dart';
-import '../core/chat_events.dart';
+
 
 class ConfidentialMessageWidget extends StatefulWidget {
   final ConfidentialMessage message;
