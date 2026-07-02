@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/news_item.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
+import 'package:thix_id/supabase/supabase_service.dart';   // <-- AJOUT OBLIGATOIRE
 
 class NewsService {
   static const String table = 'thix_info_news';
