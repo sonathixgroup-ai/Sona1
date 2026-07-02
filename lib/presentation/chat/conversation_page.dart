@@ -1,34 +1,37 @@
 // lib/presentation/chat/conversation_page.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
-import 'package:thix_id/presentation/chat/core/chat_events.dart';
-import 'package:thix_id/presentation/chat/core/chat_states.dart';
-import 'package:thix_id/presentation/chat/core/chat_models.dart';
-import 'package:thix_id/presentation/chat/widgets/chat_bubble.dart';
-import 'package:thix_id/presentation/chat/widgets/chat_input_bar.dart';
-import 'package:thix_id/presentation/chat/widgets/pinned_message.dart';
-import 'package:thix_id/presentation/chat/online_status/typing_indicator.dart';
-import 'package:thix_id/presentation/chat/ephemeral/ephemeral_settings.dart';
-import 'package:thix_id/presentation/chat/confidential_message/confidential_message.dart';
-import 'package:thix_id/presentation/chat/polls/poll_creator_sheet.dart';
-import 'package:thix_id/presentation/chat/polls/inline_poll_widget.dart';
-import 'package:thix_id/presentation/chat/tasks/task_creator.dart';
-import 'package:thix_id/presentation/chat/tasks/task_list_widget.dart';
-import 'package:thix_id/presentation/chat/slash_commands/slash_command_panel.dart';
-import 'package:thix_id/presentation/chat/slash_commands/slash_command_parser.dart';
-import 'package:thix_id/presentation/chat/attachment_picker.dart';
-import 'package:thix_id/presentation/chat/voice/voice_recorder_widget.dart';
-import 'package:thix_id/presentation/chat/video_message/video_message_widget.dart';
-import 'package:thix_id/presentation/chat/contact_share/contact_share_widget.dart';
-import 'package:thix_id/presentation/chat/message_reminder/message_reminder.dart';
-import 'package:thix_id/presentation/chat/translation/translation_button.dart';
-import 'package:thix_id/presentation/chat/translation/translated_bubble.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:timeago/timeago.dart' as timeago;
+
+// State Management
+import 'core/chat_bloc.dart';
+import 'core/chat_states.dart';
+import 'core/chat_events.dart';
+
+// Widgets
+import 'widgets/chat_bubble.dart';
+import 'widgets/chat_input_bar.dart';
+import 'widgets/pinned_message.dart';
+import 'widgets/reaction_picker.dart';
+import 'widgets/attachment_picker.dart';
+import 'polls/inline_poll_widget.dart';
+import 'polls/poll_creator_sheet.dart';
+import 'location/location_share_bubble.dart';
+import 'voice/voice_message_bubble.dart';
 
 class ConversationPage extends StatefulWidget {
-  final String conversationId;
-  const ConversationPage({Key? key, required this.conversationId}) : super(key: key);
+  final String chatId;
+  final String title;
+  final String type;
+
+  const ConversationPage({
+    super.key,
+    required this.chatId,
+    required this.title,
+    this.type = 'direct',
+  });
 
   @override
   State<ConversationPage> createState() => _ConversationPageState();
@@ -38,483 +41,365 @@ class _ConversationPageState extends State<ConversationPage> {
   late ChatBloc _chatBloc;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _messageController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
-  bool _showSlashPanel = false;
 
   @override
   void initState() {
     super.initState();
     _chatBloc = context.read<ChatBloc>();
-    _chatBloc.add(LoadMessages(widget.conversationId));
-    _chatBloc.add(StartTyping(widget.conversationId));
-    _messageController.addListener(_onTextChanged);
+    _chatBloc.add(LoadMessages(widget.chatId));
+    _chatBloc.add(LoadConversationDetails(widget.chatId));
   }
 
   @override
   void dispose() {
-    _messageController.removeListener(_onTextChanged);
-    _messageController.dispose();
-    _focusNode.dispose();
     _scrollController.dispose();
-    _chatBloc.add(StopTyping(widget.conversationId));
+    _messageController.dispose();
+    _chatBloc.add(ClearTyping(widget.chatId));
     super.dispose();
   }
 
-  void _onTextChanged() {
-    final text = _messageController.text;
-    if (text.trim().isNotEmpty) {
-      _chatBloc.add(StartTyping(widget.conversationId));
-    } else {
-      _chatBloc.add(StopTyping(widget.conversationId));
-    }
-    // Afficher le panneau slash si l'utilisateur tape "/" en début de ligne
-    setState(() {
-      _showSlashPanel = text.startsWith('/') && text.length < 20;
+  void _sendMessage(String content, {String? mediaUrl, String? type}) {
+    if (content.trim().isEmpty && mediaUrl == null) return;
+    _chatBloc.add(
+      SendMessage(
+        conversationId: widget.chatId,
+        content: content.trim(),
+        type: type ?? 'text',
+        mediaUrl: mediaUrl,
+      ),
+    );
+    _messageController.clear();
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
-  void _sendTextMessage(String text) {
-    if (text.trim().isEmpty) return;
-    // Vérifier si c'est une commande slash
-    final parsed = SlashCommandParser.parse(text);
-    if (parsed != null) {
-      _handleSlashCommand(parsed.command, parsed.args, parsed.rawText);
-      return;
-    }
-    _chatBloc.add(SendMessage(
-      conversationId: widget.conversationId,
-      type: 'text',
-      content: text,
-    ));
-    _messageController.clear();
-    _focusNode.requestFocus();
-  }
-
-  void _handleSlashCommand(String command, List<String> args, String? rawText) async {
-    switch (command) {
-      case 'poll':
-        final pollData = await showDialog<Map<String, dynamic>>(
-          context: context,
-          builder: (_) => PollCreatorSheet(onPollCreated: (poll) {
-            Navigator.pop(_, {
-              'question': poll.question,
-              'options': poll.options,
-              'multiple_choice': poll.isMultipleChoice,
-              'anonymous': poll.isAnonymous,
-              'duration_hours': poll.expiresAt != null
-                  ? DateTime.now().difference(poll.expiresAt!).inHours.abs()
-                  : null,
-            });
-          }),
-        );
-        if (pollData != null) {
-          _chatBloc.add(SendMessage(
-            conversationId: widget.conversationId,
-            type: 'poll',
-            content: pollData['question'],
-            metadata: pollData,
-          ));
-        }
-        break;
-      case 'todo':
-        final task = await showDialog<TaskData>(
-          context: context,
-          builder: (_) => TaskCreator(onTaskCreated: (t) => Navigator.pop(_, t)),
-        );
-        if (task != null) {
-          _chatBloc.add(SendMessage(
-            conversationId: widget.conversationId,
-            type: 'task',
-            content: task.title,
-            metadata: task.toJson(),
-          ));
-        }
-        break;
-      case 'remind':
-        final remindData = await MessageReminder.showReminderPicker(
-          context, 
-          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-          conversationId: widget.conversationId,
-          messagePreview: rawText ?? 'Rappel',
-        );
-        // Ici on envoie un message programmé (scheduled)
-        if (remindData != null) {
-          _chatBloc.add(ScheduleMessage(
-            SendMessage(
-              conversationId: widget.conversationId,
-              type: 'text',
-              content: rawText ?? 'Rappel',
-            ),
-            remindData,
-          ));
-        }
-        break;
-      default:
-        // Commande non gérée (ex: /me, /giphy) – on envoie en texte simple
-        _chatBloc.add(SendMessage(
-          conversationId: widget.conversationId,
-          type: 'text',
-          content: _messageController.text,
-        ));
-    }
-    _messageController.clear();
-  }
-
-  void _sendVoiceMessage(File file, int duration) {
-    _chatBloc.add(SendMessage(
-      conversationId: widget.conversationId,
-      type: 'voice',
-      mediaUrl: file.path,
-      durationSeconds: duration,
-    ));
-  }
-
-  void _sendEphemeralMessage() async {
-    final duration = await showDialog<int>(
+  void _showPollCreator() {
+    showModalBottomSheet(
       context: context,
-      builder: (_) => EphemeralSettings(onDurationSelected: (d) => Navigator.pop(_, d)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => PollCreatorSheet(
+        conversationId: widget.chatId,
+        onPollCreated: (poll) {
+          _chatBloc.add(SendPollMessage(
+            conversationId: widget.chatId,
+            poll: poll,
+          ));
+        },
+      ),
     );
-    if (duration != null) {
-      final content = _messageController.text.trim();
-      _messageController.clear();
-      _chatBloc.add(SendEphemeralMessage(
-        conversationId: widget.conversationId,
-        content: content.isNotEmpty ? content : null,
-        durationSeconds: duration,
-      ));
-    }
-  }
-
-  void _sendConfidentialMessage() async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (_) => _ConfidentialComposerDialog(),
-    );
-    if (result != null) {
-      _chatBloc.add(SendConfidentialMessage(
-        conversationId: widget.conversationId,
-        content: result['content'],
-        code: result['code'],
-        isBiometric: result['isBiometric'],
-      ));
-    }
   }
 
   void _showAttachmentPicker() {
-    AttachmentPicker.showPickerSheet(context, (file) {
-      _chatBloc.add(SendMessage(
-        conversationId: widget.conversationId,
-        type: 'image',
-        mediaUrl: file.path,
-      ));
-    });
-  }
-
-  void _showVideoPicker() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const VideoMessageWidget(onVideoRecorded: null)),
-    );
-    if (result != null && result is File) {
-      _chatBloc.add(SendMessage(
-        conversationId: widget.conversationId,
-        type: 'video',
-        mediaUrl: result.path,
-      ));
-    }
-  }
-
-  void _shareContact() async {
-    final contact = await showModalBottomSheet<Map<String, String>>(
+    showModalBottomSheet(
       context: context,
-      builder: (_) => const ContactShareWidget(onContactSelected: null),
+      backgroundColor: Colors.transparent,
+      builder: (context) => AttachmentPicker(
+        onImageSelected: (file) {
+          _chatBloc.add(SendMediaMessage(
+            conversationId: widget.chatId,
+            file: file,
+            type: 'image',
+          ));
+        },
+        onFileSelected: (file) {
+          _chatBloc.add(SendMediaMessage(
+            conversationId: widget.chatId,
+            file: file,
+            type: 'file',
+          ));
+        },
+      ),
     );
-    if (contact != null) {
-      _chatBloc.add(SendMessage(
-        conversationId: widget.conversationId,
-        type: 'contact',
-        content: contact['name'],
-        metadata: contact,
-      ));
-    }
   }
 
   void _showReactionPicker(String messageId) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
       builder: (context) => ReactionPicker(
-        onReactionSelected: (reaction) {
-          _chatBloc.add(AddReaction(messageId, reaction));
-          Navigator.pop(context);
+        onReactionSelected: (emoji) {
+          _chatBloc.add(AddReaction(
+            messageId: messageId,
+            emoji: emoji,
+          ));
         },
       ),
     );
   }
 
-  void _showMessageInfo(Message message) {
-    Navigator.pushNamed(
-      context,
-      '/chat/message-info',
-      arguments: message,
-    );
+  void _togglePinMessage(String messageId) {
+    _chatBloc.add(TogglePinMessage(
+      conversationId: widget.chatId,
+      messageId: messageId,
+    ));
+  }
+
+  void _replyToMessage(String messageId) {
+    _chatBloc.add(ReplyToMessage(
+      conversationId: widget.chatId,
+      messageId: messageId,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: BlocBuilder<ChatBloc, ChatState>(
-          buildWhen: (previous, current) => current is MessagesLoaded,
-          builder: (context, state) {
-            final convName = (state is MessagesLoaded) ? 'Conversation' : 'Chat';
-            return Text(convName);
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () => _showConversationMenu(),
-          ),
-        ],
-      ),
-      body: BlocConsumer<ChatBloc, ChatState>(
-        listener: (context, state) {
-          if (state is MessageSentSuccess) {
-            _scrollController.animateTo(
-              0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          } else if (state is ConfidentialMessageUnlocked) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Message déverrouillé')),
-            );
-          } else if (state is ChatError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is ChatLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is MessagesLoaded && state.conversationId == widget.conversationId) {
-            return Column(
-              children: [
-                if (state.pinnedMessage != null)
-                  PinnedMessage(
-                    message: state.pinnedMessage!,
-                    onTap: () {
-                      // Scroll to pinned message
-                    },
-                  ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    itemCount: state.messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = state.messages[index];
-                      final isMe = msg.senderId == _chatBloc.currentUserId;
-                      return ChatBubble(
-                        message: msg,
-                        isMe: isMe,
-                        onReactionTap: () => _showReactionPicker(msg.id),
-                        onConfidentialTap: () {
-                          if (msg.type == 'confidential') {
-                            _showConfidentialDialog(msg);
-                          }
-                        },
-                        onLongPress: () => _showMessageInfo(msg),
-                      );
-                    },
-                  ),
-                ),
-                if (state is TypingState && state.typingUsers.isNotEmpty)
-                  TypingIndicator(users: state.typingUsers),
-                if (_showSlashPanel)
-                  SlashCommandPanel(
-                    currentInput: _messageController.text,
-                    onExecute: (command, data) {
-                      setState(() => _showSlashPanel = false);
-                      if (command == 'poll' && data != null) {
-                        _chatBloc.add(SendMessage(
-                          conversationId: widget.conversationId,
-                          type: 'poll',
-                          content: data['question'],
-                          metadata: data,
-                        ));
-                      } else if (command == 'todo' && data != null) {
-                        _chatBloc.add(SendMessage(
-                          conversationId: widget.conversationId,
-                          type: 'task',
-                          content: data['title'],
-                          metadata: data,
-                        ));
-                      } else if (command == 'remind' && data != null) {
-                        _chatBloc.add(ScheduleMessage(
-                          SendMessage(
-                            conversationId: widget.conversationId,
-                            type: 'text',
-                            content: data['text'],
-                          ),
-                          data['scheduled_at'],
-                        ));
-                      } else {
-                        _sendTextMessage('/$command ${data?['text'] ?? ''}');
-                      }
-                    },
-                  ),
-                ChatInputBar(
-                  controller: _messageController,
-                  onSendText: _sendTextMessage,
-                  onSendVoice: (path) async {
-                    final duration = await _getVoiceDuration(path);
-                    _sendVoiceMessage(File(path), duration);
-                  },
-                  onAttachment: (_) => _showAttachmentPicker(),
-                  onEphemeral: _sendEphemeralMessage,
-                  onConfidential: _sendConfidentialMessage,
-                  onVideo: _showVideoPicker,
-                  onContact: _shareContact,
-                ),
-              ],
-            );
-          } else if (state is ChatError) {
-            return Center(child: Text('Erreur: ${state.message}'));
-          }
-          return const Center(child: Text('Aucun message'));
-        },
-      ),
-    );
-  }
-
-  void _showConversationMenu() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.archive),
-            title: const Text('Archiver'),
-            onTap: () {
-              _chatBloc.add(ArchiveConversation(widget.conversationId));
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete),
-            title: const Text('Supprimer la conversation'),
-            onTap: () {
-              _chatBloc.add(DeleteConversation(widget.conversationId, forEveryone: true));
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_off),
-            title: const Text('Ne pas déranger'),
-            onTap: () {
-              // Naviguer vers DoNotDisturbSettings
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showConfidentialDialog(Message msg) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Message confidentiel'),
-        content: const Text('Ce message nécessite un code.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Ouvrir un champ code
-              Navigator.pop(context);
-            },
-            child: const Text('Déverrouiller'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<int> _getVoiceDuration(String path) async {
-    // Implémenter avec un package audio (ex: audioplayers)
-    return 3;
-  }
-}
-
-// Dialogue pour composer un message confidentiel
-class _ConfidentialComposerDialog extends StatefulWidget {
-  @override
-  State<_ConfidentialComposerDialog> createState() => _ConfidentialComposerDialogState();
-}
-
-class _ConfidentialComposerDialogState extends State<_ConfidentialComposerDialog> {
-  final TextEditingController _messageController = TextEditingController();
-  final TextEditingController _codeController = TextEditingController();
-  bool _useBiometric = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Message confidentiel'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _messageController,
-            decoration: const InputDecoration(hintText: 'Votre message'),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _codeController,
-            decoration: const InputDecoration(hintText: 'Code secret (4-6 chiffres)'),
-            obscureText: true,
-            keyboardType: TextInputType.number,
-          ),
-          Row(
+    return BlocConsumer<ChatBloc, ChatState>(
+      listener: (context, state) {
+        if (state is MessageSent || state is MessagesLoaded) {
+          _scrollToBottom();
+        }
+        if (state is ChatError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+          );
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          appBar: _buildAppBar(state),
+          body: Column(
             children: [
-              Checkbox(
-                value: _useBiometric,
-                onChanged: (v) => setState(() => _useBiometric = v ?? false),
+              if (state is MessagesLoaded && state.pinnedMessage != null)
+                PinnedMessage(
+                  message: state.pinnedMessage!,
+                  onTap: () => _scrollToBottom(),
+                  onUnpin: () => _togglePinMessage(state.pinnedMessage!.id),
+                ),
+              Expanded(
+                child: state is MessagesLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : state is MessagesLoaded
+                        ? _buildMessageList(state)
+                        : const Center(child: Text('Aucun message')),
               ),
-              const Text('Utiliser biométrie'),
+              _buildInputBar(state),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(ChatState state) {
+    String subtitle = 'En ligne';
+    if (state is ConversationDetailsLoaded) {
+      subtitle = state.isOnline ? 'En ligne' : 'Dernière connexion: ${_formatLastSeen(state.lastSeen)}';
+    }
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, size: 20),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
           ),
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
+        IconButton(
+          icon: const Icon(Icons.phone, size: 20),
+          onPressed: () => _chatBloc.add(InitiateCall(
+            conversationId: widget.chatId,
+            type: 'audio',
+          )),
         ),
-        ElevatedButton(
-          onPressed: () {
-            if (_messageController.text.isNotEmpty &&
-                (_useBiometric || _codeController.text.isNotEmpty)) {
-              Navigator.pop(context, {
-                'content': _messageController.text,
-                'code': _codeController.text,
-                'isBiometric': _useBiometric,
-              });
-            }
-          },
-          child: const Text('Envoyer'),
+        IconButton(
+          icon: const Icon(Icons.videocam, size: 20),
+          onPressed: () => _chatBloc.add(InitiateCall(
+            conversationId: widget.chatId,
+            type: 'video',
+          )),
+        ),
+        PopupMenuButton(
+          icon: const Icon(Icons.more_vert, size: 20),
+          itemBuilder: (context) => [
+            const PopupMenuItem(child: Text('Voir le profil')),
+            const PopupMenuItem(child: Text('Rechercher')),
+            const PopupMenuItem(child: Text('Médias, liens et docs')),
+            const PopupMenuItem(child: Text('Notifications')),
+            const PopupMenuItem(child: Text('Épingler la conversation')),
+            const PopupMenuItem(child: Text('Supprimer')),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMessageList(MessagesLoaded state) {
+    final messages = state.messages;
+    final typingUsers = state.typingUsers ?? [];
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      itemCount: messages.length + (typingUsers.isNotEmpty ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == messages.length && typingUsers.isNotEmpty) {
+          return _buildTypingIndicator(typingUsers);
+        }
+        final message = messages[index];
+        return ChatBubble(
+          message: message,
+          onLongPress: () => _showMessageOptions(message),
+          onReactionTap: () => _showReactionPicker(message.id),
+          onReplyTap: () => _replyToMessage(message.id),
+          isFirstInGroup: index == 0 || messages[index - 1].senderId != message.senderId,
+          isLastInGroup: index == messages.length - 1 || messages[index + 1].senderId != message.senderId,
+        );
+      },
+    );
+  }
+
+  Widget _buildTypingIndicator(List<String> users) {
+    final names = users.map((id) => 'Utilisateur').join(', ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 40,
+            height: 20,
+            child: Row(
+              children: [
+                _Dot(delay: 0),
+                SizedBox(width: 4),
+                _Dot(delay: 1),
+                SizedBox(width: 4),
+                _Dot(delay: 2),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$names est en train d\'écrire...',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputBar(ChatState state) {
+    return ChatInputBar(
+      onSendMessage: _sendMessage,
+      controller: _messageController,
+      onTyping: (isTyping) {
+        if (isTyping) {
+          _chatBloc.add(StartTyping(widget.chatId));
+        } else {
+          _chatBloc.add(StopTyping(widget.chatId));
+        }
+      },
+      onAttachmentPressed: _showAttachmentPicker,
+      onPollPressed: _showPollCreator,
+      onMicrophonePressed: () {
+        _chatBloc.add(StartVoiceRecording(widget.chatId));
+      },
+      isSending: state is MessageSending,
+    );
+  }
+
+  void _showMessageOptions(ChatMessage message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.reply, size: 20),
+              title: const Text('Répondre', style: TextStyle(fontSize: 13)),
+              onTap: () {
+                Navigator.pop(context);
+                _replyToMessage(message.id);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.emoji_emotions, size: 20),
+              title: const Text('Réagir', style: TextStyle(fontSize: 13)),
+              onTap: () {
+                Navigator.pop(context);
+                _showReactionPicker(message.id);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.push_pin, size: 20),
+              title: const Text('Épingler', style: TextStyle(fontSize: 13)),
+              onTap: () {
+                Navigator.pop(context);
+                _togglePinMessage(message.id);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_copy, size: 20),
+              title: const Text('Copier', style: TextStyle(fontSize: 13)),
+              onTap: () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: message.content));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              title: const Text('Supprimer', style: TextStyle(fontSize: 13, color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _chatBloc.add(DeleteMessage(messageId: message.id));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatLastSeen(DateTime? lastSeen) {
+    if (lastSeen == null) return 'inconnue';
+    return timeago.format(lastSeen, locale: 'fr');
+  }
+}
+
+class _Dot extends StatelessWidget {
+  final int delay;
+  const _Dot({required this.delay});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 400 + (delay * 200)),
+      curve: Curves.easeInOut,
+      width: 6,
+      height: 6,
+      decoration: const BoxDecoration(color: Colors.grey, shape: BoxShape.circle),
     );
   }
 }
