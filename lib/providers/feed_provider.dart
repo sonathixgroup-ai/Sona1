@@ -1,4 +1,3 @@
-// lib/providers/feed_provider.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
@@ -156,8 +155,10 @@ class FeedProvider extends ChangeNotifier {
   // CHARGEMENT DU FEED
   // ============================================================
 
-  Future<void> loadFeed({String? feedType, int limit = 20}) async {
-    if (_isLoading) return;
+  /// Charge le feed avec possibilité de forcer le rechargement
+  /// même si _isLoading est true.
+  Future<void> loadFeed({String? feedType, int limit = 20, bool force = false}) async {
+    if (_isLoading && !force) return;  // ✅ Ajout de force
     
     _isLoading = true;
     _error = null;
@@ -207,7 +208,7 @@ class FeedProvider extends ChangeNotifier {
         return false;
       }
       debugPrint('✅ FeedProvider: post créé avec ID: $postId');
-      await loadFeed(feedType: _currentFeedType);
+      await loadFeed(feedType: _currentFeedType, force: true); // ✅ Force refresh
       return true;
     } catch (e) {
       debugPrint('❌ FeedProvider createPost error: $e');
@@ -221,26 +222,25 @@ class FeedProvider extends ChangeNotifier {
   // INTERACTIONS (LIKE, COMMENTAIRE)
   // ============================================================
   
-  /// ✅ CORRIGÉ: utilise 'isLiked' au lieu de 'isLikedByCurrentUser'
   Future<void> toggleLike(String postId) async {
     try {
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index == -1) return;
       
       final post = _posts[index];
-      final currentLikeStatus = post.isLiked;  // ← Utilise isLiked
+      final currentLikeStatus = post.isLiked;
       
       if (currentLikeStatus) {
         await _networkService.unlikePost(postId);
         _posts[index] = post.copyWith(
           likesCount: (post.likesCount - 1).clamp(0, double.infinity).toInt(),
-          isLiked: false,  // ← Utilise isLiked
+          isLiked: false,
         );
       } else {
         await _networkService.likePost(postId);
         _posts[index] = post.copyWith(
           likesCount: post.likesCount + 1,
-          isLiked: true,  // ← Utilise isLiked
+          isLiked: true,
         );
       }
       
@@ -250,10 +250,9 @@ class FeedProvider extends ChangeNotifier {
     }
   }
   
-  /// ✅ CORRIGÉ: utilise 'addComment' au lieu de 'addCommentToPost'
   Future<void> addComment(String postId, String comment) async {
     try {
-      await _networkService.addComment(postId, comment);  // ← Utilise addComment
+      await _networkService.addComment(postId, comment);
       
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index != -1) {
