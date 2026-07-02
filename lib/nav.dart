@@ -141,6 +141,10 @@ import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_invent
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_stock_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_report_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_products_page.dart
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_product_detail_page.dart
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_cart_page.dart
+
 
 // Autres modules
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
