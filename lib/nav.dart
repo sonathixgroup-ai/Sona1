@@ -54,8 +54,8 @@ import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
 
 // ===== IMPORTS THIX SANTÉ =====
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
-import 'package:thix_id/presentation/thix_sante/thix_role.dart' as role;
-import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
+import 'package:thix_id/presentation/thix_sante/thix_role.dart';
+import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart' as role;
 
 
 // Pages patient principales
@@ -106,7 +106,7 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_insuranc
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_page.dart';
 
 // Pages médecin
-import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart'as role;
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_consult_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_connect_page.dart';
