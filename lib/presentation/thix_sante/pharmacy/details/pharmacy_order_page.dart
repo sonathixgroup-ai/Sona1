@@ -1,79 +1,107 @@
 // presentation/thix_sante/pharmacy/details/pharmacy_order_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:thix_id/presentation/thix_sante/shared/models/health_models.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PharmacyOrderPage extends StatefulWidget {
-  final String? orderId;
+  final String orderId;
   final bool isEditing;
-  const PharmacyOrderPage({super.key, this.orderId, this.isEditing = false});
+  const PharmacyOrderPage({super.key, required this.orderId, this.isEditing = false});
 
   @override
   State<PharmacyOrderPage> createState() => _PharmacyOrderPageState();
 }
 
 class _PharmacyOrderPageState extends State<PharmacyOrderPage> {
-  final List<OrderItem> _items = [];
-  final TextEditingController _patientController = TextEditingController();
-  final TextEditingController _noteController = TextEditingController();
-  OrderStatus _status = OrderStatus.pending;
+  final _noteController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    if (widget.orderId != null) {
-      _loadOrder();
-    } else {
-      _patientController.text = 'Patient';
-    }
-  }
-
-  void _loadOrder() {
-    // Simuler chargement
-    _patientController.text = 'Michel L.';
     _noteController.text = 'Commande urgente';
-    _status = OrderStatus.pending;
-    _items.add(OrderItem(id: 'i1', productName: 'Paracétamol', quantity: 2, unitPrice: 5.5));
-    _items.add(OrderItem(id: 'i2', productName: 'Amoxicilline', quantity: 1, unitPrice: 8.0));
-  }
-
-  void _addItem() {
-    // Simuler ajout
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ajouter un article (simulé)')),
-    );
   }
 
   Future<void> _save() async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Commande enregistrée (simulé)')),
+      const SnackBar(content: Text('Commande mise à jour (simulé)'), backgroundColor: Colors.green),
     );
     context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isNew = widget.orderId == null;
-    final title = isNew ? 'Nouvelle commande' : (widget.isEditing ? 'Modifier' : 'Détail commande');
+    final title = widget.isEditing ? 'Modifier commande' : 'Détail commande';
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      backgroundColor: const Color(0xFFF5F7FB),
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: Colors.orange.shade800,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!isNew && !widget.isEditing) ...[
-                _buildDetailView(),
-              ] else ...[
-                _buildFormView(),
-              ],
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _infoRow('Commande', '#1234'),
+                    _infoRow('Patient', 'Michel L.'),
+                    _infoRow('Statut', 'En attente'),
+                    _infoRow('Date', '10/03/2024'),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
-              if (widget.isEditing || isNew)
+              const Text('Articles', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _itemRow('Paracétamol', '2', '11.00 €'),
+                    _itemRow('Amoxicilline', '1', '8.00 €'),
+                    const Divider(),
+                    _itemRow('Total', '', '19.00 €', bold: true),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              if (widget.isEditing)
                 ElevatedButton(
                   onPressed: _save,
-                  child: Text(isNew ? 'Créer' : 'Enregistrer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: const Text('Enregistrer'),
                 ),
             ],
           ),
@@ -82,61 +110,49 @@ class _PharmacyOrderPageState extends State<PharmacyOrderPage> {
     );
   }
 
-  Widget _buildDetailView() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Commande #1234'),
-        Text('Patient : ${_patientController.text}'),
-        Text('Statut : ${_status.name}'),
-        const SizedBox(height: 16),
-        const Text('Articles :', style: TextStyle(fontWeight: FontWeight.bold)),
-        ..._items.map((item) => ListTile(
-              title: Text(item.productName),
-              subtitle: Text('Qté: ${item.quantity} • ${item.unitPrice}€'),
-            )),
-      ],
+  Widget _itemRow(String label, String qty, String price, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: bold ? GoogleFonts.poppins(fontWeight: FontWeight.bold) : null),
+          ),
+          if (qty.isNotEmpty) Text(qty, style: bold ? GoogleFonts.poppins(fontWeight: FontWeight.bold) : null),
+          const SizedBox(width: 8),
+          Text(price, style: bold ? GoogleFonts.poppins(fontWeight: FontWeight.bold) : null),
+        ],
+      ),
     );
   }
 
-  Widget _buildFormView() {
-    return Column(
-      children: [
-        TextField(
-          controller: _patientController,
-          decoration: const InputDecoration(labelText: 'Patient'),
-        ),
-        TextField(
-          controller: _noteController,
-          decoration: const InputDecoration(labelText: 'Notes'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            const Text('Articles', style: TextStyle(fontWeight: FontWeight.bold)),
-            const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: _addItem,
-            ),
-          ],
-        ),
-        ..._items.map((item) => Card(
-              child: ListTile(
-                title: Text(item.productName),
-                subtitle: Text('Qté: ${item.quantity} • ${item.unitPrice}€'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () {
-                    setState(() {
-                      _items.remove(item);
-                    });
-                  },
-                ),
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
               ),
-            )),
-      ],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
