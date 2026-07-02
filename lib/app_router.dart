@@ -63,7 +63,6 @@ import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 // Module Santé
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart' as role;
-import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 
 // ---- Import patient avec alias pour éviter conflit ----
 import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart' as patientDash;
