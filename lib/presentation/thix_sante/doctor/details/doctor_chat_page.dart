@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class DoctorChatPage extends StatefulWidget {
-  final String? conversationId;
-  final String? participantName;
-  const DoctorChatPage({super.key, this.conversationId; id, this.participantName});
+  final String? conversationId; id,
+  final String? participantName; name,
+  const DoctorChatPage({super.key, this.conversationId, this.participantName});
 
   @override
   State<DoctorChatPage> createState() => _DoctorChatPageState();
