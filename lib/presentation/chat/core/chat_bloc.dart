@@ -1,20 +1,30 @@
 // lib/presentation/chat/core/chat_bloc.dart
-// Bloc complet avec initialisation du token
+// Bloc complet pour la gestion du chat (version corrigée)
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
+
 import 'chat_events.dart';
 import 'chat_states.dart';
 import 'chat_repository.dart';
 import 'chat_models.dart';
 import 'chat_utils.dart';
-import '../../../core/auth/token_service.dart';
+
+// TokenService supprimé pour simplifier (à réintégrer si besoin)
+// import '../../../core/auth/token_service.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _repository;
   late final Stream<List<Map<String, dynamic>>> _realtimeStream;
-  String get currentUserId => Supabase.instance.client.auth.currentUser!.id;
+
+  String get currentUserId {
+    try {
+      return Supabase.instance.client.auth.currentUser!.id;
+    } catch (_) {
+      return '';
+    }
+  }
 
   List<Conversation> _allConversations = [];
   String _currentFilter = 'Tous';
@@ -22,8 +32,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ChatStats _stats = const ChatStats();
 
   ChatBloc(this._repository) : super(ChatInitial()) {
-    // Initialisation du token au démarrage du Bloc
-    _initToken();
+    // Initialisation du token (optionnel, commenté)
+    // _initToken();
+
+    // Enregistrement des handlers d'événements
     on<LoadConversations>(_onLoadConversations);
     on<FilterConversations>(_onFilterConversations);
     on<LoadMessages>(_onLoadMessages);
@@ -40,18 +52,22 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<NewMessageReceived>(_onNewMessageReceived);
   }
 
-  Future<void> _initToken() async {
-    try {
-      await TokenService.getToken();
-      print('Token Edge Function prêt');
-    } catch (e) {
-      print('Erreur token: $e');
-    }
-  }
+  // Optionnel : initialisation du token
+  // Future<void> _initToken() async {
+  //   try {
+  //     await TokenService.getToken();
+  //     print('Token Edge Function prêt');
+  //   } catch (e) {
+  //     print('Erreur token: $e');
+  //   }
+  // }
 
-  // --- Tous les gestionnaires d'événements restent inchangés ---
-  // (copier-coller les implémentations existantes)
-  Future<void> _onLoadConversations(LoadConversations event, Emitter<ChatState> emit) async {
+  // --- Gestionnaires d'événements ---
+
+  Future<void> _onLoadConversations(
+    LoadConversations event,
+    Emitter<ChatState> emit,
+  ) async {
     emit(ChatLoading());
     try {
       final conversations = await _repository.fetchConversations(currentUserId);
@@ -64,7 +80,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  void _onFilterConversations(FilterConversations event, Emitter<ChatState> emit) {
+  void _onFilterConversations(
+    FilterConversations event,
+    Emitter<ChatState> emit,
+  ) {
     _currentFilter = event.filter;
     _emitFilteredConversations(emit);
   }
@@ -82,7 +101,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ));
   }
 
-  Future<void> _onLoadMessages(LoadMessages event, Emitter<ChatState> emit) async {
+  Future<void> _onLoadMessages(
+    LoadMessages event,
+    Emitter<ChatState> emit,
+  ) async {
     emit(ChatLoading());
     try {
       final messages = await _repository.fetchMessages(event.conversationId);
@@ -98,8 +120,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  Future<void> _onSendMessage(SendMessage event, Emitter<ChatState> emit) async {
+  Future<void> _onSendMessage(
+    SendMessage event,
+    Emitter<ChatState> emit,
+  ) async {
     try {
+      // Création d'un message temporaire
       final message = Message(
         id: ChatUtils.generateTempId(),
         conversationId: event.conversationId,
@@ -110,6 +136,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         sentAt: DateTime.now(),
         metadata: event.metadata,
       );
+
+      // Ajout optimiste dans la liste
       if (state is MessagesLoaded && (state as MessagesLoaded).conversationId == event.conversationId) {
         final currentState = state as MessagesLoaded;
         emit(MessagesLoaded(
@@ -118,6 +146,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           pinnedMessage: currentState.pinnedMessage,
         ));
       }
+
+      // Envoi réel
       final sent = await _repository.sendMessage(message);
       emit(MessageSentSuccess(sent));
       add(LoadConversations());
@@ -126,17 +156,30 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  Future<void> _onSendEphemeralMessage(SendEphemeralMessage event, Emitter<ChatState> emit) async {
+  Future<void> _onSendEphemeralMessage(
+    SendEphemeralMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    // Délégation à _onSendMessage avec les paramètres appropriés
     await _onSendMessage(event, emit);
   }
 
-  Future<void> _onSendConfidentialMessage(SendConfidentialMessage event, Emitter<ChatState> emit) async {
+  Future<void> _onSendConfidentialMessage(
+    SendConfidentialMessage event,
+    Emitter<ChatState> emit,
+  ) async {
     await _onSendMessage(event, emit);
   }
 
-  Future<void> _onUnlockConfidentialMessage(UnlockConfidentialMessage event, Emitter<ChatState> emit) async {
+  Future<void> _onUnlockConfidentialMessage(
+    UnlockConfidentialMessage event,
+    Emitter<ChatState> emit,
+  ) async {
     try {
-      final isValid = await _repository.verifyConfidentialCode(event.messageId, event.enteredCode);
+      final isValid = await _repository.verifyConfidentialCode(
+        event.messageId,
+        event.enteredCode,
+      );
       if (isValid && state is MessagesLoaded) {
         final currentState = state as MessagesLoaded;
         final message = currentState.messages.firstWhere((m) => m.id == event.messageId);
@@ -151,25 +194,41 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  Future<void> _onMarkAsRead(MarkMessageAsRead event, Emitter<ChatState> emit) async {
+  Future<void> _onMarkAsRead(
+    MarkMessageAsRead event,
+    Emitter<ChatState> emit,
+  ) async {
     await _repository.markAsRead(event.messageId, currentUserId);
   }
 
-  Future<void> _onAddReaction(AddReaction event, Emitter<ChatState> emit) async {
+  Future<void> _onAddReaction(
+    AddReaction event,
+    Emitter<ChatState> emit,
+  ) async {
     await _repository.addReaction(event.messageId, event.reaction, currentUserId);
     if (state is MessagesLoaded) {
       add(LoadMessages((state as MessagesLoaded).conversationId));
     }
   }
 
-  Future<void> _onDeleteMessage(DeleteMessage event, Emitter<ChatState> emit) async {
-    await _repository.deleteMessage(event.messageId, currentUserId, forEveryone: event.forEveryone);
+  Future<void> _onDeleteMessage(
+    DeleteMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    await _repository.deleteMessage(
+      event.messageId,
+      currentUserId,
+      forEveryone: event.forEveryone,
+    );
     if (state is MessagesLoaded) {
       add(LoadMessages((state as MessagesLoaded).conversationId));
     }
   }
 
-  void _onStartTyping(StartTyping event, Emitter<ChatState> emit) {
+  void _onStartTyping(
+    StartTyping event,
+    Emitter<ChatState> emit,
+  ) {
     if (state is TypingState) {
       final typingState = state as TypingState;
       if (!typingState.typingUsers.contains(currentUserId)) {
@@ -180,7 +239,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  void _onStopTyping(StopTyping event, Emitter<ChatState> emit) {
+  void _onStopTyping(
+    StopTyping event,
+    Emitter<ChatState> emit,
+  ) {
     if (state is TypingState) {
       final typingState = state as TypingState;
       final users = List<String>.from(typingState.typingUsers)..remove(currentUserId);
@@ -188,11 +250,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  Future<void> _onUpdatePresence(UpdatePresence event, Emitter<ChatState> emit) async {
+  Future<void> _onUpdatePresence(
+    UpdatePresence event,
+    Emitter<ChatState> emit,
+  ) async {
     await _repository.updatePresence(currentUserId, event.status);
   }
 
-  void _onNewMessageReceived(NewMessageReceived event, Emitter<ChatState> emit) {
+  void _onNewMessageReceived(
+    NewMessageReceived event,
+    Emitter<ChatState> emit,
+  ) {
     if (state is MessagesLoaded && (state as MessagesLoaded).conversationId == event.message.conversationId) {
       final currentState = state as MessagesLoaded;
       if (!currentState.messages.any((m) => m.id == event.message.id)) {
