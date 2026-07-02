@@ -65,7 +65,7 @@ import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 
-// ---- Import patient avec alias pour éviter conflit avec doctor ----
+// ---- Import patient avec alias pour éviter conflit ----
 import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart' as patientDash;
 import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
@@ -106,6 +106,11 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_medicati
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccination_calendar_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_pharmacy_detail_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleconsultation_jitsi_page.dart';
+// ---- AJOUT DES IMPORTS MANQUANTS ----
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleconsultation_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_health_score_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_insurance_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_page.dart';
 
 // ---- Import doctor ----
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
@@ -144,8 +149,12 @@ import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_invent
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_stock_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_report_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_page.dart';
+// ---- Import des pages produits (si nécessaires) ----
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_products_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_product_detail_page.dart';
+import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_cart_page.dart';
 
-// THIX Événement (module complet)
+// THIX Événement
 import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
 import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
 import 'package:thix_id/presentation/thix_event/event_search_page.dart';
@@ -222,7 +231,7 @@ class AppRoutes {
   static const String thixInfo = '/info';
   static const String thixInfoArticleBasePath = '/info/a';
 
-  // ==================== THIX ÉVÉNEMENT ====================
+  // THIX ÉVÉNEMENT
   static const String events = '/thix-event';
   static const String thixEvent = '/thix-event';
   static const String thixEventDetail = '/thix-event/event/:eventId';
@@ -234,7 +243,6 @@ class AppRoutes {
   static const String thixEventSeatSelection = '/thix-event/seat-selection/:eventId';
   static const String thixEventWaitingQueue = '/thix-event/waiting-queue/:eventId';
 
-  // Fonctions utilitaires
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
@@ -294,7 +302,7 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.start,
           name: 'start',
-          pageBuilder: (context, state) => NoTransitionPage(child: ThixIdStartPage()), // const retiré
+          pageBuilder: (context, state) => NoTransitionPage(child: ThixIdStartPage()),
         ),
         GoRoute(
           path: AppRoutes.home,
@@ -558,7 +566,7 @@ class AppRouter {
         GoRoute(
           path: '/sante/patient/dashboard',
           name: 'patientDashboard',
-          pageBuilder: (context, state) => NoTransitionPage(child: patientDash.PatientDashboardPage()), // alias patientDash
+          pageBuilder: (context, state) => NoTransitionPage(child: patientDash.PatientDashboardPage()),
         ),
         GoRoute(
           path: '/sante/patient/health',
@@ -641,6 +649,7 @@ class AppRouter {
           name: 'patientScan',
           pageBuilder: (context, state) => NoTransitionPage(child: PatientScanPage()),
         ),
+        // Téléconsultation – correction des doublons (les deux routes pointent vers la même page)
         GoRoute(
           path: '/sante/patient/teleconsultation/:id',
           name: 'patientTeleconsultation',
@@ -681,7 +690,7 @@ class AppRouter {
         GoRoute(
           path: '/sante/patient/insurance',
           name: 'patientInsurance',
-          pageBuilder: (context, state) => NoTransitionPage(child: PatientInsurancePage()),
+          pageBuilder: (context, state) => NoTransitionPage(child: PatientInsurancePage()), // corrigé la casse
         ),
         GoRoute(
           path: '/sante/patient/record',
@@ -1065,20 +1074,20 @@ class AppRouter {
           name: 'doctorTerrainPhoto',
           pageBuilder: (context, state) => NoTransitionPage(child: DoctorPhotoCapturePage()),
         ),
-        // Chat médecin - correction chatId
+        // Chat médecin – correction chatId
         GoRoute(
           path: '/sante/doctor/messages/:id',
           name: 'doctorChat',
           pageBuilder: (context, state) {
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
-            return NoTransitionPage(child: DoctorChatPage(chatId: id, participantName: name));
+            return NoTransitionPage(child: DoctorChatPage(chatId: id, participantName: name)); // chatId corrigé
           },
         ),
         GoRoute(
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
-          pageBuilder: (context, state) => NoTransitionPage(child: DoctorChatPage(chatId: '')), // chatId obligatoire
+          pageBuilder: (context, state) => NoTransitionPage(child: DoctorChatPage(chatId: '')), // chatId
         ),
         GoRoute(
           path: '/sante/doctor/alerts',
@@ -1126,7 +1135,7 @@ class AppRouter {
         GoRoute(
           path: '/sante/pharmacy/order/new',
           name: 'pharmacyOrderNew',
-          pageBuilder: (context, state) => NoTransitionPage(child: PharmacyOrderPage(orderId: '')), // ordre id
+          pageBuilder: (context, state) => NoTransitionPage(child: PharmacyOrderPage(orderId: '')),
         ),
         GoRoute(
           path: '/sante/pharmacy/prescription/:id',
@@ -1169,20 +1178,20 @@ class AppRouter {
           name: 'pharmacyReport',
           pageBuilder: (context, state) => NoTransitionPage(child: PharmacyReportPage()),
         ),
-        // Chat pharmacie - correction chatId
+        // Chat pharmacie – correction chatId
         GoRoute(
           path: '/sante/pharmacy/chat/:id',
           name: 'pharmacyChat',
           pageBuilder: (context, state) {
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
-            return NoTransitionPage(child: PharmacyChatPage(chatId: id, participantName: name));
+            return NoTransitionPage(child: PharmacyChatPage(chatId: id, participantName: name)); // chatId
           },
         ),
         GoRoute(
           path: '/sante/pharmacy/chat/new',
           name: 'pharmacyChatNew',
-          pageBuilder: (context, state) => NoTransitionPage(child: PharmacyChatPage(chatId: '')), // chatId obligatoire
+          pageBuilder: (context, state) => NoTransitionPage(child: PharmacyChatPage(chatId: '')), // chatId
         ),
 
         // ---- THIX Money, Media, Info, Reservation ----
@@ -1409,7 +1418,6 @@ class AppRouter {
   }
 }
 
-// Helper pour GoRouter
 extension GoRouterBackHelpers on BuildContext {
   void popOrGo(String fallbackLocation) {
     final router = GoRouter.of(this);
