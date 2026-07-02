@@ -261,7 +261,7 @@ class ChatMessage {
         id: json['id'],
         conversationId: json['conversation_id'],
         senderId: json['sender_id'],
-        type: _stringToMessageType(json['type'] ?? 'text'),
+        type: stringToMessageType(json['type'] ?? 'text'),
         content: json['content'] ?? '',
         mediaURL: json['media_url'] ?? json['mediaURL'],
         mediaDuration: json['media_duration'],
@@ -271,7 +271,7 @@ class ChatMessage {
         isPinned: json['is_pinned'] ?? false,
         isPriority: json['is_priority'] ?? false,
         reactions: Map<String, List<String>>.from(json['reactions'] ?? {}),
-        status: _stringToMessageStatus(json['status'] ?? 'sent'),
+        status: stringToMessageStatus(json['status'] ?? 'sent'),
         deliveredAt: json['delivered_at'] != null
             ? DateTime.parse(json['delivered_at'])
             : null,
@@ -280,7 +280,7 @@ class ChatMessage {
         updatedAt: DateTime.parse(json['updated_at']),
       );
 
-  static MessageType _stringToMessageType(String type) {
+  static MessageType stringToMessageType(String type) {
     switch (type) {
       case 'text':
         return MessageType.text;
@@ -307,7 +307,7 @@ class ChatMessage {
     }
   }
 
-  static String _messageTypeToString(MessageType type) {
+  static String messageTypeToString(MessageType type) {
     switch (type) {
       case MessageType.text:
         return 'text';
@@ -332,7 +332,7 @@ class ChatMessage {
     }
   }
 
-  static MessageStatus _stringToMessageStatus(String status) {
+  static MessageStatus stringToMessageStatus(String status) {
     switch (status) {
       case 'sending':
         return MessageStatus.sending;
@@ -353,7 +353,7 @@ class ChatMessage {
         'id': id,
         'conversation_id': conversationId,
         'sender_id': senderId,
-        'type': _messageTypeToString(type),
+        'type': messageTypeToString(type),
         'content': content,
         'media_url': mediaURL,
         'media_duration': mediaDuration,
@@ -439,8 +439,8 @@ class EphemeralMessage extends ChatMessage {
     super.status,
     super.deliveredAt,
     super.readAt,
-    super.createdAt,
-    super.updatedAt,
+    required super.createdAt,   // ✅ fourni
+    required super.updatedAt,   // ✅ fourni
     required this.ttl,
     required this.expiresAt,
     this.viewedBy = const [],
@@ -451,7 +451,7 @@ class EphemeralMessage extends ChatMessage {
         id: json['id'],
         conversationId: json['conversation_id'],
         senderId: json['sender_id'],
-        type: _stringToMessageType(json['type'] ?? 'text'),
+        type: ChatMessage.stringToMessageType(json['type'] ?? 'text'), // ✅ qualifié
         content: json['content'] ?? '',
         mediaURL: json['media_url'] ?? json['mediaURL'],
         mediaDuration: json['media_duration'],
@@ -461,7 +461,7 @@ class EphemeralMessage extends ChatMessage {
         isPinned: json['is_pinned'] ?? false,
         isPriority: json['is_priority'] ?? false,
         reactions: Map<String, List<String>>.from(json['reactions'] ?? {}),
-        status: _stringToMessageStatus(json['status'] ?? 'sent'),
+        status: ChatMessage.stringToMessageStatus(json['status'] ?? 'sent'), // ✅ qualifié
         deliveredAt: json['delivered_at'] != null
             ? DateTime.parse(json['delivered_at'])
             : null,
