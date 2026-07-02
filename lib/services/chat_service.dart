@@ -1,6 +1,7 @@
 // lib/services/chat_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -10,7 +11,62 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/services/platform_file_from_path_stub.dart' if (dart.library.io) 'package:thix_id/services/platform_file_from_path_io.dart';
 
 // ============================================================
-// CLASSES DE DONNÉES
+// ÉNUMÉRATIONS ET CLASSES DE BASE
+// ============================================================
+
+enum ConversationType { private, group }
+enum ConversationStatus { active, archived, blocked }
+
+class Conversation {
+  final String id;
+  final ConversationType type;
+  final String? name;
+  final String? avatarURL;
+  final String? createdBy;
+  final List<String> participantIds;
+  final String? lastMessageId;
+  final DateTime? lastMessageAt;
+  final ConversationStatus status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  Conversation({
+    required this.id,
+    required this.type,
+    this.name,
+    this.avatarURL,
+    this.createdBy,
+    this.participantIds = const [],
+    this.lastMessageId,
+    this.lastMessageAt,
+    this.status = ConversationStatus.active,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory Conversation.fromJson(Map<String, dynamic> json) {
+    return Conversation(
+      id: json['id'] ?? '',
+      type: json['type'] == 'group' ? ConversationType.group : ConversationType.private,
+      name: json['title'] ?? json['name'],
+      avatarURL: json['avatar_url'],
+      createdBy: json['created_by'],
+      participantIds: List<String>.from(json['participants'] ?? []),
+      lastMessageId: json['last_message_id'],
+      lastMessageAt: json['last_message_at'] != null 
+          ? DateTime.tryParse(json['last_message_at']) 
+          : null,
+      status: json['is_archived'] == true 
+          ? ConversationStatus.archived 
+          : ConversationStatus.active,
+      createdAt: DateTime.tryParse(json['created_at'] ?? DateTime.now().toIso8601String()) ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? DateTime.now().toIso8601String()) ?? DateTime.now(),
+    );
+  }
+}
+
+// ============================================================
+// CLASSES DE DONNÉES CHAT
 // ============================================================
 
 class ChatSummary {
@@ -85,54 +141,7 @@ class ChatMessage {
   final String text;
   final DateTime? createdAt;
   final Map<String, dynamic> extra;
-  // ============================================================
-// CLASSES DE DONNÉES SUPPLÉMENTAIRES
-// ============================================================
 
-class Story {
-  final String id;
-  final String userId;
-  final String mediaUrl;
-  final DateTime createdAt;
-  final DateTime expiresAt;
-
-  Story({
-    required this.id,
-    required this.userId,
-    required this.mediaUrl,
-    required this.createdAt,
-    required this.expiresAt,
-  });
-}
-
-class Space {
-  final String id;
-  final String name;
-  final String? description;
-  final List<String> members;
-
-  Space({
-    required this.id,
-    required this.name,
-    this.description,
-    this.members = const [],
-  });
-}
-
-class ChatStats {
-  final int onlineCount;
-  final int newMessagesCount;
-  final int activeCallsCount;
-  final int securityAlertsCount;
-
-  const ChatStats({
-    this.onlineCount = 0,
-    this.newMessagesCount = 0,
-    this.activeCallsCount = 0,
-    this.securityAlertsCount = 0,
-  });
-}
-  
   const ChatMessage({
     required this.id,
     required this.chatId,
@@ -209,6 +218,58 @@ class ChatContact {
   const ChatContact({required this.uid, required this.displayName, required this.thixId});
 }
 
+// ============================================================
+// CLASSES SUPPLÉMENTAIRES (Stories, Spaces, Stats)
+// ============================================================
+
+class Story {
+  final String id;
+  final String userId;
+  final String mediaUrl;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+
+  Story({
+    required this.id,
+    required this.userId,
+    required this.mediaUrl,
+    required this.createdAt,
+    required this.expiresAt,
+  });
+}
+
+class Space {
+  final String id;
+  final String name;
+  final String? description;
+  final List<String> members;
+
+  Space({
+    required this.id,
+    required this.name,
+    this.description,
+    this.members = const [],
+  });
+}
+
+class ChatStats {
+  final int onlineCount;
+  final int newMessagesCount;
+  final int activeCallsCount;
+  final int securityAlertsCount;
+
+  const ChatStats({
+    this.onlineCount = 0,
+    this.newMessagesCount = 0,
+    this.activeCallsCount = 0,
+    this.securityAlertsCount = 0,
+  });
+}
+
+// ============================================================
+// FONCTION UTILITAIRE
+// ============================================================
+
 DateTime? _tryParseDate(Object? v) {
   if (v == null) return null;
   if (v is DateTime) return v;
@@ -261,7 +322,7 @@ class ChatService {
   }
 
   // ============================================================
-  // MÉTHODES D'ARCHIVE (NOUVEAU)
+  // MÉTHODES D'ARCHIVE
   // ============================================================
 
   Future<List<Conversation>> getArchivedConversations() async {
@@ -277,6 +338,18 @@ class ChatService {
     } catch (e) {
       debugPrint('ChatService: getArchivedConversations error: $e');
       return [];
+    }
+  }
+
+  Future<void> archiveConversation(String conversationId) async {
+    try {
+      await _client
+          .from(chatsTable)
+          .update({'is_archived': true})
+          .eq('id', conversationId);
+    } catch (e) {
+      debugPrint('ChatService: archiveConversation error: $e');
+      rethrow;
     }
   }
 
@@ -334,7 +407,7 @@ class ChatService {
   }
 
   // ============================================================
-  // MÉTHODES DE MESSAGERIE (ADAPTÉES POUR CHATPROVIDER)
+  // MÉTHODES DE MESSAGERIE
   // ============================================================
 
   Future<List<ChatMessage>> fetchMessages(String conversationId) async {
@@ -477,7 +550,7 @@ class ChatService {
   }
 
   // ============================================================
-  // STATS, STORIES, SPACES (pour ChatProvider)
+  // STATS, STORIES, SPACES
   // ============================================================
 
   Future<ChatStats> getStats() async {
@@ -513,7 +586,7 @@ class ChatService {
   }
 
   // ============================================================
-  // CONVERSATIONS EXISTANTES
+  // CONVERSATIONS ACTIVES
   // ============================================================
 
   Future<List<Conversation>> getConversations() async {
