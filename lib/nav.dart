@@ -1229,14 +1229,14 @@ class AppRouter {
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
             return NoTransitionPage(
-                child: DoctorChatPage(chatid: id, participantName: name)); // <-- CORRIGÉ (chatId)
+                child: DoctorChatPage(chatId: id, participantName: name)); // <-- CORRIGÉ (chatId)
           },
         ),
         GoRoute(
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
           pageBuilder: (context, state) =>
-              NoTransitionPage(child: DoctorChatPage(chatid: '')), // <-- CORRIGÉ (chatId)
+              NoTransitionPage(child: DoctorChatPage(chatId: '')), // <-- CORRIGÉ (chatId)
         ),
         // Alertes
         GoRoute(
