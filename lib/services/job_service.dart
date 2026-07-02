@@ -9,7 +9,7 @@ import 'package:thix_id/models/job_application.dart';
 import 'package:thix_id/models/job_posting.dart';
 import 'package:thix_id/openai/openai_config.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
-import 'package:thix_id/supabase/supabase_service.dart';
+
 class JobService {
   static const String table = 'thix_job_offers';
   /// Supabase Storage bucket for job offer images (Admin).
