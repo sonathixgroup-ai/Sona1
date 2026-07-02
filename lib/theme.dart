@@ -1,224 +1,260 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// =============================================================================
-// LIGHT MODE COLORS (TON DESIGN SYSTEM)
-// =============================================================================
-
-class LightModeColors {
-  const LightModeColors();
-
-  static const primary = Color(0xFF0A3D62);
-  static const secondary = Color(0xFF0A2F5C);
-  static const accent = Color(0xFFF9C74F);
-
-  static const onPrimary = Color(0xFFFFFFFF);
-  static const onSecondary = Color(0xFFFFFFFF);
-
-  static const background = Color(0xFF0F2B4A);
-  static const surface = Color(0xFF133C63);
-
-  static const onSurface = Color(0xFFFFFFFF);
-  static const primaryText = Color(0xFFFFFFFF);
-  static const secondaryText = Color(0xB3FFFFFF);
-  static const hint = Color(0x80FFFFFF);
-
-  static const divider = Color(0x1AFFFFFF);
-
-  static const error = Color(0xFFEF4444);
-  static const onError = Color(0xFFFFFFFF);
-  static const success = Color(0xFF22C55E);
-  static const emergencyRed = Color(0xFFFF3B30);
-
-  static const metalGold = Color(0xFFF9C74F);
-  static const metalGoldDeep = Color(0xFFD4A017);
-  static const metalGoldSoft = Color(0xFFFFF3B0);
-
-  static const medicalBlue = Color(0xFF3B82F6);
-  static const medicalBlueDeep = Color(0xFF2563EB);
-  static const medicalBlueSoft = Color(0xFF1E3A5F);
-
-  static const cyberDarkBlue = Color(0xFF081F3A);
-
-  static const transparent = Color(0x00000000);
+/// =======================================================
+/// SPACING SYSTEM
+/// =======================================================
+class AppSpacing {
+  static const xs = 4.0;
+  static const sm = 8.0;
+  static const sm2 = 12.0;
+  static const md = 16.0;
+  static const md2 = 20.0;
+  static const lg = 24.0;
+  static const lg2 = 28.0;
+  static const xl = 32.0;
+  static const xxl = 48.0;
 }
 
-// =============================================================================
-// DARK MODE COLORS (OPTIONNEL)
-// =============================================================================
+/// =======================================================
+/// RADIUS SYSTEM
+/// =======================================================
+class AppRadius {
+  static const sm = 8.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const xl = 24.0;
+  static const full = 9999.0;
+}
 
+/// =======================================================
+/// LIGHT COLORS
+/// =======================================================
+class LightModeColors {
+  static const primary = Color(0xFF1877F2);
+  static const secondary = Color(0xFF0B5ED7);
+  static const accent = Color(0xFF00A884);
+
+  static const background = Color(0xFFF0F2F5);
+  static const surface = Color(0xFFFFFFFF);
+
+  static const primaryText = Color(0xFF111827);
+  static const secondaryText = Color(0xFF4B5563);
+  static const hint = Color(0xFF9CA3AF);
+
+  static const error = Color(0xFFDC2626);
+  static const success = Color(0xFF059669);
+
+  static const divider = Color(0xFFE5E7EB);
+
+  // medical
+  static const medicalBlue = Color(0xFF2563EB);
+  static const medicalBlueSoft = Color(0xFFEAF2FF);
+}
+
+/// =======================================================
+/// DARK COLORS
+/// =======================================================
 class DarkModeColors {
   static const primary = Color(0xFF071A2B);
-  static const background = Color(0xFF071A2B);
   static const surface = Color(0xFF0B2336);
+  static const background = Color(0xFF071A2B);
 
-  static const onSurface = Colors.white;
-  static const primaryText = Colors.white;
+  static const primaryText = Color(0xFFF8FAFC);
   static const secondaryText = Color(0xFF94A3B8);
 
   static const error = Color(0xFFEF4444);
+  static const success = Color(0xFF10B981);
 
-  static const metalGold = Color(0xFFD4AF37);
-  static const metalGoldDeep = Color(0xFFB8860B);
+  static const divider = Color(0xFF1E5F8C);
+
+  static const gold = Color(0xFFD4AF37);
+  static const goldDeep = Color(0xFFB8860B);
 }
 
-// =============================================================================
-// SPACING
-// =============================================================================
-
-class AppSpacing {
-  static const double xs = 4.0;
-  static const double sm = 8.0;
-  static const double sm2 = 12.0;
-  static const double md = 16.0;
-  static const double md2 = 20.0;
-  static const double lg = 24.0;
-  static const double xl = 32.0;
-  static const double xxl = 48.0;
-
-  static const EdgeInsets paddingMd = EdgeInsets.all(md);
-  static const EdgeInsets horizontalMd = EdgeInsets.symmetric(horizontal: md);
-  static const EdgeInsets verticalMd = EdgeInsets.symmetric(vertical: md);
+/// =======================================================
+/// FONT SIZES
+/// =======================================================
+class FontSizes {
+  static const headlineLarge = 32.0;
+  static const headlineMedium = 26.0;
+  static const titleLarge = 20.0;
+  static const titleMedium = 17.0;
+  static const bodyLarge = 16.0;
+  static const bodyMedium = 14.0;
+  static const bodySmall = 12.0;
+  static const labelLarge = 15.0;
+  static const labelMedium = 13.0;
+  static const labelSmall = 11.0;
 }
 
-// =============================================================================
-// RADIUS
-// =============================================================================
-
-class AppRadius {
-  static const double sm = 8.0;
-  static const double md = 12.0;
-  static const double lg = 16.0;
-  static const double xl = 24.0;
-  static const double full = 9999.0;
-}
-
-// =============================================================================
-// SHADOWS
-// =============================================================================
-
-class AppShadows {
-  static const soft = [
-    BoxShadow(
-      color: Color(0x33000000),
-      blurRadius: 20,
-      offset: Offset(0, 8),
-    ),
-  ];
-
-  static const light = [
-    BoxShadow(
-      color: Color(0x22000000),
-      blurRadius: 10,
-      offset: Offset(0, 4),
-    ),
-  ];
-}
-
-// =============================================================================
-// TEXT THEME
-// =============================================================================
-
+/// =======================================================
+/// TEXT THEME BUILDER
+/// =======================================================
 TextTheme _buildTextTheme(Color color) {
   return TextTheme(
     headlineLarge: GoogleFonts.plusJakartaSans(
-      fontSize: 22,
+      fontSize: FontSizes.headlineLarge,
       fontWeight: FontWeight.w800,
       color: color,
     ),
-    titleLarge: GoogleFonts.plusJakartaSans(
-      fontSize: 18,
+    headlineMedium: GoogleFonts.plusJakartaSans(
+      fontSize: FontSizes.headlineMedium,
       fontWeight: FontWeight.w700,
       color: color,
     ),
+    titleLarge: GoogleFonts.plusJakartaSans(
+      fontSize: FontSizes.titleLarge,
+      fontWeight: FontWeight.w700,
+      color: color,
+    ),
+    titleMedium: GoogleFonts.plusJakartaSans(
+      fontSize: FontSizes.titleMedium,
+      fontWeight: FontWeight.w600,
+      color: color,
+    ),
     bodyLarge: GoogleFonts.inter(
-      fontSize: 14,
+      fontSize: FontSizes.bodyLarge,
       fontWeight: FontWeight.w400,
       color: color,
     ),
     bodyMedium: GoogleFonts.inter(
-      fontSize: 13,
+      fontSize: FontSizes.bodyMedium,
+      fontWeight: FontWeight.w400,
+      color: color,
+    ),
+    bodySmall: GoogleFonts.inter(
+      fontSize: FontSizes.bodySmall,
       fontWeight: FontWeight.w400,
       color: color,
     ),
     labelLarge: GoogleFonts.inter(
-      fontSize: 12,
+      fontSize: FontSizes.labelLarge,
       fontWeight: FontWeight.w600,
       color: color,
     ),
   );
 }
 
-// =============================================================================
-// LIGHT THEME
-// =============================================================================
+/// =======================================================
+/// LIGHT THEME
+/// =======================================================
+ThemeData get lightTheme {
+  final scheme = ColorScheme.light(
+    primary: LightModeColors.primary,
+    secondary: LightModeColors.secondary,
+    surface: LightModeColors.surface,
+    error: LightModeColors.error,
+  );
 
-ThemeData get lightTheme => ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: LightModeColors.background,
 
-      scaffoldBackgroundColor: LightModeColors.primary,
+    textTheme: _buildTextTheme(LightModeColors.primaryText),
 
-      colorScheme: const ColorScheme.dark(
-        primary: LightModeColors.primary,
-        secondary: LightModeColors.secondary,
-        tertiary: LightModeColors.accent,
-        surface: LightModeColors.surface,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: LightModeColors.surface,
+      elevation: 0,
+      centerTitle: true,
+    ),
 
-        onPrimary: LightModeColors.onPrimary,
-        onSecondary: LightModeColors.onSecondary,
-        onSurface: LightModeColors.onSurface,
-        error: LightModeColors.error,
+    cardTheme: CardTheme(
+      color: LightModeColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
+    ),
 
-      dividerColor: LightModeColors.divider,
+    dividerTheme: const DividerThemeData(
+      color: LightModeColors.divider,
+      thickness: 1,
+    ),
 
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: LightModeColors.primary,
         foregroundColor: Colors.white,
-      ),
-
-      cardTheme: CardThemeData(
-        color: LightModeColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(color: LightModeColors.divider),
-        ),
-      ),
-
-      textTheme: _buildTextTheme(LightModeColors.primaryText),
-    );
-
-// =============================================================================
-// DARK THEME
-// =============================================================================
-
-ThemeData get darkTheme => ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-
-      scaffoldBackgroundColor: DarkModeColors.background,
-
-      colorScheme: const ColorScheme.dark(
-        primary: DarkModeColors.primary,
-        surface: DarkModeColors.surface,
-        onSurface: Colors.white,
-      ),
-
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
-      ),
-
-      cardTheme: CardThemeData(
-        color: DarkModeColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
       ),
+    ),
 
-      textTheme: _buildTextTheme(DarkModeColors.primaryText),
-    );
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: LightModeColors.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        borderSide: const BorderSide(color: LightModeColors.divider),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        borderSide: const BorderSide(color: LightModeColors.divider),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        borderSide: const BorderSide(color: LightModeColors.primary),
+      ),
+    ),
+  );
+}
+
+/// =======================================================
+/// DARK THEME
+/// =======================================================
+ThemeData get darkTheme {
+  final scheme = ColorScheme.dark(
+    primary: DarkModeColors.primary,
+    secondary: DarkModeColors.goldDeep,
+    surface: DarkModeColors.surface,
+    error: DarkModeColors.error,
+  );
+
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: DarkModeColors.background,
+
+    textTheme: _buildTextTheme(DarkModeColors.primaryText),
+
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+    ),
+
+    cardTheme: CardTheme(
+      color: DarkModeColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+    ),
+
+    dividerTheme: const DividerThemeData(
+      color: DarkModeColors.divider,
+      thickness: 1,
+    ),
+
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: DarkModeColors.goldDeep,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+      ),
+    ),
+  );
+}
+
+/// =======================================================
+/// CONTEXT EXTENSIONS
+/// =======================================================
+extension ThemeContext on BuildContext {
+  TextTheme get text => Theme.of(this).textTheme;
+  ColorScheme get colors => Theme.of(this).colorScheme;
+}
