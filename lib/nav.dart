@@ -1382,6 +1382,30 @@ GoRoute(
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: ThixMediaPage()),
         ),
+         // Catalogue produits (Market)
+GoRoute(
+  path: '/sante/pharmacy/products',
+  name: 'pharmacyProducts',
+  pageBuilder: (context, state) =>
+      const NoTransitionPage(child: PharmacyProductsPage()),
+),
+GoRoute(
+  path: '/sante/pharmacy/product/:id',
+  name: 'pharmacyProductDetail',
+  pageBuilder: (context, state) {
+    final id = state.pathParameters['id']!;
+    return NoTransitionPage(
+      child: PharmacyProductDetailPage(productId: id),
+    );
+  },
+),
+GoRoute(
+  path: '/sante/pharmacy/cart',
+  name: 'pharmacyCart',
+  pageBuilder: (context, state) =>
+      const NoTransitionPage(child: PharmacyCartPage()),
+),
+        
         GoRoute(
           path: AppRoutes.thixMediaVideo,
           name: 'thixMediaVideo',
