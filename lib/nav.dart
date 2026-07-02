@@ -59,7 +59,7 @@ import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 
 // Pages patient principales
-import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart'; as patient;
 import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_life_page.dart';
@@ -259,7 +259,6 @@ class AppRouter {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
-      urlPathStrategy: UrlPathStrategy.path, // Correction : remplace overridePlatformDefaultLocation
       refreshListenable: refresh,
       redirect: (context, state) {
         final location = state.matchedLocation;
