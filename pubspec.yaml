@@ -25,6 +25,7 @@ dependencies:
 
   # State Management
   flutter_riverpod: ^2.5.1
+  flutter_bloc: ^8.1.6   # Version récente
 
   # Backend & Networking
   supabase_flutter: ^2.8.4
