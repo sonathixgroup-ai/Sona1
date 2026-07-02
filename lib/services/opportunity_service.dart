@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/opportunity_application.dart';
 import 'package:thix_id/models/opportunity_item.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
-
+import 'package:thix_id/supabase/supabase_service.dart';
 class OpportunityService {
   static const String table = 'thix_opportunities';
   static const _kOpps = 'thix_opportunities_v1';
