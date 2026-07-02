@@ -9,12 +9,12 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
 class DoctorChatPage extends StatefulWidget {
-  final String? conversationId;
+  final String? chatId;
   final String? participantName;
 
   const DoctorChatPage({
     super.key,
-    this.conversationId,
+    this.chatId,
     this.participantName,
   });
 
@@ -41,8 +41,8 @@ class _DoctorChatPageState extends State<DoctorChatPage> {
   String? _participantName;
 
   bool get isNewConversation =>
-      widget.conversationId == null ||
-      widget.conversationId!.isEmpty;
+      widget.chatId == null ||
+      widget.chatId!.isEmpty;
 
   @override
   void initState() {
@@ -73,7 +73,7 @@ class _DoctorChatPageState extends State<DoctorChatPage> {
       _participantName =
           widget.participantName ?? 'Patient';
 
-      _participantId = widget.conversationId;
+      _participantId = widget.chatId;
 
       try {
         final response = await _supabase
