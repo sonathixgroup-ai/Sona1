@@ -5,11 +5,13 @@ import '../core/chat_models.dart';
 class PinnedMessage extends StatelessWidget {
   final Message message;
   final VoidCallback onTap;
+  final VoidCallback? onUnpin;
 
   const PinnedMessage({
     Key? key,
     required this.message,
     required this.onTap,
+    this.onUnpin,
   }) : super(key: key);
 
   @override
@@ -44,6 +46,13 @@ class PinnedMessage extends StatelessWidget {
                 ],
               ),
             ),
+            if (onUnpin != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                onPressed: onUnpin,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
           ],
         ),
       ),
