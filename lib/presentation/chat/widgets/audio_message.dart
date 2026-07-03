@@ -79,12 +79,12 @@ class _AudioMessageState extends State<AudioMessage> {
   Widget build(BuildContext context) {
     if (_hasInitError) {
       return const Text(
-        'Lecture audio indisponible. Vérifiez la connexion.',
+        'Lecture audio indisponible. Veuillez réessayer.',
         style: TextStyle(fontSize: 12),
       );
     }
 
-    final controllerDuration = _controller.value.duration.inSeconds;
+    final controllerDuration = _isInitialized ? _controller.value.duration.inSeconds : 0;
     final maxSeconds = (controllerDuration > 0 ? controllerDuration : widget.durationSeconds).toDouble();
     final currentSeconds = _position.inSeconds.toDouble().clamp(0.0, maxSeconds);
 
