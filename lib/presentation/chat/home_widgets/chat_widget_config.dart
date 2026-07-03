@@ -1,9 +1,7 @@
 // lib/presentation/chat/home_widgets/chat_widget_config.dart
-// Configuration du widget d'écran d'accueil : conversations + raccourcis rapides
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'widget_preview.dart';
+import 'widget_preview.dart';   // ✅ corrigé
 
 class ChatWidgetConfig extends StatefulWidget {
   const ChatWidgetConfig({Key? key}) : super(key: key);
