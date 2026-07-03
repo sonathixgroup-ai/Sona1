@@ -1,12 +1,12 @@
-
 // lib/presentation/chat/conversation_page.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../providers/chat_provider.dart';
-import '../../models/chat_models.dart';
+import 'core/chat_bloc.dart';
+import 'core/chat_states.dart';
+import 'core/chat_events.dart';
+import 'core/chat_models.dart';
+import 'core/chat_constants.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/pinned_message.dart';
 import 'widgets/reaction_picker.dart';
@@ -30,18 +30,13 @@ class ConversationPage extends StatefulWidget {
 class _ConversationPageState extends State<ConversationPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _messageController = TextEditingController();
-  late ChatProvider _chatProvider;
+  late ChatBloc _chatBloc;
 
   @override
   void initState() {
     super.initState();
-    _chatProvider = context.read<ChatProvider>();
-    _loadMessages();
-  }
-
-  Future<void> _loadMessages() async {
-    await _chatProvider.loadMessages(widget.chatId);
-    _scrollToBottom();
+    _chatBloc = context.read<ChatBloc>();
+    _chatBloc.add(LoadMessages(widget.chatId));
   }
 
   @override
@@ -51,15 +46,13 @@ class _ConversationPageState extends State<ConversationPage> {
     super.dispose();
   }
 
-  // ✅ Envoi de message corrigé (paramètres nommés)
-  void _sendMessage(String content, {String? mediaUrl, String? type}) {
-    if (content.trim().isEmpty && mediaUrl == null) return;
-    _chatProvider.sendMessage(
-      conversationId: widget.chatId,      // ✅ corrigé : conversationId
+  void _sendMessage(String content) {
+    if (content.trim().isEmpty) return;
+    _chatBloc.add(SendMessage(
+      conversationId: widget.chatId,
+      type: ChatConstants.messageTypeText,
       content: content.trim(),
-      type: type ?? 'text',
-      mediaUrl: mediaUrl,
-    );
+    ));
     _messageController.clear();
     _scrollToBottom();
   }
@@ -68,7 +61,7 @@ class _ConversationPageState extends State<ConversationPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.minScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -76,7 +69,6 @@ class _ConversationPageState extends State<ConversationPage> {
     });
   }
 
-  // ✅ Pièces jointes simplifiées
   void _showAttachmentPicker() {
     showModalBottomSheet(
       context: context,
@@ -139,25 +131,26 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // ✅ Réactions
   void _showReactionPicker(String messageId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => ReactionPicker(
         onReactionSelected: (emoji) {
-          _chatProvider.addReaction(messageId, emoji);
+          _chatBloc.add(AddReaction(messageId, emoji));
         },
       ),
     );
   }
 
-  // ✅ Épingler / désépingler
-  void _togglePinMessage(String messageId) {
-    _chatProvider.pinMessage(widget.chatId, messageId);
+  void _togglePinMessage(String messageId, {required bool isPinned}) {
+    if (isPinned) {
+      _chatBloc.add(UnpinMessage(widget.chatId, messageId));
+    } else {
+      _chatBloc.add(PinMessage(widget.chatId, messageId));
+    }
   }
 
-  // ✅ Supprimer un message (si provider a deleteMessage)
   void _deleteMessage(String messageId) {
     showDialog(
       context: context,
@@ -171,8 +164,7 @@ class _ConversationPageState extends State<ConversationPage> {
           ),
           TextButton(
             onPressed: () {
-              // Appeler la méthode du provider
-              _chatProvider.deleteMessage(messageId);
+              _chatBloc.add(DeleteMessage(messageId));
               Navigator.pop(context);
             },
             child: const Text('Supprimer'),
@@ -182,8 +174,7 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // ✅ Menu contextuel
-  void _showMessageOptions(ChatMessage message) {
+  void _showMessageOptions(Message message, {required bool isPinned}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -213,9 +204,9 @@ class _ConversationPageState extends State<ConversationPage> {
               Navigator.pop(context);
               _showReactionPicker(message.id);
             }),
-            _optionTile(Icons.push_pin, 'Épingler', () {
+            _optionTile(isPinned ? Icons.push_pin_outlined : Icons.push_pin, isPinned ? 'Désépingler' : 'Épingler', () {
               Navigator.pop(context);
-              _togglePinMessage(message.id);
+              _togglePinMessage(message.id, isPinned: isPinned);
             }),
             _optionTile(Icons.content_copy, 'Copier', () {
               Navigator.pop(context);
@@ -231,57 +222,57 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  Widget _optionTile(IconData icon, String title, VoidCallback onTap,
-      {Color? color}) {
+  Widget _optionTile(IconData icon, String title, VoidCallback onTap, {Color? color}) {
     return ListTile(
       leading: Icon(icon, size: 20, color: color ?? Colors.grey[700]),
-      title: Text(title,
-          style: TextStyle(fontSize: 13, color: color ?? Colors.black87)),
+      title: Text(title, style: TextStyle(fontSize: 13, color: color ?? Colors.black87)),
       onTap: onTap,
     );
   }
 
-  // ✅ BUILD
   @override
   Widget build(BuildContext context) {
-    final chatProvider = Provider.of<ChatProvider>(context);
-    final messages = chatProvider.messages;
-    final isLoading = chatProvider.isLoading;
-
-    // ✅ Correction du cast
-    final List<ChatMessage> messageList =
-        messages is List<ChatMessage> ? messages : List<ChatMessage>.from(messages);
-
-    final pinnedMessage = messageList.firstWhere(
-      (m) => m.isPinned,
-      orElse: () => null as ChatMessage,
-    );
-
     return Scaffold(
       appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          if (pinnedMessage != null)
-            PinnedMessage(
-              message: pinnedMessage,
-              onTap: _scrollToBottom,
-              onUnpin: () => _togglePinMessage(pinnedMessage.id), // ✅ onUnpin
-            ),
-          Expanded(
-            child: isLoading && messageList.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : messageList.isEmpty
-                    ? const Center(child: Text('Aucun message'))
-                    : _buildMessageList(messageList),
-          ),
-          _buildInputBar(),
-        ],
+      body: BlocConsumer<ChatBloc, ChatState>(
+        listener: (context, state) {
+          if (state is MessageSentSuccess) {
+            _scrollToBottom();
+          }
+        },
+        builder: (context, state) {
+          if (state is ChatLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state is ChatError) {
+            return Center(child: Text('Erreur: ${state.message}'));
+          }
+          if (state is MessagesLoaded && state.conversationId == widget.chatId) {
+            return Column(
+              children: [
+                if (state.pinnedMessage != null)
+                  PinnedMessage(
+                    message: state.pinnedMessage!,
+                    onTap: _scrollToBottom,
+                    onUnpin: () => _togglePinMessage(state.pinnedMessage!.id, isPinned: true),
+                  ),
+                Expanded(
+                  child: state.messages.isEmpty
+                      ? const Center(child: Text('Aucun message'))
+                      : _buildMessageList(state.messages),
+                ),
+                _buildInputBar(),
+              ],
+            );
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
-    final isOnline = false; // À remplacer par la logique réelle
+    final isOnline = false; // À remplacer par la logique réelle (présence)
 
     return AppBar(
       backgroundColor: Colors.white,
@@ -334,29 +325,29 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  Widget _buildMessageList(List<ChatMessage> messages) {
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
-
+  Widget _buildMessageList(List<Message> messages) {
     return ListView.builder(
       controller: _scrollController,
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
-        final isMe = message.senderId == currentUserId;
+        final isMe = message.senderId == _chatBloc.currentUserId;
+        final isPinned = message.metadata?['pinned'] == true;
 
         return ChatBubble(
           message: message,
           isMe: isMe,
-          onLongPress: () => _showMessageOptions(message),
+          onLongPress: () => _showMessageOptions(message, isPinned: isPinned),
           onReactionTap: () => _showReactionPicker(message.id),
           onReplyTap: () {
             // TODO : répondre
           },
-          isFirstInGroup: index == 0 ||
-              messages[index - 1].senderId != message.senderId,
-          isLastInGroup: index == messages.length - 1 ||
+          isFirstInGroup: index == messages.length - 1 ||
               messages[index + 1].senderId != message.senderId,
+          isLastInGroup: index == 0 ||
+              messages[index - 1].senderId != message.senderId,
         );
       },
     );
@@ -393,8 +384,7 @@ class _ConversationPageState extends State<ConversationPage> {
                 ),
                 filled: true,
                 fillColor: Colors.grey[100],
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               style: const TextStyle(fontSize: 13),
               onChanged: (text) {
