@@ -15,6 +15,7 @@ class VoicePlayerWidget extends StatefulWidget {
 }
 
 class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
+  // Uses video_player as a fallback player to avoid requiring audioplayers.
   late final VideoPlayerController _controller;
   bool _hasControllerListener = false;
   bool _isInitialized = false;

@@ -13,6 +13,7 @@ class AudioMessage extends StatefulWidget {
 }
 
 class _AudioMessageState extends State<AudioMessage> {
+  // Uses video_player as a fallback player to avoid requiring audioplayers.
   late final VideoPlayerController _controller;
   bool _hasControllerListener = false;
   bool _isInitialized = false;
