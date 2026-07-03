@@ -8,6 +8,10 @@ class ChatBubble extends StatelessWidget {
   final bool isMe;
   final VoidCallback? onReactionTap;
   final VoidCallback? onConfidentialTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onReplyTap;
+  final bool isFirstInGroup;
+  final bool isLastInGroup;
 
   const ChatBubble({
     Key? key,
@@ -15,6 +19,10 @@ class ChatBubble extends StatelessWidget {
     required this.isMe,
     this.onReactionTap,
     this.onConfidentialTap,
+    this.onLongPress,
+    this.onReplyTap,
+    this.isFirstInGroup = true,
+    this.isLastInGroup = true,
   }) : super(key: key);
 
   @override
@@ -24,11 +32,17 @@ class ChatBubble extends StatelessWidget {
     final isVoice = message.type == ChatConstants.messageTypeVoice;
 
     return GestureDetector(
-      onLongPress: onReactionTap,
+      onLongPress: onLongPress ?? onReactionTap,
+      onDoubleTap: onReplyTap,
       child: Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          margin: EdgeInsets.only(
+            top: isFirstInGroup ? 6 : 1,
+            bottom: isLastInGroup ? 6 : 1,
+            left: 8,
+            right: 8,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.75,
@@ -38,8 +52,8 @@ class ChatBubble extends StatelessWidget {
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(16),
               topRight: const Radius.circular(16),
-              bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-              bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+              bottomLeft: isMe ? const Radius.circular(16) : Radius.circular(isLastInGroup ? 4 : 16),
+              bottomRight: isMe ? Radius.circular(isLastInGroup ? 4 : 16) : const Radius.circular(16),
             ),
           ),
           child: Column(
@@ -110,7 +124,7 @@ class ChatBubble extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: LinearProgressIndicator(
-            value: 0.3, // À remplacer par un vrai contrôleur
+            value: 0.3,
             backgroundColor: Colors.grey[300],
             color: isMe ? Colors.blue : Colors.grey,
           ),
