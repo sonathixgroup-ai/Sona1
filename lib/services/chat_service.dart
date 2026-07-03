@@ -219,6 +219,34 @@ class ChatContact {
 }
 
 // ============================================================
+// UTILISATEUR DE CHAT (STATUT / PRÉSENCE)
+// ============================================================
+
+class ChatUser {
+  final String id;
+  final String displayName;
+  final String? avatarUrl;
+  final String status; // online, offline, away
+  final DateTime? lastSeen;
+
+  const ChatUser({
+    required this.id,
+    required this.displayName,
+    this.avatarUrl,
+    this.status = 'offline',
+    this.lastSeen,
+  });
+
+  factory ChatUser.fromJson(Map<String, dynamic> json) => ChatUser(
+        id: json['id'] ?? json['user_id'] ?? '',
+        displayName: json['display_name'] ?? json['full_name'] ?? 'Utilisateur',
+        avatarUrl: json['avatar_url'],
+        status: json['status'] ?? 'offline',
+        lastSeen: json['last_seen'] != null ? DateTime.tryParse(json['last_seen']) : null,
+      );
+}
+
+// ============================================================
 // CLASSES SUPPLÉMENTAIRES (Stories, Spaces, Stats)
 // ============================================================
 
@@ -291,6 +319,7 @@ class ChatService {
   static const String messagesTable = 'thix_chat_messages';
   static const String readsTable = 'thix_chat_reads';
   static const String typingTable = 'thix_chat_typing';
+  static const String presenceTable = 'thix_chat_presence';
   static const String attachmentsBucket = 'thix-chat';
   static const String profilesTable = 'profiles';
 
@@ -583,6 +612,57 @@ class ChatService {
 
   Future<void> createStoryText(String text) async {
     // À implémenter
+  }
+
+  // ============================================================
+  // STATUT DES CONTACTS (PRÉSENCE)
+  // ============================================================
+
+  Future<List<ChatUser>> getContactsStatus() async {
+    try {
+      final uid = currentUserId;
+      if (uid.isEmpty) return [];
+
+      // Récupérer les contacts à partir des conversations actives
+      final chats = await _selectChatsForUser(uid);
+      final contactIds = <String>{};
+      for (final chat in chats) {
+        final participants = ChatSummary._parseParticipants(chat['participants']);
+        contactIds.addAll(participants.where((p) => p != uid));
+      }
+      if (contactIds.isEmpty) return [];
+
+      final profiles = await _fetchProfileBasics(contactIds.toList());
+
+      List<Map<String, dynamic>> presenceRows = [];
+      try {
+        final rows = await _client
+            .from(presenceTable)
+            .select('user_id, status, last_seen')
+            .inFilter('user_id', contactIds.toList());
+        presenceRows = (rows as List).cast<Map<String, dynamic>>();
+      } catch (e) {
+        debugPrint('ChatService: presence table unavailable, défaut offline. err=$e');
+      }
+      final presenceByUid = {for (final r in presenceRows) r['user_id'] as String: r};
+
+      return contactIds.map((id) {
+        final profile = profiles[id];
+        final presence = presenceByUid[id];
+        return ChatUser(
+          id: id,
+          displayName: profile?.displayName ?? 'Utilisateur',
+          avatarUrl: profile?.avatarUrl,
+          status: (presence?['status'] as String?) ?? 'offline',
+          lastSeen: presence?['last_seen'] != null
+              ? DateTime.tryParse(presence!['last_seen'] as String)
+              : null,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('ChatService: getContactsStatus error: $e');
+      return [];
+    }
   }
 
   // ============================================================
