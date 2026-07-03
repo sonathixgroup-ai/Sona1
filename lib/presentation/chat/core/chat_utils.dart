@@ -57,8 +57,8 @@ class ChatUtils {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  // Hasher un code (simplifié – en prod utiliser sha256)
-  static String hashCode(String code) {
+  // Hasher un code confidentiel (simplifié – en prod utiliser sha256)
+  static String hashConfidentialCode(String code) {
     return code.hashCode.toString();
   }
 }
