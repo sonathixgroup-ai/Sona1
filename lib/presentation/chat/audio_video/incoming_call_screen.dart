@@ -1,24 +1,26 @@
-// lib/presentation/chat/audio_video/incoming_call_screen.dart
+// lib/presentation/chat/screens/chat_incoming_call_screen.dart
 // Écran affiché lors d'un appel entrant (avec accept/refuser)
 
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-class IncomingCallScreen extends StatelessWidget {
+class ChatIncomingCallScreen extends StatelessWidget {
   final String callerName;
   final String? callerAvatarUrl;
-  final bool isVideoCall;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
+  final String callType; // 'audio' ou 'video'
+  final VoidCallback? onAccept;
+  final VoidCallback? onDecline;
 
-  const IncomingCallScreen({
-    Key? key,
+  const ChatIncomingCallScreen({
+    super.key,
     required this.callerName,
     this.callerAvatarUrl,
-    required this.isVideoCall,
-    required this.onAccept,
-    required this.onDecline,
-  }) : super(key: key);
+    this.callType = 'audio',
+    this.onAccept,
+    this.onDecline,
+  });
+
+  bool get isVideoCall => callType == 'video';
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,12 @@ class IncomingCallScreen extends StatelessWidget {
                 FloatingActionButton(
                   heroTag: 'decline',
                   backgroundColor: Colors.red,
-                  onPressed: onDecline,
+                  onPressed: () {
+                    onDecline?.call();
+                    if (context.mounted && Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  },
                   child: const Icon(Icons.call_end),
                 ),
                 FloatingActionButton(
