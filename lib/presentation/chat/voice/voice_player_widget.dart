@@ -18,23 +18,29 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
   late final VideoPlayerController _controller;
   bool _hasControllerListener = false;
   bool _isInitialized = false;
+  bool _hasInitError = false;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        if (!mounted) return;
-        _controller.addListener(_syncState);
-        _hasControllerListener = true;
-        setState(() {
-          _isInitialized = true;
-          _position = _controller.value.position;
-          _isPlaying = _controller.value.isPlaying;
-        });
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller.initialize().then((_) {
+      if (!mounted) return;
+      _controller.addListener(_syncState);
+      _hasControllerListener = true;
+      setState(() {
+        _isInitialized = true;
+        _position = _controller.value.position;
+        _isPlaying = _controller.value.isPlaying;
       });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() {
+        _hasInitError = true;
+      });
+    });
   }
 
   void _syncState() {
@@ -72,6 +78,13 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (_hasInitError) {
+      return const Text(
+        'Lecture audio indisponible',
+        style: TextStyle(fontSize: 12),
+      );
+    }
+
     final maxSeconds = widget.durationSeconds.toDouble();
     final currentSeconds = _position.inSeconds.toDouble().clamp(0.0, maxSeconds);
 
