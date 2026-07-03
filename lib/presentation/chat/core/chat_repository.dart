@@ -343,7 +343,7 @@ class ChatRepository {
   }
 
   Future<void> updateTask(String taskId, String userId, {bool? completed, String? assignedTo, String? title, String? description, DateTime? dueDate, int? priority}) async {
-    final body = {'task_id': taskId, 'user_id': userId}..addAll({
+    final Map<String, dynamic> body = {'task_id': taskId, 'user_id': userId}..addAll({
       if (completed != null) 'completed': completed,
       if (assignedTo != null) 'assigned_to': assignedTo,
       if (title != null) 'title': title,
