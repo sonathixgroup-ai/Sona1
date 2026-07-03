@@ -22,11 +22,13 @@ class _AudioMessageState extends State<AudioMessage> {
   void initState() {
     super.initState();
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..addListener(_syncState)
       ..initialize().then((_) {
         if (!mounted) return;
+        _controller.addListener(_syncState);
         setState(() {
           _isInitialized = true;
+          _position = _controller.value.position;
+          _isPlaying = _controller.value.isPlaying;
         });
       });
   }
