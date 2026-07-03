@@ -67,7 +67,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   String _getTimeAgo(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inDays > 7) {
       return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
     } else if (difference.inDays >= 1) {
@@ -86,43 +86,41 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     final RegExp hashtagRegex = RegExp(r'#(\w+)');
     final List<TextSpan> spans = [];
     int lastIndex = 0;
-    
+
     final allMatches = <RegExpMatch>[
       ...mentionRegex.allMatches(content),
       ...hashtagRegex.allMatches(content),
     ]..sort((a, b) => a.start.compareTo(b.start));
-    
+
     for (final match in allMatches) {
       if (match.start > lastIndex) {
         spans.add(TextSpan(text: content.substring(lastIndex, match.start)));
       }
-      
       final isMention = match.pattern == mentionRegex;
       final text = match.group(0)!;
       final value = match.group(1)!;
-      
-      spans.add(TextSpan(
-        text: text,
-        style: TextStyle(
-          color: isMention ? Colors.blue : const Color(0xFFD4AF37),
-          fontWeight: FontWeight.w500,
+      spans.add(
+        TextSpan(
+          text: text,
+          style: TextStyle(
+            color: isMention ? Colors.blue : const Color(0xFFD4AF37),
+            fontWeight: FontWeight.w500,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              if (isMention) {
+                _navigateToUser(value);
+              } else {
+                _navigateToHashtag(value);
+              }
+            },
         ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            if (isMention) {
-              _navigateToUser(value);
-            } else {
-              _navigateToHashtag(value);
-            }
-          },
-      ));
+      );
       lastIndex = match.end;
     }
-    
     if (lastIndex < content.length) {
       spans.add(TextSpan(text: content.substring(lastIndex)));
     }
-    
     return spans;
   }
 
@@ -131,6 +129,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       Navigator.pushNamed(context, '/profile/$username').catchError((error) {
         print('❌ Erreur navigation profil: $error');
         _showNavigationError('profil de $username');
+        return null; // ✅ CORRIGÉ
       });
     } catch (e) {
       print('❌ Exception navigation: $e');
@@ -143,6 +142,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       Navigator.pushNamed(context, '/hashtag/$hashtag').catchError((error) {
         print('❌ Erreur navigation hashtag: $error');
         _showNavigationError('hashtag #$hashtag');
+        return null; // ✅ CORRIGÉ
       });
     } catch (e) {
       print('❌ Exception navigation: $e');
@@ -196,19 +196,27 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
 
   Future<void> _toggleSave() async {
     setState(() => _isSaved = !_isSaved);
-    
+
     if (_isSaved) {
       await _networkService.savePost(_post.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post sauvegardé'), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('Post sauvegardé'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     } else {
       await _networkService.unsavePost(_post.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post retiré des sauvegardes'), backgroundColor: Colors.orange, duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('Post retiré des sauvegardes'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     }
@@ -228,22 +236,30 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           maxLines: 3,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+            ),
             child: const Text('Reposter'),
           ),
         ],
       ),
     );
-    
+
     if (result == true) {
       await _networkService.repost(_post.id, _quoteController.text);
       setState(() => _isReposted = true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post reposté'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Post reposté'),
+            backgroundColor: Colors.green,
+          ),
         );
         widget.onRefresh?.call();
       }
@@ -256,14 +272,20 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       await _networkService.pinPost(_post.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post épinglé sur votre profil'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Post épinglé sur votre profil'),
+            backgroundColor: Colors.green,
+          ),
         );
         widget.onRefresh?.call();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -274,9 +296,13 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Supprimer la publication'),
-        content: const Text('Voulez-vous vraiment supprimer cette publication ? Cette action est irréversible.'),
+        content: const Text(
+            'Voulez-vous vraiment supprimer cette publication ? Cette action est irréversible.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -285,13 +311,16 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         ],
       ),
     );
-    
+
     if (confirm == true) {
       try {
         await _networkService.deletePost(_post.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication supprimée'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Publication supprimée'),
+              backgroundColor: Colors.green,
+            ),
           );
           widget.onRefresh?.call();
           widget.onLike();
@@ -299,7 +328,10 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -311,14 +343,20 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       await _networkService.hidePost(_post.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Publication masquée'), backgroundColor: Colors.orange),
+          const SnackBar(
+            content: Text('Publication masquée'),
+            backgroundColor: Colors.orange,
+          ),
         );
         widget.onRefresh?.call();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -356,19 +394,25 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         ),
       ),
     );
-    
+
     if (reason != null) {
       try {
         await _networkService.reportPost(_post.id, reason);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication signalée'), backgroundColor: Colors.orange),
+            const SnackBar(
+              content: Text('Publication signalée'),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -390,16 +434,21 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+            ),
             child: const Text('Enregistrer'),
           ),
         ],
       ),
     );
-    
+
     if (newContent != null && newContent != _post.content) {
       try {
         await _networkService.updatePost(_post.id, newContent);
@@ -408,14 +457,20 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication modifiée'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Publication modifiée'),
+              backgroundColor: Colors.green,
+            ),
           );
           widget.onRefresh?.call();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -428,13 +483,13 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     final isOwner = auth.currentUser?.id == _post.userId;
     final hasUserTitle = _post.authorTitle != null && _post.authorTitle!.isNotEmpty;
     final dynamicPost = _post as dynamic;
-    
+
     // ⭐ CORRIGÉ - Récupération dynamique des propriétés manquantes
     final mediaUrl = dynamicPost.mediaUrl;
     final hasImage = mediaUrl != null && mediaUrl.toString().isNotEmpty;
     final hasContent = _post.content != null && _post.content!.isNotEmpty;
     final isLiked = dynamicPost.isLikedByCurrentUser ?? false;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       transform: Matrix4.identity()..scale(_isPressed ? 0.98 : 1.0),
@@ -461,10 +516,12 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
+                      backgroundImage: _post.authorAvatar != null &&
+                              _post.authorAvatar!.isNotEmpty
                           ? NetworkImage(_post.authorAvatar!)
                           : null,
-                      child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
+                      child: _post.authorAvatar == null ||
+                              _post.authorAvatar!.isEmpty
                           ? const Icon(Icons.person, size: 20)
                           : null,
                     ),
@@ -477,7 +534,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             children: [
                               Text(
                                 _post.authorName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -486,7 +544,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           if (hasUserTitle)
                             Text(
                               _post.authorTitle!,
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.grey),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -550,7 +609,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             value: 'pin',
                             child: Row(
                               children: [
-                                Icon(Icons.push_pin, size: 18, color: Color(0xFFD4AF37)),
+                                Icon(Icons.push_pin, size: 18,
+                                    color: Color(0xFFD4AF37)),
                                 SizedBox(width: 8),
                                 Text('Épingler sur le profil'),
                               ],
@@ -562,7 +622,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                               children: [
                                 Icon(Icons.delete, size: 18, color: Colors.red),
                                 SizedBox(width: 8),
-                                Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                Text('Supprimer',
+                                    style: TextStyle(color: Colors.red)),
                               ],
                             ),
                           ),
@@ -592,7 +653,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           value: 'thix-inf',
                           child: Row(
                             children: [
-                              Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                              Icon(Icons.info_outline, size: 18,
+                                  color: Colors.blue),
                               SizedBox(width: 8),
                               Text('📘 Thix Inf'),
                             ],
@@ -643,19 +705,18 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   ],
                 ),
                 const SizedBox(height: 12),
-
                 // Contenu avec mentions et hashtags
                 if (hasContent)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: RichText(
                       text: TextSpan(
-                        style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
+                        style: const TextStyle(
+                            fontSize: 14, height: 1.4, color: Colors.black87),
                         children: _parseContent(_post.content!),
                       ),
                     ),
                   ),
-                
                 // Image (CORRIGÉ)
                 if (hasImage)
                   ClipRRect(
@@ -672,7 +733,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           child: Center(
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
                                   : null,
                             ),
                           ),
@@ -686,15 +748,14 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           children: [
                             Icon(Icons.broken_image, size: 50, color: Colors.grey),
                             SizedBox(height: 8),
-                            Text('Image non disponible', style: TextStyle(color: Colors.grey)),
+                            Text('Image non disponible',
+                                style: TextStyle(color: Colors.grey)),
                           ],
                         ),
                       ),
                     ),
                   ),
-                
                 if (hasImage) const SizedBox(height: 12),
-
                 // Actions (CORRIGÉ)
                 Row(
                   children: [
@@ -726,25 +787,26 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(_formatCount(_post.likesCount), style: const TextStyle(fontSize: 12)),
+                          Text(_formatCount(_post.likesCount),
+                              style: const TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
                     const SizedBox(width: 20),
-                    
                     // Comment
                     InkWell(
                       onTap: widget.onComment,
                       child: Row(
                         children: [
-                          const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey),
+                          const Icon(Icons.chat_bubble_outline,
+                              size: 20, color: Colors.grey),
                           const SizedBox(width: 4),
-                          Text(_formatCount(_post.commentsCount), style: const TextStyle(fontSize: 12)),
+                          Text(_formatCount(_post.commentsCount),
+                              style: const TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
                     const SizedBox(width: 20),
-                    
                     // Share
                     InkWell(
                       onTap: widget.onShare,
@@ -757,7 +819,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                       ),
                     ),
                     const Spacer(),
-                    
                     // Save
                     InkWell(
                       onTap: _toggleSave,
