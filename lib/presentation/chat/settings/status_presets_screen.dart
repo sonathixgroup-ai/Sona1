@@ -1,5 +1,6 @@
+// lib/presentation/chat/settings/status_presets_screen.dart
 import 'package:flutter/material.dart';
-import 'package:thix_id/presentation/chat/online_status/status_presets.dart';
+import '../online_status/status_presets.dart';
 
 class StatusPresetsScreen extends StatelessWidget {
   const StatusPresetsScreen({super.key});
