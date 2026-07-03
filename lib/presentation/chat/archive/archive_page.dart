@@ -1,7 +1,9 @@
 // lib/presentation/chat/archive/archive_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/chat_provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../core/chat_bloc.dart';
+import '../core/chat_states.dart';
+import '../core/chat_events.dart';
 import 'archive_list_item.dart';
 import 'advanced_search_sheet.dart';
 
@@ -13,21 +15,17 @@ class ArchivePage extends StatefulWidget {
 }
 
 class _ArchivePageState extends State<ArchivePage> {
-  late ChatProvider _chatProvider;
+  late ChatBloc _chatBloc;
 
   @override
   void initState() {
     super.initState();
-    _chatProvider = context.read<ChatProvider>();
-    _chatProvider.loadArchivedConversations();
+    _chatBloc = context.read<ChatBloc>();
+    _chatBloc.add(LoadArchivedConversations());
   }
 
   @override
   Widget build(BuildContext context) {
-    final chatProvider = Provider.of<ChatProvider>(context);
-    final archivedConversations = chatProvider.archivedConversations;
-    final isLoading = chatProvider.isLoading;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Archives'),
@@ -38,25 +36,38 @@ class _ArchivePageState extends State<ArchivePage> {
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : archivedConversations.isEmpty
-              ? const Center(child: Text('Aucune conversation archivée'))
-              : ListView.builder(
-                  itemCount: archivedConversations.length,
-                  itemBuilder: (context, index) {
-                    final conv = archivedConversations[index];
-                    return ArchiveListItem(
-                      conversation: conv,
-                      onUnarchive: () {
-                        _chatProvider.unarchiveConversation(conv.id);
-                      },
-                      onDelete: () {
-                        _showDeleteDialog(conv.id);
-                      },
-                    );
+      body: BlocBuilder<ChatBloc, ChatState>(
+        bloc: _chatBloc,
+        builder: (context, state) {
+          if (state is ChatLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state is ChatError) {
+            return Center(child: Text('Erreur: ${state.message}'));
+          }
+          if (state is ArchivedConversationsLoaded) {
+            if (state.conversations.isEmpty) {
+              return const Center(child: Text('Aucune conversation archivée'));
+            }
+            return ListView.builder(
+              itemCount: state.conversations.length,
+              itemBuilder: (context, index) {
+                final conv = state.conversations[index];
+                return ArchiveListItem(
+                  conversation: conv,
+                  onUnarchive: () {
+                    _chatBloc.add(UnarchiveConversation(conv.id));
                   },
-                ),
+                  onDelete: () {
+                    _showDeleteDialog(conv.id);
+                  },
+                );
+              },
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
     );
   }
 
@@ -66,7 +77,7 @@ class _ArchivePageState extends State<ArchivePage> {
       isScrollControlled: true,
       builder: (context) => AdvancedSearchSheet(
         onSearch: (filters) {
-          _chatProvider.searchArchivedConversations(filters);
+          _chatBloc.add(SearchArchivedConversations(filters));
         },
       ),
     );
@@ -85,7 +96,7 @@ class _ArchivePageState extends State<ArchivePage> {
           ),
           ElevatedButton(
             onPressed: () {
-              _chatProvider.deleteArchivedConversation(convId);
+              _chatBloc.add(DeleteArchivedConversation(convId));
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
