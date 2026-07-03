@@ -3,11 +3,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 
 class MessageReminder {
   static final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
+    tz_data.initializeTimeZones(); // initialise les timezones
     const AndroidInitializationSettings android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings ios = DarwinInitializationSettings();
     const InitializationSettings settings = InitializationSettings(android: android, iOS: ios);
@@ -26,12 +29,16 @@ class MessageReminder {
       importance: Importance.high,
     );
     const NotificationDetails details = NotificationDetails(android: androidDetails);
-    await _notifications.schedule(
+
+    final scheduledDate = tz.TZDateTime.from(remindAt, tz.local);
+    await _notifications.zonedSchedule(
       messageId.hashCode,
       'Rappel de message',
       messagePreview,
-      remindAt,
+      scheduledDate,
       details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
