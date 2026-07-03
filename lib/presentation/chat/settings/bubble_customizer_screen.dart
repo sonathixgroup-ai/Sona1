@@ -1,6 +1,6 @@
-// presentation/chat/settings/bubble_customizer_screen.dart
+// lib/presentation/chat/settings/bubble_customizer_screen.dart
 import 'package:flutter/material.dart';
-import '../themes/bubble_customizer.dart';
+import 'bubble_customizer.dart';   // ✅ même dossier
 
 class BubbleCustomizerScreen extends StatelessWidget {
   const BubbleCustomizerScreen({super.key});
