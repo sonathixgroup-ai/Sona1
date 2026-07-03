@@ -1,6 +1,7 @@
 // lib/presentation/chat/voice/push_to_talk_button.dart
 // Bouton poussoir pour envoi de message vocal (maintenir pour enregistrer)
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
@@ -20,6 +21,7 @@ class _PushToTalkButtonState extends State<PushToTalkButton> {
   bool _isRecording = false;
   String? _filePath;
   int _recordDuration = 0;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -40,27 +42,35 @@ class _PushToTalkButtonState extends State<PushToTalkButton> {
       const RecordConfig(encoder: AudioEncoder.aacLc),
       path: _filePath!,
     );
-    setState(() => _isRecording = true);
-    _recordDuration = 0;
-    _updateDuration();
-  }
-
-  Future<void> _updateDuration() async {
-    while (_isRecording) {
-      await Future.delayed(const Duration(seconds: 1));
-      final duration = await _recorder.getDuration();
-      if (mounted && duration != null) {
-        setState(() => _recordDuration = duration.inSeconds);
+    setState(() {
+      _isRecording = true;
+      _recordDuration = 0;
+    });
+    // Lance un timer qui incrémente la durée chaque seconde
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _recordDuration++;
+        });
       }
-    }
+    });
   }
 
   Future<void> _stopRecording() async {
+    _timer?.cancel();
+    _timer = null;
     final path = await _recorder.stop();
     setState(() => _isRecording = false);
     if (path != null && _recordDuration > 0) {
       widget.onSendVoice(File(path), _recordDuration);
     }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _recorder.dispose();
+    super.dispose();
   }
 
   @override
