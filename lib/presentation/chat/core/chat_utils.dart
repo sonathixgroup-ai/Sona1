@@ -2,6 +2,8 @@
 // [PARTIE] Fonctions utilitaires
 
 import 'package:intl/intl.dart';
+import 'chat_constants.dart';
+import 'chat_models.dart';
 
 class ChatUtils {
   // Formater l'heure d'affichage d'un message
