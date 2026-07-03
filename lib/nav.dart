@@ -185,7 +185,7 @@ import 'package:thix_id/presentation/chat/settings/chat_wallpaper_screen.dart';
 import 'package:thix_id/presentation/chat/settings/font_size_selector_screen.dart';
 import 'package:thix_id/presentation/chat/settings/theme_preview_screen.dart';
 import 'package:thix_id/presentation/chat/settings/status_settings_screen.dart';
-import 'package:thix_id/presentation/chat/settings/availability_schedule_screen.dart';
+import 'package:thix_id/presentation/chat/online_status/availability_schedule.dart';
 import 'package:thix_id/presentation/chat/settings/status_presets_screen.dart';
 
 // ===== THIX Chat – Archives =====
@@ -1241,9 +1241,11 @@ GoRoute(
   pageBuilder: (context, state) => NoTransitionPage(child: StatusSettingsScreen()),
 ),
 GoRoute(
-  path: AppRoutes.chatAvailabilitySchedule,
-  name: 'chatAvailabilitySchedule',
-  pageBuilder: (context, state) => NoTransitionPage(child: AvailabilityScheduleScreen()),
+  path: AppRoutes.availabilitySchedule,
+  name: 'availabilitySchedule',
+  pageBuilder: (context, state) => NoTransitionPage(
+    child: const AvailabilitySchedule(),
+  ),
 ),
 GoRoute(
   path: AppRoutes.chatStatusPresets,
