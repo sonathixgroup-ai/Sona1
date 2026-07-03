@@ -1,28 +1,30 @@
 // lib/presentation/chat/archive/search_filters.dart
-// Modèle de données pour les filtres de recherche
 
 class SearchFilters {
-  final String? text;
+  final String? query;
+  final String? type;
+  final String? dateRange;
   final DateTime? startDate;
   final DateTime? endDate;
-  final String? contactName;
-  final String? messageType; // text, image, video, audio
+  final bool hasMedia;
 
   SearchFilters({
-    this.text,
+    this.query,
+    this.type,
+    this.dateRange,
     this.startDate,
     this.endDate,
-    this.contactName,
-    this.messageType,
+    this.hasMedia = false,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'text': text,
-      'start_date': startDate?.toIso8601String(),
-      'end_date': endDate?.toIso8601String(),
-      'contact_name': contactName,
-      'message_type': messageType,
+      'query': query,
+      'type': type,
+      'dateRange': dateRange,
+      'startDate': startDate?.toIso8601String(),
+      'endDate': endDate?.toIso8601String(),
+      'hasMedia': hasMedia,
     };
   }
 }
