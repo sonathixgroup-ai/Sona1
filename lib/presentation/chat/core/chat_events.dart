@@ -73,7 +73,7 @@ class SendConfidentialMessage extends SendMessage {
   }) : super(
           type: ChatConstants.messageTypeConfidential,
           metadata: {
-            ChatConstants.metadataKeyCodeHash: ChatUtils.hashCode(code),
+            ChatConstants.metadataKeyCodeHash: ChatUtils.hashConfidentialCode(code), // ✅ corrigé
             ChatConstants.metadataKeyIsBiometric: isBiometric,
           },
         );
