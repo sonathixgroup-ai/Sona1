@@ -1,6 +1,4 @@
 // lib/presentation/chat/group_admin/do_not_disturb_settings.dart
-// Paramètres Ne pas déranger pour un groupe (silencieux temporaire)
-
 import 'package:flutter/material.dart';
 
 class DoNotDisturbSettings extends StatefulWidget {
@@ -22,6 +20,7 @@ class DoNotDisturbSettings extends StatefulWidget {
 class _DoNotDisturbSettingsState extends State<DoNotDisturbSettings> {
   late bool _enabled;
   DateTime? _until;
+  int? _selectedPreset; // suivi de la durée prédéfinie sélectionnée
   final List<int> _presetHours = [1, 2, 4, 8, 24];
 
   @override
@@ -29,6 +28,11 @@ class _DoNotDisturbSettingsState extends State<DoNotDisturbSettings> {
     super.initState();
     _enabled = widget.isEnabled;
     _until = widget.until;
+    // Si une durée prédéfinie correspond à _until (à peu près), on la sélectionne
+    if (_until != null) {
+      final diff = _until!.difference(DateTime.now()).inHours;
+      _selectedPreset = _presetHours.contains(diff) ? diff : null;
+    }
   }
 
   Future<void> _selectDateTime() async {
@@ -46,6 +50,7 @@ class _DoNotDisturbSettingsState extends State<DoNotDisturbSettings> {
       if (time != null) {
         setState(() {
           _until = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+          _selectedPreset = null; // désélectionne le preset quand on choisit manuellement
         });
       }
     }
@@ -64,21 +69,33 @@ class _DoNotDisturbSettingsState extends State<DoNotDisturbSettings> {
             onChanged: (val) => setState(() => _enabled = val),
           ),
           if (_enabled) ...[
-            ListTile(
-              title: const Text('Durée prédéfinie'),
-              subtitle: Wrap(
-                spacing: 8,
-                children: _presetHours.map((h) {
-                  return Chip(
-                    label: Text('$h h'),
-                    onDeleted: null,
-                    deleteIcon: null,
-                    onSelected: (_) {
-                      setState(() => _until = DateTime.now().add(Duration(hours: h)));
-                    },
-                  );
-                }).toList(),
-              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Durée prédéfinie',
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+            Wrap(
+              spacing: 8,
+              children: _presetHours.map((h) {
+                final isSelected = _selectedPreset == h;
+                return ChoiceChip(
+                  label: Text('$h h'),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedPreset = h;
+                        _until = DateTime.now().add(Duration(hours: h));
+                      });
+                    } else {
+                      setState(() {
+                        _selectedPreset = null;
+                        _until = null;
+                      });
+                    }
+                  },
+                );
+              }).toList(),
             ),
             ListTile(
               title: const Text('Personnalisé'),
