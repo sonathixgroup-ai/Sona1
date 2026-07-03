@@ -58,7 +58,7 @@ class SendEphemeralMessage extends SendMessage {
           metadata: {ChatConstants.metadataKeyDuration: durationSeconds},
         );
   @override
-  List<Object> get props => [...super.props, durationSeconds];
+  List<Object?> get props => [...super.props, durationSeconds];
 }
 
 class SendConfidentialMessage extends SendMessage {
@@ -78,7 +78,7 @@ class SendConfidentialMessage extends SendMessage {
           },
         );
   @override
-  List<Object> get props => [...super.props, code, isBiometric];
+  List<Object?> get props => [...super.props, code, isBiometric];
 }
 
 class UnlockConfidentialMessage extends ChatEvent {
