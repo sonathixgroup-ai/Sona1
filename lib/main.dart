@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
@@ -14,6 +15,10 @@ import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
+import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
+import 'package:thix_id/presentation/chat/core/chat_repository.dart';
+import 'package:thix_id/presentation/chat/core/chat_events.dart';
+import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,12 +88,25 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
     feed.initRealtime();
 
+    // 🔔 Notifications de tâches (THIX Chat)
+    try {
+      await TaskNotification.init();
+    } catch (e, st) {
+      debugPrint('Bootstrap: TaskNotification.init failed err=$e');
+      debugPrint(st.toString());
+    }
+
+    // 💬 THIX Chat — Bloc global, disponible dans toute l'app
+    final chatBloc = ChatBloc(ChatRepository());
+    chatBloc.add(LoadConversations());
+
     return _BootstrapResult(
       auth: auth,
       profiles: profiles,
       userService: userService,
       network: network,
       feed: feed,
+      chatBloc: chatBloc,
     );
   }
 
@@ -104,6 +122,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 userService: snap.data!.userService,
                 network: snap.data!.network,
                 feed: snap.data!.feed,
+                chatBloc: snap.data!.chatBloc,
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -133,6 +152,7 @@ class _BootstrapResult {
   final UserService userService;        // 👈 nouveau service
   final NetworkService network;
   final FeedProvider feed;
+  final ChatBloc chatBloc;              // 👈 THIX Chat
 
   const _BootstrapResult({
     required this.auth,
@@ -140,6 +160,7 @@ class _BootstrapResult {
     required this.userService,
     required this.network,
     required this.feed,
+    required this.chatBloc,
   });
 }
 
@@ -202,6 +223,7 @@ class MyApp extends StatefulWidget {
   final UserService userService;      // 👈 nouveau
   final NetworkService network;
   final FeedProvider feed;
+  final ChatBloc chatBloc;            // 👈 THIX Chat
 
   const MyApp({
     super.key,
@@ -210,6 +232,7 @@ class MyApp extends StatefulWidget {
     required this.userService,
     required this.network,
     required this.feed,
+    required this.chatBloc,
   });
 
   @override
@@ -228,6 +251,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void dispose() {
+    widget.chatBloc.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
@@ -237,6 +266,7 @@ class _MyAppState extends State<MyApp> {
         Provider<UserService>.value(value: widget.userService),   // 👈 fourni
         Provider<NetworkService>.value(value: widget.network),
         ChangeNotifierProvider.value(value: widget.feed),
+        BlocProvider<ChatBloc>.value(value: widget.chatBloc),     // 👈 THIX Chat, disponible partout
       ],
       child: Builder(
         builder: (context) {
