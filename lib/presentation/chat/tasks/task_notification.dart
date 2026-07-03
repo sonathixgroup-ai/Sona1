@@ -70,6 +70,7 @@ class TaskNotification {
       scheduledDate,
       details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime, // ← AJOUTÉ
     );
   }
 
