@@ -5,12 +5,12 @@ import '../core/chat_models.dart';
 
 class ConversationTile extends StatelessWidget {
   final Conversation conversation;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;   // maintenant facultatif
 
   const ConversationTile({
     Key? key,
     required this.conversation,
-    required this.onTap,
+    this.onTap,
   }) : super(key: key);
 
   @override
@@ -86,7 +86,7 @@ class ConversationTile extends StatelessWidget {
           ],
         ],
       ),
-      onTap: onTap,
+      onTap: onTap ?? () {},   // si null, ne fait rien
     );
   }
 
