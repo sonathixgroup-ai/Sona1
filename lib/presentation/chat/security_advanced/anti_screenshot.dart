@@ -1,6 +1,5 @@
 // lib/presentation/chat/security_advanced/anti_screenshot.dart
-// Détection et blocage des captures d'écran (Android/iOS)
-
+import 'dart:io'; // ← Ajout pour Platform
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
