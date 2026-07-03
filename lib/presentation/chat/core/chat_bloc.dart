@@ -13,7 +13,6 @@ import '../../../core/auth/token_service.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _repository;
-  late final Stream<List<Map<String, dynamic>>> _realtimeStream;
   String get currentUserId => Supabase.instance.client.auth.currentUser!.id;
 
   List<Conversation> _allConversations = [];
@@ -22,7 +21,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ChatStats _stats = const ChatStats();
 
   ChatBloc(this._repository) : super(ChatInitial()) {
-    // Initialisation du token au démarrage du Bloc
     _initToken();
     on<LoadConversations>(_onLoadConversations);
     on<FilterConversations>(_onFilterConversations);
@@ -34,10 +32,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<MarkMessageAsRead>(_onMarkAsRead);
     on<AddReaction>(_onAddReaction);
     on<DeleteMessage>(_onDeleteMessage);
+    on<PinMessage>(_onPinMessage);
+    on<UnpinMessage>(_onUnpinMessage);
     on<StartTyping>(_onStartTyping);
     on<StopTyping>(_onStopTyping);
     on<UpdatePresence>(_onUpdatePresence);
     on<NewMessageReceived>(_onNewMessageReceived);
+    on<LoadArchivedConversations>(_onLoadArchivedConversations);
+    on<UnarchiveConversation>(_onUnarchiveConversation);
+    on<DeleteArchivedConversation>(_onDeleteArchivedConversation);
+    on<SearchArchivedConversations>(_onSearchArchivedConversations);
   }
 
   Future<void> _initToken() async {
@@ -49,8 +53,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  // --- Tous les gestionnaires d'événements restent inchangés ---
-  // (copier-coller les implémentations existantes)
   Future<void> _onLoadConversations(LoadConversations event, Emitter<ChatState> emit) async {
     emit(ChatLoading());
     try {
@@ -169,6 +171,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
+  Future<void> _onPinMessage(PinMessage event, Emitter<ChatState> emit) async {
+    try {
+      await _repository.pinMessage(event.messageId, true);
+      add(LoadMessages(event.conversationId));
+    } catch (e) {
+      emit(ChatError(e.toString()));
+    }
+  }
+
+  Future<void> _onUnpinMessage(UnpinMessage event, Emitter<ChatState> emit) async {
+    try {
+      await _repository.pinMessage(event.messageId, false);
+      add(LoadMessages(event.conversationId));
+    } catch (e) {
+      emit(ChatError(e.toString()));
+    }
+  }
+
   void _onStartTyping(StartTyping event, Emitter<ChatState> emit) {
     if (state is TypingState) {
       final typingState = state as TypingState;
@@ -211,5 +231,44 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _repository.listenForNewMessages(conversationId).listen((message) {
       add(NewMessageReceived(message));
     });
+  }
+
+  // ==================== ARCHIVES ====================
+  Future<void> _onLoadArchivedConversations(LoadArchivedConversations event, Emitter<ChatState> emit) async {
+    emit(ChatLoading());
+    try {
+      final conversations = await _repository.fetchArchivedConversations(currentUserId);
+      emit(ArchivedConversationsLoaded(conversations));
+    } catch (e) {
+      emit(ChatError(e.toString()));
+    }
+  }
+
+  Future<void> _onUnarchiveConversation(UnarchiveConversation event, Emitter<ChatState> emit) async {
+    try {
+      await _repository.unarchiveConversation(event.conversationId, currentUserId);
+      add(LoadArchivedConversations());
+    } catch (e) {
+      emit(ChatError(e.toString()));
+    }
+  }
+
+  Future<void> _onDeleteArchivedConversation(DeleteArchivedConversation event, Emitter<ChatState> emit) async {
+    try {
+      await _repository.deleteConversation(event.conversationId, currentUserId);
+      add(LoadArchivedConversations());
+    } catch (e) {
+      emit(ChatError(e.toString()));
+    }
+  }
+
+  Future<void> _onSearchArchivedConversations(SearchArchivedConversations event, Emitter<ChatState> emit) async {
+    emit(ChatLoading());
+    try {
+      final conversations = await _repository.searchArchivedConversations(currentUserId, event.filters);
+      emit(ArchivedConversationsLoaded(conversations));
+    } catch (e) {
+      emit(ChatError(e.toString()));
+    }
   }
 }
