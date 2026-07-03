@@ -252,6 +252,23 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // ============================================================
+  // PRESENCE (AJOUTÉ)
+  // ============================================================
+
+  /// Met à jour le statut de présence de l'utilisateur connecté
+  /// via le backend, puis notifie les listeners.
+  Future<void> updatePresence(String status) async {
+    try {
+      await _chatService.updatePresence(status);
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  // ============================================================
   // STORIES (CREATE)
   // ============================================================
 
