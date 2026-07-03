@@ -11,8 +11,9 @@ class TranslationSettingsScreen extends StatefulWidget {
 }
 
 class _TranslationSettingsScreenState extends State<TranslationSettingsScreen> {
-  late bool _isAutoTranslateEnabled;
-  late String _targetLanguageCode;
+  bool _isLoading = true;
+  bool _isAutoTranslateEnabled = false;
+  String _targetLanguageCode = 'fr';
 
   @override
   void initState() {
@@ -22,9 +23,11 @@ class _TranslationSettingsScreenState extends State<TranslationSettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _isAutoTranslateEnabled = prefs.getBool('auto_translate_enabled') ?? false;
       _targetLanguageCode = prefs.getString('target_language_code') ?? 'fr';
+      _isLoading = false;
     });
   }
 
@@ -44,8 +47,7 @@ class _TranslationSettingsScreenState extends State<TranslationSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Si les données ne sont pas encore chargées, on attend
-    if (!mounted || !_isAutoTranslateEnabled && _targetLanguageCode == null) {
+    if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
