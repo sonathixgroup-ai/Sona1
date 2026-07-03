@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:thix_id/presentation/chat/online_status/last_seen_settings.dart';
+import '../online_status/last_seen_settings.dart';
 
 class StatusSettingsScreen extends StatelessWidget {
   const StatusSettingsScreen({super.key});

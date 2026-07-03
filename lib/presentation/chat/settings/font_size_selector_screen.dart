@@ -1,6 +1,6 @@
 // lib/presentation/chat/settings/font_size_selector_screen.dart
 import 'package:flutter/material.dart';
-import 'package:thix_id/presentation/chat/themes/font_size_selector.dart';
+import '../themes/font_size_selector.dart';
 
 class FontSizeSelectorScreen extends StatelessWidget {
   const FontSizeSelectorScreen({super.key});
