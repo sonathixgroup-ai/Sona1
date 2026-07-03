@@ -2,8 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../providers/chat_provider.dart';
-import 'chat_status_update.dart'; // ✅ import ajouté
+import 'package:thix_id/providers/chat_provider.dart';
+import 'package:thix_id/models/chat_models.dart';
+import 'chat_status_update.dart';
 
 class ChatStatusPage extends StatefulWidget {
   const ChatStatusPage({super.key});
@@ -17,7 +18,6 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ✅ Utilisation de la méthode existante
       context.read<ChatProvider>().loadContactsStatus();
     });
   }
@@ -25,7 +25,6 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
   @override
   Widget build(BuildContext context) {
     final chatProvider = Provider.of<ChatProvider>(context);
-    // ✅ Utilisation du getter existant
     final contacts = chatProvider.contactsStatus;
     final isLoading = chatProvider.isLoading;
 
@@ -61,10 +60,10 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
                           final contact = contacts[index];
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundImage: contact.avatarUrl != null
-                                  ? NetworkImage(contact.avatarUrl!)
+                              backgroundImage: contact.photoURL != null
+                                  ? NetworkImage(contact.photoURL!)
                                   : null,
-                              child: contact.avatarUrl == null
+                              child: contact.photoURL == null
                                   ? const Icon(Icons.person)
                                   : null,
                             ),
