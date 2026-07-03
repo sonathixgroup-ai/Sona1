@@ -2,6 +2,7 @@
 // [PARTIE] Modèles de données
 
 import 'package:equatable/equatable.dart';
+import 'chat_constants.dart';
 
 // ---------- Conversation ----------
 class Conversation extends Equatable {
@@ -14,6 +15,7 @@ class Conversation extends Equatable {
   final DateTime lastMessageTime;
   final int unreadCount;
   final bool isArchived;
+  final bool isOnline;
   final Map<String, dynamic>? metadata; // tag, etc.
 
   const Conversation({
@@ -26,6 +28,7 @@ class Conversation extends Equatable {
     required this.lastMessageTime,
     this.unreadCount = 0,
     this.isArchived = false,
+    this.isOnline = false,
     this.metadata,
   });
 
@@ -40,6 +43,7 @@ class Conversation extends Equatable {
       lastMessageTime: DateTime.parse(json['last_message_time']),
       unreadCount: json['unread_count'] ?? 0,
       isArchived: json['is_archived'] ?? false,
+      isOnline: json['is_online'] ?? false,
       metadata: json['metadata'],
     );
   }
@@ -54,6 +58,7 @@ class Conversation extends Equatable {
     'last_message_time': lastMessageTime.toIso8601String(),
     'unread_count': unreadCount,
     'is_archived': isArchived,
+    'is_online': isOnline,
     'metadata': metadata,
   };
 
@@ -137,6 +142,7 @@ class Message extends Equatable {
 
 // ---------- Message éphémère (spécialisation) ----------
 class EphemeralMessage extends Message {
+  @override
   final int durationSeconds;
   final DateTime? openedAt;
 
@@ -149,6 +155,7 @@ class EphemeralMessage extends Message {
     super.mediaUrl,
     required this.durationSeconds,
     this.openedAt,
+    required super.sentAt,
   });
 }
 
@@ -168,6 +175,7 @@ class ConfidentialMessage extends Message {
     required this.requiredCodeHash,
     this.isBiometric = false,
     this.isOpened = false,
+    required super.sentAt,
   });
 }
 
@@ -209,6 +217,22 @@ class Story extends Equatable {
   final bool hasNewStory;
 
   const Story({required this.id, required this.name, this.avatarUrl, this.hasNewStory = false});
+
+  factory Story.fromJson(Map<String, dynamic> json) {
+    return Story(
+      id: json['id'],
+      name: json['name'] ?? json['display_name'] ?? 'Utilisateur',
+      avatarUrl: json['avatar_url'],
+      hasNewStory: json['has_new_story'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'avatar_url': avatarUrl,
+    'has_new_story': hasNewStory,
+  };
 
   @override
   List<Object?> get props => [id];
