@@ -1,6 +1,6 @@
 // lib/presentation/chat/home_widgets/widget_preview_screen.dart
 import 'package:flutter/material.dart';
-import 'widget_preview.dart';
+import 'widget_preview.dart'; // ← corrigé (underscore)
 
 class WidgetPreviewScreen extends StatelessWidget {
   const WidgetPreviewScreen({super.key});
