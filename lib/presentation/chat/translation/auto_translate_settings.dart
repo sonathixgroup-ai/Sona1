@@ -2,6 +2,7 @@
 // Écran de paramètres pour la traduction automatique (globale ou par conversation)
 
 import 'package:flutter/material.dart';
+import 'language_selector_sheet.dart';
 
 class AutoTranslateSettings extends StatefulWidget {
   final bool isAutoTranslateEnabled;
