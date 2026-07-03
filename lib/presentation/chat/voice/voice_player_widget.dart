@@ -2,6 +2,7 @@
 // Lecteur audio pour les messages vocaux (play/pause, slider)
 
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 class VoicePlayerWidget extends StatefulWidget {
   final String url;
@@ -14,32 +15,72 @@ class VoicePlayerWidget extends StatefulWidget {
 }
 
 class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
+  late final VideoPlayerController _controller;
+  bool _isInitialized = false;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
 
-  void _play() {
-    setState(() => _isPlaying = true);
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..addListener(_syncState)
+      ..initialize().then((_) {
+        if (!mounted) return;
+        setState(() {
+          _isInitialized = true;
+        });
+      });
   }
 
-  void _pause() {
-    setState(() => _isPlaying = false);
+  void _syncState() {
+    if (!mounted) return;
+    final value = _controller.value;
+    setState(() {
+      _isPlaying = value.isPlaying;
+      _position = value.position;
+    });
+  }
+
+  Future<void> _play() async {
+    if (!_isInitialized) return;
+    await _controller.play();
+  }
+
+  Future<void> _pause() async {
+    if (!_isInitialized) return;
+    await _controller.pause();
+  }
+
+  Future<void> _seek(double seconds) async {
+    if (!_isInitialized) return;
+    await _controller.seekTo(Duration(seconds: seconds.toInt()));
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_syncState)
+      ..dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final maxSeconds = widget.durationSeconds.toDouble();
+    final currentSeconds = _position.inSeconds.toDouble().clamp(0.0, maxSeconds);
+
     return Row(
       children: [
         IconButton(
           icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-          onPressed: _isPlaying ? _pause : _play,
+          onPressed: _isInitialized ? (_isPlaying ? _pause : _play) : null,
         ),
         Expanded(
           child: Slider(
-            value: _position.inSeconds.toDouble(),
-            max: widget.durationSeconds.toDouble(),
-            onChanged: (val) {
-              setState(() => _position = Duration(seconds: val.toInt()));
-            },
+            value: currentSeconds,
+            max: maxSeconds,
+            onChanged: _isInitialized ? _seek : null,
           ),
         ),
         Text(

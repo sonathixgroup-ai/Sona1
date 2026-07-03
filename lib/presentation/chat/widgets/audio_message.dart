@@ -1,5 +1,6 @@
 // lib/presentation/chat/widgets/audio_message.dart
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 class AudioMessage extends StatefulWidget {
   final String url;
@@ -12,26 +13,71 @@ class AudioMessage extends StatefulWidget {
 }
 
 class _AudioMessageState extends State<AudioMessage> {
+  late final VideoPlayerController _controller;
+  bool _isInitialized = false;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
 
   @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..addListener(_syncState)
+      ..initialize().then((_) {
+        if (!mounted) return;
+        setState(() {
+          _isInitialized = true;
+        });
+      });
+  }
+
+  void _syncState() {
+    if (!mounted) return;
+    final value = _controller.value;
+    setState(() {
+      _isPlaying = value.isPlaying;
+      _position = value.position;
+    });
+  }
+
+  Future<void> _togglePlayPause() async {
+    if (!_isInitialized) return;
+    if (_isPlaying) {
+      await _controller.pause();
+    } else {
+      await _controller.play();
+    }
+  }
+
+  Future<void> _seek(double seconds) async {
+    if (!_isInitialized) return;
+    await _controller.seekTo(Duration(seconds: seconds.toInt()));
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_syncState)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final maxSeconds = widget.durationSeconds.toDouble();
+    final currentSeconds = _position.inSeconds.toDouble().clamp(0.0, maxSeconds);
+
     return Row(
       children: [
         IconButton(
           icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-          onPressed: () {
-            setState(() => _isPlaying = !_isPlaying);
-          },
+          onPressed: _isInitialized ? _togglePlayPause : null,
         ),
         Expanded(
           child: Slider(
-            value: _position.inSeconds.toDouble(),
-            max: widget.durationSeconds.toDouble(),
-            onChanged: (val) {
-              setState(() => _position = Duration(seconds: val.toInt()));
-            },
+            value: currentSeconds,
+            max: maxSeconds,
+            onChanged: _isInitialized ? _seek : null,
           ),
         ),
         Text(
