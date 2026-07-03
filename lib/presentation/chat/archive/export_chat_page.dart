@@ -2,10 +2,12 @@
 // Page pour exporter une conversation (PDF / JSON / texte)
 
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
-
+import '../core/chat_repository.dart';
+import '../core/chat_models.dart';
 
 class ExportChatPage extends StatefulWidget {
   final String conversationId;
@@ -108,7 +110,7 @@ class _ExportChatPageState extends State<ExportChatPage> {
       'content': m.content,
       'type': m.type,
     }).toList();
-    return {'conversation': widget.conversationName, 'messages': list}.toString();
+    return jsonEncode({'conversation': widget.conversationName, 'messages': list});
   }
 
   String _formatDateTime(DateTime dt) => '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute}';
