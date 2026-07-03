@@ -61,6 +61,8 @@ class DarkModeColors {
 
   static const metalGold = Color(0xFFD4AF37);
   static const metalGoldDeep = Color(0xFFB8860B);
+
+  static const cyberDarkBlue = Color(0xFF081F3A);
 }
 
 // =============================================================================
@@ -222,3 +224,60 @@ ThemeData get darkTheme => ThemeData(
 
       textTheme: _buildTextTheme(DarkModeColors.primaryText),
     );
+
+// =============================================================================
+// ADMIN CYBER COLORS
+// =============================================================================
+
+class AdminCyberColors {
+  static const text = Color(0xFFDCEFFF);
+  static const textDim = Color(0xFF7EAABF);
+  static const panel = Color(0xFF081828);
+  static const panelHi = Color(0xFF0B2040);
+  static const stroke = Color(0xFF1E3A5F);
+  static const neonCyan = Color(0xFF00E5FF);
+  static const neonViolet = Color(0xFFBB6BFF);
+  static const electricBlue = Color(0xFF0EA5E9);
+  static const black = Color(0xFF05111F);
+  static const success = Color(0xFF22C55E);
+  static const danger = Color(0xFFEF4444);
+}
+
+// =============================================================================
+// ADMIN CYBER GRADIENTS
+// =============================================================================
+
+class AdminCyberGradients {
+  static LinearGradient glowBlue() => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF0EA5E9), Color(0xFF00E5FF)],
+      );
+
+  static LinearGradient glowViolet() => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF7C3AED), Color(0xFFBB6BFF)],
+      );
+}
+
+// =============================================================================
+// MARKET COLORS
+// =============================================================================
+
+class MarketColors {
+  static const orange = Color(0xFFF97316);
+  static const orangeDeep = Color(0xFFEA580C);
+  static const stroke = Color(0xFFE2E8F0);
+  static const ink = Color(0xFF1E293B);
+  static const grayText = Color(0xFF94A3B8);
+  static const bg = Color(0xFFF1F5F9);
+}
+
+// =============================================================================
+// CONTEXT EXTENSIONS
+// =============================================================================
+
+extension ThixThemeX on BuildContext {
+  TextTheme get textStyles => Theme.of(this).textTheme;
+}
