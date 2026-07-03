@@ -3,11 +3,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 
 class TaskNotification {
   static final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
+    tz_data.initializeTimeZones();
     const AndroidInitializationSettings android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings ios = DarwinInitializationSettings();
     const InitializationSettings settings = InitializationSettings(android: android, iOS: ios);
@@ -56,12 +59,17 @@ class TaskNotification {
       importance: Importance.high,
     );
     const NotificationDetails details = NotificationDetails(android: androidDetails);
-    await _notifications.schedule(
+    final scheduledDate = tz.TZDateTime.from(
+      dueDate.subtract(const Duration(hours: 1)),
+      tz.local,
+    );
+    await _notifications.zonedSchedule(
       taskId.hashCode,
       'Tâche : $title',
       'Cette tâche arrive à échéance aujourd\'hui',
-      dueDate.subtract(const Duration(hours: 1)),
+      scheduledDate,
       details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 
