@@ -9,8 +9,8 @@ import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/profile_service.dart';        // ✅ Supabase uniquement
-import 'package:thix_id/services/user_service.dart';           // ✅ Nouveau service Supabase
+import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
@@ -19,6 +19,16 @@ import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
 import 'package:thix_id/presentation/chat/core/chat_repository.dart';
 import 'package:thix_id/presentation/chat/core/chat_events.dart';
 import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🆕 IMPORTS POUR LES ÉVÉNEMENTS
+// ═══════════════════════════════════════════════════════════════════════
+import 'package:thix_id/providers/event_provider.dart';
+import 'package:thix_id/services/event_service.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════════════════
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -100,6 +110,9 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final chatBloc = ChatBloc(ChatRepository());
     chatBloc.add(LoadConversations());
 
+    // 🆕 Service des événements (utilise le client Supabase déjà initialisé)
+    final eventService = EventService(SupabaseConfig.client);
+
     return _BootstrapResult(
       auth: auth,
       profiles: profiles,
@@ -107,6 +120,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
       network: network,
       feed: feed,
       chatBloc: chatBloc,
+      eventService: eventService,   // 👈 on le passe
     );
   }
 
@@ -123,6 +137,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 network: snap.data!.network,
                 feed: snap.data!.feed,
                 chatBloc: snap.data!.chatBloc,
+                eventService: snap.data!.eventService,   // 👈 on le transmet
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -149,10 +164,11 @@ class _BootstrapAppState extends State<BootstrapApp> {
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
-  final UserService userService;        // 👈 nouveau service
+  final UserService userService;
   final NetworkService network;
   final FeedProvider feed;
-  final ChatBloc chatBloc;              // 👈 THIX Chat
+  final ChatBloc chatBloc;
+  final EventService eventService;   // 🆕
 
   const _BootstrapResult({
     required this.auth,
@@ -161,10 +177,11 @@ class _BootstrapResult {
     required this.network,
     required this.feed,
     required this.chatBloc,
+    required this.eventService,
   });
 }
 
-// ─── Écran de chargement (inchangé) ───────────────────────────────────────
+// ─── Écran de chargement ───────────────────────────────────────────────
 
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
@@ -215,15 +232,16 @@ class _StartupLoadingPage extends StatelessWidget {
   }
 }
 
-// ─── Application principale ─────────────────────────────────────────────────
+// ─── Application principale ─────────────────────────────────────────────
 
 class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
-  final UserService userService;      // 👈 nouveau
+  final UserService userService;
   final NetworkService network;
   final FeedProvider feed;
-  final ChatBloc chatBloc;            // 👈 THIX Chat
+  final ChatBloc chatBloc;
+  final EventService eventService;   // 🆕
 
   const MyApp({
     super.key,
@@ -233,6 +251,7 @@ class MyApp extends StatefulWidget {
     required this.network,
     required this.feed,
     required this.chatBloc,
+    required this.eventService,
   });
 
   @override
@@ -263,10 +282,16 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
-        Provider<UserService>.value(value: widget.userService),   // 👈 fourni
+        Provider<UserService>.value(value: widget.userService),
         Provider<NetworkService>.value(value: widget.network),
         ChangeNotifierProvider.value(value: widget.feed),
-        BlocProvider<ChatBloc>.value(value: widget.chatBloc),     // 👈 THIX Chat, disponible partout
+        BlocProvider<ChatBloc>.value(value: widget.chatBloc),
+
+        // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
+        // On crée l'EventProvider en lui passant l'EventService déjà instancié
+        ChangeNotifierProvider(
+          create: (_) => EventProvider(widget.eventService),
+        ),
       ],
       child: Builder(
         builder: (context) {
