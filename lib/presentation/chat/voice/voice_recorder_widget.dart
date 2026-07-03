@@ -1,6 +1,5 @@
 // lib/presentation/chat/voice/voice_recorder_widget.dart
-// Widget d'enregistrement vocal (avec visualisation du niveau sonore)
-
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
@@ -22,6 +21,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
   int _recordDuration = 0;
   late String _filePath;
   double _amplitude = 0.0;
+  Timer? _durationTimer;
 
   @override
   void initState() {
@@ -43,25 +43,33 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
     );
     setState(() {
       _isRecording = true;
+      _isPaused = false;
       _recordDuration = 0;
     });
-    _updateDuration();
+    _startDurationTimer();
     _updateAmplitude();
   }
 
-  Future<void> _updateDuration() async {
-    while (_isRecording && !_isPaused) {
-      await Future.delayed(const Duration(seconds: 1));
-      final duration = await _recorder.getDuration();
-      if (mounted && duration != null) {
-        setState(() => _recordDuration = duration.inSeconds);
+  void _startDurationTimer() {
+    _durationTimer?.cancel();
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _isRecording && !_isPaused) {
+        setState(() {
+          _recordDuration++;
+        });
       }
-    }
+    });
+  }
+
+  void _stopDurationTimer() {
+    _durationTimer?.cancel();
+    _durationTimer = null;
   }
 
   Future<void> _updateAmplitude() async {
     while (_isRecording && !_isPaused) {
       await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) break;
       final amp = await _recorder.getAmplitude();
       if (mounted) {
         setState(() => _amplitude = amp.current);
@@ -72,22 +80,31 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
   Future<void> _pauseRecording() async {
     await _recorder.pause();
     setState(() => _isPaused = true);
+    _stopDurationTimer();
   }
 
   Future<void> _resumeRecording() async {
     await _recorder.resume();
     setState(() => _isPaused = false);
-    _updateDuration();
+    _startDurationTimer();
     _updateAmplitude();
   }
 
   Future<void> _stopRecording() async {
+    _stopDurationTimer();
     final path = await _recorder.stop();
     setState(() => _isRecording = false);
     if (path != null && _recordDuration > 0) {
       widget.onRecordingComplete(File(path), _recordDuration);
     }
     Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    _stopDurationTimer();
+    _recorder.dispose();
+    super.dispose();
   }
 
   @override
@@ -98,7 +115,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> {
         mainAxisSize: MainAxisSize.min,
         children: [
           LinearProgressIndicator(
-            value: _amplitude / 100,
+            value: (_amplitude / 100).clamp(0.0, 1.0),
             backgroundColor: Colors.grey[300],
             color: Colors.red,
           ),
