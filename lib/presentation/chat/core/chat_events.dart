@@ -2,6 +2,10 @@
 // [PARTIE] Événements du Bloc
 
 import 'package:equatable/equatable.dart';
+import 'chat_constants.dart';
+import 'chat_utils.dart';
+import 'chat_models.dart';
+import '../archive/search_filters.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
@@ -9,10 +13,8 @@ abstract class ChatEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-// Chargement des conversations
 class LoadConversations extends ChatEvent {}
 
-// Filtrage des conversations
 class FilterConversations extends ChatEvent {
   final String filter;
   const FilterConversations(this.filter);
@@ -20,7 +22,6 @@ class FilterConversations extends ChatEvent {
   List<Object> get props => [filter];
 }
 
-// Chargement des messages d'une conversation
 class LoadMessages extends ChatEvent {
   final String conversationId;
   const LoadMessages(this.conversationId);
@@ -28,7 +29,6 @@ class LoadMessages extends ChatEvent {
   List<Object> get props => [conversationId];
 }
 
-// Envoi d'un message standard (texte, image, etc.)
 class SendMessage extends ChatEvent {
   final String conversationId;
   final String type;
@@ -46,10 +46,9 @@ class SendMessage extends ChatEvent {
   List<Object?> get props => [conversationId, type, content];
 }
 
-// Envoi d'un message éphémère
 class SendEphemeralMessage extends SendMessage {
   final int durationSeconds;
-  const SendEphemeralMessage({
+  SendEphemeralMessage({
     required super.conversationId,
     super.content,
     super.mediaUrl,
@@ -62,11 +61,10 @@ class SendEphemeralMessage extends SendMessage {
   List<Object> get props => [...super.props, durationSeconds];
 }
 
-// Envoi d'un message confidentiel (avec code)
 class SendConfidentialMessage extends SendMessage {
   final String code;
   final bool isBiometric;
-  const SendConfidentialMessage({
+  SendConfidentialMessage({
     required super.conversationId,
     super.content,
     super.mediaUrl,
@@ -83,7 +81,6 @@ class SendConfidentialMessage extends SendMessage {
   List<Object> get props => [...super.props, code, isBiometric];
 }
 
-// Déverrouiller un message confidentiel
 class UnlockConfidentialMessage extends ChatEvent {
   final String messageId;
   final String enteredCode;
@@ -92,45 +89,95 @@ class UnlockConfidentialMessage extends ChatEvent {
   List<Object> get props => [messageId, enteredCode];
 }
 
-// Marquer un message comme lu
 class MarkMessageAsRead extends ChatEvent {
   final String messageId;
   final String conversationId;
   const MarkMessageAsRead(this.messageId, this.conversationId);
+  @override
+  List<Object> get props => [messageId, conversationId];
 }
 
-// Ajouter une réaction
 class AddReaction extends ChatEvent {
   final String messageId;
   final String reaction;
   const AddReaction(this.messageId, this.reaction);
+  @override
+  List<Object> get props => [messageId, reaction];
 }
 
-// Supprimer un message
 class DeleteMessage extends ChatEvent {
   final String messageId;
   final bool forEveryone;
   const DeleteMessage(this.messageId, {this.forEveryone = false});
+  @override
+  List<Object> get props => [messageId, forEveryone];
 }
 
-// Indicateur de frappe
+// Épingler / désépingler un message
+class PinMessage extends ChatEvent {
+  final String conversationId;
+  final String messageId;
+  const PinMessage(this.conversationId, this.messageId);
+  @override
+  List<Object> get props => [conversationId, messageId];
+}
+
+class UnpinMessage extends ChatEvent {
+  final String conversationId;
+  final String messageId;
+  const UnpinMessage(this.conversationId, this.messageId);
+  @override
+  List<Object> get props => [conversationId, messageId];
+}
+
 class StartTyping extends ChatEvent {
   final String conversationId;
   const StartTyping(this.conversationId);
+  @override
+  List<Object> get props => [conversationId];
 }
+
 class StopTyping extends ChatEvent {
   final String conversationId;
   const StopTyping(this.conversationId);
+  @override
+  List<Object> get props => [conversationId];
 }
 
-// Mise à jour de présence
 class UpdatePresence extends ChatEvent {
   final String status;
   const UpdatePresence(this.status);
+  @override
+  List<Object> get props => [status];
 }
 
-// Réception d'un nouveau message en temps réel (via WebSocket)
 class NewMessageReceived extends ChatEvent {
   final Message message;
   const NewMessageReceived(this.message);
+  @override
+  List<Object> get props => [message];
+}
+
+// ==================== ARCHIVES ====================
+class LoadArchivedConversations extends ChatEvent {}
+
+class UnarchiveConversation extends ChatEvent {
+  final String conversationId;
+  const UnarchiveConversation(this.conversationId);
+  @override
+  List<Object> get props => [conversationId];
+}
+
+class DeleteArchivedConversation extends ChatEvent {
+  final String conversationId;
+  const DeleteArchivedConversation(this.conversationId);
+  @override
+  List<Object> get props => [conversationId];
+}
+
+class SearchArchivedConversations extends ChatEvent {
+  final SearchFilters filters;
+  const SearchArchivedConversations(this.filters);
+  @override
+  List<Object> get props => [filters];
 }
