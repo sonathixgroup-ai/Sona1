@@ -20,7 +20,7 @@ class SpeedControlWidget extends StatelessWidget {
       icon: const Icon(Icons.speed),
       tooltip: 'Vitesse de lecture',
       initialValue: currentSpeed,
-      onSelected: onSpeedChanged ?? (_) {},
+      onSelected: onSpeedChanged,
       itemBuilder: (context) => speeds.map((speed) {
         return PopupMenuItem(
           value: speed,

@@ -14,6 +14,7 @@ class AudioMessage extends StatefulWidget {
 
 class _AudioMessageState extends State<AudioMessage> {
   late final VideoPlayerController _controller;
+  bool _hasControllerListener = false;
   bool _isInitialized = false;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
@@ -25,6 +26,7 @@ class _AudioMessageState extends State<AudioMessage> {
       ..initialize().then((_) {
         if (!mounted) return;
         _controller.addListener(_syncState);
+        _hasControllerListener = true;
         setState(() {
           _isInitialized = true;
           _position = _controller.value.position;
@@ -58,9 +60,10 @@ class _AudioMessageState extends State<AudioMessage> {
 
   @override
   void dispose() {
-    _controller
-      ..removeListener(_syncState)
-      ..dispose();
+    if (_hasControllerListener) {
+      _controller.removeListener(_syncState);
+    }
+    _controller.dispose();
     super.dispose();
   }
 

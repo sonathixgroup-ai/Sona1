@@ -16,6 +16,7 @@ class VoicePlayerWidget extends StatefulWidget {
 
 class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
   late final VideoPlayerController _controller;
+  bool _hasControllerListener = false;
   bool _isInitialized = false;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
@@ -27,6 +28,7 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
       ..initialize().then((_) {
         if (!mounted) return;
         _controller.addListener(_syncState);
+        _hasControllerListener = true;
         setState(() {
           _isInitialized = true;
           _position = _controller.value.position;
@@ -61,9 +63,10 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
 
   @override
   void dispose() {
-    _controller
-      ..removeListener(_syncState)
-      ..dispose();
+    if (_hasControllerListener) {
+      _controller.removeListener(_syncState);
+    }
+    _controller.dispose();
     super.dispose();
   }
 
