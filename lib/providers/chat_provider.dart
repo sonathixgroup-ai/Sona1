@@ -233,6 +233,28 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  // ============================================================
+  // CONTACTS STATUS
+  // ============================================================
+
+  List<ChatUser> _contactsStatus = [];
+  List<ChatUser> get contactsStatus => _contactsStatus;
+
+  Future<void> loadContactsStatus() async {
+    try {
+      _contactsStatus = await _chatService.getContactsStatus();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  // ============================================================
+  // STORIES (CREATE)
+  // ============================================================
+
   Future<void> createStoryText(String text) async {
     try {
       await _chatService.createStoryText(text);
