@@ -1,7 +1,8 @@
 // lib/presentation/chat/archive/archive_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/chat_provider.dart';
+import 'package:thix_id/providers/chat_provider.dart'; // ✅ chemin correct
+import 'package:thix_id/models/chat_models.dart'; // ✅ pour le type Conversation
 import 'archive_list_item.dart';
 import 'advanced_search_sheet.dart';
 import 'search_filters.dart';
