@@ -1,23 +1,8 @@
 // lib/presentation/chat/archive/archive_list_item.dart
 import 'package:flutter/material.dart';
+import 'package:thix_id/presentation/chat/core/chat_models.dart'; // ← import du modèle partagé
 
-class Conversation {
-  final String id;
-  final String name;
-  final String? lastMessage;
-  final DateTime lastMessageTime;
-  final int unreadCount;
-  final bool isArchived;
-
-  Conversation({
-    required this.id,
-    required this.name,
-    this.lastMessage,
-    required this.lastMessageTime,
-    this.unreadCount = 0,
-    this.isArchived = false,
-  });
-}
+// SUPPRIME la définition locale de la classe Conversation ci-dessous
 
 class ArchiveListItem extends StatelessWidget {
   final Conversation conversation;
