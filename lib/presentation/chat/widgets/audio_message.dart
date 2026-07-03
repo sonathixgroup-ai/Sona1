@@ -34,7 +34,8 @@ class _AudioMessageState extends State<AudioMessage> {
         _position = _controller.value.position;
         _isPlaying = _controller.value.isPlaying;
       });
-    }).catchError((_) {
+    }).catchError((error) {
+      debugPrint('AudioMessage init failed: $error');
       if (!mounted) return;
       setState(() {
         _hasInitError = true;
@@ -78,12 +79,13 @@ class _AudioMessageState extends State<AudioMessage> {
   Widget build(BuildContext context) {
     if (_hasInitError) {
       return const Text(
-        'Lecture audio indisponible',
+        'Lecture audio indisponible. Vérifiez la connexion.',
         style: TextStyle(fontSize: 12),
       );
     }
 
-    final maxSeconds = widget.durationSeconds.toDouble();
+    final controllerDuration = _controller.value.duration.inSeconds;
+    final maxSeconds = (controllerDuration > 0 ? controllerDuration : widget.durationSeconds).toDouble();
     final currentSeconds = _position.inSeconds.toDouble().clamp(0.0, maxSeconds);
 
     return Row(
