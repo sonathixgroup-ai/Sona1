@@ -2,7 +2,6 @@
 // Affiche la liste des participants ayant lu un message donné
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class ReadReceiptsView extends StatelessWidget {
   final List<ReadReceiptUser> readers;
@@ -25,7 +24,7 @@ class ReadReceiptsView extends StatelessWidget {
           return ListTile(
             leading: CircleAvatar(
               backgroundImage: user.avatarUrl != null
-                  ? CachedNetworkImageProvider(user.avatarUrl!)
+                  ? NetworkImage(user.avatarUrl!)
                   : const AssetImage('assets/default_avatar.png') as ImageProvider,
             ),
             title: Text(user.displayName),

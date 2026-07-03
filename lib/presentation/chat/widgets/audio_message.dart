@@ -1,6 +1,5 @@
 // lib/presentation/chat/widgets/audio_message.dart
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
 
 class AudioMessage extends StatefulWidget {
   final String url;
@@ -13,22 +12,8 @@ class AudioMessage extends StatefulWidget {
 }
 
 class _AudioMessageState extends State<AudioMessage> {
-  final AudioPlayer _player = AudioPlayer();
   bool _isPlaying = false;
   Duration _position = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _player.onPositionChanged.listen((p) => setState(() => _position = p));
-    _player.onPlayerComplete.listen((_) => setState(() => _isPlaying = false));
-  }
-
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +21,7 @@ class _AudioMessageState extends State<AudioMessage> {
       children: [
         IconButton(
           icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-          onPressed: () async {
-            if (_isPlaying) {
-              await _player.pause();
-            } else {
-              await _player.play(UrlSource(widget.url));
-            }
+          onPressed: () {
             setState(() => _isPlaying = !_isPlaying);
           },
         ),
@@ -49,8 +29,8 @@ class _AudioMessageState extends State<AudioMessage> {
           child: Slider(
             value: _position.inSeconds.toDouble(),
             max: widget.durationSeconds.toDouble(),
-            onChanged: (val) async {
-              await _player.seek(Duration(seconds: val.toInt()));
+            onChanged: (val) {
+              setState(() => _position = Duration(seconds: val.toInt()));
             },
           ),
         ),

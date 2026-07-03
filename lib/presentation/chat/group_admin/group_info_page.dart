@@ -2,7 +2,6 @@
 // Page d'information détaillée du groupe (membres, fichiers, paramètres)
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'group_roles_manager.dart';
 import 'group_settings_page.dart';
 import 'add_members_sheet.dart';
@@ -38,7 +37,7 @@ class GroupInfoPage extends StatelessWidget {
                 CircleAvatar(
                   radius: 40,
                   backgroundImage: avatarUrl != null
-                      ? CachedNetworkImageProvider(avatarUrl!)
+                      ? NetworkImage(avatarUrl!)
                       : const AssetImage('assets/default_group.png') as ImageProvider,
                 ),
                 const SizedBox(height: 8),
@@ -117,7 +116,7 @@ class GroupInfoPage extends StatelessWidget {
           ...members.map((m) => ListTile(
                 leading: CircleAvatar(
                   backgroundImage: m.avatarUrl != null
-                      ? CachedNetworkImageProvider(m.avatarUrl!)
+                      ? NetworkImage(m.avatarUrl!)
                       : null,
                   child: m.avatarUrl == null ? Text(m.displayName[0]) : null,
                 ),

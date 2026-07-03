@@ -2,7 +2,6 @@
 // Widget de notification flottante (toast/banner) pour appel entrant
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class CallNotificationWidget extends StatelessWidget {
   final String callerName;
@@ -39,7 +38,7 @@ class CallNotificationWidget extends StatelessWidget {
               CircleAvatar(
                 radius: 20,
                 backgroundImage: callerAvatarUrl != null
-                    ? CachedNetworkImageProvider(callerAvatarUrl!)
+                    ? NetworkImage(callerAvatarUrl!)
                     : const AssetImage('assets/default_avatar.png') as ImageProvider,
               ),
               const SizedBox(width: 12),

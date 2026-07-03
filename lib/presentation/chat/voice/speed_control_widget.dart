@@ -1,17 +1,16 @@
 // lib/presentation/chat/voice/speed_control_widget.dart
 // Contrôle de vitesse de lecture (0.5x, 1x, 1.5x, 2x)
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class SpeedControlWidget extends StatelessWidget {
-  final AudioPlayer player;
   final double currentSpeed;
+  final ValueChanged<double>? onSpeedChanged;
 
   const SpeedControlWidget({
     Key? key,
-    required this.player,
     required this.currentSpeed,
+    this.onSpeedChanged,
   }) : super(key: key);
 
   @override
@@ -21,7 +20,7 @@ class SpeedControlWidget extends StatelessWidget {
       icon: const Icon(Icons.speed),
       tooltip: 'Vitesse de lecture',
       initialValue: currentSpeed,
-      onSelected: (speed) => player.setPlaybackRate(speed),
+      onSelected: onSpeedChanged,
       itemBuilder: (context) => speeds.map((speed) {
         return PopupMenuItem(
           value: speed,

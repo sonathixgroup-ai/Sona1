@@ -2,7 +2,6 @@
 // Écran lors d'un appel sortant (en attente de réponse)
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class OutgoingCallScreen extends StatelessWidget {
   final String calleeName;
@@ -29,7 +28,7 @@ class OutgoingCallScreen extends StatelessWidget {
             CircleAvatar(
               radius: 50,
               backgroundImage: calleeAvatarUrl != null
-                  ? CachedNetworkImageProvider(calleeAvatarUrl!)
+                  ? NetworkImage(calleeAvatarUrl!)
                   : const AssetImage('assets/default_avatar.png') as ImageProvider,
             ),
             const SizedBox(height: 24),

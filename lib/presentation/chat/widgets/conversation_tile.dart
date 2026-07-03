@@ -1,6 +1,5 @@
 // lib/presentation/chat/widgets/conversation_tile.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/chat_models.dart';
 
 class ConversationTile extends StatelessWidget {
@@ -21,7 +20,7 @@ class ConversationTile extends StatelessWidget {
           CircleAvatar(
             radius: 24,
             backgroundImage: conversation.avatarUrl != null
-                ? CachedNetworkImageProvider(conversation.avatarUrl!)
+                ? NetworkImage(conversation.avatarUrl!)
                 : const AssetImage('assets/default_avatar.png') as ImageProvider,
             child: conversation.isGroup && conversation.avatarUrl == null
                 ? const Icon(Icons.group_outlined, size: 28)

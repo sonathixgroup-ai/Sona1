@@ -2,7 +2,6 @@
 // Écran affiché lors d'un appel entrant (avec accept/refuser)
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatIncomingCallScreen extends StatelessWidget {
   final String callerName;
@@ -33,7 +32,7 @@ class ChatIncomingCallScreen extends StatelessWidget {
             CircleAvatar(
               radius: 50,
               backgroundImage: callerAvatarUrl != null
-                  ? CachedNetworkImageProvider(callerAvatarUrl!)
+                  ? NetworkImage(callerAvatarUrl!)
                   : const AssetImage('assets/default_avatar.png') as ImageProvider,
             ),
             const SizedBox(height: 24),

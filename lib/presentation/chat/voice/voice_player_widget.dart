@@ -1,7 +1,6 @@
 // lib/presentation/chat/voice/voice_player_widget.dart
 // Lecteur audio pour les messages vocaux (play/pause, slider)
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class VoicePlayerWidget extends StatefulWidget {
@@ -15,35 +14,14 @@ class VoicePlayerWidget extends StatefulWidget {
 }
 
 class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
-  final AudioPlayer _player = AudioPlayer();
   bool _isPlaying = false;
   Duration _position = Duration.zero;
 
-  @override
-  void initState() {
-    super.initState();
-    _player.onPositionChanged.listen((p) {
-      if (mounted) setState(() => _position = p);
-    });
-    _player.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _isPlaying = false);
-    });
-    _player.setSourceUrl(widget.url);
-  }
-
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
-  }
-
-  Future<void> _play() async {
-    await _player.resume();
+  void _play() {
     setState(() => _isPlaying = true);
   }
 
-  Future<void> _pause() async {
-    await _player.pause();
+  void _pause() {
     setState(() => _isPlaying = false);
   }
 
@@ -59,8 +37,7 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
           child: Slider(
             value: _position.inSeconds.toDouble(),
             max: widget.durationSeconds.toDouble(),
-            onChanged: (val) async {
-              await _player.seek(Duration(seconds: val.toInt()));
+            onChanged: (val) {
               setState(() => _position = Duration(seconds: val.toInt()));
             },
           ),

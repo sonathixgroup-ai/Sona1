@@ -1,7 +1,6 @@
 // lib/presentation/chat/group_admin/group_settings_page.dart
 import 'dart:io'; // ← Ajout pour File
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 
 class GroupSettingsPage extends StatefulWidget {
@@ -57,7 +56,7 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
                   backgroundImage: _avatarPath != null
                       ? FileImage(File(_avatarPath!))
                       : (widget.initialAvatarUrl != null
-                          ? CachedNetworkImageProvider(widget.initialAvatarUrl!)
+                          ? NetworkImage(widget.initialAvatarUrl!)
                           : const AssetImage('assets/default_group.png') as ImageProvider),
                 ),
                 Positioned(

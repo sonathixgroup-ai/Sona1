@@ -1,6 +1,5 @@
 // lib/presentation/chat/read_receipts/read_by_list.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 // Définition locale du modèle (si non disponible ailleurs)
 class ReadReceiptUser {
@@ -42,7 +41,7 @@ class ReadByList extends StatelessWidget {
               child: CircleAvatar(
                 radius: 12,
                 backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                    ? CachedNetworkImageProvider(user.avatarUrl!) as ImageProvider
+                    ? NetworkImage(user.avatarUrl!) as ImageProvider
                     : const AssetImage('assets/default_avatar.png'),
                 child: user.avatarUrl == null || user.avatarUrl!.isEmpty
                     ? const Icon(Icons.person, size: 12)

@@ -1,6 +1,5 @@
 // lib/presentation/chat/online_status/online_list.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/chat_models.dart';
 
 class OnlineList extends StatelessWidget {
@@ -29,7 +28,7 @@ class OnlineList extends StatelessWidget {
                     CircleAvatar(
                       radius: 28,
                       backgroundImage: user.avatarUrl != null
-                          ? CachedNetworkImageProvider(user.avatarUrl!)
+                          ? NetworkImage(user.avatarUrl!)
                           : const AssetImage('assets/default_avatar.png') as ImageProvider,
                     ),
                     Positioned(

@@ -1,6 +1,5 @@
 // lib/presentation/chat/widgets/stories_row.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/chat_models.dart';
 
 class StoriesRow extends StatelessWidget {
@@ -27,7 +26,7 @@ class StoriesRow extends StatelessWidget {
                     CircleAvatar(
                       radius: 28,
                       backgroundImage: story.avatarUrl != null
-                          ? CachedNetworkImageProvider(story.avatarUrl!)
+                          ? NetworkImage(story.avatarUrl!)
                           : const AssetImage('assets/default_avatar.png') as ImageProvider,
                     ),
                     if (story.hasNewStory)
