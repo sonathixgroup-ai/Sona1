@@ -4,7 +4,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:contacts_service/contacts_service.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class ContactShareWidget extends StatefulWidget {
@@ -19,6 +19,7 @@ class ContactShareWidget extends StatefulWidget {
 class _ContactShareWidgetState extends State<ContactShareWidget> {
   List<Contact> _contacts = [];
   bool _hasPermission = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -29,29 +30,33 @@ class _ContactShareWidgetState extends State<ContactShareWidget> {
   Future<void> _requestPermission() async {
     final status = await Permission.contacts.request();
     if (status.isGranted) {
-      _loadContacts();
+      await _loadContacts();
     } else {
-      setState(() => _hasPermission = false);
+      setState(() {
+        _hasPermission = false;
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _loadContacts() async {
-    final Iterable<Contact> contacts = await ContactsService.getContacts();
+    final contacts = await FlutterContacts.getContacts(withProperties: true);
     setState(() {
-      _contacts = contacts.toList();
+      _contacts = contacts;
       _hasPermission = true;
+      _isLoading = false;
     });
   }
 
   Future<void> _shareContact(Contact contact) async {
     final vCard = _generateVCard(contact);
-    final tempFile = File('${Directory.systemTemp.path}/contact_${contact.identifier}.vcf');
+    final tempFile = File('${Directory.systemTemp.path}/contact_${contact.id}.vcf');
     await tempFile.writeAsString(vCard);
     await Share.shareXFiles([XFile(tempFile.path)], text: 'Contact : ${contact.displayName}');
     widget.onContactSelected({
-      'name': contact.displayName ?? 'Sans nom',
-      'phones': contact.phones?.map((p) => p.value).join(', ') ?? '',
-      'emails': contact.emails?.map((e) => e.value).join(', ') ?? '',
+      'name': contact.displayName,
+      'phones': contact.phones.map((p) => p.number).join(', '),
+      'emails': contact.emails.map((e) => e.address).join(', '),
     });
   }
 
@@ -60,11 +65,11 @@ class _ContactShareWidgetState extends State<ContactShareWidget> {
     buffer.writeln('BEGIN:VCARD');
     buffer.writeln('VERSION:3.0');
     buffer.writeln('FN:${contact.displayName}');
-    for (var phone in contact.phones ?? []) {
-      buffer.writeln('TEL;TYPE=${phone.type ?? 'CELL'}:${phone.value}');
+    for (var phone in contact.phones) {
+      buffer.writeln('TEL;TYPE=${phone.label.name.toUpperCase()}:${phone.number}');
     }
-    for (var email in contact.emails ?? []) {
-      buffer.writeln('EMAIL:${email.value}');
+    for (var email in contact.emails) {
+      buffer.writeln('EMAIL:${email.address}');
     }
     buffer.writeln('END:VCARD');
     return buffer.toString();
@@ -86,21 +91,26 @@ class _ContactShareWidgetState extends State<ContactShareWidget> {
               ),
             ],
           ),
-          if (!_hasPermission)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Permission contacts requise'),
-                  ElevatedButton(
-                    onPressed: _requestPermission,
-                    child: const Text('Autoriser'),
-                  ),
-                ],
+          if (_isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (!_hasPermission)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Permission contacts requise'),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _requestPermission,
+                      child: const Text('Autoriser'),
+                    ),
+                  ],
+                ),
               ),
             )
           else if (_contacts.isEmpty)
-            const Center(child: CircularProgressIndicator())
+            const Expanded(child: Center(child: Text('Aucun contact trouvé')))
           else
             Expanded(
               child: ListView.builder(
@@ -109,9 +119,9 @@ class _ContactShareWidgetState extends State<ContactShareWidget> {
                   final contact = _contacts[index];
                   return ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.person)),
-                    title: Text(contact.displayName ?? 'Sans nom'),
-                    subtitle: Text(contact.phones?.isNotEmpty == true
-                        ? contact.phones!.first.value!
+                    title: Text(contact.displayName.isNotEmpty ? contact.displayName : 'Sans nom'),
+                    subtitle: Text(contact.phones.isNotEmpty
+                        ? contact.phones.first.number
                         : 'Aucun téléphone'),
                     onTap: () => _shareContact(contact),
                   );
