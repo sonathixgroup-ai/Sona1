@@ -1241,7 +1241,7 @@ GoRoute(
   pageBuilder: (context, state) => NoTransitionPage(child: StatusSettingsScreen()),
 ),
 GoRoute(
-  path: AppRoutes.availabilitySchedule,
+  path: AppRoutes.chatAvailabilitySchedule,   // ← corrigé (était AppRoutes.availabilitySchedule, inexistant)
   name: 'availabilitySchedule',
   pageBuilder: (context, state) => NoTransitionPage(
     child: const AvailabilitySchedule(),
