@@ -1,6 +1,5 @@
 // lib/presentation/chat/group_admin/group_settings_page.dart
-// Paramètres du groupe (nom, avatar, description, règles, etc.)
-
+import 'dart:io'; // ← Ajout pour File
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
