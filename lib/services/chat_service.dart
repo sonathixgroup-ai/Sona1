@@ -577,7 +577,21 @@ class ChatService {
       'read_at': DateTime.now().toUtc().toIso8601String(),
     });
   }
+   // ============================================================
+// PRESENCE UPDATE (AJOUTÉ)
+// ============================================================
+Future<void> updatePresence(String status) async {
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) throw Exception('Utilisateur non connecté');
 
+  await Supabase.instance.client
+      .from(presenceTable) // table 'thix_chat_presence'
+      .update({
+        'status': status,
+        'last_seen': DateTime.now().toIso8601String(),
+      })
+      .eq('user_id', user.id);
+}
   // ============================================================
   // STATS, STORIES, SPACES
   // ============================================================
