@@ -34,7 +34,7 @@ jobs:
         # - GitHub Pages (project pages under /<repo>/)
         # - Dreamflow share/hosting (served at a different path)
         # This prevents blank screens caused by missing assets.
-        run: flutter build web --release --base-href ./
+        run: flutter build web --release --base-href /Sona1/
 
       # GitHub Pages does not provide SPA rewrite by default.
       # Copy index.html to 404.html so deep links (go_router paths) load the app.
