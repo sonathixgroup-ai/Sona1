@@ -30,7 +30,7 @@ class DarkTheme {
         textColor: CustomColors.darkTextPrimary,
         subtitleTextStyle: TextStyles.caption,
       ),
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         bodyLarge: TextStyles.messageBody.copyWith(color: CustomColors.darkTextPrimary),
         bodyMedium: TextStyles.caption.copyWith(color: CustomColors.darkTextSecondary),
         titleLarge: TextStyles.headline.copyWith(color: CustomColors.darkTextPrimary),
