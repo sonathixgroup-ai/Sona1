@@ -1,6 +1,4 @@
 // lib/presentation/chat/online_status/online_list.dart
-// Liste des contacts actuellement en ligne (pour l'écran d'accueil ou tiroir)
-
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/chat_models.dart';
@@ -47,6 +45,31 @@ class OnlineList extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// Widget indicateur de statut en ligne/hors ligne
+class StatusIndicator extends StatelessWidget {
+  final bool isOnline;
+  final double radius;
+
+  const StatusIndicator({
+    Key? key,
+    required this.isOnline,
+    this.radius = 6,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        color: isOnline ? Colors.green : Colors.grey,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
       ),
     );
   }
