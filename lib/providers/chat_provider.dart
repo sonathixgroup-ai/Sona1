@@ -6,13 +6,13 @@ import 'package:thix_id/presentation/chat/core/chat_models.dart';
 class ChatProvider extends ChangeNotifier {
   final chat_service.ChatService _chatService;
 
-  // États – utilisent le modèle UI (chat_models.dart)
+  // États – utilisent le modèle UI (chat_models.dart) pour les conversations
   List<Conversation> _conversations = [];
   List<Conversation> _archivedConversations = [];
-  List<chat_service.ChatMessage> _messages = []; // pas de conflit, on garde le service
+  List<chat_service.ChatMessage> _messages = [];
   List<chat_service.Story> _stories = [];
   List<chat_service.Space> _spaces = [];
-  ChatStats _stats = const ChatStats(); // attention, deux ChatStats existent (service et UI) ; on garde celui du service pour l'instant
+  chat_service.ChatStats _stats = const chat_service.ChatStats(); // ✅ corrigé
 
   bool _isLoading = false;
   String? _error;
@@ -23,7 +23,7 @@ class ChatProvider extends ChangeNotifier {
   List<chat_service.ChatMessage> get messages => _messages;
   List<chat_service.Story> get stories => _stories;
   List<chat_service.Space> get spaces => _spaces;
-  ChatStats get stats => _stats; // retourne le ChatStats du service
+  chat_service.ChatStats get stats => _stats; // ✅ corrigé
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -39,9 +39,9 @@ class ChatProvider extends ChangeNotifier {
       avatarUrl: s.avatarURL,
       isGroup: s.type == chat_service.ConversationType.group,
       participantIds: s.participantIds,
-      lastMessage: '', // vous pourrez enrichir si nécessaire
+      lastMessage: '',
       lastMessageTime: s.lastMessageAt ?? s.updatedAt,
-      unreadCount: 0, // à adapter si vous avez les données
+      unreadCount: 0,
       isArchived: s.status == chat_service.ConversationStatus.archived,
       isOnline: false,
     );
@@ -127,7 +127,7 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // ============================================================
-  // MESSAGES (inchangé – pas de conflit de type)
+  // MESSAGES
   // ============================================================
 
   Future<void> loadMessages(String conversationId) async {
@@ -331,7 +331,7 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _stories = [];
     _spaces = [];
-    _stats = const chat_service.ChatStats();
+    _stats = const chat_service.ChatStats(); // ✅ corrigé
     _isLoading = false;
     _error = null;
     notifyListeners();
