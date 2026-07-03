@@ -1,7 +1,9 @@
 // lib/presentation/chat/chat_status_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/chat_provider.dart';
+import 'chat_status_update.dart'; // ✅ import ajouté
 
 class ChatStatusPage extends StatefulWidget {
   const ChatStatusPage({super.key});
@@ -15,6 +17,7 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ✅ Utilisation de la méthode existante
       context.read<ChatProvider>().loadContactsStatus();
     });
   }
@@ -22,6 +25,7 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
   @override
   Widget build(BuildContext context) {
     final chatProvider = Provider.of<ChatProvider>(context);
+    // ✅ Utilisation du getter existant
     final contacts = chatProvider.contactsStatus;
     final isLoading = chatProvider.isLoading;
 
@@ -44,10 +48,8 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
       ),
       body: Column(
         children: [
-          // Mon statut actuel
           _buildMyStatus(),
           const Divider(),
-          // Liste des contacts
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -92,8 +94,6 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
   }
 
   Widget _buildMyStatus() {
-    // Récupère le statut de l'utilisateur courant depuis SharedPreferences ou provider
-    // Ici on utilise SharedPreferences pour simplifier
     return FutureBuilder(
       future: _getMyStatus(),
       builder: (context, snapshot) {
