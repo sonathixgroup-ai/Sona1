@@ -32,10 +32,7 @@ class ChatHomePage extends StatelessWidget {
                 slivers: [
                   SliverToBoxAdapter(
                     child: ChatStatsRow(
-                      onlineCount: state.stats.onlineCount,
-                      newMessagesCount: state.stats.newMessagesCount,
-                      activeMeetingsCount: state.stats.activeMeetingsCount,
-                      securityAlertsCount: state.stats.securityAlertsCount,
+                      stats: state.stats, // ✅ On passe l'objet stats
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -56,14 +53,7 @@ class ChatHomePage extends StatelessWidget {
                         (context, index) {
                           final conv = state.filteredConversations[index];
                           return ConversationTile(
-                            id: conv.id,
-                            name: conv.name,
-                            lastMessage: conv.lastMessage ?? 'Aucun message',
-                            time: _formatTime(conv.lastMessageTime),
-                            unreadCount: conv.unreadCount,
-                            avatarUrl: conv.avatarUrl,
-                            isOnline: conv.isOnline,
-                            isGroup: conv.isGroup,
+                            conversation: conv, // ✅ On passe l'objet conversation
                             onTap: () {
                               Navigator.pushNamed(
                                 context,
