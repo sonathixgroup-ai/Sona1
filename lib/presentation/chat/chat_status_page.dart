@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thix_id/providers/chat_provider.dart';
-import 'package:thix_id/models/chat_models.dart';
+import 'package:thix_id/presentation/chat/core/chat_models.dart'; // ← CORRIGÉ
 import 'chat_status_update.dart';
 
 class ChatStatusPage extends StatefulWidget {
@@ -60,10 +60,10 @@ class _ChatStatusPageState extends State<ChatStatusPage> {
                           final contact = contacts[index];
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundImage: contact.photoURL != null
-                                  ? NetworkImage(contact.photoURL!)
+                              backgroundImage: contact.avatarUrl != null // ← CORRIGÉ
+                                  ? NetworkImage(contact.avatarUrl!) // ← CORRIGÉ
                                   : null,
-                              child: contact.photoURL == null
+                              child: contact.avatarUrl == null // ← CORRIGÉ
                                   ? const Icon(Icons.person)
                                   : null,
                             ),
