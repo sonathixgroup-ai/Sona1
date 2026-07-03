@@ -15,7 +15,7 @@ class VoicePlayerWidget extends StatefulWidget {
 }
 
 class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
-  // Uses video_player as a fallback player to avoid requiring audioplayers.
+  // Uses video_player for audio playback support without audioplayers.
   late final VideoPlayerController _controller;
   bool _hasControllerListener = false;
   bool _isInitialized = false;
@@ -64,7 +64,7 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
   }
 
   Future<void> _seek(double seconds) async {
-    if (!_isInitialized) return;
+    if (!_isInitialized || !_controller.value.isInitialized) return;
     await _controller.seekTo(Duration(seconds: seconds.toInt()));
   }
 

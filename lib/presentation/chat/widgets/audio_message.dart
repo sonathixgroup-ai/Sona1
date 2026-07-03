@@ -13,7 +13,7 @@ class AudioMessage extends StatefulWidget {
 }
 
 class _AudioMessageState extends State<AudioMessage> {
-  // Uses video_player as a fallback player to avoid requiring audioplayers.
+  // Uses video_player for audio playback support without audioplayers.
   late final VideoPlayerController _controller;
   bool _hasControllerListener = false;
   bool _isInitialized = false;
@@ -51,7 +51,7 @@ class _AudioMessageState extends State<AudioMessage> {
     });
   }
 
-  Future<void> _togglePlayPause() async {
+  Future<void> _playOrPause() async {
     if (!_isInitialized) return;
     if (_isPlaying) {
       await _controller.pause();
@@ -61,7 +61,7 @@ class _AudioMessageState extends State<AudioMessage> {
   }
 
   Future<void> _seek(double seconds) async {
-    if (!_isInitialized) return;
+    if (!_isInitialized || !_controller.value.isInitialized) return;
     await _controller.seekTo(Duration(seconds: seconds.toInt()));
   }
 
@@ -79,7 +79,7 @@ class _AudioMessageState extends State<AudioMessage> {
     if (_hasInitError) {
       return const Text(
         'Lecture audio indisponible',
-        style: TextStyle(fontSize: 10),
+        style: TextStyle(fontSize: 12),
       );
     }
 
@@ -90,7 +90,7 @@ class _AudioMessageState extends State<AudioMessage> {
       children: [
         IconButton(
           icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-          onPressed: _isInitialized ? _togglePlayPause : null,
+          onPressed: _isInitialized ? _playOrPause : null,
         ),
         Expanded(
           child: Slider(
@@ -101,7 +101,7 @@ class _AudioMessageState extends State<AudioMessage> {
         ),
         Text(
           '${_position.inSeconds ~/ 60}:${(_position.inSeconds % 60).toString().padLeft(2, '0')} / ${widget.durationSeconds ~/ 60}:${(widget.durationSeconds % 60).toString().padLeft(2, '0')}',
-          style: const TextStyle(fontSize: 10),
+          style: const TextStyle(fontSize: 12),
         ),
       ],
     );
