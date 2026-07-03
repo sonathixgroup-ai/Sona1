@@ -8,11 +8,12 @@ import '../../../core/auth/token_service.dart';
 import 'chat_models.dart';
 import 'chat_constants.dart';
 import 'chat_utils.dart';
+import '../archive/search_filters.dart';
 
 class ChatRepository {
-  // ✅ URL réelle du projet Supabase (d'après tes captures)
+  // ✅ URL réelle du projet Supabase
   final String _baseUrl = 'https://kfzkxaatdbapqwxcely.supabase.co/functions/v1';
-  
+
   // Pour les appels Realtime (non modifiés car natifs à Supabase)
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -28,7 +29,7 @@ class ChatRepository {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
-    
+
     switch (method) {
       case 'GET':
         return await http.get(uri, headers: headers);
@@ -128,6 +129,18 @@ class ChatRepository {
     }
   }
 
+  // ==================== ÉPINGLAGE ====================
+  Future<void> pinMessage(String messageId, bool pinned) async {
+    final response = await _authenticatedRequest(
+      'pin_message',
+      method: 'POST',
+      body: {'message_id': messageId, 'pinned': pinned},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Erreur pinMessage: ${response.body}');
+    }
+  }
+
   // ==================== PRÉSENCE ====================
   Future<void> updatePresence(String userId, String status) async {
     final response = await _authenticatedRequest(
@@ -194,6 +207,35 @@ class ChatRepository {
       body: {'conversation_id': conversationId, 'user_id': userId},
     );
     if (response.statusCode != 200) throw Exception('Erreur deleteConversation');
+  }
+
+  Future<List<Conversation>> fetchArchivedConversations(String userId) async {
+    final response = await _authenticatedRequest('archived_conversations?user_id=$userId');
+    if (response.statusCode != 200) {
+      throw Exception('Erreur fetchArchivedConversations: ${response.body}');
+    }
+    final List<dynamic> jsonList = jsonDecode(response.body);
+    return jsonList.map((json) => Conversation.fromJson(json)).toList();
+  }
+
+  Future<void> unarchiveConversation(String conversationId, String userId) async {
+    final response = await _authenticatedRequest(
+      'unarchive_conversation',
+      method: 'POST',
+      body: {'conversation_id': conversationId, 'user_id': userId},
+    );
+    if (response.statusCode != 200) throw Exception('Erreur unarchiveConversation');
+  }
+
+  Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
+    final response = await _authenticatedRequest(
+      'search_archived_conversations',
+      method: 'POST',
+      body: {'user_id': userId, ...filters.toMap()},
+    );
+    if (response.statusCode != 200) throw Exception('Erreur searchArchivedConversations');
+    final List<dynamic> jsonList = jsonDecode(response.body);
+    return jsonList.map((json) => Conversation.fromJson(json)).toList();
   }
 
   // ==================== EXPORT ====================
