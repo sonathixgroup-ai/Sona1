@@ -1,17 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:thix_id/services/chat_service.dart';
+import 'package:thix_id/services/chat_service.dart' as chat_service;
+import 'package:thix_id/presentation/chat/core/chat_models.dart';
 
 class ChatProvider extends ChangeNotifier {
-  final ChatService _chatService;
+  final chat_service.ChatService _chatService;
 
-  // États
+  // États – utilisent le modèle UI (chat_models.dart)
   List<Conversation> _conversations = [];
   List<Conversation> _archivedConversations = [];
-  List<ChatMessage> _messages = [];
-  List<Story> _stories = [];
-  List<Space> _spaces = [];
-  ChatStats _stats = const ChatStats();
+  List<chat_service.ChatMessage> _messages = []; // pas de conflit, on garde le service
+  List<chat_service.Story> _stories = [];
+  List<chat_service.Space> _spaces = [];
+  ChatStats _stats = const ChatStats(); // attention, deux ChatStats existent (service et UI) ; on garde celui du service pour l'instant
 
   bool _isLoading = false;
   String? _error;
@@ -19,14 +20,32 @@ class ChatProvider extends ChangeNotifier {
   // Getters
   List<Conversation> get conversations => _conversations;
   List<Conversation> get archivedConversations => _archivedConversations;
-  List<ChatMessage> get messages => _messages;
-  List<Story> get stories => _stories;
-  List<Space> get spaces => _spaces;
-  ChatStats get stats => _stats;
+  List<chat_service.ChatMessage> get messages => _messages;
+  List<chat_service.Story> get stories => _stories;
+  List<chat_service.Space> get spaces => _spaces;
+  ChatStats get stats => _stats; // retourne le ChatStats du service
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   ChatProvider(this._chatService);
+
+  // ============================================================
+  // CONVERTER
+  // ============================================================
+  Conversation _toUIConversation(chat_service.Conversation s) {
+    return Conversation(
+      id: s.id,
+      name: s.name ?? '',
+      avatarUrl: s.avatarURL,
+      isGroup: s.type == chat_service.ConversationType.group,
+      participantIds: s.participantIds,
+      lastMessage: '', // vous pourrez enrichir si nécessaire
+      lastMessageTime: s.lastMessageAt ?? s.updatedAt,
+      unreadCount: 0, // à adapter si vous avez les données
+      isArchived: s.status == chat_service.ConversationStatus.archived,
+      isOnline: false,
+    );
+  }
 
   // ============================================================
   // CONVERSATIONS
@@ -35,7 +54,8 @@ class ChatProvider extends ChangeNotifier {
   Future<void> loadConversations() async {
     _setLoading(true);
     try {
-      _conversations = await _chatService.getConversations();
+      final serviceConvs = await _chatService.getConversations();
+      _conversations = serviceConvs.map(_toUIConversation).toList();
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -47,7 +67,8 @@ class ChatProvider extends ChangeNotifier {
   Future<void> loadArchivedConversations() async {
     _setLoading(true);
     try {
-      _archivedConversations = await _chatService.getArchivedConversations();
+      final serviceConvs = await _chatService.getArchivedConversations();
+      _archivedConversations = serviceConvs.map(_toUIConversation).toList();
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -72,7 +93,7 @@ class ChatProvider extends ChangeNotifier {
     try {
       await _chatService.unarchiveConversation(conversationId);
       _archivedConversations.removeWhere((c) => c.id == conversationId);
-      await loadConversations(); // Recharge la liste active
+      await loadConversations();
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -95,7 +116,8 @@ class ChatProvider extends ChangeNotifier {
   Future<void> searchArchivedConversations(Map<String, dynamic> filters) async {
     _setLoading(true);
     try {
-      _archivedConversations = await _chatService.searchArchivedConversations(filters);
+      final serviceConvs = await _chatService.searchArchivedConversations(filters);
+      _archivedConversations = serviceConvs.map(_toUIConversation).toList();
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -105,7 +127,7 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // ============================================================
-  // MESSAGES
+  // MESSAGES (inchangé – pas de conflit de type)
   // ============================================================
 
   Future<void> loadMessages(String conversationId) async {
@@ -120,7 +142,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<ChatMessage> sendMessage(String conversationId, String content) async {
+  Future<chat_service.ChatMessage> sendMessage(String conversationId, String content) async {
     try {
       final msg = await _chatService.sendMessage(conversationId, content);
       _messages.insert(0, msg);
@@ -134,7 +156,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<ChatMessage> sendMedia(String conversationId, String filePath, String type) async {
+  Future<chat_service.ChatMessage> sendMedia(String conversationId, String filePath, String type) async {
     try {
       final msg = await _chatService.sendMedia(conversationId, filePath, type);
       _messages.insert(0, msg);
@@ -151,7 +173,6 @@ class ChatProvider extends ChangeNotifier {
   Future<void> markAsRead(String conversationId) async {
     try {
       await _chatService.markMessagesAsRead(conversationId);
-      // Optionnel : mettre à jour les compteurs de messages non lus
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -237,8 +258,8 @@ class ChatProvider extends ChangeNotifier {
   // CONTACTS STATUS
   // ============================================================
 
-  List<ChatUser> _contactsStatus = [];
-  List<ChatUser> get contactsStatus => _contactsStatus;
+  List<chat_service.ChatUser> _contactsStatus = [];
+  List<chat_service.ChatUser> get contactsStatus => _contactsStatus;
 
   Future<void> loadContactsStatus() async {
     try {
@@ -252,11 +273,9 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // ============================================================
-  // PRESENCE (AJOUTÉ)
+  // PRESENCE
   // ============================================================
 
-  /// Met à jour le statut de présence de l'utilisateur connecté
-  /// via le backend, puis notifie les listeners.
   Future<void> updatePresence(String status) async {
     try {
       await _chatService.updatePresence(status);
@@ -312,7 +331,7 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _stories = [];
     _spaces = [];
-    _stats = const ChatStats();
+    _stats = const chat_service.ChatStats();
     _isLoading = false;
     _error = null;
     notifyListeners();
