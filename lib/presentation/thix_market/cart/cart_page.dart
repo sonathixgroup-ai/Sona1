@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart'; // suppose l'existence
+import 'package:thix_id/auth/auth_controller.dart';
 import 'cart_provider.dart';
 import 'cart_item_tile.dart';
 import 'cart_summary_widget.dart';
@@ -99,7 +100,7 @@ class CartPage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => Navigator.pushNamed(context, '/buy'),
+            onPressed: () => context.push('/market/buy'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE5592F),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -137,11 +138,11 @@ class CartPage extends StatelessWidget {
   }
 
   void _proceedToCheckout(BuildContext context) {
-    final isLoggedIn = context.read<AuthProvider>().isLoggedIn; // à adapter
+    final isLoggedIn = context.read<AuthController>().isAuthenticated;
     if (!isLoggedIn) {
-      Navigator.pushNamed(context, '/login', arguments: {'redirect': '/checkout'});
+      context.go('/login');
     } else {
-      Navigator.pushNamed(context, '/checkout');
+      context.push('/market/checkout');
     }
   }
 }

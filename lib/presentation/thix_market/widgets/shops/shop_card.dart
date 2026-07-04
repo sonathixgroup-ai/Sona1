@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ShopCard extends StatefulWidget {
   final Map<String, dynamic> shop;
   final bool isOwner;
-  final Function(Map<String, dynamic>)? onTap;
+  final VoidCallback? onTap;
   final Function(String)? onFollow;
   final Function(String)? onUnfollow;
   final Function(String)? onShare;
@@ -94,7 +94,7 @@ class _ShopCardState extends State<ShopCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => widget.onTap?.call(widget.shop),
+      onTap: widget.onTap,
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 0,

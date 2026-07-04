@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -475,11 +476,11 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
   }
 
   void _publishAnnouncement() {
-    Navigator.pushNamed(context, '/publish-announcement');
+    context.push('/market/announcement/publish');
   }
 
   void _editAnnouncement(String id) {
-    Navigator.pushNamed(context, '/edit-announcement/$id');
+    context.push('/market/announcement/$id/edit');
   }
 
   void _boostAnnouncement(String id) {
@@ -494,7 +495,7 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
   }
 
   void _viewOrderDetail(String orderId) {
-    Navigator.pushNamed(context, '/order-detail/$orderId');
+    context.push('/market/order/$orderId');
   }
 }
 

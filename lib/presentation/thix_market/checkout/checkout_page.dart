@@ -5,7 +5,7 @@ import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
 import 'order_confirmation_page.dart';
-import '../../cart/cart_provider.dart';
+import '../cart/cart_provider.dart';
 
 class CheckoutPage extends StatelessWidget {
   const CheckoutPage({super.key});
@@ -14,7 +14,7 @@ class CheckoutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => CheckoutProvider()),
+        ChangeNotifierProvider(create: (_) => CheckoutProvider()..loadCheckoutData()),
       ],
       child: Scaffold(
         backgroundColor: Colors.grey[50],

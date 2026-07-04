@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -528,7 +529,7 @@ class _MyActivityPageState extends State<MyActivityPage> with SingleTickerProvid
   }
 
   void _viewOrderDetail(String orderId) {
-    Navigator.pushNamed(context, '/order-detail/$orderId');
+    context.push('/market/order/$orderId');
   }
 
   void _leaveReview(String orderId) {

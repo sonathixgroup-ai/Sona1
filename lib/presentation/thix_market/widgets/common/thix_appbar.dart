@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -69,14 +70,14 @@ class ThixAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (showSearchButton)
           IconButton(
             icon: const Icon(Icons.search, color: Colors.black),
-            onPressed: onSearchTap ?? () => Navigator.pushNamed(context, '/search'),
+            onPressed: onSearchTap ?? () => context.push('/market/search'),
           ),
         if (showNotificationButton)
           Stack(
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined, color: Colors.black),
-                onPressed: onNotificationTap ?? () => Navigator.pushNamed(context, '/notifications'),
+                onPressed: onNotificationTap ?? () => context.push('/market/notifications'),
               ),
               FutureBuilder<int>(
                 future: _getUnreadNotificationsCount(),
@@ -109,7 +110,7 @@ class ThixAppBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black),
-                onPressed: onCartTap ?? () => Navigator.pushNamed(context, '/cart'),
+                onPressed: onCartTap ?? () => context.push('/market/cart'),
               ),
               FutureBuilder<int>(
                 future: _getCartItemsCount(),

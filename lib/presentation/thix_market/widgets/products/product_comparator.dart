@@ -38,7 +38,7 @@ class _ProductComparatorState extends State<ProductComparator> {
             *,
             shop:shops(name, rating, is_verified)
           ''')
-          .in_filter('id', _selectedProductIds);
+          .inFilter('id', _selectedProductIds);
       
       setState(() {
         _products = List<Map<String, dynamic>>.from(response);

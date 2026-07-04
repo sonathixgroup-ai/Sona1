@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -106,7 +107,7 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
         'Aucune boutique suivie',
         'Suivez des boutiques pour voir leurs nouveautés',
         Icons.favorite_border,
-        () => Navigator.pushNamed(context, '/discover-shops'),
+        () => context.push('/market/home'),
       );
     }
 
@@ -301,19 +302,19 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
   }
 
   void _createShop() {
-    Navigator.pushNamed(context, '/create-shop');
+    context.push('/market/shop/create');
   }
 
   void _gotoShopDetail(String shopId) {
-    Navigator.pushNamed(context, '/shop/$shopId');
+    context.push('/market/shop/$shopId/manage');
   }
 
   void _manageShop(String shopId) {
-    Navigator.pushNamed(context, '/manage-shop/$shopId');
+    context.push('/market/shop/$shopId/manage');
   }
 
   void _viewStats(String shopId) {
-    Navigator.pushNamed(context, '/shop-stats/$shopId');
+    context.push('/market/shop/$shopId/stats');
   }
 
   void _toggleFollow(String shopId) {

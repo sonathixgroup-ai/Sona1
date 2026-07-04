@@ -98,7 +98,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: CachedNetworkImage(
-                                imageUrl: (product['images'] as List?)?.firstOrNull ?? '',
+                                imageUrl: (product['images'] is List && (product['images'] as List).isNotEmpty)
+                                    ? (product['images'] as List).first
+                                    : '',
                                 width: 60, height: 60, fit: BoxFit.cover,
                                 errorWidget: (_, __, ___) => Container(width: 60, height: 60, color: Colors.grey[200]),
                               ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../cart/cart_provider.dart';
+import '../cart/cart_provider.dart';
 
 class CheckoutProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -42,10 +42,8 @@ class CheckoutProvider extends ChangeNotifier {
 
     setState(() => _isLoading = true);
     try {
-      await Future.wait([
-        _loadUserInfo(userId),
-        _loadSavedAddresses(userId),
-      ]);
+      await _loadSavedAddresses(userId);
+      await _loadUserInfo(userId);
       _currentStep = 'address';
     } catch (e) {
       rethrow;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -268,7 +269,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
             bottom: 100,
             left: 16,
             child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/shop/${_liveInfo['shop_id']}'),
+              onTap: () => context.push('/market/shop/${_liveInfo['shop_id']}/manage'),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
