@@ -7,7 +7,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../cart/cart_provider.dart';
-import 'product_card.dart';
+import '../widgets/products/product_card.dart';
 
 class ProductDetail extends StatefulWidget {
   final String productId;
@@ -471,7 +471,7 @@ class _ProductDetailState extends State<ProductDetail> {
                 
                 const Divider(),
                 
-                // Produits similaires
+                // Produits similaires (CORRECTION ICI)
                 if (_similarProducts.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -489,12 +489,13 @@ class _ProductDetailState extends State<ProductDetail> {
                             scrollDirection: Axis.horizontal,
                             itemCount: _similarProducts.length,
                             itemBuilder: (context, index) {
+                              final product = _similarProducts[index];
                               return Container(
                                 width: 150,
                                 margin: const EdgeInsets.only(right: 12),
                                 child: ProductCard(
-                                  product: _similarProducts[index],
-                                  onTap: (product) {
+                                  product: product,
+                                  onTap: () {
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
