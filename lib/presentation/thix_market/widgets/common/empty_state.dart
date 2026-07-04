@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 class EmptyState extends StatelessWidget {
   final String title;
@@ -70,7 +69,7 @@ class EmptyCart extends StatelessWidget {
       message: 'Ajoutez des produits à votre panier pour continuer',
       icon: Icons.shopping_cart_outlined,
       buttonText: 'Découvrir les produits',
-      onButtonPressed: () => context.push('/market/buy'),
+      onButtonPressed: () => Navigator.pushNamed(context, '/buy'),
     );
   }
 }
@@ -90,8 +89,8 @@ class EmptyOrders extends StatelessWidget {
       icon: Icons.shopping_bag_outlined,
       buttonText: isPurchase ? 'Acheter maintenant' : 'Publier une annonce',
       onButtonPressed: () => isPurchase 
-          ? context.push('/market/buy')
-          : context.push('/market/sell'),
+          ? Navigator.pushNamed(context, '/buy')
+          : Navigator.pushNamed(context, '/sell'),
     );
   }
 }
