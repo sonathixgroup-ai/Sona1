@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:provider/provider.dart';
-import '../../cart/cart_provider.dart';
 
-class ProductCard extends StatefulWidget {
+class ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final bool isFlashSale;
   final bool showFavoriteButton;
-  final VoidCallback? onTap;
+  final bool isFavorite;
+  final Function(Map<String, dynamic>)? onTap;
   final Function(String)? onFavoriteTap;
   final Function(Map<String, dynamic>)? onAddToCart;
 
@@ -17,24 +16,11 @@ class ProductCard extends StatefulWidget {
     required this.product,
     this.isFlashSale = false,
     this.showFavoriteButton = true,
+    this.isFavorite = false,
     this.onTap,
     this.onFavoriteTap,
     this.onAddToCart,
   });
-
-  @override
-  State<ProductCard> createState() => _ProductCardState();
-}
-
-class _ProductCardState extends State<ProductCard> {
-  bool _isFavorite = false;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isFavorite = widget.product['is_favorite'] ?? false;
-  }
 
   String _formatNumber(int num) {
     if (num >= 1000000) return '${(num / 1000000).toStringAsFixed(1)}M';
@@ -44,12 +30,18 @@ class _ProductCardState extends State<ProductCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasDiscount = widget.product['discount_price'] != null &&
-        widget.product['discount_price'] < widget.product['price'];
+    final hasDiscount = product['discount_price'] != null &&
+        product['discount_price'] < product['price'];
+    final price = (hasDiscount ? product['discount_price'] : product['price']).toDouble();
+    final originalPrice = product['price'].toDouble();
+    final discountPercent = hasDiscount
+        ? ((originalPrice - price) / originalPrice * 100).round()
+        : 0;
+    final stock = product['stock'] ?? 0;
+    final isOutOfStock = stock == 0;
 
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: () => onTap?.call(product),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -71,7 +63,7 @@ class _ProductCardState extends State<ProductCard> {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   child: CachedNetworkImage(
-                    imageUrl: widget.product['image_url'] ?? '',
+                    imageUrl: product['image_url'] ?? '',
                     height: 160,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -91,7 +83,7 @@ class _ProductCardState extends State<ProductCard> {
                 ),
                 
                 // Flash sale badge
-                if (widget.isFlashSale)
+                if (isFlashSale)
                   Positioned(
                     top: 8,
                     left: 8,
@@ -122,10 +114,10 @@ class _ProductCardState extends State<ProductCard> {
                   ),
                 
                 // Discount badge
-                if (hasDiscount)
+                if (hasDiscount && !isFlashSale)
                   Positioned(
                     top: 8,
-                    left: widget.isFlashSale ? 60 : 8,
+                    left: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -133,7 +125,7 @@ class _ProductCardState extends State<ProductCard> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '-${(((widget.product['price'] - widget.product['discount_price']) / widget.product['price']) * 100).toInt()}%',
+                        '-$discountPercent%',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -144,42 +136,29 @@ class _ProductCardState extends State<ProductCard> {
                   ),
                 
                 // Favorite button
-                if (widget.showFavoriteButton)
+                if (showFavoriteButton)
                   Positioned(
                     top: 8,
                     right: 8,
                     child: GestureDetector(
-                      onTap: () async {
-                        setState(() => _isLoading = true);
-                        await widget.onFavoriteTap?.call(widget.product['id']);
-                        setState(() {
-                          _isFavorite = !_isFavorite;
-                          _isLoading = false;
-                        });
-                      },
+                      onTap: () => onFavoriteTap?.call(product['id']),
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.9),
                           shape: BoxShape.circle,
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Icon(
-                                _isFavorite ? Icons.favorite : Icons.favorite_border,
-                                size: 16,
-                                color: _isFavorite ? Colors.red : Colors.grey[600],
-                              ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          size: 16,
+                          color: isFavorite ? Colors.red : Colors.grey[600],
+                        ),
                       ),
                     ),
                   ),
                 
                 // Stock badge
-                if ((widget.product['stock'] ?? 0) < 10 && (widget.product['stock'] ?? 0) > 0)
+                if (!isOutOfStock && stock < 10)
                   Positioned(
                     bottom: 8,
                     right: 8,
@@ -190,7 +169,7 @@ class _ProductCardState extends State<ProductCard> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'Plus que ${widget.product['stock']}',
+                        'Plus que $stock',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,
@@ -201,7 +180,7 @@ class _ProductCardState extends State<ProductCard> {
                   ),
                 
                 // Sold out badge
-                if ((widget.product['stock'] ?? 0) == 0)
+                if (isOutOfStock)
                   Positioned.fill(
                     child: Container(
                       color: Colors.black54,
@@ -228,7 +207,7 @@ class _ProductCardState extends State<ProductCard> {
                 children: [
                   // Title
                   Text(
-                    widget.product['title'] ?? '',
+                    product['title'] ?? '',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -245,7 +224,7 @@ class _ProductCardState extends State<ProductCard> {
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
-                          widget.product['shop_name'] ?? '',
+                          product['shop_name'] ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -254,7 +233,7 @@ class _ProductCardState extends State<ProductCard> {
                           ),
                         ),
                       ),
-                      if (widget.product['is_verified'] == true)
+                      if (product['is_verified'] == true)
                         const Icon(Icons.verified, size: 10, color: Colors.blue),
                     ],
                   ),
@@ -264,7 +243,7 @@ class _ProductCardState extends State<ProductCard> {
                   Row(
                     children: [
                       RatingBar.builder(
-                        initialRating: (widget.product['rating'] ?? 0).toDouble(),
+                        initialRating: (product['rating'] ?? 0).toDouble(),
                         minRating: 1,
                         direction: Axis.horizontal,
                         allowHalfRating: true,
@@ -279,7 +258,7 @@ class _ProductCardState extends State<ProductCard> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '(${_formatNumber(widget.product['reviews_count'] ?? 0)})',
+                        '(${_formatNumber(product['reviews_count'] ?? 0)})',
                         style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                       ),
                     ],
@@ -290,7 +269,7 @@ class _ProductCardState extends State<ProductCard> {
                   Row(
                     children: [
                       Text(
-                        '${(hasDiscount ? widget.product['discount_price'] : widget.product['price']).toInt()} FCFA',
+                        '${price.toInt()} FCFA',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -301,7 +280,7 @@ class _ProductCardState extends State<ProductCard> {
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
                           child: Text(
-                            '${widget.product['price'].toInt()} FCFA',
+                            '${originalPrice.toInt()} FCFA',
                             style: TextStyle(
                               fontSize: 10,
                               decoration: TextDecoration.lineThrough,
@@ -313,7 +292,7 @@ class _ProductCardState extends State<ProductCard> {
                   ),
                   
                   // Free shipping badge
-                  if (widget.product['free_shipping'] == true)
+                  if (product['free_shipping'] == true)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Row(
@@ -335,13 +314,13 @@ class _ProductCardState extends State<ProductCard> {
             ),
             
             // Add to cart button
-            if (widget.onAddToCart != null && (widget.product['stock'] ?? 0) > 0)
+            if (onAddToCart != null && !isOutOfStock)
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => widget.onAddToCart?.call(widget.product),
+                    onPressed: () => onAddToCart?.call(product),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE5592F).withOpacity(0.1),
                       foregroundColor: const Color(0xFFE5592F),
