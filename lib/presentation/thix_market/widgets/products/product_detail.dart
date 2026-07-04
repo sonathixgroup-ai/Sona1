@@ -7,7 +7,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../cart/cart_provider.dart';
-import '../widgets/products/product_card.dart'; // ✅ Ajout de l'import manquant
+import '../widgets/products/product_card.dart'; // ✅ Vérifie que ce fichier existe
 
 class ProductDetail extends StatefulWidget {
   final String productId;
