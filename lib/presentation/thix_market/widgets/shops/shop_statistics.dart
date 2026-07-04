@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Ajout de l'import
 
 class ShopStatistics extends StatefulWidget {
   final String shopId;
@@ -285,11 +286,17 @@ class _ShopStatisticsState extends State<ShopStatistics> {
       child: ListTile(
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(
+          child: CachedNetworkImage( // ✅ Correction : CachedNetworkImage (pas CachedNetworklmage)
             imageUrl: product['image_url'],
             width: 50,
             height: 50,
             fit: BoxFit.cover,
+            errorWidget: (_, __, ___) => Container(
+              width: 50,
+              height: 50,
+              color: Colors.grey[200],
+              child: const Icon(Icons.image, size: 24),
+            ),
           ),
         ),
         title: Text(product['name']),
