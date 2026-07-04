@@ -167,9 +167,9 @@ class MessageProvider extends ChangeNotifier {
   }
 
   void setTyping(String conversationId, bool isTyping) {
-    // ✅ Utilisation de l'API send avec paramètres nommés
+    // ✅ Correction : utiliser RealtimeListenTypes.broadcast
     _supabase.channel(conversationId).send(
-      type: 'broadcast',
+      type: RealtimeListenTypes.broadcast,
       payload: {
         'event': 'typing',
         'user_id': _supabase.auth.currentUser?.id,
