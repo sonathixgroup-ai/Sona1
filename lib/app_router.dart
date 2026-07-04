@@ -50,7 +50,11 @@ import 'package:thix_id/presentation/training/learning_dashboard_page.dart';
 import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
-import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
+
+// ==================== THIX MARKET (révision) ====================
+// Remplace l'import de thix_market_page.dart par market_home_page.dart
+import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
+
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
@@ -258,7 +262,6 @@ class AppRouter {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
-      // overridePlatformDefaultLocation: true,  // SUPPRIMÉ
       refreshListenable: refresh,
       redirect: (context, state) {
         final location = state.matchedLocation;
@@ -533,11 +536,11 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(child: ProfilePage()),
         ),
 
-        // ---- THIX Market ----
+        // ---- THIX Market (révisé) ----
         GoRoute(
           path: AppRoutes.thixMarket,
           name: 'thixMarket',
-          pageBuilder: (context, state) => NoTransitionPage(child: ThixMarketPage()),
+          pageBuilder: (context, state) => NoTransitionPage(child: const MarketHomePage()),
         ),
 
         // ---- THIX Santé ----
