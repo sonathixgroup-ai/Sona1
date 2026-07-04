@@ -42,7 +42,8 @@ class GeolocationService {
     double longitude,
   ) async {
     try {
-      final places = await Geocoding.placemarkFromCoordinates(
+      // ✅ Utiliser Geocoding.instance pour la version 3.0.0+
+      final places = await Geocoding.instance.placemarkFromCoordinates(
         latitude,
         longitude,
       );
@@ -65,7 +66,8 @@ class GeolocationService {
   // Get coordinates from address (forward geocoding)
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
     try {
-      final places = await Geocoding.placemarkFromAddress(address);
+      // ✅ Utiliser Geocoding.instance pour la version 3.0.0+
+      final places = await Geocoding.instance.placemarkFromAddress(address);
       if (places.isNotEmpty) {
         final place = places.first;
         return LatLng(place.position.latitude, place.position.longitude);
