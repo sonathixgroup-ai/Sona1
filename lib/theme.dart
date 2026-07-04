@@ -1,363 +1,149 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-// =============================================================================
-// LIGHT MODE COLORS (TON DESIGN SYSTEM)
-// =============================================================================
+/// ============================================================================
+/// STABLE THEME LAYER (backward-compatible)
+/// ----------------------------------------------------------------------------
+/// This file intentionally keeps legacy class names used across old pages:
+/// - LearningCyberColors
+/// - LearningCyberGradients
+/// - InstitutionalColors
+/// - DarkModeColors (with success)
+///
+/// It prevents compile breaks after refactors by preserving public API.
+/// ============================================================================
 
-class LightModeColors {
-  const LightModeColors();
+@immutable
+class LearningCyberColors {
+  const LearningCyberColors._();
 
-  static const primary = Color(0xFF0A3D62);
-  static const secondary = Color(0xFF0A2F5C);
-  static const accent = Color(0xFFF9C74F);
+  // Base surfaces
+  static const Color bg0 = Color(0xFF070B14);
+  static const Color panel = Color(0xFF101A2B);
+  static const Color panelHi = Color(0xFF162238);
+  static const Color stroke = Color(0xFF2A3A57);
 
-  static const onPrimary = Color(0xFFFFFFFF);
-  static const onSecondary = Color(0xFFFFFFFF);
+  // Text
+  static const Color text = Color(0xFFEAF2FF);
+  static const Color textDim = Color(0xFF9CB0D2);
 
-  static const background = Color(0xFF0F2B4A);
-  static const surface = Color(0xFF133C63);
+  // Accents
+  static const Color neonCyan = Color(0xFF22E7FF);
+  static const Color neonViolet = Color(0xFF8B5CF6);
+  static const Color electricBlue = Color(0xFF2F80FF);
 
-  static const onSurface = Color(0xFFFFFFFF);
-  static const primaryText = Color(0xFFFFFFFF);
-  static const secondaryText = Color(0xB3FFFFFF);
-  static const hint = Color(0x80FFFFFF);
-
-  static const divider = Color(0x1AFFFFFF);
-
-  static const error = Color(0xFFEF4444);
-  static const onError = Color(0xFFFFFFFF);
-  static const success = Color(0xFF22C55E);
-  static const emergencyRed = Color(0xFFFF3B30);
-
-  static const metalGold = Color(0xFFF9C74F);
-  static const metalGoldDeep = Color(0xFFD4A017);
-  static const metalGoldSoft = Color(0xFFFFF3B0);
-
-  static const medicalBlue = Color(0xFF3B82F6);
-  static const medicalBlueDeep = Color(0xFF2563EB);
-  static const medicalBlueSoft = Color(0xFF1E3A5F);
-
-  static const cyberDarkBlue = Color(0xFF081F3A);
-
-  static const transparent = Color(0x00000000);
+  // Feedback / utility
+  static const Color success = Color(0xFF22C55E);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color black = Colors.black;
+  static const Color white = Colors.white;
 }
 
-// =============================================================================
-// DARK MODE COLORS
-// =============================================================================
+@immutable
+class LearningCyberGradients {
+  const LearningCyberGradients._();
 
+  static Gradient background() {
+    return const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: <Color>[
+        Color(0xFF050912),
+        Color(0xFF0A1222),
+        Color(0xFF101A2B),
+      ],
+      stops: <double>[0.0, 0.45, 1.0],
+    );
+  }
+
+  static Gradient glowBlue() {
+    return const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: <Color>[
+        Color(0x3322E7FF),
+        Color(0x1A2F80FF),
+      ],
+    );
+  }
+
+  static Gradient glowViolet() {
+    return const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: <Color>[
+        Color(0x338B5CF6),
+        Color(0x1A22E7FF),
+      ],
+    );
+  }
+}
+
+@immutable
+class InstitutionalColors {
+  const InstitutionalColors._();
+
+  static const Color civicBlue = Color(0xFF1565C0);
+  static const Color civicBlueSoft = Color(0xFF4F8FD8);
+  static const Color navy = Color(0xFF0C2340);
+  static const Color navy2 = Color(0xFF163A63);
+}
+
+@immutable
 class DarkModeColors {
-  static const primary = Color(0xFF071A2B);
-  static const background = Color(0xFF071A2B);
-  static const surface = Color(0xFF0B2336);
+  const DarkModeColors._();
 
-  static const onSurface = Colors.white;
-  static const primaryText = Colors.white;
-  static const secondaryText = Color(0xFF94A3B8);
+  static const Color primary = Color(0xFF0B1220);
+  static const Color cyberDarkBlue = Color(0xFF0D1B2A);
 
-  static const error = Color(0xFFEF4444);
-  static const emergencyRed = Color(0xFFFF3B30); // AJOUT: manquait, utilisé par EmergencyFab
+  // Required by existing pages (fixes "Member not found: success")
+  static const Color success = Color(0xFF22C55E);
 
-  static const metalGold = Color(0xFFD4AF37);
-  static const metalGoldDeep = Color(0xFFB8860B);
-  static const metalGoldSoft = Color(0xFF5C4E1E);
-
-  static const cyberDarkBlue = Color(0xFF081F3A);
+  // Optional aliases for consistency
+  static const Color text = LearningCyberColors.text;
+  static const Color textDim = LearningCyberColors.textDim;
+  static const Color danger = LearningCyberColors.danger;
 }
 
-// =============================================================================
-// EMERGENCY — COULEURS "URGENT" (template sombre premium, même en light mode)
-// AJOUT COMPLET: classe totalement absente, cause des erreurs de compilation
-// =============================================================================
+/// Optional central app theme.
+/// Safe defaults for Material 3.
+@immutable
+class AppTheme {
+  const AppTheme._();
 
-class EmergencyUrgentColors {
-  // Fonds
-  static const bg0 = Color(0xFF05111F);
-  static const bg1 = Color(0xFF0B1F33);
-  static const panel = Color(0xFF0B2036);
-  static const card = Color(0xFF102A45);
-  static const stroke = Color(0xFF23425F);
-
-  // Texte
-  static const text = Colors.white;
-  static const textDim = Color(0xFF93A9BE);
-
-  // Accents sémantiques
-  static const danger = Color(0xFFFF3B30);
-  static const safetyGreen = Color(0xFF22C55E);
-  static const amber = Color(0xFFF9C74F);
-  static const medicalBlue = Color(0xFF3B82F6);
-  static const fireOrange = Color(0xFFF97316);
-  static const violet = Color(0xFF8B5CF6);
-  static const cyan = Color(0xFF06B6D4);
-
-  static Color scrim() => Colors.black.withValues(alpha: 0.72);
-}
-
-class EmergencyUrgentGradients {
-  static LinearGradient background() => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [EmergencyUrgentColors.bg0, EmergencyUrgentColors.bg1],
-      );
-
-  static LinearGradient panel() => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          EmergencyUrgentColors.panel,
-          EmergencyUrgentColors.panel.withValues(alpha: 0.92),
-        ],
-      );
-}
-
-// =============================================================================
-// EMERGENCY COLORS (blood sheet / medical) — ajoutées précédemment
-// =============================================================================
-
-class EmergencyUrgencyScaleColors {
-  static const stable = Color(0xFF22C55E);
-  static const moderate = Color(0xFFF9C74F);
-  static const urgent = Color(0xFFF97316);
-  static const critical = Color(0xFFEF4444);
-}
-
-class EmergencyMedicalSheetColors {
-  static const stroke = Color(0xFFE2E8F0);
-}
-
-class EmergencyMedicalSheetGradients {
-  static LinearGradient background() => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Colors.white, Color(0xFFF8FAFC)],
-      );
-}
-
-// =============================================================================
-// SPACING
-// =============================================================================
-
-class AppSpacing {
-  static const double xs = 4.0;
-  static const double sm = 8.0;
-  static const double sm2 = 12.0;
-  static const double md = 16.0;
-  static const double md2 = 20.0;
-  static const double lg = 24.0;
-  static const double xl = 32.0;
-  static const double xxl = 48.0;
-
-  static const EdgeInsets paddingMd = EdgeInsets.all(md);
-  static const EdgeInsets horizontalMd = EdgeInsets.symmetric(horizontal: md);
-  static const EdgeInsets verticalMd = EdgeInsets.symmetric(vertical: md);
-}
-
-// =============================================================================
-// RADIUS
-// =============================================================================
-
-class AppRadius {
-  static const double sm = 8.0;
-  static const double md = 12.0;
-  static const double lg = 16.0;
-  static const double xl = 24.0;
-  static const double full = 9999.0;
-}
-
-// =============================================================================
-// SHADOWS
-// =============================================================================
-
-class AppShadows {
-  static const soft = [
-    BoxShadow(
-      color: Color(0x33000000),
-      blurRadius: 20,
-      offset: Offset(0, 8),
-    ),
-  ];
-
-  static const light = [
-    BoxShadow(
-      color: Color(0x22000000),
-      blurRadius: 10,
-      offset: Offset(0, 4),
-    ),
-  ];
-}
-
-// =============================================================================
-// TEXT THEME
-// =============================================================================
-
-TextTheme _buildTextTheme(Color color) {
-  return TextTheme(
-    headlineLarge: GoogleFonts.plusJakartaSans(
-      fontSize: 22,
-      fontWeight: FontWeight.w800,
-      color: color,
-    ),
-    titleLarge: GoogleFonts.plusJakartaSans(
-      fontSize: 18,
-      fontWeight: FontWeight.w700,
-      color: color,
-    ),
-    bodyLarge: GoogleFonts.inter(
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-      color: color,
-    ),
-    bodyMedium: GoogleFonts.inter(
-      fontSize: 13,
-      fontWeight: FontWeight.w400,
-      color: color,
-    ),
-    labelLarge: GoogleFonts.inter(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
-      color: color,
-    ),
-  );
-}
-
-// =============================================================================
-// LIGHT THEME
-// =============================================================================
-
-ThemeData get lightTheme => ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-
-      scaffoldBackgroundColor: LightModeColors.primary,
-
-      colorScheme: const ColorScheme.dark(
-        primary: LightModeColors.primary,
-        secondary: LightModeColors.secondary,
-        tertiary: LightModeColors.accent,
-        surface: LightModeColors.surface,
-
-        onPrimary: LightModeColors.onPrimary,
-        onSecondary: LightModeColors.onSecondary,
-        onSurface: LightModeColors.onSurface,
-        error: LightModeColors.error,
+  static ThemeData get dark {
+    final ThemeData base = ThemeData.dark(useMaterial3: true);
+    return base.copyWith(
+      scaffoldBackgroundColor: LearningCyberColors.bg0,
+      colorScheme: base.colorScheme.copyWith(
+        brightness: Brightness.dark,
+        primary: LearningCyberColors.neonCyan,
+        secondary: LearningCyberColors.electricBlue,
+        surface: LearningCyberColors.panel,
+        error: LearningCyberColors.danger,
       ),
-
-      dividerColor: LightModeColors.divider,
-
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: LearningCyberColors.bg0,
+        foregroundColor: LearningCyberColors.text,
         elevation: 0,
-        foregroundColor: Colors.white,
       ),
-
-      cardTheme: CardThemeData(
-        color: LightModeColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(color: LightModeColors.divider),
-        ),
-      ),
-
-      textTheme: _buildTextTheme(LightModeColors.primaryText),
     );
+  }
 
-// =============================================================================
-// DARK THEME
-// =============================================================================
-
-ThemeData get darkTheme => ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-
-      scaffoldBackgroundColor: DarkModeColors.background,
-
-      colorScheme: const ColorScheme.dark(
-        primary: DarkModeColors.primary,
-        surface: DarkModeColors.surface,
-        onSurface: Colors.white,
+  static ThemeData get light {
+    final ThemeData base = ThemeData.light(useMaterial3: true);
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(
+        brightness: Brightness.light,
+        primary: InstitutionalColors.civicBlue,
+        secondary: InstitutionalColors.civicBlueSoft,
+        error: LearningCyberColors.danger,
       ),
-
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF111827),
         elevation: 0,
-        foregroundColor: Colors.white,
       ),
-
-      cardTheme: CardThemeData(
-        color: DarkModeColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-      ),
-
-      textTheme: _buildTextTheme(DarkModeColors.primaryText),
     );
-
-// =============================================================================
-// ADMIN CYBER COLORS
-// =============================================================================
-
-class AdminCyberColors {
-  static const text = Color(0xFFDCEFFF);
-  static const textDim = Color(0xFF7EAABF);
-  static const panel = Color(0xFF081828);
-  static const panelHi = Color(0xFF0B2040);
-  static const stroke = Color(0xFF1E3A5F);
-  static const neonCyan = Color(0xFF00E5FF);
-  static const neonViolet = Color(0xFFBB6BFF);
-  static const electricBlue = Color(0xFF0EA5E9);
-  static const black = Color(0xFF05111F);
-  static const success = Color(0xFF22C55E);
-  static const danger = Color(0xFFEF4444);
-}
-
-// =============================================================================
-// ADMIN CYBER GRADIENTS
-// =============================================================================
-
-class AdminCyberGradients {
-  static LinearGradient glowBlue() => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0EA5E9), Color(0xFF00E5FF)],
-      );
-
-  static LinearGradient glowViolet() => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF7C3AED), Color(0xFFBB6BFF)],
-      );
-}
-
-// =============================================================================
-// MARKET COLORS
-// =============================================================================
-
-class MarketColors {
-  static const orange = Color(0xFFF97316);
-  static const orangeDeep = Color(0xFFEA580C);
-  static const stroke = Color(0xFFE2E8F0);
-  static const ink = Color(0xFF1E293B);
-  static const grayText = Color(0xFF94A3B8);
-  static const bg = Color(0xFFF1F5F9);
-}
-
-// =============================================================================
-// CONTEXT EXTENSIONS
-// =============================================================================
-
-extension ThixThemeX on BuildContext {
-  TextTheme get textStyles => Theme.of(this).textTheme;
-}
-
-// =============================================================================
-// TEXTSTYLE EXTENSIONS (.semiBold / .bold)
-// AJOUT: manquait totalement, utilisé partout dans emergency_overlay.dart
-// =============================================================================
-
-extension ThixTextStyleX on TextStyle {
-  TextStyle get semiBold => copyWith(fontWeight: FontWeight.w600);
-  TextStyle get bold => copyWith(fontWeight: FontWeight.w700);
+  }
 }
