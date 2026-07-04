@@ -129,7 +129,7 @@ class MarketApiService {
     }
   }
 
-  // Search with pagination
+  // Search with pagination (corrigé)
   Future<SearchResult> search({
     required String query,
     Map<String, dynamic>? filters,
@@ -137,13 +137,14 @@ class MarketApiService {
     int limit = 20,
   }) async {
     try {
+      // 1. Construire la requête de base (sans count ni range)
       var request = _supabase
           .from('products')
-          .select('*, shop:shops(name, rating)', count: CountOption.exact)
+          .select('*, shop:shops(name, rating)')
           .eq('status', 'active')
-          .ilike('title', '%$query%')
-          .range(page * limit, (page + 1) * limit - 1);
+          .ilike('title', '%$query%');
 
+      // 2. Appliquer les filtres
       if (filters != null) {
         if (filters['min_price'] != null) {
           request = request.gte('price', filters['min_price']);
@@ -182,11 +183,18 @@ class MarketApiService {
         }
       }
 
-      final response = await request;
+      // 3. Obtenir le nombre total AVANT la pagination
+      final countResult = await request.count();
+      final total = countResult.count ?? 0;
+
+      // 4. Appliquer la pagination (sans réaffecter request)
+      final paginatedRequest = request.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedRequest;
+
       return SearchResult(
         items: List<Map<String, dynamic>>.from(response),
-        total: response.count ?? 0,
-        hasMore: (response.length == limit),
+        total: total,
+        hasMore: response.length == limit,
       );
     } catch (e) {
       throw ApiException('Search failed: $e');
