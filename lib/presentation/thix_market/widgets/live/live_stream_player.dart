@@ -47,7 +47,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   @override
   void dispose() {
     _engine.leaveChannel();
-    _engine.dispose(); // Remplace destroy()
+    _engine.destroy(); // ✅ Correction : destroy() au lieu de dispose()
     _messageController.dispose();
     super.dispose();
   }
@@ -55,18 +55,18 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   Future<void> _initAgora() async {
     await [Permission.microphone, Permission.camera].request();
 
-    // Créer l'engine avec la méthode statique
-    _engine = await RtcEngine.create();
+    // ✅ Créer l'engine avec la fonction top‑level
+    _engine = createRtcEngine();
 
-    // Initialiser avec le contexte
+    // ✅ Initialiser avec le contexte
     await _engine.initialize(
       RtcEngineContext(
         appId: 'YOUR_AGORA_APP_ID',
-        channelProfile: ChannelProfile.liveBroadcasting, // Sans "Type"
+        channelProfile: ChannelProfileType.liveBroadcasting, // ✅ Correction
       ),
     );
 
-    // Enregistrer les événements
+    // ✅ Enregistrer les événements
     _engine.registerEventHandler(
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
@@ -87,10 +87,10 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
       ),
     );
 
-    // Définir le rôle
-    await _engine.setClientRole(role: ClientRole.audience); // Au lieu de ClientRoleType
+    // ✅ Définir le rôle
+    await _engine.setClientRole(role: ClientRoleType.clientRoleAudience); // ✅ Correction
 
-    // Rejoindre le channel
+    // ✅ Rejoindre le channel
     await _engine.joinChannel(
       token: widget.token ?? '',
       channelId: widget.channelName,
@@ -165,11 +165,15 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   }
 
   Future<void> _placeBid() async {
+    // ✅ Utiliser un TextEditingController local pour le dialogue
+    final bidController = TextEditingController();
+
     final bidAmount = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Placer une enchère'),
         content: TextField(
+          controller: bidController, // ✅ utiliser le contrôleur
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             hintText: 'Montant (FCFA)',
@@ -177,12 +181,13 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
             onPressed: () {
-              // Récupérer le montant depuis le TextField
-              final controller = (context as Element).findAncestorStateOfType<TextFieldState>()?.controller;
-              final amount = double.tryParse(controller?.text ?? '0');
+              final amount = double.tryParse(bidController.text);
               Navigator.pop(context, amount);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F)),
