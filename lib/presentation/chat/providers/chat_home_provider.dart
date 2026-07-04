@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' show StreamSubscription, unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -112,11 +112,10 @@ class ChatHomeProvider extends ChangeNotifier {
           .select('id, type, title, avatar_url, participants, participant_name, last_message, last_message_at, created_at, updated_at')
           .contains('participants', [_currentUserId!])
           .order('last_message_at', ascending: false)
-          .order('updated_at', ascending: false)
           .limit(50);
 
       final chatRows = (response as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
-      final chatIds = chatRows.map((row) => row['id'] as String? ?? '').where((id) => id.isNotEmpty).toList(growable: false);
+      final chatIds = chatRows.map((row) => row['id'] as String?).whereType<String>().where((id) => id.isNotEmpty).toList(growable: false);
       final readAtByChat = await _loadReadAtByChat(chatIds);
       final profileByUserId = await _loadProfileByUserId(_conversationParticipantIds(chatRows));
       final List<Conversation> convs = [];
