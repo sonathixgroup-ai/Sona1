@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/product_provider.dart';
-import '../widgets/product/product_card.dart';
+import '../widgets/products/product_card.dart'; // ✅ CORRECTION : 'products' au lieu de 'product'
 
 class BuyPage extends StatefulWidget {
   const BuyPage({super.key});
