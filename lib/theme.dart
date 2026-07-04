@@ -147,3 +147,51 @@ class AppTheme {
     );
   }
 }
+
+// =============================================================================
+// SPACING
+// =============================================================================
+
+class AppSpacing {
+  static const double xs = 4.0;
+  static const double sm = 8.0;
+  static const double sm2 = 12.0;
+  static const double md = 16.0;
+  static const double md2 = 20.0;
+  static const double lg = 24.0;
+  static const double xl = 32.0;
+  static const double xxl = 48.0;
+
+  static const EdgeInsets paddingMd = EdgeInsets.all(md);
+  static const EdgeInsets horizontalMd = EdgeInsets.symmetric(horizontal: md);
+  static const EdgeInsets verticalMd = EdgeInsets.symmetric(vertical: md);
+}
+
+// =============================================================================
+// RADIUS
+// =============================================================================
+
+class AppRadius {
+  static const double sm = 8.0;
+  static const double md = 12.0;
+  static const double lg = 16.0;
+  static const double xl = 24.0;
+  static const double full = 9999.0;
+}
+
+// =============================================================================
+// CONTEXT EXTENSIONS
+// =============================================================================
+
+extension ThixThemeX on BuildContext {
+  TextTheme get textStyles => Theme.of(this).textTheme;
+}
+
+// =============================================================================
+// TEXTSTYLE EXTENSIONS (.semiBold / .bold)
+// =============================================================================
+
+extension ThixTextStyleX on TextStyle {
+  TextStyle get semiBold => copyWith(fontWeight: FontWeight.w600);
+  TextStyle get bold => copyWith(fontWeight: FontWeight.w700);
+}
