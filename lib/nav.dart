@@ -50,7 +50,37 @@ import 'package:thix_id/presentation/training/learning_dashboard_page.dart';
 import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
-import 'package:thix_id/presentation/thix_market/thix_market_page.dart';
+
+// ===== IMPORTS THIX MARKET (ajoutés) =====
+import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/search_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/shops_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/buy_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/sell_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/messages_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/live_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/my_activity_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/market_settings_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/help_support_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/product_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/product_comparator_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/price_alerts_page.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_page.dart';
+import 'package:thix_id/presentation/thix_market/checkout/checkout_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/order_history_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/order_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/create_shop_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/manage_shop_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/shop_statistics_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/publish_announcement_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/edit_announcement_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/live_stream_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/create_live_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/live_replay_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/auction_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/chat_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/dispute_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
 
 // ===== IMPORTS THIX SANTÉ =====
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
@@ -670,12 +700,195 @@ class AppRouter {
           pageBuilder: (context, state) =>
               NoTransitionPage(child: ProfilePage()),
         ),
-        // ---- THIX Market ----
+        // ---- THIX Market (remplacé par les routes complètes) ----
         GoRoute(
           path: AppRoutes.thixMarket,
           name: 'thixMarket',
-          pageBuilder: (context, state) =>
-              NoTransitionPage(child: ThixMarketPage()),
+          pageBuilder: (context, state) => NoTransitionPage(child: const MarketHomePage()),
+          routes: [
+            // Pages principales
+            GoRoute(
+              path: 'home',
+              name: 'marketHome',
+              pageBuilder: (context, state) => NoTransitionPage(child: const MarketHomePage()),
+            ),
+            GoRoute(
+              path: 'search',
+              name: 'marketSearch',
+              pageBuilder: (context, state) => NoTransitionPage(child: const SearchPage()),
+            ),
+            GoRoute(
+              path: 'shops',
+              name: 'marketShops',
+              pageBuilder: (context, state) => NoTransitionPage(child: const ShopsPage()),
+            ),
+            GoRoute(
+              path: 'buy',
+              name: 'marketBuy',
+              pageBuilder: (context, state) => NoTransitionPage(child: const BuyPage()),
+            ),
+            GoRoute(
+              path: 'sell',
+              name: 'marketSell',
+              pageBuilder: (context, state) => NoTransitionPage(child: const SellPage()),
+            ),
+            GoRoute(
+              path: 'messages',
+              name: 'marketMessages',
+              pageBuilder: (context, state) => NoTransitionPage(child: const MessagesPage()),
+            ),
+            GoRoute(
+              path: 'live',
+              name: 'marketLive',
+              pageBuilder: (context, state) => NoTransitionPage(child: const LivePage()),
+            ),
+            GoRoute(
+              path: 'activity',
+              name: 'marketActivity',
+              pageBuilder: (context, state) => NoTransitionPage(child: const MyActivityPage()),
+            ),
+            GoRoute(
+              path: 'settings',
+              name: 'marketSettings',
+              pageBuilder: (context, state) => NoTransitionPage(child: const MarketSettingsPage()),
+            ),
+            GoRoute(
+              path: 'help',
+              name: 'marketHelp',
+              pageBuilder: (context, state) => NoTransitionPage(child: const HelpSupportPage()),
+            ),
+            // Produits
+            GoRoute(
+              path: 'product/:productId',
+              name: 'marketProductDetail',
+              pageBuilder: (context, state) {
+                final productId = state.pathParameters['productId']!;
+                return NoTransitionPage(child: ProductDetailPage(productId: productId));
+              },
+            ),
+            GoRoute(
+              path: 'compare',
+              name: 'marketProductComparator',
+              pageBuilder: (context, state) => NoTransitionPage(child: const ProductComparatorPage()),
+            ),
+            GoRoute(
+              path: 'price-alerts',
+              name: 'marketPriceAlerts',
+              pageBuilder: (context, state) => NoTransitionPage(child: const PriceAlertsPage()),
+            ),
+            // Panier & commandes
+            GoRoute(
+              path: 'cart',
+              name: 'marketCart',
+              pageBuilder: (context, state) => NoTransitionPage(child: const CartPage()),
+            ),
+            GoRoute(
+              path: 'checkout',
+              name: 'marketCheckout',
+              pageBuilder: (context, state) => NoTransitionPage(child: const CheckoutPage()),
+            ),
+            GoRoute(
+              path: 'orders',
+              name: 'marketOrders',
+              pageBuilder: (context, state) => NoTransitionPage(child: const OrderHistoryPage()),
+            ),
+            GoRoute(
+              path: 'order/:orderId',
+              name: 'marketOrderDetail',
+              pageBuilder: (context, state) {
+                final orderId = state.pathParameters['orderId']!;
+                return NoTransitionPage(child: OrderDetailPage(orderId: orderId));
+              },
+            ),
+            // Boutiques
+            GoRoute(
+              path: 'shop/create',
+              name: 'marketCreateShop',
+              pageBuilder: (context, state) => NoTransitionPage(child: const CreateShopPage()),
+            ),
+            GoRoute(
+              path: 'shop/:shopId/manage',
+              name: 'marketManageShop',
+              pageBuilder: (context, state) {
+                final shopId = state.pathParameters['shopId']!;
+                return NoTransitionPage(child: ManageShopPage(shopId: shopId));
+              },
+            ),
+            GoRoute(
+              path: 'shop/:shopId/stats',
+              name: 'marketShopStats',
+              pageBuilder: (context, state) {
+                final shopId = state.pathParameters['shopId']!;
+                return NoTransitionPage(child: ShopStatisticsPage(shopId: shopId));
+              },
+            ),
+            // Annonces
+            GoRoute(
+              path: 'announcement/publish',
+              name: 'marketPublishAnnouncement',
+              pageBuilder: (context, state) => NoTransitionPage(child: const PublishAnnouncementPage()),
+            ),
+            GoRoute(
+              path: 'announcement/:announcementId/edit',
+              name: 'marketEditAnnouncement',
+              pageBuilder: (context, state) {
+                final announcementId = state.pathParameters['announcementId']!;
+                return NoTransitionPage(child: EditAnnouncementPage(announcementId: announcementId));
+              },
+            ),
+            // Live & enchères
+            GoRoute(
+              path: 'live/:liveId',
+              name: 'marketLiveStream',
+              pageBuilder: (context, state) {
+                final liveId = state.pathParameters['liveId']!;
+                return NoTransitionPage(child: LiveStreamPage(liveId: liveId));
+              },
+            ),
+            GoRoute(
+              path: 'live/create',
+              name: 'marketCreateLive',
+              pageBuilder: (context, state) => NoTransitionPage(child: const CreateLivePage()),
+            ),
+            GoRoute(
+              path: 'live/:liveId/replay',
+              name: 'marketLiveReplay',
+              pageBuilder: (context, state) {
+                final liveId = state.pathParameters['liveId']!;
+                return NoTransitionPage(child: LiveReplayPage(liveId: liveId));
+              },
+            ),
+            GoRoute(
+              path: 'auction/:auctionId',
+              name: 'marketAuction',
+              pageBuilder: (context, state) {
+                final auctionId = state.pathParameters['auctionId']!;
+                return NoTransitionPage(child: AuctionPage(auctionId: auctionId));
+              },
+            ),
+            // Messages & litiges
+            GoRoute(
+              path: 'chat/:conversationId',
+              name: 'marketChat',
+              pageBuilder: (context, state) {
+                final conversationId = state.pathParameters['conversationId']!;
+                return NoTransitionPage(child: ChatPage(conversationId: conversationId));
+              },
+            ),
+            GoRoute(
+              path: 'dispute/:disputeId',
+              name: 'marketDispute',
+              pageBuilder: (context, state) {
+                final disputeId = state.pathParameters['disputeId']!;
+                return NoTransitionPage(child: DisputeDetailPage(disputeId: disputeId));
+              },
+            ),
+            GoRoute(
+              path: 'notifications',
+              name: 'marketNotifications',
+              pageBuilder: (context, state) => NoTransitionPage(child: const NotificationPage()),
+            ),
+          ],
         ),
         // ---- THIX Santé ----
         // Point d'entrée principal
