@@ -47,7 +47,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   @override
   void dispose() {
     _engine.leaveChannel();
-    _engine.destroy(); // ✅ Correction : destroy() au lieu de dispose()
+    _engine.destroy(); // ✅ destroy() est la méthode correcte pour 6.x
     _messageController.dispose();
     super.dispose();
   }
@@ -55,18 +55,18 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   Future<void> _initAgora() async {
     await [Permission.microphone, Permission.camera].request();
 
-    // ✅ Créer l'engine avec la fonction top‑level
-    _engine = createRtcEngine();
+    // ✅ API 6.x : RtcEngine.create() (méthode statique)
+    _engine = await RtcEngine.create();
 
-    // ✅ Initialiser avec le contexte
+    // ✅ Initialisation avec le contexte
     await _engine.initialize(
       RtcEngineContext(
         appId: 'YOUR_AGORA_APP_ID',
-        channelProfile: ChannelProfileType.liveBroadcasting, // ✅ Correction
+        channelProfile: ChannelProfile.liveBroadcasting, // ✅ (sans "Type")
       ),
     );
 
-    // ✅ Enregistrer les événements
+    // ✅ Enregistrement des événements
     _engine.registerEventHandler(
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
@@ -87,8 +87,8 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
       ),
     );
 
-    // ✅ Définir le rôle
-    await _engine.setClientRole(role: ClientRoleType.clientRoleAudience); // ✅ Correction
+    // ✅ Définition du rôle (sans "Type")
+    await _engine.setClientRole(role: ClientRole.audience);
 
     // ✅ Rejoindre le channel
     await _engine.joinChannel(
@@ -165,7 +165,6 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   }
 
   Future<void> _placeBid() async {
-    // ✅ Utiliser un TextEditingController local pour le dialogue
     final bidController = TextEditingController();
 
     final bidAmount = await showDialog<double>(
@@ -173,7 +172,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
       builder: (context) => AlertDialog(
         title: const Text('Placer une enchère'),
         content: TextField(
-          controller: bidController, // ✅ utiliser le contrôleur
+          controller: bidController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             hintText: 'Montant (FCFA)',
