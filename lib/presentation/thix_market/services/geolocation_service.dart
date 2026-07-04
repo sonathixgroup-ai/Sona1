@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GeolocationService {
@@ -41,7 +42,7 @@ class GeolocationService {
     double longitude,
   ) async {
     try {
-      final places = await Geolocator.placemarkFromCoordinates(
+      final places = await Geocoding.placemarkFromCoordinates(
         latitude,
         longitude,
       );
@@ -64,7 +65,7 @@ class GeolocationService {
   // Get coordinates from address (forward geocoding)
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
     try {
-      final places = await Geolocator.placemarkFromAddress(address);
+      final places = await Geocoding.placemarkFromAddress(address);
       if (places.isNotEmpty) {
         final place = places.first;
         return LatLng(place.position.latitude, place.position.longitude);
