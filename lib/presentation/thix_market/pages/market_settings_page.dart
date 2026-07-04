@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/settings_provider.dart';
@@ -322,35 +321,35 @@ class _MarketSettingsPageState extends State<MarketSettingsPage> {
   }
 
   void _manageThixMoney() {
-    _showComingSoon('Gestion THIX Money');
+    Navigator.pushNamed(context, '/thix-money');
   }
 
   void _manageCards() {
-    _showComingSoon('Cartes bancaires');
+    Navigator.pushNamed(context, '/payment-methods');
   }
 
   void _manageMobileMoney() {
-    _showComingSoon('Mobile Money');
+    Navigator.pushNamed(context, '/mobile-money');
   }
 
   void _manageAddresses() {
-    _showComingSoon('Adresses de livraison');
+    Navigator.pushNamed(context, '/addresses');
   }
 
   void _findPickupPoints() {
-    _showComingSoon('Points relais THIX');
+    Navigator.pushNamed(context, '/pickup-points');
   }
 
   void _manage2FA() {
-    _showComingSoon('Double authentification');
+    Navigator.pushNamed(context, '/2fa-setup');
   }
 
   void _changePassword() {
-    _showComingSoon('Changement de mot de passe');
+    Navigator.pushNamed(context, '/change-password');
   }
 
   void _manageDevices() {
-    _showComingSoon('Appareils connectés');
+    Navigator.pushNamed(context, '/devices');
   }
 
   void _toggleProfessionalMode(bool value) async {
@@ -389,19 +388,19 @@ class _MarketSettingsPageState extends State<MarketSettingsPage> {
   }
 
   void _manageSubscription() {
-    _showComingSoon('Abonnement Pro');
+    Navigator.pushNamed(context, '/subscription');
   }
 
   void _editProfile() {
-    _showComingSoon('Édition du profil');
+    Navigator.pushNamed(context, '/edit-profile');
   }
 
   void _openTerms() {
-    _showComingSoon('Conditions d’utilisation');
+    Navigator.pushNamed(context, '/terms');
   }
 
   void _openPrivacy() {
-    _showComingSoon('Politique de confidentialité');
+    Navigator.pushNamed(context, '/privacy');
   }
 
   void _logout() async {
@@ -427,14 +426,8 @@ class _MarketSettingsPageState extends State<MarketSettingsPage> {
     if (shouldLogout == true) {
       await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       }
     }
-  }
-
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature bientôt disponible.')),
-    );
   }
 }

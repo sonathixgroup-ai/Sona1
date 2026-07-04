@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -602,24 +601,22 @@ class _LivePageState extends State<LivePage> with SingleTickerProviderStateMixin
   }
 
   void _joinLive(String liveId) {
-    context.push('/market/live/$liveId');
+    Navigator.pushNamed(context, '/live-stream/$liveId');
   }
 
   void _joinAuction(String auctionId) {
-    context.push('/market/auction/$auctionId');
+    Navigator.pushNamed(context, '/auction/$auctionId');
   }
 
   void _createLive() {
-    context.push('/market/live/create');
+    Navigator.pushNamed(context, '/create-live');
   }
 
   void _viewLiveReplay(String liveId) {
-    context.push('/market/live/$liveId/replay');
+    Navigator.pushNamed(context, '/live-replay/$liveId');
   }
 
   void _editLive(String liveId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Statistiques du live $liveId bientôt disponibles.')),
-    );
+    Navigator.pushNamed(context, '/live-stats/$liveId');
   }
 }

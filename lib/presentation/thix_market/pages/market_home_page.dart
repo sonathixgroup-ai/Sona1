@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../providers/market_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../widgets/products/product_card.dart';
-import '../widgets/shops/shop_card.dart';
+import '../widgets/market/product_card.dart';
+import '../widgets/market/shop_card.dart';
 import '../widgets/common/loading_shimmer.dart';
 
 class MarketHomePage extends StatefulWidget {
@@ -588,25 +588,23 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
   // Navigation methods
   void _scanQRCode() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Scanner QR bientôt disponible.')),
-    );
+    Navigator.pushNamed(context, '/scan-qr');
   }
 
   void _gotoNotifications() {
-    context.push('/market/notifications');
+    Navigator.pushNamed(context, '/notifications');
   }
 
   void _gotoSearch() {
-    context.push('/market/search');
+    Navigator.pushNamed(context, '/search');
   }
 
   void _gotoAllLives() {
-    context.push('/market/live');
+    Navigator.pushNamed(context, '/lives');
   }
 
   void _gotoProductDetail(String productId) {
-    context.push('/market/product/$productId');
+    Navigator.pushNamed(context, '/product/$productId');
   }
 
   void _gotoPromoLink(String link) {
@@ -614,14 +612,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   void _gotoRecommended() {
-    context.push('/market/buy');
+    Navigator.pushNamed(context, '/recommended');
   }
 
   void _gotoAllShops() {
-    context.push('/market/shops');
+    Navigator.pushNamed(context, '/shops');
   }
 
   void _gotoShop(String shopId) {
-    context.push('/market/shop/$shopId/manage');
+    Navigator.pushNamed(context, '/shop/$shopId');
   }
 }

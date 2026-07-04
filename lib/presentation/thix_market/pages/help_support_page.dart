@@ -592,15 +592,11 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
   }
 
   void _viewTicket(String ticketId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Ticket #$ticketId ouvert.')),
-    );
+    Navigator.pushNamed(context, '/ticket/$ticketId');
   }
 
   void _startLiveChat() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Chat en direct bientôt disponible.')),
-    );
+    Navigator.pushNamed(context, '/live-chat');
   }
 
   void _sendEmail() async {
@@ -654,19 +650,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
   }
 
   void _viewFullRules() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Règlement THIX Market'),
-        content: const Text('Le règlement complet sera disponible dans une prochaine mise à jour.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
+    Navigator.pushNamed(context, '/rules');
   }
 
   void _reportProblem() {

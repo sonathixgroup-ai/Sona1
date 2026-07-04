@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/product_provider.dart';
-import '../widgets/products/product_card.dart';
+import '../widgets/product/product_card.dart';
 
 class BuyPage extends StatefulWidget {
   const BuyPage({super.key});
@@ -342,15 +341,15 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   }
 
   void _gotoProductDetail(String productId) {
-    context.push('/market/product/$productId');
+    Navigator.pushNamed(context, '/product/$productId');
   }
 
   void _openComparator() {
-    context.push('/market/compare');
+    Navigator.pushNamed(context, '/compare-products');
   }
 
   void _manageAlerts() {
-    context.push('/market/price-alerts');
+    Navigator.pushNamed(context, '/price-alerts');
   }
 
   void _showAdvancedFilters() {
