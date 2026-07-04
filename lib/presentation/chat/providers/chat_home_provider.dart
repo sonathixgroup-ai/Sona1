@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -40,13 +42,19 @@ class ChatHomeProvider extends ChangeNotifier {
 
   List<ChatUser> _onlineUsers = [];
   List<Conversation> _conversations = [];
+  List<Conversation> _allConversations = [];
   int _totalOnlineCount = 0;
   int _totalNewMessages = 0;
   int _totalActiveMeetings = 0;
   int _totalSecurityAlerts = 0;
   bool _isLoading = false;
   String _selectedTab = 'all'; // all, teams, calls, favorites, appointments
+  String _searchQuery = '';
   String? _currentUserId;
+  StreamSubscription<AuthState>? _authSubscription;
+  RealtimeChannel? _conversationsChannel;
+  RealtimeChannel? _messagesChannel;
+  RealtimeChannel? _presenceChannel;
 
   // Getters
   List<ChatUser> get onlineUsers => _onlineUsers;
@@ -64,19 +72,30 @@ class ChatHomeProvider extends ChangeNotifier {
 
   void _initUser() {
     _currentUserId = _supabase.auth.currentUser?.id;
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
+      final nextUserId = event.session?.user.id;
+      if (nextUserId == _currentUserId) return;
+      _currentUserId = nextUserId;
+      if (_currentUserId == null) {
+        _clearData();
+        return;
+      }
+      _subscribeToRealtime();
+      unawaited(loadAllData());
+    });
+
     if (_currentUserId != null) {
-      loadAllData();
+      _subscribeToRealtime();
+      unawaited(loadAllData());
     }
   }
 
   Future<void> loadAllData() async {
     _setLoading(true);
     try {
-      await Future.wait([
-        loadConversations(),
-        loadOnlineUsers(),
-        loadChatStats(),
-      ]);
+      await loadConversations();
+      await loadOnlineUsers();
+      await loadChatStats();
     } catch (e) {
       debugPrint('Error loading chat home data: $e');
     } finally {
@@ -89,46 +108,46 @@ class ChatHomeProvider extends ChangeNotifier {
 
     try {
       final response = await _supabase
-          .from('social_conversations')
-          .select(
-              '''id, title, is_group, created_at, 
-              social_messages!social_messages_conversation_id (
-                id, body, sender_id, created_at
-              )''')
-          .order('created_at', ascending: false)
+          .from('thix_chat_chats')
+          .select('id, type, title, avatar_url, participants, participant_name, last_message, last_message_at, created_at, updated_at')
+          .contains('participants', [_currentUserId!])
+          .order('last_message_at', ascending: false)
+          .order('updated_at', ascending: false)
           .limit(50);
 
+      final chatRows = (response as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+      final chatIds = chatRows.map((row) => row['id'] as String? ?? '').where((id) => id.isNotEmpty).toList(growable: false);
+      final readAtByChat = await _loadReadAtByChat(chatIds);
+      final profileByUserId = await _loadProfileByUserId(_conversationParticipantIds(chatRows));
       final List<Conversation> convs = [];
 
-      for (var conv in response as List) {
-        final messages = List<Map<String, dynamic>>.from(
-            conv['social_messages'] ?? []);
-
-        String lastMessage = 'Pas de message';
-        DateTime lastTime = DateTime.parse(conv['created_at'] ?? DateTime.now().toIso8601String());
-
-        if (messages.isNotEmpty) {
-          final lastMsg = messages.first;
-          lastMessage = lastMsg['body'] ?? 'Message non disponible';
-          lastTime = DateTime.parse(lastMsg['created_at']);
-        }
-
-        // Récupérer l'avatar du groupe ou utilisateur
-        String avatar = 'https://i.pravatar.cc/150?img=${conv['id'].hashCode % 70}';
+      for (final conv in chatRows) {
+        final lastTime = _parseDateTime(
+              conv['last_message_at'] ?? conv['updated_at'] ?? conv['created_at'],
+            ) ??
+            DateTime.now();
+        final chatId = conv['id'] as String? ?? '';
+        final isGroup = _isGroupConversation(conv);
+        final lastMessage = _normalizedText(conv['last_message'], fallback: 'Pas de message');
+        final hasUnread = _hasUnreadConversation(
+          lastMessageAt: conv['last_message_at'],
+          readAt: readAtByChat[chatId],
+        );
 
         convs.add(Conversation(
-          id: conv['id'],
-          name: conv['title'] ?? 'Conversation',
+          id: chatId,
+          name: _conversationName(conv, profileByUserId),
           lastMessage: lastMessage,
-          avatar: avatar,
+          avatar: _conversationAvatar(conv, profileByUserId),
           lastMessageTime: lastTime,
-          unreadCount: 0, // À implémenter selon votre logique de read receipts
-          isGroup: conv['is_group'] ?? false,
+          unreadCount: hasUnread ? 1 : 0,
+          isGroup: isGroup,
         ));
       }
 
-      _conversations = convs;
-      _totalNewMessages = _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+      _allConversations = convs;
+      _conversations = _applySearchQuery(convs);
+      _totalNewMessages = convs.fold(0, (sum, c) => sum + c.unreadCount);
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading conversations: $e');
@@ -139,20 +158,27 @@ class ChatHomeProvider extends ChangeNotifier {
     if (_currentUserId == null) return;
 
     try {
-      // Charger les utilisateurs avec statut online
       final response = await _supabase
-          .from('users')
-          .select('id, display_name, photo_url, is_online, last_seen')
+          .from('thix_presence')
+          .select('user_id, is_online, last_seen_at')
           .eq('is_online', true)
+          .neq('user_id', _currentUserId!)
+          .order('last_seen_at', ascending: false)
           .limit(10);
 
+      final presenceRows = (response as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+      final profiles = await _loadProfileByUserId(
+        presenceRows.map((row) => row['user_id'] as String? ?? '').where((id) => id.isNotEmpty).toSet(),
+      );
       final List<ChatUser> users = [];
 
-      for (var user in response as List) {
+      for (final user in presenceRows) {
+        final userId = user['user_id'] as String? ?? '';
+        final profile = profiles[userId] ?? const <String, dynamic>{};
         users.add(ChatUser(
-          id: user['id'],
-          name: user['display_name'] ?? 'Utilisateur',
-          avatar: user['photo_url'] ?? 'https://i.pravatar.cc/150?img=${user['id'].hashCode % 70}',
+          id: userId,
+          name: _profileDisplayName(profile),
+          avatar: _profileAvatar(profile, userId),
           isOnline: user['is_online'] ?? false,
         ));
       }
@@ -169,21 +195,10 @@ class ChatHomeProvider extends ChangeNotifier {
     if (_currentUserId == null) return;
 
     try {
-      // Charger les stats
-      // Nombre de conversations non lues
-      final unreadConvs = await _supabase
-          .from('social_message_reads')
-          .select('id')
-          .eq('reader_id', _currentUserId!);
-
-      _totalNewMessages = unreadConvs.length;
-
-      // Réunions actives - à adapter selon votre modèle
+      _totalOnlineCount = _onlineUsers.length;
+      _totalNewMessages = _allConversations.fold(0, (sum, c) => sum + c.unreadCount);
       _totalActiveMeetings = 0;
-
-      // Alertes sécurité - à adapter selon votre modèle
       _totalSecurityAlerts = 0;
-
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading chat stats: $e');
@@ -214,14 +229,8 @@ class ChatHomeProvider extends ChangeNotifier {
   }
 
   void searchConversations(String query) {
-    if (query.isEmpty) {
-      loadConversations();
-      return;
-    }
-
-    _conversations = _conversations
-        .where((c) => c.name.toLowerCase().contains(query.toLowerCase()))
-        .toList();
+    _searchQuery = query.trim().toLowerCase();
+    _conversations = _applySearchQuery(_allConversations);
     notifyListeners();
   }
 
@@ -231,7 +240,7 @@ class ChatHomeProvider extends ChangeNotifier {
     try {
       final index = _conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
-        _conversations[index] = Conversation(
+        final updatedConversation = Conversation(
           id: _conversations[index].id,
           name: _conversations[index].name,
           lastMessage: _conversations[index].lastMessage,
@@ -240,8 +249,18 @@ class ChatHomeProvider extends ChangeNotifier {
           unreadCount: 0,
           isGroup: _conversations[index].isGroup,
         );
+        await _supabase.from('thix_chat_reads').upsert({
+          'chat_id': conversationId,
+          'user_id': _currentUserId!,
+          'read_at': DateTime.now().toUtc().toIso8601String(),
+        });
 
-        _totalNewMessages = _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+        _conversations[index] = updatedConversation;
+        final allIndex = _allConversations.indexWhere((c) => c.id == conversationId);
+        if (allIndex != -1) {
+          _allConversations[allIndex] = updatedConversation;
+        }
+        _totalNewMessages = _allConversations.fold(0, (sum, c) => sum + c.unreadCount);
         notifyListeners();
       }
     } catch (e) {
@@ -255,55 +274,236 @@ class ChatHomeProvider extends ChangeNotifier {
   }
 
   // Subscribe to real-time updates
-  void subscribeToConversationUpdates() {
+  void _subscribeToRealtime() {
     if (_currentUserId == null) return;
 
-    _supabase
-        .channel('conversations_updates')
+    _disposeRealtimeChannels();
+
+    _conversationsChannel = _supabase
+        .channel('thix_chat_home_conversations')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'social_conversations',
+          table: 'thix_chat_chats',
           callback: (payload) {
-            loadConversations();
+            unawaited(loadConversations());
+          },
+        )
+        .subscribe();
+
+    _messagesChannel = _supabase
+        .channel('thix_chat_home_messages')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'thix_chat_messages',
+          callback: (payload) {
+            unawaited(loadConversations());
+          },
+        )
+        .subscribe();
+
+    _presenceChannel = _supabase
+        .channel('thix_chat_home_presence')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'thix_presence',
+          callback: (payload) {
+            unawaited(loadOnlineUsers());
           },
         )
         .subscribe();
   }
 
-  void subscribeToMessageUpdates() {
-    _supabase
-        .channel('messages_updates')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'social_messages',
-          callback: (payload) {
-            loadConversations();
-          },
-        )
-        .subscribe();
+  void _clearData() {
+    _disposeRealtimeChannels();
+    _onlineUsers = [];
+    _conversations = [];
+    _allConversations = [];
+    _totalOnlineCount = 0;
+    _totalNewMessages = 0;
+    _totalActiveMeetings = 0;
+    _totalSecurityAlerts = 0;
+    _isLoading = false;
+    _searchQuery = '';
+    notifyListeners();
   }
 
-  void subscribeToPresenceUpdates() {
-    _supabase
-        .channel('presence_updates')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'users',
-          callback: (payload) {
-            loadOnlineUsers();
-          },
-        )
-        .subscribe();
+  List<Conversation> _applySearchQuery(List<Conversation> source) {
+    if (_searchQuery.isEmpty) {
+      return List<Conversation>.from(source);
+    }
+    return source.where((c) => c.name.toLowerCase().contains(_searchQuery)).toList(growable: false);
+  }
+
+  Set<String> _conversationParticipantIds(List<Map<String, dynamic>> chats) {
+    final ids = <String>{};
+    for (final chat in chats) {
+      ids.addAll(_participantsFrom(chat).where((id) => id != _currentUserId));
+    }
+    return ids;
+  }
+
+  List<String> _participantsFrom(Map<String, dynamic> row) {
+    final raw = row['participants'];
+    if (raw is List) {
+      return raw.whereType<String>().toList(growable: false);
+    }
+    return const <String>[];
+  }
+
+  Map<String, String> _participantNamesFrom(Map<String, dynamic> row) {
+    final raw = row['participant_name'];
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value?.toString() ?? ''));
+    }
+    return const <String, String>{};
+  }
+
+  bool _isGroupConversation(Map<String, dynamic> row) {
+    return (row['type'] as String?) == 'group';
+  }
+
+  bool _hasUnreadConversation({required Object? lastMessageAt, required DateTime? readAt}) {
+    final parsedLastMessageAt = _parseDateTime(lastMessageAt);
+    if (parsedLastMessageAt == null) return false;
+    if (readAt == null) return true;
+    return parsedLastMessageAt.isAfter(readAt);
+  }
+
+  String _conversationName(Map<String, dynamic> row, Map<String, Map<String, dynamic>> profileByUserId) {
+    final title = _normalizedText(row['title']);
+    final participantNames = _participantNamesFrom(row);
+    final participants = _participantsFrom(row);
+    final otherParticipantIds = participants.where((id) => id != _currentUserId).toList(growable: false);
+
+    if (_isGroupConversation(row)) {
+      if (title.isNotEmpty) return title;
+      final derivedNames = otherParticipantIds
+          .map((id) => participantNames[id] ?? _profileDisplayName(profileByUserId[id] ?? <String, dynamic>{}))
+          .where((name) => name.trim().isNotEmpty)
+          .take(3)
+          .toList(growable: false);
+      return derivedNames.isEmpty ? 'Groupe' : derivedNames.join(', ');
+    }
+
+    if (otherParticipantIds.isEmpty) return title.isNotEmpty ? title : 'Conversation';
+    final otherUserId = otherParticipantIds.first;
+    final participantName = participantNames[otherUserId];
+    if (participantName != null && participantName.trim().isNotEmpty) {
+      return participantName.trim();
+    }
+
+    return _profileDisplayName(profileByUserId[otherUserId] ?? <String, dynamic>{});
+  }
+
+  String _conversationAvatar(Map<String, dynamic> row, Map<String, Map<String, dynamic>> profileByUserId) {
+    final explicitAvatar = _normalizedText(row['avatar_url']);
+    if (explicitAvatar.isNotEmpty) return explicitAvatar;
+
+    final participants = _participantsFrom(row);
+    final otherParticipantIds = participants.where((id) => id != _currentUserId).toList(growable: false);
+    if (!_isGroupConversation(row) && otherParticipantIds.isNotEmpty) {
+      return _profileAvatar(profileByUserId[otherParticipantIds.first] ?? <String, dynamic>{}, otherParticipantIds.first);
+    }
+
+    final seed = (row['id'] as String?) ?? 'group';
+    return _fallbackAvatar(seed);
+  }
+
+  Future<Map<String, DateTime>> _loadReadAtByChat(List<String> chatIds) async {
+    if (_currentUserId == null || chatIds.isEmpty) return const <String, DateTime>{};
+
+    try {
+      final response = await _supabase
+          .from('thix_chat_reads')
+          .select('chat_id, read_at')
+          .eq('user_id', _currentUserId!)
+          .inFilter('chat_id', chatIds);
+
+      final Map<String, DateTime> readAtByChat = {};
+      for (final row in response as List) {
+        final item = Map<String, dynamic>.from(row as Map);
+        final chatId = item['chat_id'] as String?;
+        final readAt = _parseDateTime(item['read_at']);
+        if (chatId != null && chatId.isNotEmpty && readAt != null) {
+          readAtByChat[chatId] = readAt;
+        }
+      }
+      return readAtByChat;
+    } catch (e) {
+      debugPrint('Error loading chat read state: $e');
+      return const <String, DateTime>{};
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _loadProfileByUserId(Set<String> userIds) async {
+    if (userIds.isEmpty) return const <String, Map<String, dynamic>>{};
+
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select('id, display_name, full_name, avatar_url, photo_url')
+          .inFilter('id', userIds.toList(growable: false));
+
+      final profiles = <String, Map<String, dynamic>>{};
+      for (final row in response as List) {
+        final item = Map<String, dynamic>.from(row as Map);
+        final id = item['id'] as String?;
+        if (id != null && id.isNotEmpty) {
+          profiles[id] = item;
+        }
+      }
+      return profiles;
+    } catch (e) {
+      debugPrint('Error loading chat profiles: $e');
+      return const <String, Map<String, dynamic>>{};
+    }
+  }
+
+  String _profileDisplayName(Map<String, dynamic> profile) {
+    final fullName = _normalizedText(profile['full_name']);
+    if (fullName.isNotEmpty) return fullName;
+    final displayName = _normalizedText(profile['display_name']);
+    if (displayName.isNotEmpty) return displayName;
+    return 'Utilisateur';
+  }
+
+  String _profileAvatar(Map<String, dynamic> profile, String seed) {
+    final avatarUrl = _normalizedText(profile['avatar_url']);
+    if (avatarUrl.isNotEmpty) return avatarUrl;
+    final photoUrl = _normalizedText(profile['photo_url']);
+    if (photoUrl.isNotEmpty) return photoUrl;
+    return _fallbackAvatar(seed);
+  }
+
+  String _fallbackAvatar(String seed) => 'https://i.pravatar.cc/150?img=${seed.hashCode.abs() % 70}';
+
+  String _normalizedText(Object? value, {String fallback = ''}) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? fallback : text;
+  }
+
+  DateTime? _parseDateTime(Object? value) {
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  void _disposeRealtimeChannels() {
+    _conversationsChannel?.unsubscribe();
+    _messagesChannel?.unsubscribe();
+    _presenceChannel?.unsubscribe();
+    _conversationsChannel = null;
+    _messagesChannel = null;
+    _presenceChannel = null;
   }
 
   @override
   void dispose() {
-    _supabase.channel('conversations_updates').unsubscribe();
-    _supabase.channel('messages_updates').unsubscribe();
-    _supabase.channel('presence_updates').unsubscribe();
+    _authSubscription?.cancel();
+    _disposeRealtimeChannels();
     super.dispose();
   }
 }
