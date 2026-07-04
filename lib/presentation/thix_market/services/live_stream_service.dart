@@ -26,19 +26,18 @@ class LiveStreamService {
 
     _isHost = isHost;
 
-    // ✅ Création correcte pour Agora 6.5.1
-    _engine = createAgoraRtcEngine();
+    // ✅ Création correcte pour Agora 6.5.1 (fonction top-level)
+    _engine = createRtcEngine();
 
     await _engine.initialize(
       RtcEngineContext(
         appId: 'YOUR_AGORA_APP_ID',
-        channelProfile: ChannelProfileType.channelTypeLiveBroadcasting,
+        channelProfile: ChannelProfileType.liveBroadcasting, // ✅ correction
       ),
     );
 
     await _engine.enableVideo();
 
-    // ✅ Utiliser RtcEngineEventHandler (pas RtcEventHandler)
     _engine.registerEventHandler(
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
@@ -63,7 +62,7 @@ class LiveStreamService {
       ),
     );
 
-    // ✅ Définir le rôle avec les constantes correctes
+    // ✅ Définir le rôle (constantes correctes)
     if (_isHost) {
       await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     } else {
