@@ -26,21 +26,21 @@ class LiveStreamService {
 
     _isHost = isHost;
 
-    // ✅ Agora 6.5.1 correct init
-    _engine = createAgoraRtcEngine();
+    // ✅ Création correcte pour Agora 6.5.1
+    _engine = createRtcEngine();
 
     await _engine.initialize(
-      const RtcEngineContext(
+      RtcEngineContext(
         appId: 'YOUR_AGORA_APP_ID',
-        channelProfile:
-            ChannelProfileType.channelProfileLiveBroadcasting,
+        channelProfile: ChannelProfileType.liveBroadcasting,
       ),
     );
 
     await _engine.enableVideo();
 
+    // ✅ Utiliser RtcEngineEventHandler (pas RtcEventHandler)
     _engine.registerEventHandler(
-      RtcEventHandler(
+      RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
           _isJoined = true;
         },
@@ -58,20 +58,16 @@ class LiveStreamService {
         },
 
         onError: (ErrorCodeType err, String msg) {
-          print("Agora error: $err - $msg");
+          // Gérer l'erreur
         },
       ),
     );
 
-    // set role
+    // ✅ Définir le rôle
     if (_isHost) {
-      await _engine.setClientRole(
-        role: ClientRoleType.clientRoleBroadcaster,
-      );
+      await _engine.setClientRole(role: ClientRoleType.broadcaster);
     } else {
-      await _engine.setClientRole(
-        role: ClientRoleType.clientRoleAudience,
-      );
+      await _engine.setClientRole(role: ClientRoleType.audience);
     }
   }
 
@@ -130,21 +126,47 @@ class LiveStreamService {
   }
 
   // =========================
+  // GET AGORA TOKEN (Edge Function)
+  // =========================
+  Future<String?> getAgoraToken(String channelName) async {
+    try {
+      final response = await _supabase.functions.invoke('generate-rtc-token', body: {
+        'channelName': channelName,
+        'role': _isHost ? 'publisher' : 'subscriber',
+      });
+      return response.data['token'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // =========================
   // SUPABASE LIVE SESSION
   // =========================
   Future<Map<String, dynamic>> createLiveSession({
     required String shopId,
     required String title,
-    List<String>? productIds,
+    String? description,
+    required List<String> productIds,
+    bool hasAuction = false,
+    double? startingPrice,
+    DateTime? auctionEndTime,
+    DateTime? scheduledStart,
   }) async {
-    final channelName =
-        'live_${DateTime.now().millisecondsSinceEpoch}';
+    final channelName = 'live_${DateTime.now().millisecondsSinceEpoch}';
+    final token = await getAgoraToken(channelName);
 
     final liveData = {
       'shop_id': shopId,
       'title': title,
+      'description': description,
       'channel_name': channelName,
-      'products': productIds ?? [],
+      'token': token,
+      'products': productIds,
+      'has_auction': hasAuction,
+      'starting_price': startingPrice,
+      'auction_end_time': auctionEndTime?.toIso8601String(),
+      'scheduled_start': (scheduledStart ?? DateTime.now().add(const Duration(minutes: 5))).toIso8601String(),
       'status': 'scheduled',
       'created_at': DateTime.now().toIso8601String(),
     };
@@ -190,21 +212,62 @@ class LiveStreamService {
   }
 
   // =========================
-  // CHAT
+  // LIVE COMMENTS
   // =========================
-  Future<void> sendMessage({
-    required String liveId,
-    required String message,
-  }) async {
+  Future<void> sendComment(String liveId, String comment) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-    await _supabase.from('live_messages').insert({
+    await _supabase.from('live_comments').insert({
       'live_id': liveId,
       'user_id': userId,
-      'message': message,
+      'comment': comment,
       'created_at': DateTime.now().toIso8601String(),
     });
+  }
+
+  Stream<List<Map<String, dynamic>>> getLiveComments(String liveId) {
+    return _supabase
+        .from('live_comments')
+        .stream(primaryKey: ['id'])
+        .eq('live_id', liveId)
+        .order('created_at', ascending: true)
+        .map((data) => List<Map<String, dynamic>>.from(data));
+  }
+
+  // =========================
+  // AUCTIONS
+  // =========================
+  Future<void> placeBid(String auctionId, double amount) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Login required');
+
+    await _supabase.rpc('place_bid', params: {
+      'auction_id': auctionId,
+      'bid_amount': amount,
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> getAuctionBids(String auctionId) {
+    return _supabase
+        .from('auction_bids')
+        .stream(primaryKey: ['id'])
+        .eq('auction_id', auctionId)
+        .order('amount', ascending: false)
+        .map((data) => List<Map<String, dynamic>>.from(data));
+  }
+
+  Future<double> getCurrentBid(String auctionId) async {
+    try {
+      final response = await _supabase
+          .from('auctions')
+          .select('current_bid')
+          .eq('id', auctionId)
+          .single();
+      return (response['current_bid'] as num?)?.toDouble() ?? 0;
+    } catch (e) {
+      return 0;
+    }
   }
 
   // =========================
@@ -212,6 +275,6 @@ class LiveStreamService {
   // =========================
   Future<void> dispose() async {
     await _engine.leaveChannel();
-    await _engine.release(); // ✅ correct Agora 6.x
+    await _engine.destroy(); // ✅ Agora 6.x : destroy()
   }
 }
