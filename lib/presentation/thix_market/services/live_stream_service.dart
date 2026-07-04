@@ -7,6 +7,8 @@ class LiveStreamService {
   late RtcEngine _engine;
   bool _isHost = false;
   bool _isJoined = false;
+  bool _isMuted = false;
+  bool _isVideoEnabled = true;
   int _remoteUid = 0;
   String? _currentChannel;
 
@@ -14,32 +16,41 @@ class LiveStreamService {
   Future<void> initEngine({required bool isHost}) async {
     await [Permission.microphone, Permission.camera].request();
 
-    _engine = createRtcEngine();
-    await _engine.initialize(const RtcEngineContext(
-      appId: 'YOUR_AGORA_APP_ID',
-      channelProfile: ChannelProfileType.liveBroadcasting,
-    ));
+    // ✅ API 6.x : RtcEngine.create()
+    _engine = await RtcEngine.create();
 
-    _engine.registerEventHandler(RtcEngineEventHandler(
-      onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-        _isJoined = true;
-      },
-      onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-        _remoteUid = remoteUid;
-      },
-      onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-        _remoteUid = 0;
-      },
-      onError: (RtcError err) {
-        // Handle error
-      },
-    ));
+    // ✅ Initialisation
+    await _engine.initialize(
+      RtcEngineContext(
+        appId: 'YOUR_AGORA_APP_ID',
+        channelProfile: ChannelProfile.liveBroadcasting, // ✅ sans "Type"
+      ),
+    );
+
+    // ✅ Gestion des événements
+    _engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          _isJoined = true;
+        },
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          _remoteUid = remoteUid;
+        },
+        onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+          _remoteUid = 0;
+        },
+        // ✅ API 6.x : onError utilise ErrorCodeType et String
+        onError: (ErrorCodeType err, String message) {
+          // Gérer l'erreur
+        },
+      ),
+    );
 
     _isHost = isHost;
     if (isHost) {
-      await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+      await _engine.setClientRole(role: ClientRole.broadcaster); // ✅ sans "Type"
     } else {
-      await _engine.setClientRole(role: ClientRoleType.clientRoleAudience);
+      await _engine.setClientRole(role: ClientRole.audience); // ✅ sans "Type"
     }
   }
 
@@ -79,8 +90,8 @@ class LiveStreamService {
 
   // Mute/unmute microphone
   Future<void> toggleMute() async {
-    final isMuted = await _engine.isLocalAudioStreamMuted();
-    await _engine.muteLocalAudioStream(!isMuted);
+    _isMuted = !_isMuted;
+    await _engine.muteLocalAudioStream(_isMuted);
   }
 
   // Switch camera
@@ -90,11 +101,11 @@ class LiveStreamService {
 
   // Enable/disable video
   Future<void> toggleVideo() async {
-    final isEnabled = await _engine.isVideoEnabled();
-    if (isEnabled) {
-      await _engine.disableVideo();
-    } else {
+    _isVideoEnabled = !_isVideoEnabled;
+    if (_isVideoEnabled) {
       await _engine.enableVideo();
+    } else {
+      await _engine.disableVideo();
     }
   }
 
@@ -234,6 +245,6 @@ class LiveStreamService {
   // Clean up
   Future<void> dispose() async {
     await _engine.leaveChannel();
-    await _engine.destroy();
+    await _engine.destroy(); // ✅ destroy() existe en 6.x
   }
 }
