@@ -53,8 +53,9 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
   @override
   void initState() {
     super.initState();
+    // ✅ Correction : Debouncer attend une Durée en premier argument positionnel + onValue en paramètre nommé
     _debouncer = Debouncer<String>(
-      delay: const Duration(milliseconds: 300),
+      const Duration(milliseconds: 300),
       onValue: _fetchSuggestions,
     );
     _controller.addListener(_onTextChanged);
