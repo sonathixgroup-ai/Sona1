@@ -37,7 +37,7 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
             return Column(
               children: [
                 // Search Bar
-                _buildSearchBar(),
+                _buildSearchBar(provider),
                 // Statistics Cards
                 _buildStatisticsCards(provider),
                 // Online Users Section
@@ -100,11 +100,12 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(ChatHomeProvider provider) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: TextField(
         controller: _searchController,
+        onChanged: provider.searchConversations,
         decoration: InputDecoration(
           hintText: 'Rechercher un chat, contact, groupe...',
           prefixIcon: const Icon(Icons.search_outlined, color: Colors.grey),
@@ -131,28 +132,28 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
             _buildStatCard(
               icon: Icons.people_outline,
               label: 'En ligne',
-              value: ChatHomeProvider.mockOnlineCount.toString(),
+              value: provider.totalOnlineCount.toString(),
               color: const Color(0xFF1ABC9C),
             ),
             const SizedBox(width: 12),
             _buildStatCard(
               icon: Icons.message_outlined,
               label: 'Nouveaux\nmessages',
-              value: ChatHomeProvider.mockNewMessages.toString(),
+              value: provider.totalNewMessages.toString(),
               color: const Color(0xFF4A73E1),
             ),
             const SizedBox(width: 12),
             _buildStatCard(
               icon: Icons.videocam_outlined,
               label: 'Réunions\nactives',
-              value: ChatHomeProvider.mockActiveMeetings.toString(),
+              value: provider.totalActiveMeetings.toString(),
               color: const Color(0xFF0084FF),
             ),
             const SizedBox(width: 12),
             _buildStatCard(
               icon: Icons.security,
               label: 'Alertes\nsécurité',
-              value: ChatHomeProvider.mockSecurityAlerts.toString(),
+              value: provider.totalSecurityAlerts.toString(),
               color: const Color(0xFFFF6B6B),
             ),
           ],
@@ -398,6 +399,10 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
 
   Widget _buildConversationsList(ChatHomeProvider provider) {
     final conversations = provider.getFilteredConversations();
+
+    if (provider.isLoading && conversations.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     if (conversations.isEmpty) {
       return Center(
