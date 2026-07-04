@@ -198,7 +198,9 @@ class _SheetFrame extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
-    final goldSoft = isDark ? DarkModeColors.metalGoldSoft : LightModeColors.metalGoldSoft;
+    // FIX: si `metalGoldSoft` n'existe pas dans theme.dart, on le dérive de `metalGold`.
+    // -> Si ton theme.dart a bien un `metalGoldSoft`, remplace cette ligne par l'original.
+    final goldSoft = gold.withValues(alpha: isDark ? 0.35 : 0.45);
     final surface = theme.colorScheme.surface;
 
     final Gradient gradient;
@@ -257,11 +259,30 @@ class _UrgencyScale {
   }
 }
 
+/// FIX PRINCIPAL:
+/// - On ne peut pas utiliser `const _Seg(..., EmergencyUrgencyScaleColors.x)` si ces couleurs
+///   ne sont pas des `static const Color` (ex: elles dépendent du thème dark/light) -> on enlève `const`.
+/// - `paint()` reçoit un `PaintingContext`, pas un `BuildContext` : on ne peut donc pas appeler
+///   `Theme.of(context)` ni résoudre `EmergencyMedicalSheetColors.stroke` à l'intérieur.
+///   -> On injecte toutes les couleurs nécessaires via le constructeur, calculées en amont
+///      dans `build()` où le vrai `BuildContext` est disponible.
 class _UrgencyTrackShape extends SliderTrackShape {
-  const _UrgencyTrackShape();
+  final Color trackBaseColor;
+  final Color highlightFallbackColor;
+
+  const _UrgencyTrackShape({
+    required this.trackBaseColor,
+    required this.highlightFallbackColor,
+  });
 
   @override
-  Rect getPreferredRect({required RenderBox parentBox, Offset offset = Offset.zero, required SliderThemeData sliderTheme, bool isEnabled = false, bool isDiscrete = false}) {
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
     final trackHeight = sliderTheme.trackHeight ?? 6;
     final left = offset.dx + (sliderTheme.overlayShape?.getPreferredSize(isEnabled, isDiscrete).width ?? 0) / 2;
     final top = offset.dy + (parentBox.size.height - trackHeight) / 2;
@@ -270,21 +291,32 @@ class _UrgencyTrackShape extends SliderTrackShape {
   }
 
   @override
-  void paint(PaintingContext context, Offset offset, {required RenderBox parentBox, required SliderThemeData sliderTheme, required Animation<double> enableAnimation, required Offset thumbCenter, Offset? secondaryOffset, bool isEnabled = false, bool isDiscrete = false, required TextDirection textDirection}) {
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    required TextDirection textDirection,
+  }) {
     final canvas = context.canvas;
     final rect = getPreferredRect(parentBox: parentBox, offset: offset, sliderTheme: sliderTheme, isEnabled: isEnabled, isDiscrete: isDiscrete);
     final r = Radius.circular(rect.height / 2);
     final full = RRect.fromRectAndRadius(rect, r);
     final paint = Paint()..style = PaintingStyle.fill;
 
-    paint.color = EmergencyMedicalSheetColors.stroke;
+    paint.color = trackBaseColor;
     canvas.drawRRect(full, paint);
 
     final segs = [
-      const _Seg(0.0, 0.40, EmergencyUrgencyScaleColors.stable),
-      const _Seg(0.40, 0.65, EmergencyUrgencyScaleColors.moderate),
-      const _Seg(0.65, 0.85, EmergencyUrgencyScaleColors.urgent),
-      const _Seg(0.85, 1.0, EmergencyUrgencyScaleColors.critical),
+      _Seg(0.0, 0.40, EmergencyUrgencyScaleColors.stable),
+      _Seg(0.40, 0.65, EmergencyUrgencyScaleColors.moderate),
+      _Seg(0.65, 0.85, EmergencyUrgencyScaleColors.urgent),
+      _Seg(0.85, 1.0, EmergencyUrgencyScaleColors.critical),
     ];
     for (final s in segs) {
       final l = rect.left + rect.width * s.a;
@@ -307,11 +339,9 @@ class _UrgencyTrackShape extends SliderTrackShape {
 
     final leftToThumb = Rect.fromLTRB(rect.left, rect.top, thumbCenter.dx, rect.bottom);
     final highlight = RRect.fromRectAndRadius(leftToThumb, r);
-    paint.color = sliderTheme.activeTrackColor ?? themeColorFallback(context);
+    paint.color = sliderTheme.activeTrackColor ?? highlightFallbackColor;
     canvas.drawRRect(highlight, paint..color = paint.color.withValues(alpha: 0.22));
   }
-
-  Color themeColorFallback(BuildContext context) => Theme.of(context).colorScheme.primary;
 }
 
 class _Seg {
@@ -333,7 +363,8 @@ class _SheetHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
-    final goldSoft = isDark ? DarkModeColors.metalGoldSoft : LightModeColors.metalGoldSoft;
+    // FIX: même dérivation que dans _SheetFrame pour metalGoldSoft.
+    final goldSoft = gold.withValues(alpha: isDark ? 0.35 : 0.45);
     final a = isDark ? gold : (accent ?? gold);
     final aSoft = isDark ? goldSoft : (accent == null ? goldSoft : Theme.of(context).colorScheme.primary.withValues(alpha: 0.16));
     return Padding(
@@ -465,6 +496,12 @@ class _BloodSheetState extends State<_BloodSheet> {
     final requestQtyOk = !isRequest || (qty != null && qty > 0);
     final canSubmit = _group.trim().isNotEmpty && requestQtyOk && requestIdentityOk;
 
+    // FIX: couleurs pour le CustomPainter du Slider, calculées ici où `context` est un vrai BuildContext.
+    final trackShape = _UrgencyTrackShape(
+      trackBaseColor: EmergencyMedicalSheetColors.stroke,
+      highlightFallbackColor: theme.colorScheme.primary,
+    );
+
     final maxH = MediaQuery.of(context).size.height * 0.88;
     return _SheetFrame(
       medical: !isDark,
@@ -544,7 +581,7 @@ class _BloodSheetState extends State<_BloodSheet> {
                       SliderTheme(
                         data: theme.sliderTheme.copyWith(
                           trackHeight: 7,
-                          trackShape: const _UrgencyTrackShape(),
+                          trackShape: trackShape,
                           activeTrackColor: _UrgencyScale.color(_urgency01),
                           inactiveTrackColor: Colors.transparent,
                           thumbColor: _UrgencyScale.color(_urgency01),
