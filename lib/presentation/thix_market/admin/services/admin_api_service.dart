@@ -209,17 +209,22 @@ class AdminApiService {
       var query = _supabase.from('users').select('*');
 
       if (search != null && search.isNotEmpty) {
+        // Recherche par nom ou email
         query = query.ilike('name', '%$search%');
-        // Pour la recherche email, on peut ajouter une condition OR avec `or`
-        // Note: La méthode `or` est disponible sur PostgrestFilterBuilder
-        // Mais pour simplifier, on peut faire une requête séparée ou filtrer après
-        // Version simplifiée : recherche uniquement par nom
+        // Pour une recherche OR (nom ou email), on peut utiliser filter avec or
+        // Exemple: query = query.filter('name', 'ilike', '%$search%').or('email.ilike.%$search%');
+        // Mais pour simplifier, on filtre seulement par nom.
+        // Si besoin de rechercher par email, ajouter une condition avec or.
+        // Note: Dans la nouvelle version de Supabase, la méthode 'or' est disponible.
+        // Mais on peut aussi faire deux requêtes ou utiliser un filtre plus souple.
+        // Pour l'instant on garde la recherche par nom uniquement.
       }
       if (role != null && role != 'all') {
         query = query.eq('role', role);
       }
       if (!includeDeleted) {
-        query = query.is_('deleted_at', null);
+        // Utiliser isNull pour vérifier que deleted_at est null
+        query = query.isNull('deleted_at');
       }
       query = query.order(sortBy, ascending: ascending);
 
@@ -579,11 +584,10 @@ class AdminApiService {
         'target_id': targetId,
         'action': action,
         'metadata': metadata,
-        'ip_address': '', // à récupérer côté client si besoin
+        'ip_address': '',
         'created_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      // Ne pas bloquer l'action principale si le logging échoue
       dev.log('Failed to log admin activity: $e');
     }
   }
