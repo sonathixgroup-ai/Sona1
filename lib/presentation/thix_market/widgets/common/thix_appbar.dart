@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class ThixAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
@@ -32,8 +31,6 @@ class ThixAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return AppBar(
       title: title != null
           ? Text(
@@ -146,12 +143,13 @@ class ThixAppBar extends StatelessWidget implements PreferredSizeWidget {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return 0;
     try {
-      final response = await Supabase.instance.client
+      final query = Supabase.instance.client
           .from('notifications')
-          .select('id', count: CountOption.exact)
+          .select('id')
           .eq('user_id', userId)
           .eq('is_read', false);
-      return response.count ?? 0;
+      final countResult = await query.count();
+      return countResult.count ?? 0;
     } catch (e) {
       return 0;
     }
@@ -161,11 +159,12 @@ class ThixAppBar extends StatelessWidget implements PreferredSizeWidget {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return 0;
     try {
-      final response = await Supabase.instance.client
+      final query = Supabase.instance.client
           .from('cart')
-          .select('id', count: CountOption.exact)
+          .select('id')
           .eq('user_id', userId);
-      return response.count ?? 0;
+      final countResult = await query.count();
+      return countResult.count ?? 0;
     } catch (e) {
       return 0;
     }
