@@ -1,5 +1,5 @@
+// lib/presentation/thix_market/pages/product_detail_page.dart
 import 'package:flutter/material.dart';
-
 import '../widgets/products/product_detail.dart';
 
 class ProductDetailPage extends StatelessWidget {
@@ -8,5 +8,8 @@ class ProductDetailPage extends StatelessWidget {
   const ProductDetailPage({super.key, required this.productId});
 
   @override
-  Widget build(BuildContext context) => ProductDetail(productId: productId);
+  Widget build(BuildContext context) {
+    // Le widget ProductDetail gère déjà son propre Scaffold
+    return ProductDetail(productId: productId);
+  }
 }
