@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -274,6 +275,6 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
   }
 
   void _viewOrderDetail() {
-    Navigator.pushNamed(context, '/order-detail/${widget.order['id']}');
+    context.push('/market/order/${widget.order['id']}');
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -420,18 +421,11 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
   }
 
   void _openChat(String conversationId, Map<String, dynamic> otherUser) {
-    Navigator.pushNamed(
-      context,
-      '/chat',
-      arguments: {
-        'conversation_id': conversationId,
-        'user': otherUser,
-      },
-    );
+    context.push('/market/chat/$conversationId', extra: {'user': otherUser});
   }
 
   void _openDispute(String disputeId) {
-    Navigator.pushNamed(context, '/dispute/$disputeId');
+    context.push('/market/dispute/$disputeId');
   }
 
   void _startVoiceCall() {

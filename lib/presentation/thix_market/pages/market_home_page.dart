@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../providers/market_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../widgets/market/product_card.dart';
-import '../widgets/market/shop_card.dart';
+import '../widgets/products/product_card.dart';
+import '../widgets/shops/shop_card.dart';
 import '../widgets/common/loading_shimmer.dart';
 
 class MarketHomePage extends StatefulWidget {
@@ -588,23 +588,25 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
   // Navigation methods
   void _scanQRCode() {
-    Navigator.pushNamed(context, '/scan-qr');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Scanner QR bientôt disponible.')),
+    );
   }
 
   void _gotoNotifications() {
-    Navigator.pushNamed(context, '/notifications');
+    context.push('/market/notifications');
   }
 
   void _gotoSearch() {
-    Navigator.pushNamed(context, '/search');
+    context.push('/market/search');
   }
 
   void _gotoAllLives() {
-    Navigator.pushNamed(context, '/lives');
+    context.push('/market/live');
   }
 
   void _gotoProductDetail(String productId) {
-    Navigator.pushNamed(context, '/product/$productId');
+    context.push('/market/product/$productId');
   }
 
   void _gotoPromoLink(String link) {
@@ -612,14 +614,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   void _gotoRecommended() {
-    Navigator.pushNamed(context, '/recommended');
+    context.push('/market/buy');
   }
 
   void _gotoAllShops() {
-    Navigator.pushNamed(context, '/shops');
+    context.push('/market/shops');
   }
 
   void _gotoShop(String shopId) {
-    Navigator.pushNamed(context, '/shop/$shopId');
+    context.push('/market/shop/$shopId/manage');
   }
 }

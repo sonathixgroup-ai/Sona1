@@ -22,7 +22,8 @@ class CartItemTile extends StatelessWidget {
     final finalPrice = discountPrice != null && discountPrice < price ? discountPrice.toDouble() : price;
     final hasDiscount = discountPrice != null && discountPrice < price;
     final totalPrice = finalPrice * quantity;
-    final imageUrl = (product['images'] as List?)?.firstOrNull ?? product['image_url'];
+    final images = product['images'];
+    final imageUrl = images is List && images.isNotEmpty ? images.first : product['image_url'];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

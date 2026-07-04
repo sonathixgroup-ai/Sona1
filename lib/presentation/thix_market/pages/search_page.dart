@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/search_provider.dart';
 import '../widgets/search/filter_bottom_sheet.dart';
-import '../widgets/product/product_card.dart';
+import '../widgets/products/product_card.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -259,6 +260,6 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _gotoProductDetail(String productId) {
-    Navigator.pushNamed(context, '/product/$productId');
+    context.push('/market/product/$productId');
   }
 }

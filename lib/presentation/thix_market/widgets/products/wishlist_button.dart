@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WishlistButton extends StatefulWidget {
@@ -105,7 +106,7 @@ class _WishlistButtonState extends State<WishlistButton> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/login');
+              context.go('/login');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE5592F),

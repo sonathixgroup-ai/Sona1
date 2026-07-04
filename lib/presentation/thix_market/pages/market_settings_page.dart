@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/settings_provider.dart';
@@ -321,35 +322,35 @@ class _MarketSettingsPageState extends State<MarketSettingsPage> {
   }
 
   void _manageThixMoney() {
-    Navigator.pushNamed(context, '/thix-money');
+    _showComingSoon('Gestion THIX Money');
   }
 
   void _manageCards() {
-    Navigator.pushNamed(context, '/payment-methods');
+    _showComingSoon('Cartes bancaires');
   }
 
   void _manageMobileMoney() {
-    Navigator.pushNamed(context, '/mobile-money');
+    _showComingSoon('Mobile Money');
   }
 
   void _manageAddresses() {
-    Navigator.pushNamed(context, '/addresses');
+    _showComingSoon('Adresses de livraison');
   }
 
   void _findPickupPoints() {
-    Navigator.pushNamed(context, '/pickup-points');
+    _showComingSoon('Points relais THIX');
   }
 
   void _manage2FA() {
-    Navigator.pushNamed(context, '/2fa-setup');
+    _showComingSoon('Double authentification');
   }
 
   void _changePassword() {
-    Navigator.pushNamed(context, '/change-password');
+    _showComingSoon('Changement de mot de passe');
   }
 
   void _manageDevices() {
-    Navigator.pushNamed(context, '/devices');
+    _showComingSoon('Appareils connectés');
   }
 
   void _toggleProfessionalMode(bool value) async {
@@ -388,19 +389,19 @@ class _MarketSettingsPageState extends State<MarketSettingsPage> {
   }
 
   void _manageSubscription() {
-    Navigator.pushNamed(context, '/subscription');
+    _showComingSoon('Abonnement Pro');
   }
 
   void _editProfile() {
-    Navigator.pushNamed(context, '/edit-profile');
+    _showComingSoon('Édition du profil');
   }
 
   void _openTerms() {
-    Navigator.pushNamed(context, '/terms');
+    _showComingSoon('Conditions d’utilisation');
   }
 
   void _openPrivacy() {
-    Navigator.pushNamed(context, '/privacy');
+    _showComingSoon('Politique de confidentialité');
   }
 
   void _logout() async {
@@ -426,8 +427,14 @@ class _MarketSettingsPageState extends State<MarketSettingsPage> {
     if (shouldLogout == true) {
       await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     }
+  }
+
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature bientôt disponible.')),
+    );
   }
 }

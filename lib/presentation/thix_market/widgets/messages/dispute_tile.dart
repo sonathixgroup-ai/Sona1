@@ -233,6 +233,8 @@ class _DisputeTileState extends State<DisputeTile> {
   }
 
   void _contactSupport() {
-    Navigator.pushNamed(context, '/support', arguments: {'dispute_id': widget.dispute['id']});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Support bientôt disponible.')),
+    );
   }
 }

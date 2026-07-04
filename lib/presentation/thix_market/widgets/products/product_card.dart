@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import '../../../providers/cart_provider.dart';
-import '../../../providers/wishlist_provider.dart';
 import 'package:provider/provider.dart';
+import '../../cart/cart_provider.dart';
 
 class ProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
   final bool isFlashSale;
   final bool showFavoriteButton;
-  final Function(Map<String, dynamic>)? onTap;
+  final VoidCallback? onTap;
   final Function(String)? onFavoriteTap;
   final Function(Map<String, dynamic>)? onAddToCart;
 
@@ -50,7 +49,7 @@ class _ProductCardState extends State<ProductCard> {
         widget.product['discount_price'] < widget.product['price'];
 
     return GestureDetector(
-      onTap: () => widget.onTap?.call(widget.product),
+      onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,

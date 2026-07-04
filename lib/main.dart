@@ -19,6 +19,17 @@ import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
 import 'package:thix_id/presentation/chat/core/chat_repository.dart';
 import 'package:thix_id/presentation/chat/core/chat_events.dart';
 import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/live_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/market_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/message_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/product_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/search_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // 🆕 IMPORTS POUR LES ÉVÉNEMENTS
@@ -292,6 +303,17 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
           create: (_) => EventProvider(widget.eventService),
         ),
+        ChangeNotifierProvider(create: (_) => MarketProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
+        ChangeNotifierProvider(create: (_) => ShopProvider()),
+        ChangeNotifierProvider(create: (_) => MessageProvider()),
+        ChangeNotifierProvider(create: (_) => LiveProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => ActivityProvider()),
+        ChangeNotifierProvider(create: (_) => SellProvider()),
+        ChangeNotifierProvider(create: (_) => SupportProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: Builder(
         builder: (context) {

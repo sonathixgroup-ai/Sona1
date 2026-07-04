@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'checkout_provider.dart';
-import '../../cart/cart_provider.dart';
+import '../cart/cart_provider.dart';
 import 'order_confirmation_page.dart';
 
 class OrderSummaryWidget extends StatelessWidget {
@@ -22,7 +22,9 @@ class OrderSummaryWidget extends StatelessWidget {
         'quantity': item['quantity'],
         'price': (product['discount_price'] ?? product['price']).toDouble(),
         'product_name': product['title'],
-        'image_url': (product['images'] as List?)?.firstOrNull,
+        'image_url': (product['images'] is List && (product['images'] as List).isNotEmpty)
+            ? (product['images'] as List).first
+            : product['image_url'],
       };
     }).toList();
 
