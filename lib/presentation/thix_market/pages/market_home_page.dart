@@ -188,38 +188,36 @@ class _MarketHomePageState extends State<MarketHomePage> {
           ),
 
           // ================================
-          // CONTENU PRINCIPAL (style Alibaba)
+          // CONTENU PRINCIPAL
           // ================================
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 1. LIVES EN COURS
-                  _buildLiveSessions(marketProvider.liveSessions, theme),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. LIVES EN COURS
+                _buildLiveSessions(marketProvider.liveSessions, theme),
 
-                  // 2. CATÉGORIES
-                  const CategoryGrid(),
+                // 2. CATÉGORIES
+                const CategoryGrid(),
 
-                  // 3. BANNIÈRES PROMOTIONNELLES
-                  _buildPromoBanners(marketProvider.promoBanners),
+                // 3. BANNIÈRES PROMOTIONNELLES
+                _buildPromoBanners(marketProvider.promoBanners),
 
-                  // 4. OFFRES FLASH
-                  _buildFlashSales(marketProvider.flashSales, theme),
+                // 4. OFFRES FLASH
+                _buildFlashSales(marketProvider.flashSales, theme),
 
-                  // 5. PRODUITS RECOMMANDÉS
-                  _buildRecommendedSection(marketProvider.recommendedProducts, theme),
+                // 5. PRODUITS RECOMMANDÉS
+                _buildRecommendedSection(marketProvider.recommendedProducts, theme),
 
-                  // 6. BOUTIQUES MISES EN AVANT
-                  _buildFeaturedShops(marketProvider.featuredShops, theme),
+                // 6. BOUTIQUES MISES EN AVANT
+                _buildFeaturedShops(marketProvider.featuredShops, theme),
 
-                  // 7. POUR VOUS
-                  _buildForYouSection(marketProvider.forYouProducts, theme),
+                // 7. POUR VOUS
+                _buildForYouSection(marketProvider.forYouProducts, theme),
 
-                  const SizedBox(height: 20),
-                ],
-              ),
+                // Espace en bas pour éviter l'overflow
+                const SizedBox(height: 100),
+              ],
             ),
           ),
         ],
@@ -470,9 +468,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // 3. OFFRES FLASH
   // ============================================================
   Widget _buildFlashSales(List<dynamic> flashSales, ThemeData theme) {
-    if (flashSales.isEmpty) {
-      return const SizedBox(height: 8);
-    }
+    if (flashSales.isEmpty) return const SizedBox(height: 8);
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -543,9 +539,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // 4. PRODUITS RECOMMANDÉS
   // ============================================================
   Widget _buildRecommendedSection(List<dynamic> products, ThemeData theme) {
-    if (products.isEmpty) {
-      return const SizedBox(height: 8);
-    }
+    if (products.isEmpty) return const SizedBox(height: 8);
 
     return Container(
       margin: const EdgeInsets.only(top: 24),
@@ -603,9 +597,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // 5. BOUTIQUES MISES EN AVANT
   // ============================================================
   Widget _buildFeaturedShops(List<dynamic> shops, ThemeData theme) {
-    if (shops.isEmpty) {
-      return const SizedBox(height: 8);
-    }
+    if (shops.isEmpty) return const SizedBox(height: 8);
 
     return Container(
       margin: const EdgeInsets.only(top: 24),
@@ -659,12 +651,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // 6. POUR VOUS (Découvrir plus)
   // ============================================================
   Widget _buildForYouSection(List<dynamic> products, ThemeData theme) {
-    if (products.isEmpty) {
-      return const SizedBox(height: 8);
-    }
+    if (products.isEmpty) return const SizedBox(height: 8);
 
     return Container(
-      margin: const EdgeInsets.only(top: 24, bottom: 80),
+      margin: const EdgeInsets.only(top: 24, bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
