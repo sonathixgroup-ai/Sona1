@@ -46,16 +46,21 @@ class _ReplayListState extends State<ReplayList> {
     setState(() => _isLoading = true);
     
     try {
+      // 1. Construire la requête de base avec les filtres (sans range ni order)
       var query = Supabase.instance.client
           .from('lives')
           .select('*, shop:shops(name, logo_url)')
-          .eq('status', 'ended')
+          .eq('status', 'ended');
+      
+      // 2. Ajouter le filtre shopId si présent
+      if (widget.shopId != null) {
+        query = query.eq('shop_id', widget.shopId!);
+      }
+      
+      // 3. Appliquer le tri et la pagination APRES tous les filtres
+      query = query
           .order('ended_at', ascending: false)
           .range(_page * _limit, (_page + 1) * _limit - 1);
-      
-      if (widget.shopId != null) {
-        query = query.eq('shop_id', widget.shopId);
-      }
       
       final response = await query;
       final List<Map<String, dynamic>> newReplays = List<Map<String, dynamic>>.from(response);
