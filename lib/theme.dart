@@ -90,19 +90,117 @@ class InstitutionalColors {
 }
 
 @immutable
+class AdminCyberColors {
+  const AdminCyberColors._();
+
+  static const Color black = LearningCyberColors.black;
+  static const Color panel = LearningCyberColors.panel;
+  static const Color panelHi = LearningCyberColors.panelHi;
+  static const Color stroke = LearningCyberColors.stroke;
+  static const Color text = LearningCyberColors.text;
+  static const Color textDim = LearningCyberColors.textDim;
+  static const Color neonCyan = LearningCyberColors.neonCyan;
+  static const Color neonViolet = LearningCyberColors.neonViolet;
+  static const Color electricBlue = LearningCyberColors.electricBlue;
+  static const Color success = LearningCyberColors.success;
+  static const Color danger = LearningCyberColors.danger;
+}
+
+@immutable
+class AdminCyberGradients {
+  const AdminCyberGradients._();
+
+  static Gradient glowBlue() => LearningCyberGradients.glowBlue();
+  static Gradient glowViolet() => LearningCyberGradients.glowViolet();
+}
+
+@immutable
+class MarketColors {
+  const MarketColors._();
+
+  static const Color bg = Color(0xFFF8FAFC);
+  static const Color stroke = Color(0xFFE2E8F0);
+  static const Color ink = Color(0xFF0F172A);
+  static const Color grayText = Color(0xFF64748B);
+  static const Color orange = Color(0xFFF59E0B);
+  static const Color orangeDeep = Color(0xFFEA580C);
+}
+
+@immutable
+class LightModeColors {
+  const LightModeColors._();
+
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color surface = Colors.white;
+  static const Color divider = Color(0xFFE2E8F0);
+  static const Color hint = Color(0xFF94A3B8);
+  static const Color primary = InstitutionalColors.civicBlue;
+  static const Color secondary = InstitutionalColors.civicBlueSoft;
+  static const Color accent = Color(0xFF0EA5E9);
+  static const Color primaryText = Color(0xFF0F172A);
+  static const Color secondaryText = Color(0xFF475569);
+  static const Color onSurface = Color(0xFF111827);
+  static const Color success = LearningCyberColors.success;
+  static const Color error = LearningCyberColors.danger;
+  static const Color emergencyRed = Color(0xFFDC2626);
+  static const Color cyberDarkBlue = DarkModeColors.cyberDarkBlue;
+  static const Color metalGold = Color(0xFFD4AF37);
+  static const Color metalGoldSoft = Color(0xFFE8D89A);
+  static const Color metalGoldDeep = Color(0xFF9A7A1C);
+}
+
+@immutable
 class DarkModeColors {
   const DarkModeColors._();
 
+  static const Color background = LearningCyberColors.bg0;
   static const Color primary = Color(0xFF0B1220);
   static const Color cyberDarkBlue = Color(0xFF0D1B2A);
+  static const Color emergencyRed = Color(0xFFEF4444);
 
   // Required by existing pages (fixes "Member not found: success")
   static const Color success = Color(0xFF22C55E);
+  static const Color metalGold = Color(0xFFD4AF37);
+  static const Color metalGoldSoft = Color(0xFFE8D89A);
+  static const Color metalGoldDeep = Color(0xFF9A7A1C);
 
   // Optional aliases for consistency
   static const Color text = LearningCyberColors.text;
   static const Color textDim = LearningCyberColors.textDim;
   static const Color danger = LearningCyberColors.danger;
+}
+
+@immutable
+class EmergencyMedicalSheetColors {
+  const EmergencyMedicalSheetColors._();
+
+  static const Color stroke = Color(0xFF1E3A8A);
+}
+
+@immutable
+class EmergencyMedicalSheetGradients {
+  const EmergencyMedicalSheetGradients._();
+
+  static Gradient background() {
+    return const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: <Color>[
+        Color(0xFF0B1220),
+        Color(0xFF111C34),
+      ],
+    );
+  }
+}
+
+@immutable
+class EmergencyUrgencyScaleColors {
+  const EmergencyUrgencyScaleColors._();
+
+  static const Color stable = Color(0xFF22C55E);
+  static const Color moderate = Color(0xFFF59E0B);
+  static const Color urgent = Color(0xFFF97316);
+  static const Color critical = Color(0xFFEF4444);
 }
 
 /// Optional central app theme.
