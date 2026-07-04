@@ -33,7 +33,6 @@ class MessageProvider extends ChangeNotifier {
           .eq('participant_ids', userId)
           .order('last_message_time', ascending: false);
       _conversations = List<Map<String, dynamic>>.from(response);
-      // ✅ Correction explicite du type de retour pour fold
       _unreadCount = _conversations.fold<int>(0, (sum, c) => sum + ((c['unread_count'] as int?) ?? 0));
       notifyListeners();
     } catch (e) {
@@ -168,15 +167,15 @@ class MessageProvider extends ChangeNotifier {
   }
 
   void setTyping(String conversationId, bool isTyping) {
-    // ✅ Real-time typing indicator without RealtimePresenceTypes
-    _supabase.channel(conversationId).send({
-      'type': 'broadcast',
-      'event': 'typing',
-      'payload': {
+    // ✅ Utilisation de l'API send avec paramètres nommés
+    _supabase.channel(conversationId).send(
+      type: 'broadcast',
+      payload: {
+        'event': 'typing',
         'user_id': _supabase.auth.currentUser?.id,
         'is_typing': isTyping,
       },
-    });
+    );
   }
 
   void _setLoading(bool loading) {
