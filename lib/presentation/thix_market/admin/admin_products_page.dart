@@ -23,6 +23,12 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -144,7 +150,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(onPressed: provider.previousPage, icon: const Icon(Icons.chevron_left)),
-                    Text('Page ${provider._currentPage + 1} / $totalPages'),
+                    Text('Page ${provider.currentPage + 1} / $totalPages'), // ✅ correction ici
                     IconButton(onPressed: provider.nextPage, icon: const Icon(Icons.chevron_right)),
                   ],
                 ),
