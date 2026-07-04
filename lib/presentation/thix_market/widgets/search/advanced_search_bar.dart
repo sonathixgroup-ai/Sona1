@@ -53,11 +53,17 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
   @override
   void initState() {
     super.initState();
-    // ✅ Correction : Debouncer attend une Durée en premier argument positionnel + onValue en paramètre nommé
+    // ✅ Initialisation correcte pour debounce_throttle 2.0.0
     _debouncer = Debouncer<String>(
       const Duration(milliseconds: 300),
-      onValue: _fetchSuggestions,
+      initialValue: '',
     );
+    // Écouter les valeurs émises
+    _debouncer.values.listen((query) {
+      if (query.isNotEmpty) {
+        _fetchSuggestions(query);
+      }
+    });
     _controller.addListener(_onTextChanged);
   }
 
@@ -73,6 +79,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
   void _onTextChanged() {
     final query = _controller.text;
     if (query.length >= 2) {
+      // ✅ Déclencher le debounce
       _debouncer.setValue(query);
       setState(() => _isSearching = query.isNotEmpty);
     } else {
