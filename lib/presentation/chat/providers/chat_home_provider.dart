@@ -93,8 +93,10 @@ class ChatHomeProvider extends ChangeNotifier {
   Future<void> loadAllData() async {
     _setLoading(true);
     try {
-      await loadConversations();
-      await loadOnlineUsers();
+      await Future.wait([
+        loadConversations(),
+        loadOnlineUsers(),
+      ]);
       await loadChatStats();
     } catch (e) {
       debugPrint('Error loading chat home data: $e');
