@@ -30,10 +30,8 @@ jobs:
         run: flutter pub get
 
       - name: Build web
-        # Use a relative base-href so the build works both on:
-        # - GitHub Pages (project pages under /<repo>/)
-        # - Dreamflow share/hosting (served at a different path)
-        # This prevents blank screens caused by missing assets.
+        # Flutter web requires --base-href values to start and end with "/".
+        # This repository is deployed as a project page at "/Sona1/".
         run: flutter build web --release --base-href /Sona1/
 
       # GitHub Pages does not provide SPA rewrite by default.
