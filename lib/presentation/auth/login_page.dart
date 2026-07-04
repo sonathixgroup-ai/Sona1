@@ -8,6 +8,11 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
 
 // ---------------------------------------------------------------------------
+// Phone Auth Session Type (placeholder for Supabase phone auth)
+// ---------------------------------------------------------------------------
+typedef PhoneAuthSession = dynamic;
+
+// ---------------------------------------------------------------------------
 // Constantes de design alignées sur la homepage (HomePagePremium)
 // ---------------------------------------------------------------------------
 class _LoginColors {
