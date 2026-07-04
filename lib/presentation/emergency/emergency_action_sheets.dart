@@ -198,9 +198,7 @@ class _SheetFrame extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
-    // FIX: si `metalGoldSoft` n'existe pas dans theme.dart, on le dérive de `metalGold`.
-    // -> Si ton theme.dart a bien un `metalGoldSoft`, remplace cette ligne par l'original.
-    final goldSoft = gold.withValues(alpha: isDark ? 0.35 : 0.45);
+    final goldSoft = isDark ? DarkModeColors.metalGoldSoft : LightModeColors.metalGoldSoft;
     final surface = theme.colorScheme.surface;
 
     final Gradient gradient;
@@ -259,21 +257,14 @@ class _UrgencyScale {
   }
 }
 
-/// FIX PRINCIPAL:
-/// - On ne peut pas utiliser `const _Seg(..., EmergencyUrgencyScaleColors.x)` si ces couleurs
-///   ne sont pas des `static const Color` (ex: elles dépendent du thème dark/light) -> on enlève `const`.
-/// - `paint()` reçoit un `PaintingContext`, pas un `BuildContext` : on ne peut donc pas appeler
-///   `Theme.of(context)` ni résoudre `EmergencyMedicalSheetColors.stroke` à l'intérieur.
-///   -> On injecte toutes les couleurs nécessaires via le constructeur, calculées en amont
-///      dans `build()` où le vrai `BuildContext` est disponible.
+/// FIX: `paint()` reçoit un `PaintingContext` (canvas de rendu), pas un `BuildContext`.
+/// On ne peut donc pas appeler `Theme.of(context)` dedans. On injecte la couleur de
+/// secours via le constructeur, calculée en amont dans `build()` où le vrai
+/// `BuildContext` est disponible.
 class _UrgencyTrackShape extends SliderTrackShape {
-  final Color trackBaseColor;
   final Color highlightFallbackColor;
 
-  const _UrgencyTrackShape({
-    required this.trackBaseColor,
-    required this.highlightFallbackColor,
-  });
+  const _UrgencyTrackShape({required this.highlightFallbackColor});
 
   @override
   Rect getPreferredRect({
@@ -309,10 +300,10 @@ class _UrgencyTrackShape extends SliderTrackShape {
     final full = RRect.fromRectAndRadius(rect, r);
     final paint = Paint()..style = PaintingStyle.fill;
 
-    paint.color = trackBaseColor;
+    paint.color = EmergencyMedicalSheetColors.stroke;
     canvas.drawRRect(full, paint);
 
-    final segs = [
+    const segs = [
       _Seg(0.0, 0.40, EmergencyUrgencyScaleColors.stable),
       _Seg(0.40, 0.65, EmergencyUrgencyScaleColors.moderate),
       _Seg(0.65, 0.85, EmergencyUrgencyScaleColors.urgent),
@@ -363,8 +354,7 @@ class _SheetHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
-    // FIX: même dérivation que dans _SheetFrame pour metalGoldSoft.
-    final goldSoft = gold.withValues(alpha: isDark ? 0.35 : 0.45);
+    final goldSoft = isDark ? DarkModeColors.metalGoldSoft : LightModeColors.metalGoldSoft;
     final a = isDark ? gold : (accent ?? gold);
     final aSoft = isDark ? goldSoft : (accent == null ? goldSoft : Theme.of(context).colorScheme.primary.withValues(alpha: 0.16));
     return Padding(
@@ -496,11 +486,7 @@ class _BloodSheetState extends State<_BloodSheet> {
     final requestQtyOk = !isRequest || (qty != null && qty > 0);
     final canSubmit = _group.trim().isNotEmpty && requestQtyOk && requestIdentityOk;
 
-    // FIX: couleurs pour le CustomPainter du Slider, calculées ici où `context` est un vrai BuildContext.
-    final trackShape = _UrgencyTrackShape(
-      trackBaseColor: EmergencyMedicalSheetColors.stroke,
-      highlightFallbackColor: theme.colorScheme.primary,
-    );
+    final trackShape = _UrgencyTrackShape(highlightFallbackColor: theme.colorScheme.primary);
 
     final maxH = MediaQuery.of(context).size.height * 0.88;
     return _SheetFrame(
