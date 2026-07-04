@@ -16,7 +16,6 @@ class CartProvider extends ChangeNotifier {
   
   int get itemCount => _cartItems.length;
   
-  // ✅ Correction : fold<int> avec cast explicite pour éviter num
   int get totalQuantity => _cartItems.fold<int>(0, (sum, item) => sum + ((item['quantity'] as int?) ?? 0));
   
   double get subtotal => _cartItems.fold(0.0, (sum, item) {
@@ -103,6 +102,7 @@ class CartProvider extends ChangeNotifier {
         }
       }
       _cartItems = enrichedItems;
+      notifyListeners(); // ✅ correction : rafraîchit l'UI dès que le panier est synchronisé
     } catch (e) {
       debugPrint('Error syncing cart: $e');
     } finally {
