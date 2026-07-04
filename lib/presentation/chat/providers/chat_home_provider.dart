@@ -81,12 +81,12 @@ class ChatHomeProvider extends ChangeNotifier {
         return;
       }
       _subscribeToRealtime();
-      unawaited(loadAllData());
+      unawaited(_refreshAllDataSafely());
     });
 
     if (_currentUserId != null) {
       _subscribeToRealtime();
-      unawaited(loadAllData());
+      unawaited(_refreshAllDataSafely());
     }
   }
 
@@ -102,6 +102,30 @@ class ChatHomeProvider extends ChangeNotifier {
       debugPrint('Error loading chat home data: $e');
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> _refreshAllDataSafely() async {
+    try {
+      await loadAllData();
+    } catch (e) {
+      debugPrint('Error refreshing chat home data: $e');
+    }
+  }
+
+  Future<void> _refreshConversationsSafely() async {
+    try {
+      await loadConversations();
+    } catch (e) {
+      debugPrint('Error refreshing conversations: $e');
+    }
+  }
+
+  Future<void> _refreshOnlineUsersSafely() async {
+    try {
+      await loadOnlineUsers();
+    } catch (e) {
+      debugPrint('Error refreshing online users: $e');
     }
   }
 
@@ -287,7 +311,7 @@ class ChatHomeProvider extends ChangeNotifier {
           schema: 'public',
           table: 'thix_chat_chats',
           callback: (payload) {
-            unawaited(loadConversations());
+            unawaited(_refreshConversationsSafely());
           },
         )
         .subscribe();
@@ -299,7 +323,7 @@ class ChatHomeProvider extends ChangeNotifier {
           schema: 'public',
           table: 'thix_chat_messages',
           callback: (payload) {
-            unawaited(loadConversations());
+            unawaited(_refreshConversationsSafely());
           },
         )
         .subscribe();
@@ -311,7 +335,7 @@ class ChatHomeProvider extends ChangeNotifier {
           schema: 'public',
           table: 'thix_presence',
           callback: (payload) {
-            unawaited(loadOnlineUsers());
+            unawaited(_refreshOnlineUsersSafely());
           },
         )
         .subscribe();
