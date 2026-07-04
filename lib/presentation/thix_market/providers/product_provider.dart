@@ -38,21 +38,26 @@ class ProductProvider extends ChangeNotifier {
     _currentSearchQuery = query;
     
     try {
-      var request = _supabase
+      // 1. Construire la requête avec les filtres (sans range ni order)
+      var queryBuilder = _supabase
           .from('products')
           .select('*, shop:shops(name, rating)')
-          .eq('status', 'active')
-          .range(_currentPage * 20, (_currentPage + 1) * 20 - 1)
-          .order('created_at', ascending: false);
+          .eq('status', 'active');
       
       if (category != null && category != 'all') {
-        request = request.eq('category', category);
+        queryBuilder = queryBuilder.eq('category', category);
       }
       if (query != null && query.isNotEmpty) {
-        request = request.ilike('title', '%$query%');
+        queryBuilder = queryBuilder.ilike('title', '%$query%');
       }
       
-      final response = await request;
+      // 2. Appliquer le tri (order) → nouveau type
+      var orderedQuery = queryBuilder.order('created_at', ascending: false);
+      
+      // 3. Appliquer la pagination
+      var paginatedQuery = orderedQuery.range(_currentPage * 20, (_currentPage + 1) * 20 - 1);
+      
+      final response = await paginatedQuery;
       final newProducts = List<Map<String, dynamic>>.from(response);
       
       setState(() {
