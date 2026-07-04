@@ -57,6 +57,7 @@ class DarkModeColors {
   static const secondaryText = Color(0xFF94A3B8);
 
   static const error = Color(0xFFEF4444);
+  static const emergencyRed = Color(0xFFFF3B30); // AJOUT: manquait, utilisé par EmergencyFab
 
   static const metalGold = Color(0xFFD4AF37);
   static const metalGoldDeep = Color(0xFFB8860B);
@@ -66,7 +67,53 @@ class DarkModeColors {
 }
 
 // =============================================================================
-// EMERGENCY COLORS (classes manquantes, causaient les erreurs de build)
+// EMERGENCY — COULEURS "URGENT" (template sombre premium, même en light mode)
+// AJOUT COMPLET: classe totalement absente, cause des erreurs de compilation
+// =============================================================================
+
+class EmergencyUrgentColors {
+  // Fonds
+  static const bg0 = Color(0xFF05111F);
+  static const bg1 = Color(0xFF0B1F33);
+  static const panel = Color(0xFF0B2036);
+  static const card = Color(0xFF102A45);
+  static const stroke = Color(0xFF23425F);
+
+  // Texte
+  static const text = Colors.white;
+  static const textDim = Color(0xFF93A9BE);
+
+  // Accents sémantiques
+  static const danger = Color(0xFFFF3B30);
+  static const safetyGreen = Color(0xFF22C55E);
+  static const amber = Color(0xFFF9C74F);
+  static const medicalBlue = Color(0xFF3B82F6);
+  static const fireOrange = Color(0xFFF97316);
+  static const violet = Color(0xFF8B5CF6);
+  static const cyan = Color(0xFF06B6D4);
+
+  static Color scrim() => Colors.black.withValues(alpha: 0.72);
+}
+
+class EmergencyUrgentGradients {
+  static LinearGradient background() => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [EmergencyUrgentColors.bg0, EmergencyUrgentColors.bg1],
+      );
+
+  static LinearGradient panel() => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          EmergencyUrgentColors.panel,
+          EmergencyUrgentColors.panel.withValues(alpha: 0.92),
+        ],
+      );
+}
+
+// =============================================================================
+// EMERGENCY COLORS (blood sheet / medical) — ajoutées précédemment
 // =============================================================================
 
 class EmergencyUrgencyScaleColors {
@@ -303,4 +350,14 @@ class MarketColors {
 
 extension ThixThemeX on BuildContext {
   TextTheme get textStyles => Theme.of(this).textTheme;
+}
+
+// =============================================================================
+// TEXTSTYLE EXTENSIONS (.semiBold / .bold)
+// AJOUT: manquait totalement, utilisé partout dans emergency_overlay.dart
+// =============================================================================
+
+extension ThixTextStyleX on TextStyle {
+  TextStyle get semiBold => copyWith(fontWeight: FontWeight.w600);
+  TextStyle get bold => copyWith(fontWeight: FontWeight.w700);
 }
