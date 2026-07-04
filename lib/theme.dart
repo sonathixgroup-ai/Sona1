@@ -243,6 +243,47 @@ class AdminCyberColors {
   static const danger = Color(0xFFEF4444);
 }
 
+class DarkModeColors {
+  static const primary = Color(0xFF071A2B);
+  static const background = Color(0xFF071A2B);
+  static const surface = Color(0xFF0B2336);
+
+  static const onSurface = Colors.white;
+  static const primaryText = Colors.white;
+  static const secondaryText = Color(0xFF94A3B8);
+
+  static const error = Color(0xFFEF4444);
+
+  static const metalGold = Color(0xFFD4AF37);
+  static const metalGoldDeep = Color(0xFFB8860B);
+  static const metalGoldSoft = Color(0xFF5C4E1E); // AJOUT: manquait, cause d'erreur potentielle
+
+  static const cyberDarkBlue = Color(0xFF081F3A);
+}
+
+// =============================================================================
+// EMERGENCY COLORS (AJOUT — classes manquantes causant les erreurs de build)
+// =============================================================================
+
+class EmergencyUrgencyScaleColors {
+  static const stable = Color(0xFF22C55E);   // vert
+  static const moderate = Color(0xFFF9C74F); // or/jaune
+  static const urgent = Color(0xFFF97316);   // orange
+  static const critical = Color(0xFFEF4444); // rouge
+}
+
+class EmergencyMedicalSheetColors {
+  static const stroke = Color(0xFFE2E8F0);
+}
+
+class EmergencyMedicalSheetGradients {
+  static LinearGradient background() => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Colors.white, Color(0xFFF8FAFC)],
+      );
+}
+
 // =============================================================================
 // ADMIN CYBER GRADIENTS
 // =============================================================================
