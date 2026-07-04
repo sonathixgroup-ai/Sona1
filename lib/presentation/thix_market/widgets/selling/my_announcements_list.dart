@@ -33,7 +33,7 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Construire la requête avec les filtres (sans order)
+      // 1. Construire la requête avec les filtres (type PostgrestFilterBuilder)
       var query = Supabase.instance.client
           .from('products')
           .select()
@@ -48,10 +48,8 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
         query = query.eq('stock', 0);
       }
 
-      // 2. Appliquer le tri APRES tous les filtres
-      query = query.order('created_at', ascending: false);
-
-      final response = await query;
+      // 2. Appliquer le tri et exécuter directement (sans réaffecter query)
+      final response = await query.order('created_at', ascending: false);
 
       setState(() {
         _announcements = List<Map<String, dynamic>>.from(response);
