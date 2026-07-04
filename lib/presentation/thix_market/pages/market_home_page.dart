@@ -6,8 +6,8 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../providers/market_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../widgets/products/product_card.dart';        // ✅ CORRECTION
-import '../widgets/shops/shop_card.dart';              // ✅ CORRECTION
+import '../widgets/products/product_card.dart';
+import '../widgets/shops/shop_card.dart';
 import '../widgets/common/loading_shimmer.dart';
 
 class MarketHomePage extends StatefulWidget {
@@ -404,7 +404,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 return ProductCard(
                   product: product,
                   isFlashSale: true,
-                  onTap: () => _gotoProductDetail(product['id']),
+                  onTap: (_) => _gotoProductDetail(product['id']), // ✅ correction
                 );
               },
             ),
@@ -488,7 +488,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               final product = products[index];
               return ProductCard(
                 product: product,
-                onTap: () => _gotoProductDetail(product['id']),
+                onTap: (_) => _gotoProductDetail(product['id']), // ✅ correction
               );
             },
           ),
@@ -577,7 +577,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               final product = products[index];
               return ProductCard(
                 product: product,
-                onTap: () => _gotoProductDetail(product['id']),
+                onTap: (_) => _gotoProductDetail(product['id']), // ✅ correction
               );
             },
           ),
