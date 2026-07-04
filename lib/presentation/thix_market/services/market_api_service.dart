@@ -137,59 +137,62 @@ class MarketApiService {
     int limit = 20,
   }) async {
     try {
-      // 1. Construire la requête de base (sans count ni range)
-      var request = _supabase
+      // 1. Construire la requête de base (filtres)
+      var queryBuilder = _supabase
           .from('products')
           .select('*, shop:shops(name, rating)')
           .eq('status', 'active')
           .ilike('title', '%$query%');
 
-      // 2. Appliquer les filtres
+      // 2. Appliquer les filtres supplémentaires (gte, lte, eq)
       if (filters != null) {
         if (filters['min_price'] != null) {
-          request = request.gte('price', filters['min_price']);
+          queryBuilder = queryBuilder.gte('price', filters['min_price']);
         }
         if (filters['max_price'] != null) {
-          request = request.lte('price', filters['max_price']);
+          queryBuilder = queryBuilder.lte('price', filters['max_price']);
         }
         if (filters['min_rating'] != null) {
-          request = request.gte('rating', filters['min_rating']);
+          queryBuilder = queryBuilder.gte('rating', filters['min_rating']);
         }
         if (filters['category'] != null && filters['category'] != 'all') {
-          request = request.eq('category', filters['category']);
+          queryBuilder = queryBuilder.eq('category', filters['category']);
         }
         if (filters['free_shipping'] == true) {
-          request = request.eq('free_shipping', true);
-        }
-        if (filters['sort_by'] != null) {
-          switch (filters['sort_by']) {
-            case 'price_asc':
-              request = request.order('price', ascending: true);
-              break;
-            case 'price_desc':
-              request = request.order('price', ascending: false);
-              break;
-            case 'rating':
-              request = request.order('rating', ascending: false);
-              break;
-            case 'newest':
-              request = request.order('created_at', ascending: false);
-              break;
-            default:
-              request = request.order('_score', ascending: false);
-          }
-        } else {
-          request = request.order('_score', ascending: false);
+          queryBuilder = queryBuilder.eq('free_shipping', true);
         }
       }
 
-      // 3. Obtenir le nombre total AVANT la pagination
-      final countResult = await request.count();
+      // 3. Appliquer le tri (sans réaffecter queryBuilder)
+      late final PostgrestTransformBuilder orderedQuery;
+      if (filters != null && filters['sort_by'] != null) {
+        switch (filters['sort_by']) {
+          case 'price_asc':
+            orderedQuery = queryBuilder.order('price', ascending: true);
+            break;
+          case 'price_desc':
+            orderedQuery = queryBuilder.order('price', ascending: false);
+            break;
+          case 'rating':
+            orderedQuery = queryBuilder.order('rating', ascending: false);
+            break;
+          case 'newest':
+            orderedQuery = queryBuilder.order('created_at', ascending: false);
+            break;
+          default:
+            orderedQuery = queryBuilder.order('_score', ascending: false);
+        }
+      } else {
+        orderedQuery = queryBuilder.order('_score', ascending: false);
+      }
+
+      // 4. Obtenir le nombre total
+      final countResult = await orderedQuery.count();
       final total = countResult.count ?? 0;
 
-      // 4. Appliquer la pagination (sans réaffecter request)
-      final paginatedRequest = request.range(page * limit, (page + 1) * limit - 1);
-      final response = await paginatedRequest;
+      // 5. Appliquer la pagination
+      final paginatedQuery = orderedQuery.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedQuery;
 
       return SearchResult(
         items: List<Map<String, dynamic>>.from(response),
