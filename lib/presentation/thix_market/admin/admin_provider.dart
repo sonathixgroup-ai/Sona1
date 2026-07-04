@@ -129,6 +129,7 @@ class AdminProvider extends ChangeNotifier {
     }
     setState(() => _isLoading = true);
     try {
+      // Utiliser 'var' pour éviter les problèmes de typage
       var query = _supabase
           .from('products')
           .select('*, shop:shops(name)');
@@ -229,11 +230,6 @@ class AdminProvider extends ChangeNotifier {
 
       if (_searchQuery.isNotEmpty) {
         query = query.ilike('name', '%$_searchQuery%');
-        // Pour la recherche par email, on peut ajouter une condition OR
-        // Mais la méthode `or` n'est pas toujours disponible sur le même builder.
-        // On peut filtrer après ou utiliser un `or` direct si supporté.
-        // Version simplifiée : on combine deux conditions
-        // Mais pour simplifier, on garde seulement la recherche par nom.
       }
 
       // Obtenir le nombre total
