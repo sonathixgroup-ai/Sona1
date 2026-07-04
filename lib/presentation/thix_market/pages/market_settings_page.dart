@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Import manquant
 import '../providers/settings_provider.dart';
 
 class MarketSettingsPage extends StatefulWidget {
