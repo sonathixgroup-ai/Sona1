@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/product_provider.dart';
-import '../widgets/products/product_card.dart'; // ✅ CORRECTION : 'products' au lieu de 'product'
+import '../widgets/products/product_card.dart';
 
 class BuyPage extends StatefulWidget {
   const BuyPage({super.key});
@@ -190,7 +190,8 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
                         return ProductCard(
                           product: product,
                           showFavoriteButton: true,
-                          onTap: () => _gotoProductDetail(product['id']),
+                          // ✅ Correction : onTap accepte un paramètre (Map)
+                          onTap: (_) => _gotoProductDetail(product['id']),
                           onFavoriteTap: (productId) => provider.toggleFavorite(productId),
                         );
                       },
@@ -239,7 +240,8 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
         return ProductCard(
           product: product,
           showFavoriteButton: true,
-          onTap: () => _gotoProductDetail(product['id']),
+          // ✅ Correction ici aussi
+          onTap: (_) => _gotoProductDetail(product['id']),
           onFavoriteTap: (productId) => provider.toggleFavorite(productId),
         );
       },
