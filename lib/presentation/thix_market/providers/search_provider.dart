@@ -63,10 +63,9 @@ class SearchProvider extends ChangeNotifier {
       
       var request = _supabase
           .from('products')
-          .select('*, shop:shops(name, rating)', count: CountOption.exact)
+          .select('*, shop:shops(name, rating)')
           .eq('status', 'active')
-          .ilike('title', '%$query%')
-          .range(_currentPage * 20, (_currentPage + 1) * 20 - 1);
+          .ilike('title', '%$query%');
       
       // Apply filters
       if (_currentFilters['min_price'] != null) {
@@ -88,6 +87,13 @@ class SearchProvider extends ChangeNotifier {
         request = request.eq('shop.is_verified', true);
       }
       
+      // Obtenir le nombre total
+      final countResult = await request.count();
+      _totalResults = countResult.count ?? 0;
+      
+      // Appliquer la pagination
+      request = request.range(_currentPage * 20, (_currentPage + 1) * 20 - 1);
+      
       final response = await request;
       final newResults = List<Map<String, dynamic>>.from(response);
       
@@ -95,7 +101,6 @@ class SearchProvider extends ChangeNotifier {
         if (newResults.length < 20) _hasMore = false;
         _searchResults.addAll(newResults);
         _currentPage++;
-        _totalResults = response.count ?? 0;
       });
     } catch (e) {
       debugPrint('Error searching products: $e');
