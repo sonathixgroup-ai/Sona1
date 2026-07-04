@@ -26,13 +26,13 @@ class LiveStreamService {
 
     _isHost = isHost;
 
-    // ✅ Création correcte pour Agora 6.5.1 (fonction top-level)
-    _engine = createRtcEngine();
+    // ✅ Fonction top-level correcte pour Agora 6.x
+    _engine = createAgoraRtcEngine();
 
     await _engine.initialize(
       RtcEngineContext(
         appId: 'YOUR_AGORA_APP_ID',
-        channelProfile: ChannelProfileType.liveBroadcasting, // ✅ correction
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting, // ✅ correction
       ),
     );
 
