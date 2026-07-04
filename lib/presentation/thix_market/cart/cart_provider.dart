@@ -15,7 +15,9 @@ class CartProvider extends ChangeNotifier {
   bool get isSyncing => _isSyncing;
   
   int get itemCount => _cartItems.length;
-  int get totalQuantity => _cartItems.fold(0, (sum, item) => sum + (item['quantity'] ?? 0));
+  
+  // ✅ Correction : fold<int> avec cast explicite pour éviter num
+  int get totalQuantity => _cartItems.fold<int>(0, (sum, item) => sum + ((item['quantity'] as int?) ?? 0));
   
   double get subtotal => _cartItems.fold(0.0, (sum, item) {
     final price = (item['product']['price'] as num).toDouble();
@@ -24,7 +26,6 @@ class CartProvider extends ChangeNotifier {
   });
   
   double get shippingCost {
-    // Calculer selon le poids ou valeur - simplifié ici
     return subtotal > 50000 ? 0 : 2500;
   }
   
@@ -41,7 +42,6 @@ class CartProvider extends ChangeNotifier {
       loadCart();
     }
     
-    // Écouter les changements d'authentification
     _supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
       if (session != null) {
@@ -68,7 +68,6 @@ class CartProvider extends ChangeNotifier {
         .map((data) => List<Map<String, dynamic>>.from(data));
     
     _cartStream?.listen((updatedCart) async {
-      // Recharger les détails des produits pour chaque article
       await _syncCartWithProducts(updatedCart);
     });
   }
@@ -99,7 +98,6 @@ class CartProvider extends ChangeNotifier {
               'product': productResponse,
             });
           } else {
-            // Produit supprimé, retirer du panier
             await removeFromCart(cartItem['id']);
           }
         }
@@ -147,7 +145,6 @@ class CartProvider extends ChangeNotifier {
     }
     
     try {
-      // Vérifier si le produit existe déjà dans le panier
       final existingItem = _cartItems.firstWhere(
         (item) => item['product_id'] == productId && 
                  item['variant'] == variant && 
@@ -156,11 +153,9 @@ class CartProvider extends ChangeNotifier {
       );
       
       if (existingItem.isNotEmpty) {
-        // Mettre à jour la quantité
         final newQuantity = (existingItem['quantity'] ?? 0) + quantity;
         await updateQuantity(existingItem['id'], newQuantity);
       } else {
-        // Ajouter nouvel article
         await _supabase.from('cart').insert({
           'user_id': _currentUserId,
           'product_id': productId,
@@ -171,7 +166,7 @@ class CartProvider extends ChangeNotifier {
         });
       }
       
-      await loadCart(); // Recharger pour mettre à jour l'UI
+      await loadCart();
     } catch (e) {
       debugPrint('Error adding to cart: $e');
       rethrow;
@@ -190,7 +185,6 @@ class CartProvider extends ChangeNotifier {
           .update({'quantity': newQuantity})
           .eq('id', cartItemId);
       
-      // Mise à jour locale optimiste
       final index = _cartItems.indexWhere((item) => item['id'] == cartItemId);
       if (index != -1) {
         _cartItems[index]['quantity'] = newQuantity;
