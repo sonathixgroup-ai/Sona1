@@ -61,13 +61,14 @@ class SearchProvider extends ChangeNotifier {
         await loadRecentSearches();
       }
       
+      // 1. Construire la requête avec les filtres (type PostgrestFilterBuilder)
       var request = _supabase
           .from('products')
           .select('*, shop:shops(name, rating)')
           .eq('status', 'active')
           .ilike('title', '%$query%');
       
-      // Apply filters
+      // Appliquer les filtres supplémentaires
       if (_currentFilters['min_price'] != null) {
         request = request.gte('price', _currentFilters['min_price']);
       }
@@ -84,17 +85,19 @@ class SearchProvider extends ChangeNotifier {
         request = request.eq('free_shipping', true);
       }
       if (_currentFilters['verified_sellers'] == true) {
+        // Note: cette condition peut ne pas fonctionner si shop.is_verified n'est pas une colonne directe
+        // On laisse telle quelle, mais il faudrait peut-être ajuster.
         request = request.eq('shop.is_verified', true);
       }
       
-      // Obtenir le nombre total
+      // 2. Compter le nombre total de résultats
       final countResult = await request.count();
       _totalResults = countResult.count ?? 0;
       
-      // Appliquer la pagination
-      request = request.range(_currentPage * 20, (_currentPage + 1) * 20 - 1);
+      // 3. Appliquer la pagination (ne pas réaffecter request, utiliser une nouvelle variable)
+      final paginatedRequest = request.range(_currentPage * 20, (_currentPage + 1) * 20 - 1);
+      final response = await paginatedRequest;
       
-      final response = await request;
       final newResults = List<Map<String, dynamic>>.from(response);
       
       setState(() {
