@@ -191,7 +191,7 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
                           product: product,
                           showFavoriteButton: true,
                           onTap: () => _gotoProductDetail(product['id']),
-                          onFavoriteTap: () => provider.toggleFavorite(product['id']),
+                          onFavoriteTap: (productId) => provider.toggleFavorite(productId),
                         );
                       },
                     ),
@@ -239,9 +239,8 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
         return ProductCard(
           product: product,
           showFavoriteButton: true,
-          isFavorite: true,
           onTap: () => _gotoProductDetail(product['id']),
-          onFavoriteTap: () => provider.toggleFavorite(product['id']),
+          onFavoriteTap: (productId) => provider.toggleFavorite(productId),
         );
       },
     );
