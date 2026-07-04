@@ -28,7 +28,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final address = provider.addresses[index];
                   final isSelected = provider.selectedAddress?['id'] == address['id'];
-                  return _buildAddressCard(address, isSelected, provider);
+                  return _buildAddressCard(context, address, isSelected, provider);
                 },
               ),
             ),
@@ -39,7 +39,8 @@ class DeliveryAddressSelector extends StatelessWidget {
     );
   }
 
-  Widget _buildAddressCard(Map<String, dynamic> address, bool isSelected, DeliveryProvider provider) {
+  // ✅ Ajout du paramètre BuildContext context
+  Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, bool isSelected, DeliveryProvider provider) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
