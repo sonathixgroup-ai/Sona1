@@ -6,8 +6,8 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../providers/market_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../widgets/market/product_card.dart';
-import '../widgets/market/shop_card.dart';
+import '../widgets/products/product_card.dart';        // ✅ CORRECTION
+import '../widgets/shops/shop_card.dart';              // ✅ CORRECTION
 import '../widgets/common/loading_shimmer.dart';
 
 class MarketHomePage extends StatefulWidget {
