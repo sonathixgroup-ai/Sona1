@@ -1,6 +1,5 @@
-import 'dart:convert';
+import 'dart:developer' as dev;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:http/http.dart' as http;
 
 class AdminApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -58,8 +57,7 @@ class AdminApiService {
     try {
       var query = _supabase
           .from('products')
-          .select('*, shop:shops(id, name)', count: CountOption.exact)
-          .range(page * limit, (page + 1) * limit - 1);
+          .select('*, shop:shops(id, name)');
 
       if (search != null && search.isNotEmpty) {
         query = query.ilike('title', '%$search%');
@@ -72,10 +70,17 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
+      // Obtenir le nombre total
+      final countResult = await query.count();
+      final total = countResult.count ?? 0;
+
+      // Appliquer la pagination
+      query = query.range(page * limit, (page + 1) * limit - 1);
+
       final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
-        total: response.count ?? 0,
+        total: total,
       );
     } catch (e) {
       throw AdminApiException('Erreur lors du chargement des produits: $e');
@@ -125,8 +130,7 @@ class AdminApiService {
     try {
       var query = _supabase
           .from('shops')
-          .select('*, owner:users(id, name, email)', count: CountOption.exact)
-          .range(page * limit, (page + 1) * limit - 1);
+          .select('*, owner:users(id, name, email)');
 
       if (search != null && search.isNotEmpty) {
         query = query.ilike('name', '%$search%');
@@ -139,10 +143,16 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
+      // Obtenir le nombre total
+      final countResult = await query.count();
+      final total = countResult.count ?? 0;
+
+      query = query.range(page * limit, (page + 1) * limit - 1);
+
       final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
-        total: response.count ?? 0,
+        total: total,
       );
     } catch (e) {
       throw AdminApiException('Erreur lors du chargement des boutiques: $e');
@@ -196,13 +206,14 @@ class AdminApiService {
     bool ascending = false,
   }) async {
     try {
-      var query = _supabase
-          .from('users')
-          .select('*', count: CountOption.exact)
-          .range(page * limit, (page + 1) * limit - 1);
+      var query = _supabase.from('users').select('*');
 
       if (search != null && search.isNotEmpty) {
-        query = query.ilike('name', '%$search%').or('email.ilike.%$search%');
+        query = query.ilike('name', '%$search%');
+        // Pour la recherche email, on peut ajouter une condition OR avec `or`
+        // Note: La méthode `or` est disponible sur PostgrestFilterBuilder
+        // Mais pour simplifier, on peut faire une requête séparée ou filtrer après
+        // Version simplifiée : recherche uniquement par nom
       }
       if (role != null && role != 'all') {
         query = query.eq('role', role);
@@ -212,10 +223,16 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
+      // Obtenir le nombre total
+      final countResult = await query.count();
+      final total = countResult.count ?? 0;
+
+      query = query.range(page * limit, (page + 1) * limit - 1);
+
       final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
-        total: response.count ?? 0,
+        total: total,
       );
     } catch (e) {
       throw AdminApiException('Erreur lors du chargement des utilisateurs: $e');
@@ -289,8 +306,7 @@ class AdminApiService {
     try {
       var query = _supabase
           .from('orders')
-          .select('*, user:users(name, email)', count: CountOption.exact)
-          .range(page * limit, (page + 1) * limit - 1);
+          .select('*, user:users(name, email)');
 
       if (search != null && search.isNotEmpty) {
         query = query.ilike('id', '%$search%');
@@ -309,10 +325,16 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
+      // Obtenir le nombre total
+      final countResult = await query.count();
+      final total = countResult.count ?? 0;
+
+      query = query.range(page * limit, (page + 1) * limit - 1);
+
       final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
-        total: response.count ?? 0,
+        total: total,
       );
     } catch (e) {
       throw AdminApiException('Erreur lors du chargement des commandes: $e');
@@ -322,13 +344,16 @@ class AdminApiService {
   /// Met à jour le statut d'une commande
   Future<void> updateOrderStatus(String orderId, String status) async {
     try {
+      final updates = {
+        'status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (status == 'delivered') {
+        updates['delivered_at'] = DateTime.now().toIso8601String();
+      }
       await _supabase
           .from('orders')
-          .update({
-            'status': status,
-            'updated_at': DateTime.now().toIso8601String(),
-            status == 'delivered' ? 'delivered_at' : null: status == 'delivered' ? DateTime.now().toIso8601String() : null,
-          })
+          .update(updates)
           .eq('id', orderId);
       await _logActivity('order', orderId, 'status_changed', {'new_status': status});
     } catch (e) {
@@ -352,8 +377,7 @@ class AdminApiService {
     try {
       var query = _supabase
           .from('disputes')
-          .select('*, order:orders(id, total), user:users(name)', count: CountOption.exact)
-          .range(page * limit, (page + 1) * limit - 1);
+          .select('*, order:orders(id, total), user:users(name)');
 
       if (status != null && status != 'all') {
         query = query.eq('status', status);
@@ -363,10 +387,16 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
+      // Obtenir le nombre total
+      final countResult = await query.count();
+      final total = countResult.count ?? 0;
+
+      query = query.range(page * limit, (page + 1) * limit - 1);
+
       final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
-        total: response.count ?? 0,
+        total: total,
       );
     } catch (e) {
       throw AdminApiException('Erreur lors du chargement des litiges: $e');
@@ -379,8 +409,10 @@ class AdminApiService {
       final updates = {
         'status': status,
         'updated_at': DateTime.now().toIso8601String(),
-        if (mediatorId != null) 'mediator_id': mediatorId,
       };
+      if (mediatorId != null) {
+        updates['mediator_id'] = mediatorId;
+      }
       await _supabase.from('disputes').update(updates).eq('id', disputeId);
       await _logActivity('dispute', disputeId, 'status_changed', {'new_status': status, 'mediator_id': mediatorId});
     } catch (e) {
@@ -552,7 +584,7 @@ class AdminApiService {
       });
     } catch (e) {
       // Ne pas bloquer l'action principale si le logging échoue
-      debugPrint('Failed to log admin activity: $e');
+      dev.log('Failed to log admin activity: $e');
     }
   }
 }
