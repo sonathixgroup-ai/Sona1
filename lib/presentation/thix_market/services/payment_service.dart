@@ -1,18 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:stripe_sdk/stripe_sdk.dart';
 
 class PaymentService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  static const String stripePublishableKey = 'pk_test_YOUR_KEY';
-  static const String stripeSecretKey = 'sk_test_YOUR_KEY';
 
-  // Initialize Stripe
-  Future<void> initStripe() async {
-    Stripe.publishableKey = stripePublishableKey;
-    await Stripe.instance.applySettings();
-  }
-
-  // Create payment intent
+  // ============================================================
+  // Stripe - Créer un Payment Intent (via Edge Function)
+  // ============================================================
   Future<Map<String, dynamic>> createPaymentIntent({
     required double amount,
     required String currency,
@@ -30,7 +23,9 @@ class PaymentService {
     }
   }
 
-  // Process payment with card
+  // ============================================================
+  // Stripe - Confirmer un paiement par carte (via Edge Function)
+  // ============================================================
   Future<PaymentResult> processCardPayment({
     required String paymentIntentId,
     required String paymentMethodId,
@@ -46,7 +41,9 @@ class PaymentService {
     }
   }
 
-  // Process Mobile Money (Orange Money, MTN Money)
+  // ============================================================
+  // Mobile Money (Orange Money / MTN) - via Edge Function
+  // ============================================================
   Future<PaymentResult> processMobileMoney({
     required String phoneNumber,
     required double amount,
@@ -66,14 +63,16 @@ class PaymentService {
     }
   }
 
-  // Process THIX Money wallet payment
+  // ============================================================
+  // Portefeuille THIX Money (via RPC)
+  // ============================================================
   Future<PaymentResult> processThixMoneyPayment({
     required String userId,
     required double amount,
     required String orderId,
   }) async {
     try {
-      // Check balance
+      // Vérifier le solde
       final balance = await getThixMoneyBalance(userId);
       if (balance < amount) {
         return PaymentResult.failure('Insufficient THIX Money balance');
@@ -90,7 +89,9 @@ class PaymentService {
     }
   }
 
-  // Get THIX Money balance
+  // ============================================================
+  // Solde THIX Money
+  // ============================================================
   Future<double> getThixMoneyBalance(String userId) async {
     try {
       final response = await _supabase
@@ -104,7 +105,9 @@ class PaymentService {
     }
   }
 
-  // Top up THIX Money
+  // ============================================================
+  // Recharger le portefeuille THIX Money (via Edge Function)
+  // ============================================================
   Future<PaymentResult> topUpThixMoney({
     required String userId,
     required double amount,
@@ -122,7 +125,9 @@ class PaymentService {
     }
   }
 
-  // Get saved cards for user
+  // ============================================================
+  // Cartes sauvegardées
+  // ============================================================
   Future<List<SavedCard>> getSavedCards(String userId) async {
     try {
       final response = await _supabase
@@ -138,7 +143,6 @@ class PaymentService {
     }
   }
 
-  // Save card for future use
   Future<void> saveCard({
     required String userId,
     required String paymentMethodId,
@@ -158,7 +162,6 @@ class PaymentService {
     }
   }
 
-  // Delete saved card
   Future<void> deleteSavedCard(String cardId) async {
     try {
       await _supabase.from('saved_cards').delete().eq('id', cardId);
@@ -167,7 +170,9 @@ class PaymentService {
     }
   }
 
-  // Get transaction history
+  // ============================================================
+  // Historique des transactions
+  // ============================================================
   Future<List<Transaction>> getTransactionHistory(String userId, {int limit = 20}) async {
     try {
       final response = await _supabase
@@ -184,7 +189,9 @@ class PaymentService {
     }
   }
 
-  // Refund payment
+  // ============================================================
+  // Remboursement (via Edge Function)
+  // ============================================================
   Future<PaymentResult> refundPayment({
     required String transactionId,
     required double amount,
@@ -202,6 +209,10 @@ class PaymentService {
     }
   }
 }
+
+// ============================================================
+// Modèles
+// ============================================================
 
 class PaymentResult {
   final bool success;
