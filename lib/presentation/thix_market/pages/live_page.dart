@@ -618,6 +618,8 @@ class _LivePageState extends State<LivePage> with SingleTickerProviderStateMixin
   }
 
   void _editLive(String liveId) {
-    Navigator.pushNamed(context, '/live-stats/$liveId');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Statistiques du live $liveId bientôt disponibles.')),
+    );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class OrderConfirmationPage extends StatelessWidget {
@@ -16,7 +17,7 @@ class OrderConfirmationPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+          onPressed: () => context.go('/'),
         ),
       ),
       body: SingleChildScrollView(
@@ -57,7 +58,7 @@ class OrderConfirmationPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+              onPressed: () => context.go('/'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE5592F),
                 minimumSize: const Size(double.infinity, 48),

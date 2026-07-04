@@ -588,7 +588,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
   // Navigation methods
   void _scanQRCode() {
-    Navigator.pushNamed(context, '/scan-qr');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Scanner QR bientôt disponible.')),
+    );
   }
 
   void _gotoNotifications() {
