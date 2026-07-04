@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 
 class MyAnnouncementsList extends StatefulWidget {
   final String shopId;
@@ -22,7 +21,7 @@ class MyAnnouncementsList extends StatefulWidget {
 class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
   List<Map<String, dynamic>> _announcements = [];
   bool _isLoading = true;
-  String _filter = 'all'; // all, active, pending, sold_out
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -32,14 +31,15 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
 
   Future<void> _loadAnnouncements() async {
     setState(() => _isLoading = true);
-    
+
     try {
+      // 1. Construire la requête avec les filtres (sans order)
       var query = Supabase.instance.client
           .from('products')
           .select()
-          .eq('shop_id', widget.shopId)
-          .order('created_at', ascending: false);
-      
+          .eq('shop_id', widget.shopId);
+
+      // Appliquer les filtres supplémentaires selon _filter
       if (_filter == 'active') {
         query = query.eq('status', 'active').gt('stock', 0);
       } else if (_filter == 'pending') {
@@ -47,9 +47,12 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
       } else if (_filter == 'sold_out') {
         query = query.eq('stock', 0);
       }
-      
+
+      // 2. Appliquer le tri APRES tous les filtres
+      query = query.order('created_at', ascending: false);
+
       final response = await query;
-      
+
       setState(() {
         _announcements = List<Map<String, dynamic>>.from(response);
         _isLoading = false;
@@ -72,18 +75,18 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
         ],
       ),
     );
-    
+
     if (confirm != true) return;
-    
+
     try {
       await Supabase.instance.client
           .from('products')
           .delete()
           .eq('id', id);
-      
+
       widget.onDelete?.call(id);
       await _loadAnnouncements();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Annonce supprimée')),
@@ -99,13 +102,13 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
 
   Future<void> _toggleStatus(Map<String, dynamic> announcement) async {
     final newStatus = announcement['status'] == 'active' ? 'inactive' : 'active';
-    
+
     try {
       await Supabase.instance.client
           .from('products')
           .update({'status': newStatus})
           .eq('id', announcement['id']);
-      
+
       await _loadAnnouncements();
     } catch (e) {
       debugPrint('Error toggling status: $e');
@@ -131,7 +134,7 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
             ],
           ),
         ),
-        
+
         // List
         Expanded(
           child: _isLoading
@@ -168,7 +171,7 @@ class _MyAnnouncementsListState extends State<MyAnnouncementsList> {
     final stock = announcement['stock'] ?? 0;
     final hasDiscount = announcement['discount_price'] != null &&
         announcement['discount_price'] < announcement['price'];
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
