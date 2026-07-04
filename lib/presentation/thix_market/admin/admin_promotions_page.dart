@@ -69,11 +69,16 @@ class AdminProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get disputes => _disputes;
   int get totalDisputes => _totalDisputes;
 
-  // ✅ Getters pour les promotions et bannières
   List<Map<String, dynamic>> get promotions => _promotions;
   List<Map<String, dynamic>> get banners => _banners;
 
-  // Initialisation - vérifier si l'utilisateur est admin
+  // ✅ Getter pour la page courante
+  int get currentPage => _currentPage;
+
+  // ============================================================
+  // Initialisation
+  // ============================================================
+
   Future<bool> checkAdminStatus() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return false;
@@ -92,7 +97,10 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  // Charger dashboard
+  // ============================================================
+  // Dashboard
+  // ============================================================
+
   Future<void> loadDashboard() async {
     if (!_isAdmin) return;
     setState(() => _isLoading = true);
@@ -113,6 +121,291 @@ class AdminProvider extends ChangeNotifier {
           .order('created_at', ascending: false)
           .limit(10);
       _recentActivities = List<Map<String, dynamic>>.from(activitiesResponse);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ============================================================
+  // Gestion des produits
+  // ============================================================
+
+  Future<void> loadProducts({bool refresh = false}) async {
+    if (!_isAdmin) return;
+    if (refresh) {
+      _currentPage = 0;
+      _products.clear();
+    }
+    setState(() => _isLoading = true);
+    try {
+      // 1. Construire la requête avec les filtres (ne pas utiliser order ni range ici)
+      var query = _supabase
+          .from('products')
+          .select('*, shop:shops(name)');
+
+      if (_searchQuery.isNotEmpty) {
+        query = query.ilike('title', '%$_searchQuery%');
+      }
+      if (_statusFilter != 'all') {
+        query = query.eq('status', _statusFilter);
+      }
+
+      // 2. Appliquer le tri (order) -> le type devient PostgrestTransformBuilder
+      var orderedQuery = query.order(_sortBy, ascending: _sortAscending);
+
+      // 3. Compter les résultats
+      final countResult = await orderedQuery.count();
+      _totalProducts = countResult.count ?? 0;
+
+      // 4. Paginer
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
+
+      _products = List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> updateProductStatus(String productId, String status) async {
+    if (!_isAdmin) return;
+    setState(() => _isLoading = true);
+    try {
+      await _supabase
+          .from('products')
+          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', productId);
+      await loadProducts(refresh: true);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ============================================================
+  // Gestion des boutiques
+  // ============================================================
+
+  Future<void> loadShops({bool refresh = false}) async {
+    if (!_isAdmin) return;
+    if (refresh) {
+      _currentPage = 0;
+      _shops.clear();
+    }
+    setState(() => _isLoading = true);
+    try {
+      var query = _supabase
+          .from('shops')
+          .select('*, owner:users(name, email)');
+
+      if (_searchQuery.isNotEmpty) {
+        query = query.ilike('name', '%$_searchQuery%');
+      }
+      if (_statusFilter != 'all') {
+        query = query.eq('status', _statusFilter);
+      }
+
+      // Pas de tri pour les boutiques (on garde l'ordre par défaut) mais on peut en ajouter
+      var orderedQuery = query.order('created_at', ascending: false);
+
+      final countResult = await orderedQuery.count();
+      _totalShops = countResult.count ?? 0;
+
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
+
+      _shops = List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> updateShopStatus(String shopId, String status) async {
+    if (!_isAdmin) return;
+    setState(() => _isLoading = true);
+    try {
+      await _supabase
+          .from('shops')
+          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', shopId);
+      await loadShops(refresh: true);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ============================================================
+  // Gestion des utilisateurs
+  // ============================================================
+
+  Future<void> loadUsers({bool refresh = false}) async {
+    if (!_isAdmin) return;
+    if (refresh) {
+      _currentPage = 0;
+      _users.clear();
+    }
+    setState(() => _isLoading = true);
+    try {
+      var query = _supabase.from('users').select('*');
+
+      if (_searchQuery.isNotEmpty) {
+        query = query.ilike('name', '%$_searchQuery%');
+      }
+
+      // Tri optionnel
+      var orderedQuery = query.order('created_at', ascending: false);
+
+      final countResult = await orderedQuery.count();
+      _totalUsers = countResult.count ?? 0;
+
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
+
+      _users = List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> updateUserRole(String userId, String role) async {
+    if (!_isAdmin) return;
+    setState(() => _isLoading = true);
+    try {
+      await _supabase
+          .from('users')
+          .update({'role': role, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', userId);
+      await loadUsers(refresh: true);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ============================================================
+  // Gestion des commandes
+  // ============================================================
+
+  Future<void> loadOrders({bool refresh = false}) async {
+    if (!_isAdmin) return;
+    if (refresh) {
+      _currentPage = 0;
+      _orders.clear();
+    }
+    setState(() => _isLoading = true);
+    try {
+      var query = _supabase
+          .from('orders')
+          .select('*, user:users(name, email)');
+
+      if (_searchQuery.isNotEmpty) {
+        query = query.ilike('id', '%$_searchQuery%');
+      }
+      if (_statusFilter != 'all') {
+        query = query.eq('status', _statusFilter);
+      }
+
+      var orderedQuery = query.order(_sortBy, ascending: _sortAscending);
+
+      final countResult = await orderedQuery.count();
+      _totalOrders = countResult.count ?? 0;
+
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
+
+      _orders = List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    if (!_isAdmin) return;
+    setState(() => _isLoading = true);
+    try {
+      final updates = {
+        'status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (status == 'delivered') {
+        updates['delivered_at'] = DateTime.now().toIso8601String();
+      }
+      await _supabase
+          .from('orders')
+          .update(updates)
+          .eq('id', orderId);
+      await loadOrders(refresh: true);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ============================================================
+  // Gestion des litiges
+  // ============================================================
+
+  Future<void> loadDisputes({bool refresh = false}) async {
+    if (!_isAdmin) return;
+    if (refresh) {
+      _currentPage = 0;
+      _disputes.clear();
+    }
+    setState(() => _isLoading = true);
+    try {
+      var query = _supabase
+          .from('disputes')
+          .select('*, order:orders(id, total), user:users(name)');
+
+      if (_statusFilter != 'all') {
+        query = query.eq('status', _statusFilter);
+      }
+
+      var orderedQuery = query.order('created_at', ascending: false);
+
+      final countResult = await orderedQuery.count();
+      _totalDisputes = countResult.count ?? 0;
+
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
+
+      _disputes = List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> updateDisputeStatus(String disputeId, String status) async {
+    if (!_isAdmin) return;
+    setState(() => _isLoading = true);
+    try {
+      await _supabase
+          .from('disputes')
+          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', disputeId);
+      await loadDisputes(refresh: true);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -188,7 +481,6 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ Nouvelle méthode pour mettre à jour le statut d'une bannière
   Future<void> updateBannerStatus(String bannerId, bool isActive) async {
     if (!_isAdmin) return;
     setState(() => _isLoading = true);
@@ -202,253 +494,6 @@ class AdminProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       setState(() => _isLoading = false);
-    }
-  }
-
-  // ============================================================
-  // Gestion des produits (existant)
-  // ============================================================
-
-  Future<void> loadProducts({bool refresh = false}) async {
-    if (!_isAdmin) return;
-    if (refresh) {
-      _currentPage = 0;
-      _products.clear();
-    }
-    setState(() => _isLoading = true);
-    try {
-      var query = _supabase
-          .from('products')
-          .select('*, shop:shops(name)');
-
-      if (_searchQuery.isNotEmpty) {
-        query = query.ilike('title', '%$_searchQuery%');
-      }
-      if (_statusFilter != 'all') {
-        query = query.eq('status', _statusFilter);
-      }
-      query = query.order(_sortBy, ascending: _sortAscending);
-
-      final countResult = await query.count();
-      _totalProducts = countResult.count ?? 0;
-
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-      final response = await paginatedQuery;
-      _products = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> updateProductStatus(String productId, String status) async {
-    if (!_isAdmin) return;
-    try {
-      await _supabase
-          .from('products')
-          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('id', productId);
-      await loadProducts(refresh: true);
-    } catch (e) {
-      _error = e.toString();
-    }
-  }
-
-  // ============================================================
-  // Gestion des boutiques (existant)
-  // ============================================================
-
-  Future<void> loadShops({bool refresh = false}) async {
-    if (!_isAdmin) return;
-    if (refresh) {
-      _currentPage = 0;
-      _shops.clear();
-    }
-    setState(() => _isLoading = true);
-    try {
-      var query = _supabase
-          .from('shops')
-          .select('*, owner:users(name, email)');
-
-      if (_searchQuery.isNotEmpty) {
-        query = query.ilike('name', '%$_searchQuery%');
-      }
-      if (_statusFilter != 'all') {
-        query = query.eq('status', _statusFilter);
-      }
-
-      final countResult = await query.count();
-      _totalShops = countResult.count ?? 0;
-
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-      final response = await paginatedQuery;
-      _shops = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> updateShopStatus(String shopId, String status) async {
-    if (!_isAdmin) return;
-    try {
-      await _supabase
-          .from('shops')
-          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('id', shopId);
-      await loadShops(refresh: true);
-    } catch (e) {
-      _error = e.toString();
-    }
-  }
-
-  // ============================================================
-  // Gestion des utilisateurs (existant)
-  // ============================================================
-
-  Future<void> loadUsers({bool refresh = false}) async {
-    if (!_isAdmin) return;
-    if (refresh) {
-      _currentPage = 0;
-      _users.clear();
-    }
-    setState(() => _isLoading = true);
-    try {
-      var query = _supabase.from('users').select('*');
-
-      if (_searchQuery.isNotEmpty) {
-        query = query.ilike('name', '%$_searchQuery%');
-      }
-
-      final countResult = await query.count();
-      _totalUsers = countResult.count ?? 0;
-
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-      final response = await paginatedQuery;
-      _users = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> updateUserRole(String userId, String role) async {
-    if (!_isAdmin) return;
-    try {
-      await _supabase
-          .from('users')
-          .update({'role': role, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('id', userId);
-      await loadUsers(refresh: true);
-    } catch (e) {
-      _error = e.toString();
-    }
-  }
-
-  // ============================================================
-  // Gestion des commandes (existant)
-  // ============================================================
-
-  Future<void> loadOrders({bool refresh = false}) async {
-    if (!_isAdmin) return;
-    if (refresh) {
-      _currentPage = 0;
-      _orders.clear();
-    }
-    setState(() => _isLoading = true);
-    try {
-      var query = _supabase
-          .from('orders')
-          .select('*, user:users(name, email)');
-
-      if (_searchQuery.isNotEmpty) {
-        query = query.ilike('id', '%$_searchQuery%');
-      }
-      if (_statusFilter != 'all') {
-        query = query.eq('status', _statusFilter);
-      }
-      query = query.order(_sortBy, ascending: _sortAscending);
-
-      final countResult = await query.count();
-      _totalOrders = countResult.count ?? 0;
-
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-      final response = await paginatedQuery;
-      _orders = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> updateOrderStatus(String orderId, String status) async {
-    if (!_isAdmin) return;
-    try {
-      final updates = {
-        'status': status,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-      if (status == 'delivered') {
-        updates['delivered_at'] = DateTime.now().toIso8601String();
-      }
-      await _supabase
-          .from('orders')
-          .update(updates)
-          .eq('id', orderId);
-      await loadOrders(refresh: true);
-    } catch (e) {
-      _error = e.toString();
-    }
-  }
-
-  // ============================================================
-  // Gestion des litiges (existant)
-  // ============================================================
-
-  Future<void> loadDisputes({bool refresh = false}) async {
-    if (!_isAdmin) return;
-    if (refresh) {
-      _currentPage = 0;
-      _disputes.clear();
-    }
-    setState(() => _isLoading = true);
-    try {
-      var query = _supabase
-          .from('disputes')
-          .select('*, order:orders(id, total), user:users(name)');
-
-      if (_statusFilter != 'all') {
-        query = query.eq('status', _statusFilter);
-      }
-      query = query.order('created_at', ascending: false);
-
-      final countResult = await query.count();
-      _totalDisputes = countResult.count ?? 0;
-
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-      final response = await paginatedQuery;
-      _disputes = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> updateDisputeStatus(String disputeId, String status) async {
-    if (!_isAdmin) return;
-    try {
-      await _supabase
-          .from('disputes')
-          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('id', disputeId);
-      await loadDisputes(refresh: true);
-    } catch (e) {
-      _error = e.toString();
     }
   }
 
