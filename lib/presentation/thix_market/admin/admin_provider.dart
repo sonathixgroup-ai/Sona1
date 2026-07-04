@@ -72,6 +72,9 @@ class AdminProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get promotions => _promotions;
   List<Map<String, dynamic>> get banners => _banners;
 
+  // ✅ Getter pour la page courante (utilisé dans la pagination)
+  int get currentPage => _currentPage;
+
   // ============================================================
   // Initialisation
   // ============================================================
@@ -164,6 +167,7 @@ class AdminProvider extends ChangeNotifier {
 
   Future<void> updateProductStatus(String productId, String status) async {
     if (!_isAdmin) return;
+    setState(() => _isLoading = true);
     try {
       await _supabase
           .from('products')
@@ -172,6 +176,8 @@ class AdminProvider extends ChangeNotifier {
       await loadProducts(refresh: true);
     } catch (e) {
       _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -213,6 +219,7 @@ class AdminProvider extends ChangeNotifier {
 
   Future<void> updateShopStatus(String shopId, String status) async {
     if (!_isAdmin) return;
+    setState(() => _isLoading = true);
     try {
       await _supabase
           .from('shops')
@@ -221,6 +228,8 @@ class AdminProvider extends ChangeNotifier {
       await loadShops(refresh: true);
     } catch (e) {
       _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -257,6 +266,7 @@ class AdminProvider extends ChangeNotifier {
 
   Future<void> updateUserRole(String userId, String role) async {
     if (!_isAdmin) return;
+    setState(() => _isLoading = true);
     try {
       await _supabase
           .from('users')
@@ -265,6 +275,8 @@ class AdminProvider extends ChangeNotifier {
       await loadUsers(refresh: true);
     } catch (e) {
       _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -305,7 +317,6 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ Méthode manquante : mise à jour du statut d'une commande
   Future<void> updateOrderStatus(String orderId, String status) async {
     if (!_isAdmin) return;
     setState(() => _isLoading = true);
@@ -365,6 +376,7 @@ class AdminProvider extends ChangeNotifier {
 
   Future<void> updateDisputeStatus(String disputeId, String status) async {
     if (!_isAdmin) return;
+    setState(() => _isLoading = true);
     try {
       await _supabase
           .from('disputes')
@@ -373,6 +385,8 @@ class AdminProvider extends ChangeNotifier {
       await loadDisputes(refresh: true);
     } catch (e) {
       _error = e.toString();
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -476,7 +490,6 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ Ces méthodes existent déjà mais je les réécris pour être complet
   void setSearchQuery(String query) {
     _searchQuery = query;
     _currentPage = 0;
@@ -500,7 +513,7 @@ class AdminProvider extends ChangeNotifier {
   }
 
   void _refreshCurrentList() {
-    // La méthode appelée dépend du contexte, mais nous notifions pour que l'UI recharge
+    // Notifier que les données ont changé (recharge selon le contexte)
     notifyListeners();
   }
 
