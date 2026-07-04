@@ -3,7 +3,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:nfc_manager/nfc_manager.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class ShareShopQr extends StatefulWidget {
   final String shopId;
@@ -25,7 +24,6 @@ class ShareShopQr extends StatefulWidget {
 
 class _ShareShopQrState extends State<ShareShopQr> {
   bool _isNfcSupported = false;
-  bool _isNfcEnabled = false;
   String? _nfcStatus;
 
   @override
@@ -50,14 +48,6 @@ class _ShareShopQrState extends State<ShareShopQr> {
       return;
     }
 
-    final status = await Permission.nfc.request();
-    if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission NFC refusée')),
-      );
-      return;
-    }
-
     final shopUrl = widget.shopUrl ?? 'thix://shop/${widget.shopId}';
     
     showDialog(
@@ -77,15 +67,21 @@ class _ShareShopQrState extends State<ShareShopQr> {
       ),
     );
 
-    await NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
-      await NfcManager.instance.stopSession();
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Données écrites sur l\'étiquette NFC')),
-        );
-      }
-    });
+    await NfcManager.instance.startSession(
+      pollingOptions: {
+        NfcPollingOption.iso14443,
+        NfcPollingOption.isoDep,
+      },
+      onDiscovered: (NfcTag tag) async {
+        await NfcManager.instance.stopSession();
+        if (mounted) {
+          if (context.mounted) Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Données écrites sur l\'étiquette NFC')),
+          );
+        }
+      },
+    );
   }
 
   Future<void> _shareViaNfc() async {
@@ -115,15 +111,21 @@ class _ShareShopQrState extends State<ShareShopQr> {
       ),
     );
 
-    await NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
-      await NfcManager.instance.stopSession();
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Partage via NFC initié')),
-        );
-      }
-    });
+    await NfcManager.instance.startSession(
+      pollingOptions: {
+        NfcPollingOption.iso14443,
+        NfcPollingOption.isoDep,
+      },
+      onDiscovered: (NfcTag tag) async {
+        await NfcManager.instance.stopSession();
+        if (mounted) {
+          if (context.mounted) Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Partage via NFC initié')),
+          );
+        }
+      },
+    );
   }
 
   Future<void> _shareViaSocialMedia() async {
@@ -149,7 +151,6 @@ ${widget.shopUrl ?? 'https://thix.com/shop/${widget.shopId}'}
   }
 
   void _saveQrCode() {
-    // Capture le QR code et sauvegarde
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -290,7 +291,7 @@ ${widget.shopUrl ?? 'https://thix.com/shop/${widget.shopId}'}
                   child: Column(
                     children: [
                       Text(
-                        '${_formatNumber(1250)}',
+                        _formatNumber(1250),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -306,7 +307,7 @@ ${widget.shopUrl ?? 'https://thix.com/shop/${widget.shopId}'}
                   child: Column(
                     children: [
                       Text(
-                        '${_formatNumber(3450)}',
+                        _formatNumber(3450),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -322,7 +323,7 @@ ${widget.shopUrl ?? 'https://thix.com/shop/${widget.shopId}'}
                   child: Column(
                     children: [
                       Text(
-                        '${_formatNumber(89)}',
+                        _formatNumber(89),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
