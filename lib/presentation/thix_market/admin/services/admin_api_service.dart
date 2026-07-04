@@ -64,13 +64,13 @@ class AdminApiService {
       if (shopId != null) {
         query = query.eq('shop_id', shopId);
       }
-      query = query.order(sortBy, ascending: ascending);
 
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
-      final response = await paginatedQuery;
+      final response = await query
+          .order(sortBy, ascending: ascending)
+          .range(page * limit, (page + 1) * limit - 1);
 
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
@@ -132,13 +132,13 @@ class AdminApiService {
       if (ownerId != null) {
         query = query.eq('owner_id', ownerId);
       }
-      query = query.order(sortBy, ascending: ascending);
 
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
-      final response = await paginatedQuery;
+      final response = await query
+          .order(sortBy, ascending: ascending)
+          .range(page * limit, (page + 1) * limit - 1);
 
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
@@ -202,15 +202,15 @@ class AdminApiService {
         query = query.eq('role', role);
       }
       if (!includeDeleted) {
-        query = query.isNull('deleted_at');
+        query = query.filter('deleted_at', 'is', null);
       }
-      query = query.order(sortBy, ascending: ascending);
 
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
-      final response = await paginatedQuery;
+      final response = await query
+          .order(sortBy, ascending: ascending)
+          .range(page * limit, (page + 1) * limit - 1);
 
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
@@ -301,13 +301,13 @@ class AdminApiService {
       if (toDate != null) {
         query = query.lte('created_at', toDate.toIso8601String());
       }
-      query = query.order(sortBy, ascending: ascending);
 
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
-      final response = await paginatedQuery;
+      final response = await query
+          .order(sortBy, ascending: ascending)
+          .range(page * limit, (page + 1) * limit - 1);
 
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
@@ -360,13 +360,13 @@ class AdminApiService {
       if (userId != null) {
         query = query.eq('user_id', userId);
       }
-      query = query.order(sortBy, ascending: ascending);
 
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
-      final response = await paginatedQuery;
+      final response = await query
+          .order(sortBy, ascending: ascending)
+          .range(page * limit, (page + 1) * limit - 1);
 
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
