@@ -26,7 +26,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
     });
   }
 
-  void _updateMap(provider) {
+  void _updateMap(DeliveryProvider provider) {
     final tracking = provider.currentTracking;
     if (tracking == null) return;
 
@@ -91,7 +91,10 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               Expanded(
                 flex: 2,
                 child: GoogleMap(
-                  onMapCreated: (controller) => _mapController = controller,
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+                    _updateMap(provider);
+                  },
                   initialCameraPosition: const CameraPosition(
                     target: LatLng(5.359952, -4.008256), // Abidjan
                     zoom: 12,
@@ -99,7 +102,6 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                   markers: _markers,
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
-                  onMapCreated: (_) => _updateMap(provider),
                 ),
               ),
               // Timeline statut
@@ -122,7 +124,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       {'key': 'delivered', 'label': 'Livré', 'icon': Icons.home},
     ];
 
-    final currentStatus = tracking['status'];
+    final currentStatus = tracking['status'] as String?;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -136,8 +138,9 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               itemCount: statuses.length,
               itemBuilder: (context, index) {
                 final status = statuses[index];
-                final isCompleted = _isStatusCompleted(currentStatus, status['key']);
-                final isCurrent = currentStatus == status['key'];
+                final statusKey = status['key'] as String;
+                final isCompleted = _isStatusCompleted(currentStatus ?? '', statusKey);
+                final isCurrent = currentStatus == statusKey;
                 return ListTile(
                   leading: Container(
                     width: 40,
@@ -151,7 +154,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      status['icon'],
+                      status['icon'] as IconData,
                       color: isCompleted
                           ? Colors.green
                           : isCurrent
@@ -160,7 +163,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                     ),
                   ),
                   title: Text(
-                    status['label'],
+                    status['label'] as String,
                     style: TextStyle(
                       fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                       color: isCompleted
@@ -183,9 +186,9 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               margin: const EdgeInsets.only(top: 16),
               child: ListTile(
                 leading: const Icon(Icons.person, color: Color(0xFFE5592F)),
-                title: Text(tracking['driver']['name']),
-                subtitle: Text(tracking['driver']['phone'] ?? ''),
-                trailing: Text(tracking['driver']['vehicle'] ?? '', style: const TextStyle(fontSize: 12)),
+                title: Text(tracking['driver']['name'] as String),
+                subtitle: Text(tracking['driver']['phone'] as String? ?? ''),
+                trailing: Text(tracking['driver']['vehicle'] as String? ?? '', style: const TextStyle(fontSize: 12)),
               ),
             ),
         ],
