@@ -307,9 +307,11 @@ class _UrgencyTrackShape extends SliderTrackShape {
 
     final leftToThumb = Rect.fromLTRB(rect.left, rect.top, thumbCenter.dx, rect.bottom);
     final highlight = RRect.fromRectAndRadius(leftToThumb, r);
-    paint.color = sliderTheme.activeTrackColor ?? EmergencyMedicalSheetColors.medicalBlue;
+    paint.color = sliderTheme.activeTrackColor ?? themeColorFallback(context);
     canvas.drawRRect(highlight, paint..color = paint.color.withValues(alpha: 0.22));
   }
+
+  Color themeColorFallback(BuildContext context) => Theme.of(context).colorScheme.primary;
 }
 
 class _Seg {
@@ -333,7 +335,7 @@ class _SheetHeader extends StatelessWidget {
     final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
     final goldSoft = isDark ? DarkModeColors.metalGoldSoft : LightModeColors.metalGoldSoft;
     final a = isDark ? gold : (accent ?? gold);
-    final aSoft = isDark ? goldSoft : (accent == null ? goldSoft : EmergencyMedicalSheetColors.medicalBlueSoft);
+    final aSoft = isDark ? goldSoft : (accent == null ? goldSoft : Theme.of(context).colorScheme.primary.withValues(alpha: 0.16));
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
@@ -361,7 +363,7 @@ class _SheetHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: context.textStyles.titleLarge?.semiBold),
+                Text(title, style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(subtitle, style: context.textStyles.bodySmall?.copyWith(color: theme.hintColor)),
               ],
@@ -449,7 +451,7 @@ class _BloodSheetState extends State<_BloodSheet> {
     const groups = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final medical = isDark ? theme.colorScheme.tertiary : EmergencyMedicalSheetColors.medicalBlue;
+    final medical = isDark ? theme.colorScheme.tertiary : theme.colorScheme.primary;
     final isRequest = _intent == 'request';
 
     final qty = int.tryParse(_quantity.text.trim());
@@ -470,7 +472,7 @@ class _BloodSheetState extends State<_BloodSheet> {
         constraints: BoxConstraints(maxHeight: maxH),
         child: Column(
           children: [
-            _SheetHeader(icon: Icons.bloodtype_rounded, title: 'Sang', subtitle: 'Donner ou demander — matching rapide', accent: EmergencyMedicalSheetColors.medicalBlue),
+            _SheetHeader(icon: Icons.bloodtype_rounded, title: 'Sang', subtitle: 'Donner ou demander — matching rapide', accent: theme.colorScheme.primary),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
@@ -479,10 +481,10 @@ class _BloodSheetState extends State<_BloodSheet> {
                     SegmentedButton<String>(
                       style: SegmentedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: EmergencyMedicalSheetColors.text,
+                        foregroundColor: Theme.of(context).colorScheme.onSurface,
                         selectedForegroundColor: Colors.white,
-                        selectedBackgroundColor: EmergencyMedicalSheetColors.medicalBlue,
-                        side: BorderSide(color: EmergencyMedicalSheetColors.stroke),
+                        selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).dividerColor),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       segments: const [
@@ -519,7 +521,7 @@ class _BloodSheetState extends State<_BloodSheet> {
                         alignment: Alignment.centerLeft,
                         child: Row(
                           children: [
-                            Text('Degré d\'urgence', style: context.textStyles.titleSmall?.semiBold),
+                            Text('Degré d\'urgence', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                             const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -528,7 +530,13 @@ class _BloodSheetState extends State<_BloodSheet> {
                                 color: _UrgencyScale.color(_urgency01).withValues(alpha: 0.12),
                                 border: Border.all(color: _UrgencyScale.color(_urgency01).withValues(alpha: 0.25)),
                               ),
-                              child: Text(_urgencyLabel(_urgency01), style: context.textStyles.labelMedium?.copyWith(color: _UrgencyScale.color(_urgency01)).semiBold),
+                              child: Text(
+                                _urgencyLabel(_urgency01),
+                                style: context.textStyles.labelMedium?.copyWith(
+                                  color: _UrgencyScale.color(_urgency01),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -824,7 +832,7 @@ class _TrustedContactsSheetState extends State<_TrustedContactsSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(c.name, style: context.textStyles.titleMedium?.semiBold),
+                                Text(c.name, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
                                 Text(c.phone, style: context.textStyles.bodySmall?.copyWith(color: theme.hintColor)),
                               ],
