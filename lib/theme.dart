@@ -126,6 +126,45 @@ class MarketColors {
   static const Color orangeDeep = Color(0xFFEA580C);
 }
 
+// ==================== AJOUT THIX HOME COLORS ====================
+@immutable
+class ThixHomeColors {
+  const ThixHomeColors._();
+
+  // Couleurs principales THIX MARKET
+  static const Color primary = Color(0xFFE5592F);
+  static const Color primaryLight = Color(0xFFFF6B35);
+  static const Color primaryDark = Color(0xFFC44A1F);
+  static const Color secondary = Color(0xFF2196F3);
+
+  // Surfaces
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color surface = Colors.white;
+
+  // Textes
+  static const Color textPrimary = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textLight = Color(0xFF9CA3AF);
+
+  // Bordures
+  static const Color border = Color(0xFFE5E7EB);
+
+  // Feedback
+  static const Color success = Color(0xFF10B981);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFEF4444);
+
+  // Couleurs spécifiques aux stories et autres composants
+  static const Color primaryBlue = Color(0xFF2196F3);
+  static const Color darkNavy = Color(0xFF0A1929);
+
+  // Alias pratiques
+  static const Color marketPrimary = primary;
+  static const Color marketBackground = background;
+  static const Color marketTextPrimary = textPrimary;
+}
+// ==================== FIN AJOUT ====================
+
 @immutable
 class LightModeColors {
   const LightModeColors._();
