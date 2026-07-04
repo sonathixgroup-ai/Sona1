@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/search_provider.dart';
 import '../widgets/search/filter_bottom_sheet.dart';
-import '../widgets/product/product_card.dart';
+import '../widgets/products/product_card.dart';   // ✅ Chemin corrigé
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
