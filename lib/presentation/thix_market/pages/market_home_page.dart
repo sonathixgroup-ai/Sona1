@@ -8,7 +8,6 @@ import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
 import '../widgets/products/product_card.dart';
 import '../widgets/shops/shop_card.dart';
-import '../widgets/common/loading_shimmer.dart';
 
 class MarketHomePage extends StatefulWidget {
   const MarketHomePage({super.key});
@@ -50,13 +49,15 @@ class _MarketHomePageState extends State<MarketHomePage> {
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          // AppBar personnalisé
+          // ================================
+          // APP BAR (style Alibaba)
+          // ================================
           SliverAppBar(
             expandedHeight: 120,
             floating: true,
             pinned: true,
             backgroundColor: Colors.white,
-            elevation: _isAppBarExpanded ? 0 : 2,
+            elevation: _isAppBarExpanded ? 0 : 1,
             title: AnimatedOpacity(
               opacity: _isAppBarExpanded ? 0 : 1,
               duration: const Duration(milliseconds: 200),
@@ -76,6 +77,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Logo + Actions
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -111,9 +113,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
                                     top: 8,
                                     child: Container(
                                       padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         color: Colors.red,
-                                        borderRadius: BorderRadius.circular(10),
+                                        shape: BoxShape.circle,
                                       ),
                                       constraints: const BoxConstraints(
                                         minWidth: 16,
@@ -185,33 +187,39 @@ class _MarketHomePageState extends State<MarketHomePage> {
             ),
           ),
 
-          // Contenu principal
+          // ================================
+          // CONTENU PRINCIPAL (style Alibaba)
+          // ================================
           SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Lives en cours
-                if (marketProvider.liveSessions.isNotEmpty)
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. LIVES EN COURS
                   _buildLiveSessions(marketProvider.liveSessions, theme),
 
-                // Catégories
-                const CategoryGrid(),
+                  // 2. CATÉGORIES
+                  const CategoryGrid(),
 
-                // Offres flash
-                _buildFlashSales(marketProvider.flashSales, theme),
+                  // 3. BANNIÈRES PROMOTIONNELLES
+                  _buildPromoBanners(marketProvider.promoBanners),
 
-                // Bannières promotionnelles
-                _buildPromoBanners(marketProvider.promoBanners),
+                  // 4. OFFRES FLASH
+                  _buildFlashSales(marketProvider.flashSales, theme),
 
-                // Produits recommandés
-                _buildRecommendedSection(marketProvider.recommendedProducts, theme),
+                  // 5. PRODUITS RECOMMANDÉS
+                  _buildRecommendedSection(marketProvider.recommendedProducts, theme),
 
-                // Boutiques mises en avant
-                _buildFeaturedShops(marketProvider.featuredShops, theme),
+                  // 6. BOUTIQUES MISES EN AVANT
+                  _buildFeaturedShops(marketProvider.featuredShops, theme),
 
-                // Pour vous
-                _buildForYouSection(marketProvider.forYouProducts, theme),
-              ],
+                  // 7. POUR VOUS
+                  _buildForYouSection(marketProvider.forYouProducts, theme),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ],
@@ -219,7 +227,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 1. LIVES EN COURS
+  // ============================================================
   Widget _buildLiveSessions(List<dynamic> lives, ThemeData theme) {
+    if (lives.isEmpty) {
+      return const SizedBox(height: 8);
+    }
+
     return Container(
       height: 280,
       margin: const EdgeInsets.only(top: 16),
@@ -253,7 +268,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 ),
                 TextButton(
                   onPressed: () => _gotoAllLives(),
-                  child: const Text('Voir tout'),
+                  child: const Text(
+                    'Voir tout',
+                    style: TextStyle(color: Color(0xFFE5592F)),
+                  ),
                 ),
               ],
             ),
@@ -278,7 +296,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: CachedNetworkImage(
-                              imageUrl: live['thumbnail'],
+                              imageUrl: live['thumbnail'] ?? '',
                               height: 160,
                               width: 180,
                               fit: BoxFit.cover,
@@ -287,6 +305,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                               ),
                             ),
                           ),
+                          // Live badge
                           Positioned(
                             top: 8,
                             left: 8,
@@ -320,6 +339,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                               ),
                             ),
                           ),
+                          // Viewers
                           Positioned(
                             bottom: 8,
                             left: 8,
@@ -333,7 +353,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '${live['viewers']} vues',
+                                '${live['viewers'] ?? 0} vues',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -345,13 +365,16 @@ class _MarketHomePageState extends State<MarketHomePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        live['title'],
+                        live['title'] ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
                       ),
                       Text(
-                        live['shop_name'],
+                        live['shop_name'] ?? '',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -368,11 +391,91 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 2. BANNIÈRES PROMOTIONNELLES
+  // ============================================================
+  Widget _buildPromoBanners(List<dynamic> banners) {
+    if (banners.isEmpty) return const SizedBox(height: 8);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
+      child: CarouselSlider(
+        options: CarouselOptions(
+          height: 140,
+          autoPlay: true,
+          enlargeCenterPage: true,
+          viewportFraction: 0.92,
+          autoPlayInterval: const Duration(seconds: 4),
+          autoPlayAnimationDuration: const Duration(milliseconds: 800),
+        ),
+        items: banners.map((banner) {
+          return Builder(
+            builder: (BuildContext context) {
+              return GestureDetector(
+                onTap: () => _gotoPromoLink(banner['link'] ?? ''),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    image: DecorationImage(
+                      image: CachedNetworkImageProvider(
+                        banner['image_url'] ?? '',
+                      ),
+                      fit: BoxFit.cover,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.3),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          banner['title'] ?? '',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ============================================================
+  // 3. OFFRES FLASH
+  // ============================================================
   Widget _buildFlashSales(List<dynamic> flashSales, ThemeData theme) {
-    if (flashSales.isEmpty) return const SizedBox();
-    
+    if (flashSales.isEmpty) {
+      return const SizedBox(height: 8);
+    }
+
     return Container(
-      margin: const EdgeInsets.only(top: 24),
+      margin: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -381,14 +484,36 @@ class _MarketHomePageState extends State<MarketHomePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '🔥 Offres Flash',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [const Color(0xFFE5592F), const Color(0xFFFF6B35)],
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'FLASH',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Vente flash',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 3))),
+                FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
               ],
             ),
           ),
@@ -404,7 +529,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 return ProductCard(
                   product: product,
                   isFlashSale: true,
-                  onTap: (_) => _gotoProductDetail(product['id']), // ✅ correction
+                  onTap: (_) => _gotoProductDetail(product['id']),
                 );
               },
             ),
@@ -414,40 +539,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  Widget _buildPromoBanners(List<dynamic> banners) {
-    if (banners.isEmpty) return const SizedBox();
-    
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: 120,
-        autoPlay: true,
-        enlargeCenterPage: true,
-        viewportFraction: 0.9,
-        autoPlayInterval: const Duration(seconds: 5),
-      ),
-      items: banners.map((banner) {
-        return Builder(
-          builder: (BuildContext context) {
-            return GestureDetector(
-              onTap: () => _gotoPromoLink(banner['link']),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  image: DecorationImage(
-                    image: CachedNetworkImageProvider(banner['image_url']),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      }).toList(),
-    );
-  }
-
+  // ============================================================
+  // 4. PRODUITS RECOMMANDÉS
+  // ============================================================
   Widget _buildRecommendedSection(List<dynamic> products, ThemeData theme) {
+    if (products.isEmpty) {
+      return const SizedBox(height: 8);
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 24),
       child: Column(
@@ -459,7 +558,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  '✨ Recommandé pour vous',
+                  '⭐ Recommandé pour vous',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -467,7 +566,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 ),
                 TextButton(
                   onPressed: () => _gotoRecommended(),
-                  child: const Text('Voir tout'),
+                  child: const Text(
+                    'Voir tout',
+                    style: TextStyle(color: Color(0xFFE5592F)),
+                  ),
                 ),
               ],
             ),
@@ -488,7 +590,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               final product = products[index];
               return ProductCard(
                 product: product,
-                onTap: (_) => _gotoProductDetail(product['id']), // ✅ correction
+                onTap: (_) => _gotoProductDetail(product['id']),
               );
             },
           ),
@@ -497,9 +599,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 5. BOUTIQUES MISES EN AVANT
+  // ============================================================
   Widget _buildFeaturedShops(List<dynamic> shops, ThemeData theme) {
-    if (shops.isEmpty) return const SizedBox();
-    
+    if (shops.isEmpty) {
+      return const SizedBox(height: 8);
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 24),
       child: Column(
@@ -519,7 +626,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 ),
                 TextButton(
                   onPressed: () => _gotoAllShops(),
-                  child: const Text('Voir tout'),
+                  child: const Text(
+                    'Voir tout',
+                    style: TextStyle(color: Color(0xFFE5592F)),
+                  ),
                 ),
               ],
             ),
@@ -545,7 +655,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 6. POUR VOUS (Découvrir plus)
+  // ============================================================
   Widget _buildForYouSection(List<dynamic> products, ThemeData theme) {
+    if (products.isEmpty) {
+      return const SizedBox(height: 8);
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 24, bottom: 80),
       child: Column(
@@ -577,7 +694,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               final product = products[index];
               return ProductCard(
                 product: product,
-                onTap: (_) => _gotoProductDetail(product['id']), // ✅ correction
+                onTap: (_) => _gotoProductDetail(product['id']),
               );
             },
           ),
@@ -586,7 +703,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // Navigation methods
+  // ============================================================
+  // NAVIGATION
+  // ============================================================
   void _scanQRCode() {
     Navigator.pushNamed(context, '/scan-qr');
   }
@@ -608,7 +727,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   void _gotoPromoLink(String link) {
-    // Navigate to promo link
+    // TODO: Naviguer vers le lien promotionnel
   }
 
   void _gotoRecommended() {
