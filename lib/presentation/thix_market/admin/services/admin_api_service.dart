@@ -6,7 +6,6 @@ class AdminApiService {
   static const String baseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://your-project.supabase.co');
   static const String anonKey = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'your-anon-key');
 
-  // Headers pour les appels Edge Functions
   Map<String, String> get _headers => {
         'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? anonKey}',
         'Content-Type': 'application/json',
@@ -16,7 +15,6 @@ class AdminApiService {
   // Dashboard
   // ============================================================
 
-  /// Récupère les statistiques du tableau de bord
   Future<DashboardStats> getDashboardStats() async {
     try {
       final response = await _supabase.rpc('get_admin_dashboard_stats');
@@ -26,7 +24,6 @@ class AdminApiService {
     }
   }
 
-  /// Récupère les activités récentes des administrateurs
   Future<List<Map<String, dynamic>>> getRecentActivities({int limit = 20}) async {
     try {
       final response = await _supabase
@@ -44,7 +41,6 @@ class AdminApiService {
   // Gestion des produits
   // ============================================================
 
-  /// Récupère tous les produits avec pagination et filtres
   Future<PaginatedResult<Map<String, dynamic>>> getProducts({
     int page = 0,
     int limit = 20,
@@ -70,14 +66,13 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
-      // Obtenir le nombre total
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      // Appliquer la pagination
-      query = query.range(page * limit, (page + 1) * limit - 1);
+      // ✅ NE PAS RÉAFFECTER `query` avec range()
+      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedQuery;
 
-      final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
         total: total,
@@ -87,7 +82,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour le statut d'un produit
   Future<void> updateProductStatus(String productId, String status) async {
     try {
       await _supabase
@@ -103,7 +97,6 @@ class AdminApiService {
     }
   }
 
-  /// Supprime définitivement un produit (admin only)
   Future<void> deleteProduct(String productId) async {
     try {
       await _supabase.from('products').delete().eq('id', productId);
@@ -117,7 +110,6 @@ class AdminApiService {
   // Gestion des boutiques
   // ============================================================
 
-  /// Récupère toutes les boutiques avec pagination et filtres
   Future<PaginatedResult<Map<String, dynamic>>> getShops({
     int page = 0,
     int limit = 20,
@@ -143,13 +135,12 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
-      // Obtenir le nombre total
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      query = query.range(page * limit, (page + 1) * limit - 1);
+      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedQuery;
 
-      final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
         total: total,
@@ -159,7 +150,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour le statut d'une boutique
   Future<void> updateShopStatus(String shopId, String status) async {
     try {
       await _supabase
@@ -175,7 +165,6 @@ class AdminApiService {
     }
   }
 
-  /// Vérifie une boutique (badge vérifié)
   Future<void> verifyShop(String shopId, bool verified) async {
     try {
       await _supabase
@@ -195,7 +184,6 @@ class AdminApiService {
   // Gestion des utilisateurs
   // ============================================================
 
-  /// Récupère tous les utilisateurs avec pagination et filtres
   Future<PaginatedResult<Map<String, dynamic>>> getUsers({
     int page = 0,
     int limit = 20,
@@ -209,32 +197,22 @@ class AdminApiService {
       var query = _supabase.from('users').select('*');
 
       if (search != null && search.isNotEmpty) {
-        // Recherche par nom ou email
         query = query.ilike('name', '%$search%');
-        // Pour une recherche OR (nom ou email), on peut utiliser filter avec or
-        // Exemple: query = query.filter('name', 'ilike', '%$search%').or('email.ilike.%$search%');
-        // Mais pour simplifier, on filtre seulement par nom.
-        // Si besoin de rechercher par email, ajouter une condition avec or.
-        // Note: Dans la nouvelle version de Supabase, la méthode 'or' est disponible.
-        // Mais on peut aussi faire deux requêtes ou utiliser un filtre plus souple.
-        // Pour l'instant on garde la recherche par nom uniquement.
       }
       if (role != null && role != 'all') {
         query = query.eq('role', role);
       }
       if (!includeDeleted) {
-        // Utiliser isNull pour vérifier que deleted_at est null
         query = query.isNull('deleted_at');
       }
       query = query.order(sortBy, ascending: ascending);
 
-      // Obtenir le nombre total
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      query = query.range(page * limit, (page + 1) * limit - 1);
+      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedQuery;
 
-      final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
         total: total,
@@ -244,7 +222,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour le rôle d'un utilisateur
   Future<void> updateUserRole(String userId, String role) async {
     try {
       await _supabase
@@ -260,7 +237,6 @@ class AdminApiService {
     }
   }
 
-  /// Suspendre un utilisateur
   Future<void> suspendUser(String userId) async {
     try {
       await _supabase
@@ -276,7 +252,6 @@ class AdminApiService {
     }
   }
 
-  /// Réactiver un utilisateur
   Future<void> activateUser(String userId) async {
     try {
       await _supabase
@@ -296,7 +271,6 @@ class AdminApiService {
   // Gestion des commandes
   // ============================================================
 
-  /// Récupère toutes les commandes avec pagination et filtres
   Future<PaginatedResult<Map<String, dynamic>>> getOrders({
     int page = 0,
     int limit = 20,
@@ -330,13 +304,12 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
-      // Obtenir le nombre total
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      query = query.range(page * limit, (page + 1) * limit - 1);
+      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedQuery;
 
-      final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
         total: total,
@@ -346,7 +319,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour le statut d'une commande
   Future<void> updateOrderStatus(String orderId, String status) async {
     try {
       final updates = {
@@ -370,7 +342,6 @@ class AdminApiService {
   // Gestion des litiges
   // ============================================================
 
-  /// Récupère tous les litiges avec pagination et filtres
   Future<PaginatedResult<Map<String, dynamic>>> getDisputes({
     int page = 0,
     int limit = 20,
@@ -392,13 +363,12 @@ class AdminApiService {
       }
       query = query.order(sortBy, ascending: ascending);
 
-      // Obtenir le nombre total
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      query = query.range(page * limit, (page + 1) * limit - 1);
+      final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
+      final response = await paginatedQuery;
 
-      final response = await query;
       return PaginatedResult(
         items: List<Map<String, dynamic>>.from(response),
         total: total,
@@ -408,7 +378,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour le statut d'un litige
   Future<void> updateDisputeStatus(String disputeId, String status, {String? mediatorId}) async {
     try {
       final updates = {
@@ -429,7 +398,6 @@ class AdminApiService {
   // Gestion des promotions
   // ============================================================
 
-  /// Récupère toutes les promotions
   Future<List<Map<String, dynamic>>> getPromotions() async {
     try {
       final response = await _supabase
@@ -442,7 +410,6 @@ class AdminApiService {
     }
   }
 
-  /// Crée une nouvelle promotion
   Future<Map<String, dynamic>> createPromotion(Map<String, dynamic> data) async {
     try {
       final response = await _supabase
@@ -460,7 +427,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour une promotion
   Future<void> updatePromotion(String promotionId, Map<String, dynamic> updates) async {
     try {
       await _supabase
@@ -476,7 +442,6 @@ class AdminApiService {
     }
   }
 
-  /// Récupère les bannières promotionnelles
   Future<List<Map<String, dynamic>>> getBanners() async {
     try {
       final response = await _supabase
@@ -489,7 +454,6 @@ class AdminApiService {
     }
   }
 
-  /// Met à jour une bannière
   Future<void> updateBanner(String bannerId, Map<String, dynamic> updates) async {
     try {
       await _supabase
@@ -506,7 +470,6 @@ class AdminApiService {
   // Statistiques avancées
   // ============================================================
 
-  /// Récupère les statistiques de vente par période
   Future<List<Map<String, dynamic>>> getSalesStats(String period, {DateTime? startDate, DateTime? endDate}) async {
     try {
       final response = await _supabase.rpc('get_admin_sales_stats', params: {
@@ -520,7 +483,6 @@ class AdminApiService {
     }
   }
 
-  /// Récupère le top des produits
   Future<List<Map<String, dynamic>>> getTopProducts({int limit = 10, String period = 'month'}) async {
     try {
       final response = await _supabase.rpc('get_top_products', params: {
@@ -537,7 +499,6 @@ class AdminApiService {
   // Rapports et exports
   // ============================================================
 
-  /// Génère un rapport CSV des commandes
   Future<String> exportOrdersReport({
     required DateTime startDate,
     required DateTime endDate,
@@ -555,7 +516,6 @@ class AdminApiService {
     }
   }
 
-  /// Génère un rapport PDF
   Future<String> generatePdfReport(String type, Map<String, dynamic> params) async {
     try {
       final response = await _supabase.functions.invoke('generate-pdf-report', body: {
@@ -572,7 +532,6 @@ class AdminApiService {
   // Utilitaires
   // ============================================================
 
-  /// Journalisation des actions admin
   Future<void> _logActivity(String targetType, String targetId, String action, Map<String, dynamic>? metadata) async {
     final adminId = _supabase.auth.currentUser?.id;
     if (adminId == null) return;
