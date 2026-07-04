@@ -47,39 +47,50 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   @override
   void dispose() {
     _engine.leaveChannel();
-    _engine.destroy();
+    _engine.dispose(); // Remplace destroy()
     _messageController.dispose();
     super.dispose();
   }
 
   Future<void> _initAgora() async {
     await [Permission.microphone, Permission.camera].request();
-    
-    _engine = createRtcEngine();
-    await _engine.initialize(const RtcEngineContext(
-      appId: 'YOUR_AGORA_APP_ID',
-      channelProfile: ChannelProfileType.liveBroadcasting,
-    ));
-    
-    _engine.registerEventHandler(RtcEngineEventHandler(
-      onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-        setState(() {
-          _isJoined = true;
-        });
-      },
-      onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-        setState(() {
-          _remoteUid = remoteUid;
-        });
-      },
-      onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-        setState(() {
-          _remoteUid = 0;
-        });
-      },
-    ));
-    
-    await _engine.setClientRole(role: ClientRoleType.clientRoleAudience);
+
+    // Créer l'engine avec la méthode statique
+    _engine = await RtcEngine.create();
+
+    // Initialiser avec le contexte
+    await _engine.initialize(
+      RtcEngineContext(
+        appId: 'YOUR_AGORA_APP_ID',
+        channelProfile: ChannelProfile.liveBroadcasting, // Sans "Type"
+      ),
+    );
+
+    // Enregistrer les événements
+    _engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          setState(() {
+            _isJoined = true;
+          });
+        },
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          setState(() {
+            _remoteUid = remoteUid;
+          });
+        },
+        onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+          setState(() {
+            _remoteUid = 0;
+          });
+        },
+      ),
+    );
+
+    // Définir le rôle
+    await _engine.setClientRole(role: ClientRole.audience); // Au lieu de ClientRoleType
+
+    // Rejoindre le channel
     await _engine.joinChannel(
       token: widget.token ?? '',
       channelId: widget.channelName,
@@ -95,7 +106,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
           .select('*, shop:shops(name, logo_url)')
           .eq('id', widget.liveId)
           .single();
-      
+
       setState(() {
         _liveInfo = response;
         _products = List<Map<String, dynamic>>.from(response['products'] ?? []);
@@ -125,13 +136,13 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
     await Supabase.instance.client.rpc('increment_live_viewers', params: {
       'live_id': widget.liveId,
     });
-    
+
     final response = await Supabase.instance.client
         .from('lives')
         .select('viewer_count')
         .eq('id', widget.liveId)
         .single();
-    
+
     setState(() {
       _viewerCount = response['viewer_count'] ?? 0;
     });
@@ -140,7 +151,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
   Future<void> _sendMessage() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null || _messageController.text.isEmpty) return;
-    
+
     await Supabase.instance.client
         .from('live_messages')
         .insert({
@@ -149,7 +160,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
           'message': _messageController.text,
           'created_at': DateTime.now().toIso8601String(),
         });
-    
+
     _messageController.clear();
   }
 
@@ -169,7 +180,9 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () {
-              final amount = double.tryParse((context.findChildRenderObject() as TextEditingController?)?.text ?? '0');
+              // Récupérer le montant depuis le TextField
+              final controller = (context as Element).findAncestorStateOfType<TextFieldState>()?.controller;
+              final amount = double.tryParse(controller?.text ?? '0');
               Navigator.pop(context, amount);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F)),
@@ -178,13 +191,13 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
         ],
       ),
     );
-    
+
     if (bidAmount != null && bidAmount > _currentBid) {
       await Supabase.instance.client.rpc('place_bid', params: {
         'auction_id': _currentAuctionId,
         'bid_amount': bidAmount,
       });
-      
+
       setState(() {
         _currentBid = bidAmount;
       });
@@ -213,7 +226,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
             )
           else
             Container(color: Colors.black),
-          
+
           // Overlay controls
           Positioned(
             top: 40,
@@ -262,7 +275,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
               ],
             ),
           ),
-          
+
           // Shop info
           Positioned(
             bottom: 100,
@@ -300,7 +313,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
               ),
             ),
           ),
-          
+
           // Products list
           if (_products.isNotEmpty)
             Positioned(
@@ -325,7 +338,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
                 )).toList(),
               ),
             ),
-          
+
           // Auction panel
           if (_currentAuctionId != null)
             Positioned(
@@ -360,7 +373,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
                 ),
               ),
             ),
-          
+
           // Chat panel toggle
           Positioned(
             bottom: 20,
@@ -372,7 +385,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
               child: Icon(_isChatOpen ? Icons.close : Icons.chat),
             ),
           ),
-          
+
           // Chat panel
           if (_isChatOpen)
             Positioned(
@@ -453,7 +466,7 @@ class _LiveStreamPlayerState extends State<LiveStreamPlayer> {
                 ),
               ),
             ),
-          
+
           // Audio toggle
           Positioned(
             bottom: 20,
