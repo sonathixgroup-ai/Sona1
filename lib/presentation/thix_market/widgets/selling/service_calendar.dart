@@ -172,6 +172,7 @@ class _ServiceCalendarState extends State<ServiceCalendar> {
           
           // Calendar
           TableCalendar(
+            calendarFormat: CalendarFormat.month, // ✅ Correction : ajout du paramètre requis
             firstDay: DateTime.now().add(const Duration(days: 1)),
             lastDay: DateTime.now().add(const Duration(days: 60)),
             focusedDay: _focusedDay,
