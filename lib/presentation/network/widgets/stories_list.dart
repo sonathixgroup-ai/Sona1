@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_story.dart';
-import 'package:thix_id/theme.dart';
 
 class StoriesList extends StatefulWidget {
   final Function(String)? onStoryTap;
@@ -51,6 +50,10 @@ class _StoriesListState extends State<StoriesList> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black87;
+    final primaryColor = theme.primaryColor;
+
     if (_loading) {
       return const SizedBox(
         height: 72,
@@ -65,9 +68,13 @@ class _StoriesListState extends State<StoriesList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Stories professionnelles',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: ThixHomeColors.darkNavy),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -94,7 +101,9 @@ class _StoriesListState extends State<StoriesList> {
                             shape: BoxShape.circle,
                             gradient: story.isViewed || story.isCurrentUser
                                 ? null
-                                : const LinearGradient(colors: [ThixHomeColors.primaryBlue, ThixHomeColors.darkNavy]),
+                                : const LinearGradient(
+                                    colors: [Colors.blue, Colors.black87],
+                                  ),
                             border: story.isCurrentUser
                                 ? Border.all(color: Colors.grey.shade300, width: 2)
                                 : null,
@@ -119,7 +128,7 @@ class _StoriesListState extends State<StoriesList> {
                             right: 0,
                             child: Container(
                               decoration: const BoxDecoration(
-                                color: ThixHomeColors.primaryBlue,
+                                color: Colors.blue,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -159,7 +168,11 @@ class _StoriesListState extends State<StoriesList> {
                     const SizedBox(height: 4),
                     Text(
                       story.userName,
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: ThixHomeColors.darkNavy),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
