@@ -95,7 +95,7 @@ dependencies:
   # ==================== THIX MARKET ====================
   debounce_throttle: ^2.0.0          # Recherche avec délai (advanced_search_bar)
   table_calendar: ^3.1.2             # Calendrier de réservation (service_calendar)
-  stripe_sdk: ^3.2.0                 # Paiement par carte (payment_service)
+                   # Paiement par carte (payment_service)
   csv: ^6.0.0                        # Export CSV (admin_reports)
   excel: ^4.0.6                      # Import/Export Excel (optionnel)
   flutter_image_compress: ^2.4.0     # Compression d'images avant upload
