@@ -7,7 +7,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../cart/cart_provider.dart';
-import '../widgets/products/product_card.dart';
+import '../widgets/products/product_card.dart'; // ✅ chemin correct
 
 class ProductDetail extends StatefulWidget {
   final String productId;
@@ -495,7 +495,7 @@ class _ProductDetailState extends State<ProductDetail> {
                                 margin: const EdgeInsets.only(right: 12),
                                 child: ProductCard(
                                   product: product,
-                                  onTap: () {
+                                  onTap: (product) {
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
