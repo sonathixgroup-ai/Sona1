@@ -69,7 +69,6 @@ class AdminApiService {
       final countResult = await query.count();
       final total = countResult.count ?? 0;
 
-      // ✅ NE PAS RÉAFFECTER `query` avec range()
       final paginatedQuery = query.range(page * limit, (page + 1) * limit - 1);
       final response = await paginatedQuery;
 
