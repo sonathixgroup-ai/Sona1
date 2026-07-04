@@ -203,6 +203,55 @@ class EmergencyUrgencyScaleColors {
   static const Color critical = Color(0xFFEF4444);
 }
 
+@immutable
+class EmergencyUrgentColors {
+  const EmergencyUrgentColors._();
+
+  static const Color bg0 = LearningCyberColors.bg0;
+  static const Color bg1 = DarkModeColors.primary;
+  static const Color panel = LearningCyberColors.panel;
+  static const Color card = LearningCyberColors.panelHi;
+  static const Color stroke = LearningCyberColors.stroke;
+  static const Color text = LearningCyberColors.text;
+  static const Color textDim = LearningCyberColors.textDim;
+  static const Color danger = LearningCyberColors.danger;
+  static const Color amber = Color(0xFFF59E0B);
+  static const Color cyan = LearningCyberColors.neonCyan;
+  static const Color medicalBlue = Color(0xFF38BDF8);
+  static const Color fireOrange = Color(0xFFF97316);
+  static const Color safetyGreen = LearningCyberColors.success;
+  static const Color violet = LearningCyberColors.neonViolet;
+
+  static Color scrim() => const Color(0xCC020617);
+}
+
+@immutable
+class EmergencyUrgentGradients {
+  const EmergencyUrgentGradients._();
+
+  static Gradient background() {
+    return const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: <Color>[
+        EmergencyUrgentColors.bg0,
+        EmergencyUrgentColors.bg1,
+      ],
+    );
+  }
+
+  static Gradient panel() {
+    return const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: <Color>[
+        EmergencyUrgentColors.panel,
+        EmergencyUrgentColors.card,
+      ],
+    );
+  }
+}
+
 /// Optional central app theme.
 /// Safe defaults for Material 3.
 @immutable
@@ -245,6 +294,9 @@ class AppTheme {
     );
   }
 }
+
+ThemeData get lightTheme => AppTheme.light;
+ThemeData get darkTheme => AppTheme.dark;
 
 // =============================================================================
 // SPACING
