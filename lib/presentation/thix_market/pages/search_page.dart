@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/search_provider.dart';
 import '../widgets/search/filter_bottom_sheet.dart';
-import '../widgets/products/product_card.dart';   // ✅ Chemin corrigé
+import '../widgets/products/product_card.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -233,7 +233,8 @@ class _SearchPageState extends State<SearchPage> {
               final product = provider.searchResults[index];
               return ProductCard(
                 product: product,
-                onTap: () => _gotoProductDetail(product['id']),
+                // ✅ Correction : onTap doit accepter un paramètre (Map)
+                onTap: (_) => _gotoProductDetail(product['id']),
               );
             },
           ),
