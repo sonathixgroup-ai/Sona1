@@ -143,12 +143,14 @@ class MarketProvider extends ChangeNotifier {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      final response = await _supabase
+      // ✅ Correction pour Supabase >= 2.0 : utiliser query.count()
+      var query = _supabase
           .from('notifications')
-          .select('id', count: CountOption.exact)
+          .select('id')
           .eq('user_id', userId)
           .eq('is_read', false);
-      _unreadNotifications = response.count ?? 0;
+      final countResult = await query.count();
+      _unreadNotifications = countResult.count ?? 0;
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading unread notifications: $e');
