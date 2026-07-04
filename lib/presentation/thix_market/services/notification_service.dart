@@ -1,13 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 
 class NotificationService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
-  // Initialize notifications
+  // Initialize notifications (sans Firebase)
   Future<void> init() async {
     // Initialize local notifications
     const AndroidInitializationSettings androidSettings =
@@ -19,48 +17,16 @@ class NotificationService {
     );
     await _localNotifications.initialize(settings);
 
-    // Request permissions
-    await _firebaseMessaging.requestPermission();
-
-    // Get FCM token
-    final token = await _firebaseMessaging.getToken();
-    if (token != null) {
-      await _saveFcmToken(token);
-    }
-
-    // Listen to messages
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-    FirebaseMessaging.onBackgroundMessage(_handleBackgroundMessage);
-  }
-
-  // Save FCM token to database
-  Future<void> _saveFcmToken(String token) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      await _supabase.from('user_devices').upsert({
-        'user_id': userId,
-        'fcm_token': token,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      // Silently fail
-    }
-  }
-
-  // Handle foreground message
-  void _handleForegroundMessage(RemoteMessage message) {
-    _showLocalNotification(message);
-  }
-
-  @pragma('vm:entry-point')
-  static Future<void> _handleBackgroundMessage(RemoteMessage message) async {
-    // Handle background message
+    // 🔥 Les notifications push sont gérées via les Edge Functions Supabase
+    // Pas besoin de Firebase ici
   }
 
   // Show local notification
-  Future<void> _showLocalNotification(RemoteMessage message) async {
+  Future<void> showLocalNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? payload,
+  }) async {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'thix_market_channel',
       'THIX Market Notifications',
@@ -75,13 +41,14 @@ class NotificationService {
 
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      message.notification?.title ?? 'THIX Market',
-      message.notification?.body,
+      title,
+      body,
       details,
+      payload: payload != null ? payload.toString() : null,
     );
   }
 
-  // Send push notification to user
+  // Send push notification via Edge Function
   Future<void> sendPushNotification({
     required String userId,
     required String title,
@@ -96,11 +63,11 @@ class NotificationService {
         'data': data,
       });
     } catch (e) {
-      // Silently fail
+      // Silently fail (log error if needed)
     }
   }
 
-  // Send notification to multiple users
+  // Send bulk notification via Edge Function
   Future<void> sendBulkNotification({
     required List<String> userIds,
     required String title,
@@ -167,15 +134,17 @@ class NotificationService {
     }
   }
 
-  // Get unread count
+  // Get unread count (corrigé)
   Future<int> getUnreadCount(String userId) async {
     try {
-      final response = await _supabase
+      var query = _supabase
           .from('notifications')
-          .select('id', count: CountOption.exact)
+          .select('id')
           .eq('user_id', userId)
           .eq('is_read', false);
-      return response.count ?? 0;
+
+      final countResult = await query.count();
+      return countResult.count ?? 0;
     } catch (e) {
       return 0;
     }
@@ -225,7 +194,7 @@ class NotificationService {
 
   // Send new message notification
   Future<void> notifyNewMessage(String conversationId, String message, String senderName) async {
-    // Implementation
+    // Implémentation à définir
   }
 
   // Send promotion notification
