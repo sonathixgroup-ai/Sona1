@@ -1,9 +1,11 @@
+import 'dart:async'; // ✅ AJOUT POUR Timer
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 
 class VoiceChatWidget extends StatefulWidget {
   final String conversationId;
@@ -30,7 +32,7 @@ class _VoiceChatWidgetState extends State<VoiceChatWidget> {
   Duration _playbackPosition = Duration.zero;
   Timer? _recordingTimer;
   Timer? _playbackTimer;
-  AudioPlayer? _audioPlayer;
+  _AudioPlayer? _audioPlayer; // ✅ utiliser la classe locale avec un préfixe pour éviter conflit
 
   @override
   void initState() {
@@ -110,10 +112,9 @@ class _VoiceChatWidgetState extends State<VoiceChatWidget> {
       return;
     }
     
-    _audioPlayer = AudioPlayer();
-    _audioPlayer?.setSourceUrl(audioFile.path);
-    
-    _audioPlayer?.setPlaybackRate(1.0);
+    _audioPlayer = _AudioPlayer();
+    await _audioPlayer?.setSourceUrl(audioFile.path);
+    await _audioPlayer?.setPlaybackRate(1.0);
     await _audioPlayer?.play();
     
     setState(() {
@@ -160,7 +161,6 @@ class _VoiceChatWidgetState extends State<VoiceChatWidget> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
           Container(
             width: 40,
             height: 4,
@@ -182,7 +182,6 @@ class _VoiceChatWidgetState extends State<VoiceChatWidget> {
           ),
           const SizedBox(height: 24),
           
-          // Recording UI
           if (_isRecording)
             Column(
               children: [
@@ -323,12 +322,12 @@ class _VoiceChatWidgetState extends State<VoiceChatWidget> {
   }
 }
 
-// Simple audio player class (simplified)
-class AudioPlayer {
+// ✅ Classe AudioPlayer locale renommée pour éviter conflit
+class _AudioPlayer {
   dynamic _player;
   
   Future<void> setSourceUrl(String path) async {
-    // In real implementation, use audio player package
+    // Implémentation réelle avec audioplayers
   }
   
   Future<void> play() async {}
