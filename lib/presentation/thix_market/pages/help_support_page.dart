@@ -399,7 +399,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 child: _buildContactOption(
                   icon: Icons.phone,
                   title: 'Téléphone',
-                  subtitle: '+225 07 07 07 07 07',
+                  subtitle: '+243 97 07 07 07 07',
                   color: Colors.green,
                   onTap: () => _makePhoneCall(),
                 ),
@@ -407,13 +407,13 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildContactOption(
-                  icon: Icons.whatsapp,
-                  title: 'WhatsApp',
-                  subtitle: 'Support 24/7',
-                  color: Colors.green,
-                  onTap: () => _openWhatsApp(),
-                ),
-              ),
+    icon: Icons.message, // ✅ ou Icons.chat
+    title: 'WhatsApp',
+    subtitle: 'Support 24/7',
+    color: Colors.green,
+    onTap: () => _openWhatsApp(),
+  ),
+),
             ],
           ),
           
