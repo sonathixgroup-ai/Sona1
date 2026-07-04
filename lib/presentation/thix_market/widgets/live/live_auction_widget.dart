@@ -19,6 +19,7 @@ class _LiveAuctionWidgetState extends State<LiveAuctionWidget> {
   bool _isLoading = true;
   bool _isBidding = false;
   final TextEditingController _bidController = TextEditingController();
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
@@ -30,6 +31,7 @@ class _LiveAuctionWidgetState extends State<LiveAuctionWidget> {
   @override
   void dispose() {
     _bidController.dispose();
+    _channel?.unsubscribe();
     super.dispose();
   }
 
@@ -73,12 +75,13 @@ class _LiveAuctionWidgetState extends State<LiveAuctionWidget> {
   }
 
   void _subscribeToBids() {
-    Supabase.instance.client
+    _channel = Supabase.instance.client
         .channel('auction_bids')
-        .on(
-          RealtimeListenTypes.postgresChanges,
-          ChannelFilter(event: 'INSERT', schema: 'public', table: 'auction_bids'),
-          (payload) {
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'auction_bids',
+          callback: (payload) {
             final newBid = payload.newRecord;
             if (newBid['auction_id'] == widget.auctionId) {
               setState(() {
