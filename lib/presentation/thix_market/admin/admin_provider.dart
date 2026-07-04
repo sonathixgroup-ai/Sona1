@@ -72,7 +72,6 @@ class AdminProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get promotions => _promotions;
   List<Map<String, dynamic>> get banners => _banners;
 
-  // ✅ Getter pour la page courante (utilisé dans la pagination)
   int get currentPage => _currentPage;
 
   // ============================================================
@@ -140,6 +139,7 @@ class AdminProvider extends ChangeNotifier {
     }
     setState(() => _isLoading = true);
     try {
+      // 1. Requête de base avec filtres (type PostgrestFilterBuilder)
       var query = _supabase
           .from('products')
           .select('*, shop:shops(name)');
@@ -150,13 +150,19 @@ class AdminProvider extends ChangeNotifier {
       if (_statusFilter != 'all') {
         query = query.eq('status', _statusFilter);
       }
-      query = query.order(_sortBy, ascending: _sortAscending);
 
-      final countResult = await query.count();
+      // 2. Appliquer le tri → nouvelle variable (type PostgrestTransformBuilder)
+      final orderedQuery = query.order(_sortBy, ascending: _sortAscending);
+
+      // 3. Compter les résultats
+      final countResult = await orderedQuery.count();
       _totalProducts = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      // 4. Paginer → nouvelle variable
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
       final response = await paginatedQuery;
+
       _products = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -204,11 +210,16 @@ class AdminProvider extends ChangeNotifier {
         query = query.eq('status', _statusFilter);
       }
 
-      final countResult = await query.count();
+      // Pas de tri personnalisé pour les boutiques, mais on garde un ordre simple
+      final orderedQuery = query.order('created_at', ascending: false);
+
+      final countResult = await orderedQuery.count();
       _totalShops = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
       final response = await paginatedQuery;
+
       _shops = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -251,11 +262,15 @@ class AdminProvider extends ChangeNotifier {
         query = query.ilike('name', '%$_searchQuery%');
       }
 
-      final countResult = await query.count();
+      final orderedQuery = query.order('created_at', ascending: false);
+
+      final countResult = await orderedQuery.count();
       _totalUsers = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
       final response = await paginatedQuery;
+
       _users = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -302,13 +317,16 @@ class AdminProvider extends ChangeNotifier {
       if (_statusFilter != 'all') {
         query = query.eq('status', _statusFilter);
       }
-      query = query.order(_sortBy, ascending: _sortAscending);
 
-      final countResult = await query.count();
+      final orderedQuery = query.order(_sortBy, ascending: _sortAscending);
+
+      final countResult = await orderedQuery.count();
       _totalOrders = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
       final response = await paginatedQuery;
+
       _orders = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -359,13 +377,16 @@ class AdminProvider extends ChangeNotifier {
       if (_statusFilter != 'all') {
         query = query.eq('status', _statusFilter);
       }
-      query = query.order('created_at', ascending: false);
 
-      final countResult = await query.count();
+      final orderedQuery = query.order('created_at', ascending: false);
+
+      final countResult = await orderedQuery.count();
       _totalDisputes = countResult.count ?? 0;
 
-      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final paginatedQuery = orderedQuery.range(
+          _currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
       final response = await paginatedQuery;
+
       _disputes = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -513,7 +534,6 @@ class AdminProvider extends ChangeNotifier {
   }
 
   void _refreshCurrentList() {
-    // Notifier que les données ont changé (recharge selon le contexte)
     notifyListeners();
   }
 
