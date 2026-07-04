@@ -129,7 +129,6 @@ class AdminProvider extends ChangeNotifier {
     }
     setState(() => _isLoading = true);
     try {
-      // Utiliser 'var' pour éviter les problèmes de typage
       var query = _supabase
           .from('products')
           .select('*, shop:shops(name)');
@@ -146,10 +145,9 @@ class AdminProvider extends ChangeNotifier {
       final countResult = await query.count();
       _totalProducts = countResult.count ?? 0;
 
-      // Appliquer la pagination
-      query = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-
-      final response = await query;
+      // Appliquer la pagination sans réaffecter query
+      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
       _products = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -194,9 +192,9 @@ class AdminProvider extends ChangeNotifier {
       final countResult = await query.count();
       _totalShops = countResult.count ?? 0;
 
-      query = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-
-      final response = await query;
+      // Appliquer la pagination
+      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
       _shops = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -236,9 +234,9 @@ class AdminProvider extends ChangeNotifier {
       final countResult = await query.count();
       _totalUsers = countResult.count ?? 0;
 
-      query = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-
-      final response = await query;
+      // Appliquer la pagination
+      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
       _users = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -283,9 +281,9 @@ class AdminProvider extends ChangeNotifier {
       final countResult = await query.count();
       _totalOrders = countResult.count ?? 0;
 
-      query = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-
-      final response = await query;
+      // Appliquer la pagination
+      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
       _orders = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
@@ -315,9 +313,9 @@ class AdminProvider extends ChangeNotifier {
       final countResult = await query.count();
       _totalDisputes = countResult.count ?? 0;
 
-      query = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
-
-      final response = await query;
+      // Appliquer la pagination
+      final paginatedQuery = query.range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
+      final response = await paginatedQuery;
       _disputes = List<Map<String, dynamic>>.from(response);
     } catch (e) {
       _error = e.toString();
