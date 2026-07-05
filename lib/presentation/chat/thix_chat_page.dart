@@ -111,13 +111,12 @@ class _ThixChatPageState extends State<ThixChatPage> {
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNav(context), // ✅ plus de paramètre state
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
-  // ---------- HEADER (avec données réelles) ----------
+  // ---------- HEADER ----------
   Widget _buildHeader(BuildContext context, ConversationsLoaded state) {
-    // ✅ Récupération des vraies données utilisateur
     final user = Supabase.instance.client.auth.currentUser;
     final avatarUrl = user?.userMetadata?['avatar_url'] as String? ?? '';
     final displayName = user?.userMetadata?['display_name'] as String? ?? 'Profil';
@@ -168,7 +167,6 @@ class _ThixChatPageState extends State<ThixChatPage> {
                 icon: const Icon(Icons.notifications_none, color: _navy, size: 26),
                 onPressed: () => context.push('/chat/notifications'),
               ),
-              // ✅ Badge réel : nombre de nouveaux messages
               if (state.stats.newMessagesCount > 0)
                 Positioned(
                   right: 6,
@@ -444,9 +442,8 @@ class _ThixChatPageState extends State<ThixChatPage> {
     );
   }
 
-  // ---------- BOTTOM NAV (avec badge réel) ----------
+  // ---------- BOTTOM NAV (corrigé) ----------
   Widget _buildBottomNav(BuildContext context) {
-    // ✅ Récupération de l'état via context.watch (en dehors du BlocBuilder)
     final state = context.watch<ChatBloc>().state;
     int unreadCount = 0;
     if (state is ConversationsLoaded) {
@@ -466,7 +463,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
             isSelected: _bottomNavIndex == 0,
             onTap: () {
               setState(() => _bottomNavIndex = 0);
-              context.go('/home');
+              context.go('/'); // ✅ CORRECTION : '/home' → '/'
             },
           ),
           _NavItem(
@@ -505,7 +502,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
 }
 
 // ================= WIDGETS AUXILIAIRES =================
-// (le reste est inchangé)
+// (inchangés)
 class _StatItem extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
