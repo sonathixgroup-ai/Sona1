@@ -1,23 +1,34 @@
-// lib/presentation/network/network_pro_home.dart
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/network_connection.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/network_story.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
-
 import 'widgets/create_post_dialog.dart';
 import 'widgets/create_story_dialog.dart';
+import 'widgets/post_card.dart';
+import 'widgets/short_card.dart';
 
-const Color primaryBlue = Color(0xFF1E88E5);
+// ─── COULEURS THIX PRO ───
+class ThixColors {
+  static const Color background = Color(0xFFF5F7FA);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color primary = Color(0xFF1877F2);
+  static const Color gold = Color(0xFFD4AF37);
+  static const Color textDark = Color(0xFF1A1A2E);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color border = Color(0xFFE5E7EB);
+  static const Color red = Color(0xFFFF3B30);
+  static const Color green = Color(0xFF059669);
+  static const Color shadow = Color(0x0F000000);
+}
 
+// ─── PAGE PRINCIPALE ───
 class NetworkProHome extends StatefulWidget {
   const NetworkProHome({super.key});
 
@@ -27,9 +38,9 @@ class NetworkProHome extends StatefulWidget {
 
 class _NetworkProHomeState extends State<NetworkProHome>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  // ─── ÉTATS ───
   bool _loadingPosts = true;
   bool _isRefreshing = false;
-
   String _feedType = 'smart';
   int _selectedNavIndex = 0;
 
@@ -49,9 +60,6 @@ class _NetworkProHomeState extends State<NetworkProHome>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        Provider.of<FeedProvider>(context, listen: false).initRealtime();
-      } catch (_) {}
       _loadAllData();
     });
   }
@@ -62,6 +70,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
     super.dispose();
   }
 
+  // ─── CHARGEMENT DES DONNÉES ───
   Future<void> _loadAllData() async {
     final feedProvider = Provider.of<FeedProvider>(context, listen: false);
     await Future.wait([
@@ -82,7 +91,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur chargement stories : $e')),
+          SnackBar(content: Text('Erreur chargement stories : $e'), backgroundColor: ThixColors.red),
         );
       }
     }
@@ -99,7 +108,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur suggestions : $e')),
+          SnackBar(content: Text('Erreur suggestions : $e'), backgroundColor: ThixColors.red),
         );
       }
     }
@@ -115,7 +124,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur chargement posts : $e')),
+          SnackBar(content: Text('Erreur chargement posts : $e'), backgroundColor: ThixColors.red),
         );
       }
     }
@@ -129,75 +138,29 @@ class _NetworkProHomeState extends State<NetworkProHome>
     if (mounted) setState(() => _isRefreshing = false);
   }
 
-  // --- Navigations ---
+  // ─── NAVIGATION ───
   void _goToSearch() => context.push('/network/search');
   void _goToNotifications() => context.push('/network/notifications');
-  void _goToMessages() => context.push('/network/messages');
-  void _goToConnexions() => context.push('/network/connections');
   void _goToProfile() => context.push('/profile');
+  void _goToConnections() => context.push('/network/connections');
+  void _goToCommunities() => context.push('/network/communities');
+  void _goToDiscover() => context.push('/network/discover');
   void _scrollToTop() {
-    _scrollController.animateTo(0,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
-  // --- Affichage d'une story (corrigée) ---
+  // ─── ACTIONS ───
   void _viewStory(NetworkStory story) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Story de ${story.userName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (story.imageUrl.isNotEmpty)
-              Image.network(story.imageUrl),
-            const SizedBox(height: 8),
-            Text(story.userTitle.isNotEmpty ? story.userTitle : 'Aucune légende'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
+    // Navigation vers l'écran de visualisation des stories
+    context.push('/network/story/${story.id}');
   }
 
   void _commentOnPost(NetworkPost post) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Ajouter un commentaire',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              decoration: const InputDecoration(
-                hintText: 'Écrivez votre commentaire...',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (text) {
-                // Appeler le service pour ajouter le commentaire
-                Navigator.pop(context);
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
+    context.push('/network/comments/${post.id}');
   }
 
   void _sharePost(NetworkPost post) {
@@ -233,7 +196,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
       await networkService.sendConnectionRequest(user.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invitation envoyée !')),
+          const SnackBar(content: Text('Invitation envoyée !'), backgroundColor: ThixColors.green),
         );
         setState(() {
           _suggestions.removeWhere((u) => u.id == user.id);
@@ -242,38 +205,13 @@ class _NetworkProHomeState extends State<NetworkProHome>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: ThixColors.red),
         );
       }
     }
   }
 
-  void _openOpportunity(String title, String subtitle) {
-    context.push('/opportunity-detail', extra: {'title': title, 'sub': subtitle});
-  }
-
-  void _createChallenge() {
-    // À remplacer par votre propre dialog / page
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Créer un challenge'),
-        content: const Text('Fonctionnalité à implémenter'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _goToVideoUpload() {
-    context.push('/video-upload');
-  }
-
-  // --- BUILD ---
+  // ─── BUILD ───
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -283,18 +221,15 @@ class _NetworkProHomeState extends State<NetworkProHome>
     final isLoading = feedProvider.isLoading;
 
     final auth = Provider.of<AuthController>(context);
-
     if (auth.currentUser == null) {
-      return const Scaffold(
-        body: Center(child: Text('Connectez-vous')),
-      );
+      return const Scaffold(body: Center(child: Text('Connectez-vous')));
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: ThixColors.background,
       appBar: _buildAppBar(),
       body: RefreshIndicator(
-        color: primaryBlue,
+        color: ThixColors.primary,
         onRefresh: _onRefresh,
         child: CustomScrollView(
           controller: _scrollController,
@@ -304,9 +239,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
             SliverToBoxAdapter(child: _buildFilterChips()),
             SliverToBoxAdapter(child: _buildCreatePostBar()),
             if (isLoading && posts.isEmpty)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
             else if (posts.isEmpty)
               SliverToBoxAdapter(child: _buildEmptyState())
             else
@@ -316,46 +249,52 @@ class _NetworkProHomeState extends State<NetworkProHome>
                   childCount: posts.length,
                 ),
               ),
-            SliverToBoxAdapter(child: _buildOpportunitySection()),
             if (_suggestions.isNotEmpty)
               SliverToBoxAdapter(child: _buildSuggestionsSection()),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
       ),
-      floatingActionButton: _buildFAB(),
+      floatingActionButton: _buildFab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // --- AppBar ---
+  // ─── APP BAR ───
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
+      backgroundColor: ThixColors.white,
+      elevation: 0.5,
       automaticallyImplyLeading: false,
       title: const Text(
-        'Réseau Pro',
-        style: TextStyle(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.w800),
+        'THIX PRO',
+        style: TextStyle(
+          color: ThixColors.primary,
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+        ),
       ),
       actions: [
-        IconButton(onPressed: _goToSearch, icon: const Icon(Icons.search_rounded)),
+        IconButton(
+          onPressed: _goToSearch,
+          icon: const Icon(Icons.search_rounded, color: ThixColors.textDark),
+        ),
         Stack(
           children: [
             IconButton(
               onPressed: _goToNotifications,
-              icon: const Icon(Icons.notifications_none_rounded),
+              icon: const Icon(Icons.notifications_none_rounded, color: ThixColors.textDark),
             ),
             Positioned(
-              right: 12,
-              top: 12,
+              right: 10,
+              top: 10,
               child: Container(
                 width: 18,
                 height: 18,
                 decoration: const BoxDecoration(
-                  color: primaryBlue,
+                  color: ThixColors.red,
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
@@ -368,33 +307,26 @@ class _NetworkProHomeState extends State<NetworkProHome>
             ),
           ],
         ),
-        IconButton(onPressed: _goToMessages, icon: const Icon(Icons.chat_bubble_outline)),
-        const Padding(
-          padding: EdgeInsets.only(right: 16),
-          child: Stack(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Color(0xFFEAEAEA),
-                child: Icon(Icons.person),
-              ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: CircleAvatar(radius: 5, backgroundColor: Colors.green),
-              ),
-            ],
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: _goToProfile,
+            child: const CircleAvatar(
+              radius: 18,
+              backgroundColor: ThixColors.primary,
+              child: Icon(Icons.person, color: Colors.white),
+            ),
           ),
         ),
       ],
     );
   }
 
-  // --- Stories ---
+  // ─── STORIES ───
   Widget _buildStoriesRow() {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 14, bottom: 10),
+      color: ThixColors.white,
+      padding: const EdgeInsets.only(left: 16, top: 14, bottom: 10),
       child: SizedBox(
         height: 100,
         child: ListView.builder(
@@ -432,18 +364,21 @@ class _NetworkProHomeState extends State<NetworkProHome>
               height: 68,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: primaryBlue, width: 2),
+                border: Border.all(color: ThixColors.gold, width: 2),
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 12,
-                    color: primaryBlue.withOpacity(0.15),
+                    color: ThixColors.gold.withOpacity(0.15),
                   ),
                 ],
               ),
-              child: const Icon(Icons.add, color: primaryBlue),
+              child: const Icon(Icons.add, color: ThixColors.gold, size: 28),
             ),
             const SizedBox(height: 8),
-            Text('Ma Story', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            const Text(
+              'Ma Story',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),
@@ -466,19 +401,18 @@ class _NetworkProHomeState extends State<NetworkProHome>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [primaryBlue, Color(0xFF1565C0)],
+                  colors: [ThixColors.primary, Color(0xFF1565C0)],
                 ),
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 10,
-                    color: primaryBlue.withOpacity(0.18),
+                    color: ThixColors.primary.withOpacity(0.18),
                   ),
                 ],
               ),
               child: CircleAvatar(
                 backgroundColor: Colors.grey.shade200,
-                backgroundImage:
-                    hasAvatar ? NetworkImage(story.userAvatar!) : null,
+                backgroundImage: hasAvatar ? NetworkImage(story.userAvatar!) : null,
                 child: !hasAvatar ? Text(story.userName[0].toUpperCase()) : null,
               ),
             ),
@@ -495,17 +429,17 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // --- Filtres ---
+  // ─── FILTRES ───
   Widget _buildFilterChips() {
     final filters = [
       {'icon': Icons.auto_awesome, 'label': 'Pour vous', 'value': 'smart'},
       {'icon': Icons.people_outline, 'label': 'Réseau', 'value': 'network'},
       {'icon': Icons.video_collection_outlined, 'label': 'Shorts', 'value': 'shorts'},
-      {'icon': Icons.local_fire_department_outlined, 'label': 'Tendances', 'value': 'popular'},
+      {'icon': Icons.local_fire_department_outlined, 'label': 'Tendance', 'value': 'popular'},
     ];
 
     return Container(
-      color: Colors.white,
+      color: ThixColors.white,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -522,9 +456,9 @@ class _NetworkProHomeState extends State<NetworkProHome>
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF111827) : const Color(0xFFF2F4F7),
+                    color: isSelected ? ThixColors.primary : const Color(0xFFF2F4F7),
                     borderRadius: BorderRadius.circular(40),
                   ),
                   child: Row(
@@ -532,15 +466,15 @@ class _NetworkProHomeState extends State<NetworkProHome>
                       Icon(
                         filter['icon'] as IconData,
                         size: 17,
-                        color: isSelected ? Colors.white : Colors.black54,
+                        color: isSelected ? Colors.white : ThixColors.textSecondary,
                       ),
                       const SizedBox(width: 7),
                       Text(
                         filter['label'] as String,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: isSelected ? Colors.white : Colors.black87,
+                          color: isSelected ? Colors.white : ThixColors.textDark,
                         ),
                       ),
                     ],
@@ -554,19 +488,19 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // --- Barre de création ---
+  // ─── BARRE DE CRÉATION ───
   Widget _buildCreatePostBar() {
     return Container(
-      margin: const EdgeInsets.all(14),
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: ThixColors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             blurRadius: 16,
-            offset: const Offset(0, 6),
-            color: Colors.black.withOpacity(0.04),
+            offset: const Offset(0, 4),
+            color: ThixColors.shadow,
           ),
         ],
       ),
@@ -576,8 +510,8 @@ class _NetworkProHomeState extends State<NetworkProHome>
             children: [
               const CircleAvatar(
                 radius: 20,
-                backgroundColor: Color(0xFFEAEAEA),
-                child: Icon(Icons.person),
+                backgroundColor: ThixColors.primary,
+                child: Icon(Icons.person, color: Colors.white, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -590,17 +524,17 @@ class _NetworkProHomeState extends State<NetworkProHome>
                     if (result == true) _loadPosts();
                   },
                   child: Container(
-                    height: 46,
+                    height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FB),
+                      color: ThixColors.background,
                       borderRadius: BorderRadius.circular(40),
                     ),
                     child: const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Quoi de neuf dans votre monde pro ?',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(fontSize: 13, color: ThixColors.textSecondary),
                       ),
                     ),
                   ),
@@ -608,15 +542,14 @@ class _NetworkProHomeState extends State<NetworkProHome>
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _miniAction(Icons.article_outlined, 'Publication', Colors.deepPurple, _createPostDialog),
-              _miniAction(Icons.image_outlined, 'Photo', Colors.green, _createPostDialog),
-              _miniAction(Icons.videocam_outlined, 'Vidéo', Colors.red, _goToVideoUpload),
-              _miniAction(Icons.bolt_outlined, 'Short', Colors.orange, _createPostDialog),
-              _miniAction(Icons.emoji_events_outlined, 'Challenge', Colors.amber, _createChallenge),
+              _miniAction(Icons.article_outlined, 'Publication', Colors.deepPurple, _openCreatePost),
+              _miniAction(Icons.image_outlined, 'Photo', Colors.green, _openCreatePost),
+              _miniAction(Icons.videocam_outlined, 'Vidéo', Colors.red, _openCreatePost),
+              _miniAction(Icons.bolt_outlined, 'Short', Colors.orange, _openCreatePost),
             ],
           ),
         ],
@@ -624,7 +557,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  void _createPostDialog() async {
+  void _openCreatePost() async {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => const CreatePostDialog(),
@@ -649,19 +582,19 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // --- Carte de post avec "Voir plus" ---
+  // ─── POST CARD ───
   Widget _buildPostCard(NetworkPost post) {
     final isExpanded = _expandedPosts[post.id] ?? false;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        color: ThixColors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+            color: ThixColors.shadow,
           ),
         ],
       ),
@@ -670,18 +603,18 @@ class _NetworkProHomeState extends State<NetworkProHome>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête
+            // ─── HEADER ───
             Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: 22,
                   backgroundColor: Colors.grey.shade200,
                   backgroundImage:
                       (post.authorAvatar != null && post.authorAvatar!.isNotEmpty)
                           ? NetworkImage(post.authorAvatar!)
                           : null,
                   child: (post.authorAvatar == null || post.authorAvatar!.isEmpty)
-                      ? Text(post.authorName[0])
+                      ? Text(post.authorName[0].toUpperCase())
                       : null,
                 ),
                 const SizedBox(width: 12),
@@ -693,10 +626,9 @@ class _NetworkProHomeState extends State<NetworkProHome>
                         post.authorName,
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(height: 2),
                       Text(
                         post.authorTitle ?? '',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: const TextStyle(fontSize: 12, color: ThixColors.textSecondary),
                       ),
                     ],
                   ),
@@ -727,9 +659,10 @@ class _NetworkProHomeState extends State<NetworkProHome>
                 ),
               ],
             ),
-            // Contenu avec "Voir plus"
+            const SizedBox(height: 12),
+
+            // ─── CONTENU AVEC "VOIR PLUS" ───
             if (post.content.isNotEmpty) ...[
-              const SizedBox(height: 14),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -737,9 +670,9 @@ class _NetworkProHomeState extends State<NetworkProHome>
                     post.content,
                     maxLines: isExpanded ? null : 3,
                     overflow: isExpanded ? null : TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, height: 1.5),
+                    style: const TextStyle(fontSize: 14, height: 1.5),
                   ),
-                  if (post.content.length > 100)
+                  if (post.content.length > 120)
                     GestureDetector(
                       onTap: () {
                         setState(() {
@@ -751,9 +684,9 @@ class _NetworkProHomeState extends State<NetworkProHome>
                         child: Text(
                           isExpanded ? 'Voir moins' : 'Voir plus',
                           style: const TextStyle(
-                            color: primaryBlue,
+                            color: ThixColors.primary,
                             fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                            fontSize: 13,
                           ),
                         ),
                       ),
@@ -761,43 +694,50 @@ class _NetworkProHomeState extends State<NetworkProHome>
                 ],
               ),
             ],
-            // Images
+
+            // ─── IMAGE ───
             if (post.imageUrls.isNotEmpty) ...[
               const SizedBox(height: 14),
               ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 child: Image.network(
                   post.imageUrls.first,
                   width: double.infinity,
                   fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 200,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            // Stats
+
+            const SizedBox(height: 14),
+
+            // ─── STATS ───
             Row(
               children: [
-                const Icon(Icons.thumb_up, color: Colors.blue, size: 16),
+                const Icon(Icons.favorite, color: ThixColors.red, size: 16),
                 const SizedBox(width: 4),
-                const Icon(Icons.favorite, color: Colors.red, size: 16),
-                const SizedBox(width: 6),
-                Text('${post.likesCount}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text('${post.likesCount}', style: const TextStyle(fontSize: 12, color: ThixColors.textSecondary)),
                 const Spacer(),
                 Text(
                   '${post.commentsCount} commentaires',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: const TextStyle(fontSize: 12, color: ThixColors.textSecondary),
                 ),
               ],
             ),
             const Divider(height: 24),
-            // Actions
+
+            // ─── ACTIONS ───
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _actionButton(
                   icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
                   label: 'J’aime',
-                  color: post.isLiked ? Colors.red : Colors.grey.shade700,
+                  color: post.isLiked ? ThixColors.red : ThixColors.textSecondary,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
@@ -806,14 +746,20 @@ class _NetworkProHomeState extends State<NetworkProHome>
                 _actionButton(
                   icon: Icons.mode_comment_outlined,
                   label: 'Commenter',
-                  color: Colors.grey.shade700,
+                  color: ThixColors.textSecondary,
                   onTap: () => _commentOnPost(post),
                 ),
                 _actionButton(
                   icon: Icons.share_outlined,
                   label: 'Partager',
-                  color: Colors.grey.shade700,
+                  color: ThixColors.textSecondary,
                   onTap: () => _sharePost(post),
+                ),
+                _actionButton(
+                  icon: Icons.bookmark_border,
+                  label: 'Save',
+                  color: ThixColors.textSecondary,
+                  onTap: () {},
                 ),
               ],
             ),
@@ -836,85 +782,37 @@ class _NetworkProHomeState extends State<NetworkProHome>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: color),
+            Icon(icon, size: 20, color: color),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
           ],
         ),
       ),
     );
   }
 
-  // --- Opportunités ---
-  Widget _buildOpportunitySection() {
+  // ─── SUGGESTIONS ───
+  Widget _buildSuggestionsSection() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 10),
-          const Text(
-            'Opportunités pour vous',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 100,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _opportunityCard(Icons.work_outline, 'UI/UX Designer', 'TechNova'),
-                _opportunityCard(Icons.attach_money, 'Fonds Innovation', 'Afrique 2024'),
-                _opportunityCard(Icons.rocket_launch_outlined, 'Impact Startup', 'Challenge'),
-              ],
-            ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ThixColors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            color: ThixColors.shadow,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _opportunityCard(IconData icon, String title, String subtitle) {
-    return GestureDetector(
-      onTap: () => _openOpportunity(title, subtitle),
-      child: Container(
-        width: 180,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 12,
-              color: Colors.black.withOpacity(0.04),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: primaryBlue),
-            const Spacer(),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- Suggestions (corrigée) ---
-  Widget _buildSuggestionsSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Suggestions de connexion',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
           ListView.separated(
@@ -924,20 +822,15 @@ class _NetworkProHomeState extends State<NetworkProHome>
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final user = _suggestions[index];
-              // ✅ Utilisation de user.title au lieu de user.bio (inexistant)
-              final subtitle = user.title ?? '';
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundImage:
-                      user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
-                  child: user.avatarUrl == null
-                      ? Text(user.name[0].toUpperCase())
-                      : null,
+                  backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
+                  child: user.avatarUrl == null ? Text(user.name[0].toUpperCase()) : null,
                 ),
-                title: Text(user.name),
-                subtitle: Text(subtitle),
+                title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(user.title ?? '', style: TextStyle(color: ThixColors.textSecondary)),
                 trailing: IconButton(
-                  icon: const Icon(Icons.person_add_alt_1),
+                  icon: const Icon(Icons.person_add_alt_1, color: ThixColors.primary),
                   onPressed: () => _sendConnectionRequest(user),
                 ),
               );
@@ -948,55 +841,49 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // --- FAB ---
-  Widget _buildFAB() {
+  // ─── FAB ───
+  Widget _buildFab() {
     return Container(
-      height: 68,
-      width: 68,
+      height: 64,
+      width: 64,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
-          colors: [primaryBlue, Color(0xFF1565C0)],
+          colors: [ThixColors.gold, Color(0xFFE5C55E)],
         ),
         boxShadow: [
           BoxShadow(
             blurRadius: 20,
-            offset: const Offset(0, 10),
-            color: primaryBlue.withOpacity(0.35),
+            offset: const Offset(0, 8),
+            color: ThixColors.gold.withOpacity(0.4),
           ),
         ],
       ),
       child: FloatingActionButton(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        onPressed: () async {
-          final result = await showDialog<bool>(
-            context: context,
-            builder: (_) => const CreatePostDialog(),
-          );
-          if (result == true) _loadPosts();
-        },
+        onPressed: _openCreatePost,
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
     );
   }
 
-  // --- Bottom Nav (hauteur réduite) ---
+  // ─── BOTTOM NAV ───
   Widget _buildBottomNav() {
     return BottomAppBar(
-      height: 56,
+      height: 60,
       shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      color: Colors.white,
+      notchMargin: 6,
+      color: ThixColors.white,
       elevation: 8,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(Icons.home_rounded, 'Accueil', true, _scrollToTop),
-          _navItem(Icons.explore_outlined, 'Découvrir', false, _goToSearch),
+          _navItem(Icons.home_rounded, 'Accueil', _selectedNavIndex == 0, _scrollToTop),
+          _navItem(Icons.explore_rounded, 'Découvrir', _selectedNavIndex == 1, _goToDiscover),
           const SizedBox(width: 40),
-          _navItem(Icons.people_outline, 'Connexions', false, _goToConnexions),
-          _navItem(Icons.person_outline, 'Profil', false, _goToProfile),
+          _navItem(Icons.people_rounded, 'Connexions', _selectedNavIndex == 3, _goToConnections),
+          _navItem(Icons.groups_rounded, 'Communautés', _selectedNavIndex == 4, _goToCommunities),
         ],
       ),
     );
@@ -1008,21 +895,36 @@ class _NetworkProHomeState extends State<NetworkProHome>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: active ? primaryBlue : Colors.grey),
+          Icon(
+            icon,
+            color: active ? ThixColors.primary : Colors.grey.shade500,
+            size: 24,
+          ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 10, color: active ? primaryBlue : Colors.grey),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: active ? ThixColors.primary : Colors.grey.shade500,
+            ),
           ),
         ],
       ),
     );
   }
 
+  // ─── ÉTAT VIDE ───
   Widget _buildEmptyState() {
     return const Padding(
       padding: EdgeInsets.all(40),
-      child: Center(child: Text('Aucune publication')),
+      child: Center(
+        child: Text(
+          'Aucune publication\nCommencez à suivre des personnes !',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: ThixColors.textSecondary, fontSize: 14),
+        ),
+      ),
     );
   }
 }
