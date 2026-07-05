@@ -43,7 +43,7 @@ import 'package:thix_id/presentation/network/discover_tab.dart';
 import 'package:thix_id/presentation/network/story_viewer_screen.dart';
 import 'package:thix_id/presentation/network/comments_page.dart';
 import 'package:thix_id/presentation/network/hashtag_page.dart';
-import 'package:thix_id/presentation/network/create_community_page.dart';
+
 // ---- AUTRES MODULES ----
 import 'presentation/jobs/jobs_page.dart';
 import 'package:thix_id/presentation/jobs/job_apply_page.dart';
@@ -517,17 +517,17 @@ class AppRouter {
         GoRoute(
           path: '/network/discover',
           name: 'networkDiscover',
-          pageBuilder: (context, state) => NoTransitionPage(child: DiscoverTab()),
+          pageBuilder: (context, state) => NoTransitionPage(child: const DiscoverTab()),
         ),
         GoRoute(
           path: '/network/communities',
           name: 'networkCommunities',
-          pageBuilder: (context, state) => NoTransitionPage(child: CommunitiesListPage()),
+          pageBuilder: (context, state) => NoTransitionPage(child: const CommunitiesListPage()),
         ),
         GoRoute(
           path: '/network/community/create',
           name: 'networkCommunityCreate',
-          pageBuilder: (context, state) => NoTransitionPage(child: CreateCommunityPage()),
+          pageBuilder: (context, state) => NoTransitionPage(child: const CreateCommunityPage()),
         ),
         GoRoute(
           path: '${AppRoutes.networkCommunityBasePath}/:communityId',
