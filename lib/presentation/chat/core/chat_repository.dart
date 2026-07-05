@@ -127,22 +127,20 @@ class ChatRepository {
     return response.map((json) => Story.fromJson(json)).toList();
   }
 
-  // ==================== STATS CHAT ====================
+  // ==================== STATS CHAT (CORRIGÉ) ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // Utilisation de 'count: CountOption.exact' qui renvoie un champ 'count' dans la réponse
-    final onlineCountResponse = await _supabase
+    // ✅ Utilisation de .count() qui retourne un Future<int>
+    final onlineCount = await _supabase
         .from('thix_presence')
-        .select('*', count: CountOption.exact)
-        .eq('status', 'online');
+        .select('user_id')
+        .eq('status', 'online')
+        .count();
 
-    final newMessagesResponse = await _supabase
+    final newMessagesCount = await _supabase
         .from('thix_chat_messages')
-        .select('*', count: CountOption.exact)
-        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)));
-
-    // La réponse est un PostgrestResponse qui possède un champ 'count'
-    final onlineCount = onlineCountResponse.count ?? 0;
-    final newMessagesCount = newMessagesResponse.count ?? 0;
+        .select('id')
+        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)))
+        .count();
 
     return ChatStats(
       onlineCount: onlineCount,
@@ -202,10 +200,9 @@ class ChatRepository {
         .eq('user_id', userId);
   }
 
-  // ✅ Recherche de conversations archivées (CORRIGÉE)
+  // ✅ RECHERCHE ARCHIVES
   Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
     try {
-      // On utilise 'dynamic' pour le query builder car 'or()' renvoie un type différent
       dynamic query = _supabase
           .from('thix_chat_chats')
           .select('*, participants:user_id(*)')
@@ -214,13 +211,9 @@ class ChatRepository {
 
       final searchText = filters.query?.trim() ?? '';
       if (searchText.isNotEmpty) {
-        // La recherche s'effectue sur le titre ou sur les noms des participants (JSONB)
         query = query.or(
             'title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%');
       }
-
-      // On peut ajouter d'autres filtres selon les besoins
-      // if (filters.type != null) query = query.eq('type', filters.type);
 
       query = query.order('updated_at', ascending: false);
 
