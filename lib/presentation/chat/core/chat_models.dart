@@ -185,9 +185,77 @@ class Message extends Equatable {
   List<Object?> get props => [id, conversationId, sentAt];
 }
 
-// ========== CLASSES MANQUANTES ==========
+// ---------- Message éphémère (spécialisation) ----------
+class EphemeralMessage extends Message {
+  @override
+  final int durationSeconds;
+  final DateTime? openedAt;
 
-/// Story (pour l'affichage des stories)
+  const EphemeralMessage({
+    required super.id,
+    required super.conversationId,
+    required super.senderId,
+    required super.type,
+    super.content,
+    super.mediaUrl,
+    required this.durationSeconds,
+    this.openedAt,
+    required super.sentAt,
+  });
+}
+
+// ---------- Message confidentiel (spécialisation) ----------
+class ConfidentialMessage extends Message {
+  final String requiredCodeHash;
+  final bool isBiometric;
+  final bool isOpened;
+
+  const ConfidentialMessage({
+    required super.id,
+    required super.conversationId,
+    required super.senderId,
+    required super.type,
+    super.content,
+    super.mediaUrl,
+    required this.requiredCodeHash,
+    this.isBiometric = false,
+    this.isOpened = false,
+    required super.sentAt,
+  });
+}
+
+// ---------- ChatUser (pour la présence en ligne) ----------
+class ChatUser {
+  final String id;
+  final String displayName;
+  final String? avatarUrl;
+  final String status; // 'online', 'offline', 'away'
+
+  const ChatUser({
+    required this.id,
+    required this.displayName,
+    this.avatarUrl,
+    this.status = 'offline',
+  });
+
+  factory ChatUser.fromJson(Map<String, dynamic> json) {
+    return ChatUser(
+      id: json['id']?.toString() ?? '',
+      displayName: json['display_name']?.toString() ?? json['name']?.toString() ?? 'Utilisateur',
+      avatarUrl: json['avatar_url']?.toString(),
+      status: json['status']?.toString() ?? 'offline',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'display_name': displayName,
+    'avatar_url': avatarUrl,
+    'status': status,
+  };
+}
+
+// ---------- Story (pour l'affichage des stories) ----------
 class Story {
   final String id;
   final String name;
@@ -213,7 +281,7 @@ class Story {
   };
 }
 
-/// Statistiques du chat
+// ---------- Statistiques du chat ----------
 class ChatStats {
   final int onlineCount;
   final int newMessagesCount;
