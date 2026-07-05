@@ -1,8 +1,9 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/services/upload_service.dart';
+import 'package:thix_id/services/network_service.dart';
 
 class EditProfileDialog extends StatefulWidget {
   final String userId;
@@ -31,15 +32,16 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   late TextEditingController _titleController;
   late TextEditingController _bioController;
   final List<TextEditingController> _skillControllers = [];
-  PlatformFile? _selectedAvatar;
+  Uint8List? _selectedAvatarBytes;
+  String? _selectedAvatarExtension;
   bool _isSaving = false;
   bool _isUploading = false;
-  late UploadService _uploadService;
+  late NetworkService _networkService;
 
   @override
   void initState() {
     super.initState();
-    _uploadService = UploadService();
+    _networkService = NetworkService(Supabase.instance.client);
     _nameController = TextEditingController(text: widget.currentName);
     _titleController = TextEditingController(text: widget.currentTitle ?? '');
     _bioController = TextEditingController(text: widget.currentBio ?? '');
@@ -67,7 +69,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   void _addSkillField() {
     if (_skillControllers.length >= 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vous ne pouvez pas ajouter plus de 10 compétences')),
+        const SnackBar(
+          content: Text('Vous ne pouvez pas ajouter plus de 10 compétences'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -85,7 +90,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
   void _removeAvatar() {
     setState(() {
-      _selectedAvatar = null;
+      _selectedAvatarBytes = null;
+      _selectedAvatarExtension = null;
     });
   }
 
@@ -101,13 +107,17 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       
       if (size > 5 * 1024 * 1024) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('L\'image ne doit pas dépasser 5MB')),
+          const SnackBar(
+            content: Text('L\'image ne doit pas dépasser 5MB'),
+            backgroundColor: Colors.red,
+          ),
         );
         return;
       }
       
       setState(() {
-        _selectedAvatar = file;
+        _selectedAvatarBytes = file.bytes;
+        _selectedAvatarExtension = file.extension ?? 'jpg';
       });
     }
   }
@@ -116,7 +126,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez entrer votre nom')),
+        const SnackBar(
+          content: Text('Veuillez entrer votre nom'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -128,7 +141,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
     if (skills.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ajoutez au moins une compétence')),
+        const SnackBar(
+          content: Text('Ajoutez au moins une compétence'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -138,27 +154,36 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     try {
       String? avatarUrl = widget.currentAvatarUrl;
       
-      if (_selectedAvatar != null) {
+      // Upload du nouvel avatar si sélectionné
+      if (_selectedAvatarBytes != null) {
         setState(() => _isUploading = true);
-          avatarUrl = await _uploadService.uploadAvatar(_selectedAvatar!, widget.userId);
+        avatarUrl = await _networkService.uploadImageBytes(
+          _selectedAvatarBytes!,
+          fileExtension: _selectedAvatarExtension!,
+          bucket: 'avatars',
+        );
         setState(() => _isUploading = false);
-      } else if (widget.currentAvatarUrl != null && _selectedAvatar == null) {
-        // Avatar non modifié
+      }
+
+      // Mise à jour du profil (table 'users' ou 'profiles')
+      final updateData = {
+        'display_name': name,
+        'profession': _titleController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'skills': skills,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (avatarUrl != null) {
+        updateData['photo_url'] = avatarUrl;  // ou 'avatar_url' selon votre schéma
       }
 
       await Supabase.instance.client
-          .from('profiles')
-          .update({
-            'display_name': name,
-            'title': _titleController.text.trim(),
-            'bio': _bioController.text.trim(),
-            'skills': skills,
-            if (avatarUrl != null) 'avatar_url': avatarUrl,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .from('users')  // ou 'profiles' selon votre table
+          .update(updateData)
           .eq('id', widget.userId);
 
       if (mounted) {
+        // Retourner les données mises à jour au parent
         Navigator.pop(context, {
           'name': name,
           'title': _titleController.text.trim(),
@@ -167,14 +192,20 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           'avatar_url': avatarUrl,
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil mis à jour !'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Profil mis à jour !'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
-      debugPrint('Error saving profile: $e');
+      debugPrint('❌ Erreur sauvegarde profil: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -183,11 +214,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   }
 
   Widget _buildAvatarPreview() {
-    if (_selectedAvatar != null) {
+    if (_selectedAvatarBytes != null) {
       return ClipOval(
-        child: _selectedAvatar!.bytes != null
-            ? Image.memory(_selectedAvatar!.bytes!, width: 100, height: 100, fit: BoxFit.cover)
-            : Container(width: 100, height: 100, color: Colors.grey.shade200, child: const Icon(Icons.person, size: 50, color: Colors.grey)),
+        child: Image.memory(
+          _selectedAvatarBytes!,
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+        ),
       );
     }
     if (widget.currentAvatarUrl != null && widget.currentAvatarUrl!.isNotEmpty) {
@@ -212,24 +246,31 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final hasAvatar = widget.currentAvatarUrl != null || _selectedAvatar != null;
-    
+    final hasAvatar = widget.currentAvatarUrl != null || _selectedAvatarBytes != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
-        constraints: const BoxConstraints(maxHeight: 600),
+        constraints: const BoxConstraints(maxHeight: 650),
         padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Modifier mon profil',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -238,6 +279,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // Body (scrollable)
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -251,7 +294,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                             height: 100,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+                              border: Border.all(
+                                color: const Color(0xFFD4AF37),
+                                width: 2,
+                              ),
                             ),
                             child: _buildAvatarPreview(),
                           ),
@@ -270,9 +316,16 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
                                       )
-                                    : const Icon(Icons.camera_alt, size: 18, color: Color(0xFF0B1B3D)),
+                                    : const Icon(
+                                        Icons.camera_alt,
+                                        size: 18,
+                                        color: Color(0xFF0B1B3D),
+                                      ),
                               ),
                             ),
                           ),
@@ -288,7 +341,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                                     color: Colors.red,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.delete, size: 14, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.delete,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -296,28 +353,30 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Nom
                     TextField(
                       controller: _nameController,
                       decoration: const InputDecoration(
-                        labelText: 'Nom complet',
+                        labelText: 'Nom complet *',
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Titre
+
+                    // Titre professionnel
                     TextField(
                       controller: _titleController,
                       decoration: const InputDecoration(
                         labelText: 'Titre professionnel',
                         hintText: 'Ex: CEO @ PayPal Solutions',
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.work_outline),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Bio
                     TextField(
                       controller: _bioController,
@@ -326,10 +385,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                         labelText: 'Bio',
                         hintText: 'Parlez de vous...',
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.description_outlined),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Compétences
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -342,6 +402,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                           onPressed: _addSkillField,
                           icon: const Icon(Icons.add, size: 16),
                           label: const Text('Ajouter'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFD4AF37),
+                          ),
                         ),
                       ],
                     ),
@@ -358,23 +421,29 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                                   hintText: 'Ex: Flutter, Firebase...',
                                   border: OutlineInputBorder(),
                                   isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 20),
+                              icon: const Icon(Icons.close, size: 20, color: Colors.grey),
                               onPressed: () => _removeSkillField(index),
                             ),
                           ],
                         ),
                       );
                     }),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
             ),
+
+            // Footer
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _isSaving ? null : _save,
@@ -385,14 +454,24 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
+                elevation: 2,
               ),
               child: _isSaving
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0B1B3D)),
+                      ),
                     )
-                  : const Text('ENREGISTRER'),
+                  : const Text(
+                      'ENREGISTRER',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
             ),
           ],
         ),
