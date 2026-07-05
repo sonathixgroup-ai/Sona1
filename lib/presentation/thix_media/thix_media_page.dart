@@ -1,15 +1,18 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
+import 'dart:async'; // pour Timer
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/app_router.dart';
-import 'package:thix_id/models/media_content.dart';
-import 'package:thix_id/services/media_service.dart';
-
-// Assurez-vous que l'import de nav.dart est présent (si nécessaire)
-// mais app_router.dart définit déjà AppRoutes
+import 'package:video_player/video_player.dart';
+import 'package:go_router/go_router.dart'; // pour context.go
+import 'video_player_page.dart';
+import '../../models/media_content.dart';
+import '../../services/media_service.dart';
+import '../../app_router.dart'; // ✅ chemin corrigé (deux niveaux)
+// Couleurs
+const Color kBackgroundColor = Color(0xFFFBFBFD);
+const Color kAccentColor = Color(0xFF7A4DF3);
+const Color kHeaderIconColor = Color(0xFF6A7788);
+const Color kTextDark = Color(0xFF0F172A);
+const Color kTextGrey = Color(0xFF64748B);
 
 class ThixMediaPage extends StatefulWidget {
   const ThixMediaPage({super.key});
@@ -24,12 +27,11 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   bool _isLoading = true;
   String? _error;
 
-  RealtimeChannel? _channel;
-
   String _selectedCategory = 'Accueil';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Pour le carrousel
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
@@ -40,26 +42,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     _mediaService = MediaService(client: Supabase.instance.client, bucket: 'media');
     _loadMedia();
     _startBannerAutoScroll();
-    _subscribeRealtime();
-  }
-
-  void _subscribeRealtime() {
-    try {
-      _channel = Supabase.instance.client.channel('thix-media:published');
-      _channel!
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'media_content',
-            callback: (_) {
-              if (!mounted) return;
-              unawaited(_loadMedia());
-            },
-          )
-          .subscribe();
-    } catch (e) {
-      debugPrint('ThixMediaPage realtime subscribe failed err=$e');
-    }
   }
 
   void _startBannerAutoScroll() {
@@ -79,9 +61,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   void dispose() {
     _bannerTimer?.cancel();
     _bannerController.dispose();
-    try {
-      if (_channel != null) Supabase.instance.client.removeChannel(_channel!);
-    } catch (_) {}
     super.dispose();
   }
 
@@ -102,32 +81,16 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
 
   List<MediaContent> get _bannerItems => _allMedia.where((m) => m.isNewRelease).toList();
 
-  List<MediaContent> get _filteredTrending {
-    final list = _allMedia.where((m) => m.isTrending || m.rankPosition != null).toList(growable: false);
-    list.sort((a, b) => (a.rankPosition ?? 999999).compareTo(b.rankPosition ?? 999999));
-    return list;
-  }
-
-  List<MediaContent> get _filteredRecommendations => _allMedia.where((m) => m.isRecommended).toList(growable: false);
-
-  List<MediaContent> get _filteredNewReleases => _allMedia.where((m) => m.isNewRelease).toList(growable: false);
-
-  List<MediaContent> _applySearch(List<MediaContent> input) {
-    final q = _searchQuery.trim().toLowerCase();
-    if (q.isEmpty) return input;
-    return input
-        .where((m) =>
-            m.title.toLowerCase().contains(q) ||
-            (m.subtitle ?? '').toLowerCase().contains(q) ||
-            m.type.toLowerCase().contains(q) ||
-            (m.year ?? '').toLowerCase().contains(q))
-        .toList(growable: false);
-  }
+  List<MediaContent> get _filteredTrending => _allMedia.where((item) => item.rankPosition != null).toList();
+  List<MediaContent> get _filteredRecommendations => _allMedia.where((item) => item.rankPosition == null && item.type != 'Vidéo').toList();
+  List<MediaContent> get _filteredNewReleases => _allMedia.where((item) => item.year == '2024').toList();
 
   void _navigateToVideo(MediaContent item) {
-    // ✅ Utilisation de la route nommée avec queryParameters
-    context.push(
-      '${AppRoutes.thixMediaVideo}?title=${Uri.encodeComponent(item.title)}&url=${Uri.encodeComponent(item.videoUrl)}',
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerPage(title: item.title, videoUrl: item.videoUrl),
+      ),
     );
   }
 
@@ -137,24 +100,21 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final bg = cs.surface;
-
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: bg,
+        backgroundColor: kBackgroundColor,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_error != null) {
       return Scaffold(
-        backgroundColor: bg,
+        backgroundColor: kBackgroundColor,
         body: Center(child: Text('Erreur : $_error')),
       );
     }
 
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: kBackgroundColor,
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -171,7 +131,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             if (_selectedCategory == 'Accueil') ...[
               _SectionHeader(title: 'Tendances', showSeeAll: true, onSeeAll: () => _showAll('Tendances')),
               const SizedBox(height: 12),
-              _TrendingList(items: _applySearch(_filteredTrending), onItemTap: _navigateToVideo),
+              _TrendingList(items: _filteredTrending, onItemTap: _navigateToVideo),
               const SizedBox(height: 24),
             ],
             if (_selectedCategory == 'Accueil')
@@ -180,9 +140,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
               _SectionHeader(title: 'Recommandations ($_selectedCategory)', showSeeAll: true, onSeeAll: () => _showAll('Recommandations')),
             const SizedBox(height: 12),
             _RecommendationGrid(
-              items: _applySearch(_filteredRecommendations)
-                  .where((item) => _selectedCategory == 'Accueil' || item.type == _selectedCategory)
-                  .toList(growable: false),
+              items: _filteredRecommendations.where((item) => _selectedCategory == 'Accueil' || item.type == _selectedCategory).toList(),
               onItemTap: _navigateToVideo,
             ),
             const SizedBox(height: 24),
@@ -196,9 +154,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
               _SectionHeader(title: 'Nouveautés ($_selectedCategory)', showSeeAll: true, onSeeAll: () => _showAll('Nouveautés')),
             const SizedBox(height: 12),
             _NewReleasesGrid(
-              items: _applySearch(_filteredNewReleases)
-                  .where((item) => _selectedCategory == 'Accueil' || item.type == _selectedCategory)
-                  .toList(growable: false),
+              items: _filteredNewReleases.where((item) => _selectedCategory == 'Accueil' || item.type == _selectedCategory).toList(),
               onItemTap: _navigateToVideo,
             ),
           ],
@@ -212,8 +168,8 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
       currentIndex: 0,
-      selectedItemColor: Theme.of(context).colorScheme.primary,
-      unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+      selectedItemColor: kAccentColor,
+      unselectedItemColor: Colors.grey,
       onTap: (index) {
         switch (index) {
           case 0:
@@ -226,6 +182,8 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Favoris à venir')));
             break;
           case 3:
+            // Redirection vers le dashboard utilisateur (route définie dans app_router)
+            // On suppose que AppRoutes.userDashboard est une constante string ex: '/user-dashboard'
             context.go(AppRoutes.userDashboard);
             break;
         }
@@ -261,7 +219,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             width: _currentBannerIndex == i ? 16 : 6,
             height: 6,
             decoration: BoxDecoration(
-              color: _currentBannerIndex == i ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
+              color: _currentBannerIndex == i ? kAccentColor : Colors.grey.shade300,
               borderRadius: BorderRadius.circular(3),
             ),
           )),
@@ -283,7 +241,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+            colors: [Colors.black.withOpacity(0.7), Colors.transparent],
           ),
         ),
         padding: const EdgeInsets.all(16),
@@ -293,7 +251,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(color: kAccentColor, borderRadius: BorderRadius.circular(20)),
               child: const Text('NOUVEAUTÉ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
             ),
             const SizedBox(height: 8),
@@ -308,7 +266,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                   icon: const Icon(Icons.play_arrow, size: 16),
                   label: const Text('Regarder maintenant'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    backgroundColor: kAccentColor,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -338,10 +296,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   PreferredSizeWidget _buildAppBar() => PreferredSize(
         preferredSize: const Size.fromHeight(70),
         child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
-          ),
+          decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 1)]),
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -350,21 +305,9 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'THIX MEDIA',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      Text(
-                        'Regardez. Écoutez. Vibrez.',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                      ),
+                    children: const [
+                      Text('THIX MEDIA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: kAccentColor)),
+                      Text('Regardez. Écoutez. Vibrez.', style: TextStyle(fontSize: 10, color: Colors.grey)),
                     ],
                   ),
                   const SizedBox(width: 16),
@@ -465,7 +408,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             Container(
               margin: const EdgeInsets.only(right: 16),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(30)),
+              decoration: BoxDecoration(color: kAccentColor, borderRadius: BorderRadius.circular(30)),
               child: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
             ),
           ],
@@ -489,32 +432,16 @@ class _MediaChip extends StatelessWidget {
           margin: const EdgeInsets.only(right: 10),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
+            color: selected ? kAccentColor : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: selected ? Colors.transparent : Colors.grey.shade200),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null)
-                Icon(
-                  icon,
-                  size: 16,
-                  color: selected
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
-                ),
+              if (icon != null) Icon(icon, size: 16, color: selected ? Colors.white : kHeaderIconColor),
               if (icon != null) const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 13,
-                ),
-              ),
+              Text(label, style: TextStyle(color: selected ? Colors.white : kHeaderIconColor, fontWeight: selected ? FontWeight.w600 : FontWeight.normal, fontSize: 13)),
             ],
           ),
         ),
@@ -531,31 +458,15 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-          ),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextDark)),
           if (showSeeAll)
             GestureDetector(
               onTap: onSeeAll,
-              child: Row(
+              child: const Row(
                 children: [
-                  Text(
-                    'Voir tout',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 10,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+                  Text('Voir tout', style: TextStyle(fontSize: 12, color: kTextGrey, fontWeight: FontWeight.w600)),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_ios, size: 10, color: kTextGrey),
                 ],
               ),
             ),
@@ -587,13 +498,7 @@ class _TrendingList extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  )
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
