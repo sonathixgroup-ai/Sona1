@@ -254,6 +254,19 @@ import 'package:thix_id/presentation/chat/voice_translation/voice_translation_sc
 import 'package:thix_id/presentation/chat/group_waiting_room/waiting_room_screen.dart';
 import 'package:thix_id/presentation/chat/scheduled_recurring/recurring_schedule_screen.dart';
 
+// ===== THIX Chat – NOUVELLES PAGES (placeholders) =====
+import 'package:thix_id/presentation/chat/search/chat_search_page.dart';
+import 'package:thix_id/presentation/chat/notifications/chat_notifications_page.dart';
+import 'package:thix_id/presentation/chat/stats/chat_stats_page.dart';
+import 'package:thix_id/presentation/chat/new_chat/new_chat_page.dart';
+import 'package:thix_id/presentation/chat/filters/chat_filters_page.dart';
+import 'package:thix_id/presentation/chat/online_users/online_users_page.dart';
+import 'package:thix_id/presentation/chat/stories/new_story_page.dart';
+import 'package:thix_id/presentation/chat/stories/story_detail_page.dart';
+
+// ============================================================
+// Classes utilitaires
+// ============================================================
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
@@ -267,6 +280,9 @@ class NoTransitionPage<T> extends Page<T> {
       );
 }
 
+// ============================================================
+// AppRoutes – toutes les routes constantes
+// ============================================================
 class AppRoutes {
   static const String start = '/start';
   static const String home = '/';
@@ -326,6 +342,16 @@ static const String chatStatusUpdate = '/chat/status/update';
 static const String chatSpaces = '/chat/spaces';
 static const String chatCall = '/chat/call';
 static const String chatIncomingCall = '/chat/incoming';
+
+// ===== THIX Chat – Routes ajoutées pour les fonctionnalités manquantes =====
+static const String chatSearch = '/chat/search';
+static const String chatNotifications = '/chat/notifications';
+static const String chatStats = '/chat/stats';
+static const String chatNew = '/chat/new';
+static const String chatFilters = '/chat/filters';
+static const String chatOnline = '/chat/online';
+static const String chatStoryNew = '/chat/story/new';
+static const String chatStoryDetail = '/chat/story/:storyId';
 
 // ===== THIX Chat – Paramètres & personnalisation =====
 static const String chatEphemeralSettings = '/chat/ephemeral/settings';
@@ -396,6 +422,9 @@ static const String chatRecurringSchedule = '/chat/scheduled/recurring';
   static String networkProfile(String userId) => '$networkProfileBasePath/$userId';
 }
 
+// ============================================================
+// GoRouter – création du routeur
+// ============================================================
 class AppRouter {
   static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
     final refresh = extraRefreshListenable ?? auth;
@@ -567,12 +596,16 @@ class AppRouter {
             ),
           ],
         ),
+
+        // ============================================================
+        // THIX CHAT – Routes principales + toutes les fonctionnalités
+        // ============================================================
         GoRoute(
           path: AppRoutes.chat,
           name: 'chat',
-          pageBuilder: (context, state) =>
-              NoTransitionPage(child: ThixChatPage()),
+          pageBuilder: (context, state) => NoTransitionPage(child: ThixChatPage()),
           routes: [
+            // Conversation
             GoRoute(
               path: ':chatId',
               name: 'chatConversation',
@@ -588,20 +621,313 @@ class AppRouter {
                         chatId: chatId, title: title, type: type));
               },
             ),
+            // === Routes fonctionnelles ajoutées ===
+            GoRoute(
+              path: 'search',
+              name: 'chatSearch',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatSearchPage()),
+            ),
+            GoRoute(
+              path: 'notifications',
+              name: 'chatNotifications',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatNotificationsPage()),
+            ),
+            GoRoute(
+              path: 'stats',
+              name: 'chatStats',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatStatsPage()),
+            ),
+            GoRoute(
+              path: 'new',
+              name: 'chatNew',
+              pageBuilder: (context, state) => NoTransitionPage(child: NewChatPage()),
+            ),
+            GoRoute(
+              path: 'filters',
+              name: 'chatFilters',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatFiltersPage()),
+            ),
+            GoRoute(
+              path: 'online',
+              name: 'chatOnline',
+              pageBuilder: (context, state) => NoTransitionPage(child: OnlineUsersPage()),
+            ),
+            GoRoute(
+              path: 'story/new',
+              name: 'chatStoryNew',
+              pageBuilder: (context, state) => NoTransitionPage(child: NewStoryPage()),
+            ),
+            GoRoute(
+              path: 'story/:storyId',
+              name: 'chatStoryDetail',
+              pageBuilder: (context, state) {
+                final storyId = state.pathParameters['storyId']!;
+                return NoTransitionPage(child: StoryDetailPage(storyId: storyId));
+              },
+            ),
+
+            // === Routes de statut ===
+            GoRoute(
+              path: 'status',
+              name: 'chatStatus',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatStatusScreen()),
+            ),
+            GoRoute(
+              path: 'status/update',
+              name: 'chatStatusUpdate',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatStatusUpdateScreen()),
+            ),
+            GoRoute(
+              path: 'spaces',
+              name: 'chatSpaces',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatSpacesScreen()),
+            ),
+            GoRoute(
+              path: 'call',
+              name: 'chatCall',
+              pageBuilder: (context, state) {
+                final extra = state.extra as Map?;
+                return NoTransitionPage(
+                  child: ChatCallScreen(
+                    callId: extra?['callId'] ?? '',
+                    callName: extra?['callName'] ?? 'Appel',
+                    participants: extra?['participants'] ?? [],
+                    isVideoCall: extra?['isVideoCall'] ?? false,
+                  ),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'incoming',
+              name: 'chatIncomingCall',
+              pageBuilder: (context, state) {
+                final extra = state.extra as Map?;
+                return NoTransitionPage(
+                  child: ChatIncomingCallScreen(
+                    callerName: extra?['callerName'] ?? 'Appel entrant',
+                    callType: extra?['callType'] ?? 'audio',
+                  ),
+                );
+              },
+            ),
+
+            // === Paramètres et personnalisation ===
+            GoRoute(
+              path: 'ephemeral/settings',
+              name: 'chatEphemeralSettings',
+              pageBuilder: (context, state) => NoTransitionPage(child: EphemeralSettingsScreen()),
+            ),
+            GoRoute(
+              path: 'translation/settings',
+              name: 'chatTranslationSettings',
+              pageBuilder: (context, state) => NoTransitionPage(child: TranslationSettingsScreen()),
+            ),
+            GoRoute(
+              path: 'themes',
+              name: 'chatThemes',
+              pageBuilder: (context, state) => NoTransitionPage(child: ThemeSelectorScreen()),
+            ),
+            GoRoute(
+              path: 'bubble/customize',
+              name: 'chatBubbleCustomize',
+              pageBuilder: (context, state) => NoTransitionPage(child: BubbleCustomizerScreen()),
+            ),
+            GoRoute(
+              path: 'notification/sounds',
+              name: 'chatNotificationSounds',
+              pageBuilder: (context, state) => NoTransitionPage(child: NotificationSoundsScreen()),
+            ),
+            GoRoute(
+              path: 'wallpaper',
+              name: 'chatWallpaper',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatWallpaperScreen()),
+            ),
+            GoRoute(
+              path: 'font/size',
+              name: 'chatFontSize',
+              pageBuilder: (context, state) => NoTransitionPage(child: FontSizeSelectorScreen()),
+            ),
+            GoRoute(
+              path: 'theme/preview',
+              name: 'chatThemePreview',
+              pageBuilder: (context, state) => NoTransitionPage(child: ThemePreviewScreen()),
+            ),
+            GoRoute(
+              path: 'status/settings',
+              name: 'chatStatusSettings',
+              pageBuilder: (context, state) => NoTransitionPage(child: StatusSettingsScreen()),
+            ),
+            GoRoute(
+              path: 'availability/schedule',
+              name: 'availabilitySchedule',
+              pageBuilder: (context, state) => NoTransitionPage(
+                child: const AvailabilitySchedule(),
+              ),
+            ),
+            GoRoute(
+              path: 'status/presets',
+              name: 'chatStatusPresets',
+              pageBuilder: (context, state) => NoTransitionPage(child: StatusPresetsScreen()),
+            ),
+
+            // === Archives ===
+            GoRoute(
+              path: 'archive',
+              name: 'chatArchive',
+              pageBuilder: (context, state) => NoTransitionPage(child: ArchiveScreen()),
+            ),
+            GoRoute(
+              path: 'export/:id',
+              name: 'chatExport',
+              pageBuilder: (context, state) {
+                final conversationId = state.pathParameters['id']!;
+                final conversationName = state.uri.queryParameters['name'] ?? 'Conversation';
+                return NoTransitionPage(
+                  child: ExportChatScreen(
+                    conversationId: conversationId,
+                    conversationName: conversationName,
+                  ),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'export/encrypted/:id',
+              name: 'chatExportEncrypted',
+              pageBuilder: (context, state) {
+                final conversationId = state.pathParameters['id']!;
+                return NoTransitionPage(
+                  child: ExportEncryptedScreen(conversationId: conversationId),
+                );
+              },
+            ),
+
+            // === Économie de données ===
+            GoRoute(
+              path: 'data/saver',
+              name: 'chatDataSaver',
+              pageBuilder: (context, state) => NoTransitionPage(child: LowDataModeScreen()),
+            ),
+
+            // === Widgets maison ===
+            GoRoute(
+              path: 'widgets/config',
+              name: 'chatWidgetsConfig',
+              pageBuilder: (context, state) => NoTransitionPage(child: ChatWidgetConfigScreen()),
+            ),
+            GoRoute(
+              path: 'widgets/preview',
+              name: 'chatWidgetsPreview',
+              pageBuilder: (context, state) => NoTransitionPage(child: WidgetPreviewScreen()),
+            ),
+
+            // === Sécurité avancée ===
+            GoRoute(
+              path: 'security/lock',
+              name: 'chatSecurityLock',
+              pageBuilder: (context, state) => NoTransitionPage(child: FingerprintLockScreen()),
+            ),
+            GoRoute(
+              path: 'secret/folder',
+              name: 'chatSecretFolder',
+              pageBuilder: (context, state) => NoTransitionPage(child: SecretChatFolderScreen()),
+            ),
+            GoRoute(
+              path: 'secret/conversation/:id',
+              name: 'chatSecretConversation',
+              pageBuilder: (context, state) {
+                final conversationId = state.pathParameters['id']!;
+                return NoTransitionPage(
+                  child: SecretConversationScreen(conversationId: conversationId),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'self-destruct',
+              name: 'chatSelfDestruct',
+              pageBuilder: (context, state) => NoTransitionPage(child: SelfDestructScreen()),
+            ),
+            GoRoute(
+              path: 'anti-screenshot',
+              name: 'chatAntiScreenshot',
+              pageBuilder: (context, state) => NoTransitionPage(child: AntiScreenshotScreen()),
+            ),
+            GoRoute(
+              path: 'fake-interface',
+              name: 'chatFakeInterface',
+              pageBuilder: (context, state) => NoTransitionPage(child: FakeInterfaceScreen()),
+            ),
+            GoRoute(
+              path: 'theft-protection',
+              name: 'chatTheftProtection',
+              pageBuilder: (context, state) => NoTransitionPage(child: TheftProtectionScreen()),
+            ),
+            GoRoute(
+              path: 'session',
+              name: 'chatSessionManager',
+              pageBuilder: (context, state) => NoTransitionPage(child: SessionManagerScreen()),
+            ),
+            GoRoute(
+              path: 'encryption',
+              name: 'chatEncryption',
+              pageBuilder: (context, state) => NoTransitionPage(child: EncryptionScreen()),
+            ),
+
+            // === Hors ligne ===
+            GoRoute(
+              path: 'offline/settings',
+              name: 'chatOfflineSettings',
+              pageBuilder: (context, state) => NoTransitionPage(child: OfflineSettingsScreen()),
+            ),
+
+            // === Fonctionnalités diverses ===
+            GoRoute(
+              path: 'contact/share/:userId',
+              name: 'chatContactShare',
+              pageBuilder: (context, state) {
+                final userId = state.pathParameters['userId']!;
+                return NoTransitionPage(
+                  child: ContactShareScreen(userId: userId),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'video-message',
+              name: 'chatVideoMessage',
+              pageBuilder: (context, state) => NoTransitionPage(child: VideoMessageScreen()),
+            ),
+            GoRoute(
+              path: 'reminder',
+              name: 'chatMessageReminder',
+              pageBuilder: (context, state) => NoTransitionPage(child: MessageReminderScreen()),
+            ),
+            GoRoute(
+              path: 'confidential',
+              name: 'chatConfidentialMessage',
+              pageBuilder: (context, state) => NoTransitionPage(child: ConfidentialMessageScreen()),
+            ),
+            GoRoute(
+              path: 'smart-notifications',
+              name: 'chatSmartNotifications',
+              pageBuilder: (context, state) => NoTransitionPage(child: SmartNotificationsScreen()),
+            ),
+            GoRoute(
+              path: 'voice-translation',
+              name: 'chatVoiceTranslation',
+              pageBuilder: (context, state) => NoTransitionPage(child: VoiceTranslationScreen()),
+            ),
+            GoRoute(
+              path: 'group/waiting-room',
+              name: 'chatGroupWaitingRoom',
+              pageBuilder: (context, state) => NoTransitionPage(child: WaitingRoomScreen()),
+            ),
+            GoRoute(
+              path: 'scheduled/recurring',
+              name: 'chatRecurringSchedule',
+              pageBuilder: (context, state) => NoTransitionPage(child: RecurringScheduleScreen()),
+            ),
           ],
         ),
-        GoRoute(
-          path: AppRoutes.vault,
-          name: 'vault',
-          pageBuilder: (context, state) =>
-              NoTransitionPage(child: DocumentVaultPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.settings,
-          name: 'settings',
-          pageBuilder: (context, state) =>
-              NoTransitionPage(child: SettingsPage()),
-        ),
+
         // ---- Réseau ----
         GoRoute(
           path: AppRoutes.network,
@@ -700,7 +1026,8 @@ class AppRouter {
           pageBuilder: (context, state) =>
               NoTransitionPage(child: ProfilePage()),
         ),
-        // ---- THIX Market (remplacé par les routes complètes) ----
+
+        // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
           name: 'thixMarket',
@@ -890,6 +1217,7 @@ class AppRouter {
             ),
           ],
         ),
+
         // ---- THIX Santé ----
         // Point d'entrée principal
         GoRoute(
@@ -1350,278 +1678,6 @@ class AppRouter {
             return NoTransitionPage(child: PatientConsentPage(consentId: id));
           },
         ),
-           // ==================== THIX Chat – Fonctionnalités avancées ====================
-
-// Statut
-GoRoute(
-  path: AppRoutes.chatStatus,
-  name: 'chatStatus',
-  pageBuilder: (context, state) => NoTransitionPage(child: ChatStatusScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatStatusUpdate,
-  name: 'chatStatusUpdate',
-  pageBuilder: (context, state) => NoTransitionPage(child: ChatStatusUpdateScreen()),
-),
-
-// Espaces
-GoRoute(
-  path: AppRoutes.chatSpaces,
-  name: 'chatSpaces',
-  pageBuilder: (context, state) => NoTransitionPage(child: ChatSpacesScreen()),
-),
-
-// Appels
-GoRoute(
-  path: AppRoutes.chatCall,
-  name: 'chatCall',
-  pageBuilder: (context, state) {
-    final extra = state.extra as Map?;
-    return NoTransitionPage(
-      child: ChatCallScreen(
-        callId: extra?['callId'] ?? '',
-        callName: extra?['callName'] ?? 'Appel',
-        participants: extra?['participants'] ?? [],
-        isVideoCall: extra?['isVideoCall'] ?? false,
-      ),
-    );
-  },
-),
-GoRoute(
-  path: AppRoutes.chatIncomingCall,
-  name: 'chatIncomingCall',
-  pageBuilder: (context, state) {
-    final extra = state.extra as Map?;
-    return NoTransitionPage(
-      child: ChatIncomingCallScreen(
-        callerName: extra?['callerName'] ?? 'Appel entrant',
-        callType: extra?['callType'] ?? 'audio',
-      ),
-    );
-  },
-),
-
-// Paramètres éphémères
-GoRoute(
-  path: AppRoutes.chatEphemeralSettings,
-  name: 'chatEphemeralSettings',
-  pageBuilder: (context, state) => NoTransitionPage(child: EphemeralSettingsScreen()),
-),
-
-// Traduction
-GoRoute(
-  path: AppRoutes.chatTranslationSettings,
-  name: 'chatTranslationSettings',
-  pageBuilder: (context, state) => NoTransitionPage(child: TranslationSettingsScreen()),
-),
-
-// Thèmes & personnalisation
-GoRoute(
-  path: AppRoutes.chatThemes,
-  name: 'chatThemes',
-  pageBuilder: (context, state) => NoTransitionPage(child: ThemeSelectorScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatBubbleCustomize,
-  name: 'chatBubbleCustomize',
-  pageBuilder: (context, state) => NoTransitionPage(child: BubbleCustomizerScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatNotificationSounds,
-  name: 'chatNotificationSounds',
-  pageBuilder: (context, state) => NoTransitionPage(child: NotificationSoundsScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatWallpaper,
-  name: 'chatWallpaper',
-  pageBuilder: (context, state) => NoTransitionPage(child: ChatWallpaperScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatFontSize,
-  name: 'chatFontSize',
-  pageBuilder: (context, state) => NoTransitionPage(child: FontSizeSelectorScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatThemePreview,
-  name: 'chatThemePreview',
-  pageBuilder: (context, state) => NoTransitionPage(child: ThemePreviewScreen()),
-),
-
-// Paramètres de statut en ligne
-GoRoute(
-  path: AppRoutes.chatStatusSettings,
-  name: 'chatStatusSettings',
-  pageBuilder: (context, state) => NoTransitionPage(child: StatusSettingsScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatAvailabilitySchedule,   // ← corrigé (était AppRoutes.availabilitySchedule, inexistant)
-  name: 'availabilitySchedule',
-  pageBuilder: (context, state) => NoTransitionPage(
-    child: const AvailabilitySchedule(),
-  ),
-),
-GoRoute(
-  path: AppRoutes.chatStatusPresets,
-  name: 'chatStatusPresets',
-  pageBuilder: (context, state) => NoTransitionPage(child: StatusPresetsScreen()),
-),
-
-// Archives
-GoRoute(
-  path: AppRoutes.chatArchive,
-  name: 'chatArchive',
-  pageBuilder: (context, state) => NoTransitionPage(child: ArchiveScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatExport,
-  name: 'chatExport',
-  pageBuilder: (context, state) {
-    final conversationId = state.pathParameters['id']!;
-    final conversationName = state.uri.queryParameters['name'] ?? 'Conversation';
-    return NoTransitionPage(
-      child: ExportChatScreen(
-        conversationId: conversationId,
-        conversationName: conversationName,
-      ),
-    );
-  },
-),
-GoRoute(
-  path: AppRoutes.chatExportEncrypted,
-  name: 'chatExportEncrypted',
-  pageBuilder: (context, state) {
-    final conversationId = state.pathParameters['id']!;
-    return NoTransitionPage(
-      child: ExportEncryptedScreen(conversationId: conversationId),
-    );
-  },
-),
-
-// Économie de données
-GoRoute(
-  path: AppRoutes.chatDataSaver,
-  name: 'chatDataSaver',
-  pageBuilder: (context, state) => NoTransitionPage(child: LowDataModeScreen()),
-),
-
-// Widgets maison
-GoRoute(
-  path: AppRoutes.chatWidgetsConfig,
-  name: 'chatWidgetsConfig',
-  pageBuilder: (context, state) => NoTransitionPage(child: ChatWidgetConfigScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatWidgetsPreview,
-  name: 'chatWidgetsPreview',
-  pageBuilder: (context, state) => NoTransitionPage(child: WidgetPreviewScreen()),
-),
-
-// Sécurité avancée
-GoRoute(
-  path: AppRoutes.chatSecurityLock,
-  name: 'chatSecurityLock',
-  pageBuilder: (context, state) => NoTransitionPage(child: FingerprintLockScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatSecretFolder,
-  name: 'chatSecretFolder',
-  pageBuilder: (context, state) => NoTransitionPage(child: SecretChatFolderScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatSecretConversation,
-  name: 'chatSecretConversation',
-  pageBuilder: (context, state) {
-    final conversationId = state.pathParameters['id']!;
-    return NoTransitionPage(
-      child: SecretConversationScreen(conversationId: conversationId),
-    );
-  },
-),
-GoRoute(
-  path: AppRoutes.chatSelfDestruct,
-  name: 'chatSelfDestruct',
-  pageBuilder: (context, state) => NoTransitionPage(child: SelfDestructScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatAntiScreenshot,
-  name: 'chatAntiScreenshot',
-  pageBuilder: (context, state) => NoTransitionPage(child: AntiScreenshotScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatFakeInterface,
-  name: 'chatFakeInterface',
-  pageBuilder: (context, state) => NoTransitionPage(child: FakeInterfaceScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatTheftProtection,
-  name: 'chatTheftProtection',
-  pageBuilder: (context, state) => NoTransitionPage(child: TheftProtectionScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatSessionManager,
-  name: 'chatSessionManager',
-  pageBuilder: (context, state) => NoTransitionPage(child: SessionManagerScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatEncryption,
-  name: 'chatEncryption',
-  pageBuilder: (context, state) => NoTransitionPage(child: EncryptionScreen()),
-),
-
-// Hors ligne
-GoRoute(
-  path: AppRoutes.chatOfflineSettings,
-  name: 'chatOfflineSettings',
-  pageBuilder: (context, state) => NoTransitionPage(child: OfflineSettingsScreen()),
-),
-
-// Fonctionnalités diverses
-GoRoute(
-  path: AppRoutes.chatContactShare,
-  name: 'chatContactShare',
-  pageBuilder: (context, state) {
-    final userId = state.pathParameters['userId']!;
-    return NoTransitionPage(
-      child: ContactShareScreen(userId: userId),
-    );
-  },
-),
-GoRoute(
-  path: AppRoutes.chatVideoMessage,
-  name: 'chatVideoMessage',
-  pageBuilder: (context, state) => NoTransitionPage(child: VideoMessageScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatMessageReminder,
-  name: 'chatMessageReminder',
-  pageBuilder: (context, state) => NoTransitionPage(child: MessageReminderScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatConfidentialMessage,
-  name: 'chatConfidentialMessage',
-  pageBuilder: (context, state) => NoTransitionPage(child: ConfidentialMessageScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatSmartNotifications,
-  name: 'chatSmartNotifications',
-  pageBuilder: (context, state) => NoTransitionPage(child: SmartNotificationsScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatVoiceTranslation,
-  name: 'chatVoiceTranslation',
-  pageBuilder: (context, state) => NoTransitionPage(child: VoiceTranslationScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatGroupWaitingRoom,
-  name: 'chatGroupWaitingRoom',
-  pageBuilder: (context, state) => NoTransitionPage(child: WaitingRoomScreen()),
-),
-GoRoute(
-  path: AppRoutes.chatRecurringSchedule,
-  name: 'chatRecurringSchedule',
-  pageBuilder: (context, state) => NoTransitionPage(child: RecurringScheduleScreen()),
-),
-         
         // Notifications
         GoRoute(
           path: '/sante/patient/notifications',
