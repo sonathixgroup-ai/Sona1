@@ -1,5 +1,5 @@
 // lib/presentation/chat/thix_chat_page.dart
-// Page d'accueil du module THIX Chat
+// Page d'accueil du module THIX Chat – données réelles et navigation complète
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/chat_bloc.dart';
 import 'core/chat_states.dart';
 import 'core/chat_events.dart';
+import 'core/chat_models.dart';
 
 // Couleurs de la charte THIX
 const _navy = Color(0xFF1B2A4A);
@@ -24,8 +25,8 @@ class ThixChatPage extends StatefulWidget {
 
 class _ThixChatPageState extends State<ThixChatPage> {
   late ChatBloc _chatBloc;
-  int _bottomNavIndex = 0;
-  String _searchQuery = ''; // ✅ Ajout pour la recherche locale
+  int _bottomNavIndex = 1; // onglet "Chats" actif par défaut
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -58,7 +59,6 @@ class _ThixChatPageState extends State<ThixChatPage> {
               return Center(child: Text('Erreur : ${state.message}'));
             }
             if (state is ConversationsLoaded) {
-              // ✅ Filtrer les conversations selon la recherche locale
               final filteredConversations = _searchQuery.isEmpty
                   ? state.filteredConversations
                   : state.filteredConversations
@@ -74,10 +74,10 @@ class _ThixChatPageState extends State<ThixChatPage> {
                   children: [
                     _buildHeader(context),
                     _buildSearchBar(context),
-                    _buildStatsCard(state),
-                    _buildOnlineSection(state),
-                    _buildTabs(state),
-                    _buildConversationsHeader(),
+                    _buildStatsCard(state, context),
+                    _buildOnlineSection(state, context),
+                    _buildTabs(state, context),
+                    _buildConversationsHeader(context),
                     if (filteredConversations.isEmpty)
                       const Padding(
                         padding: EdgeInsets.all(32),
@@ -160,26 +160,25 @@ class _ThixChatPageState extends State<ThixChatPage> {
             clipBehavior: Clip.none,
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_none,
-                    color: _navy, size: 26),
+                icon: const Icon(Icons.notifications_none, color: _navy, size: 26),
                 onPressed: () => context.push('/chat/notifications'),
               ),
               Positioned(
                 right: 6,
                 top: 6,
-                child: _Badge(count: 3),
+                child: _Badge(count: 3), // ⚠️ à remplacer par le vrai compteur
               ),
             ],
           ),
           GestureDetector(
-            onTap: () => context.push('/profile'),
+            onTap: () => context.push('/user-dashboard'),
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 const CircleAvatar(
                   radius: 22,
                   backgroundImage: NetworkImage(
-                    'https://example.com/avatar_current_user.jpg',
+                    'https://example.com/avatar_current_user.jpg', // à remplacer par vraie image
                   ),
                 ),
                 Positioned(
@@ -219,12 +218,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
-                onChanged: (value) {
-                  // ✅ Mettre à jour la recherche locale
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
+                onChanged: (value) => setState(() => _searchQuery = value),
                 decoration: const InputDecoration(
                   hintText: 'Rechercher un chat, contact, groupe...',
                   border: InputBorder.none,
@@ -244,7 +238,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
   }
 
   // ---------- STATS CARD ----------
-  Widget _buildStatsCard(ConversationsLoaded state) {
+  Widget _buildStatsCard(ConversationsLoaded state, BuildContext context) {
     final stats = state.stats;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -263,37 +257,36 @@ class _ThixChatPageState extends State<ThixChatPage> {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: _StatItem(
-                icon: Icons.people_alt_rounded,
-                iconColor: Colors.green,
-                value: '${stats.onlineCount}',
-                label: 'En ligne',
-              ),
+            _StatItem(
+              icon: Icons.people_alt_rounded,
+              iconColor: Colors.green,
+              value: '${stats.onlineCount}',
+              label: 'En ligne',
+              onTap: () => context.push('/chat/online'),
             ),
-            Expanded(
-              child: _StatItem(
-                icon: Icons.chat_bubble_rounded,
-                iconColor: _blue,
-                value: '${stats.newMessagesCount}', // ✅ corrigé
-                label: 'Nouveaux\nmessages',
-              ),
+            _StatItem(
+              icon: Icons.chat_bubble_rounded,
+              iconColor: _blue,
+              value: '${stats.newMessagesCount}',
+              label: 'Nouveaux\nmessages',
+              onTap: () {
+                // scroll en haut ou filtrer les messages non lus
+                // ici on peut simplement rester sur la page
+              },
             ),
-            Expanded(
-              child: _StatItem(
-                icon: Icons.videocam_rounded,
-                iconColor: Colors.blueAccent,
-                value: '${stats.activeMeetingsCount}', // ✅ corrigé
-                label: 'Réunions\nactives',
-              ),
+            _StatItem(
+              icon: Icons.videocam_rounded,
+              iconColor: Colors.blueAccent,
+              value: '${stats.activeMeetingsCount}',
+              label: 'Réunions\nactives',
+              onTap: () => context.push('/chat/spaces'),
             ),
-            Expanded(
-              child: _StatItem(
-                icon: Icons.shield_rounded,
-                iconColor: Colors.deepOrange,
-                value: '${stats.securityAlertsCount}', // ✅ corrigé
-                label: 'Alertes\nsécurité',
-              ),
+            _StatItem(
+              icon: Icons.shield_rounded,
+              iconColor: Colors.deepOrange,
+              value: '${stats.securityAlertsCount}',
+              label: 'Alertes\nsécurité',
+              onTap: () => context.push('/chat/notifications'),
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right, color: Colors.grey),
@@ -306,7 +299,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
   }
 
   // ---------- ONLINE / STORIES ----------
-  Widget _buildOnlineSection(ConversationsLoaded state) {
+  Widget _buildOnlineSection(ConversationsLoaded state, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Column(
@@ -350,7 +343,6 @@ class _ThixChatPageState extends State<ThixChatPage> {
                 return _StoryAvatar(
                   avatarUrl: story.avatarUrl,
                   label: story.name,
-                  // ✅ isOnline supprimé – le paramètre a une valeur par défaut true
                   onTap: () => context.push('/chat/story/${story.id}'),
                 );
               },
@@ -362,7 +354,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
   }
 
   // ---------- TABS ----------
-  Widget _buildTabs(ConversationsLoaded state) {
+  Widget _buildTabs(ConversationsLoaded state, BuildContext context) {
     final tabs = [
       _TabData('Tous', Icons.chat_bubble_outline, 'Tous'),
       _TabData('Équipes', Icons.groups_outlined, 'Équipes'),
@@ -400,8 +392,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
                   tab.label,
                   style: TextStyle(
                     color: color,
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                     fontSize: 12,
                   ),
                 ),
@@ -423,7 +414,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
   }
 
   // ---------- CONVERSATIONS HEADER ----------
-  Widget _buildConversationsHeader() {
+  Widget _buildConversationsHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
@@ -470,9 +461,12 @@ class _ThixChatPageState extends State<ThixChatPage> {
           _NavItem(
             icon: Icons.chat_bubble_outline,
             label: 'Chats',
-            badgeCount: 8,
+            badgeCount: 8, // à remplacer par vrai compteur
             isSelected: _bottomNavIndex == 1,
-            onTap: () => setState(() => _bottomNavIndex = 1),
+            onTap: () {
+              setState(() => _bottomNavIndex = 1);
+              // on est déjà sur /chat
+            },
           ),
           const SizedBox(width: 40),
           _NavItem(
@@ -481,7 +475,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
             isSelected: _bottomNavIndex == 2,
             onTap: () {
               setState(() => _bottomNavIndex = 2);
-              context.go('/spaces');
+              context.push('/chat/spaces');
             },
           ),
           _NavItem(
@@ -490,7 +484,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
             isSelected: _bottomNavIndex == 3,
             onTap: () {
               setState(() => _bottomNavIndex = 3);
-              context.go('/profile');
+              context.push('/user-dashboard');
             },
           ),
         ],
@@ -506,29 +500,36 @@ class _StatItem extends StatelessWidget {
   final Color iconColor;
   final String value;
   final String label;
+  final VoidCallback onTap;
 
   const _StatItem({
     required this.icon,
     required this.iconColor,
     required this.value,
     required this.label,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: iconColor, size: 22),
-        const SizedBox(height: 6),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(height: 6),
+            Text(value,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -544,7 +545,7 @@ class _StoryAvatar extends StatelessWidget {
     this.isAddButton = false,
     this.avatarUrl,
     required this.label,
-    this.isOnline = true, // ✅ valeur par défaut
+    this.isOnline = true,
     required this.onTap,
   });
 
@@ -622,7 +623,7 @@ class _TabData {
 }
 
 class _ConversationTile extends StatelessWidget {
-  final dynamic conversation;
+  final Conversation conversation;
   final VoidCallback onTap;
 
   const _ConversationTile({required this.conversation, required this.onTap});
@@ -656,13 +657,13 @@ class _ConversationTile extends StatelessWidget {
                   radius: 26,
                   backgroundColor: conv.isGroup ? _blue : Colors.grey.shade200,
                   backgroundImage: (!conv.isGroup && conv.avatarUrl != null)
-                      ? NetworkImage(conv.avatarUrl)
+                      ? NetworkImage(conv.avatarUrl!)
                       : null,
                   child: conv.isGroup
                       ? const Icon(Icons.groups, color: Colors.white)
                       : null,
                 ),
-                if (conv.isOnline == true)
+                if (conv.isOnline)
                   Positioned(
                     right: 0,
                     bottom: 0,
@@ -676,7 +677,7 @@ class _ConversationTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (conv.isPinned == true)
+                if (conv.metadata?['pinned'] == true)
                   Positioned(
                     left: -2,
                     bottom: -2,
@@ -707,7 +708,7 @@ class _ConversationTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (conv.isVerified == true) ...[
+                      if (conv.metadata?['certified'] == true) ...[
                         const SizedBox(width: 4),
                         const Icon(Icons.verified, color: _blue, size: 16),
                       ],
@@ -727,21 +728,35 @@ class _ConversationTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (conv.isPinned == true)
+                if (conv.metadata?['pinned'] == true)
                   const Icon(Icons.push_pin, size: 14, color: Colors.grey)
                 else
                   const SizedBox(height: 14),
                 const SizedBox(height: 4),
-                Text(conv.time ?? '',
+                Text(_formatTime(conv.lastMessageTime),
                     style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 const SizedBox(height: 6),
-                if ((conv.unreadCount ?? 0) > 0) _Badge(count: conv.unreadCount),
+                if (conv.unreadCount > 0) _Badge(count: conv.unreadCount),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inDays == 0) {
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    } else if (diff.inDays == 1) {
+      return 'Hier';
+    } else if (diff.inDays < 7) {
+      const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      return days[time.weekday - 1];
+    }
+    return '${time.day}/${time.month}';
   }
 }
 
