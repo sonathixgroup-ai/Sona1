@@ -129,17 +129,18 @@ class ChatRepository {
 
   // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
+    // ✅ Utilisation de .count() qui retourne directement un int
     final onlineCount = await _supabase
         .from('thix_presence')
         .select('user_id')
         .eq('status', 'online')
-        .count() ?? 0;
+        .count();
 
     final newMessagesCount = await _supabase
         .from('thix_chat_messages')
         .select('id')
         .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)))
-        .count() ?? 0;
+        .count();
 
     return ChatStats(
       onlineCount: onlineCount,
@@ -199,10 +200,11 @@ class ChatRepository {
         .eq('user_id', userId);
   }
 
-  // ✅ AJOUT DE LA MÉTHODE MANQUANTE
+  // ✅ Méthode de recherche des conversations archivées
   Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
     try {
-      var query = _supabase
+      // Utilisation de dynamic pour éviter les problèmes de type avec or()
+      dynamic query = _supabase
           .from('thix_chat_chats')
           .select('*, participants:user_id(*)')
           .eq('participants.user_id', userId)
@@ -210,13 +212,12 @@ class ChatRepository {
 
       final searchText = filters.query?.trim() ?? '';
       if (searchText.isNotEmpty) {
-        // Recherche sur le titre ou sur les noms des participants (JSONB)
         query = query.or(
             'title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%');
       }
 
-      // Vous pouvez étendre avec d'autres critères selon les besoins
-      // Exemple : if (filters.type != null) query = query.eq('type', filters.type);
+      // Autres filtres possibles
+      // if (filters.type != null) query = query.eq('type', filters.type);
 
       query = query.order('updated_at', ascending: false);
 
