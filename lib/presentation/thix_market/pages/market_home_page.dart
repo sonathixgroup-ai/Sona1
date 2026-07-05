@@ -59,38 +59,68 @@ class _MarketHomePageState extends State<MarketHomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. LIVES EN COURS
+                // 1. LIVES EN COURS (carrousel horizontal compact)
                 _buildLiveSessions(marketProvider.liveSessions),
 
-                // 2. CATÉGORIES
+                // 2. CATÉGORIES (une ligne horizontale)
                 const CategoryGrid(),
 
-                // 3. SUPER PROMO
+                // 3. SUPER PROMO (bannière)
                 _buildSuperPromo(),
 
-                // 4. OFFRES FLASH
+                // 4. OFFRES FLASH (horizontal)
                 _buildFlashSales(marketProvider.flashSales),
 
-                // 5. RECOMMANDÉ POUR VOUS
+                // 5. RECOMMANDÉ POUR VOUS (grille 2 colonnes)
                 _buildRecommendedSection(marketProvider.recommendedProducts),
 
-                // 6. BOUTIQUES MISES EN AVANT
+                // 6. BOUTIQUES MISES EN AVANT (horizontal)
                 _buildFeaturedShops(marketProvider.featuredShops),
 
-                // 7. DÉCOUVRIR PLUS
+                // 7. DÉCOUVRIR PLUS (grille 2 colonnes)
                 _buildForYouSection(marketProvider.forYouProducts),
 
-                const SizedBox(height: 100),
+                const SizedBox(height: 80),
               ],
             ),
           ),
         ],
       ),
+      // ============================================================
+      // BOTTOM NAVIGATION BAR (Footer comme sur le croquis)
+      // ============================================================
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(Icons.home, 'Accueil', 0),
+                _buildNavItem(Icons.category, 'Catégories', 1),
+                _buildNavItem(Icons.shopping_cart, 'Panier', 2),
+                _buildNavItem(Icons.message, 'Messages', 3),
+                _buildNavItem(Icons.person, 'Compte', 4),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   // ============================================================
-  // APP BAR (style Alibaba / Jumia)
+  // APP BAR
   // ============================================================
 
   Widget _buildAppBar(MarketProvider provider) {
@@ -118,7 +148,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
           padding: const EdgeInsets.only(top: 40, left: 16, right: 16),
           child: Column(
             children: [
-              // Logo + Actions
               Row(
                 children: [
                   Image.asset(
@@ -174,7 +203,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 ],
               ),
               const SizedBox(height: 10),
-              // Barre de recherche
               GestureDetector(
                 onTap: () => context.push('/market/search'),
                 child: Container(
@@ -242,7 +270,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 1. LIVES EN COURS
+  // 1. LIVES EN COURS (compact horizontal)
   // ============================================================
 
   Widget _buildLiveSessions(List<dynamic> lives) {
@@ -254,7 +282,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         _sectionTitle('Lives en cours', () => context.push('/market/live')),
         const SizedBox(height: 12),
         SizedBox(
-          height: 240,
+          height: 220,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -264,7 +292,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               return GestureDetector(
                 onTap: () => context.push('/market/live/${live['id']}'),
                 child: Container(
-                  width: 170,
+                  width: 160,
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
@@ -467,7 +495,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 260,
+            height: 250,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -488,7 +516,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 4. RECOMMANDÉ POUR VOUS
+  // 4. RECOMMANDÉ POUR VOUS (grille 2 colonnes)
   // ============================================================
 
   Widget _buildRecommendedSection(List<dynamic> products) {
@@ -558,7 +586,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 6. DÉCOUVRIR PLUS
+  // 6. DÉCOUVRIR PLUS (grille 2 colonnes)
   // ============================================================
 
   Widget _buildForYouSection(List<dynamic> products) {
@@ -610,6 +638,54 @@ class _MarketHomePageState extends State<MarketHomePage> {
             child: const Text(
               'Voir tout',
               style: TextStyle(color: Color(0xFFE5592F), fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BOTTOM NAV ITEM
+  // ============================================================
+
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    final bool isSelected = index == 0; // Simuler la sélection (Accueil actif)
+    return InkWell(
+      onTap: () {
+        // Navigation vers les pages correspondantes
+        switch (index) {
+          case 0:
+            // Déjà sur l'accueil
+            break;
+          case 1:
+            context.push('/market/search');
+            break;
+          case 2:
+            context.push('/market/cart');
+            break;
+          case 3:
+            context.push('/market/messages');
+            break;
+          case 4:
+            context.push('/market/activity');
+            break;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? secondaryColor : Colors.grey,
+            size: 24,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: isSelected ? secondaryColor : Colors.grey,
             ),
           ),
         ],
