@@ -24,6 +24,8 @@ import 'presentation/chat/thix_chat_page.dart';
 import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart';
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
+
+// ---- RÉSEAU PRO (tous les imports) ----
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
 import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
@@ -31,10 +33,18 @@ import 'package:thix_id/presentation/network/messages/conversations_list.dart';
 import 'package:thix_id/presentation/network/messages/chat_screen.dart';
 import 'package:thix_id/presentation/network/connections_list_page.dart';
 import 'package:thix_id/presentation/network/community_detail_page.dart';
+import 'package:thix_id/presentation/network/communities_list_page.dart';
+import 'package:thix_id/presentation/network/create_community_page.dart';
 import 'package:thix_id/presentation/network/post_detail_page.dart';
 import 'package:thix_id/presentation/network/profile_page.dart';
 import 'package:thix_id/presentation/network/profile_settings_page.dart';
 import 'package:thix_id/presentation/network/blocked_users_page.dart';
+import 'package:thix_id/presentation/network/discover_tab.dart';
+import 'package:thix_id/presentation/network/story_viewer_screen.dart';
+import 'package:thix_id/presentation/network/comments_page.dart';
+import 'package:thix_id/presentation/network/hashtag_page.dart';
+
+// ---- AUTRES MODULES ----
 import 'presentation/jobs/jobs_page.dart';
 import 'package:thix_id/presentation/jobs/job_apply_page.dart';
 import 'package:thix_id/presentation/jobs/job_details_page.dart';
@@ -51,8 +61,7 @@ import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 
-// ==================== THIX MARKET (révision) ====================
-// Remplace l'import de thix_market_page.dart par market_home_page.dart
+// THIX Market
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
 
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
@@ -65,11 +74,11 @@ import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
 import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 
 // Module Santé
-import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart'; 
+import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart';
 import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 
-// ---- Import patient avec alias pour éviter conflit ----
+// ---- Patient ----
 import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart' as patientDash;
 import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
@@ -110,13 +119,12 @@ import 'package:thix_id/presentation/thix_sante/patient/details/patient_medicati
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_vaccination_calendar_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_pharmacy_detail_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleconsultation_jitsi_page.dart';
-// ---- AJOUT DES IMPORTS MANQUANTS ----
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_teleconsultation_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_health_score_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_insurance_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/details/patient_record_page.dart';
 
-// ---- Import doctor ----
+// ---- Doctor ----
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_dashboard_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/doctor_consult_page.dart';
@@ -140,7 +148,7 @@ import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_offline_pa
 import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_photo_capture_page.dart';
 import 'package:thix_id/presentation/thix_sante/doctor/details/doctor_new_message_page.dart';
 
-// ---- Import pharmacie ----
+// ---- Pharmacy ----
 import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_dashboard_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_orders_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/pharmacy_inventory_page.dart';
@@ -153,7 +161,6 @@ import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_invent
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_stock_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_report_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_page.dart';
-// ---- Import des pages produits (si nécessaires) ----
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_products_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_product_detail_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_cart_page.dart';
@@ -449,7 +456,7 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(child: SettingsPage()),
         ),
 
-        // ---- Réseau ----
+        // ---- RÉSEAU PRO ----
         GoRoute(
           path: AppRoutes.network,
           name: 'network',
@@ -506,13 +513,21 @@ class AppRouter {
           name: 'networkBlockedUsers',
           pageBuilder: (context, state) => NoTransitionPage(child: BlockedUsersPage()),
         ),
+        // ---- Nouveautés Réseau Pro ----
         GoRoute(
-          path: '${AppRoutes.networkPostBasePath}/:postId',
-          name: 'networkPostDetail',
-          pageBuilder: (context, state) {
-            final postId = (state.pathParameters['postId'] ?? '').trim();
-            return NoTransitionPage(child: PostDetailPage(postId: postId));
-          },
+          path: '/network/discover',
+          name: 'networkDiscover',
+          pageBuilder: (context, state) => NoTransitionPage(child: DiscoverTab()),
+        ),
+        GoRoute(
+          path: '/network/communities',
+          name: 'networkCommunities',
+          pageBuilder: (context, state) => NoTransitionPage(child: CommunitiesListPage()),
+        ),
+        GoRoute(
+          path: '/network/community/create',
+          name: 'networkCommunityCreate',
+          pageBuilder: (context, state) => NoTransitionPage(child: CreateCommunityPage()),
         ),
         GoRoute(
           path: '${AppRoutes.networkCommunityBasePath}/:communityId',
@@ -520,6 +535,39 @@ class AppRouter {
           pageBuilder: (context, state) {
             final communityId = (state.pathParameters['communityId'] ?? '').trim();
             return NoTransitionPage(child: CommunityDetailPage(communityId: communityId));
+          },
+        ),
+        GoRoute(
+          path: '/network/story/:storyId',
+          name: 'networkStoryViewer',
+          pageBuilder: (context, state) {
+            final storyId = (state.pathParameters['storyId'] ?? '').trim();
+            return NoTransitionPage(child: StoryViewerScreen(storyId: storyId));
+          },
+        ),
+        GoRoute(
+          path: '/network/comments/:postId',
+          name: 'networkComments',
+          pageBuilder: (context, state) {
+            final postId = (state.pathParameters['postId'] ?? '').trim();
+            return NoTransitionPage(child: CommentsPage(postId: postId));
+          },
+        ),
+        GoRoute(
+          path: '/network/hashtag/:tag',
+          name: 'networkHashtag',
+          pageBuilder: (context, state) {
+            final tag = (state.pathParameters['tag'] ?? '').trim();
+            return NoTransitionPage(child: HashtagPage(tag: tag));
+          },
+        ),
+        // ---- Fin nouveautés ----
+        GoRoute(
+          path: '${AppRoutes.networkPostBasePath}/:postId',
+          name: 'networkPostDetail',
+          pageBuilder: (context, state) {
+            final postId = (state.pathParameters['postId'] ?? '').trim();
+            return NoTransitionPage(child: PostDetailPage(postId: postId));
           },
         ),
         GoRoute(
@@ -591,8 +639,7 @@ class AppRouter {
           name: 'patientConnect',
           pageBuilder: (context, state) => NoTransitionPage(child: PatientConnectPage()),
         ),
-
-        // ---- Sous-routes patient (détails) ----
+        // ... toutes les sous-routes patient (la liste est très longue, je les ai toutes gardées)
         GoRoute(
           path: '/sante/patient/appointments',
           name: 'patientAppointmentsList',
@@ -652,7 +699,6 @@ class AppRouter {
           name: 'patientScan',
           pageBuilder: (context, state) => NoTransitionPage(child: PatientScanPage()),
         ),
-        // Téléconsultation – correction des doublons (les deux routes pointent vers la même page)
         GoRoute(
           path: '/sante/patient/teleconsultation/:id',
           name: 'patientTeleconsultation',
@@ -693,7 +739,7 @@ class AppRouter {
         GoRoute(
           path: '/sante/patient/insurance',
           name: 'patientInsurance',
-          pageBuilder: (context, state) => NoTransitionPage(child: PatientInsurancePage()), // corrigé la casse
+          pageBuilder: (context, state) => NoTransitionPage(child: PatientInsurancePage()),
         ),
         GoRoute(
           path: '/sante/patient/record',
@@ -1077,20 +1123,19 @@ class AppRouter {
           name: 'doctorTerrainPhoto',
           pageBuilder: (context, state) => NoTransitionPage(child: DoctorPhotoCapturePage()),
         ),
-        // Chat médecin – correction chatId
         GoRoute(
           path: '/sante/doctor/messages/:id',
           name: 'doctorChat',
           pageBuilder: (context, state) {
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
-            return NoTransitionPage(child: DoctorChatPage(chatId: id, participantName: name)); // chatId corrigé
+            return NoTransitionPage(child: DoctorChatPage(chatId: id, participantName: name));
           },
         ),
         GoRoute(
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
-          pageBuilder: (context, state) => NoTransitionPage(child: DoctorChatPage(chatId: '')), // chatId
+          pageBuilder: (context, state) => NoTransitionPage(child: DoctorChatPage(chatId: '')),
         ),
         GoRoute(
           path: '/sante/doctor/alerts',
@@ -1181,20 +1226,19 @@ class AppRouter {
           name: 'pharmacyReport',
           pageBuilder: (context, state) => NoTransitionPage(child: PharmacyReportPage()),
         ),
-        // Chat pharmacie – correction chatId
         GoRoute(
           path: '/sante/pharmacy/chat/:id',
           name: 'pharmacyChat',
           pageBuilder: (context, state) {
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
-            return NoTransitionPage(child: PharmacyChatPage(chatId: id, participantName: name)); // chatId
+            return NoTransitionPage(child: PharmacyChatPage(chatId: id, participantName: name));
           },
         ),
         GoRoute(
           path: '/sante/pharmacy/chat/new',
           name: 'pharmacyChatNew',
-          pageBuilder: (context, state) => NoTransitionPage(child: PharmacyChatPage(chatId: '')), // chatId
+          pageBuilder: (context, state) => NoTransitionPage(child: PharmacyChatPage(chatId: '')),
         ),
 
         // ---- THIX Money, Media, Info, Reservation ----
