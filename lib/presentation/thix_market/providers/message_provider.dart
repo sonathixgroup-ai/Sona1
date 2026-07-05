@@ -167,7 +167,7 @@ class MessageProvider extends ChangeNotifier {
   }
 
   void setTyping(String conversationId, bool isTyping) {
-    // ✅ Correction : sendBroadcastMessage évite de dépendre de RealtimeListenTypes
+    // ✅ sendBroadcastMessage évite de dépendre de RealtimeListenTypes
     _supabase.channel(conversationId).sendBroadcastMessage(
       event: 'typing',
       payload: {
