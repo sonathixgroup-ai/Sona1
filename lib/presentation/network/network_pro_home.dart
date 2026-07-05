@@ -11,7 +11,7 @@ import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'widgets/create_post_dialog.dart';
 import 'widgets/create_story_dialog.dart';
-import 'widgets/post_card.dart';
+import 'widgets/post_card.dart';    // ✅ Utilise la version corrigée
 import 'widgets/short_card.dart';
 
 // ─── COULEURS THIX PRO ───
@@ -28,7 +28,6 @@ class ThixColors {
   static const Color shadow = Color(0x0F000000);
 }
 
-// ─── PAGE PRINCIPALE ───
 class NetworkProHome extends StatefulWidget {
   const NetworkProHome({super.key});
 
