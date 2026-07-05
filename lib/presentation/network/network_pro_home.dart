@@ -443,7 +443,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
               child: const Icon(Icons.add, color: primaryBlue),
             ),
             const SizedBox(height: 8),
-            const Text('Ma Story', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            Text('Ma Story', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -905,7 +905,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // --- Suggestions (corrigée : remplacement de headline) ---
+  // --- Suggestions (corrigée) ---
   Widget _buildSuggestionsSection() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -924,8 +924,8 @@ class _NetworkProHomeState extends State<NetworkProHome>
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final user = _suggestions[index];
-              // Utiliser un champ existant (bio, title, ou fallback)
-              final subtitle = user.bio ?? user.title ?? '';
+              // ✅ Utilisation de user.title au lieu de user.bio (inexistant)
+              final subtitle = user.title ?? '';
               return ListTile(
                 leading: CircleAvatar(
                   backgroundImage:
