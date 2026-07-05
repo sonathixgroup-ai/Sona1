@@ -141,7 +141,7 @@ class _CommunitiesListPageState extends State<CommunitiesListPage> with SingleTi
           Text(
             _error!,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600), // ✅ correction : sans 'const'
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -169,7 +169,7 @@ class _CommunitiesListPageState extends State<CommunitiesListPage> with SingleTi
             const SizedBox(height: 16),
             Text(
               emptyMessage,
-              style: const TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600), // ✅ correction : sans 'const'
               textAlign: TextAlign.center,
             ),
             if (_tabController.index == 1) // Suggestions
