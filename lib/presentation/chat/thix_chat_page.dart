@@ -1,5 +1,5 @@
 // lib/presentation/chat/thix_chat_page.dart
-// Page d'accueil du module THIX Chat – données réelles et navigation complète
+// Page d'accueil du module THIX Chat – DONNÉES RÉELLES
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -72,7 +72,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    _buildHeader(context),
+                    _buildHeader(context, state),
                     _buildSearchBar(context),
                     _buildStatsCard(state, context),
                     _buildOnlineSection(state, context),
@@ -111,12 +111,17 @@ class _ThixChatPageState extends State<ThixChatPage> {
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNav(context),
+      bottomNavigationBar: _buildBottomNav(context, state),
     );
   }
 
-  // ---------- HEADER ----------
-  Widget _buildHeader(BuildContext context) {
+  // ---------- HEADER (avec données réelles) ----------
+  Widget _buildHeader(BuildContext context, ConversationsLoaded state) {
+    // ✅ Récupération des vraies données utilisateur
+    final user = Supabase.instance.client.auth.currentUser;
+    final avatarUrl = user?.userMetadata?['avatar_url'] as String? ?? '';
+    final displayName = user?.userMetadata?['display_name'] as String? ?? 'Profil';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Row(
@@ -163,11 +168,13 @@ class _ThixChatPageState extends State<ThixChatPage> {
                 icon: const Icon(Icons.notifications_none, color: _navy, size: 26),
                 onPressed: () => context.push('/chat/notifications'),
               ),
-              Positioned(
-                right: 6,
-                top: 6,
-                child: _Badge(count: 3), // ⚠️ à remplacer par le vrai compteur
-              ),
+              // ✅ Badge réel : nombre de nouveaux messages
+              if (state.stats.newMessagesCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: _Badge(count: state.stats.newMessagesCount),
+                ),
             ],
           ),
           GestureDetector(
@@ -175,11 +182,11 @@ class _ThixChatPageState extends State<ThixChatPage> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 22,
-                  backgroundImage: NetworkImage(
-                    'https://example.com/avatar_current_user.jpg', // à remplacer par vraie image
-                  ),
+                  backgroundImage: avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : const AssetImage('assets/default_avatar.png') as ImageProvider,
                 ),
                 Positioned(
                   right: 0,
@@ -269,10 +276,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
               iconColor: _blue,
               value: '${stats.newMessagesCount}',
               label: 'Nouveaux\nmessages',
-              onTap: () {
-                // scroll en haut ou filtrer les messages non lus
-                // ici on peut simplement rester sur la page
-              },
+              onTap: () {},
             ),
             _StatItem(
               icon: Icons.videocam_rounded,
@@ -440,8 +444,13 @@ class _ThixChatPageState extends State<ThixChatPage> {
     );
   }
 
-  // ---------- BOTTOM NAV ----------
-  Widget _buildBottomNav(BuildContext context) {
+  // ---------- BOTTOM NAV (avec badge réel) ----------
+  Widget _buildBottomNav(BuildContext context, ChatState state) {
+    int unreadCount = 0;
+    if (state is ConversationsLoaded) {
+      unreadCount = state.stats.newMessagesCount;
+    }
+
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
@@ -461,11 +470,12 @@ class _ThixChatPageState extends State<ThixChatPage> {
           _NavItem(
             icon: Icons.chat_bubble_outline,
             label: 'Chats',
-            badgeCount: 8, // à remplacer par vrai compteur
+            // ✅ Badge réel : nombre de messages non lus
+            badgeCount: unreadCount > 0 ? unreadCount : null,
             isSelected: _bottomNavIndex == 1,
             onTap: () {
               setState(() => _bottomNavIndex = 1);
-              // on est déjà sur /chat
+              // déjà sur la page
             },
           ),
           const SizedBox(width: 40),
