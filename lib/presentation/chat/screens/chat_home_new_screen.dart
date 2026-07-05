@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/chat_home_provider.dart';
+import '../providers/chat_home_provider.dart';  // ✅ Import des classes ChatUser et Conversation
 
 class ChatHomeNewScreen extends StatefulWidget {
   const ChatHomeNewScreen({super.key});
@@ -276,7 +276,7 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Online users
+                // Online users – type ChatUser vient de l'import
                 ...provider.onlineUsers.map((user) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -291,6 +291,7 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
     );
   }
 
+  // ✅ Utilise le type ChatUser importé
   Widget _buildUserAvatar(ChatUser user) {
     return GestureDetector(
       onTap: () {},
@@ -430,6 +431,7 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
     );
   }
 
+  // ✅ Utilise le type Conversation importé
   Widget _buildConversationTile(Conversation conversation, ChatHomeProvider provider) {
     return GestureDetector(
       onTap: () {
@@ -571,39 +573,4 @@ class _ChatHomeNewScreenState extends State<ChatHomeNewScreen> {
       return DateFormat('dd/MM').format(dateTime);
     }
   }
-}
-
-// Export pour utilisation facile
-class ChatUser {
-  final String id;
-  final String name;
-  final String avatar;
-  final bool isOnline;
-
-  ChatUser({
-    required this.id,
-    required this.name,
-    required this.avatar,
-    required this.isOnline,
-  });
-}
-
-class Conversation {
-  final String id;
-  final String name;
-  final String lastMessage;
-  final String avatar;
-  final DateTime lastMessageTime;
-  final int unreadCount;
-  final bool isGroup;
-
-  Conversation({
-    required this.id,
-    required this.name,
-    required this.lastMessage,
-    required this.avatar,
-    required this.lastMessageTime,
-    required this.unreadCount,
-    required this.isGroup,
-  });
 }
