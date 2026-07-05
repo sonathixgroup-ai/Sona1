@@ -1,91 +1,74 @@
+// lib/presentation/thix_market/widgets/market/category_grid.dart
 import 'package:flutter/material.dart';
 
 class CategoryGrid extends StatelessWidget {
-  final Function(String)? onCategoryTap;
-  
-  const CategoryGrid({super.key, this.onCategoryTap});
+  const CategoryGrid({super.key});
+
+  final List<Map<String, dynamic>> categories = const [
+    {'icon': Icons.checkroom, 'name': 'Mode', 'color': 0xFFE5592F},
+    {'icon': Icons.phone_android, 'name': 'Électronique', 'color': 0xFF2196F3},
+    {'icon': Icons.home, 'name': 'Maison & Jardin', 'color': 0xFF4CAF50},
+    {'icon': Icons.build, 'name': 'Services', 'color': 0xFFFF9800},
+    {'icon': Icons.directions_car, 'name': 'Véhicules', 'color': 0xFF9C27B0},
+    {'icon': Icons.house, 'name': 'Immobilier', 'color': 0xFF795548},
+    {'icon': Icons.sports_soccer, 'name': 'Sport & Loisirs', 'color': 0xFF00BCD4},
+    {'icon': Icons.spa, 'name': 'Beauté & Bien-être', 'color': 0xFFE91E63},
+    {'icon': Icons.child_care, 'name': 'Enfants & Bébés', 'color': 0xFFFF6B35},
+    {'icon': Icons.pets, 'name': 'Animaux', 'color': 0xFF8BC34A},
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final categories = [
-      {'icon': Icons.checkroom, 'name': 'Mode', 'color': 0xFFE5592F},
-      {'icon': Icons.phone_android, 'name': 'Électronique', 'color': 0xFF2196F3},
-      {'icon': Icons.home, 'name': 'Maison', 'color': 0xFF4CAF50},
-      {'icon': Icons.build, 'name': 'Services', 'color': 0xFFFF9800},
-      {'icon': Icons.directions_car, 'name': 'Véhicules', 'color': 0xFF9C27B0},
-      {'icon': Icons.house, 'name': 'Immobilier', 'color': 0xFF795548},
-      {'icon': Icons.sports_soccer, 'name': 'Sport', 'color': 0xFF00BCD4},
-      {'icon': Icons.spa, 'name': 'Beauté', 'color': 0xFFE91E63},
-      {'icon': Icons.child_care, 'name': 'Enfants', 'color': 0xFFFF6B35},
-      {'icon': Icons.pets, 'name': 'Animaux', 'color': 0xFF8BC34A},
-    ];
-
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Catégories',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      height: 95,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          return GestureDetector(
+            onTap: () {
+              // Navigation vers la catégorie (à implémenter)
+            },
+            child: Container(
+              width: 68,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(cat['color']).withOpacity(0.15),
+                          Color(cat['color']).withOpacity(0.05),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      cat['icon'],
+                      color: Color(cat['color']),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    cat['name'],
+                    style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            crossAxisCount: 5,
-            childAspectRatio: 0.9,
-            children: categories.map((category) {
-              return _buildCategoryItem(
-                icon: category['icon'] as IconData,
-                name: category['name'] as String,
-                color: Color(category['color'] as int),
-                onTap: () => onCategoryTap?.call(category['name'] as String),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryItem({
-    required IconData icon,
-    required String name,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [color.withOpacity(0.8), color],
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: Colors.white, size: 28),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            name,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          );
+        },
       ),
     );
   }
