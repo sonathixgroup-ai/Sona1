@@ -39,8 +39,6 @@ class _ThixChatPageState extends State<ThixChatPage> {
     if (user != null) {
       _chatBloc.add(LoadConversations());
     } else {
-      // Si non connecté, on pourrait rediriger vers la page de connexion
-      // mais normalement l'accès à cette page est protégé.
       debugPrint('⚠️ ThixChatPage: utilisateur non authentifié');
     }
   }
@@ -107,6 +105,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
       bottomNavigationBar: _buildBottomNav(context),
     );
   }
+
   // ---------- HEADER ----------
   Widget _buildHeader(BuildContext context) {
     return Padding(
@@ -352,12 +351,11 @@ class _ThixChatPageState extends State<ThixChatPage> {
   // ---------- TABS ----------
   Widget _buildTabs(ConversationsLoaded state) {
     final tabs = [
-      _TabData('Tous', Icons.chat_bubble_outline, ChatFilter.all),
-      _TabData('Équipes', Icons.groups_outlined, ChatFilter.teams),
-      _TabData('Appels', Icons.call_outlined, ChatFilter.calls),
-      _TabData('Favoris', Icons.star_border, ChatFilter.favorites),
-      _TabData('Rendez-vous', Icons.calendar_today_outlined,
-          ChatFilter.appointments),
+      _TabData('Tous', Icons.chat_bubble_outline, 'Tous'),
+      _TabData('Équipes', Icons.groups_outlined, 'Équipes'),
+      _TabData('Appels', Icons.call_outlined, 'Appels'),
+      _TabData('Favoris', Icons.star_border, 'Favoris'),
+      _TabData('Rendez-vous', Icons.calendar_today_outlined, 'Rendez-vous'),
     ];
 
     return Container(
@@ -606,7 +604,7 @@ class _StoryAvatar extends StatelessWidget {
 class _TabData {
   final String label;
   final IconData icon;
-  final ChatFilter filter;
+  final String filter;  // ✅ type String
   _TabData(this.label, this.icon, this.filter);
 }
 
