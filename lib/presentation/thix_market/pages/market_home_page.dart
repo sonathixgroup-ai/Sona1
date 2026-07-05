@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/market_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
@@ -49,181 +49,18 @@ class _MarketHomePageState extends State<MarketHomePage> {
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          // ================================
-          // APP BAR (style Alibaba)
-          // ================================
-          SliverAppBar(
-            expandedHeight: 120,
-            floating: true,
-            pinned: true,
-            backgroundColor: Colors.white,
-            elevation: _isAppBarExpanded ? 0 : 1,
-            title: AnimatedOpacity(
-              opacity: _isAppBarExpanded ? 0 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: const Text(
-                'THIX Market',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE5592F),
-                ),
-              ),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.only(top: 40, left: 16, right: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Logo + Actions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Image.asset(
-                          'assets/images/thix_logo.png',
-                          height: 40,
-                          errorBuilder: (_, __, ___) => const Text(
-                            'THIX',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFE5592F),
-                            ),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            // 📷 QR Code Scanner
-                            IconButton(
-                              icon: const Icon(Icons.qr_code_scanner),
-                              onPressed: () => _scanQRCode(),
-                              color: Colors.grey[700],
-                            ),
-                            // 🔔 Notifications
-                            Stack(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.notifications_outlined),
-                                  onPressed: () => _gotoNotifications(),
-                                  color: Colors.grey[700],
-                                ),
-                                if (marketProvider.unreadNotifications > 0)
-                                  Positioned(
-                                    right: 8,
-                                    top: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 16,
-                                        minHeight: 16,
-                                      ),
-                                      child: Text(
-                                        '${marketProvider.unreadNotifications}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            // 🏪 MODE VENDEUR (NOUVEAU)
-                            IconButton(
-                              icon: const Icon(Icons.storefront_outlined),
-                              onPressed: () => _toggleSellerMode(),
-                              color: Colors.grey[700],
-                              tooltip: 'Mode Vendeur',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Barre de recherche
-                    GestureDetector(
-                      onTap: () => _gotoSearch(),
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 16),
-                            Icon(Icons.search, color: Colors.grey[400]),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Rechercher des produits...',
-                              style: TextStyle(color: Colors.grey[400]),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE5592F),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'Scanner',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // ================================
-          // CONTENU PRINCIPAL
-          // ================================
+          _buildAppBar(marketProvider),
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. LIVES EN COURS
                 _buildLiveSessions(marketProvider.liveSessions),
-
-                // 2. CATÉGORIES (une ligne horizontale)
                 const CategoryGrid(),
-
-                // 3. BANNIÈRES PROMOTIONNELLES
                 _buildPromoBanners(marketProvider.promoBanners),
-
-                // 4. OFFRES FLASH
                 _buildFlashSales(marketProvider.flashSales),
-
-                // 5. PRODUITS RECOMMANDÉS
                 _buildRecommendedSection(marketProvider.recommendedProducts),
-
-                // 6. BOUTIQUES MISES EN AVANT
                 _buildFeaturedShops(marketProvider.featuredShops),
-
-                // 7. POUR VOUS
                 _buildForYouSection(marketProvider.forYouProducts),
-
                 const SizedBox(height: 100),
               ],
             ),
@@ -234,9 +71,152 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // WIDGETS
+  // APP BAR
   // ============================================================
+  Widget _buildAppBar(MarketProvider provider) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: true,
+      pinned: true,
+      backgroundColor: Colors.white,
+      elevation: _isAppBarExpanded ? 0 : 1,
+      title: AnimatedOpacity(
+        opacity: _isAppBarExpanded ? 0 : 1,
+        duration: const Duration(milliseconds: 200),
+        child: const Text(
+          'THIX Market',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFE5592F),
+          ),
+        ),
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          color: Colors.white,
+          padding: const EdgeInsets.only(top: 40, left: 16, right: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Image.asset(
+                    'assets/images/thix_logo.png',
+                    height: 40,
+                    errorBuilder: (_, __, ___) => const Text(
+                      'THIX',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE5592F),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        onPressed: () => context.push('/scan-qr'),
+                        color: Colors.grey[700],
+                      ),
+                      Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined),
+                            onPressed: () => context.push('/market/notifications'),
+                            color: Colors.grey[700],
+                          ),
+                          if (provider.unreadNotifications > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${provider.unreadNotifications}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.storefront_outlined),
+                        onPressed: () => context.push('/market/sell'),
+                        color: Colors.grey[700],
+                        tooltip: 'Mode Vendeur',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => context.push('/market/search'),
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      Icon(Icons.search, color: Colors.grey[400]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Rechercher des produits...',
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5592F),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Scanner',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
+  // ============================================================
+  // 1. LIVES EN COURS
+  // ============================================================
   Widget _buildLiveSessions(List<dynamic> lives) {
     if (lives.isEmpty) return const SizedBox(height: 8);
     return Container(
@@ -271,7 +251,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   ],
                 ),
                 TextButton(
-                  onPressed: () => _gotoAllLives(),
+                  onPressed: () => context.push('/market/live'),
                   child: const Text(
                     'Voir tout',
                     style: TextStyle(color: Color(0xFFE5592F)),
@@ -289,100 +269,103 @@ class _MarketHomePageState extends State<MarketHomePage> {
               itemCount: lives.length,
               itemBuilder: (context, index) {
                 final live = lives[index];
-                return Container(
-                  width: 180,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: CachedNetworkImage(
-                              imageUrl: live['thumbnail'] ?? '',
-                              height: 160,
-                              width: 180,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
-                                color: Colors.grey[200],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            left: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(
-                                    Icons.fiber_manual_record,
-                                    color: Colors.white,
-                                    size: 10,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'LIVE',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 8,
-                            left: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${live['viewers'] ?? 0} vues',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
+                return GestureDetector(
+                  onTap: () => context.push('/market/live/${live['id']}'),
+                  child: Container(
+                    width: 180,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: CachedNetworkImage(
+                                imageUrl: live['thumbnail'] ?? '',
+                                height: 160,
+                                width: 180,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(
+                                  color: Colors.grey[200],
                                 ),
                               ),
                             ),
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(
+                                      Icons.fiber_manual_record,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'LIVE',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${live['viewers'] ?? 0} vues',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          live['title'] ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        live['title'] ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13,
                         ),
-                      ),
-                      Text(
-                        live['shop_name'] ?? '',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                        Text(
+                          live['shop_name'] ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
@@ -393,6 +376,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 2. BANNIÈRES PROMOTIONNELLES
+  // ============================================================
   Widget _buildPromoBanners(List<dynamic> banners) {
     if (banners.isEmpty) return const SizedBox(height: 8);
     return Padding(
@@ -410,7 +396,11 @@ class _MarketHomePageState extends State<MarketHomePage> {
           return Builder(
             builder: (BuildContext context) {
               return GestureDetector(
-                onTap: () => _gotoPromoLink(banner['link'] ?? ''),
+                onTap: () {
+                  if (banner['link'] != null && banner['link'].isNotEmpty) {
+                    context.push(banner['link']);
+                  }
+                },
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
@@ -464,6 +454,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 3. OFFRES FLASH
+  // ============================================================
   Widget _buildFlashSales(List<dynamic> flashSales) {
     if (flashSales.isEmpty) return const SizedBox(height: 8);
     return Container(
@@ -521,7 +514,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 return ProductCard(
                   product: product,
                   isFlashSale: true,
-                  onTap: (_) => _gotoProductDetail(product['id']),
+                  onTap: (prod) => context.push('/market/product/${prod['id']}'),
                 );
               },
             ),
@@ -531,6 +524,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 4. PRODUITS RECOMMANDÉS
+  // ============================================================
   Widget _buildRecommendedSection(List<dynamic> products) {
     if (products.isEmpty) return const SizedBox(height: 8);
     return Container(
@@ -551,7 +547,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _gotoRecommended(),
+                  onPressed: () => context.push('/market/recommended'),
                   child: const Text(
                     'Voir tout',
                     style: TextStyle(color: Color(0xFFE5592F)),
@@ -576,7 +572,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               final product = products[index];
               return ProductCard(
                 product: product,
-                onTap: (_) => _gotoProductDetail(product['id']),
+                onTap: (prod) => context.push('/market/product/${prod['id']}'),
               );
             },
           ),
@@ -585,6 +581,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 5. BOUTIQUES MISES EN AVANT
+  // ============================================================
   Widget _buildFeaturedShops(List<dynamic> shops) {
     if (shops.isEmpty) return const SizedBox(height: 8);
     return Container(
@@ -605,7 +604,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _gotoAllShops(),
+                  onPressed: () => context.push('/market/shops'),
                   child: const Text(
                     'Voir tout',
                     style: TextStyle(color: Color(0xFFE5592F)),
@@ -625,7 +624,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 final shop = shops[index];
                 return ShopCard(
                   shop: shop,
-                  onTap: () => _gotoShop(shop['id']),
+                  onTap: () => context.push('/market/shop/${shop['id']}'),
                 );
               },
             ),
@@ -635,6 +634,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // 6. POUR VOUS (Découvrir plus)
+  // ============================================================
   Widget _buildForYouSection(List<dynamic> products) {
     if (products.isEmpty) return const SizedBox(height: 8);
     return Container(
@@ -668,32 +670,12 @@ class _MarketHomePageState extends State<MarketHomePage> {
               final product = products[index];
               return ProductCard(
                 product: product,
-                onTap: (_) => _gotoProductDetail(product['id']),
+                onTap: (prod) => context.push('/market/product/${prod['id']}'),
               );
             },
           ),
         ],
       ),
     );
-  }
-
-  // ============================================================
-  // NAVIGATION
-  // ============================================================
-  
-  void _scanQRCode() => Navigator.pushNamed(context, '/scan-qr');
-  void _gotoNotifications() => Navigator.pushNamed(context, '/notifications');
-  void _gotoSearch() => Navigator.pushNamed(context, '/search');
-  void _gotoAllLives() => Navigator.pushNamed(context, '/lives');
-  void _gotoProductDetail(String id) => Navigator.pushNamed(context, '/product/$id');
-  void _gotoPromoLink(String link) => debugPrint('Promo link: $link');
-  void _gotoRecommended() => Navigator.pushNamed(context, '/recommended');
-  void _gotoAllShops() => Navigator.pushNamed(context, '/shops');
-  void _gotoShop(String id) => Navigator.pushNamed(context, '/shop/$id');
-  
-  // 🏪 MODE VENDEUR
-  void _toggleSellerMode() {
-    // Redirige vers la page de vente / création de boutique
-    Navigator.pushNamed(context, '/sell');
   }
 }
