@@ -1,3 +1,4 @@
+import 'dart:convert';  // ✅ ajout nécessaire pour jsonDecode
 import 'package:equatable/equatable.dart';
 import 'chat_constants.dart';
 
@@ -29,33 +30,26 @@ class Conversation extends Equatable {
     this.metadata,
   });
 
-  // ✅ Adapté aux colonnes réelles de la table thix_chat_chats
   factory Conversation.fromJson(Map<String, dynamic> json) {
-    // participants est un JSONB : soit une liste d'IDs, soit un tableau
     List<String> participants = [];
     final rawParticipants = json['participants'];
     if (rawParticipants is List) {
       participants = rawParticipants.map((e) => e.toString()).toList();
     } else if (rawParticipants is String) {
-      // si c'est une chaîne JSON, on peut la parser
       try {
-        final list = jsonDecode(rawParticipants) as List;
+        final list = jsonDecode(rawParticipants) as List;  // ✅ maintenant défini
         participants = list.map((e) => e.toString()).toList();
       } catch (_) {}
     }
 
-    // participant_name est un JSONB : map userId -> displayName
     Map<String, String> participantNames = {};
     final rawNames = json['participant_name'];
     if (rawNames is Map) {
       participantNames = Map<String, String>.from(rawNames.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')));
     }
 
-    // Déterminer le nom : si title non vide, utiliser title ; sinon dériver des participants
     String name = (json['title']?.toString() ?? '').trim();
     if (name.isEmpty) {
-      // On prend les noms des participants (autre que l'utilisateur courant)
-      // mais ici on ne connaît pas l'userId courant, on prend le premier nom trouvé
       final names = participantNames.values.where((n) => n.isNotEmpty).toList();
       if (names.isNotEmpty) {
         name = names.join(', ');
@@ -107,7 +101,7 @@ class Conversation extends Equatable {
   List<Object?> get props => [id, name, lastMessageTime, unreadCount];
 }
 
-// ---------- Message (inchangé) ----------
+// ---------- Message ----------
 class Message extends Equatable {
   final String id;
   final String conversationId;
@@ -191,5 +185,43 @@ class Message extends Equatable {
   List<Object?> get props => [id, conversationId, sentAt];
 }
 
-// ---------- Les autres classes (Story, ChatStats, etc.) inchangées ----------
-// ... (vous gardez vos définitions existantes)
+// ---------- Story ----------
+class Story {
+  final String id;
+  final String name;
+  final String? avatarUrl;
+  final bool hasNewStory;
+
+  const Story({required this.id, required this.name, this.avatarUrl, this.hasNewStory = false});
+
+  factory Story.fromJson(Map<String, dynamic> json) {
+    return Story(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['display_name']?.toString() ?? 'Utilisateur',
+      avatarUrl: json['avatar_url']?.toString(),
+      hasNewStory: json['has_new_story'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'avatar_url': avatarUrl,
+    'has_new_story': hasNewStory,
+  };
+}
+
+// ---------- ChatStats ----------
+class ChatStats {
+  final int onlineCount;
+  final int newMessagesCount;
+  final int activeMeetingsCount;
+  final int securityAlertsCount;
+
+  const ChatStats({
+    this.onlineCount = 0,
+    this.newMessagesCount = 0,
+    this.activeMeetingsCount = 0,
+    this.securityAlertsCount = 0,
+  });
+}
