@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+
 import 'package:thix_id/models/network_community.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/presentation/network/widgets/post_card.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class CommunityDetailPage extends StatefulWidget {
   final String communityId;
@@ -117,7 +120,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
       setState(() {
         _community = NetworkCommunity.fromJson({
           ...communityData,
-          'members_count': _isMember ? (communityData['members_count'] ?? 0) : (communityData['members_count'] ?? 0),
+          'members_count': communityData['members_count'] ?? 0,
         });
         _members = (membersData as List)
             .map((e) => e['users'] as Map<String, dynamic>)
@@ -162,7 +165,6 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
             .eq('community_id', widget.communityId)
             .eq('user_id', currentUserId);
 
-        // Mettre à jour le compteur localement
         setState(() {
           _community = _community?.copyWith(
             membersCount: (_community?.membersCount ?? 1) - 1,
@@ -214,6 +216,9 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthController>(context);
+    final currentUserId = auth.currentUser?.id ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -285,7 +290,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildAboutTab(),
+                        _buildAboutTab(currentUserId),
                         _buildMembersTab(),
                       ],
                     ),
@@ -359,7 +364,8 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
     );
   }
 
-  Widget _buildAboutTab() {
+  // ─── ONGLET "À PROPOS" ───
+  Widget _buildAboutTab(String currentUserId) {
     return RefreshIndicator(
       onRefresh: _loadData,
       color: const Color(0xFFD4AF37),
@@ -428,7 +434,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${_community?.privacy ?? 'Public'}',
+                    _community?.privacy ?? 'Public',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -523,12 +529,13 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
               Column(
                 children: _posts.map((post) => PostCard(
                   post: post,
+                  currentProfileId: currentUserId,  // ✅ AJOUTÉ
                   onLike: () => _toggleLike(post.id),
                   onComment: () => _openComments(post.id),
                   onTap: () => context.push('/network/post/${post.id}'),
                   onShare: () => _sharePost(post.id),
                   onRefresh: _loadData,
-                )).toList(),
+                )).cast<Widget>().toList(),  // ✅ CAST CORRECT
               ),
             const SizedBox(height: 80),
           ],
@@ -566,6 +573,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
     );
   }
 
+  // ─── ONGLET "MEMBRES" ───
   Widget _buildMembersTab() {
     if (_members.isEmpty) {
       return const Center(
@@ -655,16 +663,16 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> with SingleTi
       }
     } catch (e) {
       debugPrint('❌ Erreur like: $e');
-      await _loadData(); // Recharger en cas d'erreur
+      await _loadData();
     }
   }
 
   void _openComments(String postId) {
-    // Naviguer vers la page des commentaires
     context.push('/network/comments/$postId');
   }
 
   void _sharePost(String postId) {
-    // Partager le post
+    // Implémenter le partage
+    Share.share('Découvrez cette publication sur THIX Réseau Pro !');
   }
 }
