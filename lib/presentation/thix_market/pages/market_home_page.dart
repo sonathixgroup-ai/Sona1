@@ -1,9 +1,11 @@
 // lib/presentation/thix_market/pages/market_home_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:go_router/go_router.dart';
+
 import '../providers/market_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
@@ -21,14 +23,18 @@ class _MarketHomePageState extends State<MarketHomePage> {
   final ScrollController _scrollController = ScrollController();
   bool _isAppBarExpanded = true;
 
+  static const primaryColor = Color(0xFFFF6B2C);
+
   @override
   void initState() {
     super.initState();
+
     _scrollController.addListener(() {
       setState(() {
         _isAppBarExpanded = _scrollController.offset < 100;
       });
     });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MarketProvider>().loadHomeData();
     });
@@ -45,23 +51,40 @@ class _MarketHomePageState extends State<MarketHomePage> {
     final marketProvider = context.watch<MarketProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF7F7F7),
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
           _buildAppBar(marketProvider),
+
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildLiveSessions(marketProvider.liveSessions),
+
+                const SizedBox(height: 10),
+
+                // CATEGORY GRID
                 const CategoryGrid(),
+
                 _buildPromoBanners(marketProvider.promoBanners),
+
                 _buildFlashSales(marketProvider.flashSales),
-                _buildRecommendedSection(marketProvider.recommendedProducts),
-                _buildFeaturedShops(marketProvider.featuredShops),
-                _buildForYouSection(marketProvider.forYouProducts),
-                const SizedBox(height: 100),
+
+                _buildRecommendedSection(
+                  marketProvider.recommendedProducts,
+                ),
+
+                _buildFeaturedShops(
+                  marketProvider.featuredShops,
+                ),
+
+                _buildForYouSection(
+                  marketProvider.forYouProducts,
+                ),
+
+                const SizedBox(height: 120),
               ],
             ),
           ),
@@ -73,134 +96,166 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // ============================================================
   // APP BAR
   // ============================================================
+
   Widget _buildAppBar(MarketProvider provider) {
     return SliverAppBar(
-      expandedHeight: 120,
-      floating: true,
+      expandedHeight: 130,
       pinned: true,
-      backgroundColor: Colors.white,
+      floating: true,
       elevation: _isAppBarExpanded ? 0 : 1,
+      backgroundColor: Colors.white,
+
       title: AnimatedOpacity(
-        opacity: _isAppBarExpanded ? 0 : 1,
         duration: const Duration(milliseconds: 200),
+        opacity: _isAppBarExpanded ? 0 : 1,
         child: const Text(
-          'THIX Market',
+          "THIX Market",
           style: TextStyle(
-            fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFE5592F),
+            color: primaryColor,
+            fontSize: 20,
           ),
         ),
       ),
+
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           color: Colors.white,
-          padding: const EdgeInsets.only(top: 40, left: 16, right: 16),
+          padding: const EdgeInsets.only(
+            top: 42,
+            left: 16,
+            right: 16,
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Image.asset(
                     'assets/images/thix_logo.png',
-                    height: 40,
-                    errorBuilder: (_, __, ___) => const Text(
-                      'THIX',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFE5592F),
-                      ),
-                    ),
+                    height: 38,
+                    errorBuilder: (_, __, ___) {
+                      return const Text(
+                        'THIX',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                          color: primaryColor,
+                        ),
+                      );
+                    },
                   ),
-                  Row(
+
+                  const Spacer(),
+
+                  _buildCircleButton(
+                    icon: Icons.qr_code_scanner,
+                    onTap: () => context.push('/scan-qr'),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Stack(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.qr_code_scanner),
-                        onPressed: () => context.push('/scan-qr'),
-                        color: Colors.grey[700],
+                      _buildCircleButton(
+                        icon: Icons.notifications_none_rounded,
+                        onTap: () {
+                          context.push('/market/notifications');
+                        },
                       ),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_outlined),
-                            onPressed: () => context.push('/market/notifications'),
-                            color: Colors.grey[700],
-                          ),
-                          if (provider.unreadNotifications > 0)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
-                                ),
-                                child: Text(
-                                  '${provider.unreadNotifications}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+
+                      if (provider.unreadNotifications > 0)
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${provider.unreadNotifications}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.storefront_outlined),
-                        onPressed: () => context.push('/market/sell'),
-                        color: Colors.grey[700],
-                        tooltip: 'Mode Vendeur',
-                      ),
+                          ),
+                        ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 14),
+
               GestureDetector(
                 onTap: () => context.push('/market/search'),
                 child: Container(
-                  height: 48,
+                  height: 54,
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.grey[200]!),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: primaryColor.withOpacity(.2),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       const SizedBox(width: 16),
-                      Icon(Icons.search, color: Colors.grey[400]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Rechercher des produits...',
-                        style: TextStyle(color: Colors.grey[400]),
+
+                      Icon(
+                        Icons.search,
+                        color: Colors.grey.shade500,
                       ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE5592F),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'Scanner',
+
+                      const SizedBox(width: 10),
+
+                      Expanded(
+                        child: Text(
+                          'Rechercher des produits, boutiques...',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
                           ),
+                        ),
+                      ),
+
+                      Container(
+                        margin: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(
+                              Icons.qr_code_scanner,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Scanner',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -214,240 +269,209 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 1. LIVES EN COURS
-  // ============================================================
-  Widget _buildLiveSessions(List<dynamic> lives) {
-    if (lives.isEmpty) return const SizedBox(height: 8);
-    return Container(
-      height: 280,
-      margin: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Lives en cours',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () => context.push('/market/live'),
-                  child: const Text(
-                    'Voir tout',
-                    style: TextStyle(color: Color(0xFFE5592F)),
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildCircleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(50),
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.grey.shade200,
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 220,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: lives.length,
-              itemBuilder: (context, index) {
-                final live = lives[index];
-                return GestureDetector(
-                  onTap: () => context.push('/market/live/${live['id']}'),
-                  child: Container(
-                    width: 180,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // LIVE SECTION
+  // ============================================================
+
+  Widget _buildLiveSessions(List<dynamic> lives) {
+    if (lives.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(
+          title: 'Lives en cours',
+          onTap: () => context.push('/market/live'),
+        ),
+
+        const SizedBox(height: 12),
+
+        SizedBox(
+          height: 240,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: lives.length,
+            itemBuilder: (context, index) {
+              final live = lives[index];
+
+              return GestureDetector(
+                onTap: () {
+                  context.push('/market/live/${live['id']}');
+                },
+                child: Container(
+                  width: 180,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(.04),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Stack(
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(22),
+                              ),
                               child: CachedNetworkImage(
                                 imageUrl: live['thumbnail'] ?? '',
-                                height: 160,
-                                width: 180,
+                                width: double.infinity,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(
-                                  color: Colors.grey[200],
-                                ),
                               ),
                             ),
+
                             Positioned(
-                              top: 8,
-                              left: 8,
+                              top: 10,
+                              left: 10,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                                  horizontal: 10,
+                                  vertical: 5,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.red,
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius:
+                                      BorderRadius.circular(30),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(
-                                      Icons.fiber_manual_record,
-                                      color: Colors.white,
-                                      size: 10,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'LIVE',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 8,
-                              left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${live['viewers'] ?? 0} vues',
-                                  style: const TextStyle(
+                                child: const Text(
+                                  'LIVE',
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
                                   ),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          live['title'] ?? '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          live['shop_name'] ?? '',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // 2. BANNIÈRES PROMOTIONNELLES
-  // ============================================================
-  Widget _buildPromoBanners(List<dynamic> banners) {
-    if (banners.isEmpty) return const SizedBox(height: 8);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
-      child: CarouselSlider(
-        options: CarouselOptions(
-          height: 140,
-          autoPlay: true,
-          enlargeCenterPage: true,
-          viewportFraction: 0.92,
-          autoPlayInterval: const Duration(seconds: 4),
-          autoPlayAnimationDuration: const Duration(milliseconds: 800),
-        ),
-        items: banners.map((banner) {
-          return Builder(
-            builder: (BuildContext context) {
-              return GestureDetector(
-                onTap: () {
-                  if (banner['link'] != null && banner['link'].isNotEmpty) {
-                    context.push(banner['link']);
-                  }
-                },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    image: DecorationImage(
-                      image: CachedNetworkImageProvider(
-                        banner['image_url'] ?? '',
                       ),
-                      fit: BoxFit.cover,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
+
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              live['title'] ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+
+                            const SizedBox(height: 6),
+
+                            Text(
+                              live['category'] ?? '',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+
+                            const SizedBox(height: 4),
+
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  size: 14,
+                                  color: Colors.grey.shade500,
+                                ),
+                                const SizedBox(width: 3),
+                                Expanded(
+                                  child: Text(
+                                    live['city'] ?? 'Abidjan',
+                                    maxLines: 1,
+                                    overflow:
+                                        TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color:
+                                          Colors.grey.shade500,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.3),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(
-                          banner['title'] ?? '',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // PROMO BANNERS
+  // ============================================================
+
+  Widget _buildPromoBanners(List<dynamic> banners) {
+    if (banners.isEmpty) return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: CarouselSlider(
+        options: CarouselOptions(
+          height: 150,
+          viewportFraction: .92,
+          autoPlay: true,
+          enlargeCenterPage: true,
+        ),
+        items: banners.map((banner) {
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              image: DecorationImage(
+                image: CachedNetworkImageProvider(
+                  banner['image_url'] ?? '',
+                ),
+                fit: BoxFit.cover,
+              ),
+            ),
           );
         }).toList(),
       ),
@@ -455,66 +479,68 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 3. OFFRES FLASH
+  // FLASH SALES
   // ============================================================
+
   Widget _buildFlashSales(List<dynamic> flashSales) {
-    if (flashSales.isEmpty) return const SizedBox(height: 8);
+    if (flashSales.isEmpty) return const SizedBox();
+
     return Container(
-      margin: const EdgeInsets.only(top: 8),
+      margin: const EdgeInsets.only(top: 26),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [const Color(0xFFE5592F), const Color(0xFFFF6B35)],
-                        ),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'FLASH',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Vente flash',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                const Icon(
+                  Icons.flash_on,
+                  color: primaryColor,
                 ),
-                FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
+
+                const SizedBox(width: 6),
+
+                const Text(
+                  "Offres Flash",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+
+                const Spacer(),
+
+                FlashSaleTimer(
+                  endTime: DateTime.now().add(
+                    const Duration(
+                      hours: 2,
+                      minutes: 45,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 14),
+
           SizedBox(
-            height: 260,
+            height: 285,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               itemCount: flashSales.length,
               itemBuilder: (context, index) {
                 final product = flashSales[index];
+
                 return ProductCard(
                   product: product,
                   isFlashSale: true,
-                  onTap: (prod) => context.push('/market/product/${prod['id']}'),
+                  onTap: (prod) {
+                    context.push(
+                      '/market/product/${prod['id']}',
+                    );
+                  },
                 );
               },
             ),
@@ -525,54 +551,49 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 4. PRODUITS RECOMMANDÉS
+  // RECOMMENDED
   // ============================================================
+
   Widget _buildRecommendedSection(List<dynamic> products) {
-    if (products.isEmpty) return const SizedBox(height: 8);
+    if (products.isEmpty) return const SizedBox();
+
     return Container(
       margin: const EdgeInsets.only(top: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '⭐ Recommandé pour vous',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/market/recommended'),
-                  child: const Text(
-                    'Voir tout',
-                    style: TextStyle(color: Color(0xFFE5592F)),
-                  ),
-                ),
-              ],
-            ),
+          _sectionTitle(
+            title: 'Recommandé pour vous',
+            onTap: () {
+              context.push('/market/recommended');
+            },
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 14),
+
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            itemCount: products.take(4).length,
+            gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.75,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
+              childAspectRatio: .66,
             ),
-            itemCount: products.take(4).length,
             itemBuilder: (context, index) {
               final product = products[index];
+
               return ProductCard(
                 product: product,
-                onTap: (prod) => context.push('/market/product/${prod['id']}'),
+                showCity: true,
+                showCategoryBottom: true,
+                onTap: (prod) {
+                  context.push(
+                    '/market/product/${prod['id']}',
+                  );
+                },
               );
             },
           ),
@@ -582,49 +603,40 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 5. BOUTIQUES MISES EN AVANT
+  // FEATURED SHOPS
   // ============================================================
+
   Widget _buildFeaturedShops(List<dynamic> shops) {
-    if (shops.isEmpty) return const SizedBox(height: 8);
+    if (shops.isEmpty) return const SizedBox();
+
     return Container(
       margin: const EdgeInsets.only(top: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '🏪 Boutiques mises en avant',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/market/shops'),
-                  child: const Text(
-                    'Voir tout',
-                    style: TextStyle(color: Color(0xFFE5592F)),
-                  ),
-                ),
-              ],
-            ),
+          _sectionTitle(
+            title: 'Boutiques mises en avant',
+            onTap: () => context.push('/market/shops'),
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 14),
+
           SizedBox(
-            height: 200,
+            height: 115,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               itemCount: shops.length,
               itemBuilder: (context, index) {
                 final shop = shops[index];
+
                 return ShopCard(
                   shop: shop,
-                  onTap: () => context.push('/market/shop/${shop['id']}'),
+                  compact: true,
+                  onTap: () {
+                    context.push(
+                      '/market/shop/${shop['id']}',
+                    );
+                  },
                 );
               },
             ),
@@ -635,44 +647,86 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 6. POUR VOUS (Découvrir plus)
+  // FOR YOU
   // ============================================================
+
   Widget _buildForYouSection(List<dynamic> products) {
-    if (products.isEmpty) return const SizedBox(height: 8);
+    if (products.isEmpty) return const SizedBox();
+
     return Container(
-      margin: const EdgeInsets.only(top: 24, bottom: 20),
+      margin: const EdgeInsets.only(top: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '📦 Découvrir plus',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          _sectionTitle(
+            title: 'Découvrir plus',
+            onTap: () {},
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 14),
+
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            itemCount: products.length,
+            gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.75,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
+              childAspectRatio: .66,
             ),
-            itemCount: products.length,
             itemBuilder: (context, index) {
               final product = products[index];
+
               return ProductCard(
                 product: product,
-                onTap: (prod) => context.push('/market/product/${prod['id']}'),
+                showCity: true,
+                showCategoryBottom: true,
+                onTap: (prod) {
+                  context.push(
+                    '/market/product/${prod['id']}',
+                  );
+                },
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget _sectionTitle({
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+
+          const Spacer(),
+
+          TextButton(
+            onPressed: onTap,
+            child: const Text(
+              'Voir tout',
+              style: TextStyle(
+                color: primaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
