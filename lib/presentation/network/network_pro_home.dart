@@ -11,7 +11,7 @@ import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'widgets/create_post_dialog.dart';
 import 'widgets/create_story_dialog.dart';
-import 'widgets/post_card.dart';
+import 'widgets/post_card.dart';    // ✅ Nouveau PostCard
 import 'widgets/short_card.dart';
 
 // ─── COULEURS THIX PRO ───
@@ -51,7 +51,6 @@ class _NetworkProHomeState extends State<NetworkProHome>
   bool _loadingSuggestions = false;
 
   final ScrollController _scrollController = ScrollController();
-  final Map<String, bool> _expandedPosts = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -155,7 +154,6 @@ class _NetworkProHomeState extends State<NetworkProHome>
 
   // ─── ACTIONS ───
   void _viewStory(NetworkStory story) {
-    // Navigation vers l'écran de visualisation des stories
     context.push('/network/story/${story.id}');
   }
 
@@ -225,6 +223,8 @@ class _NetworkProHomeState extends State<NetworkProHome>
       return const Scaffold(body: Center(child: Text('Connectez-vous')));
     }
 
+    final currentUserId = auth.currentUser!.id;
+
     return Scaffold(
       backgroundColor: ThixColors.background,
       appBar: _buildAppBar(),
@@ -245,7 +245,7 @@ class _NetworkProHomeState extends State<NetworkProHome>
             else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildPostCard(posts[index]),
+                  (context, index) => _buildPostCard(posts[index], currentUserId),
                   childCount: posts.length,
                 ),
               ),
@@ -582,212 +582,25 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // ─── POST CARD ───
-  Widget _buildPostCard(NetworkPost post) {
-    final isExpanded = _expandedPosts[post.id] ?? false;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: ThixColors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-            color: ThixColors.shadow,
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ─── HEADER ───
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.grey.shade200,
-                  backgroundImage:
-                      (post.authorAvatar != null && post.authorAvatar!.isNotEmpty)
-                          ? NetworkImage(post.authorAvatar!)
-                          : null,
-                  child: (post.authorAvatar == null || post.authorAvatar!.isEmpty)
-                      ? Text(post.authorName[0].toUpperCase())
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        post.authorName,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        post.authorTitle ?? '',
-                        style: const TextStyle(fontSize: 12, color: ThixColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (_) => SafeArea(
-                        child: Wrap(
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.flag),
-                              title: const Text('Signaler'),
-                              onTap: () => Navigator.pop(context),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.bookmark_border),
-                              title: const Text('Sauvegarder'),
-                              onTap: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.more_horiz),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // ─── CONTENU AVEC "VOIR PLUS" ───
-            if (post.content.isNotEmpty) ...[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    post.content,
-                    maxLines: isExpanded ? null : 3,
-                    overflow: isExpanded ? null : TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, height: 1.5),
-                  ),
-                  if (post.content.length > 120)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _expandedPosts[post.id] = !isExpanded;
-                        });
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          isExpanded ? 'Voir moins' : 'Voir plus',
-                          style: const TextStyle(
-                            color: ThixColors.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-
-            // ─── IMAGE ───
-            if (post.imageUrls.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  post.imageUrls.first,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 200,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.broken_image, color: Colors.grey),
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 14),
-
-            // ─── STATS ───
-            Row(
-              children: [
-                const Icon(Icons.favorite, color: ThixColors.red, size: 16),
-                const SizedBox(width: 4),
-                Text('${post.likesCount}', style: const TextStyle(fontSize: 12, color: ThixColors.textSecondary)),
-                const Spacer(),
-                Text(
-                  '${post.commentsCount} commentaires',
-                  style: const TextStyle(fontSize: 12, color: ThixColors.textSecondary),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-
-            // ─── ACTIONS ───
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _actionButton(
-                  icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
-                  label: 'J’aime',
-                  color: post.isLiked ? ThixColors.red : ThixColors.textSecondary,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
-                  },
-                ),
-                _actionButton(
-                  icon: Icons.mode_comment_outlined,
-                  label: 'Commenter',
-                  color: ThixColors.textSecondary,
-                  onTap: () => _commentOnPost(post),
-                ),
-                _actionButton(
-                  icon: Icons.share_outlined,
-                  label: 'Partager',
-                  color: ThixColors.textSecondary,
-                  onTap: () => _sharePost(post),
-                ),
-                _actionButton(
-                  icon: Icons.bookmark_border,
-                  label: 'Save',
-                  color: ThixColors.textSecondary,
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(40),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-          ],
-        ),
-      ),
+  // ─── POST CARD (utilise le nouveau PostCard) ───
+  Widget _buildPostCard(NetworkPost post, String currentUserId) {
+    return PostCard(
+      post: post,
+      currentProfileId: currentUserId,
+      onLike: () {
+        // Gérer le like via le provider
+        HapticFeedback.lightImpact();
+        Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
+      },
+      onComment: () => _commentOnPost(post),
+      onShare: () => _sharePost(post),
+      onSave: () {
+        // Gérer la sauvegarde – le PostCard a déjà sa propre logique,
+        // mais on peut ajouter un callback pour rafraîchir
+        _loadPosts();
+      },
+      onEdit: () => _loadPosts(),
+      onDelete: () => _loadPosts(),
     );
   }
 
