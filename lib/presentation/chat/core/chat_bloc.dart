@@ -4,7 +4,7 @@ import 'package:collection/collection.dart';
 import 'chat_events.dart';
 import 'chat_states.dart';
 import 'chat_repository.dart';
-import 'chat_models.dart';
+import 'chat_models.dart';  // ✅ importe Story et ChatStats
 import 'chat_utils.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
@@ -39,6 +39,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<DeleteArchivedConversation>(_onDeleteArchivedConversation);
     on<SearchArchivedConversations>(_onSearchArchivedConversations);
   }
+
+  // ... (tout le reste du code inchangé)
+}
 
   Future<void> _onLoadConversations(LoadConversations event, Emitter<ChatState> emit) async {
     emit(ChatLoading());
