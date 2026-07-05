@@ -129,22 +129,23 @@ class ChatRepository {
 
   // ==================== STATS CHAT (CORRIGÉ) ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // ✅ Utilisation de .count() qui retourne un Future<int>
-    final onlineCount = await _supabase
+    // ✅ .count() renvoie un PostgrestResponse, pas un int directement.
+    // Il faut extraire la propriété .count de la réponse.
+    final onlineResponse = await _supabase
         .from('thix_presence')
         .select('user_id')
         .eq('status', 'online')
-        .count();
+        .count(CountOption.exact);
 
-    final newMessagesCount = await _supabase
+    final newMessagesResponse = await _supabase
         .from('thix_chat_messages')
         .select('id')
-        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)))
-        .count();
+        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)).toIso8601String())
+        .count(CountOption.exact);
 
     return ChatStats(
-      onlineCount: onlineCount,
-      newMessagesCount: newMessagesCount,
+      onlineCount: onlineResponse.count,
+      newMessagesCount: newMessagesResponse.count,
       activeMeetingsCount: 0,
       securityAlertsCount: 0,
     );
@@ -200,24 +201,21 @@ class ChatRepository {
         .eq('user_id', userId);
   }
 
-  // ✅ RECHERCHE ARCHIVES
+  // ✅ RECHERCHE ARCHIVES (CORRIGÉ)
   Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
     try {
-      dynamic query = _supabase
+      final baseQuery = _supabase
           .from('thix_chat_chats')
           .select('*, participants:user_id(*)')
           .eq('participants.user_id', userId)
           .not('archived_at', 'is', null);
 
-      final searchText = filters.query?.trim() ?? '';
-      if (searchText.isNotEmpty) {
-        query = query.or(
-            'title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%');
-      }
+      final searchText = filters.text?.trim() ?? '';
+      final filteredQuery = searchText.isNotEmpty
+          ? baseQuery.or('title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%')
+          : baseQuery;
 
-      query = query.order('updated_at', ascending: false);
-
-      final response = await query;
+      final response = await filteredQuery.order('updated_at', ascending: false);
       return response.map((json) => Conversation.fromJson(json)).toList();
     } catch (e) {
       debugPrint('❌ Erreur searchArchivedConversations: $e');
