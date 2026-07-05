@@ -72,10 +72,10 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     });
 
     try {
-      String? logoUrl;
+      String? bannerUrl;
       if (_selectedLogoBytes != null) {
         setState(() => _isUploading = true);
-        logoUrl = await _networkService.uploadImageBytes(
+        bannerUrl = await _networkService.uploadImageBytes(
           _selectedLogoBytes!,
           fileExtension: _selectedLogoExtension!,
           bucket: 'community_logos',
@@ -83,11 +83,11 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         setState(() => _isUploading = false);
       }
 
-      // ✅ Correction : le paramètre s'appelle 'logoUrl' dans createCommunity
+      // ✅ Correction : le paramètre s'appelle 'bannerUrl' dans createCommunity
       final newCommunity = await _networkService.createCommunity(
         name: name,
         description: _descriptionController.text.trim(),
-        logoUrl: logoUrl,
+        bannerUrl: bannerUrl,
       );
 
       if (mounted) {
