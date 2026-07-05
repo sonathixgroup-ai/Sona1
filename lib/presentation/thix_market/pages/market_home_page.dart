@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/pages/market_home_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -42,7 +43,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
   @override
   Widget build(BuildContext context) {
     final marketProvider = context.watch<MarketProvider>();
-    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -95,11 +95,13 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         ),
                         Row(
                           children: [
+                            // 📷 QR Code Scanner
                             IconButton(
                               icon: const Icon(Icons.qr_code_scanner),
                               onPressed: () => _scanQRCode(),
                               color: Colors.grey[700],
                             ),
+                            // 🔔 Notifications
                             Stack(
                               children: [
                                 IconButton(
@@ -132,6 +134,13 @@ class _MarketHomePageState extends State<MarketHomePage> {
                                     ),
                                   ),
                               ],
+                            ),
+                            // 🏪 MODE VENDEUR (NOUVEAU)
+                            IconButton(
+                              icon: const Icon(Icons.storefront_outlined),
+                              onPressed: () => _toggleSellerMode(),
+                              color: Colors.grey[700],
+                              tooltip: 'Mode Vendeur',
                             ),
                           ],
                         ),
@@ -195,27 +204,26 @@ class _MarketHomePageState extends State<MarketHomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. LIVES EN COURS
-                _buildLiveSessions(marketProvider.liveSessions, theme),
+                _buildLiveSessions(marketProvider.liveSessions),
 
-                // 2. CATÉGORIES
+                // 2. CATÉGORIES (une ligne horizontale)
                 const CategoryGrid(),
 
                 // 3. BANNIÈRES PROMOTIONNELLES
                 _buildPromoBanners(marketProvider.promoBanners),
 
                 // 4. OFFRES FLASH
-                _buildFlashSales(marketProvider.flashSales, theme),
+                _buildFlashSales(marketProvider.flashSales),
 
                 // 5. PRODUITS RECOMMANDÉS
-                _buildRecommendedSection(marketProvider.recommendedProducts, theme),
+                _buildRecommendedSection(marketProvider.recommendedProducts),
 
                 // 6. BOUTIQUES MISES EN AVANT
-                _buildFeaturedShops(marketProvider.featuredShops, theme),
+                _buildFeaturedShops(marketProvider.featuredShops),
 
                 // 7. POUR VOUS
-                _buildForYouSection(marketProvider.forYouProducts, theme),
+                _buildForYouSection(marketProvider.forYouProducts),
 
-                // Espace en bas pour éviter l'overflow
                 const SizedBox(height: 100),
               ],
             ),
@@ -226,13 +234,11 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // 1. LIVES EN COURS
+  // WIDGETS
   // ============================================================
-  Widget _buildLiveSessions(List<dynamic> lives, ThemeData theme) {
-    if (lives.isEmpty) {
-      return const SizedBox(height: 8);
-    }
 
+  Widget _buildLiveSessions(List<dynamic> lives) {
+    if (lives.isEmpty) return const SizedBox(height: 8);
     return Container(
       height: 280,
       margin: const EdgeInsets.only(top: 16),
@@ -303,7 +309,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
                               ),
                             ),
                           ),
-                          // Live badge
                           Positioned(
                             top: 8,
                             left: 8,
@@ -337,7 +342,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
                               ),
                             ),
                           ),
-                          // Viewers
                           Positioned(
                             bottom: 8,
                             left: 8,
@@ -389,12 +393,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 2. BANNIÈRES PROMOTIONNELLES
-  // ============================================================
   Widget _buildPromoBanners(List<dynamic> banners) {
     if (banners.isEmpty) return const SizedBox(height: 8);
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
       child: CarouselSlider(
@@ -464,12 +464,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 3. OFFRES FLASH
-  // ============================================================
-  Widget _buildFlashSales(List<dynamic> flashSales, ThemeData theme) {
+  Widget _buildFlashSales(List<dynamic> flashSales) {
     if (flashSales.isEmpty) return const SizedBox(height: 8);
-
     return Container(
       margin: const EdgeInsets.only(top: 8),
       child: Column(
@@ -535,12 +531,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 4. PRODUITS RECOMMANDÉS
-  // ============================================================
-  Widget _buildRecommendedSection(List<dynamic> products, ThemeData theme) {
+  Widget _buildRecommendedSection(List<dynamic> products) {
     if (products.isEmpty) return const SizedBox(height: 8);
-
     return Container(
       margin: const EdgeInsets.only(top: 24),
       child: Column(
@@ -593,12 +585,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 5. BOUTIQUES MISES EN AVANT
-  // ============================================================
-  Widget _buildFeaturedShops(List<dynamic> shops, ThemeData theme) {
+  Widget _buildFeaturedShops(List<dynamic> shops) {
     if (shops.isEmpty) return const SizedBox(height: 8);
-
     return Container(
       margin: const EdgeInsets.only(top: 24),
       child: Column(
@@ -647,12 +635,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 6. POUR VOUS (Découvrir plus)
-  // ============================================================
-  Widget _buildForYouSection(List<dynamic> products, ThemeData theme) {
+  Widget _buildForYouSection(List<dynamic> products) {
     if (products.isEmpty) return const SizedBox(height: 8);
-
     return Container(
       margin: const EdgeInsets.only(top: 24, bottom: 20),
       child: Column(
@@ -696,39 +680,20 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // ============================================================
   // NAVIGATION
   // ============================================================
-  void _scanQRCode() {
-    Navigator.pushNamed(context, '/scan-qr');
-  }
-
-  void _gotoNotifications() {
-    Navigator.pushNamed(context, '/notifications');
-  }
-
-  void _gotoSearch() {
-    Navigator.pushNamed(context, '/search');
-  }
-
-  void _gotoAllLives() {
-    Navigator.pushNamed(context, '/lives');
-  }
-
-  void _gotoProductDetail(String productId) {
-    Navigator.pushNamed(context, '/product/$productId');
-  }
-
-  void _gotoPromoLink(String link) {
-    // TODO: Naviguer vers le lien promotionnel
-  }
-
-  void _gotoRecommended() {
-    Navigator.pushNamed(context, '/recommended');
-  }
-
-  void _gotoAllShops() {
-    Navigator.pushNamed(context, '/shops');
-  }
-
-  void _gotoShop(String shopId) {
-    Navigator.pushNamed(context, '/shop/$shopId');
+  
+  void _scanQRCode() => Navigator.pushNamed(context, '/scan-qr');
+  void _gotoNotifications() => Navigator.pushNamed(context, '/notifications');
+  void _gotoSearch() => Navigator.pushNamed(context, '/search');
+  void _gotoAllLives() => Navigator.pushNamed(context, '/lives');
+  void _gotoProductDetail(String id) => Navigator.pushNamed(context, '/product/$id');
+  void _gotoPromoLink(String link) => debugPrint('Promo link: $link');
+  void _gotoRecommended() => Navigator.pushNamed(context, '/recommended');
+  void _gotoAllShops() => Navigator.pushNamed(context, '/shops');
+  void _gotoShop(String id) => Navigator.pushNamed(context, '/shop/$id');
+  
+  // 🏪 MODE VENDEUR
+  void _toggleSellerMode() {
+    // Redirige vers la page de vente / création de boutique
+    Navigator.pushNamed(context, '/sell');
   }
 }
