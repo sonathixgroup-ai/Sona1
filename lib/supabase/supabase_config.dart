@@ -6,16 +6,16 @@ class SupabaseConfig {
   ///
   /// Utilise `--dart-define` pour les passer en production (recommandé).
   ///
-  /// IMPORTANT: Ne modifiez pas les valeurs par défaut (elles correspondent au projet connecté).
+  /// Les valeurs par défaut correspondent à votre nouveau projet Supabase.
   static const String supabaseUrl = String.fromEnvironment(
-    '',
-    defaultValue: 'https://kfzkxaadtbapqwxcegly.supabase.co',
+    'SUPABASE_URL',
+    defaultValue: 'https://lldgnysfiabakhaibgzq.supabase.co',
   );
 
   static const String anonKey = String.fromEnvironment(
-    '',
+    'SUPABASE_ANON_KEY',
     defaultValue:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtmemt4YWFkdGJhcHF3eGNlZ2x5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTQ4NDQsImV4cCI6MjA5MTczMDg0NH0.7JWalFAF9XaHTHqypt-bMokd2B3sU9Rm6X3YkVm3BTE',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsZGdueXNmaWFiYWtoYWliZ3pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NzgxNjcsImV4cCI6MjA5ODE1NDE2N30.AmrEd5RECLsamIjYiUBk_F4azYtBeMV3drL5RPzFhjo',
   );
 
   static bool _initialized = false;
@@ -68,23 +68,18 @@ class SupabaseService {
     int? limit,
   }) async {
     try {
-      // In supabase_flutter ^1.12, some transforms (order/limit) change the
-      // builder type. Keep it dynamic to allow fluent chaining.
       dynamic query = SupabaseConfig.client.from(table).select(select ?? '*');
 
-      // Apply filters
       if (filters != null) {
         for (final entry in filters.entries) {
           query = query.eq(entry.key, entry.value);
         }
       }
 
-      // Apply ordering
       if (orderBy != null) {
         query = query.order(orderBy, ascending: ascending);
       }
 
-      // Apply limit
       if (limit != null) {
         query = query.limit(limit);
       }
