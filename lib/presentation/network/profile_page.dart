@@ -1,9 +1,11 @@
-// lib/presentation/network/profile_page.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -29,9 +31,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   bool _isFollowing = false;
   int _selectedTab = 0;
   bool _isGridView = true;
-  
+
   late AnimationController _levelUpController;
-  
   final List<String> _tabs = ['Posts', 'Photos', 'Vidéos', 'Reels', 'J\'aime', 'Sauvegardés'];
 
   @override
@@ -43,6 +44,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
     _networkService = NetworkService(Supabase.instance.client);
     _loadData();
+    _checkFollowStatus();
   }
 
   @override
@@ -51,6 +53,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     super.dispose();
   }
 
+  // ─── CHARGEMENT DES DONNÉES ───
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
@@ -60,7 +63,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       final pinnedPosts = await _networkService.getPinnedPosts(userId);
       final savedPosts = await _networkService.getSavedPosts();
       final repostedPosts = await _networkService.getUserReposts(userId);
-      
+
       setState(() {
         _user = userData;
         _posts = posts;
@@ -75,20 +78,48 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     }
   }
 
-  Future<void> _followUser() async {
-    if (widget.userId == null) return;
-    await _networkService.sendConnectionRequest(widget.userId!);
-    setState(() => _isFollowing = true);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Demande envoyée'), backgroundColor: Colors.green),
-    );
+  // ─── SUIVI ───
+  Future<void> _checkFollowStatus() async {
+    if (widget.userId == null || widget.userId == _networkService.currentUserId) {
+      setState(() => _isFollowing = false);
+      return;
+    }
+    try {
+      final userId = widget.userId!;
+      final response = await Supabase.instance.client
+          .from('connections')
+          .select('id')
+          .eq('user_id', _networkService.currentUserId)
+          .eq('connection_id', userId)
+          .eq('status', 'accepted')
+          .maybeSingle();
+      setState(() => _isFollowing = response != null);
+    } catch (e) {
+      debugPrint('Error checking follow status: $e');
+    }
   }
 
+  Future<void> _followUser() async {
+    if (widget.userId == null) return;
+    try {
+      await _networkService.sendConnectionRequest(widget.userId!);
+      setState(() => _isFollowing = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Demande envoyée'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // ─── MESSAGERIE ───
   void _sendMessage() {
     context.push('/network/chat/${widget.userId}');
   }
 
+  // ─── ÉPINGLER ───
   Future<void> _unpinPost(String postId) async {
     await _networkService.unpinPost(postId);
     await _loadData();
@@ -99,18 +130,82 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     }
   }
 
+  // ─── PARTAGE ───
   void _shareProfile() {
-    final shareText = 'Découvrez le profil de ${_user?['display_name']} sur THIX Réseau Pro !';
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Partage bientôt disponible'), backgroundColor: Colors.orange),
-    );
+    final name = _user?['display_name'] ?? 'Utilisateur';
+    final url = 'Découvrez le profil de $name sur THIX Réseau Pro !';
+    Share.share(url);
   }
 
+  // ─── CHANGER COUVERTURE ───
+  Future<void> _changeCover() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final url = await _networkService.uploadImageBytes(
+      bytes,
+      fileExtension: picked.path.split('.').last,
+      bucket: 'covers',
+    );
+    if (url != null) {
+      await Supabase.instance.client
+          .from('users')
+          .update({'cover_url': url})
+          .eq('id', _networkService.currentUserId);
+      await _loadData();
+    }
+  }
+
+  // ─── CHANGER AVATAR ───
+  Future<void> _changeAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final url = await _networkService.uploadImageBytes(
+      bytes,
+      fileExtension: picked.path.split('.').last,
+      bucket: 'avatars',
+    );
+    if (url != null) {
+      await Supabase.instance.client
+          .from('users')
+          .update({'photo_url': url})
+          .eq('id', _networkService.currentUserId);
+      await _loadData();
+    }
+  }
+
+  // ─── OUVRIR URL ───
+  void _openUrl(String url) async {
+    try {
+      await launchUrl(Uri.parse(url));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible d\'ouvrir le lien: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // ─── ÉDITER PROFIL ───
+  void _editProfile() {
+    context.push('/network/profile-settings');
+  }
+
+  // ─── FORMATAGE ───
+  String _formatNumber(int num) {
+    if (num >= 1000000) return '${(num / 1000000).toStringAsFixed(1)}M';
+    if (num >= 1000) return '${(num / 1000).toStringAsFixed(1)}k';
+    return num.toString();
+  }
+
+  // ─── BUILD ───
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthController>(context);
     final isOwnProfile = widget.userId == null || widget.userId == auth.currentUser?.id;
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: _loading
@@ -121,9 +216,9 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               child: CustomScrollView(
                 controller: ScrollController(),
                 slivers: [
-                  SliverToBoxAdapter(child: _buildCoverBanner()),
+                  SliverToBoxAdapter(child: _buildCoverBanner(isOwnProfile)),
                   SliverToBoxAdapter(child: _buildProfileHeader(isOwnProfile)),
-                  
+
                   if (_pinnedPosts.isNotEmpty)
                     SliverToBoxAdapter(
                       child: PinnedPost(
@@ -132,29 +227,18 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                         onUnpin: isOwnProfile ? () => unawaited(_unpinPost(_pinnedPosts.first.id)) : null,
                       ),
                     ),
-                  
+
                   SliverToBoxAdapter(child: _buildXpBar()),
                   SliverToBoxAdapter(child: _buildStatsGrid()),
                   SliverToBoxAdapter(child: _buildBadgesSection()),
-                  
+
                   if (_user?['bio'] != null || _user?['skills'] != null)
                     SliverToBoxAdapter(child: _buildAboutSection()),
-                  
+
                   SliverToBoxAdapter(child: _buildTabsAndSwitch()),
-                  
-                  if (_selectedTab == 0)
-                    _buildPostsContent(_posts)
-                  else if (_selectedTab == 1)
-                    _buildPhotosContent()
-                  else if (_selectedTab == 2)
-                    _buildVideosContent()
-                  else if (_selectedTab == 3)
-                    _buildReelsContent()
-                  else if (_selectedTab == 4)
-                    _buildLikedContent()
-                  else if (_selectedTab == 5)
-                    _buildSavedContent(),
-                  
+
+                  _buildTabContent(),
+
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
@@ -162,7 +246,8 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildCoverBanner() {
+  // ─── COUVERTURE ───
+  Widget _buildCoverBanner(bool isOwnProfile) {
     return Stack(
       children: [
         Container(
@@ -180,21 +265,23 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 : null,
           ),
         ),
-        Positioned(
-          bottom: -30,
-          right: 16,
-          child: CircleAvatar(
-            backgroundColor: const Color(0xFFD4AF37),
-            child: IconButton(
-              icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-              onPressed: () => _changeCover(),
+        if (isOwnProfile)
+          Positioned(
+            bottom: -30,
+            right: 16,
+            child: CircleAvatar(
+              backgroundColor: const Color(0xFFD4AF37),
+              child: IconButton(
+                icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                onPressed: _changeCover,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 
+  // ─── EN-TÊTE PROFIL ───
   Widget _buildProfileHeader(bool isOwnProfile) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -202,7 +289,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 40),
-          
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -217,20 +303,21 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                         ? const Icon(Icons.person, size: 50)
                         : null,
                   ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: const Color(0xFFD4AF37),
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
-                        onPressed: () => _changeAvatar(),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                  if (isOwnProfile)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: const Color(0xFFD4AF37),
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                          onPressed: _changeAvatar,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const Spacer(),
@@ -247,7 +334,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
-                      onPressed: () => _editProfile(),
+                      onPressed: _editProfile,
                       icon: const Icon(Icons.edit, size: 18),
                       label: const Text('Modifier'),
                       style: OutlinedButton.styleFrom(
@@ -282,9 +369,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 ),
             ],
           ),
-          
           const SizedBox(height: 12),
-          
           Text(
             _user?['display_name'] ?? 'Utilisateur',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -306,7 +391,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               style: const TextStyle(fontSize: 13, height: 1.4),
             ),
           const SizedBox(height: 8),
-          
           Wrap(
             spacing: 12,
             children: [
@@ -329,9 +413,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               ),
             ],
           ),
-          
           const SizedBox(height: 12),
-          
           if (_user?['website'] != null)
             GestureDetector(
               onTap: () => _openUrl(_user!['website']),
@@ -348,12 +430,13 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
+  // ─── XP BAR ───
   Widget _buildXpBar() {
     final level = _user?['level'] ?? 1;
     final xp = _user?['xp'] ?? 0;
     final xpNeeded = level * 100;
     final progress = (xp / xpNeeded).clamp(0.0, 1.0);
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
@@ -410,6 +493,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
+  // ─── STATISTIQUES ───
   Widget _buildStatsGrid() {
     final stats = [
       {'icon': Icons.people, 'value': _user?['followers_count'] ?? 0, 'label': 'Abonnés'},
@@ -419,7 +503,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       {'icon': Icons.groups, 'value': _user?['communities_count'] ?? 0, 'label': 'Communautés'},
       {'icon': Icons.stars, 'value': _user?['xp'] ?? 0, 'label': 'XP'},
     ];
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
@@ -454,6 +538,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
+  // ─── BADGES ───
   Widget _buildBadgesSection() {
     final badges = [
       {'icon': Icons.verified, 'name': 'Vérifié', 'color': Colors.blue},
@@ -463,7 +548,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       {'icon': Icons.edit, 'name': 'Créateur', 'color': Colors.green},
       {'icon': Icons.people, 'name': 'Influenceur', 'color': Colors.red},
     ];
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       child: Column(
@@ -513,6 +598,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
+  // ─── À PROPOS ───
   Widget _buildAboutSection() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -547,6 +633,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
+  // ─── TABS ───
   Widget _buildTabsAndSwitch() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -596,11 +683,73 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
+  // ─── CONTENU DES ONGLETS ───
+  Widget _buildTabContent() {
+    switch (_selectedTab) {
+      case 0:
+        return _buildPostsContent(_posts);
+      case 1:
+        return _buildFilteredContent('image');
+      case 2:
+        return _buildFilteredContent('video');
+      case 3:
+        return _buildFilteredContent('reel');
+      case 4:
+        return _buildPostsContent(_posts); // J'aime (tous, mais on pourrait filtrer)
+      case 5:
+        return _buildSavedContent();
+      default:
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+  }
+
+  Widget _buildFilteredContent(String mediaType) {
+    final filtered = _posts.where((post) {
+      if (mediaType == 'image') return post.imageUrls.isNotEmpty;
+      if (mediaType == 'video') return post.videoUrls.isNotEmpty;
+      if (mediaType == 'reel') return post.videoUrls.isNotEmpty; // reel = vidéo courte
+      return false;
+    }).toList();
+    if (filtered.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text('Aucun contenu de ce type.', style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      );
+    }
+    return _buildPostsContent(filtered);
+  }
+
+  Widget _buildSavedContent() {
+    if (_savedPosts.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text('Aucun post sauvegardé.', style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      );
+    }
+    return _buildPostsContent(_savedPosts);
+  }
+
+  // ─── AFFICHAGE DES POSTS (Grille/Liste) ───
   Widget _buildPostsContent(List<NetworkPost> posts) {
     if (posts.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text('Aucun post pour le moment.', style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      );
     }
-    
+
     if (_isGridView) {
       return SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -624,21 +773,18 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     }
   }
 
-  // ⭐ CORRIGÉ - Récupération dynamique de mediaUrl
   Widget _buildPostGridItem(NetworkPost post) {
-    final dynamicPost = post as dynamic;
-    final mediaUrl = dynamicPost.mediaUrl;
-    final hasImage = mediaUrl != null && mediaUrl.toString().isNotEmpty;
+    final mediaUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : null;
     final isPostPinned = _pinnedPosts.any((p) => p.id == post.id);
-    
+
     return GestureDetector(
       onTap: () => context.push('/network/post/${post.id}'),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (hasImage)
+          if (mediaUrl != null)
             Image.network(
-              mediaUrl.toString(),
+              mediaUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
                 color: Colors.grey[200],
@@ -686,13 +832,10 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  // ⭐ CORRIGÉ - Récupération dynamique de mediaUrl
   Widget _buildPostListItem(NetworkPost post) {
-    final dynamicPost = post as dynamic;
-    final mediaUrl = dynamicPost.mediaUrl;
-    final hasImage = mediaUrl != null && mediaUrl.toString().isNotEmpty;
+    final mediaUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : null;
     final isPostPinned = _pinnedPosts.any((p) => p.id == post.id);
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.all(12),
@@ -702,11 +845,11 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       ),
       child: Row(
         children: [
-          if (hasImage)
+          if (mediaUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                mediaUrl.toString(),
+                mediaUrl,
                 width: 60,
                 height: 60,
                 fit: BoxFit.cover,
@@ -723,7 +866,12 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(post.content ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                Text(
+                  post.content.isNotEmpty ? post.content : 'Sans description',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13),
+                ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -743,50 +891,5 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
         ],
       ),
     );
-  }
-
-  Widget _buildPhotosContent() {
-    return _buildPostsContent(_posts);
-  }
-
-  Widget _buildVideosContent() {
-    return _buildPostsContent(_posts);
-  }
-
-  Widget _buildReelsContent() {
-    return _buildPostsContent(_posts);
-  }
-
-  Widget _buildLikedContent() {
-    return _buildPostsContent(_posts);
-  }
-
-  Widget _buildSavedContent() {
-    if (_savedPosts.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-    return _buildPostsContent(_savedPosts);
-  }
-
-  void _editProfile() {
-    context.push('/network/profile-settings');
-  }
-
-  void _changeCover() {
-    // TODO: Changer la bannière
-  }
-
-  void _changeAvatar() {
-    // TODO: Changer l'avatar
-  }
-
-  void _openUrl(String url) async {
-    // TODO: Ouvrir URL
-  }
-
-  String _formatNumber(int num) {
-    if (num >= 1000000) return '${(num / 1000000).toStringAsFixed(1)}M';
-    if (num >= 1000) return '${(num / 1000).toStringAsFixed(1)}k';
-    return num.toString();
   }
 }
