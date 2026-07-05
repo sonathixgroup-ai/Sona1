@@ -51,8 +51,6 @@ class NetworkService {
         return [];
       }
 
-      // ✅ FIX : on n'utilise QUE .range(), plus .limit() en plus
-      // (les deux combinés étaient incohérents et pouvaient fausser la requête)
       final response = await _supabase
           .from('posts')
           .select('''
@@ -781,12 +779,12 @@ class NetworkService {
   // SECTION 10: UPLOAD IMAGES & VIDEOS
   // ============================================================
 
-  Future<String?> uploadImageBytes(Uint8List bytes, {required String extension, String bucket = 'post_images'}) async {
+  Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async {
     try {
       final currentUserId = this.currentUserId;
       if (currentUserId.isEmpty) return null;
 
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
       final storagePath = '$currentUserId/$fileName';
 
       await _supabase.storage
@@ -1133,8 +1131,12 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 13: MESSAGES PRIVÉS
+  // SECTION 13: MESSAGES PRIVÉS (Direct Messages)
   // ============================================================
+
+  // ⚠️ Ces méthodes utilisent la table `messages` (existante)
+  // pour la messagerie directe. Cette table doit exister dans la base de données.
+  // Si vous utilisez `thix_chat_messages` à la place, adaptez les noms.
 
   Future<List<Conversation>> getConversations() async {
     try {
