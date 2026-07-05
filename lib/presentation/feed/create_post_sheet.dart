@@ -2,7 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:thix_id/services/network_service.dart';  // ✅ remplace post_service
+import 'package:thix_id/services/network_service.dart';
 
 class CreatePostSheet extends StatefulWidget {
   final String profileId;
@@ -49,7 +49,8 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         final bytes = file.bytes;
         if (bytes == null) continue;
         final ext = (file.extension?.trim().isNotEmpty == true) ? file.extension!.toLowerCase() : 'jpg';
-        final url = await networkService.uploadImageBytes(bytes, extension: ext);
+        // ✅ Correction : utiliser fileExtension au lieu de extension
+        final url = await networkService.uploadImageBytes(bytes, fileExtension: ext);
         if (url != null && url.isNotEmpty) {
           imageUrls.add(url);
         }
