@@ -1,6 +1,3 @@
-// lib/presentation/chat/core/chat_bloc.dart
-// Bloc complet – plus besoin de TokenService (les appels SQL utilisent SupabaseClient)
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
@@ -9,12 +6,10 @@ import 'chat_states.dart';
 import 'chat_repository.dart';
 import 'chat_models.dart';
 import 'chat_utils.dart';
-// ❌ Supprimé : import '../../../core/auth/token_service.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _repository;
-  
-  // Récupère l'ID de l'utilisateur courant depuis Supabase (doit être non null)
+
   String get currentUserId => Supabase.instance.client.auth.currentUser!.id;
 
   List<Conversation> _allConversations = [];
@@ -23,7 +18,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ChatStats _stats = const ChatStats();
 
   ChatBloc(this._repository) : super(ChatInitial()) {
-    // ❌ Supprimé : _initToken();
     on<LoadConversations>(_onLoadConversations);
     on<FilterConversations>(_onFilterConversations);
     on<LoadMessages>(_onLoadMessages);
@@ -45,8 +39,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<DeleteArchivedConversation>(_onDeleteArchivedConversation);
     on<SearchArchivedConversations>(_onSearchArchivedConversations);
   }
-
-  // ✅ Méthode _initToken supprimée
 
   Future<void> _onLoadConversations(LoadConversations event, Emitter<ChatState> emit) async {
     emit(ChatLoading());
