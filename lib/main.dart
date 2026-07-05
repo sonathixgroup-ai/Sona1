@@ -17,7 +17,7 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
 import 'package:thix_id/presentation/chat/core/chat_repository.dart';
-import 'package:thix_id/presentation/chat/core/chat_events.dart';
+// ❌ Supprimé : import 'package:thix_id/presentation/chat/core/chat_events.dart';
 import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
 import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
@@ -30,10 +30,6 @@ import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
-
-// ═══════════════════════════════════════════════════════════════════════
-// 🆕 IMPORTS POUR LES ÉVÉNEMENTS
-// ═══════════════════════════════════════════════════════════════════════
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
 
@@ -82,46 +78,33 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
-    try {
-      await SupabaseConfig.initialize();
-    } catch (e, st) {
-      debugPrint('Bootstrap: SupabaseConfig.initialize failed err=$e');
-      debugPrint(st.toString());
-    }
+    // ✅ On laisse l'erreur remonter pour que le FutureBuilder l'affiche
+    await SupabaseConfig.initialize();
 
     // 🔥 Services Supabase
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
 
-    // AuthController utilise SupabaseAuthManager (qui a besoin de ProfileService)
+    // AuthController utilise SupabaseAuthManager
     final auth = AuthController(
       auth: SupabaseAuthManager(profiles: profiles),
     );
 
-    try {
-      await auth.init();
-    } catch (e, st) {
-      debugPrint('Bootstrap: auth.init failed err=$e');
-      debugPrint(st.toString());
-    }
+    await auth.init();
 
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
     feed.initRealtime();
 
-    // 🔔 Notifications de tâches (THIX Chat)
-    try {
-      await TaskNotification.init();
-    } catch (e, st) {
-      debugPrint('Bootstrap: TaskNotification.init failed err=$e');
-      debugPrint(st.toString());
-    }
+    // 🔔 Notifications de tâches
+    await TaskNotification.init();
 
-    // 💬 THIX Chat — Bloc global, disponible dans toute l'app
+    // 💬 THIX Chat — Bloc global, mais on NE CHARGE PAS les conversations ici
+    // car l'utilisateur n'est pas encore authentifié.
     final chatBloc = ChatBloc(ChatRepository());
-    chatBloc.add(LoadConversations());
+    // ❌ SUPPRESSION : chatBloc.add(LoadConversations());
 
-    // 🆕 Service des événements (utilise le client Supabase déjà initialisé)
+    // 🆕 Service des événements
     final eventService = EventService(SupabaseConfig.client);
 
     return _BootstrapResult(
@@ -131,7 +114,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
       network: network,
       feed: feed,
       chatBloc: chatBloc,
-      eventService: eventService,   // 👈 on le passe
+      eventService: eventService,
     );
   }
 
@@ -140,6 +123,64 @@ class _BootstrapAppState extends State<BootstrapApp> {
     return FutureBuilder<_BootstrapResult>(
       future: _future,
       builder: (context, snap) {
+        // ✅ Gestion de l'erreur d'initialisation
+        if (snap.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.system,
+            home: Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.cloud_off_rounded,
+                        size: 72,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Connexion impossible',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Recharger l'app entièrement
+                          runApp(const ProviderScope(child: BootstrapApp()));
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Réessayer'),
+                      ),
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Erreur : ${snap.error}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.red,
+                                fontFamily: 'monospace',
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         final child = snap.hasData
             ? MyApp(
                 auth: snap.data!.auth,
@@ -148,7 +189,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 network: snap.data!.network,
                 feed: snap.data!.feed,
                 chatBloc: snap.data!.chatBloc,
-                eventService: snap.data!.eventService,   // 👈 on le transmet
+                eventService: snap.data!.eventService,
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -179,7 +220,7 @@ class _BootstrapResult {
   final NetworkService network;
   final FeedProvider feed;
   final ChatBloc chatBloc;
-  final EventService eventService;   // 🆕
+  final EventService eventService;
 
   const _BootstrapResult({
     required this.auth,
@@ -252,7 +293,7 @@ class MyApp extends StatefulWidget {
   final NetworkService network;
   final FeedProvider feed;
   final ChatBloc chatBloc;
-  final EventService eventService;   // 🆕
+  final EventService eventService;
 
   const MyApp({
     super.key,
@@ -299,7 +340,6 @@ class _MyAppState extends State<MyApp> {
         BlocProvider<ChatBloc>.value(value: widget.chatBloc),
 
         // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
-        // On crée l'EventProvider en lui passant l'EventService déjà instancié
         ChangeNotifierProvider(
           create: (_) => EventProvider(widget.eventService),
         ),
