@@ -7,7 +7,7 @@ import 'package:thix_id/services/network_service.dart';
 class CreatePostDialog extends StatefulWidget {
   final String? communityId;
   final VoidCallback? onPostCreated;
-  
+
   const CreatePostDialog({super.key, this.communityId, this.onPostCreated});
 
   @override
@@ -24,7 +24,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   int _selectedPostType = 0;
   bool _showPreview = false;
   String _selectedStatus = 'public';
-  
+
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
   String _currentMentionQuery = '';
@@ -44,7 +44,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   void _onContentChanged() {
     final text = _contentController.text;
     final lastAtIndex = text.lastIndexOf('@');
-    
+
     if (lastAtIndex != -1 && lastAtIndex == text.length - 1) {
       setState(() {
         _showMentions = true;
@@ -97,7 +97,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         allowMultiple: true,
         withData: true,
       );
-      
+
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
           _selectedImages.addAll(result.files.where((f) => f.bytes != null));
@@ -119,7 +119,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         allowMultiple: false,
         withData: true,
       );
-      
+
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
           final f = result.files.first;
@@ -153,7 +153,8 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         final bytes = image.bytes;
         if (bytes == null) continue;
         final ext = (image.extension?.trim().isNotEmpty == true) ? image.extension!.toLowerCase() : 'jpg';
-        final url = await networkService.uploadImageBytes(bytes, extension: ext);
+        // ✅ Correction : le paramètre s'appelle fileExtension
+        final url = await networkService.uploadImageBytes(bytes, fileExtension: ext);
         if (url != null && url.isNotEmpty) {
           imageUrls.add(url);
         }
@@ -167,10 +168,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
 
       if (postId.isNotEmpty) {
         debugPrint('✅ Post published successfully: $postId');
-        
+
         // ✅ Petit délai pour laisser Supabase propager l'enregistrement
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         // ✅ Forcer le rechargement du feed
         try {
           await feedProvider.loadFeed(force: true);
@@ -179,10 +180,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
           debugPrint('❌ Erreur lors du rechargement du feed: $e');
           // Ne pas bloquer la navigation si le rechargement échoue
         }
-        
+
         // Call callback if provided
         widget.onPostCreated?.call();
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -204,7 +205,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         setState(() => _errorMessage = 'Erreur: ${e.toString()}');
       }
     } finally {
-        if (mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
