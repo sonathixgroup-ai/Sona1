@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/auth/token_service.dart';
 import 'chat_models.dart';
 import 'chat_constants.dart';
@@ -7,7 +8,6 @@ import 'chat_utils.dart';
 import '../archive/search_filters.dart';
 
 class ChatRepository {
-  // ✅ Utiliser le client Supabase global (initialisé avec la bonne URL)
   final SupabaseClient _supabase = Supabase.instance.client;
 
   // ==================== CONVERSATIONS ====================
@@ -129,7 +129,6 @@ class ChatRepository {
 
   // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // ✅ Utilisation de .count() pour obtenir le nombre, plus fiable
     final onlineCount = await _supabase
         .from('thix_presence')
         .select('user_id')
@@ -145,7 +144,7 @@ class ChatRepository {
     return ChatStats(
       onlineCount: onlineCount,
       newMessagesCount: newMessagesCount,
-      activeMeetingsCount: 0, // à adapter si vous avez une table de réunions
+      activeMeetingsCount: 0,
       securityAlertsCount: 0,
     );
   }
@@ -198,6 +197,35 @@ class ChatRepository {
         .update({'archived_at': null})
         .eq('chat_id', conversationId)
         .eq('user_id', userId);
+  }
+
+  // ✅ AJOUT DE LA MÉTHODE MANQUANTE
+  Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
+    try {
+      var query = _supabase
+          .from('thix_chat_chats')
+          .select('*, participants:user_id(*)')
+          .eq('participants.user_id', userId)
+          .not('archived_at', 'is', null);
+
+      final searchText = filters.query?.trim() ?? '';
+      if (searchText.isNotEmpty) {
+        // Recherche sur le titre ou sur les noms des participants (JSONB)
+        query = query.or(
+            'title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%');
+      }
+
+      // Vous pouvez étendre avec d'autres critères selon les besoins
+      // Exemple : if (filters.type != null) query = query.eq('type', filters.type);
+
+      query = query.order('updated_at', ascending: false);
+
+      final response = await query;
+      return response.map((json) => Conversation.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('❌ Erreur searchArchivedConversations: $e');
+      return [];
+    }
   }
 
   // ==================== REALTIME ====================
