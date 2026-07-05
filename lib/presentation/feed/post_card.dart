@@ -1,4 +1,4 @@
-// lib/presentation/feed/post_card.dart
+// lib/presentation/network/widgets/post_card.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -7,7 +7,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 class PostCard extends StatelessWidget {
   final NetworkPost post;
-  final String currentProfileId;          // 👈 Paramètre requis
+  final String currentProfileId;          // 👈 Ce paramètre est requis
   final VoidCallback? onLike;
   final VoidCallback? onComment;
   final VoidCallback? onShare;
