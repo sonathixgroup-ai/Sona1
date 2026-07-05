@@ -1,7 +1,5 @@
-// lib/presentation/chat/archive/search_filters.dart
-
 class SearchFilters {
-  final String? query;
+  final String? query;     // ✅ champ correct
   final String? type;
   final String? dateRange;
   final DateTime? startDate;
