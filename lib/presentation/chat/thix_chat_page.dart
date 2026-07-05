@@ -111,7 +111,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNav(context, state),
+      bottomNavigationBar: _buildBottomNav(context), // ✅ plus de paramètre state
     );
   }
 
@@ -445,7 +445,9 @@ class _ThixChatPageState extends State<ThixChatPage> {
   }
 
   // ---------- BOTTOM NAV (avec badge réel) ----------
-  Widget _buildBottomNav(BuildContext context, ChatState state) {
+  Widget _buildBottomNav(BuildContext context) {
+    // ✅ Récupération de l'état via context.watch (en dehors du BlocBuilder)
+    final state = context.watch<ChatBloc>().state;
     int unreadCount = 0;
     if (state is ConversationsLoaded) {
       unreadCount = state.stats.newMessagesCount;
@@ -470,7 +472,6 @@ class _ThixChatPageState extends State<ThixChatPage> {
           _NavItem(
             icon: Icons.chat_bubble_outline,
             label: 'Chats',
-            // ✅ Badge réel : nombre de messages non lus
             badgeCount: unreadCount > 0 ? unreadCount : null,
             isSelected: _bottomNavIndex == 1,
             onTap: () {
@@ -504,7 +505,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
 }
 
 // ================= WIDGETS AUXILIAIRES =================
-
+// (le reste est inchangé)
 class _StatItem extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
