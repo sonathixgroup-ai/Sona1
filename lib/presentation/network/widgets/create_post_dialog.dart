@@ -1,4 +1,4 @@
-import 'dart:typed_data';  // ✅ AJOUT OBLIGATOIRE
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
@@ -210,14 +210,13 @@ class _CreatePostDialogState extends State<CreatePostDialog>
         final ext = (video.extension?.trim().isNotEmpty == true)
             ? video.extension!.toLowerCase()
             : 'mp4';
-        final url = await networkService.uploadImageBytes(bytes, fileExtension: ext); // ou uploadVideoBytes si disponible
+        final url = await networkService.uploadImageBytes(bytes, fileExtension: ext);
         if (url != null && url.isNotEmpty) videoUrls.add(url);
       }
 
       // Combine all media
       final allMedia = [...imageUrls, ...videoUrls];
 
-      // ✅ CORRECTION : suppression du paramètre 'status'
       final postId = await networkService.createPost(
         _contentController.text.trim(),
         allMedia,
@@ -254,20 +253,219 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     }
   }
 
+  // ========== BUILD COMPLET ==========
   @override
   Widget build(BuildContext context) {
-    // ... (le reste du code est inchangé, voir version précédente)
-    // Je vous renvoie à la version complète précédemment fournie,
-    // en ajoutant simplement l'import et la correction ci-dessus.
-    return Container(); // À remplacer par le vrai build
-  }
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        constraints: const BoxConstraints(maxHeight: 600),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Créer une publication',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
-  // ... autres méthodes (_buildEditor, _buildPreview, etc.) identiques
-  // avec la seule correction de l'import et du paramètre status.
+            // Body (scrollable)
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Champ de texte
+                    TextField(
+                      controller: _contentController,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        hintText: 'Quoi de neuf dans votre monde pro ?',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-  // ✅ CORRECTION : la méthode _buildMediaChip utilise désormais Uint8List correctement
-  Widget _buildMediaChip(Uint8List bytes, bool isVideo) {
-    // ... (code inchangé)
-    return Container(); // Placeholder
+                    // Mentions
+                    if (_showMentions && _mentionSuggestions.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: _mentionSuggestions.map((user) {
+                            return ListTile(
+                              leading: CircleAvatar(
+                                radius: 14,
+                                backgroundImage: user['avatar'] != null
+                                    ? NetworkImage(user['avatar'])
+                                    : null,
+                                child: user['avatar'] == null
+                                    ? Text(user['display_name'][0].toUpperCase())
+                                    : null,
+                              ),
+                              title: Text(user['display_name']),
+                              onTap: () => _insertMention(user),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
+                    // Images sélectionnées
+                    if (_selectedImages.isNotEmpty)
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: _selectedImages.map((img) {
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.memory(
+                                  img.bytes!,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: GestureDetector(
+                                  onTap: () => _removeMedia(_selectedImages.indexOf(img), false),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+
+                    // Vidéos sélectionnées
+                    if (_selectedVideos.isNotEmpty)
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: _selectedVideos.map((vid) {
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.memory(
+                                  vid.bytes!,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: GestureDetector(
+                                  onTap: () => _removeMedia(_selectedVideos.indexOf(vid), true),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: Align(
+                                  alignment: Alignment.center,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black45,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 20),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Footer
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  onPressed: _pickImages,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.video_library_outlined),
+                  onPressed: _pickVideos,
+                ),
+                const Spacer(),
+                if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
+                  Text(
+                    '${_selectedImages.length + _selectedVideos.length} média(s)',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+              ],
+            ),
+
+            // Bouton Publier
+            ElevatedButton(
+              onPressed: _isUploading ? null : _publishPost,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: const Color(0xFF0B1B3D),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: _isUploading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('PUBLIER'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
