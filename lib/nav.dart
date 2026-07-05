@@ -1026,7 +1026,58 @@ class AppRouter {
           pageBuilder: (context, state) =>
               NoTransitionPage(child: ProfilePage()),
         ),
-
+         // === Routes supplémentaires pour le Réseau Pro ===
+GoRoute(
+  path: '/video-upload',
+  name: 'videoUpload',
+  pageBuilder: (context, state) =>
+      NoTransitionPage(
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Chargement vidéo')),
+          body: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.video_library, size: 80, color: Colors.blue),
+                SizedBox(height: 20),
+                Text('Page de chargement vidéo (à implémenter)'),
+                SizedBox(height: 10),
+                Text('Remplacez ce Scaffold par votre widget réel'),
+              ],
+            ),
+          ),
+        ),
+      ),
+),
+GoRoute(
+  path: '/opportunity-detail',
+  name: 'opportunityDetail',
+  pageBuilder: (context, state) {
+    final extra = state.extra as Map?;
+    final title = extra?['title'] ?? 'Opportunité';
+    final sub = extra?['sub'] ?? '';
+    return NoTransitionPage(
+      child: Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('📌 Opportunité : $title', style: const TextStyle(fontSize: 20)),
+              const SizedBox(height: 8),
+              Text('Sous-titre : $sub'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                child: const Text('Retour'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  },
+),
         // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
