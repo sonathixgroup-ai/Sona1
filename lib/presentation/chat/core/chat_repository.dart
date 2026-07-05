@@ -14,12 +14,8 @@ class ChatRepository {
   Future<List<Conversation>> fetchConversations(String userId) async {
     final response = await _supabase
         .from('thix_chat_chats')
-        .select('''
-          *,
-          participants:user_id(*),
-          last_message:last_message_id(*)
-        ''')
-        .contains('participant_ids', [userId])
+        .select('*')
+        .contains('participants', [userId])
         .order('updated_at', ascending: false);
 
     return response.map((json) => Conversation.fromJson(json)).toList();
@@ -118,6 +114,7 @@ class ChatRepository {
 
   // ==================== STORIES ====================
   Future<List<Story>> fetchStories(String userId) async {
+    // Adaptez selon votre table réelle (ex: 'thix_stories')
     final response = await _supabase
         .from('thix_stories')
         .select('*')
@@ -129,21 +126,21 @@ class ChatRepository {
 
   // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    final onlineResponse = await _supabase
+    final onlineCount = await _supabase
         .from('thix_presence')
         .select('user_id')
         .eq('status', 'online')
         .count(CountOption.exact);
 
-    final newMessagesResponse = await _supabase
+    final newMessagesCount = await _supabase
         .from('thix_chat_messages')
         .select('id')
         .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)).toIso8601String())
         .count(CountOption.exact);
 
     return ChatStats(
-      onlineCount: onlineResponse.count,
-      newMessagesCount: newMessagesResponse.count,
+      onlineCount: onlineCount,
+      newMessagesCount: newMessagesCount,
       activeMeetingsCount: 0,
       securityAlertsCount: 0,
     );
@@ -184,8 +181,8 @@ class ChatRepository {
   Future<List<Conversation>> fetchArchivedConversations(String userId) async {
     final response = await _supabase
         .from('thix_chat_chats')
-        .select('*, participants:user_id(*)')
-        .eq('participants.user_id', userId)
+        .select('*')
+        .contains('participants', [userId])
         .not('archived_at', 'is', null);
 
     return response.map((json) => Conversation.fromJson(json)).toList();
@@ -199,16 +196,14 @@ class ChatRepository {
         .eq('user_id', userId);
   }
 
-  // ✅ RECHERCHE ARCHIVES (CORRIGÉ)
   Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
     try {
       final baseQuery = _supabase
           .from('thix_chat_chats')
-          .select('*, participants:user_id(*)')
-          .eq('participants.user_id', userId)
+          .select('*')
+          .contains('participants', [userId])
           .not('archived_at', 'is', null);
 
-      // ✅ Correction : utiliser filters.query au lieu de filters.text
       final searchText = filters.query?.trim() ?? '';
       final filteredQuery = searchText.isNotEmpty
           ? baseQuery.or('title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%')
