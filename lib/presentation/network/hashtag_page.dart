@@ -1,4 +1,3 @@
-// lib/presentation/network/hashtag_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,6 +17,7 @@ class _HashtagPageState extends State<HashtagPage> {
   List<NetworkPost> _posts = [];
   Map<String, dynamic>? _hashtagInfo;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -27,7 +27,10 @@ class _HashtagPageState extends State<HashtagPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       // Récupérer les posts avec ce hashtag
       final response = await Supabase.instance.client
@@ -65,6 +68,8 @@ class _HashtagPageState extends State<HashtagPage> {
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
           'is_liked': false,
+          // ✅ CORRIGÉ : Construire media_urls depuis les colonnes existantes
+          'media_urls': _extractMediaUrls(e),
         }));
       }
       
@@ -77,39 +82,131 @@ class _HashtagPageState extends State<HashtagPage> {
         _loading = false;
       });
     } catch (e) {
-      debugPrint('Error loading hashtag: $e');
-      setState(() => _loading = false);
+      debugPrint('❌ Erreur chargement hashtag: $e');
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
+  }
+
+  // ✅ CORRIGÉ : Fonction pour extraire les URLs des médias
+  List<String> _extractMediaUrls(Map<String, dynamic> row) {
+    // Vérifier si la colonne media_urls existe
+    if (row['media_urls'] != null) {
+      return List<String>.from(row['media_urls'] as List);
+    }
+    // Sinon, utiliser media_url (une seule image)
+    if (row['media_url'] != null && row['media_url'].toString().isNotEmpty) {
+      return [row['media_url'].toString()];
+    }
+    // Sinon, utiliser image_urls si elle existe
+    if (row['image_urls'] != null) {
+      return List<String>.from(row['image_urls'] as List);
+    }
+    return [];
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: Text('#${widget.tag}'),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        title: Row(
+          children: [
+            const Icon(Icons.tag, size: 22, color: Color(0xFFD4AF37)),
+            const SizedBox(width: 8),
+            Text(
+              '#${widget.tag}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Color(0xFF1A1A2E),
+              ),
+            ),
+          ],
+        ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(12),
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD4AF37).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Text(
               '${_hashtagInfo?['posts_count'] ?? 0} posts',
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFD4AF37),
+              ),
             ),
           ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _posts.isEmpty
-              ? _buildEmptyState()
-              : GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 2,
-                    mainAxisSpacing: 2,
-                  ),
-                  itemCount: _posts.length,
-                  itemBuilder: (context, index) => _buildPostItem(_posts[index]),
-                ),
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+              ),
+            )
+          : _error != null
+              ? _buildErrorState()
+              : _posts.isEmpty
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      color: const Color(0xFFD4AF37),
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(2),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 2,
+                          mainAxisSpacing: 2,
+                        ),
+                        itemCount: _posts.length,
+                        itemBuilder: (context, index) => _buildPostItem(_posts[index]),
+                      ),
+                    ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 56, color: Colors.red.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'Erreur de chargement',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _loadData,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: const Color(0xFF0B1B3D),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -119,24 +216,29 @@ class _HashtagPageState extends State<HashtagPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.tag, size: 60, color: Colors.grey),
+            child: const Icon(Icons.tag, size: 64, color: Colors.grey),
           ),
           const SizedBox(height: 16),
           Text(
             '#${widget.tag}',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(
             'Aucun post pour ce hashtag',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Text(
+            'Soyez le premier à utiliser #${widget.tag} !',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => context.pop(),
             icon: const Icon(Icons.arrow_back),
@@ -144,6 +246,7 @@ class _HashtagPageState extends State<HashtagPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: const Color(0xFF0B1B3D),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             ),
           ),
         ],
@@ -151,32 +254,46 @@ class _HashtagPageState extends State<HashtagPage> {
     );
   }
 
-  // ⭐ CORRIGÉ - Utilisation dynamique pour mediaUrl
+  // ✅ CORRIGÉ - Utilisation correcte de mediaUrls
   Widget _buildPostItem(NetworkPost post) {
-    // Récupération sécurisée de mediaUrl via dynamic
-    final dynamicPost = post as dynamic;
-    final mediaUrl = dynamicPost.mediaUrl;
-    final hasImage = mediaUrl != null && mediaUrl.toString().isNotEmpty;
-    
+    final hasImage = post.imageUrls.isNotEmpty;
+    final imageUrl = hasImage ? post.imageUrls.first : null;
+
     return GestureDetector(
       onTap: () => context.push('/network/post/${post.id}'),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (hasImage)
+          if (hasImage && imageUrl != null)
             Image.network(
-              mediaUrl.toString(),
+              imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
-                color: Colors.grey[200],
+                color: Colors.grey.shade200,
                 child: const Icon(Icons.broken_image, color: Colors.grey),
               ),
             )
           else
             Container(
-              color: Colors.grey[200],
-              child: const Icon(Icons.text_fields, color: Colors.grey),
+              color: Colors.grey.shade200,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.text_fields, size: 32, color: Colors.grey),
+                  const SizedBox(height: 4),
+                  Text(
+                    post.content.length > 20
+                        ? '${post.content.substring(0, 20)}...'
+                        : post.content,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
+          // Compteur de likes en bas à droite
           Positioned(
             bottom: 8,
             right: 8,
@@ -198,6 +315,20 @@ class _HashtagPageState extends State<HashtagPage> {
               ),
             ),
           ),
+          // Si le post est épinglé
+          if (post.isPinned ?? false)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4AF37).withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.push_pin, size: 12, color: Colors.white),
+              ),
+            ),
         ],
       ),
     );
