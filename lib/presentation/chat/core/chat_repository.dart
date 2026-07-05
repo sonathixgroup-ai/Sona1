@@ -127,10 +127,8 @@ class ChatRepository {
     return response.map((json) => Story.fromJson(json)).toList();
   }
 
-  // ==================== STATS CHAT (CORRIGÉ) ====================
+  // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // ✅ .count() renvoie un PostgrestResponse, pas un int directement.
-    // Il faut extraire la propriété .count de la réponse.
     final onlineResponse = await _supabase
         .from('thix_presence')
         .select('user_id')
@@ -210,7 +208,8 @@ class ChatRepository {
           .eq('participants.user_id', userId)
           .not('archived_at', 'is', null);
 
-      final searchText = filters.text?.trim() ?? '';
+      // ✅ Correction : utiliser filters.query au lieu de filters.text
+      final searchText = filters.query?.trim() ?? '';
       final filteredQuery = searchText.isNotEmpty
           ? baseQuery.or('title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%')
           : baseQuery;
