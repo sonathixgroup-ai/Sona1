@@ -13,13 +13,13 @@ class ChatRepository {
   // ==================== CONVERSATIONS ====================
   Future<List<Conversation>> fetchConversations(String userId) async {
     final response = await _supabase
-        .from('thix_chat_chats') // Table réelle
+        .from('thix_chat_chats')
         .select('''
           *,
           participants:user_id(*),
           last_message:last_message_id(*)
         ''')
-        .contains('participant_ids', [userId]) // ou .eq si c'est un array
+        .contains('participant_ids', [userId])
         .order('updated_at', ascending: false);
 
     return response.map((json) => Conversation.fromJson(json)).toList();
@@ -30,7 +30,7 @@ class ChatRepository {
     final response = await _supabase
         .from('thix_chat_messages')
         .select('*')
-        .eq('chat_id', conversationId) // selon le schéma
+        .eq('chat_id', conversationId)
         .order('created_at', ascending: false)
         .limit(limit);
 
@@ -45,7 +45,6 @@ class ChatRepository {
           'sender_id': message.senderId,
           'content': message.content,
           'created_at': message.sentAt.toIso8601String(),
-          // autres champs...
         })
         .select()
         .single();
@@ -55,7 +54,6 @@ class ChatRepository {
 
   // ==================== CONFIDENTIEL ====================
   Future<bool> verifyConfidentialCode(String messageId, String enteredCode) async {
-    // Exemple : vérifier un code stocké en base (à adapter)
     final response = await _supabase
         .from('thix_chat_messages')
         .select('confidential_code')
@@ -91,10 +89,8 @@ class ChatRepository {
   // ==================== SUPPRESSION ====================
   Future<void> deleteMessage(String messageId, String userId, {bool forEveryone = false}) async {
     if (forEveryone) {
-      // Supprimer pour tout le monde (si l'utilisateur est admin ou propriétaire)
       await _supabase.from('thix_chat_messages').delete().eq('id', messageId);
     } else {
-      // Supprimer uniquement pour soi (soft delete ?)
       await _supabase
           .from('thix_chat_deletions')
           .upsert({'message_id': messageId, 'user_id': userId});
@@ -122,7 +118,6 @@ class ChatRepository {
 
   // ==================== STORIES ====================
   Future<List<Story>> fetchStories(String userId) async {
-    // Exemple : récupérer les stories d'un utilisateur
     final response = await _supabase
         .from('thix_stories')
         .select('*')
@@ -134,30 +129,33 @@ class ChatRepository {
 
   // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // Compter les stats via des requêtes (exemples)
-    final onlineCount = await _supabase
+    // ✅ Utiliser CountOption.exact ou CountOption.estimated
+    // On utilise exact pour une précision parfaite (lent sur des grandes tables)
+    // Pour de meilleures performances, on peut utiliser CountOption.estimated
+    final onlineCountResponse = await _supabase
         .from('thix_presence')
-        .select('user_id', count: CountEstimate)
+        .select('user_id', count: CountOption.exact)  // ✅ au lieu de CountEstimate
         .eq('status', 'online');
 
-    final newMessages = await _supabase
+    final newMessagesResponse = await _supabase
         .from('thix_chat_messages')
-        .select('id', count: CountEstimate)
+        .select('id', count: CountOption.exact)      // ✅ au lieu de CountEstimate
         .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)));
 
+    // ✅ Accéder au compteur via .count
+    final onlineCount = onlineCountResponse.count ?? 0;
+    final newMessagesCount = newMessagesResponse.count ?? 0;
+
     return ChatStats(
-      onlineCount: onlineCount.count ?? 0,
-      newMessagesCount: newMessages.count ?? 0,
-      activeMeetingsCount: 0, // à adapter
+      onlineCount: onlineCount,
+      newMessagesCount: newMessagesCount,
+      activeMeetingsCount: 0, // à adapter si vous avez une table de réunions
       securityAlertsCount: 0,
     );
   }
 
   // ==================== TYPING (signal) ====================
-  // On peut utiliser Realtime ou une table de typing
   Future<void> sendTyping(String conversationId, String userId) async {
-    // Optionnel : envoyer un événement via Realtime
-    // ou stocker dans une table éphémère
     try {
       await _supabase
           .from('thix_typing')
@@ -181,7 +179,6 @@ class ChatRepository {
   }
 
   Future<void> deleteConversation(String conversationId, String userId) async {
-    // Supprimer la conversation pour l'utilisateur (soft delete)
     await _supabase
         .from('thix_chat_participants')
         .update({'deleted_at': DateTime.now().toIso8601String()})
@@ -206,9 +203,6 @@ class ChatRepository {
         .eq('chat_id', conversationId)
         .eq('user_id', userId);
   }
-
-  // ... les autres méthodes (recherche, sondages, tâches, etc.) suivent la même logique.
-  // Je ne les réécris pas toutes ici, mais le principe est identique.
 
   // ==================== REALTIME ====================
   Stream<Message> listenForNewMessages(String conversationId) {
