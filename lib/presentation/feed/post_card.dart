@@ -7,13 +7,13 @@ import 'package:timeago/timeago.dart' as timeago;
 
 class PostCard extends StatelessWidget {
   final NetworkPost post;
-  final String currentProfileId;
-  final VoidCallback? onLike;          // 👈 Callback pour le parent
-  final VoidCallback? onComment;       // 👈 Callback pour le parent
-  final VoidCallback? onShare;         // 👈 Callback pour le parent
-  final VoidCallback? onSave;          // 👈 Callback pour le parent
-  final VoidCallback? onEdit;          // 👈 Callback pour le parent (après modification)
-  final VoidCallback? onDelete;        // 👈 Callback pour le parent (après suppression)
+  final String currentProfileId;          // 👈 Paramètre requis
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onShare;
+  final VoidCallback? onSave;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const PostCard({
     Key? key,
@@ -57,7 +57,6 @@ class PostCard extends StatelessWidget {
                       Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       if (post.authorTitle != null && post.authorTitle!.isNotEmpty)
                         Text(post.authorTitle!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      // ─── HEURE DE PUBLICATION ───
                       Row(
                         children: [
                           Text(
@@ -71,7 +70,7 @@ class PostCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // ─── MENU (MODIFIER / SUPPRIMER) ───
+                // ─── MENU ───
                 if (isOwner)
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
@@ -131,7 +130,7 @@ class PostCard extends StatelessWidget {
               ),
             const SizedBox(height: 8),
 
-            // ─── STATISTIQUES ───
+            // ─── STATS ───
             Row(
               children: [
                 Text('${post.likesCount} J\'aime${post.likesCount > 1 ? 's' : ''}'),
@@ -296,7 +295,6 @@ class PostCard extends StatelessWidget {
                 final networkService = context.read<NetworkService>();
                 await networkService.addComment(post.id, content);
                 if (context.mounted) Navigator.pop(context);
-                // Appeler onComment pour rafraîchir si nécessaire
                 onComment?.call();
               }
             },
@@ -328,7 +326,6 @@ class PostCard extends StatelessWidget {
                 final networkService = context.read<NetworkService>();
                 await networkService.updatePost(post.id, newContent);
                 if (context.mounted) Navigator.pop(context);
-                // Appeler onEdit pour rafraîchir le feed
                 onEdit?.call();
               }
             },
@@ -352,7 +349,6 @@ class PostCard extends StatelessWidget {
               final networkService = context.read<NetworkService>();
               await networkService.deletePost(post.id);
               if (context.mounted) Navigator.pop(context);
-              // Appeler onDelete pour rafraîchir le feed
               onDelete?.call();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
