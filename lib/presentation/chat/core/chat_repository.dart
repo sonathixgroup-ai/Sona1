@@ -129,22 +129,18 @@ class ChatRepository {
 
   // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // ✅ Utiliser CountOption.exact ou CountOption.estimated
-    // On utilise exact pour une précision parfaite (lent sur des grandes tables)
-    // Pour de meilleures performances, on peut utiliser CountOption.estimated
-    final onlineCountResponse = await _supabase
+    // ✅ Utilisation de .count() pour obtenir le nombre, plus fiable
+    final onlineCount = await _supabase
         .from('thix_presence')
-        .select('user_id', count: CountOption.exact)  // ✅ au lieu de CountEstimate
-        .eq('status', 'online');
+        .select('user_id')
+        .eq('status', 'online')
+        .count() ?? 0;
 
-    final newMessagesResponse = await _supabase
+    final newMessagesCount = await _supabase
         .from('thix_chat_messages')
-        .select('id', count: CountOption.exact)      // ✅ au lieu de CountEstimate
-        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)));
-
-    // ✅ Accéder au compteur via .count
-    final onlineCount = onlineCountResponse.count ?? 0;
-    final newMessagesCount = newMessagesResponse.count ?? 0;
+        .select('id')
+        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)))
+        .count() ?? 0;
 
     return ChatStats(
       onlineCount: onlineCount,
