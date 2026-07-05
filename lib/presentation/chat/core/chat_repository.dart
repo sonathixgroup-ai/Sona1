@@ -127,23 +127,25 @@ class ChatRepository {
     return response.map((json) => Story.fromJson(json)).toList();
   }
 
-  // ==================== STATS CHAT (CORRIGÉ DÉFINITIVEMENT) ====================
+  // ==================== STATS CHAT (CORRIGÉ) ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // Utilisation de select avec le paramètre count: CountOption.exact
-    // La réponse est un PostgrestResponse qui contient un champ 'count' (int?)
-    final onlineCountResponse = await _supabase
+    // ✅ .count() renvoie un PostgrestResponse, pas un int directement.
+    // Il faut extraire la propriété .count de la réponse.
+    final onlineResponse = await _supabase
         .from('thix_presence')
-        .select('*', count: CountOption.exact)
-        .eq('status', 'online');
+        .select('user_id')
+        .eq('status', 'online')
+        .count(CountOption.exact);
 
     final newMessagesResponse = await _supabase
         .from('thix_chat_messages')
-        .select('*', count: CountOption.exact)
-        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)));
+        .select('id')
+        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)).toIso8601String())
+        .count(CountOption.exact);
 
     return ChatStats(
-      onlineCount: onlineCountResponse.count ?? 0,
-      newMessagesCount: newMessagesResponse.count ?? 0,
+      onlineCount: onlineResponse.count,
+      newMessagesCount: newMessagesResponse.count,
       activeMeetingsCount: 0,
       securityAlertsCount: 0,
     );
@@ -199,23 +201,21 @@ class ChatRepository {
         .eq('user_id', userId);
   }
 
+  // ✅ RECHERCHE ARCHIVES (CORRIGÉ)
   Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
     try {
-      dynamic query = _supabase
+      final baseQuery = _supabase
           .from('thix_chat_chats')
           .select('*, participants:user_id(*)')
           .eq('participants.user_id', userId)
           .not('archived_at', 'is', null);
 
-      final searchText = filters.query?.trim() ?? '';
-      if (searchText.isNotEmpty) {
-        query = query.or(
-            'title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%');
-      }
+      final searchText = filters.text?.trim() ?? '';
+      final filteredQuery = searchText.isNotEmpty
+          ? baseQuery.or('title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%')
+          : baseQuery;
 
-      query = query.order('updated_at', ascending: false);
-
-      final response = await query;
+      final response = await filteredQuery.order('updated_at', ascending: false);
       return response.map((json) => Conversation.fromJson(json)).toList();
     } catch (e) {
       debugPrint('❌ Erreur searchArchivedConversations: $e');
