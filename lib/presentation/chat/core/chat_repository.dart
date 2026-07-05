@@ -114,7 +114,6 @@ class ChatRepository {
 
   // ==================== STORIES ====================
   Future<List<Story>> fetchStories(String userId) async {
-    // Adaptez selon votre table réelle (ex: 'thix_stories')
     final response = await _supabase
         .from('thix_stories')
         .select('*')
@@ -124,23 +123,24 @@ class ChatRepository {
     return response.map((json) => Story.fromJson(json)).toList();
   }
 
-  // ==================== STATS CHAT ====================
+  // ==================== STATS CHAT (CORRIGÉ) ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    final onlineCount = await _supabase
+    // ✅ .count(CountOption.exact) retourne un PostgrestResponse avec un champ 'count'
+    final onlineCountResponse = await _supabase
         .from('thix_presence')
         .select('user_id')
         .eq('status', 'online')
         .count(CountOption.exact);
 
-    final newMessagesCount = await _supabase
+    final newMessagesCountResponse = await _supabase
         .from('thix_chat_messages')
         .select('id')
         .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)).toIso8601String())
         .count(CountOption.exact);
 
     return ChatStats(
-      onlineCount: onlineCount,
-      newMessagesCount: newMessagesCount,
+      onlineCount: onlineCountResponse.count ?? 0,
+      newMessagesCount: newMessagesCountResponse.count ?? 0,
       activeMeetingsCount: 0,
       securityAlertsCount: 0,
     );
