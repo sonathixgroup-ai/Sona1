@@ -1,26 +1,43 @@
 // lib/models/network_post.dart
+import 'package:intl/intl.dart';
+
 class NetworkPost {
+  // ─── Identifiants ───
   final String id;
   final String userId;
   final String authorName;
   final String? authorAvatar;
   final String? authorTitle;
+
+  // ─── Contenu ───
   final String content;
-  final List<String> imageUrls;
-  final List<String>? videoUrls;
+
+  // ─── Médias (unifiés) ───
+  final List<String> mediaUrls; // Tous les médias (images + vidéos) dans une seule liste
+  final List<String> imageUrls; // Uniquement les images (extrait de mediaUrls)
+  final List<String> videoUrls; // Uniquement les vidéos (extrait de mediaUrls)
+
+  // ─── Dates ───
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  // ─── Statistiques ───
   final int likesCount;
   final int commentsCount;
   final int repostsCount;
+  final int? views;
+
+  // ─── États interactifs ───
   final bool isLiked;
   final bool isSaved;
   final bool isReposted;
-  final bool isPublic;
-  final String status; // 'public', 'private', 'connections'
-  final String? communityId;
-  final int? views;
 
+  // ─── Visibilité ───
+  final String status; // 'public', 'private', 'connections'
+  final bool isPublic;
+  final String? communityId;
+
+  // ─── Constructeur ───
   NetworkPost({
     required this.id,
     required this.userId,
@@ -28,8 +45,7 @@ class NetworkPost {
     this.authorAvatar,
     this.authorTitle,
     required this.content,
-    this.imageUrls = const [],
-    this.videoUrls,
+    required this.mediaUrls,
     required this.createdAt,
     this.updatedAt,
     this.likesCount = 0,
@@ -38,26 +54,66 @@ class NetworkPost {
     this.isLiked = false,
     this.isSaved = false,
     this.isReposted = false,
-    this.isPublic = true,
     this.status = 'public',
+    this.isPublic = true,
     this.communityId,
     this.views,
-  });
+  })  : imageUrls = mediaUrls.where((url) => _isImage(url)).toList(),
+        videoUrls = mediaUrls.where((url) => _isVideo(url)).toList();
 
+  // ─── Méthodes de détection de type ───
+  static bool _isImage(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.bmp');
+  }
+
+  static bool _isVideo(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.mp4') ||
+        lower.endsWith('.mov') ||
+        lower.endsWith('.avi') ||
+        lower.endsWith('.mkv') ||
+        lower.endsWith('.webm') ||
+        lower.endsWith('.m4v');
+  }
+
+  bool get hasImages => imageUrls.isNotEmpty;
+  bool get hasVideos => videoUrls.isNotEmpty;
+  bool get hasMedia => mediaUrls.isNotEmpty;
+
+  // ─── Factory depuis Supabase ───
   factory NetworkPost.fromJson(Map<String, dynamic> json) {
+    // Récupération des médias : soit media_urls (tableau), soit image_urls + video_urls
+    List<String> mediaUrls = [];
+    if (json['media_urls'] != null) {
+      mediaUrls = List<String>.from(json['media_urls'] as List? ?? []);
+    } else {
+      final images = json['image_urls'] != null
+          ? List<String>.from(json['image_urls'] as List? ?? [])
+          : <String>[];
+      final videos = json['video_urls'] != null
+          ? List<String>.from(json['video_urls'] as List? ?? [])
+          : <String>[];
+      mediaUrls = [...images, ...videos];
+    }
+
     return NetworkPost(
       id: json['id'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
-      authorName: json['author_name'] as String? ?? 'Utilisateur',
-      authorAvatar: json['author_avatar'] as String?,
-      authorTitle: json['author_title'] as String?,
+      authorName: json['author_name'] as String? ??
+          json['users']?['display_name'] as String? ??
+          'Utilisateur',
+      authorAvatar: json['author_avatar'] as String? ??
+          json['users']?['photo_url'] as String?,
+      authorTitle: json['author_title'] as String? ??
+          json['users']?['title'] as String?,
       content: json['content'] as String? ?? '',
-      imageUrls: json['image_urls'] != null
-          ? List<String>.from(json['image_urls'] as List? ?? [])
-          : [],
-      videoUrls: json['video_urls'] != null
-          ? List<String>.from(json['video_urls'] as List? ?? [])
-          : null,
+      mediaUrls: mediaUrls,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -70,13 +126,14 @@ class NetworkPost {
       isLiked: json['is_liked'] as bool? ?? false,
       isSaved: json['is_saved'] as bool? ?? false,
       isReposted: json['is_reposted'] as bool? ?? false,
-      isPublic: json['is_public'] as bool? ?? true,
       status: json['status'] as String? ?? 'public',
+      isPublic: json['is_public'] as bool? ?? true,
       communityId: json['community_id'] as String?,
       views: json['views'] as int?,
     );
   }
 
+  // ─── Conversion vers JSON ───
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -85,8 +142,7 @@ class NetworkPost {
       'author_avatar': authorAvatar,
       'author_title': authorTitle,
       'content': content,
-      'image_urls': imageUrls,
-      'video_urls': videoUrls,
+      'media_urls': mediaUrls,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'likes_count': likesCount,
@@ -95,13 +151,14 @@ class NetworkPost {
       'is_liked': isLiked,
       'is_saved': isSaved,
       'is_reposted': isReposted,
-      'is_public': isPublic,
       'status': status,
+      'is_public': isPublic,
       'community_id': communityId,
       'views': views,
     };
   }
 
+  // ─── CopyWith (pour les mises à jour locales) ───
   NetworkPost copyWith({
     String? id,
     String? userId,
@@ -109,8 +166,7 @@ class NetworkPost {
     String? authorAvatar,
     String? authorTitle,
     String? content,
-    List<String>? imageUrls,
-    List<String>? videoUrls,
+    List<String>? mediaUrls,
     DateTime? createdAt,
     DateTime? updatedAt,
     int? likesCount,
@@ -119,8 +175,8 @@ class NetworkPost {
     bool? isLiked,
     bool? isSaved,
     bool? isReposted,
-    bool? isPublic,
     String? status,
+    bool? isPublic,
     String? communityId,
     int? views,
   }) {
@@ -131,8 +187,7 @@ class NetworkPost {
       authorAvatar: authorAvatar ?? this.authorAvatar,
       authorTitle: authorTitle ?? this.authorTitle,
       content: content ?? this.content,
-      imageUrls: imageUrls ?? this.imageUrls,
-      videoUrls: videoUrls ?? this.videoUrls,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       likesCount: likesCount ?? this.likesCount,
@@ -141,10 +196,41 @@ class NetworkPost {
       isLiked: isLiked ?? this.isLiked,
       isSaved: isSaved ?? this.isSaved,
       isReposted: isReposted ?? this.isReposted,
-      isPublic: isPublic ?? this.isPublic,
       status: status ?? this.status,
+      isPublic: isPublic ?? this.isPublic,
       communityId: communityId ?? this.communityId,
       views: views ?? this.views,
     );
   }
+
+  // ─── Formatage des dates ───
+  String get formattedDate {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+    if (difference.inDays > 7) {
+      return DateFormat('d MMM yyyy').format(createdAt);
+    } else if (difference.inDays > 0) {
+      return 'Il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'Il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inMinutes > 0) {
+      return 'Il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
+    } else {
+      return 'À l\'instant';
+    }
+  }
+
+  // ─── Égalité ───
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NetworkPost &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() => 'NetworkPost(id: $id, author: $authorName, content: ${content.length > 20 ? content.substring(0, 20) + '...' : content})';
 }
