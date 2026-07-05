@@ -11,22 +11,30 @@ import 'package:provider/provider.dart';
 
 class PostCard extends StatefulWidget {
   final NetworkPost post;
+  final String currentProfileId;          // 👈 AJOUTÉ
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onTap;
   final VoidCallback onShare;
   final VoidCallback? onRefresh;
   final VoidCallback? onPin;
+  final VoidCallback? onEdit;             // 👈 AJOUTÉ
+  final VoidCallback? onDelete;           // 👈 AJOUTÉ
+  final VoidCallback? onSave;             // 👈 AJOUTÉ
 
   const PostCard({
     super.key,
     required this.post,
+    required this.currentProfileId,
     required this.onLike,
     required this.onComment,
     required this.onTap,
     required this.onShare,
     this.onRefresh,
     this.onPin,
+    this.onEdit,
+    this.onDelete,
+    this.onSave,
   });
 
   @override
@@ -139,11 +147,10 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   }
 
   // ─── ACTIONS ───
-  Future<void> _toggleLike() async {
-    // Animation
-    _likeAnimationController.forward(from: 0.0);
 
-    // Mise à jour locale immédiate
+  // 1. Like
+  Future<void> _toggleLike() async {
+    _likeAnimationController.forward(from: 0.0);
     final newIsLiked = !_post.isLiked;
     final newCount = _post.likesCount + (newIsLiked ? 1 : -1);
     setState(() {
@@ -153,17 +160,15 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       );
     });
 
-    // Appel service
     try {
       if (newIsLiked) {
         await _networkService.likePost(_post.id);
       } else {
         await _networkService.unlikePost(_post.id);
       }
-      // Rafraîchir le parent (si besoin)
       widget.onRefresh?.call();
+      widget.onLike(); // notifier le parent
     } catch (e) {
-      // Revert en cas d'erreur
       setState(() {
         _post = _post.copyWith(
           isLiked: !newIsLiked,
@@ -178,6 +183,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
+  // 2. Save (utilise le callback onSave)
   Future<void> _toggleSave() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
@@ -190,22 +196,12 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     try {
       if (newSaved) {
         await _networkService.savePost(_post.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Post sauvegardé'), backgroundColor: Colors.green),
-          );
-        }
       } else {
         await _networkService.unsavePost(_post.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Post retiré des sauvegardes'), backgroundColor: Colors.orange),
-          );
-        }
       }
       widget.onRefresh?.call();
+      widget.onSave?.call(); // notification au parent
     } catch (e) {
-      // Revert
       setState(() {
         _post = _post.copyWith(isSaved: !newSaved);
       });
@@ -219,6 +215,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
+  // 3. Repost
   Future<void> _repost() async {
     if (_isReposting) return;
     final result = await showDialog<bool>(
@@ -278,6 +275,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
+  // 4. Pin (pour le propriétaire)
   Future<void> _pinPost() async {
     try {
       await _networkService.pinPost(_post.id);
@@ -286,6 +284,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           const SnackBar(content: Text('Post épinglé sur votre profil'), backgroundColor: Colors.green),
         );
         widget.onRefresh?.call();
+        widget.onPin?.call();
       }
     } catch (e) {
       if (mounted) {
@@ -296,6 +295,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
+  // 5. Delete (appelle le callback onDelete)
   Future<void> _deletePost() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -326,8 +326,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             const SnackBar(content: Text('Publication supprimée'), backgroundColor: Colors.green),
           );
           widget.onRefresh?.call();
-          // Notifier le parent pour qu'il enlève le post
-          widget.onLike(); // réutilisé pour signaler un changement
+          widget.onDelete?.call(); // notification au parent
         }
       } catch (e) {
         if (mounted) {
@@ -339,75 +338,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _hidePost() async {
-    try {
-      await _networkService.hidePost(_post.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Publication masquée'), backgroundColor: Colors.orange),
-        );
-        widget.onRefresh?.call();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<void> _reportPost() async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Signaler la publication'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.warning, color: Colors.orange),
-              title: const Text('Spam'),
-              onTap: () => Navigator.pop(context, 'Spam'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.block, color: Colors.red),
-              title: const Text('Contenu inapproprié'),
-              onTap: () => Navigator.pop(context, 'Contenu inapproprié'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_off, color: Colors.purple),
-              title: const Text('Harcèlement'),
-              onTap: () => Navigator.pop(context, 'Harcèlement'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.blue),
-              title: const Text('Fausse information'),
-              onTap: () => Navigator.pop(context, 'Fausse information'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (reason != null) {
-      try {
-        await _networkService.reportPost(_post.id, reason);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication signalée'), backgroundColor: Colors.orange),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-          );
-        }
-      }
-    }
-  }
-
+  // 6. Edit (appelle le callback onEdit)
   Future<void> _editPost() async {
     final controller = TextEditingController(text: _post.content);
     final newContent = await showDialog<String>(
@@ -449,6 +380,78 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             const SnackBar(content: Text('Publication modifiée'), backgroundColor: Colors.green),
           );
           widget.onRefresh?.call();
+          widget.onEdit?.call(); // notification au parent
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  // 7. Hide
+  Future<void> _hidePost() async {
+    try {
+      await _networkService.hidePost(_post.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Publication masquée'), backgroundColor: Colors.orange),
+        );
+        widget.onRefresh?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // 8. Report
+  Future<void> _reportPost() async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Signaler la publication'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.warning, color: Colors.orange),
+              title: const Text('Spam'),
+              onTap: () => Navigator.pop(context, 'Spam'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.block, color: Colors.red),
+              title: const Text('Contenu inapproprié'),
+              onTap: () => Navigator.pop(context, 'Contenu inapproprié'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_off, color: Colors.purple),
+              title: const Text('Harcèlement'),
+              onTap: () => Navigator.pop(context, 'Harcèlement'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline, color: Colors.blue),
+              title: const Text('Fausse information'),
+              onTap: () => Navigator.pop(context, 'Fausse information'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (reason != null) {
+      try {
+        await _networkService.reportPost(_post.id, reason);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Publication signalée'), backgroundColor: Colors.orange),
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -528,14 +531,19 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                          Row(
+                            children: [
+                              Text(
+                                _getTimeAgo(_post.createdAt),
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.public, size: 12, color: Colors.grey),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    Text(
-                      _getTimeAgo(_post.createdAt),
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                    const SizedBox(width: 8),
                     // Menu (plus)
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, size: 18),
