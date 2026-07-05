@@ -11,7 +11,7 @@ import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'widgets/create_post_dialog.dart';
 import 'widgets/create_story_dialog.dart';
-import 'widgets/post_card.dart';    // ✅ Nouveau PostCard
+import 'widgets/post_card.dart';
 import 'widgets/short_card.dart';
 
 // ─── COULEURS THIX PRO ───
@@ -582,23 +582,18 @@ class _NetworkProHomeState extends State<NetworkProHome>
     );
   }
 
-  // ─── POST CARD (utilise le nouveau PostCard) ───
+  // ─── POST CARD ───
   Widget _buildPostCard(NetworkPost post, String currentUserId) {
     return PostCard(
       post: post,
       currentProfileId: currentUserId,
       onLike: () {
-        // Gérer le like via le provider
         HapticFeedback.lightImpact();
         Provider.of<FeedProvider>(context, listen: false).toggleLike(post.id);
       },
       onComment: () => _commentOnPost(post),
       onShare: () => _sharePost(post),
-      onSave: () {
-        // Gérer la sauvegarde – le PostCard a déjà sa propre logique,
-        // mais on peut ajouter un callback pour rafraîchir
-        _loadPosts();
-      },
+      onSave: () => _loadPosts(),
       onEdit: () => _loadPosts(),
       onDelete: () => _loadPosts(),
     );
