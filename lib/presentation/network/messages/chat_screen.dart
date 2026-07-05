@@ -51,12 +51,13 @@ class _ChatScreenState extends State<ChatScreen> {
     
     if (currentUserId == null) return;
     
+    // ✅ Correction : utiliser la table 'messages' (comme NetworkService)
     _channel = supabase
         .channel('messages_${widget.userId}_$currentUserId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'network_messages',
+          table: 'messages',   // ⬅️ CHANGÉ de 'network_messages' à 'messages'
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'receiver_id',
@@ -72,9 +73,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     try {
       final messages = await _networkService.getMessages(widget.userId);
+      if (!mounted) return;
       setState(() => _messages = messages);
       _scrollToBottom();
     } catch (e) {
@@ -85,7 +88,9 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -115,6 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final sent = await _networkService.sendMessage(widget.userId, content);
+      if (!mounted) return;
       setState(() {
         final index = _messages.indexWhere((m) => m['id'] == tempMessage['id']);
         if (index != -1) {
@@ -122,17 +128,16 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         final index = _messages.indexWhere((m) => m['id'] == tempMessage['id']);
         if (index != -1) {
           _messages[index]['error'] = true;
         }
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de l\'envoi du message'), backgroundColor: Colors.red),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de l\'envoi du message'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -159,10 +164,11 @@ class _ChatScreenState extends State<ChatScreen> {
       try {
         final supabase = Supabase.instance.client;
         await supabase
-            .from('network_messages')
+            .from('messages')   // ✅ même table
             .delete()
             .eq('id', messageId);
         
+        if (!mounted) return;
         setState(() {
           _messages.removeWhere((m) => m['id'] == messageId);
         });
