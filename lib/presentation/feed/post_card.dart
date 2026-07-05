@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/services/network_service.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class PostCard extends StatelessWidget {
   final NetworkPost post;
@@ -12,7 +13,7 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLiked = post.isLiked;
+    final isOwner = post.authorId == currentProfileId;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -23,7 +24,7 @@ class PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header (avec menu si propriétaire)
             Row(
               children: [
                 CircleAvatar(
@@ -40,13 +41,59 @@ class PostCard extends StatelessWidget {
                       Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       if (post.authorTitle != null && post.authorTitle!.isNotEmpty)
                         Text(post.authorTitle!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Row(
+                        children: [
+                          Text(
+                            timeago.format(post.createdAt, locale: 'fr'),
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.public, size: 12, color: Colors.grey),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () {},
-                ),
+                // Menu (Modifier / Supprimer) si propriétaire
+                if (isOwner)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) async {
+                      final networkService = context.read<NetworkService>();
+                      if (value == 'edit') {
+                        _showEditDialog(context, post);
+                      } else if (value == 'delete') {
+                        _showDeleteConfirmation(context, post.id);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Modifier'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Supprimer', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () {},
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -56,27 +103,14 @@ class PostCard extends StatelessWidget {
               Text(post.content, style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
 
-            // Images
-            if (post.imageUrls.isNotEmpty)
+            // Media (images et vidéos)
+            if (post.mediaUrls.isNotEmpty)
               Wrap(
                 spacing: 4,
                 runSpacing: 4,
-                children: post.imageUrls.map((url) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      url,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 100,
-                        height: 100,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, color: Colors.grey),
-                      ),
-                    ),
-                  );
+                children: post.mediaUrls.map((url) {
+                  final isVideo = url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.avi');
+                  return _buildMediaItem(url, isVideo);
                 }).toList(),
               ),
             const SizedBox(height: 8),
@@ -87,6 +121,8 @@ class PostCard extends StatelessWidget {
                 Text('${post.likesCount} J\'aime${post.likesCount > 1 ? 's' : ''}'),
                 const SizedBox(width: 16),
                 Text('${post.commentsCount} Commentaire${post.commentsCount > 1 ? 's' : ''}'),
+                const SizedBox(width: 16),
+                Text('${post.sharesCount} Partage${post.sharesCount > 1 ? 's' : ''}'),
               ],
             ),
             const Divider(),
@@ -96,12 +132,12 @@ class PostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildActionButton(
-                  icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                  icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
                   label: 'J\'aime',
-                  color: isLiked ? Colors.red : null,
+                  color: post.isLiked ? Colors.red : null,
                   onTap: () {
                     final networkService = context.read<NetworkService>();
-                    if (isLiked) {
+                    if (post.isLiked) {
                       networkService.unlikePost(post.id);
                     } else {
                       networkService.likePost(post.id);
@@ -111,20 +147,88 @@ class PostCard extends StatelessWidget {
                 _buildActionButton(
                   icon: Icons.comment,
                   label: 'Commenter',
+                  onTap: () => _showCommentDialog(context, post),
+                ),
+                _buildActionButton(
+                  icon: Icons.repeat,
+                  label: 'Reposter',
                   onTap: () {
-                    _showCommentDialog(context, post);
+                    final networkService = context.read<NetworkService>();
+                    networkService.repostPost(post.id);
+                  },
+                ),
+                _buildActionButton(
+                  icon: post.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                  label: 'Enregistrer',
+                  color: post.isSaved ? Colors.blue : null,
+                  onTap: () {
+                    final networkService = context.read<NetworkService>();
+                    if (post.isSaved) {
+                      networkService.unsavePost(post.id);
+                    } else {
+                      networkService.savePost(post.id);
+                    }
                   },
                 ),
                 _buildActionButton(
                   icon: Icons.share,
                   label: 'Partager',
                   onTap: () {
-                    // Partager le post
+                    // Utiliser share_plus si disponible
+                    final networkService = context.read<NetworkService>();
+                    networkService.sharePost(post.id);
                   },
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaItem(String url, bool isVideo) {
+    if (isVideo) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              url,
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 100,
+                height: 100,
+                color: Colors.grey[300],
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black26,
+              child: const Center(
+                child: Icon(Icons.play_circle_filled, size: 40, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        url,
+        width: 100,
+        height: 100,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 100,
+          height: 100,
+          color: Colors.grey[300],
+          child: const Icon(Icons.broken_image, color: Colors.grey),
         ),
       ),
     );
@@ -152,6 +256,8 @@ class PostCard extends StatelessWidget {
     );
   }
 
+  // ---- DIALOGUES ----
+
   void _showCommentDialog(BuildContext context, NetworkPost post) {
     final controller = TextEditingController();
     showDialog(
@@ -176,6 +282,58 @@ class PostCard extends StatelessWidget {
               }
             },
             child: const Text('Publier'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, NetworkPost post) {
+    final controller = TextEditingController(text: post.content);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modifier la publication'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Nouveau contenu…'),
+          maxLines: 5,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () async {
+              final newContent = controller.text.trim();
+              if (newContent.isNotEmpty && newContent != post.content) {
+                final networkService = context.read<NetworkService>();
+                await networkService.updatePost(post.id, newContent);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String postId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la publication'),
+        content: const Text('Êtes-vous sûr de vouloir supprimer cette publication ? Cette action est irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () async {
+              final networkService = context.read<NetworkService>();
+              await networkService.deletePost(postId);
+              if (context.mounted) Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
