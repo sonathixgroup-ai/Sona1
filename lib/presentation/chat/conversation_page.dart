@@ -42,7 +42,6 @@ class _ConversationPageState extends State<ConversationPage> {
   final TextEditingController _messageController = TextEditingController();
   late ChatBloc _chatBloc;
 
-  // Suggestions de réponses rapides (à terme, générées dynamiquement / IA)
   final List<String> _quickReplies = const ['Parfait !', 'Merci !', 'Je regarde ça', '👍'];
 
   @override
@@ -340,11 +339,13 @@ class _ConversationPageState extends State<ConversationPage> {
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
+        // ✅ currentUserId est nullable, comparer avec senderId
         final isMe = message.senderId == _chatBloc.currentUserId;
         final isPinned = message.metadata?['pinned'] == true;
 
+        // ✅ Utiliser sentAt au lieu de createdAt
         final showDateSeparator = index == messages.length - 1 ||
-            !_isSameDay(messages[index + 1].createdAt, message.createdAt);
+            !_isSameDay(messages[index + 1].sentAt, message.sentAt);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -356,7 +357,7 @@ class _ConversationPageState extends State<ConversationPage> {
               onLongPress: () => _showMessageOptions(message, isPinned: isPinned),
               onReactionAdd: () => _showReactionPicker(message.id),
             ),
-            if (showDateSeparator) _DateSeparator(date: message.createdAt),
+            if (showDateSeparator) _DateSeparator(date: message.sentAt),
           ],
         );
       },
@@ -580,7 +581,7 @@ class _PinnedBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    message.content,
+                    message.content ?? '',  // ✅ nullable
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
@@ -645,7 +646,8 @@ class _MessageBubble extends StatelessWidget {
     this.avatarUrl,
   });
 
-  String get _time => DateFormat('HH:mm').format(message.createdAt);
+  // ✅ Utiliser sentAt
+  String get _time => DateFormat('HH:mm').format(message.sentAt);
 
   @override
   Widget build(BuildContext context) {
@@ -679,6 +681,7 @@ class _MessageBubble extends StatelessWidget {
               ),
             ],
           ),
+          // ✅ reactions est une List<String> (d'après le modèle)
           if (message.reactions != null && message.reactions!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -716,7 +719,7 @@ class _MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            message.content,
+            message.content ?? '',  // ✅ nullable
             style: TextStyle(
               fontSize: 14,
               color: isMe ? Colors.white : _navy,
@@ -735,10 +738,11 @@ class _MessageBubble extends StatelessWidget {
               ),
               if (isMe) ...[
                 const SizedBox(width: 4),
-                Icon(
-                  message.status == 'read' ? Icons.done_all : Icons.done,
+                // ✅ status n'existe pas, on affiche juste une coche
+                const Icon(
+                  Icons.done_all,
                   size: 14,
-                  color: message.status == 'read' ? Colors.lightBlueAccent : Colors.white70,
+                  color: Colors.white70,
                 ),
               ],
             ],
@@ -852,7 +856,6 @@ class _MessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Placeholder waveform — remplace par un vrai composant waveform
                 CustomPaint(
                   size: const Size(double.infinity, 24),
                   painter: _WaveformPainter(
@@ -916,18 +919,25 @@ class _WaveformPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+// ✅ RéactionsRow accepte une List<String> et compte les occurrences
 class _ReactionsRow extends StatelessWidget {
-  final Map<String, int> reactions;
+  final List<String> reactions;
   final VoidCallback onAdd;
 
   const _ReactionsRow({required this.reactions, required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
+    // Compter les occurrences de chaque réaction
+    final Map<String, int> reactionCounts = {};
+    for (var r in reactions) {
+      reactionCounts[r] = (reactionCounts[r] ?? 0) + 1;
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ...reactions.entries.map((entry) => Container(
+        ...reactionCounts.entries.map((entry) => Container(
               margin: const EdgeInsets.only(right: 6),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
