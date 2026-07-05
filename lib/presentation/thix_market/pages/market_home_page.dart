@@ -1,5 +1,4 @@
 // lib/presentation/thix_market/pages/market_home_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -587,8 +586,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
               return ProductCard(
                 product: product,
-                showCity: true,
-                showCategoryBottom: true,
+                // ✅ Suppression des paramètres inconnus
                 onTap: (prod) {
                   context.push(
                     '/market/product/${prod['id']}',
@@ -631,7 +629,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
                 return ShopCard(
                   shop: shop,
-                  compact: true,
+                  // ✅ Suppression du paramètre inconnu
                   onTap: () {
                     context.push(
                       '/market/shop/${shop['id']}',
@@ -681,8 +679,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
               return ProductCard(
                 product: product,
-                showCity: true,
-                showCategoryBottom: true,
+                // ✅ Suppression des paramètres inconnus
                 onTap: (prod) {
                   context.push(
                     '/market/product/${prod['id']}',
