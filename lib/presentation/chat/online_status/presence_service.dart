@@ -1,15 +1,6 @@
-// lib/presentation/chat/online_status/presence_service.dart
-// Service de présence avec heartbeat et Edge Functions
-
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// ✅ Import corrigé avec package (plus fiable)
-import 'package:thix_id/core/auth/token_service.dart';
-
 import 'status_repository.dart';
 
 class PresenceService {
@@ -17,7 +8,6 @@ class PresenceService {
   final String currentUserId;
   Timer? _heartbeatTimer;
   bool _isActive = false;
-  final String _baseUrl = 'https://kfzkxaatdbapqwxcely.supabase.co/functions/v1';
 
   PresenceService({required this.currentUserId}) : _statusRepository = StatusRepository();
 
@@ -44,41 +34,34 @@ class PresenceService {
     }
   }
 
-  // ✅ Correction avec fallback si TokenService n'est pas disponible
+  // ✅ Typing : utiliser la table thix_typing ou Realtime
   Future<void> sendTyping(String conversationId) async {
     try {
-      String token;
-      try {
-        token = await TokenService.getToken();
-      } catch (e) {
-        // Fallback: utiliser le token de la session Supabase
-        final session = Supabase.instance.client.auth.currentSession;
-        token = session?.accessToken ?? '';
-        if (token.isEmpty) {
-          throw Exception('Impossible d\'obtenir un token d\'authentification');
-        }
-      }
-
-      await http.post(
-        Uri.parse('$_baseUrl/typing'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'conversation_id': conversationId,
-          'user_id': currentUserId,
-        }),
-      );
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('thix_typing')
+          .upsert({
+            'conversation_id': conversationId,
+            'user_id': currentUserId,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
     } catch (e) {
       debugPrint('sendTyping error: $e');
     }
   }
 
   Future<void> stopTyping(String conversationId) async {
-    // Optionnel : envoyer un signal d'arrêt
-    // On peut envoyer un message de stop ou simplement ignorer
-    // car le timeout du serveur gérera l'arrêt
+    // Optionnel : supprimer l'entrée
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('thix_typing')
+          .delete()
+          .eq('conversation_id', conversationId)
+          .eq('user_id', currentUserId);
+    } catch (e) {
+      // Ignorer
+    }
   }
 
   void onAppPaused() {
