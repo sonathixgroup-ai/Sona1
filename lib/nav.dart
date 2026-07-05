@@ -24,6 +24,7 @@ import 'presentation/chat/thix_chat_page.dart';
 import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart';
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
+// ---- RÉSEAU PRO (tous les imports) ----
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
 import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
@@ -31,10 +32,17 @@ import 'package:thix_id/presentation/network/messages/conversations_list.dart';
 import 'package:thix_id/presentation/network/messages/chat_screen.dart';
 import 'package:thix_id/presentation/network/connections_list_page.dart';
 import 'package:thix_id/presentation/network/community_detail_page.dart';
+import 'package:thix_id/presentation/network/communities_list_page.dart';        // ✅ AJOUT
+import 'package:thix_id/presentation/network/create_community_page.dart';          // ✅ AJOUT
 import 'package:thix_id/presentation/network/post_detail_page.dart';
 import 'package:thix_id/presentation/network/profile_page.dart';
 import 'package:thix_id/presentation/network/profile_settings_page.dart';
 import 'package:thix_id/presentation/network/blocked_users_page.dart';
+import 'package:thix_id/presentation/network/discover_tab.dart';                  // ✅ AJOUT
+import 'package:thix_id/presentation/network/story_viewer_screen.dart';           // ✅ AJOUT
+import 'package:thix_id/presentation/network/comments_page.dart';                 // ✅ AJOUT
+import 'package:thix_id/presentation/network/hashtag_page.dart';                  // ✅ AJOUT
+
 import 'presentation/jobs/jobs_page.dart';
 import 'package:thix_id/presentation/jobs/job_apply_page.dart';
 import 'package:thix_id/presentation/jobs/job_details_page.dart';
@@ -1012,6 +1020,46 @@ class AppRouter {
                 child: CommunityDetailPage(communityId: communityId));
           },
         ),
+         // ---- Nouveautés Réseau Pro ----
+GoRoute(
+  path: '/network/discover',
+  name: 'networkDiscover',
+  pageBuilder: (context, state) => NoTransitionPage(child: const DiscoverTab()),
+),
+GoRoute(
+  path: '/network/communities',
+  name: 'networkCommunities',
+  pageBuilder: (context, state) => NoTransitionPage(child: const CommunitiesListPage()),
+),
+GoRoute(
+  path: '/network/community/create',
+  name: 'networkCommunityCreate',
+  pageBuilder: (context, state) => NoTransitionPage(child: const CreateCommunityPage()),
+),
+GoRoute(
+  path: '/network/story/:storyId',
+  name: 'networkStoryViewer',
+  pageBuilder: (context, state) {
+    final storyId = state.pathParameters['storyId']!;
+    return NoTransitionPage(child: StoryViewerScreen(storyId: storyId));
+  },
+),
+GoRoute(
+  path: '/network/comments/:postId',
+  name: 'networkComments',
+  pageBuilder: (context, state) {
+    final postId = state.pathParameters['postId']!;
+    return NoTransitionPage(child: CommentsPage(postId: postId));
+  },
+),
+GoRoute(
+  path: '/network/hashtag/:tag',
+  name: 'networkHashtag',
+  pageBuilder: (context, state) {
+    final tag = state.pathParameters['tag']!;
+    return NoTransitionPage(child: HashtagPage(tag: tag));
+  },
+),
         GoRoute(
           path: '${AppRoutes.networkProfileBasePath}/:userId',
           name: 'networkProfile',
