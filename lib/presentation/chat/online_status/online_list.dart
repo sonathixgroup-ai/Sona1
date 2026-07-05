@@ -1,7 +1,7 @@
 // lib/presentation/chat/online_status/online_list.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../core/chat_models.dart';
+import '../core/chat_models.dart';  // ✅ importe ChatUser maintenant
 
 class OnlineList extends StatelessWidget {
   final List<ChatUser> onlineUsers;
@@ -35,7 +35,7 @@ class OnlineList extends StatelessWidget {
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child: StatusIndicator(isOnline: true, radius: 8),
+                      child: StatusIndicator(isOnline: user.status == 'online', radius: 8),
                     ),
                   ],
                 ),
