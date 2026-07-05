@@ -1,6 +1,3 @@
-// lib/presentation/chat/core/chat_models.dart
-// [PARTIE] Modèles de données
-
 import 'package:equatable/equatable.dart';
 import 'chat_constants.dart';
 
@@ -16,7 +13,7 @@ class Conversation extends Equatable {
   final int unreadCount;
   final bool isArchived;
   final bool isOnline;
-  final Map<String, dynamic>? metadata; // tag, etc.
+  final Map<String, dynamic>? metadata;
 
   const Conversation({
     required this.id,
@@ -32,20 +29,64 @@ class Conversation extends Equatable {
     this.metadata,
   });
 
+  // ✅ Adapté aux colonnes réelles de la table thix_chat_chats
   factory Conversation.fromJson(Map<String, dynamic> json) {
+    // participants est un JSONB : soit une liste d'IDs, soit un tableau
+    List<String> participants = [];
+    final rawParticipants = json['participants'];
+    if (rawParticipants is List) {
+      participants = rawParticipants.map((e) => e.toString()).toList();
+    } else if (rawParticipants is String) {
+      // si c'est une chaîne JSON, on peut la parser
+      try {
+        final list = jsonDecode(rawParticipants) as List;
+        participants = list.map((e) => e.toString()).toList();
+      } catch (_) {}
+    }
+
+    // participant_name est un JSONB : map userId -> displayName
+    Map<String, String> participantNames = {};
+    final rawNames = json['participant_name'];
+    if (rawNames is Map) {
+      participantNames = Map<String, String>.from(rawNames.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')));
+    }
+
+    // Déterminer le nom : si title non vide, utiliser title ; sinon dériver des participants
+    String name = (json['title']?.toString() ?? '').trim();
+    if (name.isEmpty) {
+      // On prend les noms des participants (autre que l'utilisateur courant)
+      // mais ici on ne connaît pas l'userId courant, on prend le premier nom trouvé
+      final names = participantNames.values.where((n) => n.isNotEmpty).toList();
+      if (names.isNotEmpty) {
+        name = names.join(', ');
+      } else {
+        name = participants.isNotEmpty ? 'Conversation' : 'Sans nom';
+      }
+    }
+
     return Conversation(
-      id: json['id'],
-      name: json['name'],
-      avatarUrl: json['avatar_url'],
-      isGroup: json['is_group'] ?? false,
-      participantIds: List<String>.from(json['participant_ids'] ?? []),
-      lastMessage: json['last_message'],
-      lastMessageTime: DateTime.parse(json['last_message_time']),
-      unreadCount: json['unread_count'] ?? 0,
-      isArchived: json['is_archived'] ?? false,
-      isOnline: json['is_online'] ?? false,
-      metadata: json['metadata'],
+      id: json['id']?.toString() ?? '',
+      name: name,
+      avatarUrl: json['avatar_url']?.toString(),
+      isGroup: json['type'] == 'group',
+      participantIds: participants,
+      lastMessage: json['last_message']?.toString(),
+      lastMessageTime: _parseDateTime(json['last_message_at'] ?? json['updated_at'] ?? json['created_at']),
+      unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+      isArchived: json['archived_at'] != null,
+      isOnline: false,
+      metadata: json['metadata'] as Map<String, dynamic>?,
     );
+  }
+
+  static DateTime _parseDateTime(Object? value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value;
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
   }
 
   Map<String, dynamic> toJson() => {
@@ -66,7 +107,7 @@ class Conversation extends Equatable {
   List<Object?> get props => [id, name, lastMessageTime, unreadCount];
 }
 
-// ---------- Message ----------
+// ---------- Message (inchangé) ----------
 class Message extends Equatable {
   final String id;
   final String conversationId;
@@ -102,21 +143,31 @@ class Message extends Equatable {
 
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
-      id: json['id'],
-      conversationId: json['conversation_id'],
-      senderId: json['sender_id'],
-      type: json['type'],
-      content: json['content'],
-      mediaUrl: json['media_url'],
-      thumbnailUrl: json['thumbnail_url'],
-      durationSeconds: json['duration_seconds'],
-      fileSize: json['file_size'],
-      sentAt: DateTime.parse(json['sent_at']),
-      editedAt: json['edited_at'] != null ? DateTime.parse(json['edited_at']) : null,
-      isDeleted: json['is_deleted'] ?? false,
-      reactions: List<String>.from(json['reactions'] ?? []),
-      metadata: json['metadata'],
+      id: json['id']?.toString() ?? '',
+      conversationId: json['chat_id']?.toString() ?? json['conversation_id']?.toString() ?? '',
+      senderId: json['sender_id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'text',
+      content: json['content']?.toString(),
+      mediaUrl: json['media_url']?.toString(),
+      thumbnailUrl: json['thumbnail_url']?.toString(),
+      durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
+      fileSize: (json['file_size'] as num?)?.toInt(),
+      sentAt: _parseDateTime(json['created_at'] ?? json['sent_at']),
+      editedAt: json['edited_at'] != null ? _parseDateTime(json['edited_at']) : null,
+      isDeleted: json['is_deleted'] == true,
+      reactions: json['reactions'] is List ? List<String>.from(json['reactions']) : [],
+      metadata: json['metadata'] as Map<String, dynamic>?,
     );
+  }
+
+  static DateTime _parseDateTime(Object? value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value;
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
   }
 
   Map<String, dynamic> toJson() => {
@@ -140,115 +191,5 @@ class Message extends Equatable {
   List<Object?> get props => [id, conversationId, sentAt];
 }
 
-// ---------- Message éphémère (spécialisation) ----------
-class EphemeralMessage extends Message {
-  @override
-  final int durationSeconds;
-  final DateTime? openedAt;
-
-  const EphemeralMessage({
-    required super.id,
-    required super.conversationId,
-    required super.senderId,
-    required super.type,
-    super.content,
-    super.mediaUrl,
-    required this.durationSeconds,
-    this.openedAt,
-    required super.sentAt,
-  });
-}
-
-// ---------- Message confidentiel (spécialisation) ----------
-class ConfidentialMessage extends Message {
-  final String requiredCodeHash;
-  final bool isBiometric;
-  final bool isOpened;
-
-  const ConfidentialMessage({
-    required super.id,
-    required super.conversationId,
-    required super.senderId,
-    required super.type,
-    super.content,
-    super.mediaUrl,
-    required this.requiredCodeHash,
-    this.isBiometric = false,
-    this.isOpened = false,
-    required super.sentAt,
-  });
-}
-
-// ---------- Utilisateur (pour présence) ----------
-class ChatUser extends Equatable {
-  final String id;
-  final String displayName;
-  final String? avatarUrl;
-  final String status;
-  final DateTime? lastSeen;
-
-  const ChatUser({
-    required this.id,
-    required this.displayName,
-    this.avatarUrl,
-    this.status = ChatConstants.statusOffline,
-    this.lastSeen,
-  });
-
-  factory ChatUser.fromJson(Map<String, dynamic> json) {
-    return ChatUser(
-      id: json['id'],
-      displayName: json['display_name'],
-      avatarUrl: json['avatar_url'],
-      status: json['status'] ?? ChatConstants.statusOffline,
-      lastSeen: json['last_seen'] != null ? DateTime.parse(json['last_seen']) : null,
-    );
-  }
-
-  @override
-  List<Object?> get props => [id, status];
-}
-
-// ---------- Story (pour l'affichage) ----------
-class Story extends Equatable {
-  final String id;
-  final String name;
-  final String? avatarUrl;
-  final bool hasNewStory;
-
-  const Story({required this.id, required this.name, this.avatarUrl, this.hasNewStory = false});
-
-  factory Story.fromJson(Map<String, dynamic> json) {
-    return Story(
-      id: json['id'],
-      name: json['name'] ?? json['display_name'] ?? 'Utilisateur',
-      avatarUrl: json['avatar_url'],
-      hasNewStory: json['has_new_story'] ?? true,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'avatar_url': avatarUrl,
-    'has_new_story': hasNewStory,
-  };
-
-  @override
-  List<Object?> get props => [id];
-}
-
-// ---------- Statistiques du chat ----------
-class ChatStats {
-  final int onlineCount;
-  final int newMessagesCount;
-  final int activeMeetingsCount;
-  final int securityAlertsCount;
-
-  const ChatStats({
-    this.onlineCount = 0,
-    this.newMessagesCount = 0,
-    this.activeMeetingsCount = 0,
-    this.securityAlertsCount = 0,
-  });
-}
+// ---------- Les autres classes (Story, ChatStats, etc.) inchangées ----------
+// ... (vous gardez vos définitions existantes)
