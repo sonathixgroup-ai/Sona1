@@ -1,4 +1,4 @@
-import 'dart:convert';  // ✅ ajout nécessaire pour jsonDecode
+import 'dart:convert';
 import 'package:equatable/equatable.dart';
 import 'chat_constants.dart';
 
@@ -37,7 +37,7 @@ class Conversation extends Equatable {
       participants = rawParticipants.map((e) => e.toString()).toList();
     } else if (rawParticipants is String) {
       try {
-        final list = jsonDecode(rawParticipants) as List;  // ✅ maintenant défini
+        final list = jsonDecode(rawParticipants) as List;
         participants = list.map((e) => e.toString()).toList();
       } catch (_) {}
     }
@@ -185,7 +185,9 @@ class Message extends Equatable {
   List<Object?> get props => [id, conversationId, sentAt];
 }
 
-// ---------- Story ----------
+// ========== CLASSES MANQUANTES ==========
+
+/// Story (pour l'affichage des stories)
 class Story {
   final String id;
   final String name;
@@ -211,7 +213,7 @@ class Story {
   };
 }
 
-// ---------- ChatStats ----------
+/// Statistiques du chat
 class ChatStats {
   final int onlineCount;
   final int newMessagesCount;
