@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ajouté pour currentUser
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/chat_bloc.dart';
 import 'core/chat_states.dart';
 import 'core/chat_events.dart';
@@ -25,12 +25,12 @@ class ThixChatPage extends StatefulWidget {
 class _ThixChatPageState extends State<ThixChatPage> {
   late ChatBloc _chatBloc;
   int _bottomNavIndex = 0;
+  String _searchQuery = ''; // ✅ Ajout pour la recherche locale
 
   @override
   void initState() {
     super.initState();
     _chatBloc = context.read<ChatBloc>();
-    // ✅ Vérifier que l'utilisateur est connecté avant de charger
     _loadConversationsIfAuthenticated();
   }
 
@@ -58,6 +58,15 @@ class _ThixChatPageState extends State<ThixChatPage> {
               return Center(child: Text('Erreur : ${state.message}'));
             }
             if (state is ConversationsLoaded) {
+              // ✅ Filtrer les conversations selon la recherche locale
+              final filteredConversations = _searchQuery.isEmpty
+                  ? state.filteredConversations
+                  : state.filteredConversations
+                      .where((conv) => conv.name
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase()))
+                      .toList();
+
               return RefreshIndicator(
                 onRefresh: () async => _chatBloc.add(LoadConversations()),
                 child: ListView(
@@ -69,13 +78,13 @@ class _ThixChatPageState extends State<ThixChatPage> {
                     _buildOnlineSection(state),
                     _buildTabs(state),
                     _buildConversationsHeader(),
-                    if (state.filteredConversations.isEmpty)
+                    if (filteredConversations.isEmpty)
                       const Padding(
                         padding: EdgeInsets.all(32),
                         child: Center(child: Text('Aucune conversation')),
                       )
                     else
-                      ...state.filteredConversations.map(
+                      ...filteredConversations.map(
                         (conv) => _ConversationTile(
                           conversation: conv,
                           onTap: () => context.push(
@@ -210,8 +219,12 @@ class _ThixChatPageState extends State<ThixChatPage> {
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
-                onChanged: (value) =>
-                    _chatBloc.add(SearchConversations(value)),
+                onChanged: (value) {
+                  // ✅ Mettre à jour la recherche locale
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
                 decoration: const InputDecoration(
                   hintText: 'Rechercher un chat, contact, groupe...',
                   border: InputBorder.none,
@@ -262,7 +275,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
               child: _StatItem(
                 icon: Icons.chat_bubble_rounded,
                 iconColor: _blue,
-                value: '${stats.newMessages}',
+                value: '${stats.newMessagesCount}', // ✅ corrigé
                 label: 'Nouveaux\nmessages',
               ),
             ),
@@ -270,7 +283,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
               child: _StatItem(
                 icon: Icons.videocam_rounded,
                 iconColor: Colors.blueAccent,
-                value: '${stats.activeMeetings}',
+                value: '${stats.activeMeetingsCount}', // ✅ corrigé
                 label: 'Réunions\nactives',
               ),
             ),
@@ -278,7 +291,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
               child: _StatItem(
                 icon: Icons.shield_rounded,
                 iconColor: Colors.deepOrange,
-                value: '${stats.securityAlerts}',
+                value: '${stats.securityAlertsCount}', // ✅ corrigé
                 label: 'Alertes\nsécurité',
               ),
             ),
@@ -337,7 +350,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
                 return _StoryAvatar(
                   avatarUrl: story.avatarUrl,
                   label: story.name,
-                  isOnline: story.isOnline,
+                  // ✅ isOnline supprimé – le paramètre a une valeur par défaut true
                   onTap: () => context.push('/chat/story/${story.id}'),
                 );
               },
@@ -461,7 +474,7 @@ class _ThixChatPageState extends State<ThixChatPage> {
             isSelected: _bottomNavIndex == 1,
             onTap: () => setState(() => _bottomNavIndex = 1),
           ),
-          const SizedBox(width: 40), // espace pour le FAB
+          const SizedBox(width: 40),
           _NavItem(
             icon: Icons.graphic_eq,
             label: 'Spaces',
@@ -531,7 +544,7 @@ class _StoryAvatar extends StatelessWidget {
     this.isAddButton = false,
     this.avatarUrl,
     required this.label,
-    this.isOnline = true,
+    this.isOnline = true, // ✅ valeur par défaut
     required this.onTap,
   });
 
@@ -604,12 +617,12 @@ class _StoryAvatar extends StatelessWidget {
 class _TabData {
   final String label;
   final IconData icon;
-  final String filter;  // ✅ type String
+  final String filter;
   _TabData(this.label, this.icon, this.filter);
 }
 
 class _ConversationTile extends StatelessWidget {
-  final dynamic conversation; // remplace par ton type Conversation
+  final dynamic conversation;
   final VoidCallback onTap;
 
   const _ConversationTile({required this.conversation, required this.onTap});
