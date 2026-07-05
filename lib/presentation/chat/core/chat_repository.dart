@@ -129,18 +129,20 @@ class ChatRepository {
 
   // ==================== STATS CHAT ====================
   Future<ChatStats> fetchChatStats(String userId) async {
-    // ✅ Utilisation de .count() qui retourne directement un int
-    final onlineCount = await _supabase
+    // Utilisation de 'count: CountOption.exact' qui renvoie un champ 'count' dans la réponse
+    final onlineCountResponse = await _supabase
         .from('thix_presence')
-        .select('user_id')
-        .eq('status', 'online')
-        .count();
+        .select('*', count: CountOption.exact)
+        .eq('status', 'online');
 
-    final newMessagesCount = await _supabase
+    final newMessagesResponse = await _supabase
         .from('thix_chat_messages')
-        .select('id')
-        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)))
-        .count();
+        .select('*', count: CountOption.exact)
+        .gt('created_at', DateTime.now().subtract(const Duration(hours: 24)));
+
+    // La réponse est un PostgrestResponse qui possède un champ 'count'
+    final onlineCount = onlineCountResponse.count ?? 0;
+    final newMessagesCount = newMessagesResponse.count ?? 0;
 
     return ChatStats(
       onlineCount: onlineCount,
@@ -150,7 +152,7 @@ class ChatRepository {
     );
   }
 
-  // ==================== TYPING (signal) ====================
+  // ==================== TYPING ====================
   Future<void> sendTyping(String conversationId, String userId) async {
     try {
       await _supabase
@@ -161,7 +163,7 @@ class ChatRepository {
             'updated_at': DateTime.now().toIso8601String(),
           });
     } catch (e) {
-      // Ignorer
+      // ignorer
     }
   }
 
@@ -200,10 +202,10 @@ class ChatRepository {
         .eq('user_id', userId);
   }
 
-  // ✅ Méthode de recherche des conversations archivées
+  // ✅ Recherche de conversations archivées (CORRIGÉE)
   Future<List<Conversation>> searchArchivedConversations(String userId, SearchFilters filters) async {
     try {
-      // Utilisation de dynamic pour éviter les problèmes de type avec or()
+      // On utilise 'dynamic' pour le query builder car 'or()' renvoie un type différent
       dynamic query = _supabase
           .from('thix_chat_chats')
           .select('*, participants:user_id(*)')
@@ -212,11 +214,12 @@ class ChatRepository {
 
       final searchText = filters.query?.trim() ?? '';
       if (searchText.isNotEmpty) {
+        // La recherche s'effectue sur le titre ou sur les noms des participants (JSONB)
         query = query.or(
             'title.ilike.%$searchText%,participant_name->>text.ilike.%$searchText%');
       }
 
-      // Autres filtres possibles
+      // On peut ajouter d'autres filtres selon les besoins
       // if (filters.type != null) query = query.eq('type', filters.type);
 
       query = query.order('updated_at', ascending: false);
