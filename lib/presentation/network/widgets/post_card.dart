@@ -11,25 +11,25 @@ import 'package:provider/provider.dart';
 
 class PostCard extends StatefulWidget {
   final NetworkPost post;
-  final String currentProfileId;          // 👈 AJOUTÉ
-  final VoidCallback onLike;
-  final VoidCallback onComment;
-  final VoidCallback onTap;
-  final VoidCallback onShare;
+  final String currentProfileId;
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onTap;
+  final VoidCallback? onShare;
   final VoidCallback? onRefresh;
   final VoidCallback? onPin;
-  final VoidCallback? onEdit;             // 👈 AJOUTÉ
-  final VoidCallback? onDelete;           // 👈 AJOUTÉ
-  final VoidCallback? onSave;             // 👈 AJOUTÉ
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onSave;
 
   const PostCard({
     super.key,
     required this.post,
     required this.currentProfileId,
-    required this.onLike,
-    required this.onComment,
-    required this.onTap,
-    required this.onShare,
+    this.onLike,
+    this.onComment,
+    this.onTap,
+    this.onShare,
     this.onRefresh,
     this.onPin,
     this.onEdit,
@@ -148,7 +148,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
 
   // ─── ACTIONS ───
 
-  // 1. Like
   Future<void> _toggleLike() async {
     _likeAnimationController.forward(from: 0.0);
     final newIsLiked = !_post.isLiked;
@@ -167,7 +166,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         await _networkService.unlikePost(_post.id);
       }
       widget.onRefresh?.call();
-      widget.onLike(); // notifier le parent
+      widget.onLike?.call();
     } catch (e) {
       setState(() {
         _post = _post.copyWith(
@@ -183,7 +182,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 2. Save (utilise le callback onSave)
   Future<void> _toggleSave() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
@@ -200,7 +198,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         await _networkService.unsavePost(_post.id);
       }
       widget.onRefresh?.call();
-      widget.onSave?.call(); // notification au parent
+      widget.onSave?.call();
     } catch (e) {
       setState(() {
         _post = _post.copyWith(isSaved: !newSaved);
@@ -215,7 +213,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 3. Repost
   Future<void> _repost() async {
     if (_isReposting) return;
     final result = await showDialog<bool>(
@@ -275,7 +272,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 4. Pin (pour le propriétaire)
   Future<void> _pinPost() async {
     try {
       await _networkService.pinPost(_post.id);
@@ -295,7 +291,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 5. Delete (appelle le callback onDelete)
   Future<void> _deletePost() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -326,7 +321,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             const SnackBar(content: Text('Publication supprimée'), backgroundColor: Colors.green),
           );
           widget.onRefresh?.call();
-          widget.onDelete?.call(); // notification au parent
+          widget.onDelete?.call();
         }
       } catch (e) {
         if (mounted) {
@@ -338,7 +333,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 6. Edit (appelle le callback onEdit)
   Future<void> _editPost() async {
     final controller = TextEditingController(text: _post.content);
     final newContent = await showDialog<String>(
@@ -380,7 +374,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             const SnackBar(content: Text('Publication modifiée'), backgroundColor: Colors.green),
           );
           widget.onRefresh?.call();
-          widget.onEdit?.call(); // notification au parent
+          widget.onEdit?.call();
         }
       } catch (e) {
         if (mounted) {
@@ -392,7 +386,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 7. Hide
   Future<void> _hidePost() async {
     try {
       await _networkService.hidePost(_post.id);
@@ -411,7 +404,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // 8. Report
   Future<void> _reportPost() async {
     final reason = await showDialog<String>(
       context: context,
@@ -494,7 +486,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
-          onTap: widget.onTap,
+          onTap: widget.onTap ?? () {},
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -565,7 +557,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             _reportPost();
                             break;
                           case 'share':
-                            widget.onShare();
+                            widget.onShare?.call();
                             break;
                           case 'save':
                             _toggleSave();
@@ -666,7 +658,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                 ),
                 const SizedBox(height: 12),
 
-                // ─── CONTENU (mentions / hashtags) ───
+                // ─── CONTENU ───
                 if (hasContent)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -745,7 +737,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
 
                     // Comment
                     InkWell(
-                      onTap: widget.onComment,
+                      onTap: widget.onComment ?? () {},
                       child: Row(
                         children: [
                           const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey),
@@ -761,7 +753,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
 
                     // Share
                     InkWell(
-                      onTap: widget.onShare,
+                      onTap: widget.onShare ?? () {},
                       child: const Row(
                         children: [
                           Icon(Icons.share, size: 20, color: Colors.grey),
