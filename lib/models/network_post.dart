@@ -31,6 +31,7 @@ class NetworkPost {
   final bool isLiked;
   final bool isSaved;
   final bool isReposted;
+  final bool isPinned; // ✅ AJOUT : pour les posts épinglés
 
   // ─── Visibilité ───
   final String status; // 'public', 'private', 'connections'
@@ -54,6 +55,7 @@ class NetworkPost {
     this.isLiked = false,
     this.isSaved = false,
     this.isReposted = false,
+    this.isPinned = false, // ✅ AJOUT
     this.status = 'public',
     this.isPublic = true,
     this.communityId,
@@ -126,6 +128,7 @@ class NetworkPost {
       isLiked: json['is_liked'] as bool? ?? false,
       isSaved: json['is_saved'] as bool? ?? false,
       isReposted: json['is_reposted'] as bool? ?? false,
+      isPinned: json['is_pinned'] as bool? ?? false, // ✅ AJOUT
       status: json['status'] as String? ?? 'public',
       isPublic: json['is_public'] as bool? ?? true,
       communityId: json['community_id'] as String?,
@@ -151,6 +154,7 @@ class NetworkPost {
       'is_liked': isLiked,
       'is_saved': isSaved,
       'is_reposted': isReposted,
+      'is_pinned': isPinned, // ✅ AJOUT
       'status': status,
       'is_public': isPublic,
       'community_id': communityId,
@@ -175,6 +179,7 @@ class NetworkPost {
     bool? isLiked,
     bool? isSaved,
     bool? isReposted,
+    bool? isPinned, // ✅ AJOUT
     String? status,
     bool? isPublic,
     String? communityId,
@@ -196,6 +201,7 @@ class NetworkPost {
       isLiked: isLiked ?? this.isLiked,
       isSaved: isSaved ?? this.isSaved,
       isReposted: isReposted ?? this.isReposted,
+      isPinned: isPinned ?? this.isPinned, // ✅ AJOUT
       status: status ?? this.status,
       isPublic: isPublic ?? this.isPublic,
       communityId: communityId ?? this.communityId,
