@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart'; // ✅ AJOUT
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -180,7 +181,12 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   // ─── OUVRIR URL ───
   void _openUrl(String url) async {
     try {
-      await launchUrl(Uri.parse(url));
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Impossible d\'ouvrir $url';
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Impossible d\'ouvrir le lien: $e'), backgroundColor: Colors.red),
