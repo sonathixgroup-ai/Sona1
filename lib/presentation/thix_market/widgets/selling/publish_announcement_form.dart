@@ -34,6 +34,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   String? _category;
   String? _condition;
   String? _shippingType;
+  String? _currency; // ✅ Nouveau champ
   bool _freeShipping = false;
   bool _isService = false;
   bool _isLoading = false;
@@ -63,6 +64,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     {'id': 'delivery', 'name': 'Livraison'},
     {'id': 'pickup', 'name': 'Retrait en magasin'},
     {'id': 'both', 'name': 'Les deux'},
+  ];
+
+  // ✅ Liste des devises disponibles
+  final List<Map<String, String>> _currencies = [
+    {'id': 'USD', 'name': 'USD (\$)'},
+    {'id': 'CDF', 'name': 'CDF (FC)'},
   ];
 
   final ImagePicker _picker = ImagePicker();
@@ -113,6 +120,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     _category = data['category'];
     _condition = data['condition'];
     _shippingType = data['shipping_type'];
+    _currency = data['currency'] ?? 'CDF'; // ✅ valeur par défaut
     _freeShipping = data['free_shipping'] ?? false;
     _isService = data['is_service'] ?? false;
   }
@@ -194,14 +202,15 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         'shipping_type': _shippingType,
         'free_shipping': _freeShipping,
         'is_service': _isService,
+        'currency': _currency, // ✅ ajout de la devise
         'images': imageUrls,
+        'image_url': imageUrls.isNotEmpty ? imageUrls.first : null, // ✅ image principale
         'latitude': _currentPosition?.latitude,
         'longitude': _currentPosition?.longitude,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
       if (widget.editAnnouncement != null) {
-        // Update existing
         await Supabase.instance.client
             .from('products')
             .update(productData)
@@ -211,7 +220,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
           const SnackBar(content: Text('Annonce mise à jour')),
         );
       } else {
-        // Create new
         productData['created_at'] = DateTime.now().toIso8601String();
         productData['status'] = 'active';
         
@@ -344,10 +352,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 12),
 
-            // Prix
+            // Prix + Devise
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
+                  flex: 2,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -358,7 +368,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           hintText: '0',
-                          suffixText: 'FCFA',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
@@ -378,7 +387,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           hintText: 'Optionnel',
-                          suffixText: 'FCFA',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
@@ -387,9 +395,25 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+
+            // ✅ Devise (USD / CDF)
+            const Text('Devise *', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            DropdownButtonFormField<String>(
+              value: _currency,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              items: _currencies.map((cur) {
+                return DropdownMenuItem(value: cur['id'], child: Text(cur['name']!));
+              }).toList(),
+              onChanged: (v) => setState(() => _currency = v),
+              validator: (v) => v == null ? 'Champ requis' : null,
+            ),
             const SizedBox(height: 12),
 
-            // Stock
+            // Stock + Marque
             Row(
               children: [
                 Expanded(
