@@ -31,6 +31,9 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   final _stockController = TextEditingController();
   final _brandController = TextEditingController();
   final _customCityController = TextEditingController();
+  // ✅ Nouveaux contrôleurs pour les informations de livraison
+  final _warrantyController = TextEditingController();
+  final _shippingCostController = TextEditingController();
 
   List<File> _selectedImages = [];
   String? _category;
@@ -107,6 +110,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     _stockController.dispose();
     _brandController.dispose();
     _customCityController.dispose();
+    _warrantyController.dispose();
+    _shippingCostController.dispose();
     super.dispose();
   }
 
@@ -133,6 +138,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     _discountPriceController.text = (data['discount_price'] ?? '').toString();
     _stockController.text = (data['stock'] ?? 0).toString();
     _brandController.text = data['brand'] ?? '';
+    _warrantyController.text = (data['warranty_months'] ?? '').toString();
+    _shippingCostController.text = (data['shipping_cost'] ?? '').toString();
     _category = data['category'];
     _condition = data['condition'];
     _shippingType = data['shipping_type'];
@@ -179,26 +186,36 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   Future<List<String>> _uploadImages() async {
     List<String> urls = [];
     setState(() => _isUploading = true);
-    for (File image in _selectedImages) {
-      try {
-        final fileExt = image.path.split('.').last;
-        final fileName = '${const Uuid().v4()}.$fileExt';
-        final filePath = 'products/$fileName';
+    try {
+      for (File image in _selectedImages) {
+        try {
+          final fileExt = image.path.split('.').last;
+          final fileName = '${const Uuid().v4()}.$fileExt';
+          final filePath = 'products/$fileName';
 
-        await Supabase.instance.client.storage
-            .from('product_images')
-            .upload(filePath, image);
+          await Supabase.instance.client.storage
+              .from('product_images')
+              .upload(filePath, image);
 
-        final publicUrl = Supabase.instance.client.storage
-            .from('product_images')
-            .getPublicUrl(filePath);
+          final publicUrl = Supabase.instance.client.storage
+              .from('product_images')
+              .getPublicUrl(filePath);
 
-        urls.add(publicUrl);
-      } catch (e) {
-        debugPrint('❌ Upload error: $e');
+          urls.add(publicUrl);
+          debugPrint('✅ Upload réussi : $publicUrl');
+        } catch (e) {
+          debugPrint('❌ Upload error pour une image: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erreur upload image: ${e.toString()}'), backgroundColor: Colors.red),
+            );
+          }
+          rethrow;
+        }
       }
+    } finally {
+      setState(() => _isUploading = false);
     }
-    setState(() => _isUploading = false);
     return urls;
   }
 
@@ -231,7 +248,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     try {
       List<String> imageUrls = [];
       if (_selectedImages.isNotEmpty) {
-        imageUrls = await _uploadImages();
+        try {
+          imageUrls = await _uploadImages();
+        } catch (e) {
+          setState(() => _isLoading = false);
+          return;
+        }
       } else if (widget.editAnnouncement != null) {
         imageUrls = List<String>.from(widget.editAnnouncement!['images'] ?? []);
       }
@@ -260,6 +282,9 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         'latitude': _currentPosition?.latitude,
         'longitude': _currentPosition?.longitude,
         'updated_at': DateTime.now().toIso8601String(),
+        // ✅ Ajout des nouvelles colonnes
+        'warranty_months': _warrantyController.text.isNotEmpty ? int.parse(_warrantyController.text) : null,
+        'shipping_cost': _shippingCostController.text.isNotEmpty ? double.parse(_shippingCostController.text) : null,
       };
 
       if (widget.editAnnouncement != null) {
@@ -561,7 +586,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 12),
 
-            // Livraison
+            // Type de livraison
             const Text('Type de livraison *', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
@@ -570,6 +595,50 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
               items: _shippingTypes.map((type) => DropdownMenuItem(value: type['id'], child: Text(type['name']!))).toList(),
               onChanged: (v) => setState(() => _shippingType = v),
               validator: (v) => v == null ? 'Champ requis' : null,
+            ),
+            const SizedBox(height: 8),
+
+            // ✅ Informations de livraison supplémentaires
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Frais de livraison', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        controller: _shippingCostController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          hintText: 'Optionnel',
+                          suffixText: _currency == 'USD' ? '\$' : 'FC',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Garantie (mois)', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        controller: _warrantyController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          hintText: 'Ex: 12',
+                          suffixText: 'mois',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
 
