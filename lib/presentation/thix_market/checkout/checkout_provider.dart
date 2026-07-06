@@ -1,24 +1,25 @@
+// lib/presentation/thix_market/checkout/checkout_provider.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../cart/cart_provider.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart'; // ✅ import absolu
 
 class CheckoutProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   // États du checkout
   bool _isLoading = false;
   bool _isProcessing = false;
   String _currentStep = 'address'; // address, shipping, payment, confirmation
-  
+
   // Données utilisateur
   List<Map<String, dynamic>> _savedAddresses = [];
   Map<String, dynamic>? _selectedAddress;
   Map<String, dynamic>? _selectedShippingMethod;
   Map<String, dynamic>? _selectedPaymentMethod;
-  
+
   // Infos utilisateur
   Map<String, dynamic> _userInfo = {};
-  
+
   // Résultat commande
   Map<String, dynamic>? _createdOrder;
   String? _paymentIntentId;
@@ -59,7 +60,7 @@ class CheckoutProvider extends ChangeNotifier {
         .eq('id', userId)
         .single();
     _userInfo = response;
-    
+
     if (_userInfo['default_address_id'] != null) {
       _selectedAddress = _savedAddresses.firstWhere(
         (a) => a['id'] == _userInfo['default_address_id'],
@@ -181,10 +182,10 @@ class CheckoutProvider extends ChangeNotifier {
               'paid_at': DateTime.now().toIso8601String(),
             })
             .eq('id', _createdOrder!['id']);
-        
+
         // Vider le panier
         await cartProvider.clearCart();
-        
+
         return _createdOrder!;
       } else {
         throw Exception(paymentResult['error'] ?? 'Paiement échoué');
@@ -198,7 +199,7 @@ class CheckoutProvider extends ChangeNotifier {
 
   Future<Map<String, dynamic>> _processPayment(double amount) async {
     final method = _selectedPaymentMethod!['id'];
-    
+
     switch (method) {
       case 'card':
         // Appel à Stripe (via Edge Function)
@@ -209,7 +210,7 @@ class CheckoutProvider extends ChangeNotifier {
         });
         _paymentIntentId = response.data['payment_intent_id'];
         return {'success': true, 'payment_intent_id': _paymentIntentId};
-        
+
       case 'mobile_money':
         // Appel API Mobile Money
         final response = await _supabase.functions.invoke('mobile-money-payment', body: {
@@ -219,7 +220,7 @@ class CheckoutProvider extends ChangeNotifier {
         });
         _paymentUrl = response.data['payment_url'];
         return {'success': true, 'payment_url': _paymentUrl};
-        
+
       case 'thix_money':
         // Paiement via wallet interne
         final response = await _supabase.rpc('deduct_wallet_balance', params: {
@@ -231,7 +232,7 @@ class CheckoutProvider extends ChangeNotifier {
         } else {
           return {'success': false, 'error': 'Solde insuffisant'};
         }
-        
+
       default:
         return {'success': false, 'error': 'Méthode de paiement inconnue'};
     }
