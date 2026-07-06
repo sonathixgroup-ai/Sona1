@@ -230,12 +230,14 @@ class ChatUser {
   final String displayName;
   final String? avatarUrl;
   final String status; // 'online', 'offline', 'away'
+  final DateTime? lastSeenAt; // 👈 AJOUT : dernière activité
 
   const ChatUser({
     required this.id,
     required this.displayName,
     this.avatarUrl,
     this.status = 'offline',
+    this.lastSeenAt,
   });
 
   factory ChatUser.fromJson(Map<String, dynamic> json) {
@@ -244,6 +246,9 @@ class ChatUser {
       displayName: json['display_name']?.toString() ?? json['name']?.toString() ?? 'Utilisateur',
       avatarUrl: json['avatar_url']?.toString(),
       status: json['status']?.toString() ?? 'offline',
+      lastSeenAt: json['last_seen_at'] != null
+          ? DateTime.tryParse(json['last_seen_at'] as String)
+          : null,
     );
   }
 
@@ -252,6 +257,7 @@ class ChatUser {
     'display_name': displayName,
     'avatar_url': avatarUrl,
     'status': status,
+    'last_seen_at': lastSeenAt?.toIso8601String(),
   };
 }
 
