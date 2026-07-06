@@ -26,13 +26,13 @@ class LiveStreamService {
 
     _isHost = isHost;
 
-    // ✅ Agora 6.x : fonction top-level
+    // ✅ Agora 6.x : utiliser createAgoraRtcEngine
     _engine = createAgoraRtcEngine();
 
     await _engine.initialize(
       RtcEngineContext(
         appId: 'YOUR_AGORA_APP_ID',
-        channelProfile: ChannelProfileType.liveBroadcasting, // ✅ correction
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting, // ✅ corrigé
       ),
     );
 
@@ -57,17 +57,16 @@ class LiveStreamService {
         },
 
         onError: (ErrorCodeType err, String msg) {
-          // Log ou gestion d'erreur
           print('Agora error: $err - $msg');
         },
       ),
     );
 
-    // ✅ Définir le rôle
+    // ✅ Définir le rôle avec les bonnes constantes
     if (_isHost) {
-      await _engine.setClientRole(role: ClientRoleType.broadcaster);
+      await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster); // ✅ corrigé
     } else {
-      await _engine.setClientRole(role: ClientRoleType.audience);
+      await _engine.setClientRole(role: ClientRoleType.clientRoleAudience); // ✅ corrigé
     }
   }
 
@@ -275,7 +274,6 @@ class LiveStreamService {
   // =========================
   Future<void> dispose() async {
     await _engine.leaveChannel();
-    // ✅ Utiliser release() pour libérer les ressources
     await _engine.release();
   }
 }
