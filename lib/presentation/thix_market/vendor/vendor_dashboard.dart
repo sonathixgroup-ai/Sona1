@@ -34,6 +34,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     final pendingOrders = orders.where((o) => o['status'] == 'pending').toList();
     final totalProducts = sellProvider.announcements.length;
     final totalSales = orders.length;
+    final rating = shop?['rating'] ?? 0.0;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -65,12 +66,15 @@ class _VendorDashboardState extends State<VendorDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // En-tête boutique
-              _buildShopHeader(shop, hasShop, context),
+              // En-tête boutique (ou absence)
+              if (hasShop)
+                _buildShopHeader(shop!, context)
+              else
+                _buildNoShopHeader(context),
               const SizedBox(height: 24),
 
               // KPIs
-              _buildKpiGrid(totalSales, pendingOrders.length, totalProducts, shop?['rating'] ?? 0),
+              _buildKpiGrid(totalSales, pendingOrders.length, totalProducts, rating),
               const SizedBox(height: 24),
 
               // Grille des actions
@@ -86,42 +90,46 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
-  Widget _buildShopHeader(Map<String, dynamic>? shop, bool hasShop, BuildContext context) {
-    if (!hasShop) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.store, size: 40, color: Colors.grey),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Vous n’avez pas encore de boutique',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  const Text('Créez votre boutique pour commencer à vendre',
-                      style: TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () => context.push('/market/shop/create'),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8)),
-                    child: const Text('Créer une boutique'),
-                  ),
-                ],
-              ),
+  Widget _buildNoShopHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6)],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.store, size: 40, color: Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Vous n’avez pas encore de boutique',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Créez votre boutique pour commencer à vendre',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => context.push('/market/shop/create'),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8)),
+                  child: const Text('Créer une boutique'),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
-    }
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildShopHeader(Map<String, dynamic> shop, BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -144,10 +152,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(shop['name'] ?? 'Ma boutique',
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('${shop['city'] ?? 'Ville non renseignée'}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(
+                  shop['name'] ?? 'Ma boutique',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  shop['city'] ?? 'Ville non renseignée',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
               ],
             ),
           ),
