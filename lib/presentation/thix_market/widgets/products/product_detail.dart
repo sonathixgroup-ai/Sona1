@@ -49,9 +49,17 @@ class _ProductDetailState extends State<ProductDetail> {
     }
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // ============================================================
+  // CHARGEMENT DES DONNÉES
+  // ============================================================
   Future<void> _loadProductDetail() async {
     setState(() => _isLoading = true);
-    
     try {
       final response = await Supabase.instance.client
           .from('products')
@@ -68,16 +76,23 @@ class _ProductDetailState extends State<ProductDetail> {
           ''')
           .eq('id', widget.productId)
           .single();
-      
+
       setState(() {
         _product = Map<String, dynamic>.from(response);
         _isLoading = false;
       });
-      
-      await _loadSimilarProducts();
-      await _checkIfFavorite();
+
+      await Future.wait([
+        _loadSimilarProducts(),
+        _checkIfFavorite(),
+      ]);
     } catch (e) {
       debugPrint('Error loading product: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur de chargement du produit')),
+        );
+      }
       setState(() => _isLoading = false);
     }
   }
@@ -90,7 +105,6 @@ class _ProductDetailState extends State<ProductDetail> {
             'category': _product['category'],
             'limit': 10,
           });
-      
       if (mounted) {
         setState(() {
           _similarProducts = List<Map<String, dynamic>>.from(response);
@@ -102,10 +116,9 @@ class _ProductDetailState extends State<ProductDetail> {
   }
 
   Future<void> _checkIfFavorite() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return;
-      
       final response = await Supabase.instance.client
           .from('wishlist')
           .select()
@@ -114,15 +127,17 @@ class _ProductDetailState extends State<ProductDetail> {
             'product_id': widget.productId,
           })
           .maybeSingle();
-      
-      setState(() {
-        _isFavorite = response != null;
-      });
+      if (mounted) {
+        setState(() => _isFavorite = response != null);
+      }
     } catch (e) {
       debugPrint('Error checking favorite: $e');
     }
   }
 
+  // ============================================================
+  // FAVORIS
+  // ============================================================
   Future<void> _toggleFavorite() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
@@ -131,9 +146,7 @@ class _ProductDetailState extends State<ProductDetail> {
       );
       return;
     }
-    
     setState(() => _isFavorite = !_isFavorite);
-    
     try {
       if (_isFavorite) {
         await Supabase.instance.client
@@ -141,6 +154,7 @@ class _ProductDetailState extends State<ProductDetail> {
             .insert({
               'user_id': userId,
               'product_id': widget.productId,
+              'created_at': DateTime.now().toIso8601String(),
             });
       } else {
         await Supabase.instance.client
@@ -157,6 +171,9 @@ class _ProductDetailState extends State<ProductDetail> {
     }
   }
 
+  // ============================================================
+  // PANIER
+  // ============================================================
   Future<void> _addToCart() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
@@ -165,20 +182,38 @@ class _ProductDetailState extends State<ProductDetail> {
       );
       return;
     }
-    
     setState(() => _isAddingToCart = true);
-    
     try {
-      await Supabase.instance.client
+      // Vérifier si déjà dans le panier
+      final existing = await Supabase.instance.client
           .from('cart')
-          .insert({
+          .select()
+          .match({
             'user_id': userId,
             'product_id': widget.productId,
-            'quantity': _selectedQuantity,
-            'variant': _selectedVariant,
-            'color': _selectedColor,
-          });
-      
+          })
+          .maybeSingle();
+
+      if (existing != null) {
+        await Supabase.instance.client
+            .from('cart')
+            .update({
+              'quantity': (existing['quantity'] as int) + _selectedQuantity,
+            })
+            .eq('id', existing['id']);
+      } else {
+        await Supabase.instance.client
+            .from('cart')
+            .insert({
+              'user_id': userId,
+              'product_id': widget.productId,
+              'quantity': _selectedQuantity,
+              'variant': _selectedVariant,
+              'color': _selectedColor,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ajouté au panier'), duration: Duration(seconds: 1)),
@@ -187,9 +222,11 @@ class _ProductDetailState extends State<ProductDetail> {
       }
     } catch (e) {
       debugPrint('Error adding to cart: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isAddingToCart = false);
     }
@@ -202,6 +239,9 @@ class _ProductDetailState extends State<ProductDetail> {
     }
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -212,6 +252,9 @@ class _ProductDetailState extends State<ProductDetail> {
 
     final hasDiscount = _product['discount_price'] != null &&
         _product['discount_price'] < _product['price'];
+    final images = (_product['images'] as List?)?.cast<String>() ?? [_product['image_url'] ?? ''];
+    final variants = _product['variants'] as List? ?? [];
+    final colors = _product['colors'] as List? ?? [];
 
     return Scaffold(
       body: CustomScrollView(
@@ -224,7 +267,7 @@ class _ProductDetailState extends State<ProductDetail> {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
             ),
             actions: [
               IconButton(
@@ -242,7 +285,6 @@ class _ProductDetailState extends State<ProductDetail> {
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 children: [
-                  // Image carousel
                   CarouselSlider(
                     options: CarouselOptions(
                       height: 300,
@@ -251,15 +293,16 @@ class _ProductDetailState extends State<ProductDetail> {
                         setState(() => _currentImageIndex = index);
                       },
                     ),
-                    items: (_product['images'] as List? ?? [_product['image_url']])
-                        .map<Widget>((image) => CachedNetworkImage(
-                              imageUrl: image,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                            ))
-                        .toList(),
+                    items: images.map<Widget>((image) {
+                      return CachedNetworkImage(
+                        imageUrl: image,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        placeholder: (_, __) => Container(color: Colors.grey[100]),
+                        errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
+                      );
+                    }).toList(),
                   ),
-                  // Image indicator
                   Positioned(
                     bottom: 16,
                     left: 0,
@@ -272,7 +315,7 @@ class _ProductDetailState extends State<ProductDetail> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${_currentImageIndex + 1}/${(_product['images'] as List? ?? [_product['image_url']]).length}',
+                          '${_currentImageIndex + 1}/${images.length}',
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ),
@@ -282,33 +325,36 @@ class _ProductDetailState extends State<ProductDetail> {
               ),
             ),
           ),
-          
+
           // Contenu
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Infos produit
+                // Informations produit
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Shop info
+                      // Shop
                       GestureDetector(
                         onTap: () => context.push('/market/shop/${_product['shop_id']}'),
                         child: Row(
                           children: [
                             CircleAvatar(
                               radius: 16,
-                              backgroundImage: CachedNetworkImageProvider(
-                                _product['shop']?['logo_url'] ?? '',
-                              ),
+                              backgroundImage: _product['shop']?['logo_url'] != null
+                                  ? CachedNetworkImageProvider(_product['shop']['logo_url'])
+                                  : null,
+                              child: _product['shop']?['logo_url'] == null
+                                  ? const Icon(Icons.store, size: 16)
+                                  : null,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _product['shop']?['name'] ?? '',
+                                _product['shop']?['name'] ?? 'Boutique',
                                 style: const TextStyle(fontWeight: FontWeight.w500),
                               ),
                             ),
@@ -317,14 +363,14 @@ class _ProductDetailState extends State<ProductDetail> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Title
                       Text(
                         _product['title'] ?? '',
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      
+
                       // Rating
                       Row(
                         children: [
@@ -336,10 +382,7 @@ class _ProductDetailState extends State<ProductDetail> {
                             itemCount: 5,
                             itemSize: 16,
                             ignoreGestures: true,
-                            itemBuilder: (_, __) => const Icon(
-                              Icons.star,
-                              color: Colors.amber,
-                            ),
+                            itemBuilder: (_, __) => const Icon(Icons.star, color: Colors.amber),
                             onRatingUpdate: (_) {},
                           ),
                           const SizedBox(width: 8),
@@ -350,7 +393,7 @@ class _ProductDetailState extends State<ProductDetail> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // Price
                       Row(
                         children: [
@@ -376,7 +419,7 @@ class _ProductDetailState extends State<ProductDetail> {
                             ),
                         ],
                       ),
-                      
+
                       // Stock
                       if ((_product['stock'] ?? 0) > 0)
                         Padding(
@@ -392,15 +435,15 @@ class _ProductDetailState extends State<ProductDetail> {
                     ],
                   ),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Variants
-                if (_product['variants'] != null)
-                  _buildVariantsSection(),
-                
+                if (variants.isNotEmpty) _buildVariantsSection(variants),
+                if (colors.isNotEmpty) _buildColorsSection(colors),
+
                 const Divider(),
-                
+
                 // Description
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -419,9 +462,9 @@ class _ProductDetailState extends State<ProductDetail> {
                     ],
                   ),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Livraison
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -441,9 +484,9 @@ class _ProductDetailState extends State<ProductDetail> {
                     ],
                   ),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Avis
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -458,7 +501,7 @@ class _ProductDetailState extends State<ProductDetail> {
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           TextButton(
-                            onPressed: () => _showAllReviews(),
+                            onPressed: _showAllReviews,
                             child: const Text('Voir tout'),
                           ),
                         ],
@@ -468,9 +511,9 @@ class _ProductDetailState extends State<ProductDetail> {
                     ],
                   ),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Produits similaires
                 if (_similarProducts.isNotEmpty)
                   Padding(
@@ -496,14 +539,9 @@ class _ProductDetailState extends State<ProductDetail> {
                                 child: ProductCard(
                                   product: product,
                                   onTap: (_) {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ProductDetail(
-                                          productId: product['id'],
-                                          initialProduct: product,
-                                        ),
-                                      ),
+                                    context.pushReplacement(
+                                      '/market/product/${product['id']}',
+                                      extra: product,
                                     );
                                   },
                                 ),
@@ -514,14 +552,14 @@ class _ProductDetailState extends State<ProductDetail> {
                       ],
                     ),
                   ),
-                
+
                 const SizedBox(height: 80),
               ],
             ),
           ),
         ],
       ),
-      
+
       // Bottom bar
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
@@ -548,9 +586,7 @@ class _ProductDetailState extends State<ProductDetail> {
                   children: [
                     IconButton(
                       onPressed: () {
-                        if (_selectedQuantity > 1) {
-                          setState(() => _selectedQuantity--);
-                        }
+                        if (_selectedQuantity > 1) setState(() => _selectedQuantity--);
                       },
                       icon: const Icon(Icons.remove, size: 18),
                       padding: EdgeInsets.zero,
@@ -578,13 +614,11 @@ class _ProductDetailState extends State<ProductDetail> {
                 ),
               ),
               const SizedBox(width: 12),
-              
-              // Add to cart button
+
+              // Add to cart
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart
-                      ? _addToCart
-                      : null,
+                  onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart ? _addToCart : null,
                   icon: _isAddingToCart
                       ? const SizedBox(
                           width: 20,
@@ -603,13 +637,11 @@ class _ProductDetailState extends State<ProductDetail> {
                 ),
               ),
               const SizedBox(width: 12),
-              
-              // Buy now button
+
+              // Buy now
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart
-                      ? _buyNow
-                      : null,
+                  onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart ? _buyNow : null,
                   icon: const Icon(Icons.flash_on),
                   label: const Text('Acheter'),
                   style: OutlinedButton.styleFrom(
@@ -629,7 +661,11 @@ class _ProductDetailState extends State<ProductDetail> {
     );
   }
 
-  Widget _buildVariantsSection() {
+  // ============================================================
+  // WIDGETS SECONDAIRES
+  // ============================================================
+
+  Widget _buildVariantsSection(List variants) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -643,14 +679,50 @@ class _ProductDetailState extends State<ProductDetail> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: (_product['variants'] as List).map((variant) {
-              final isSelected = _selectedVariant == variant['name'];
+            children: variants.map((variant) {
+              final label = variant is String ? variant : variant['name']?.toString() ?? '';
+              final isSelected = _selectedVariant == label;
               return FilterChip(
-                label: Text(variant['name']),
+                label: Text(label),
                 selected: isSelected,
                 onSelected: (selected) {
                   setState(() {
-                    _selectedVariant = selected ? variant['name'] : null;
+                    _selectedVariant = selected ? label : null;
+                  });
+                },
+                selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
+                checkmarkColor: const Color(0xFFE5592F),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorsSection(List colors) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Couleurs',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: colors.map((color) {
+              final label = color is String ? color : color['name']?.toString() ?? '';
+              final isSelected = _selectedColor == label;
+              return FilterChip(
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedColor = selected ? label : null;
                   });
                 },
                 selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
@@ -676,6 +748,13 @@ class _ProductDetailState extends State<ProductDetail> {
   }
 
   Widget _buildReviewCard(Map<String, dynamic> review) {
+    final user = review['user'] as Map?;
+    final avatar = user?['avatar'] as String?;
+    final name = user?['name'] as String? ?? 'Utilisateur';
+    final rating = (review['rating'] as num?)?.toDouble() ?? 0;
+    final comment = review['comment'] as String? ?? '';
+    final createdAt = review['created_at'] as String?;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -692,9 +771,10 @@ class _ProductDetailState extends State<ProductDetail> {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundImage: CachedNetworkImageProvider(
-                    review['user']?['avatar'] ?? '',
-                  ),
+                  backgroundImage: avatar != null
+                      ? CachedNetworkImageProvider(avatar)
+                      : null,
+                  child: avatar == null ? const Icon(Icons.person, size: 16) : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -702,34 +782,32 @@ class _ProductDetailState extends State<ProductDetail> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        review['user']?['name'] ?? 'Utilisateur',
+                        name,
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                       RatingBar.builder(
-                        initialRating: (review['rating'] ?? 0).toDouble(),
+                        initialRating: rating,
                         minRating: 1,
                         direction: Axis.horizontal,
                         allowHalfRating: true,
                         itemCount: 5,
                         itemSize: 12,
                         ignoreGestures: true,
-                        itemBuilder: (_, __) => const Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                        ),
+                        itemBuilder: (_, __) => const Icon(Icons.star, color: Colors.amber),
                         onRatingUpdate: (_) {},
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  DateFormat('dd/MM/yyyy').format(DateTime.parse(review['created_at'])),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                ),
+                if (createdAt != null)
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(DateTime.parse(createdAt)),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
-            Text(review['comment'] ?? ''),
+            Text(comment),
           ],
         ),
       ),
@@ -737,6 +815,9 @@ class _ProductDetailState extends State<ProductDetail> {
   }
 
   void _showAllReviews() {
+    final reviews = (_product['reviews'] as List?) ?? [];
+    if (reviews.isEmpty) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -761,9 +842,9 @@ class _ProductDetailState extends State<ProductDetail> {
               Expanded(
                 child: ListView.builder(
                   controller: scrollController,
-                  itemCount: (_product['reviews'] as List).length,
+                  itemCount: reviews.length,
                   itemBuilder: (context, index) {
-                    return _buildReviewCard(_product['reviews'][index]);
+                    return _buildReviewCard(reviews[index]);
                   },
                 ),
               ),
