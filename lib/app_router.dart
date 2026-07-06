@@ -252,7 +252,7 @@ class AppRoutes {
 
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
-  static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
+  
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
   static String networkPost(String postId) => '$networkPostBasePath/$postId';
   static String networkCommunity(String communityId) => '$networkCommunityBasePath/$communityId';
