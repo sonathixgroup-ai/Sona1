@@ -38,7 +38,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         return;
       }
 
-      // ✅ Correction : on applique les filtres AVANT d'ajouter .order()
+      // Construire la requête avec les filtres
       var query = Supabase.instance.client
           .from('orders')
           .select('''
@@ -52,10 +52,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         query = query.eq('status', _filter);
       }
 
-      // On applique le tri à la fin
-      query = query.order('created_at', ascending: false);
+      // ✅ CORRECTION : on appelle .order() directement dans le await
+      final response = await query.order('created_at', ascending: false);
 
-      final response = await query;
       setState(() {
         _orders = List<Map<String, dynamic>>.from(response);
         _isLoading = false;
