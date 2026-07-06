@@ -9,7 +9,6 @@ import 'package:thix_id/services/access_request_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/profile_service.dart';
-import 'package:thix_id/presentation/common/alert_info_sheet.dart';
 import 'package:thix_id/theme.dart';
 
 class NotificationsSheet {
