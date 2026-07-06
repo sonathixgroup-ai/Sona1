@@ -103,7 +103,8 @@ import 'package:thix_id/presentation/thix_market/pages/chat_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/dispute_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
-
+import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
+import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
 // ===== IMPORTS THIX SANTÉ =====
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart' ;
@@ -1363,6 +1364,17 @@ GoRoute(
               name: 'marketPublishAnnouncement',
               pageBuilder: (context, state) => NoTransitionPage(child: const PublishAnnouncementPage()),
             ),
+            // Dans la section THIX Market
+GoRoute(
+  path: 'vendor/dashboard',
+  name: 'vendorDashboard',
+  pageBuilder: (context, state) => NoTransitionPage(child: const VendorDashboard()),
+),
+GoRoute(
+  path: 'deliveries',
+  name: 'deliveryManagement',
+  pageBuilder: (context, state) => NoTransitionPage(child: const DeliveryManagementPage()),
+),
             GoRoute(
               path: 'announcement/:announcementId/edit',
               name: 'marketEditAnnouncement',
