@@ -58,10 +58,12 @@ import 'package:thix_id/presentation/training/learning_dashboard_page.dart';
 import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
+
 // ==================== THIX INFO ====================
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
 import 'package:thix_id/presentation/thix_info/article_detail_page.dart';
-import 'package:thix_id/presentation/thix_info/search_page.dart';
+// ✅ Import avec préfixe pour résoudre le conflit avec le SearchPage du Market
+import 'package:thix_id/presentation/thix_info/search_page.dart' as info;
 import 'package:thix_id/presentation/thix_info/category_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/saved_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/breaking_news_page.dart';
@@ -71,7 +73,8 @@ import 'package:thix_id/presentation/admin/pages/create_news_page.dart';
 
 // ===== IMPORTS THIX MARKET (ajoutés) =====
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
-import 'package:thix_id/presentation/thix_market/pages/search_page.dart';
+// ✅ Import avec préfixe pour le SearchPage du Market (facultatif mais clair)
+import 'package:thix_id/presentation/thix_market/pages/search_page.dart' as market;
 import 'package:thix_id/presentation/thix_market/pages/shops_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/buy_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/sell_page.dart';
@@ -100,14 +103,14 @@ import 'package:thix_id/presentation/thix_market/pages/chat_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/dispute_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
+
 // ===== IMPORTS THIX SANTÉ =====
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart' ;
 import 'package:thix_id/presentation/thix_sante/thix_sante_role_page.dart';
 
-
 // Pages patient principales
-import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart' as patient; // <-- CORRIGÉ
+import 'package:thix_id/presentation/thix_sante/patient/patient_dashboard_page.dart' as patient;
 import 'package:thix_id/presentation/thix_sante/patient/patient_health_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_care_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/patient_life_page.dart';
@@ -190,7 +193,6 @@ import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_invent
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_stock_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_report_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_chat_page.dart';
-// ---- CORRECTION : imports des pages produits, détail et panier (dans details/) ----
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_products_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_product_detail_page.dart';
 import 'package:thix_id/presentation/thix_sante/pharmacy/details/pharmacy_cart_page.dart';
@@ -203,16 +205,6 @@ import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
-// ==================== THIX INFO ====================
-static const String thixInfo = '/thix-info';
-static const String thixInfoArticle = '/thix-info/article/:articleId';
-static const String thixInfoSearch = '/thix-info/search';
-static const String thixInfoCategory = '/thix-info/category/:category';
-static const String thixInfoSaved = '/thix-info/saved';
-static const String thixInfoBreaking = '/thix-info/breaking';
-static const String thixInfoAdmin = '/thix-info/admin';
-static const String thixInfoCreate = '/thix-info/admin/create';
-static const String thixInfoEdit = '/thix-info/admin/edit/:articleId'; // (définie mais non utilisée dans les routes)
 // THIX ÉVÉNEMENT
 import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
 import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
@@ -359,74 +351,83 @@ class AppRoutes {
   static const String thixMedia = '/thix-media';
   static const String thixMediaVideo = '/thix-media/video';
   static const String adminMedia = '/admin/media';
-  static const String thixInfo = '/info';
-  static const String thixInfoArticleBasePath = '/info/a';
+  
+  // THIX INFO
+  static const String thixInfo = '/thix-info';
+  static const String thixInfoArticle = '/thix-info/article/:articleId';
+  static const String thixInfoSearch = '/thix-info/search';
+  static const String thixInfoCategory = '/thix-info/category/:category';
+  static const String thixInfoSaved = '/thix-info/saved';
+  static const String thixInfoBreaking = '/thix-info/breaking';
+  static const String thixInfoAdmin = '/thix-info/admin';
+  static const String thixInfoCreate = '/thix-info/admin/create';
+  static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
 
-// ===== THIX Chat – Routes principales =====
-static const String chatStatus = '/chat/status';
-static const String chatStatusUpdate = '/chat/status/update';
-static const String chatSpaces = '/chat/spaces';
-static const String chatCall = '/chat/call';
-static const String chatIncomingCall = '/chat/incoming';
+  // ===== THIX Chat – Routes principales =====
+  static const String chatStatus = '/chat/status';
+  static const String chatStatusUpdate = '/chat/status/update';
+  static const String chatSpaces = '/chat/spaces';
+  static const String chatCall = '/chat/call';
+  static const String chatIncomingCall = '/chat/incoming';
 
-// ===== THIX Chat – Routes ajoutées pour les fonctionnalités manquantes =====
-static const String chatSearch = '/chat/search';
-static const String chatNotifications = '/chat/notifications';
-static const String chatStats = '/chat/stats';
-static const String chatNew = '/chat/new';
-static const String chatFilters = '/chat/filters';
-static const String chatOnline = '/chat/online';
-static const String chatStoryNew = '/chat/story/new';
-static const String chatStoryDetail = '/chat/story/:storyId';
+  // ===== THIX Chat – Routes ajoutées pour les fonctionnalités manquantes =====
+  static const String chatSearch = '/chat/search';
+  static const String chatNotifications = '/chat/notifications';
+  static const String chatStats = '/chat/stats';
+  static const String chatNew = '/chat/new';
+  static const String chatFilters = '/chat/filters';
+  static const String chatOnline = '/chat/online';
+  static const String chatStoryNew = '/chat/story/new';
+  static const String chatStoryDetail = '/chat/story/:storyId';
 
-// ===== THIX Chat – Paramètres & personnalisation =====
-static const String chatEphemeralSettings = '/chat/ephemeral/settings';
-static const String chatTranslationSettings = '/chat/translation/settings';
-static const String chatThemes = '/chat/themes';
-static const String chatBubbleCustomize = '/chat/bubble/customize';
-static const String chatNotificationSounds = '/chat/notification/sounds';
-static const String chatWallpaper = '/chat/wallpaper';
-static const String chatFontSize = '/chat/font/size';
-static const String chatThemePreview = '/chat/theme/preview';
-static const String chatStatusSettings = '/chat/status/settings';
-static const String chatAvailabilitySchedule = '/chat/availability/schedule';
-static const String chatStatusPresets = '/chat/status/presets';
+  // ===== THIX Chat – Paramètres & personnalisation =====
+  static const String chatEphemeralSettings = '/chat/ephemeral/settings';
+  static const String chatTranslationSettings = '/chat/translation/settings';
+  static const String chatThemes = '/chat/themes';
+  static const String chatBubbleCustomize = '/chat/bubble/customize';
+  static const String chatNotificationSounds = '/chat/notification/sounds';
+  static const String chatWallpaper = '/chat/wallpaper';
+  static const String chatFontSize = '/chat/font/size';
+  static const String chatThemePreview = '/chat/theme/preview';
+  static const String chatStatusSettings = '/chat/status/settings';
+  static const String chatAvailabilitySchedule = '/chat/availability/schedule';
+  static const String chatStatusPresets = '/chat/status/presets';
 
-// ===== THIX Chat – Archives & export =====
-static const String chatArchive = '/chat/archive';
-static const String chatExport = '/chat/export/:id';
-static const String chatExportEncrypted = '/chat/export/encrypted/:id';
+  // ===== THIX Chat – Archives & export =====
+  static const String chatArchive = '/chat/archive';
+  static const String chatExport = '/chat/export/:id';
+  static const String chatExportEncrypted = '/chat/export/encrypted/:id';
 
-// ===== THIX Chat – Économie de données =====
-static const String chatDataSaver = '/chat/data/saver';
+  // ===== THIX Chat – Économie de données =====
+  static const String chatDataSaver = '/chat/data/saver';
 
-// ===== THIX Chat – Widgets maison =====
-static const String chatWidgetsConfig = '/chat/widgets/config';
-static const String chatWidgetsPreview = '/chat/widgets/preview';
+  // ===== THIX Chat – Widgets maison =====
+  static const String chatWidgetsConfig = '/chat/widgets/config';
+  static const String chatWidgetsPreview = '/chat/widgets/preview';
 
-// ===== THIX Chat – Sécurité avancée =====
-static const String chatSecurityLock = '/chat/security/lock';
-static const String chatSecretFolder = '/chat/secret/folder';
-static const String chatSecretConversation = '/chat/secret/conversation/:id';
-static const String chatSelfDestruct = '/chat/self-destruct';
-static const String chatAntiScreenshot = '/chat/anti-screenshot';
-static const String chatFakeInterface = '/chat/fake-interface';
-static const String chatTheftProtection = '/chat/theft-protection';
-static const String chatSessionManager = '/chat/session';
-static const String chatEncryption = '/chat/encryption';
+  // ===== THIX Chat – Sécurité avancée =====
+  static const String chatSecurityLock = '/chat/security/lock';
+  static const String chatSecretFolder = '/chat/secret/folder';
+  static const String chatSecretConversation = '/chat/secret/conversation/:id';
+  static const String chatSelfDestruct = '/chat/self-destruct';
+  static const String chatAntiScreenshot = '/chat/anti-screenshot';
+  static const String chatFakeInterface = '/chat/fake-interface';
+  static const String chatTheftProtection = '/chat/theft-protection';
+  static const String chatSessionManager = '/chat/session';
+  static const String chatEncryption = '/chat/encryption';
 
-// ===== THIX Chat – Hors ligne =====
-static const String chatOfflineSettings = '/chat/offline/settings';
+  // ===== THIX Chat – Hors ligne =====
+  static const String chatOfflineSettings = '/chat/offline/settings';
 
-// ===== THIX Chat – Fonctionnalités diverses =====
-static const String chatContactShare = '/chat/contact/share/:userId';
-static const String chatVideoMessage = '/chat/video-message';
-static const String chatMessageReminder = '/chat/reminder';
-static const String chatConfidentialMessage = '/chat/confidential';
-static const String chatSmartNotifications = '/chat/smart-notifications';
-static const String chatVoiceTranslation = '/chat/voice-translation';
-static const String chatGroupWaitingRoom = '/chat/group/waiting-room';
-static const String chatRecurringSchedule = '/chat/scheduled/recurring';
+  // ===== THIX Chat – Fonctionnalités diverses =====
+  static const String chatContactShare = '/chat/contact/share/:userId';
+  static const String chatVideoMessage = '/chat/video-message';
+  static const String chatMessageReminder = '/chat/reminder';
+  static const String chatConfidentialMessage = '/chat/confidential';
+  static const String chatSmartNotifications = '/chat/smart-notifications';
+  static const String chatVoiceTranslation = '/chat/voice-translation';
+  static const String chatGroupWaitingRoom = '/chat/group/waiting-room';
+  static const String chatRecurringSchedule = '/chat/scheduled/recurring';
   
   // THIX ÉVÉNEMENT
   static const String thixEvent = '/thix-event';
@@ -1038,46 +1039,46 @@ class AppRouter {
                 child: CommunityDetailPage(communityId: communityId));
           },
         ),
-         // ---- Nouveautés Réseau Pro ----
-GoRoute(
-  path: '/network/discover',
-  name: 'networkDiscover',
-  pageBuilder: (context, state) => NoTransitionPage(child: const DiscoverTab()),
-),
-GoRoute(
-  path: '/network/communities',
-  name: 'networkCommunities',
-  pageBuilder: (context, state) => NoTransitionPage(child: const CommunitiesListPage()),
-),
-GoRoute(
-  path: '/network/community/create',
-  name: 'networkCommunityCreate',
-  pageBuilder: (context, state) => NoTransitionPage(child: const CreateCommunityPage()),
-),
-GoRoute(
-  path: '/network/story/:storyId',
-  name: 'networkStoryViewer',
-  pageBuilder: (context, state) {
-    final storyId = state.pathParameters['storyId']!;
-    return NoTransitionPage(child: StoryViewerScreen(storyId: storyId));
-  },
-),
-GoRoute(
-  path: '/network/comments/:postId',
-  name: 'networkComments',
-  pageBuilder: (context, state) {
-    final postId = state.pathParameters['postId']!;
-    return NoTransitionPage(child: CommentsPage(postId: postId));
-  },
-),
-GoRoute(
-  path: '/network/hashtag/:tag',
-  name: 'networkHashtag',
-  pageBuilder: (context, state) {
-    final tag = state.pathParameters['tag']!;
-    return NoTransitionPage(child: HashtagPage(tag: tag));
-  },
-),
+        // ---- Nouveautés Réseau Pro ----
+        GoRoute(
+          path: '/network/discover',
+          name: 'networkDiscover',
+          pageBuilder: (context, state) => NoTransitionPage(child: const DiscoverTab()),
+        ),
+        GoRoute(
+          path: '/network/communities',
+          name: 'networkCommunities',
+          pageBuilder: (context, state) => NoTransitionPage(child: const CommunitiesListPage()),
+        ),
+        GoRoute(
+          path: '/network/community/create',
+          name: 'networkCommunityCreate',
+          pageBuilder: (context, state) => NoTransitionPage(child: const CreateCommunityPage()),
+        ),
+        GoRoute(
+          path: '/network/story/:storyId',
+          name: 'networkStoryViewer',
+          pageBuilder: (context, state) {
+            final storyId = state.pathParameters['storyId']!;
+            return NoTransitionPage(child: StoryViewerScreen(storyId: storyId));
+          },
+        ),
+        GoRoute(
+          path: '/network/comments/:postId',
+          name: 'networkComments',
+          pageBuilder: (context, state) {
+            final postId = state.pathParameters['postId']!;
+            return NoTransitionPage(child: CommentsPage(postId: postId));
+          },
+        ),
+        GoRoute(
+          path: '/network/hashtag/:tag',
+          name: 'networkHashtag',
+          pageBuilder: (context, state) {
+            final tag = state.pathParameters['tag']!;
+            return NoTransitionPage(child: HashtagPage(tag: tag));
+          },
+        ),
         GoRoute(
           path: '${AppRoutes.networkProfileBasePath}/:userId',
           name: 'networkProfile',
@@ -1092,106 +1093,108 @@ GoRoute(
           pageBuilder: (context, state) =>
               NoTransitionPage(child: ProfilePage()),
         ),
-         // === Routes supplémentaires pour le Réseau Pro ===
-GoRoute(
-  path: '/video-upload',
-  name: 'videoUpload',
-  pageBuilder: (context, state) =>
-      NoTransitionPage(
-        child: Scaffold(
-          appBar: AppBar(title: const Text('Chargement vidéo')),
-          body: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.video_library, size: 80, color: Colors.blue),
-                SizedBox(height: 20),
-                Text('Page de chargement vidéo (à implémenter)'),
-                SizedBox(height: 10),
-                Text('Remplacez ce Scaffold par votre widget réel'),
-              ],
-            ),
-          ),
-        ),
-      ),
-),
-GoRoute(
-  path: '/opportunity-detail',
-  name: 'opportunityDetail',
-  pageBuilder: (context, state) {
-    final extra = state.extra as Map?;
-    final title = extra?['title'] ?? 'Opportunité';
-    final sub = extra?['sub'] ?? '';
-    return NoTransitionPage(
-      child: Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('📌 Opportunité : $title', style: const TextStyle(fontSize: 20)),
-              const SizedBox(height: 8),
-              Text('Sous-titre : $sub'),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => context.pop(),
-                child: const Text('Retour'),
+        // === Routes supplémentaires pour le Réseau Pro ===
+        GoRoute(
+          path: '/video-upload',
+          name: 'videoUpload',
+          pageBuilder: (context, state) =>
+              NoTransitionPage(
+                child: Scaffold(
+                  appBar: AppBar(title: const Text('Chargement vidéo')),
+                  body: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.video_library, size: 80, color: Colors.blue),
+                        SizedBox(height: 20),
+                        Text('Page de chargement vidéo (à implémenter)'),
+                        SizedBox(height: 10),
+                        Text('Remplacez ce Scaffold par votre widget réel'),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ],
-          ),
         ),
-      ),
-    );
-  },
-),
+        GoRoute(
+          path: '/opportunity-detail',
+          name: 'opportunityDetail',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map?;
+            final title = extra?['title'] ?? 'Opportunité';
+            final sub = extra?['sub'] ?? '';
+            return NoTransitionPage(
+              child: Scaffold(
+                appBar: AppBar(title: Text(title)),
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('📌 Opportunité : $title', style: const TextStyle(fontSize: 20)),
+                      const SizedBox(height: 8),
+                      Text('Sous-titre : $sub'),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () => context.pop(),
+                        child: const Text('Retour'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
        
         // ==================== THIX INFO ====================
-GoRoute(
-  path: AppRoutes.thixInfo,
-  name: 'thixInfo',
-  pageBuilder: (context, state) => NoTransitionPage(child: const ThixInfoHome()),
-),
-GoRoute(
-  path: AppRoutes.thixInfoArticle,
-  name: 'thixInfoArticle',
-  pageBuilder: (context, state) {
-    final articleId = state.pathParameters['articleId']!;
-    return NoTransitionPage(child: ArticleDetailPage(articleId: articleId));
-  },
-),
-GoRoute(
-  path: AppRoutes.thixInfoSearch,
-  name: 'thixInfoSearch',
-  pageBuilder: (context, state) => NoTransitionPage(child: const SearchPage()),
-),
-GoRoute(
-  path: AppRoutes.thixInfoCategory,
-  name: 'thixInfoCategory',
-  pageBuilder: (context, state) {
-    final category = state.pathParameters['category']!;
-    return NoTransitionPage(child: CategoryArticlesPage(category: category));
-  },
-),
-GoRoute(
-  path: AppRoutes.thixInfoSaved,
-  name: 'thixInfoSaved',
-  pageBuilder: (context, state) => NoTransitionPage(child: const SavedArticlesPage()),
-),
-GoRoute(
-  path: AppRoutes.thixInfoBreaking,
-  name: 'thixInfoBreaking',
-  pageBuilder: (context, state) => NoTransitionPage(child: const BreakingNewsPage()),
-),
-GoRoute(
-  path: AppRoutes.thixInfoAdmin,
-  name: 'thixInfoAdmin',
-  pageBuilder: (context, state) => NoTransitionPage(child: const AdminNewsDashboard()),
-),
-GoRoute(
-  path: AppRoutes.thixInfoCreate,
-  name: 'thixInfoCreate',
-  pageBuilder: (context, state) => NoTransitionPage(child: const CreateNewsPage()),
-),
+        GoRoute(
+          path: AppRoutes.thixInfo,
+          name: 'thixInfo',
+          pageBuilder: (context, state) => NoTransitionPage(child: const ThixInfoHome()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoArticle,
+          name: 'thixInfoArticle',
+          pageBuilder: (context, state) {
+            final articleId = state.pathParameters['articleId']!;
+            return NoTransitionPage(child: ArticleDetailPage(articleId: articleId));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoSearch,
+          name: 'thixInfoSearch',
+          // ✅ Utilisation du SearchPage préfixé (info)
+          pageBuilder: (context, state) => NoTransitionPage(child: const info.SearchPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoCategory,
+          name: 'thixInfoCategory',
+          pageBuilder: (context, state) {
+            final category = state.pathParameters['category']!;
+            return NoTransitionPage(child: CategoryArticlesPage(category: category));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoSaved,
+          name: 'thixInfoSaved',
+          pageBuilder: (context, state) => NoTransitionPage(child: const SavedArticlesPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoBreaking,
+          name: 'thixInfoBreaking',
+          pageBuilder: (context, state) => NoTransitionPage(child: const BreakingNewsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoAdmin,
+          name: 'thixInfoAdmin',
+          pageBuilder: (context, state) => NoTransitionPage(child: const AdminNewsDashboard()),
+        ),
+        GoRoute(
+          path: AppRoutes.thixInfoCreate,
+          name: 'thixInfoCreate',
+          pageBuilder: (context, state) => NoTransitionPage(child: const CreateNewsPage()),
+        ),
+
         // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
@@ -1207,7 +1210,8 @@ GoRoute(
             GoRoute(
               path: 'search',
               name: 'marketSearch',
-              pageBuilder: (context, state) => NoTransitionPage(child: const SearchPage()),
+              // ✅ Utilisation du SearchPage préfixé (market)
+              pageBuilder: (context, state) => NoTransitionPage(child: const market.SearchPage()),
             ),
             GoRoute(
               path: 'shops',
@@ -1259,13 +1263,13 @@ GoRoute(
               },
             ),
             GoRoute(
-  path: 'shop/:shopId',
-  name: 'marketShopDetail',
-  pageBuilder: (context, state) {
-    final shopId = state.pathParameters['shopId']!;
-    return NoTransitionPage(child: ShopDetailPage(shopId: shopId));
-  },
-),
+              path: 'shop/:shopId',
+              name: 'marketShopDetail',
+              pageBuilder: (context, state) {
+                final shopId = state.pathParameters['shopId']!;
+                return NoTransitionPage(child: ShopDetailPage(shopId: shopId));
+              },
+            ),
             GoRoute(
               path: 'compare',
               name: 'marketProductComparator',
@@ -1300,22 +1304,22 @@ GoRoute(
                 return NoTransitionPage(child: OrderDetailPage(orderId: orderId));
               },
             ),
-                   GoRoute(
-  path: 'chat/:shopId',
-  name: 'marketChatSeller',
-  pageBuilder: (context, state) {
-    final shopId = state.pathParameters['shopId']!;
-    final extra = state.extra as Map<String, dynamic>?;
-    return NoTransitionPage(
-      child: ChatPage(
-        conversationId: '', // sera créée à l'ouverture
-        shopId: shopId,
-        title: extra?['title'] ?? 'Vendeur',
-        avatar: extra?['userAvatar'],
-      ),
-    );
-  },
-),            
+            GoRoute(
+              path: 'chat/:shopId',
+              name: 'marketChatSeller',
+              pageBuilder: (context, state) {
+                final shopId = state.pathParameters['shopId']!;
+                final extra = state.extra as Map<String, dynamic>?;
+                return NoTransitionPage(
+                  child: ChatPage(
+                    conversationId: '', // sera créée à l'ouverture
+                    shopId: shopId,
+                    title: extra?['title'] ?? 'Vendeur',
+                    avatar: extra?['userAvatar'],
+                  ),
+                );
+              },
+            ),            
             // Boutiques
             GoRoute(
               path: 'shop/create',
@@ -1441,7 +1445,7 @@ GoRoute(
           path: '/sante/patient/dashboard',
           name: 'patientDashboard',
           pageBuilder: (context, state) =>
-              NoTransitionPage(child: patient.PatientDashboardPage()), // <-- CORRIGÉ
+              NoTransitionPage(child: patient.PatientDashboardPage()),
         ),
         GoRoute(
           path: '/sante/patient/health',
@@ -1795,7 +1799,7 @@ GoRoute(
             return NoTransitionPage(child: PatientAlertPage(alertId: id));
           },
         ),
-         // Grossesse - liste (sans ID)
+        // Grossesse - liste (sans ID)
         GoRoute(
           path: '/sante/patient/pregnancy',
           name: 'patientPregnancyList',
@@ -2072,14 +2076,14 @@ GoRoute(
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
             return NoTransitionPage(
-                child: DoctorChatPage(chatId: id, participantName: name)); // <-- CORRIGÉ (chatId)
+                child: DoctorChatPage(chatId: id, participantName: name));
           },
         ),
         GoRoute(
           path: '/sante/doctor/messages/new',
           name: 'doctorChatNew',
           pageBuilder: (context, state) =>
-              NoTransitionPage(child: DoctorChatPage(chatId: '')), // <-- CORRIGÉ (chatId)
+              NoTransitionPage(child: DoctorChatPage(chatId: '')),
         ),
         // Alertes
         GoRoute(
@@ -2138,7 +2142,7 @@ GoRoute(
           path: '/sante/pharmacy/order/new',
           name: 'pharmacyOrderNew',
           pageBuilder: (context, state) =>
-              NoTransitionPage(child: PharmacyOrderPage(orderId: '')), // <-- CORRIGÉ
+              NoTransitionPage(child: PharmacyOrderPage(orderId: '')),
         ),
         // Prescription validation
         GoRoute(
@@ -2202,17 +2206,17 @@ GoRoute(
             final id = state.pathParameters['id']!;
             final name = state.extra as String?;
             return NoTransitionPage(
-                child: PharmacyChatPage(chatId: id, participantName: name)); // <-- CORRIGÉ (chatId)
+                child: PharmacyChatPage(chatId: id, participantName: name));
           },
         ),
         GoRoute(
           path: '/sante/pharmacy/chat/new',
           name: 'pharmacyChatNew',
           pageBuilder: (context, state) =>
-              NoTransitionPage(child: PharmacyChatPage(chatId: '')), // <-- CORRIGÉ
+              NoTransitionPage(child: PharmacyChatPage(chatId: '')),
         ),
 
-        // ---- Pages produits, détail produit et panier (corrigés) ----
+        // ---- Pages produits, détail produit et panier ----
         GoRoute(
           path: '/sante/pharmacy/products',
           name: 'pharmacyProducts',
