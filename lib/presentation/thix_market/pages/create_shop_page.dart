@@ -50,14 +50,19 @@ class _CreateShopPageState extends State<CreateShopPage> {
     setState(() => _isLoading = true);
     try {
       final shopProvider = context.read<ShopProvider>();
-      await shopProvider.createShop(
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        address: _addressController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        logoFile: _logoImage,
-      );
+
+      // Préparer les données de la boutique
+      final shopData = {
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'address': _addressController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'email': _emailController.text.trim(),
+        // Le logo sera uploadé séparément ; pour l'instant on ne le gère pas
+      };
+
+      // ✅ Appel CORRECT : on passe le Map
+      await shopProvider.createShop(shopData);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +71,7 @@ class _CreateShopPageState extends State<CreateShopPage> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop(); // Retourner à la page précédente
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
