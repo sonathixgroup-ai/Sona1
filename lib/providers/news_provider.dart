@@ -1,253 +1,387 @@
-// lib/providers/news_provider.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../services/news_service.dart';
-import '../models/news_article.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/auth/supabase_auth_manager.dart';
+import 'package:thix_id/l10n/app_localizations.dart';
+import 'package:thix_id/l10n/locale_controller.dart';
+import 'package:thix_id/nav.dart';
+import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/user_service.dart';
+import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/services/news_service.dart'; // ✅ AJOUT
+import 'package:thix_id/providers/feed_provider.dart';
+import 'package:thix_id/providers/news_provider.dart'; // ✅ AJOUT
+import 'package:thix_id/supabase/supabase_config.dart';
+import 'package:thix_id/theme.dart';
+import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
+import 'package:thix_id/presentation/chat/core/chat_repository.dart';
+import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/live_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/market_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/message_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/product_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/search_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
+import 'package:thix_id/providers/event_provider.dart';
+import 'package:thix_id/services/event_service.dart';
 
-class NewsProvider extends ChangeNotifier {
-  final NewsService _newsService;
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════════════════
 
-  List<NewsArticle> _articles = [];
-  List<NewsArticle> _videos = [];
-  List<NewsArticle> _savedArticles = [];
-  bool _isLoading = false;
-  String? _error;
-  String _currentCategory = 'featured';
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  NewsProvider(this._newsService);
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+    if (details.stack != null) debugPrint(details.stack.toString());
+  };
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('ErrorWidget: ${details.exceptionAsString()}');
+    if (details.stack != null) debugPrint(details.stack.toString());
+    return Material(
+      color: Colors.transparent,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Une erreur est survenue.\n\n${kDebugMode ? details.exceptionAsString() : ''}',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  };
 
-  // Getters
-  List<NewsArticle> get articles => _articles;
-  List<NewsArticle> get videos => _videos;
-  List<NewsArticle> get savedArticles => _savedArticles;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  String get currentCategory => _currentCategory;
+  runApp(const ProviderScope(child: BootstrapApp()));
+}
 
-  NewsArticle? get featuredArticle {
-    final featured = _articles.where((a) => a.isFeatured).toList();
-    if (featured.isNotEmpty) return featured.first;
-    if (_articles.isNotEmpty) return _articles.first;
-    return null;
+// ─── Bootstrap ──────────────────────────────────────────────────────────────
+
+class BootstrapApp extends StatefulWidget {
+  const BootstrapApp({super.key});
+
+  @override
+  State<BootstrapApp> createState() => _BootstrapAppState();
+}
+
+class _BootstrapAppState extends State<BootstrapApp> {
+  late final Future<_BootstrapResult> _future = _bootstrap();
+
+  Future<_BootstrapResult> _bootstrap() async {
+    // ✅ On laisse l'erreur remonter pour que le FutureBuilder l'affiche
+    await SupabaseConfig.initialize();
+
+    // 🔥 Services Supabase
+    final profiles = ProfileService();
+    final userService = UserService(SupabaseConfig.client);
+
+    // AuthController utilise SupabaseAuthManager
+    final auth = AuthController(
+      auth: SupabaseAuthManager(profiles: profiles),
+    );
+
+    await auth.init();
+
+    final network = NetworkService(SupabaseConfig.client);
+    final feed = FeedProvider(network, supabase: SupabaseConfig.client);
+    feed.initRealtime();
+
+    // 🔔 Notifications de tâches
+    await TaskNotification.init();
+
+    // 💬 THIX Chat — Bloc global, mais on NE CHARGE PAS les conversations ici
+    // car l'utilisateur n'est pas encore authentifié.
+    final chatBloc = ChatBloc(ChatRepository());
+    // ❌ SUPPRESSION : chatBloc.add(LoadConversations());
+
+    // 🆕 Service des événements
+    final eventService = EventService(SupabaseConfig.client);
+
+    return _BootstrapResult(
+      auth: auth,
+      profiles: profiles,
+      userService: userService,
+      network: network,
+      feed: feed,
+      chatBloc: chatBloc,
+      eventService: eventService,
+    );
   }
 
-  List<NewsArticle> get recentArticles {
-    return _articles.where((a) => !a.isFeatured).take(10).toList();
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_BootstrapResult>(
+      future: _future,
+      builder: (context, snap) {
+        // ✅ Gestion de l'erreur d'initialisation
+        if (snap.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.system,
+            home: Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.cloud_off_rounded,
+                        size: 72,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Connexion impossible',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Recharger l'app entièrement
+                          runApp(const ProviderScope(child: BootstrapApp()));
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Réessayer'),
+                      ),
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Erreur : ${snap.error}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.red,
+                                fontFamily: 'monospace',
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final child = snap.hasData
+            ? MyApp(
+                auth: snap.data!.auth,
+                profiles: snap.data!.profiles,
+                userService: snap.data!.userService,
+                network: snap.data!.network,
+                feed: snap.data!.feed,
+                chatBloc: snap.data!.chatBloc,
+                eventService: snap.data!.eventService,
+              )
+            : MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: lightTheme,
+                darkTheme: darkTheme,
+                themeMode: ThemeMode.system,
+                home: const _StartupLoadingPage(),
+              );
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: KeyedSubtree(
+            key: ValueKey(snap.hasData),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BootstrapResult {
+  final AuthController auth;
+  final ProfileService profiles;
+  final UserService userService;
+  final NetworkService network;
+  final FeedProvider feed;
+  final ChatBloc chatBloc;
+  final EventService eventService;
+
+  const _BootstrapResult({
+    required this.auth,
+    required this.profiles,
+    required this.userService,
+    required this.network,
+    required this.feed,
+    required this.chatBloc,
+    required this.eventService,
+  });
+}
+
+// ─── Écran de chargement ───────────────────────────────────────────────
+
+class _StartupLoadingPage extends StatelessWidget {
+  const _StartupLoadingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 56,
+                width: 56,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(Icons.verified_user_rounded, color: cs.primary),
+              ),
+              const SizedBox(height: 14),
+              Text('THIX ID', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 6),
+              Text(
+                'Chargement sécurisé…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: 140,
+                child: LinearProgressIndicator(
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Application principale ─────────────────────────────────────────────
+
+class MyApp extends StatefulWidget {
+  final AuthController auth;
+  final ProfileService profiles;
+  final UserService userService;
+  final NetworkService network;
+  final FeedProvider feed;
+  final ChatBloc chatBloc;
+  final EventService eventService;
+
+  const MyApp({
+    super.key,
+    required this.auth,
+    required this.profiles,
+    required this.userService,
+    required this.network,
+    required this.feed,
+    required this.chatBloc,
+    required this.eventService,
+  });
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final LocaleController _localeController;
+  late final _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _localeController = LocaleController()..init();
+    _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
   }
 
-  // ============================================================
-  // CHARGEMENT
-  // ============================================================
-
-  Future<void> fetchArticles({String? category}) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      final newCategory = category ?? _currentCategory;
-      _currentCategory = newCategory;
-      _articles = await _newsService.getArticles(category: newCategory);
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('❌ fetchArticles error: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  @override
+  void dispose() {
+    widget.chatBloc.close();
+    super.dispose();
   }
 
-  Future<void> fetchVideos() async {
-    try {
-      _videos = await _newsService.getVideos();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('❌ fetchVideos error: $e');
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: widget.auth),
+        ChangeNotifierProvider.value(value: _localeController),
+        Provider<ProfileService>.value(value: widget.profiles),
+        Provider<UserService>.value(value: widget.userService),
+        Provider<NetworkService>.value(value: widget.network),
+        ChangeNotifierProvider.value(value: widget.feed),
+        BlocProvider<ChatBloc>.value(value: widget.chatBloc),
 
-  Future<NewsArticle?> fetchArticleById(String id) async {
-    try {
-      return await _newsService.getArticleById(id);
-    } catch (e) {
-      debugPrint('❌ fetchArticleById error: $e');
-      return null;
-    }
-  }
-
-  Future<List<NewsArticle>> fetchArticlesByCategory(String category) async {
-    try {
-      return await _newsService.getArticles(category: category);
-    } catch (e) {
-      debugPrint('❌ fetchArticlesByCategory error: $e');
-      return [];
-    }
-  }
-
-  Future<List<NewsArticle>> fetchBreakingNews() async {
-    try {
-      return await _newsService.getBreakingNews();
-    } catch (e) {
-      debugPrint('❌ fetchBreakingNews error: $e');
-      return [];
-    }
-  }
-
-  Future<List<NewsArticle>> searchArticles(String query) async {
-    try {
-      return await _newsService.searchArticles(query);
-    } catch (e) {
-      debugPrint('❌ searchArticles error: $e');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // INTERACTIONS (Likes, Vues, Favoris)
-  // ============================================================
-
-  Future<void> incrementViews(String articleId) async {
-    await _newsService.incrementViews(articleId);
-  }
-
-  Future<void> toggleLike(String articleId) async {
-    final index = _articles.indexWhere((a) => a.id == articleId);
-    if (index != -1) {
-      final article = _articles[index];
-      if (article.isLiked) {
-        await _newsService.unlikeArticle(articleId);
-        _articles[index] = article.copyWith(isLiked: false);
-      } else {
-        await _newsService.likeArticle(articleId);
-        _articles[index] = article.copyWith(isLiked: true);
-      }
-      notifyListeners();
-    }
-  }
-
-  Future<bool> isArticleSaved(String articleId) async {
-    final saved = await getSavedArticlesList();
-    return saved.any((a) => a.id == articleId);
-  }
-
-  Future<void> saveArticle(String articleId) async {
-    await _newsService.saveArticle(articleId);
-    
-    final index = _articles.indexWhere((a) => a.id == articleId);
-    if (index != -1) {
-      _articles[index] = _articles[index].copyWith(isSaved: true);
-    }
-    
-    await loadSavedArticles();
-    notifyListeners();
-  }
-
-  Future<void> unsaveArticle(String articleId) async {
-    await _newsService.unsaveArticle(articleId);
-    
-    final index = _articles.indexWhere((a) => a.id == articleId);
-    if (index != -1) {
-      _articles[index] = _articles[index].copyWith(isSaved: false);
-    }
-    
-    await loadSavedArticles();
-    notifyListeners();
-  }
-
-  Future<void> loadSavedArticles() async {
-    try {
-      _savedArticles = await getSavedArticlesList();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('❌ loadSavedArticles error: $e');
-    }
-  }
-
-  // ⭐ UNE SEULE FOIS - Méthode pour récupérer les articles sauvegardés
-  Future<List<NewsArticle>> getSavedArticlesList() async {
-    return await _newsService.getSavedArticles();
-  }
-
-  // ============================================================
-  // ADMIN
-  // ============================================================
-
-  Future<NewsArticle?> createArticle({
-    required String title,
-    String? summary,
-    required String content,
-    required String category,
-    String? imageUrl,
-    String? videoUrl,
-    bool isFeatured = false,
-    bool isBreaking = false,
-  }) async {
-    try {
-      final article = await _newsService.createArticle(
-        title: title,
-        summary: summary,
-        content: content,
-        category: category,
-        imageUrl: imageUrl,
-        videoUrl: videoUrl,
-        isFeatured: isFeatured,
-        isBreaking: isBreaking,
-      );
-      await fetchArticles();
-      return article;
-    } catch (e) {
-      debugPrint('❌ createArticle error: $e');
-      return null;
-    }
-  }
-
-  Future<void> updateArticle(String articleId, Map<String, dynamic> data) async {
-    try {
-      await _newsService.updateArticle(articleId, data);
-      await fetchArticles();
-    } catch (e) {
-      debugPrint('❌ updateArticle error: $e');
-    }
-  }
-
-  Future<void> deleteArticle(String articleId) async {
-    try {
-      await _newsService.deleteArticle(articleId);
-      await fetchArticles();
-    } catch (e) {
-      debugPrint('❌ deleteArticle error: $e');
-    }
-  }
-
-  // ============================================================
-  // UPLOAD
-  // ============================================================
-
-  Future<String?> uploadImage(String filePath) async {
-    return await _newsService.uploadImage(filePath);
-  }
-
-  Future<String?> uploadVideo(String filePath) async {
-    return await _newsService.uploadVideo(filePath);
-  }
-
-  // ============================================================
-  // UTILITAIRES
-  // ============================================================
-
-  void setCategory(String category) {
-    if (_currentCategory == category) return;
-    _currentCategory = category;
-    fetchArticles(category: category);
-  }
-
-  void clearError() {
-    _error = null;
-    notifyListeners();
-  }
-
-  void refresh() {
-    fetchArticles();
-    fetchVideos();
-    loadSavedArticles();
+        // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
+        ChangeNotifierProvider(
+          create: (_) => EventProvider(widget.eventService),
+        ),
+        // ✅ PROVIDER POUR THIX INFO (NEWS)
+        ChangeNotifierProvider(
+          create: (_) => NewsProvider(NewsService()),
+        ),
+        ChangeNotifierProvider(create: (_) => MarketProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
+        ChangeNotifierProvider(create: (_) => ShopProvider()),
+        ChangeNotifierProvider(create: (_) => MessageProvider()),
+        ChangeNotifierProvider(create: (_) => LiveProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => ActivityProvider()),
+        ChangeNotifierProvider(create: (_) => SellProvider()),
+        ChangeNotifierProvider(create: (_) => SupportProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
+      child: Builder(
+        builder: (context) {
+          final locale = context.watch<LocaleController>().locale;
+          return MaterialApp.router(
+            title: 'THIX ID',
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.system,
+            routerConfig: _router,
+            locale: locale,
+            supportedLocales: LocaleController.supportedLocales,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            builder: (context, child) => child ?? const SizedBox.shrink(),
+          );
+        },
+      ),
+    );
   }
 }
