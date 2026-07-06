@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -14,14 +15,14 @@ class MessagesPage extends StatefulWidget {
 class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  static const Color primaryBlue = Color(0xFF1A73E8);
+  static const Color bgLight = Color(0xFFF8F9FA);
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MessageProvider>().loadConversations();
-      context.read<MessageProvider>().loadDisputes();
-    });
+    _loadData();
   }
 
   @override
@@ -30,17 +31,24 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     super.dispose();
   }
 
+  Future<void> _loadData() async {
+    final provider = context.read<MessageProvider>();
+    await Future.wait([
+      provider.loadConversations(),
+      provider.loadDisputes(),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final messageProvider = context.watch<MessageProvider>();
-    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: bgLight,
       appBar: AppBar(
         title: const Text(
           'Messages',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -81,13 +89,17 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
               ),
             ),
           ],
-          indicatorColor: const Color(0xFFE5592F),
-          labelColor: const Color(0xFFE5592F),
+          indicatorColor: primaryBlue,
+          labelColor: primaryBlue,
           unselectedLabelColor: Colors.grey,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.phone_in_talk),
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            onPressed: _loadData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.phone_in_talk, color: Colors.black87),
             onPressed: () => _startVoiceCall(),
           ),
         ],
@@ -95,14 +107,17 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildConversationsTab(messageProvider, theme),
-          _buildDisputesTab(messageProvider, theme),
+          _buildConversationsTab(messageProvider),
+          _buildDisputesTab(messageProvider),
         ],
       ),
     );
   }
 
-  Widget _buildConversationsTab(MessageProvider provider, ThemeData theme) {
+  // ============================================================
+  // TAB 1 : CONVERSATIONS
+  // ============================================================
+  Widget _buildConversationsTab(MessageProvider provider) {
     if (provider.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -115,43 +130,61 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: provider.conversations.length,
-      itemBuilder: (context, index) {
-        final conv = provider.conversations[index];
-        return _buildConversationTile(conv);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: provider.conversations.length,
+        itemBuilder: (context, index) {
+          final conv = provider.conversations[index];
+          return _buildConversationTile(conv);
+        },
+      ),
     );
   }
 
   Widget _buildConversationTile(Map<String, dynamic> conversation) {
     final lastMessage = conversation['last_message'];
-    final isUnread = conversation['unread_count'] > 0;
-    final date = DateTime.parse(conversation['last_message_time']);
-    final formattedTime = DateFormat('HH:mm').format(date);
-    final isToday = DateFormat('yyyy-MM-dd').format(date) == DateFormat('yyyy-MM-dd').format(DateTime.now());
-    
+    final isUnread = (conversation['unread_count'] ?? 0) > 0;
+    final lastMessageTime = conversation['last_message_time'];
+    final otherUser = conversation['other_user'] as Map? ?? {};
+    final userName = otherUser['name'] ?? 'Utilisateur';
+    final userAvatar = otherUser['avatar'] as String?;
+    final isOnline = otherUser['is_online'] ?? false;
+
+    String formattedTime = '';
+    if (lastMessageTime != null) {
+      try {
+        final date = DateTime.parse(lastMessageTime);
+        final now = DateTime.now();
+        if (date.day == now.day && date.month == now.month && date.year == now.year) {
+          formattedTime = DateFormat('HH:mm').format(date);
+        } else {
+          formattedTime = DateFormat('dd/MM').format(date);
+        }
+      } catch (_) {}
+    }
+
     return InkWell(
-      onTap: () => _openChat(conversation['id'], conversation['other_user']),
+      onTap: () => _openChat(conversation['id'], otherUser),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: isUnread ? const Color(0xFFE5592F).withOpacity(0.05) : Colors.white,
+        color: isUnread ? primaryBlue.withOpacity(0.05) : Colors.white,
         child: Row(
           children: [
             // Avatar
             Stack(
               children: [
                 CircleAvatar(
-                  radius: 28,
-                  backgroundImage: CachedNetworkImageProvider(
-                    conversation['other_user']['avatar'] ?? '',
-                  ),
-                  child: conversation['other_user']['avatar'] == null
-                      ? Icon(Icons.person, size: 28, color: Colors.grey[400])
+                  radius: 26,
+                  backgroundImage: userAvatar != null
+                      ? CachedNetworkImageProvider(userAvatar)
+                      : null,
+                  child: userAvatar == null
+                      ? Icon(Icons.person, size: 26, color: Colors.grey[400])
                       : null,
                 ),
-                if (conversation['other_user']['is_online'] == true)
+                if (isOnline)
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -168,7 +201,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
               ],
             ),
             const SizedBox(width: 12),
-            
+
             // Contenu
             Expanded(
               child: Column(
@@ -178,22 +211,24 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                     children: [
                       Expanded(
                         child: Text(
-                          conversation['other_user']['name'],
+                          userName,
                           style: TextStyle(
                             fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 16,
+                            fontSize: 15,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        isToday ? formattedTime : DateFormat('dd/MM').format(date),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
+                      if (formattedTime.isNotEmpty)
+                        Text(
+                          formattedTime,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                            fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -201,12 +236,12 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                     children: [
                       if (conversation['is_typing'] == true)
                         const SizedBox(
-                          width: 40,
+                          width: 60,
                           child: Text(
                             'Écrit...',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFFE5592F),
+                              color: primaryBlue,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -229,7 +264,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE5592F),
+                            color: primaryBlue,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -252,7 +287,10 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildDisputesTab(MessageProvider provider, ThemeData theme) {
+  // ============================================================
+  // TAB 2 : LITIGES
+  // ============================================================
+  Widget _buildDisputesTab(MessageProvider provider) {
     if (provider.isLoadingDisputes) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -265,41 +303,35 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: provider.disputes.length,
-      itemBuilder: (context, index) {
-        final dispute = provider.disputes[index];
-        return _buildDisputeCard(dispute);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: provider.disputes.length,
+        itemBuilder: (context, index) {
+          final dispute = provider.disputes[index];
+          return _buildDisputeCard(dispute);
+        },
+      ),
     );
   }
 
   Widget _buildDisputeCard(Map<String, dynamic> dispute) {
-    Color statusColor;
-    String statusText;
-    
-    switch (dispute['status']) {
-      case 'open':
-        statusColor = Colors.orange;
-        statusText = 'En cours';
-        break;
-      case 'mediation':
-        statusColor = Colors.blue;
-        statusText = 'Médiation';
-        break;
-      case 'resolved':
-        statusColor = Colors.green;
-        statusText = 'Résolu';
-        break;
-      case 'closed':
-        statusColor = Colors.grey;
-        statusText = 'Fermé';
-        break;
-      default:
-        statusColor = Colors.grey;
-        statusText = 'Inconnu';
-    }
+    final status = dispute['status'] ?? 'open';
+    final statusColors = {
+      'open': Colors.orange,
+      'mediation': Colors.blue,
+      'resolved': Colors.green,
+      'closed': Colors.grey,
+    };
+    final statusTexts = {
+      'open': 'En cours',
+      'mediation': 'Médiation',
+      'resolved': 'Résolu',
+      'closed': 'Fermé',
+    };
+    final statusColor = statusColors[status] ?? Colors.grey;
+    final statusText = statusTexts[status] ?? 'Inconnu';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -344,17 +376,15 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                dispute['reason'],
-                style: TextStyle(color: Colors.grey[700]),
-              ),
+              if (dispute['reason'] != null)
+                Text(
+                  dispute['reason'],
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
               const SizedBox(height: 8),
               Text(
                 'Commande #${dispute['order_id']}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               const SizedBox(height: 8),
               Row(
@@ -398,6 +428,9 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     );
   }
 
+  // ============================================================
+  // UTILITAIRES
+  // ============================================================
   Widget _buildEmptyState(String title, String subtitle, IconData icon) {
     return Center(
       child: Column(
@@ -414,34 +447,51 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
             subtitle,
             style: TextStyle(color: Colors.grey[600]),
           ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.push('/market/search'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            child: const Text('Découvrir des boutiques'),
+          ),
         ],
       ),
     );
   }
 
   void _openChat(String conversationId, Map<String, dynamic> otherUser) {
-    Navigator.pushNamed(
-      context,
-      '/chat',
-      arguments: {
-        'conversation_id': conversationId,
-        'user': otherUser,
+    context.push(
+      '/market/chat/$conversationId',
+      extra: {
+        'title': otherUser['name'] ?? 'Discussion',
+        'userName': otherUser['name'] ?? '',
+        'userAvatar': otherUser['avatar'],
       },
     );
   }
 
   void _openDispute(String disputeId) {
-    Navigator.pushNamed(context, '/dispute/$disputeId');
+    context.push('/market/dispute/$disputeId');
   }
 
   void _startVoiceCall() {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => const VoiceCallSheet(),
     );
   }
 }
 
+// ============================================================
+// VOICE CALL SHEET
+// ============================================================
 class VoiceCallSheet extends StatelessWidget {
   const VoiceCallSheet({super.key});
 
@@ -492,7 +542,7 @@ class VoiceCallSheet extends StatelessWidget {
             icon: const Icon(Icons.call),
             label: const Text('Démarrer l\'appel'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
+              backgroundColor: primaryBlue,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
@@ -518,7 +568,7 @@ class VoiceCallSheet extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 32, color: const Color(0xFFE5592F)),
+          Icon(icon, size: 32, color: primaryBlue),
           const SizedBox(height: 8),
           Text(
             role,
