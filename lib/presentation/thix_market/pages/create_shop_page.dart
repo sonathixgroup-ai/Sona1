@@ -1,128 +1,233 @@
+// lib/presentation/thix_market/pages/create_shop_page.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/shop_provider.dart';
-import '../widgets/live/create_live_form.dart';
 
-class CreateLivePage extends StatefulWidget {
-  const CreateLivePage({super.key});
+class CreateShopPage extends StatefulWidget {
+  const CreateShopPage({super.key});
 
   @override
-  State<CreateLivePage> createState() => _CreateLivePageState();
+  State<CreateShopPage> createState() => _CreateShopPageState();
 }
 
-class _CreateLivePageState extends State<CreateLivePage> {
-  String? _selectedShopId;
-  bool _isLoadingShops = true;
+class _CreateShopPageState extends State<CreateShopPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  File? _logoImage;
+  bool _isLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadShops();
-    });
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadShops() async {
-    final shopProvider = context.read<ShopProvider>();
-    await shopProvider.loadMyShops();
-    setState(() {
-      _isLoadingShops = false;
-      if (shopProvider.myShops.isNotEmpty) {
-        _selectedShopId = shopProvider.myShops.first['id'];
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _logoImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final shopProvider = context.read<ShopProvider>();
+      await shopProvider.createShop(
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim(),
+        address: _addressController.text.trim(),
+        phone: _phoneController.text.trim(),
+        email: _emailController.text.trim(),
+        logoFile: _logoImage,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Boutique créée avec succès !'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.pop(); // Retourner à la page précédente
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final shopProvider = context.watch<ShopProvider>();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Créer un live'),
+        title: const Text('Créer une boutique'),
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => context.pop(),
+        ),
       ),
-      body: _isLoadingShops
-          ? const Center(child: CircularProgressIndicator())
-          : shopProvider.myShops.isEmpty
-              ? _buildNoShopView()
-              : _buildForm(shopProvider),
-    );
-  }
-
-  // ========== CORRECTION 1 : Icons.store_off → Icons.storefront ==========
-  Widget _buildNoShopView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.storefront, size: 64, color: Colors.grey), // ✅
-          const SizedBox(height: 16),
-          const Text(
-            'Vous n\'avez pas encore de boutique',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Créez une boutique pour pouvoir créer un live',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/market/shop/create');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A73E8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-            ),
-            child: const Text('Créer une boutique'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ========== CORRECTION 2 : ajout de <String> pour DropdownMenuItem ==========
-  Widget _buildForm(ShopProvider shopProvider) {
-    final shops = shopProvider.myShops;
-
-    return Column(
-      children: [
-        if (shops.length > 1)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Sélectionner une boutique',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Logo
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 120,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: _logoImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              _logoImage!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate,
+                                  size: 40, color: Colors.grey[600]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Ajouter un logo',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
-              value: _selectedShopId,
-              items: shops.map<DropdownMenuItem<String>>((shop) {   // ✅
-                return DropdownMenuItem<String>(                     // ✅
-                  value: shop['id'],
-                  child: Text(shop['name']),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedShopId = value;
-                });
-              },
+                const SizedBox(height: 20),
+
+                // Nom
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom de la boutique *',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Veuillez saisir un nom';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Description
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+
+                // Adresse
+                TextFormField(
+                  controller: _addressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Adresse',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Téléphone
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Téléphone',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+
+                // Email
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty) {
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value)) {
+                        return 'Veuillez saisir un email valide';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Bouton de soumission
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A73E8),
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Créer la boutique'),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
-        if (_selectedShopId != null)
-          Expanded(
-            child: SingleChildScrollView(
-              child: CreateLiveForm(shopId: _selectedShopId!),
-            ),
-          ),
-      ],
+        ),
+      ),
     );
   }
 }
