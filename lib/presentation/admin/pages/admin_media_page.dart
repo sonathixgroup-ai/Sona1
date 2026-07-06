@@ -47,7 +47,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
   @override
   void initState() {
     super.initState();
-    _mediaService = MediaService(Supabase.instance.client);
+    _mediaService = MediaService(client: Supabase.instance.client);
     _loadMedia();
   }
 
