@@ -58,6 +58,16 @@ import 'package:thix_id/presentation/training/learning_dashboard_page.dart';
 import 'package:thix_id/presentation/training/lesson_player_page.dart';
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
+// ==================== THIX INFO ====================
+import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
+import 'package:thix_id/presentation/thix_info/article_detail_page.dart';
+import 'package:thix_id/presentation/thix_info/search_page.dart';
+import 'package:thix_id/presentation/thix_info/category_articles_page.dart';
+import 'package:thix_id/presentation/thix_info/saved_articles_page.dart';
+import 'package:thix_id/presentation/thix_info/breaking_news_page.dart';
+import 'package:thix_id/presentation/admin/pages/admin_news_dashboard.dart';
+import 'package:thix_id/presentation/admin/pages/admin_news_page.dart';
+import 'package:thix_id/presentation/admin/pages/create_news_page.dart';
 
 // ===== IMPORTS THIX MARKET (ajoutés) =====
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
@@ -193,7 +203,16 @@ import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
-
+// ==================== THIX INFO ====================
+static const String thixInfo = '/thix-info';
+static const String thixInfoArticle = '/thix-info/article/:articleId';
+static const String thixInfoSearch = '/thix-info/search';
+static const String thixInfoCategory = '/thix-info/category/:category';
+static const String thixInfoSaved = '/thix-info/saved';
+static const String thixInfoBreaking = '/thix-info/breaking';
+static const String thixInfoAdmin = '/thix-info/admin';
+static const String thixInfoCreate = '/thix-info/admin/create';
+static const String thixInfoEdit = '/thix-info/admin/edit/:articleId'; // (définie mais non utilisée dans les routes)
 // THIX ÉVÉNEMENT
 import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
 import 'package:thix_id/presentation/thix_event/event_detail_page.dart';
@@ -1124,6 +1143,54 @@ GoRoute(
       ),
     );
   },
+),
+       
+        // ==================== THIX INFO ====================
+GoRoute(
+  path: AppRoutes.thixInfo,
+  name: 'thixInfo',
+  pageBuilder: (context, state) => NoTransitionPage(child: const ThixInfoHome()),
+),
+GoRoute(
+  path: AppRoutes.thixInfoArticle,
+  name: 'thixInfoArticle',
+  pageBuilder: (context, state) {
+    final articleId = state.pathParameters['articleId']!;
+    return NoTransitionPage(child: ArticleDetailPage(articleId: articleId));
+  },
+),
+GoRoute(
+  path: AppRoutes.thixInfoSearch,
+  name: 'thixInfoSearch',
+  pageBuilder: (context, state) => NoTransitionPage(child: const SearchPage()),
+),
+GoRoute(
+  path: AppRoutes.thixInfoCategory,
+  name: 'thixInfoCategory',
+  pageBuilder: (context, state) {
+    final category = state.pathParameters['category']!;
+    return NoTransitionPage(child: CategoryArticlesPage(category: category));
+  },
+),
+GoRoute(
+  path: AppRoutes.thixInfoSaved,
+  name: 'thixInfoSaved',
+  pageBuilder: (context, state) => NoTransitionPage(child: const SavedArticlesPage()),
+),
+GoRoute(
+  path: AppRoutes.thixInfoBreaking,
+  name: 'thixInfoBreaking',
+  pageBuilder: (context, state) => NoTransitionPage(child: const BreakingNewsPage()),
+),
+GoRoute(
+  path: AppRoutes.thixInfoAdmin,
+  name: 'thixInfoAdmin',
+  pageBuilder: (context, state) => NoTransitionPage(child: const AdminNewsDashboard()),
+),
+GoRoute(
+  path: AppRoutes.thixInfoCreate,
+  name: 'thixInfoCreate',
+  pageBuilder: (context, state) => NoTransitionPage(child: const CreateNewsPage()),
 ),
         // ---- THIX Market ----
         GoRoute(
