@@ -6,9 +6,9 @@ import 'package:intl/intl.dart';
 
 class ChatPage extends StatefulWidget {
   final String conversationId;
-  final String? shopId;      // ✅ pour une nouvelle conversation
-  final String? title;       // ✅ titre affiché dans l'AppBar
-  final String? avatar;      // ✅ avatar du vendeur
+  final String? shopId;
+  final String? title;
+  final String? avatar;
 
   const ChatPage({
     super.key,
@@ -156,6 +156,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadConversationDetails() async {
+    if (_conversationId == null) return;
     try {
       final response = await Supabase.instance.client
           .from('conversations')
@@ -194,7 +195,7 @@ class _ChatPageState extends State<ChatPage> {
       final response = await Supabase.instance.client
           .from('messages')
           .select('*')
-          .eq('conversation_id', _conversationId)
+          .eq('conversation_id', _conversationId!)
           .order('created_at', ascending: true);
 
       setState(() {
@@ -216,7 +217,7 @@ class _ChatPageState extends State<ChatPage> {
     Supabase.instance.client
         .from('messages')
         .stream(primaryKey: ['id'])
-        .eq('conversation_id', _conversationId)
+        .eq('conversation_id', _conversationId!)
         .order('created_at', ascending: true)
         .listen((data) {
       if (mounted) {
@@ -231,8 +232,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _markAsRead() async {
+    if (_conversationId == null) return;
     final userId = _currentUserId;
-    if (userId == null || _conversationId == null) return;
+    if (userId == null) return;
 
     try {
       await Supabase.instance.client
@@ -242,7 +244,7 @@ class _ChatPageState extends State<ChatPage> {
             'last_read_at': DateTime.now().toIso8601String(),
           })
           .match({
-            'conversation_id': _conversationId,
+            'conversation_id': _conversationId!,
             'user_id': userId,
           });
     } catch (e) {
@@ -278,7 +280,7 @@ class _ChatPageState extends State<ChatPage> {
             'last_message': text,
             'last_message_time': DateTime.now().toIso8601String(),
           })
-          .eq('id', _conversationId);
+          .eq('id', _conversationId!);
 
       _messageController.clear();
       _focusNode.unfocus();
