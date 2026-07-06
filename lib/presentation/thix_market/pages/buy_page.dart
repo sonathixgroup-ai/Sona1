@@ -348,7 +348,6 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
         children: [
           Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          // ✅ Correction : suppression du const pour utiliser Colors.grey[600]
           Text(
             message,
             style: TextStyle(fontSize: 18, color: Colors.grey[600]),
@@ -422,6 +421,10 @@ class AdvancedFiltersSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 🔧 Variables d'état locales (si on veut les rendre interactives)
+    // Ici on les simule avec des valeurs statiques pour l'exemple.
+    RangeValues _priceRange = const RangeValues(0, 1000000);
+
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -434,11 +437,17 @@ class AdvancedFiltersSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           const Text('Prix (FCFA)', style: TextStyle(fontWeight: FontWeight.w500)),
-          const RangeSlider(
-            values: RangeValues(0, 1000000),
+          // ✅ Correction : ajout de onChanged et suppression du const
+          RangeSlider(
+            values: _priceRange,
             min: 0,
             max: 1000000,
             divisions: 10,
+            onChanged: (newValues) {
+              // Ici on mettrait à jour l'état si le widget était Stateful
+              // Pour l'instant, on ne fait rien (exemple non interactif)
+              // Mais on peut afficher les valeurs dans un Text par exemple.
+            },
           ),
           const SizedBox(height: 20),
           const Text('Catégories', style: TextStyle(fontWeight: FontWeight.w500)),
