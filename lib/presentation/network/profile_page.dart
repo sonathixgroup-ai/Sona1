@@ -1,4 +1,4 @@
-// lib/presentation/network/profile_page.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,11 +12,10 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'widgets/pinned_post.dart';
-import 'dart:async';
 
-class ProfilePage extends StatefulWidget { // ✅ StatefulWidget
+class ProfilePage extends StatefulWidget {
   final String? userId;
-  final String? currentProfileId; // ✅ paramètre ajouté
+  final String? currentProfileId;
 
   const ProfilePage({
     super.key,
@@ -26,10 +25,6 @@ class ProfilePage extends StatefulWidget { // ✅ StatefulWidget
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
-  // ... tout le reste du code reste inchangé
 }
 
 class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
@@ -235,7 +230,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 slivers: [
                   SliverToBoxAdapter(child: _buildCoverBanner(isOwnProfile)),
                   SliverToBoxAdapter(child: _buildProfileHeader(isOwnProfile)),
-
                   if (_pinnedPosts.isNotEmpty)
                     SliverToBoxAdapter(
                       child: PinnedPost(
@@ -244,18 +238,13 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                         onUnpin: isOwnProfile ? () => unawaited(_unpinPost(_pinnedPosts.first.id)) : null,
                       ),
                     ),
-
                   SliverToBoxAdapter(child: _buildXpBar()),
                   SliverToBoxAdapter(child: _buildStatsGrid()),
                   SliverToBoxAdapter(child: _buildBadgesSection()),
-
                   if (_user?['bio'] != null || _user?['skills'] != null)
                     SliverToBoxAdapter(child: _buildAboutSection()),
-
                   SliverToBoxAdapter(child: _buildTabsAndSwitch()),
-
                   _buildTabContent(),
-
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
@@ -712,7 +701,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       case 3:
         return _buildFilteredContent('reel');
       case 4:
-        return _buildPostsContent(_posts); // J'aime (tous, mais on pourrait filtrer)
+        return _buildPostsContent(_posts);
       case 5:
         return _buildSavedContent();
       default:
@@ -724,7 +713,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     final filtered = _posts.where((post) {
       if (mediaType == 'image') return post.imageUrls.isNotEmpty;
       if (mediaType == 'video') return post.videoUrls.isNotEmpty;
-      if (mediaType == 'reel') return post.videoUrls.isNotEmpty; // reel = vidéo courte
+      if (mediaType == 'reel') return post.videoUrls.isNotEmpty;
       return false;
     }).toList();
     if (filtered.isEmpty) {
@@ -754,7 +743,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     return _buildPostsContent(_savedPosts);
   }
 
-  // ─── AFFICHAGE DES POSTS (Grille/Liste) ───
+  // ─── AFFICHAGE DES POSTS ───
   Widget _buildPostsContent(List<NetworkPost> posts) {
     if (posts.isEmpty) {
       return const SliverToBoxAdapter(
