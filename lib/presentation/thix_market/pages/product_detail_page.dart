@@ -33,11 +33,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final PageController _pageController = PageController();
   int _currentImageIndex = 0;
 
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color danger = Color(0xFFE53935);
-  static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color bgApp = Color(0xFFF6F7FB);
+  // Couleurs harmonisées avec la page d'accueil
+  static const Color primaryBlue = Color(0xFF0066FF);
+  static const Color lightBlue = Color(0xFFE8F4FD);
+  static const Color softBlue = Color(0xFFF0F7FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF1A1A2E);
+  static const Color mutedText = Color(0xFF6B7280);
+  static const Color gold = Color(0xFFFFC107);
 
   @override
   void initState() {
@@ -272,7 +275,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: pureWhite,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -280,7 +283,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     if (_product.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: pureWhite,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -308,14 +311,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final currency = _product['currency'] ?? 'CDF';
     final currencySymbol = currency == 'USD' ? '\$' : 'FC';
 
+    // Données réelles de livraison
+    final shippingCost = _product['shipping_cost'] as double?;
+    final warrantyMonths = _product['warranty_months'] as int?;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: pureWhite,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            backgroundColor: Colors.white,
+            backgroundColor: pureWhite,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -350,7 +357,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         imageUrl: image,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        placeholder: (_, __) => Container(color: Colors.grey[100]),
+                        placeholder: (_, __) => Container(color: softBlue),
                         errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
                       );
                     }).toList(),
@@ -403,17 +410,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             Expanded(
                               child: Text(
                                 _product['shop']?['name'] ?? 'Boutique',
-                                style: const TextStyle(fontWeight: FontWeight.w500, color: navy),
+                                style: const TextStyle(fontWeight: FontWeight.w500, color: darkText),
                               ),
                             ),
-                            const Icon(Icons.chevron_right, size: 20, color: textMuted),
+                            const Icon(Icons.chevron_right, size: 20, color: mutedText),
                           ],
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         _product['title'] ?? '',
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: navy),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -432,7 +439,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           const SizedBox(width: 8),
                           Text(
                             '${_product['reviews_count'] ?? 0} avis',
-                            style: TextStyle(color: textMuted),
+                            style: TextStyle(color: mutedText),
                           ),
                         ],
                       ),
@@ -444,7 +451,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: gold,
+                              color: primaryBlue,
                             ),
                           ),
                           if (hasDiscount)
@@ -455,7 +462,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   decoration: TextDecoration.lineThrough,
-                                  color: textMuted,
+                                  color: mutedText,
                                 ),
                               ),
                             ),
@@ -475,10 +482,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                const Divider(),
+                const Divider(height: 1, color: Colors.grey[200]),
                 if (variants.isNotEmpty) _buildVariantsSection(variants),
                 if (colors.isNotEmpty) _buildColorsSection(colors),
-                const Divider(),
+                const Divider(height: 1, color: Colors.grey[200]),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -486,28 +493,28 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     children: [
                       const Text(
                         'Description',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         _product['description'] ?? '',
-                        style: TextStyle(height: 1.5, color: navy),
+                        style: TextStyle(height: 1.5, color: darkText),
                       ),
                       const SizedBox(height: 8),
                       if (_product['category'] != null)
-                        Text('Catégorie : ${_product['category']}', style: TextStyle(color: textMuted)),
+                        Text('Catégorie : ${_product['category']}', style: TextStyle(color: mutedText)),
                       if (_product['condition'] != null)
-                        Text('État : ${_product['condition']}', style: TextStyle(color: textMuted)),
+                        Text('État : ${_product['condition']}', style: TextStyle(color: mutedText)),
                       if (_product['brand'] != null)
-                        Text('Marque : ${_product['brand']}', style: TextStyle(color: textMuted)),
+                        Text('Marque : ${_product['brand']}', style: TextStyle(color: mutedText)),
                       if (_product['free_shipping'] == true)
                         const Text('Livraison : Gratuite', style: TextStyle(color: Colors.green)),
                       if (_product['shipping_type'] != null)
-                        Text('Type de livraison : ${_product['shipping_type']}', style: TextStyle(color: textMuted)),
+                        Text('Type de livraison : ${_product['shipping_type']}', style: TextStyle(color: mutedText)),
                     ],
                   ),
                 ),
-                const Divider(),
+                const Divider(height: 1, color: Colors.grey[200]),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -515,18 +522,32 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     children: [
                       const Text(
                         'Informations de livraison',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
                       ),
                       const SizedBox(height: 12),
-                      _buildInfoRow(Icons.local_shipping, 'Livraison', 'Sous 2-5 jours ouvrables'),
+                      _buildInfoRow(
+                        Icons.local_shipping,
+                        'Frais de livraison',
+                        shippingCost != null ? '${shippingCost.toInt()} $currencySymbol' : 'Non spécifié',
+                      ),
                       const SizedBox(height: 8),
-                      _buildInfoRow(Icons.store, 'Retrait en magasin', 'Disponible'),
+                      _buildInfoRow(
+                        Icons.verified,
+                        'Garantie',
+                        warrantyMonths != null ? '$warrantyMonths mois' : 'Non spécifiée',
+                      ),
                       const SizedBox(height: 8),
-                      _buildInfoRow(Icons.verified, 'Garantie', '12 mois'),
+                      _buildInfoRow(
+                        Icons.store,
+                        'Retrait en magasin',
+                        _product['shipping_type'] == 'pickup' || _product['shipping_type'] == 'both'
+                            ? 'Disponible'
+                            : 'Non disponible',
+                      ),
                     ],
                   ),
                 ),
-                const Divider(),
+                const Divider(height: 1, color: Colors.grey[200]),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -537,12 +558,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         children: [
                           const Text(
                             'Avis clients',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
                           ),
                           if (_reviews.isNotEmpty)
                             TextButton(
                               onPressed: _showAllReviews,
-                              child: const Text('Voir tout', style: TextStyle(color: gold)),
+                              child: const Text('Voir tout', style: TextStyle(color: primaryBlue)),
                             ),
                         ],
                       ),
@@ -551,7 +572,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                const Divider(),
+                const Divider(height: 1, color: Colors.grey[200]),
                 if (_similarProducts.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -560,7 +581,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       children: [
                         const Text(
                           'Produits similaires',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -597,7 +618,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: pureWhite,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -658,8 +679,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       : const Icon(Icons.shopping_cart),
                   label: const Text('Panier'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: gold,
-                    foregroundColor: navy,
+                    backgroundColor: primaryBlue,
+                    foregroundColor: pureWhite,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -675,7 +696,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   label: const Text('Chat'),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.grey[400]!),
-                    foregroundColor: textMuted,
+                    foregroundColor: mutedText,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -690,8 +711,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   icon: const Icon(Icons.flash_on),
                   label: const Text('Acheter'),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: danger),
-                    foregroundColor: danger,
+                    side: const BorderSide(color: primaryBlue),
+                    foregroundColor: primaryBlue,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -707,7 +728,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 
   // ============================================================
-  // WIDGETS SECONDAIRES (implémentations complètes)
+  // WIDGETS SECONDAIRES
   // ============================================================
 
   Widget _buildVariantsSection(List variants) {
@@ -718,7 +739,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         children: [
           const Text(
             'Variantes',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -735,9 +756,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     _selectedVariant = selected ? label : null;
                   });
                 },
-                selectedColor: gold.withOpacity(0.1),
-                checkmarkColor: gold,
-                side: BorderSide(color: isSelected ? gold : Colors.grey[300]!),
+                selectedColor: primaryBlue.withOpacity(0.1),
+                checkmarkColor: primaryBlue,
+                side: BorderSide(color: isSelected ? primaryBlue : Colors.grey[300]!),
               );
             }).toList(),
           ),
@@ -754,7 +775,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         children: [
           const Text(
             'Couleurs',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -771,9 +792,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     _selectedColor = selected ? label : null;
                   });
                 },
-                selectedColor: gold.withOpacity(0.1),
-                checkmarkColor: gold,
-                side: BorderSide(color: isSelected ? gold : Colors.grey[300]!),
+                selectedColor: primaryBlue.withOpacity(0.1),
+                checkmarkColor: primaryBlue,
+                side: BorderSide(color: isSelected ? primaryBlue : Colors.grey[300]!),
               );
             }).toList(),
           ),
@@ -785,11 +806,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: textMuted),
+        Icon(icon, size: 20, color: mutedText),
         const SizedBox(width: 12),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: navy)),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: darkText)),
         const Spacer(),
-        Text(value, style: TextStyle(color: textMuted)),
+        Text(value, style: TextStyle(color: mutedText)),
       ],
     );
   }
@@ -830,7 +851,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(fontWeight: FontWeight.w500, color: navy),
+                        style: const TextStyle(fontWeight: FontWeight.w500, color: darkText),
                       ),
                       RatingBar.builder(
                         initialRating: rating,
@@ -849,12 +870,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 if (createdAt != null)
                   Text(
                     DateFormat('dd/MM/yyyy').format(DateTime.parse(createdAt)),
-                    style: TextStyle(fontSize: 11, color: textMuted),
+                    style: TextStyle(fontSize: 11, color: mutedText),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            Text(comment, style: const TextStyle(color: navy)),
+            Text(comment, style: const TextStyle(color: darkText)),
           ],
         ),
       ),
@@ -882,7 +903,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 padding: const EdgeInsets.all(16),
                 child: const Text(
                   'Tous les avis',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: navy),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText),
                 ),
               ),
               Expanded(
