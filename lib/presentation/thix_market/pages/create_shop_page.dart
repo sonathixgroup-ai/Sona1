@@ -51,12 +51,13 @@ class _CreateLivePageState extends State<CreateLivePage> {
     );
   }
 
+  // ========== CORRECTION 1 : Icons.store_off → Icons.storefront ==========
   Widget _buildNoShopView() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.store_off, size: 64, color: Colors.grey),
+          const Icon(Icons.storefront, size: 64, color: Colors.grey), // ✅
           const SizedBox(height: 16),
           const Text(
             'Vous n\'avez pas encore de boutique',
@@ -85,6 +86,7 @@ class _CreateLivePageState extends State<CreateLivePage> {
     );
   }
 
+  // ========== CORRECTION 2 : ajout de <String> pour DropdownMenuItem ==========
   Widget _buildForm(ShopProvider shopProvider) {
     final shops = shopProvider.myShops;
 
@@ -101,8 +103,8 @@ class _CreateLivePageState extends State<CreateLivePage> {
                 ),
               ),
               value: _selectedShopId,
-              items: shops.map((shop) {
-                return DropdownMenuItem(
+              items: shops.map<DropdownMenuItem<String>>((shop) {   // ✅
+                return DropdownMenuItem<String>(                     // ✅
                   value: shop['id'],
                   child: Text(shop['name']),
                 );
