@@ -11,7 +11,7 @@ class LastSeenText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Vérifier si l'utilisateur est en ligne (via le statut)
+    // Si l'utilisateur est en ligne
     if (user.status == 'online') {
       return const Text(
         'En ligne',
@@ -19,9 +19,8 @@ class LastSeenText extends StatelessWidget {
       );
     }
 
-    // Récupérer la dernière activité (soit lastSeenAt, soit lastActive, soit un champ existant)
-    // ⚠️ Adaptez le nom du champ selon votre modèle ChatUser
-    final lastSeen = user.lastSeenAt ?? user.lastActive; // ou user.lastSeen
+    // Utiliser le champ lastSeenAt (ajouté dans ChatUser)
+    final lastSeen = user.lastSeenAt;
     if (lastSeen == null) {
       return const Text(
         'Hors ligne',
@@ -31,6 +30,7 @@ class LastSeenText extends StatelessWidget {
 
     final now = DateTime.now();
     final diff = now.difference(lastSeen);
+
     String text;
     if (diff.inDays > 0) {
       text = 'Vu le ${lastSeen.day}/${lastSeen.month}/${lastSeen.year}';
@@ -41,6 +41,7 @@ class LastSeenText extends StatelessWidget {
     } else {
       text = 'Vu à l\'instant';
     }
+
     return Text(
       text,
       style: const TextStyle(fontSize: 12, color: Colors.grey),
