@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'checkout_provider.dart';
-import '../cart/cart_provider.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 import 'order_confirmation_page.dart';
 
 class OrderSummaryWidget extends StatelessWidget {
