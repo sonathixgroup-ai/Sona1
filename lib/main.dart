@@ -332,9 +332,9 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
           create: (_) => EventProvider(widget.eventService),
         ),
-        // ✅ THIX INFO – correction ici
+        // ✅ THIX INFO – correction
         ChangeNotifierProvider(
-          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)), // <-- Correction
+          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)), // ✅ correction
         ),
         ChangeNotifierProvider(create: (_) => MarketProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
