@@ -7,6 +7,7 @@ import '../providers/market_provider.dart';
 import '../providers/shop_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
+import '../vendor/vendor_dashboard.dart'; // ✅ import du dashboard vendeur
 
 class MarketHomePage extends StatefulWidget {
   const MarketHomePage({super.key});
@@ -17,11 +18,9 @@ class MarketHomePage extends StatefulWidget {
 
 class _MarketHomePageState extends State<MarketHomePage> {
   final ScrollController _scrollController = ScrollController();
-  bool _isAppBarExpanded = true;
 
-  // Couleurs - Bleu lumineux
+  // Couleurs
   static const Color primaryBlue = Color(0xFF0066FF);
-  static const Color lightBlue = Color(0xFFE8F4FD);
   static const Color softBlue = Color(0xFFF0F7FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF1A1A2E);
@@ -31,9 +30,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(() {
-      setState(() => _isAppBarExpanded = _scrollController.offset < 90);
-    });
+    _scrollController.addListener(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MarketProvider>().loadHomeData();
       context.read<ShopProvider>().loadMyShops();
@@ -46,33 +43,23 @@ class _MarketHomePageState extends State<MarketHomePage> {
     super.dispose();
   }
 
-  void _goToSell(ShopProvider shopProvider) {
-    if (shopProvider.hasShop) {
-      context.push('/market/sell');
-    } else {
-      context.push('/market/shop/create');
-    }
+  // ✅ Redirige vers l'espace vendeur (VendorDashboard)
+  void _goToVendor() {
+    context.push('/market/vendor/dashboard');
   }
 
   void _goToCart() => context.push('/market/cart');
+  void _goToWishlist() => context.push('/market/buy'); // ✅ Wishlist → page Acheter
 
-  Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover, double iconSize = 22, IconData icon = Icons.image_outlined}) {
+  Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
     if (url == null || url.trim().isEmpty) {
-      return Container(color: softBlue, alignment: Alignment.center, child: Icon(icon, color: mutedText, size: iconSize));
+      return Container(color: softBlue, alignment: Alignment.center, child: Icon(Icons.image_outlined, color: mutedText));
     }
     return CachedNetworkImage(
       imageUrl: url,
       fit: fit,
-      placeholder: (_, __) => Container(
-        color: softBlue,
-        alignment: Alignment.center,
-        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue)),
-      ),
-      errorWidget: (_, __, ___) => Container(
-        color: softBlue,
-        alignment: Alignment.center,
-        child: Icon(Icons.image_not_supported_outlined, color: mutedText, size: iconSize),
-      ),
+      placeholder: (_, __) => Container(color: softBlue, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+      errorWidget: (_, __, ___) => Container(color: softBlue, child: Icon(Icons.image_not_supported_outlined, color: mutedText)),
     );
   }
 
@@ -81,6 +68,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
     final marketProvider = context.watch<MarketProvider>();
     final shopProvider = context.watch<ShopProvider>();
 
+    // Combinaison des produits pour la section "Tous les produits"
     final Map<String, dynamic> allById = {};
     for (final p in [
       ...marketProvider.flashSales,
@@ -91,6 +79,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     }
     final allProducts = allById.values.toList();
 
+    // Bannières réelles
+    final banners = marketProvider.promoBanners;
+
     return Scaffold(
       backgroundColor: pureWhite,
       body: RefreshIndicator(
@@ -99,28 +90,33 @@ class _MarketHomePageState extends State<MarketHomePage> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            // AppBar avec localisation et recherche
-            _buildSearchHeader(marketProvider, shopProvider),
+            // AppBar sans doublon de localisation
+            _buildAppBar(marketProvider, shopProvider),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Bannière "Special Offer"
-                    _buildSpecialOfferBanner(),
-                    const SizedBox(height: 16),
-                    // Catégories (style badges)
+                    const SizedBox(height: 8),
+                    // Bannières réelles (carousel)
+                    if (banners.isNotEmpty) ...[
+                      _buildBannerCarousel(banners),
+                      const SizedBox(height: 16),
+                    ],
+                    // Catégories
                     _buildCategorySection(),
                     const SizedBox(height: 16),
-                    // Flash Sale avec compteur
+                    // Flash Sale
                     if (marketProvider.flashSales.isNotEmpty) ...[
                       _buildFlashSaleSection(marketProvider.flashSales),
                       const SizedBox(height: 16),
                     ],
                     // Recommandé
-                    _buildRecommendedSection(marketProvider.recommendedProducts),
-                    const SizedBox(height: 16),
+                    if (marketProvider.recommendedProducts.isNotEmpty) ...[
+                      _buildRecommendedSection(marketProvider.recommendedProducts),
+                      const SizedBox(height: 16),
+                    ],
                     // Tous les produits
                     if (allProducts.isNotEmpty) ...[
                       _sectionHeader('Tous les produits', onSeeAll: () => context.push('/market/buy')),
@@ -135,16 +131,17 @@ class _MarketHomePageState extends State<MarketHomePage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(marketProvider, shopProvider),
+      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
   // ============================================================
-  // HEADER : Localisation + Recherche
+  // APP BAR (sans doublon)
   // ============================================================
-  Widget _buildSearchHeader(MarketProvider marketProvider, ShopProvider shopProvider) {
+  Widget _buildAppBar(MarketProvider marketProvider, ShopProvider shopProvider) {
+    // Récupérer la ville de l'utilisateur (mock pour l'instant, à remplacer par un vrai provider)
+    final userCity = 'Abidjan, CI'; // À remplacer par la vraie localisation
     return SliverAppBar(
-      expandedHeight: 90,
       pinned: true,
       floating: true,
       elevation: 0,
@@ -152,33 +149,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
       surfaceTintColor: pureWhite,
       title: Row(
         children: [
-          const Icon(Icons.location_on, size: 14, color: primaryBlue),
+          Icon(Icons.location_on, size: 16, color: primaryBlue),
           const SizedBox(width: 4),
-          const Text('New York, USA', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: darkText)),
+          Text(userCity, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: darkText)),
           const Spacer(),
           _buildIconButton(Icons.search, () => context.push('/market/search')),
           _buildIconButton(Icons.notifications_none, () => context.push('/market/notifications')),
-          _buildIconButton(Icons.storefront, () => _goToSell(shopProvider)),
+          _buildIconButton(Icons.storefront, _goToVendor), // ✅ redirige vers l'espace vendeur
         ],
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          color: pureWhite,
-          padding: const EdgeInsets.only(top: 44),
-          child: Row(
-            children: [
-              const SizedBox(width: 14),
-              Icon(Icons.location_on, size: 14, color: primaryBlue),
-              const SizedBox(width: 4),
-              const Text('New York, USA', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: darkText)),
-              const Spacer(),
-              _buildIconButton(Icons.search, () => context.push('/market/search')),
-              _buildIconButton(Icons.notifications_none, () => context.push('/market/notifications')),
-              _buildIconButton(Icons.storefront, () => _goToSell(shopProvider)),
-              const SizedBox(width: 8),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -193,84 +171,48 @@ class _MarketHomePageState extends State<MarketHomePage> {
         margin: const EdgeInsets.symmetric(horizontal: 2),
         alignment: Alignment.center,
         decoration: BoxDecoration(color: softBlue, borderRadius: BorderRadius.circular(9)),
-        child: Icon(icon, size: 17, color: darkText),
+        child: Icon(icon, size: 18, color: darkText),
       ),
     );
   }
 
   // ============================================================
-  // BANNIÈRE SPECIAL OFFER
+  // BANNIÈRES (réelles, carousel)
   // ============================================================
-  Widget _buildSpecialOfferBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0066FF), Color(0xFF0044CC)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: primaryBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Limited time!',
-                  style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Get Special Offer',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Up to 40%',
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'All Services Available | T&C Applied',
-                  style: TextStyle(color: Colors.white70, fontSize: 10),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Text(
-                    'Claim',
-                    style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
-              ],
+  Widget _buildBannerCarousel(List<dynamic> banners) {
+    return SizedBox(
+      height: 140,
+      child: PageView.builder(
+        itemCount: banners.length,
+        controller: PageController(viewportFraction: 0.92),
+        itemBuilder: (context, index) {
+          final banner = banners[index];
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              image: DecorationImage(
+                image: NetworkImage(banner['image_url'] ?? ''),
+                fit: BoxFit.cover,
+              ),
             ),
-          ),
-          const Icon(Icons.local_offer, color: Colors.white, size: 60),
-        ],
+          );
+        },
       ),
     );
   }
 
   // ============================================================
-  // CATÉGORIES (style badges)
+  // CATÉGORIES
   // ============================================================
   Widget _buildCategorySection() {
     final categories = [
-      {'icon': Icons.checkroom, 'label': 'Clothes'},
-      {'icon': Icons.phone_android, 'label': 'Electronics'},
-      {'icon': Icons.shopping_bag, 'label': 'Shoes'},
-      {'icon': Icons.watch, 'label': 'Watch'},
-      {'icon': Icons.home, 'label': 'Home'},
-      {'icon': Icons.sports_soccer, 'label': 'Sports'},
+      {'icon': Icons.checkroom, 'label': 'Mode'},
+      {'icon': Icons.phone_android, 'label': 'Électronique'},
+      {'icon': Icons.home, 'label': 'Maison'},
+      {'icon': Icons.build, 'label': 'Services'},
+      {'icon': Icons.directions_car, 'label': 'Véhicules'},
+      {'icon': Icons.house, 'label': 'Immobilier'},
     ];
 
     return Column(
@@ -279,10 +221,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkText)),
+            const Text('Catégories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkText)),
             TextButton(
               onPressed: () => context.push('/market/search'),
-              child: const Text('See All', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
+              child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -328,7 +270,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Flash Sale', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkText)),
+            const Text('Offres Flash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkText)),
             FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
           ],
         ),
@@ -340,65 +282,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
             itemCount: flashSales.take(6).length,
             itemBuilder: (context, index) {
               final product = flashSales[index];
-              return Container(
-                width: 130,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: pureWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            _networkImage(product['image_url']),
-                            Positioned(
-                              top: 6,
-                              left: 6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.deepOrange,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'FLASH',
-                                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            product['title'] ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: darkText),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${(product['price'] as num).toInt()} FCFA',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryBlue),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
+              return _buildProductHorizontalCard(product, isFlash: true);
             },
           ),
         ),
@@ -421,7 +305,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
             const Text('Recommandé', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkText)),
             TextButton(
               onPressed: () => context.push('/market/buy'),
-              child: const Text('See All', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
+              child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -433,49 +317,97 @@ class _MarketHomePageState extends State<MarketHomePage> {
             itemCount: products.take(6).length,
             itemBuilder: (context, index) {
               final product = products[index];
-              return Container(
-                width: 130,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: pureWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        child: _networkImage(product['image_url']),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            product['title'] ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: darkText),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${(product['price'] as num).toInt()} FCFA',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryBlue),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
+              return _buildProductHorizontalCard(product);
             },
           ),
         ),
       ],
+    );
+  }
+
+  // ============================================================
+  // CARTE PRODUIT HORIZONTALE (pour Flash/Recommandé)
+  // ============================================================
+  Widget _buildProductHorizontalCard(Map<String, dynamic> product, {bool isFlash = false}) {
+    final currency = product['currency'] ?? 'FC';
+    final symbol = currency == 'USD' ? '\$' : 'FC';
+    final price = (product['price'] as num).toInt();
+
+    return GestureDetector(
+      onTap: () => context.push('/market/product/${product['id']}'),
+      child: Container(
+        width: 130,
+        margin: const EdgeInsets.only(right: 10),
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _networkImage(product['image_url']),
+                    if (isFlash)
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.deepOrange, borderRadius: BorderRadius.circular(4)),
+                          child: const Text('FLASH', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['title'] ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: darkText),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        '$price $symbol',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryBlue),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 10, color: mutedText),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          product['city'] ?? 'Abidjan',
+                          style: TextStyle(fontSize: 9, color: mutedText),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -574,6 +506,36 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 10, color: mutedText),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          product['city'] ?? 'Abidjan',
+                          style: TextStyle(fontSize: 9, color: mutedText),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.store, size: 10, color: mutedText),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          product['shop']?['name'] ?? 'Vendeur',
+                          style: TextStyle(fontSize: 9, color: mutedText),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -591,7 +553,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         if (onSeeAll != null)
           TextButton(
             onPressed: onSeeAll,
-            child: const Text('See All', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
+            child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w600)),
           ),
       ],
     );
@@ -600,7 +562,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // ============================================================
   // BOTTOM NAV BAR
   // ============================================================
-  Widget _buildBottomNavBar(MarketProvider marketProvider, ShopProvider shopProvider) {
+  Widget _buildBottomNavBar() {
     return Container(
       decoration: BoxDecoration(
         color: pureWhite,
@@ -612,11 +574,11 @@ class _MarketHomePageState extends State<MarketHomePage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home_rounded, 'Home', true, () {}),
-              _buildNavItem(Icons.favorite_border_rounded, 'Wishlist', false, () => context.push('/market/activity')),
-              _buildNavItem(Icons.shopping_cart_rounded, 'Cart', false, _goToCart),
+              _buildNavItem(Icons.home_rounded, 'Accueil', true, () {}),
+              _buildNavItem(Icons.favorite_border_rounded, 'Wishlist', false, _goToWishlist), // ✅ Wishlist → BuyPage
+              _buildNavItem(Icons.shopping_cart_rounded, 'Panier', false, _goToCart),
               _buildNavItem(Icons.chat_rounded, 'Chat', false, () => context.push('/market/messages')),
-              _buildNavItem(Icons.person_outline_rounded, 'Profile', false, () => context.push('/market/activity')),
+              _buildNavItem(Icons.person_outline_rounded, 'Profil', false, () => context.push('/market/activity')),
             ],
           ),
         ),
