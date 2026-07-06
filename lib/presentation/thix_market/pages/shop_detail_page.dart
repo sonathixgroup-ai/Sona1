@@ -17,7 +17,6 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
   Map<String, dynamic>? _shop;
   List<Map<String, dynamic>> _products = [];
 
-  // ✅ Mêmes couleurs que ShopsPage
   static const Color navy = Color(0xFF1B2A4A);
   static const Color navyDeep = Color(0xFF10192E);
   static const Color gold = Color(0xFFC9962C);
@@ -47,10 +46,7 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: danger,
-          ),
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: danger),
         );
       }
     }
@@ -66,9 +62,7 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
           backgroundColor: Colors.white,
           elevation: 0,
         ),
-        body: const Center(
-          child: CircularProgressIndicator(color: gold),
-        ),
+        body: const Center(child: CircularProgressIndicator(color: gold)),
       );
     }
 
@@ -119,6 +113,7 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
     final isActive = shop['status'] == 'active';
     final isVerified = shop['is_verified'] == true;
     final isLive = shop['is_live'] == true || shop['live_status'] == 'live';
+    final isFollowed = shop['is_followed'] ?? false;
 
     return Scaffold(
       backgroundColor: bgApp,
@@ -132,8 +127,10 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
         surfaceTintColor: Colors.white,
         actions: [
           IconButton(
-            icon: Icon(isFollowed ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                color: isFollowed ? danger : textMuted),
+            icon: Icon(
+              isFollowed ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: isFollowed ? danger : textMuted,
+            ),
             onPressed: () => _toggleFollow(shop['id']),
           ),
           IconButton(
@@ -282,7 +279,6 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
                       ),
                     ],
                   ),
-                  // Description
                   if (shop['description'] != null && (shop['description'] as String).isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Text(
@@ -478,12 +474,10 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
   // ACTIONS
   // ============================================================
 
-  bool get isFollowed => (_shop?['is_followed'] ?? false) == true;
-
   void _toggleFollow(String shopId) {
     context.read<ShopProvider>().toggleFollowShop(shopId);
     setState(() {
-      _shop?['is_followed'] = !isFollowed;
+      _shop?['is_followed'] = !(_shop?['is_followed'] ?? false);
     });
   }
 
