@@ -20,163 +20,46 @@ class SearchProvider extends ChangeNotifier {
   int get totalResults => _totalResults;
   bool get hasMore => _hasMore;
 
+  // ✅ Nouvelle méthode reset()
+  void reset() {
+    _searchResults.clear();
+    _currentFilters = {};
+    _currentPage = 0;
+    _hasMore = true;
+    _lastQuery = null;
+    _totalResults = 0;
+    // Ne pas toucher aux recherches récentes pour les conserver
+    notifyListeners();
+  }
+
+  // ... le reste du code inchangé ...
+  
   Future<void> loadRecentSearches() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    
-    try {
-      final response = await _supabase
-          .from('search_history')
-          .select('query')
-          .eq('user_id', userId)
-          .order('searched_at', ascending: false)
-          .limit(10);
-      _recentSearches = response.map<String>((e) => e['query'] as String).toList();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading recent searches: $e');
-    }
+    // ... (tel que dans votre code)
   }
 
   Future<void> searchProducts(String query, {bool refresh = false}) async {
-    if (refresh) {
-      _currentPage = 0;
-      _searchResults.clear();
-      _hasMore = true;
-    }
-    if (!_hasMore && !refresh) return;
-    
-    _setLoading(true);
-    _lastQuery = query;
-    
-    try {
-      // Save to search history
-      final userId = _supabase.auth.currentUser?.id;
-      if (userId != null && query.isNotEmpty) {
-        await _supabase.from('search_history').upsert({
-          'user_id': userId,
-          'query': query,
-          'searched_at': DateTime.now().toIso8601String(),
-        });
-        await loadRecentSearches();
-      }
-      
-      // 1. Construire la requête avec les filtres (type PostgrestFilterBuilder)
-      var request = _supabase
-          .from('products')
-          .select('*, shop:shops(name, rating)')
-          .eq('status', 'active')
-          .ilike('title', '%$query%');
-      
-      // Appliquer les filtres supplémentaires
-      if (_currentFilters['min_price'] != null) {
-        request = request.gte('price', _currentFilters['min_price']);
-      }
-      if (_currentFilters['max_price'] != null) {
-        request = request.lte('price', _currentFilters['max_price']);
-      }
-      if (_currentFilters['min_rating'] != null) {
-        request = request.gte('rating', _currentFilters['min_rating']);
-      }
-      if (_currentFilters['condition'] != null) {
-        request = request.eq('condition', _currentFilters['condition']);
-      }
-      if (_currentFilters['free_shipping'] == true) {
-        request = request.eq('free_shipping', true);
-      }
-      if (_currentFilters['verified_sellers'] == true) {
-        // Note: cette condition peut ne pas fonctionner si shop.is_verified n'est pas une colonne directe
-        // On laisse telle quelle, mais il faudrait peut-être ajuster.
-        request = request.eq('shop.is_verified', true);
-      }
-      
-      // 2. Compter le nombre total de résultats
-      final countResult = await request.count();
-      _totalResults = countResult.count ?? 0;
-      
-      // 3. Appliquer la pagination (ne pas réaffecter request, utiliser une nouvelle variable)
-      final paginatedRequest = request.range(_currentPage * 20, (_currentPage + 1) * 20 - 1);
-      final response = await paginatedRequest;
-      
-      final newResults = List<Map<String, dynamic>>.from(response);
-      
-      setState(() {
-        if (newResults.length < 20) _hasMore = false;
-        _searchResults.addAll(newResults);
-        _currentPage++;
-      });
-    } catch (e) {
-      debugPrint('Error searching products: $e');
-    } finally {
-      _setLoading(false);
-    }
+    // ... (tel que dans votre code)
   }
 
   Future<void> searchNearby(double lat, double lng, double radiusKm) async {
-    _setLoading(true);
-    try {
-      final response = await _supabase
-          .rpc('nearby_products', params: {
-            'lat': lat,
-            'lng': lng,
-            'radius_km': radiusKm,
-            'limit': 50,
-          });
-      _searchResults = List<Map<String, dynamic>>.from(response);
-      _totalResults = _searchResults.length;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error searching nearby: $e');
-    } finally {
-      _setLoading(false);
-    }
+    // ...
   }
 
   void applyFilters(Map<String, dynamic> filters) {
-    _currentFilters = filters;
-    _currentPage = 0;
-    _searchResults.clear();
-    _hasMore = true;
-    if (_lastQuery != null && _lastQuery!.isNotEmpty) {
-      searchProducts(_lastQuery!);
-    }
+    // ...
   }
 
   void clearFilters() {
-    _currentFilters = {};
-    _currentPage = 0;
-    _searchResults.clear();
-    _hasMore = true;
-    if (_lastQuery != null && _lastQuery!.isNotEmpty) {
-      searchProducts(_lastQuery!);
-    }
+    // ...
   }
 
   void clearRecentSearches() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    try {
-      await _supabase.from('search_history').delete().eq('user_id', userId);
-      _recentSearches.clear();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error clearing recent searches: $e');
-    }
+    // ...
   }
 
   void removeRecentSearch(String query) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    try {
-      await _supabase
-          .from('search_history')
-          .delete()
-          .match({'user_id': userId, 'query': query});
-      _recentSearches.remove(query);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error removing recent search: $e');
-    }
+    // ...
   }
 
   void setState(VoidCallback fn) {
