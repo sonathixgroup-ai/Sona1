@@ -1234,6 +1234,23 @@ GoRoute(
                 return NoTransitionPage(child: OrderDetailPage(orderId: orderId));
               },
             ),
+                   GoRoute(
+  path: 'chat/:shopId',
+  name: 'marketChatSeller',
+  pageBuilder: (context, state) {
+    final shopId = state.pathParameters['shopId']!;
+    final extra = state.extra as Map<String, dynamic>?;
+    return NoTransitionPage(
+      child: ChatPage(
+        conversationId: '', // À créer une nouvelle conversation
+        shopId: shopId,
+        title: extra?['title'] ?? 'Vendeur',
+        avatar: extra?['userAvatar'],
+      ),
+    );
+  },
+),
+            
             // Boutiques
             GoRoute(
               path: 'shop/create',
