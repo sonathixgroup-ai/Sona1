@@ -96,7 +96,8 @@ class _SearchPageState extends State<SearchPage> {
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _showRecentSearches = true);
-                    searchProvider.reset();
+                    // ✅ Utilisation de reset()
+                    context.read<SearchProvider>().reset();
                   },
                 ),
               const SizedBox(width: 4),
@@ -243,6 +244,7 @@ class _SearchPageState extends State<SearchPage> {
             onPressed: () {
               _searchController.clear();
               setState(() => _showRecentSearches = true);
+              // ✅ Utilisation de reset()
               context.read<SearchProvider>().reset();
             },
             icon: const Icon(Icons.refresh),
