@@ -172,6 +172,29 @@ class _ProductDetailState extends State<ProductDetail> {
   }
 
   // ============================================================
+  // CHAT AVEC LE VENDEUR (NOUVEAU)
+  // ============================================================
+  void _openChatWithSeller() {
+    final shopId = _product['shop_id'];
+    final shopName = _product['shop']?['name'] ?? 'Vendeur';
+    final shopAvatar = _product['shop']?['logo_url'];
+
+    if (shopId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vendeur non disponible')),
+      );
+      return;
+    }
+
+    // Rediriger vers la page de chat avec le vendeur
+    context.push('/market/chat/$shopId', extra: {
+      'title': shopName,
+      'userName': shopName,
+      'userAvatar': shopAvatar,
+    });
+  }
+
+  // ============================================================
   // PANIER
   // ============================================================
   Future<void> _addToCart() async {
@@ -184,6 +207,7 @@ class _ProductDetailState extends State<ProductDetail> {
     }
     setState(() => _isAddingToCart = true);
     try {
+      // Vérifier si déjà dans le panier
       final existing = await Supabase.instance.client
           .from('cart')
           .select()
@@ -217,7 +241,9 @@ class _ProductDetailState extends State<ProductDetail> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ajouté au panier'), duration: Duration(seconds: 1)),
         );
-        context.read<CartProvider>().loadCart();
+        // Rafraîchir le panier via CartProvider
+        final cartProvider = context.read<CartProvider>();
+        await cartProvider.loadCart();
       }
     } catch (e) {
       debugPrint('Error adding to cart: $e');
@@ -255,7 +281,6 @@ class _ProductDetailState extends State<ProductDetail> {
     final variants = _product['variants'] as List? ?? [];
     final colors = _product['colors'] as List? ?? [];
 
-    // ✅ Devise dynamique
     final currency = _product['currency'] ?? 'CDF';
     final currencySymbol = currency == 'USD' ? '\$' : 'FC';
 
@@ -462,6 +487,17 @@ class _ProductDetailState extends State<ProductDetail> {
                         _product['description'] ?? '',
                         style: const TextStyle(height: 1.5),
                       ),
+                      const SizedBox(height: 8),
+                      if (_product['category'] != null)
+                        Text('Catégorie : ${_product['category']}', style: TextStyle(color: Colors.grey[600])),
+                      if (_product['condition'] != null)
+                        Text('État : ${_product['condition']}', style: TextStyle(color: Colors.grey[600])),
+                      if (_product['brand'] != null)
+                        Text('Marque : ${_product['brand']}', style: TextStyle(color: Colors.grey[600])),
+                      if (_product['free_shipping'] == true)
+                        const Text('Livraison : Gratuite', style: TextStyle(color: Colors.green)),
+                      if (_product['shipping_type'] != null)
+                        Text('Type de livraison : ${_product['shipping_type']}', style: TextStyle(color: Colors.grey[600])),
                     ],
                   ),
                 ),
@@ -563,9 +599,11 @@ class _ProductDetailState extends State<ProductDetail> {
         ],
       ),
 
-      // Bottom bar
+      // ============================================================
+      // BARRE DU BAS : PANIER - CHAT - ACHETER
+      // ============================================================
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -579,7 +617,7 @@ class _ProductDetailState extends State<ProductDetail> {
         child: SafeArea(
           child: Row(
             children: [
-              // Quantity selector
+              // Sélecteur de quantité
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey[300]!),
@@ -596,7 +634,7 @@ class _ProductDetailState extends State<ProductDetail> {
                       constraints: const BoxConstraints(minWidth: 32),
                     ),
                     SizedBox(
-                      width: 40,
+                      width: 36,
                       child: Text(
                         '$_selectedQuantity',
                         textAlign: TextAlign.center,
@@ -616,9 +654,9 @@ class _ProductDetailState extends State<ProductDetail> {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
 
-              // Add to cart
+              // Panier
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart ? _addToCart : null,
@@ -629,19 +667,37 @@ class _ProductDetailState extends State<ProductDetail> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.shopping_cart),
-                  label: const Text('Ajouter au panier'),
+                  label: const Text('Panier'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE5592F),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: const Color(0xFF1A73E8),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
 
-              // Buy now
+              // Chat
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openChatWithSeller,
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Chat'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.grey[400]!),
+                    foregroundColor: Colors.grey[700],
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Acheter
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart ? _buyNow : null,
@@ -650,7 +706,7 @@ class _ProductDetailState extends State<ProductDetail> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFE5592F)),
                     foregroundColor: const Color(0xFFE5592F),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
