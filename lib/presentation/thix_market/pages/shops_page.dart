@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -18,10 +19,7 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ShopProvider>().loadMyShops();
-      context.read<ShopProvider>().loadFollowedShops();
-    });
+    _loadData();
   }
 
   @override
@@ -30,17 +28,24 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
     super.dispose();
   }
 
+  Future<void> _loadData() async {
+    final provider = context.read<ShopProvider>();
+    await Future.wait([
+      provider.loadMyShops(),
+      provider.loadFollowedShops(),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
-    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
           'Mes Boutiques',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -57,22 +62,26 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
         actions: [
           if (_tabController.index == 0)
             IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: () => _createShop(),
+              icon: const Icon(Icons.add_circle_outline, color: Colors.black87),
+              onPressed: () => context.push('/market/shop/create'),
             ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            onPressed: _loadData,
+          ),
         ],
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildMyShops(shopProvider, theme),
-          _buildFollowedShops(shopProvider, theme),
+          _buildMyShops(shopProvider),
+          _buildFollowedShops(shopProvider),
         ],
       ),
     );
   }
 
-  Widget _buildMyShops(ShopProvider provider, ThemeData theme) {
+  Widget _buildMyShops(ShopProvider provider) {
     if (provider.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -82,22 +91,25 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
         'Vous n\'avez pas encore de boutique',
         'Créez votre première boutique pour commencer à vendre',
         Icons.store,
-        () => _createShop(),
+        () => context.push('/market/shop/create'),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: provider.myShops.length,
-      itemBuilder: (context, index) {
-        final shop = provider.myShops[index];
-        return _buildShopCard(shop, isOwner: true);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: provider.myShops.length,
+        itemBuilder: (context, index) {
+          final shop = provider.myShops[index];
+          return _buildShopCard(shop, isOwner: true);
+        },
+      ),
     );
   }
 
-  Widget _buildFollowedShops(ShopProvider provider, ThemeData theme) {
-    if (provider.isLoading) {
+  Widget _buildFollowedShops(ShopProvider provider) {
+    if (provider.isLoadingFollowed) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -106,56 +118,102 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
         'Aucune boutique suivie',
         'Suivez des boutiques pour voir leurs nouveautés',
         Icons.favorite_border,
-        () => Navigator.pushNamed(context, '/discover-shops'),
+        () => context.push('/market/search'),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: provider.followedShops.length,
-      itemBuilder: (context, index) {
-        final shop = provider.followedShops[index];
-        return _buildShopCard(shop, isOwner: false);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: provider.followedShops.length,
+        itemBuilder: (context, index) {
+          final shop = provider.followedShops[index];
+          return _buildShopCard(shop, isOwner: false);
+        },
+      ),
     );
   }
 
   Widget _buildShopCard(Map<String, dynamic> shop, {required bool isOwner}) {
+    final isActive = shop['status'] == 'active';
+    final isVerified = shop['is_verified'] == true;
+    final isFollowed = shop['is_followed'] == true;
+    final followers = shop['followers'] ?? 0;
+    final productsCount = shop['products_count'] ?? 0;
+    final rating = (shop['rating'] as num?)?.toDouble() ?? 0;
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey[200]!),
       ),
       child: InkWell(
-        onTap: () => _gotoShopDetail(shop['id']),
+        onTap: () => context.push('/market/shop/${shop['id']}'),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // En‑tête : logo + nom
               Row(
                 children: [
-                  // Logo boutique
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                        image: CachedNetworkImageProvider(shop['logo_url'] ?? ''),
-                        fit: BoxFit.cover,
+                  Stack(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                          image: shop['logo_url'] != null
+                              ? DecorationImage(
+                                  image: CachedNetworkImageProvider(shop['logo_url']),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: shop['logo_url'] == null
+                            ? const Icon(Icons.store, size: 32, color: Colors.grey)
+                            : null,
                       ),
-                    ),
-                    child: shop['is_verified'] == true
-                        ? const Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Icon(Icons.verified, color: Colors.blue, size: 16),
-                          )
-                        : null,
+                      if (isVerified)
+                        Positioned(
+                          bottom: -2,
+                          right: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.verified,
+                              size: 18,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      if (!isActive)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Inactif',
+                              style: TextStyle(color: Colors.white, fontSize: 9),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -166,31 +224,31 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                           children: [
                             Expanded(
                               child: Text(
-                                shop['name'],
+                                shop['name'] ?? 'Boutique',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (!isOwner)
                               IconButton(
-                                icon: Icon(
-                                  shop['is_followed'] == true
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: shop['is_followed'] == true
-                                      ? Colors.red
-                                      : Colors.grey,
-                                  size: 20,
-                                ),
                                 onPressed: () => _toggleFollow(shop['id']),
+                                icon: Icon(
+                                  isFollowed ? Icons.favorite : Icons.favorite_border,
+                                  color: isFollowed ? Colors.red : Colors.grey[400],
+                                  size: 22,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
                               ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         RatingBar.builder(
-                          initialRating: (shop['rating'] ?? 0).toDouble(),
+                          initialRating: rating,
                           minRating: 1,
                           direction: Axis.horizontal,
                           allowHalfRating: true,
@@ -204,20 +262,32 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                           onRatingUpdate: (_) {},
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          '${shop['products_count'] ?? 0} produits · ${shop['followers'] ?? 0} abonnés',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                        Row(
+                          children: [
+                            Icon(Icons.shopping_bag, size: 14, color: Colors.grey[500]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$productsCount produits',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(Icons.favorite, size: 14, color: Colors.grey[500]),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatNumber(followers),
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
+
+              // Description
               if (shop['description'] != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   shop['description'],
                   maxLines: 2,
@@ -225,19 +295,21 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
               ],
+
+              // Actions (propriétaire)
               if (isOwner) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _manageShop(shop['id']),
+                        onPressed: () => context.push('/market/shop/${shop['id']}/manage'),
                         icon: const Icon(Icons.settings, size: 18),
                         label: const Text('Gérer'),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: Colors.grey[300]!),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ),
@@ -245,13 +317,27 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _viewStats(shop['id']),
+                        onPressed: () => context.push('/market/shop/${shop['id']}/stats'),
                         icon: const Icon(Icons.bar_chart, size: 18),
-                        label: const Text('Statistiques'),
+                        label: const Text('Stats'),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: Colors.grey[300]!),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _shareShop(shop['id']),
+                        icon: const Icon(Icons.share, size: 18),
+                        label: const Text('Partager'),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey[300]!),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ),
@@ -293,30 +379,29 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
               ),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             ),
-            child: Text(title == 'Vous n\'avez pas encore de boutique' ? 'Créer ma boutique' : 'Découvrir'),
+            child: Text(title.contains('pas encore de boutique') ? 'Créer ma boutique' : 'Découvrir'),
           ),
         ],
       ),
     );
   }
 
-  void _createShop() {
-    Navigator.pushNamed(context, '/create-shop');
-  }
-
-  void _gotoShopDetail(String shopId) {
-    Navigator.pushNamed(context, '/shop/$shopId');
-  }
-
-  void _manageShop(String shopId) {
-    Navigator.pushNamed(context, '/manage-shop/$shopId');
-  }
-
-  void _viewStats(String shopId) {
-    Navigator.pushNamed(context, '/shop-stats/$shopId');
-  }
-
+  // =============================
+  // ACTIONS
+  // =============================
   void _toggleFollow(String shopId) {
     context.read<ShopProvider>().toggleFollowShop(shopId);
+  }
+
+  void _shareShop(String shopId) {
+    // Ouvrir la modale de partage (QR, lien, etc.)
+    // ou utiliser le widget ShareShopQr directement
+    context.push('/market/shop/$shopId/share');
+  }
+
+  String _formatNumber(int num) {
+    if (num >= 1_000_000) return '${(num / 1_000_000).toStringAsFixed(1)}M';
+    if (num >= 1_000) return '${(num / 1_000).toStringAsFixed(1)}k';
+    return num.toString();
   }
 }
