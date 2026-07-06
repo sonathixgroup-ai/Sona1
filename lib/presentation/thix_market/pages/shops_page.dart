@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/pages/shops_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -15,10 +16,18 @@ class ShopsPage extends StatefulWidget {
 class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  static const Color navy = Color(0xFF1B2A4A);
+  static const Color navyDeep = Color(0xFF10192E);
+  static const Color gold = Color(0xFFC9962C);
+  static const Color bgApp = Color(0xFFF6F7FB);
+  static const Color textMuted = Color(0xFF8A8FA3);
+  static const Color danger = Color(0xFFE53935);
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
     _loadData();
   }
 
@@ -41,32 +50,32 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
     final shopProvider = context.watch<ShopProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: bgApp,
       appBar: AppBar(
-        title: const Text(
-          'Mes Boutiques',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
+        title: const Text('Mes Boutiques', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 19, color: Color(0xFF1A1D29))),
         backgroundColor: Colors.white,
         elevation: 0,
+        surfaceTintColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
             Tab(text: 'Mes boutiques'),
             Tab(text: 'Boutiques suivies'),
           ],
-          indicatorColor: const Color(0xFFE5592F),
-          labelColor: const Color(0xFFE5592F),
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: gold,
+          indicatorWeight: 3,
+          labelColor: navy,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          unselectedLabelColor: textMuted,
         ),
         actions: [
           if (_tabController.index == 0)
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Colors.black87),
+              icon: const Icon(Icons.add_circle_outline, color: navy),
               onPressed: () => context.push('/market/shop/create'),
             ),
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black87),
+            icon: const Icon(Icons.refresh_rounded, color: navy),
             onPressed: _loadData,
           ),
         ],
@@ -83,54 +92,50 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
 
   Widget _buildMyShops(ShopProvider provider) {
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: gold));
     }
 
     if (provider.myShops.isEmpty) {
       return _buildEmptyState(
         'Vous n\'avez pas encore de boutique',
         'Créez votre première boutique pour commencer à vendre',
-        Icons.store,
+        Icons.store_outlined,
         () => context.push('/market/shop/create'),
       );
     }
 
     return RefreshIndicator(
+      color: gold,
       onRefresh: _loadData,
       child: ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: provider.myShops.length,
-        itemBuilder: (context, index) {
-          final shop = provider.myShops[index];
-          return _buildShopCard(shop, isOwner: true);
-        },
+        itemBuilder: (context, index) => _buildShopCard(provider.myShops[index], isOwner: true),
       ),
     );
   }
 
   Widget _buildFollowedShops(ShopProvider provider) {
     if (provider.isLoadingFollowed) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: gold));
     }
 
     if (provider.followedShops.isEmpty) {
       return _buildEmptyState(
         'Aucune boutique suivie',
         'Suivez des boutiques pour voir leurs nouveautés',
-        Icons.favorite_border,
+        Icons.favorite_border_rounded,
         () => context.push('/market/search'),
       );
     }
 
     return RefreshIndicator(
+      color: gold,
       onRefresh: _loadData,
       child: ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: provider.followedShops.length,
-        itemBuilder: (context, index) {
-          final shop = provider.followedShops[index];
-          return _buildShopCard(shop, isOwner: false);
-        },
+        itemBuilder: (context, index) => _buildShopCard(provider.followedShops[index], isOwner: false),
       ),
     );
   }
@@ -143,74 +148,78 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
     final productsCount = shop['products_count'] ?? 0;
     final rating = (shop['rating'] as num?)?.toDouble() ?? 0;
 
-    return Card(
+    // ✅ État du live de la boutique
+    final isLive = shop['is_live'] == true || shop['live_status'] == 'live';
+    final liveId = shop['current_live_id'] ?? shop['live_id'];
+
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey[200]!),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: isLive ? Border.all(color: danger.withOpacity(0.4), width: 1.4) : null,
+        boxShadow: [
+          BoxShadow(color: navy.withOpacity(0.05), blurRadius: 16, offset: const Offset(0, 6)),
+        ],
       ),
       child: InkWell(
         onTap: () => context.push('/market/shop/${shop['id']}'),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // En‑tête : logo + nom
+              if (isLive) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: danger, borderRadius: BorderRadius.circular(6)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.fiber_manual_record, size: 8, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('EN DIRECT MAINTENANT', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.4)),
+                    ],
+                  ),
+                ),
+              ],
               Row(
                 children: [
                   Stack(
                     children: [
                       Container(
-                        width: 64,
-                        height: 64,
+                        width: 62,
+                        height: 62,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[200]!),
-                          image: shop['logo_url'] != null
-                              ? DecorationImage(
-                                  image: CachedNetworkImageProvider(shop['logo_url']),
-                                  fit: BoxFit.cover,
-                                )
+                          color: bgApp,
+                          border: Border.all(color: isLive ? danger.withOpacity(0.5) : Colors.grey[200]!, width: isLive ? 1.5 : 1),
+                          image: (shop['logo_url'] != null && (shop['logo_url'] as String).isNotEmpty)
+                              ? DecorationImage(image: CachedNetworkImageProvider(shop['logo_url']), fit: BoxFit.cover)
                               : null,
                         ),
-                        child: shop['logo_url'] == null
-                            ? const Icon(Icons.store, size: 32, color: Colors.grey)
+                        child: (shop['logo_url'] == null || (shop['logo_url'] as String).isEmpty)
+                            ? Icon(Icons.store_rounded, size: 28, color: textMuted)
                             : null,
                       ),
                       if (isVerified)
                         Positioned(
-                          bottom: -2,
-                          right: -2,
+                          bottom: -2, right: -2,
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.verified,
-                              size: 18,
-                              color: Colors.blue,
-                            ),
+                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            child: const Icon(Icons.verified_rounded, size: 17, color: navy),
                           ),
                         ),
                       if (!isActive)
                         Positioned(
-                          top: 0,
-                          right: 0,
+                          top: 0, right: 0,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'Inactif',
-                              style: TextStyle(color: Colors.white, fontSize: 9),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(color: danger, borderRadius: BorderRadius.circular(6)),
+                            child: const Text('Inactif', style: TextStyle(color: Colors.white, fontSize: 8.5)),
                           ),
                         ),
                     ],
@@ -225,10 +234,7 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                             Expanded(
                               child: Text(
                                 shop['name'] ?? 'Boutique',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Color(0xFF1A1D29)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -237,9 +243,9 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                               IconButton(
                                 onPressed: () => _toggleFollow(shop['id']),
                                 icon: Icon(
-                                  isFollowed ? Icons.favorite : Icons.favorite_border,
-                                  color: isFollowed ? Colors.red : Colors.grey[400],
-                                  size: 22,
+                                  isFollowed ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  color: isFollowed ? danger : Colors.grey[400],
+                                  size: 21,
                                 ),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
@@ -253,30 +259,21 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                           direction: Axis.horizontal,
                           allowHalfRating: true,
                           itemCount: 5,
-                          itemSize: 14,
+                          itemSize: 13,
                           ignoreGestures: true,
-                          itemBuilder: (_, __) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                          ),
+                          itemBuilder: (_, __) => const Icon(Icons.star_rounded, color: gold),
                           onRatingUpdate: (_) {},
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.shopping_bag, size: 14, color: Colors.grey[500]),
+                            Icon(Icons.shopping_bag_outlined, size: 13, color: textMuted),
                             const SizedBox(width: 4),
-                            Text(
-                              '$productsCount produits',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                            const SizedBox(width: 12),
-                            Icon(Icons.favorite, size: 14, color: Colors.grey[500]),
+                            Text('$productsCount produits', style: const TextStyle(fontSize: 11.5, color: textMuted)),
+                            const SizedBox(width: 10),
+                            Icon(Icons.favorite_rounded, size: 13, color: textMuted),
                             const SizedBox(width: 4),
-                            Text(
-                              _formatNumber(followers),
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
+                            Text(_formatNumber(followers), style: const TextStyle(fontSize: 11.5, color: textMuted)),
                           ],
                         ),
                       ],
@@ -284,62 +281,88 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
                   ),
                 ],
               ),
-
-              // Description
-              if (shop['description'] != null) ...[
+              if (shop['description'] != null && (shop['description'] as String).isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   shop['description'],
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: const TextStyle(color: textMuted, fontSize: 12.5),
                 ),
               ],
-
-              // Actions (propriétaire)
               if (isOwner) ...[
                 const SizedBox(height: 14),
+                // ✅ Bouton Live — bascule selon l'état de la boutique
+                SizedBox(
+                  width: double.infinity,
+                  child: isLive
+                      ? ElevatedButton.icon(
+                          onPressed: () => context.push('/market/live/$liveId'),
+                          icon: const Icon(Icons.podcasts_rounded, size: 18),
+                          label: const Text('Rejoindre mon live', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: danger,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: () => context.push('/market/shop/${shop['id']}/go-live'),
+                          icon: const Icon(Icons.videocam_rounded, size: 18),
+                          label: const Text('Démarrer un live', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: navy,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.push('/market/shop/${shop['id']}/manage'),
-                        icon: const Icon(Icons.settings, size: 18),
-                        label: const Text('Gérer'),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
+                      child: _actionButton(
+                        icon: Icons.history_rounded,
+                        label: 'Historique',
+                        onTap: () => context.push('/market/shop/${shop['id']}/history'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.push('/market/shop/${shop['id']}/stats'),
-                        icon: const Icon(Icons.bar_chart, size: 18),
-                        label: const Text('Stats'),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
+                      child: _actionButton(
+                        icon: Icons.podcasts_outlined,
+                        label: 'Mes lives',
+                        onTap: () => context.push('/market/shop/${shop['id']}/lives'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _shareShop(shop['id']),
-                        icon: const Icon(Icons.share, size: 18),
-                        label: const Text('Partager'),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
+                      child: _actionButton(
+                        icon: Icons.settings_outlined,
+                        label: 'Gérer',
+                        onTap: () => context.push('/market/shop/${shop['id']}/manage'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _actionButton(
+                        icon: Icons.bar_chart_rounded,
+                        label: 'Stats',
+                        onTap: () => context.push('/market/shop/${shop['id']}/stats'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _actionButton(
+                        icon: Icons.share_rounded,
+                        label: 'Partager',
+                        onTap: () => _shareShop(shop['id']),
                       ),
                     ),
                   ],
@@ -352,56 +375,61 @@ class _ShopsPageState extends State<ShopsPage> with SingleTickerProviderStateMix
     );
   }
 
+  Widget _actionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 11.5)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: navy,
+        side: BorderSide(color: Colors.grey[300]!),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      ),
+    );
+  }
+
   Widget _buildEmptyState(String title, String subtitle, IconData icon, VoidCallback onAction) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 80, color: Colors.grey[300]),
+          Icon(icon, size: 72, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
+          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1A1D29))),
+          const SizedBox(height: 6),
+          Text(subtitle, style: const TextStyle(color: textMuted, fontSize: 13), textAlign: TextAlign.center),
+          const SizedBox(height: 22),
           ElevatedButton(
             onPressed: onAction,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              backgroundColor: gold,
+              foregroundColor: navyDeep,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
             ),
-            child: Text(title.contains('pas encore de boutique') ? 'Créer ma boutique' : 'Découvrir'),
+            child: Text(
+              title.contains('pas encore de boutique') ? 'Créer ma boutique' : 'Découvrir',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // =============================
-  // ACTIONS
-  // =============================
   void _toggleFollow(String shopId) {
     context.read<ShopProvider>().toggleFollowShop(shopId);
   }
 
   void _shareShop(String shopId) {
-    // Ouvrir la modale de partage (QR, lien, etc.)
-    // ou utiliser le widget ShareShopQr directement
     context.push('/market/shop/$shopId/share');
   }
 
   String _formatNumber(int num) {
-    if (num >= 1_000_000) return '${(num / 1_000_000).toStringAsFixed(1)}M';
-    if (num >= 1_000) return '${(num / 1_000).toStringAsFixed(1)}k';
+    if (num >= 1000000) return '${(num / 1000000).toStringAsFixed(1)}M';
+    if (num >= 1000) return '${(num / 1000).toStringAsFixed(1)}k';
     return num.toString();
   }
 }
