@@ -1,4 +1,3 @@
-// lib/presentation/thix_market/pages/market_home_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/market_provider.dart';
+import '../providers/shop_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
 
@@ -28,7 +28,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
   static const Color cardBg = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF1A1D29);
   static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color divider = Color(0xFFEDEEF3);
   static const Color danger = Color(0xFFE53935);
 
   @override
@@ -39,6 +38,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MarketProvider>().loadHomeData();
+      context.read<ShopProvider>().loadMyShops(); // pour savoir si on a un shop
     });
   }
 
@@ -48,14 +48,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     super.dispose();
   }
 
-  // ============================================================
-  // NAVIGATION SHOP — l'icône boutique mène DIRECTEMENT au shop.
-  // Pas de shop -> écran de création. "Vendre" se fait depuis
-  // l'intérieur du shop (bouton + dans sa propre page shop).
-  // ============================================================
-  void _goToMyShop(MarketProvider provider) {
-    if (provider.hasShop) {
-      context.push('/market/shop/${provider.myShopId}');
+  void _goToMyShop(MarketProvider marketProvider, ShopProvider shopProvider) {
+    if (shopProvider.hasShop) {
+      context.push('/market/shop/${shopProvider.myShopId}');
     } else {
       context.push('/market/shop/create');
     }
@@ -68,12 +63,12 @@ class _MarketHomePageState extends State<MarketHomePage> {
     return CachedNetworkImage(
       imageUrl: url,
       fit: fit,
-      placeholder: (context, u) => Container(
+      placeholder: (_, __) => Container(
         color: bgApp,
         alignment: Alignment.center,
         child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: gold)),
       ),
-      errorWidget: (context, u, e) => Container(
+      errorWidget: (_, __, ___) => Container(
         color: bgApp,
         alignment: Alignment.center,
         child: Icon(Icons.image_not_supported_outlined, color: textMuted, size: iconSize),
@@ -84,8 +79,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
   @override
   Widget build(BuildContext context) {
     final marketProvider = context.watch<MarketProvider>();
+    final shopProvider = context.watch<ShopProvider>();
 
-    // Liste combinée "Tous les produits" (dédupliquée par id)
     final Map<String, dynamic> allById = {};
     for (final p in [
       ...marketProvider.flashSales,
@@ -96,7 +91,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     }
     final allProducts = allById.values.toList();
 
-    // Produits utilisés pour la bannière en mouvement (flash en priorité)
     final marqueeProducts = marketProvider.flashSales.isNotEmpty
         ? marketProvider.flashSales
         : allProducts.take(10).toList();
@@ -109,7 +103,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            _buildAppBar(marketProvider),
+            _buildAppBar(marketProvider, shopProvider),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -123,7 +117,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                     const SizedBox(height: 16),
                     _buildSectionCard(const CategoryGrid()),
                     const SizedBox(height: 16),
-                    _buildDualBanners(marketProvider),
+                    _buildDualBanners(marketProvider, shopProvider),
                     const SizedBox(height: 16),
                     if (marqueeProducts.isNotEmpty) ...[
                       _sectionHeader(title: 'À ne pas manquer', icon: Icons.local_fire_department_rounded, iconColor: danger),
@@ -135,12 +129,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
                       _buildFlashSales(marketProvider.flashSales),
                       const SizedBox(height: 20),
                     ],
-                    // ✅ Lives à la place des "vendeurs vedettes"
                     if (marketProvider.liveSessions.isNotEmpty) ...[
                       _buildLiveSessions(marketProvider.liveSessions),
                       const SizedBox(height: 20),
                     ],
-                    // ✅ Tous les produits, juste en dessous des lives
                     if (allProducts.isNotEmpty) ...[
                       _sectionHeader(title: 'Tous les produits', icon: Icons.grid_view_rounded),
                       const SizedBox(height: 8),
@@ -154,7 +146,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(marketProvider),
+      bottomNavigationBar: _buildBottomNavBar(marketProvider, shopProvider),
     );
   }
 
@@ -172,9 +164,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // APP BAR — icône boutique -> shop direct
+  // APP BAR
   // ============================================================
-  Widget _buildAppBar(MarketProvider provider) {
+  Widget _buildAppBar(MarketProvider marketProvider, ShopProvider shopProvider) {
     return SliverAppBar(
       expandedHeight: 68,
       pinned: true,
@@ -211,7 +203,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
               Stack(
                 children: [
                   _buildIconButton(Icons.notifications_none_rounded, () => context.push('/market/notifications')),
-                  if (provider.unreadNotifications > 0)
+                  if (marketProvider.unreadNotifications > 0)
                     Positioned(
                       top: 4, right: 4,
                       child: Container(
@@ -221,8 +213,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                     ),
                 ],
               ),
-              // ✅ ICI : icône boutique -> mon shop directement
-              _buildIconButton(Icons.storefront_rounded, () => _goToMyShop(provider)),
+              _buildIconButton(Icons.storefront_rounded, () => _goToMyShop(marketProvider, shopProvider)),
               const SizedBox(width: 8),
             ],
           ),
@@ -247,7 +238,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // HERO DE BIENVENUE — inspiré de la maquette (Bonjour, {nom})
+  // HERO
   // ============================================================
   Widget _buildHeroWelcome(MarketProvider provider) {
     return Container(
@@ -347,9 +338,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // DOUBLE BANNIÈRE — Offres exclusives + Vendez avec THIX (shop)
+  // DOUBLE BANNIÈRE
   // ============================================================
-  Widget _buildDualBanners(MarketProvider provider) {
+  Widget _buildDualBanners(MarketProvider marketProvider, ShopProvider shopProvider) {
     return Row(
       children: [
         Expanded(
@@ -365,10 +356,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('OFFRES EXCLUSIVES', style: TextStyle(color: gold, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-                  const Text('Jusqu\'à -50%', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
-                  Row(children: const [
+                children: const [
+                  Text('OFFRES EXCLUSIVES', style: TextStyle(color: gold, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                  Text('Jusqu\'à -50%', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                  Row(children: [
                     Text('Découvrir', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                     Icon(Icons.chevron_right_rounded, color: Colors.white, size: 15),
                   ]),
@@ -378,10 +369,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
           ),
         ),
         const SizedBox(width: 10),
-        // ✅ Accès direct au shop — "vendre" = entrer dans son shop
         Expanded(
           child: GestureDetector(
-            onTap: () => _goToMyShop(provider),
+            onTap: () => _goToMyShop(marketProvider, shopProvider),
             child: Container(
               height: 110,
               padding: const EdgeInsets.all(12),
@@ -394,15 +384,15 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    provider.hasShop ? 'VOTRE BOUTIQUE' : 'VENDEZ AVEC THIX',
+                    shopProvider.hasShop ? 'VOTRE BOUTIQUE' : 'VENDEZ AVEC THIX',
                     style: const TextStyle(color: navyDeep, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8),
                   ),
                   Text(
-                    provider.hasShop ? 'Gérer mon shop' : 'Développez votre business',
+                    shopProvider.hasShop ? 'Gérer mon shop' : 'Développez votre business',
                     style: const TextStyle(color: navyDeep, fontSize: 14, fontWeight: FontWeight.w800),
                   ),
                   Row(children: [
-                    Text(provider.hasShop ? 'Accéder' : 'Commencer', style: const TextStyle(color: navyDeep, fontSize: 11, fontWeight: FontWeight.w700)),
+                    Text(shopProvider.hasShop ? 'Accéder' : 'Commencer', style: const TextStyle(color: navyDeep, fontSize: 11, fontWeight: FontWeight.w700)),
                     const Icon(Icons.chevron_right_rounded, color: navyDeep, size: 15),
                   ]),
                 ],
@@ -432,7 +422,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // LIVES — à la place des "vendeurs vedettes"
+  // LIVES
   // ============================================================
   Widget _buildLiveSessions(List<dynamic> lives) {
     return Column(
@@ -521,6 +511,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // GRILLE PRODUITS
+  // ============================================================
   Widget _productGrid(List<dynamic> products, {bool isFlash = false}) {
     return GridView.builder(
       shrinkWrap: true,
@@ -599,9 +592,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOTTOM NAV — Compte -> mon shop reste accessible aussi via icône dédiée
+  // BOTTOM NAV
   // ============================================================
-  Widget _buildBottomNavBar(MarketProvider provider) {
+  Widget _buildBottomNavBar(MarketProvider marketProvider, ShopProvider shopProvider) {
     return Container(
       decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: navy.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, -3))]),
       child: SafeArea(
@@ -612,7 +605,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
             children: [
               _buildNavItem(Icons.home_rounded, 'Accueil', true, () {}),
               _buildNavItem(Icons.category_rounded, 'Catégories', false, () => context.push('/market/search')),
-              _buildNavItem(Icons.storefront_rounded, 'Mon Shop', false, () => _goToMyShop(provider)),
+              _buildNavItem(Icons.storefront_rounded, 'Mon Shop', false, () => _goToMyShop(marketProvider, shopProvider)),
               _buildNavItem(Icons.message_rounded, 'Messages', false, () => context.push('/market/messages')),
               _buildNavItem(Icons.person_rounded, 'Compte', false, () => context.push('/market/activity')),
             ],
@@ -639,8 +632,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
 }
 
 // ============================================================
-// BANNIÈRE PUB EN MOUVEMENT — vrais produits qui défilent
-// (remplace la bannière statique par un vrai "movement" de produits)
+// PRODUCT MARQUEE
 // ============================================================
 class _ProductMarquee extends StatefulWidget {
   final List<dynamic> products;
