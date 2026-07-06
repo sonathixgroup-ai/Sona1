@@ -38,6 +38,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         return;
       }
 
+      // ✅ Correction : on applique les filtres AVANT d'ajouter .order()
       var query = Supabase.instance.client
           .from('orders')
           .select('''
@@ -45,12 +46,14 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             items:order_items(*),
             shop:shops(name, logo_url)
           ''')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          .eq('user_id', userId);
 
       if (_filter != 'all') {
         query = query.eq('status', _filter);
       }
+
+      // On applique le tri à la fin
+      query = query.order('created_at', ascending: false);
 
       final response = await query;
       setState(() {
