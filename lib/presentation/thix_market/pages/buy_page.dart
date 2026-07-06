@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/product_provider.dart';
@@ -14,6 +15,10 @@ class BuyPage extends StatefulWidget {
 class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedCategory = 'all';
+  final ScrollController _scrollController = ScrollController();
+
+  static const Color primaryBlue = Color(0xFF1A73E8);
+  static const Color bgLight = Color(0xFFF8F9FA);
 
   final List<Map<String, dynamic>> categories = [
     {'id': 'all', 'name': 'Tous', 'icon': Icons.apps},
@@ -30,25 +35,32 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().loadProducts(category: _selectedCategory);
-      context.read<ProductProvider>().loadFavorites();
-      context.read<ProductProvider>().loadWishlist();
+      _loadData();
     });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    final provider = context.read<ProductProvider>();
+    await Future.wait([
+      provider.loadProducts(category: _selectedCategory),
+      provider.loadFavorites(),
+      provider.loadWishlist(),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final productProvider = context.watch<ProductProvider>();
-    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: bgLight,
       appBar: AppBar(
         title: const Text(
           'Acheter',
@@ -63,33 +75,40 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
             Tab(text: 'Favoris'),
             Tab(text: 'Wishlist'),
           ],
-          indicatorColor: const Color(0xFFE5592F),
-          labelColor: const Color(0xFFE5592F),
+          indicatorColor: primaryBlue,
+          labelColor: primaryBlue,
           unselectedLabelColor: Colors.grey,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.compare_arrows),
-            onPressed: () => _openComparator(),
+            icon: const Icon(Icons.compare_arrows, color: Colors.black87),
+            onPressed: () => context.push('/market/compare'),
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_active),
-            onPressed: () => _manageAlerts(),
+            icon: const Icon(Icons.notifications_active, color: Colors.black87),
+            onPressed: () => context.push('/market/price-alerts'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            onPressed: _loadData,
           ),
         ],
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildExploreTab(productProvider, theme),
-          _buildFavoritesTab(productProvider, theme),
-          _buildWishlistTab(productProvider, theme),
+          _buildExploreTab(productProvider),
+          _buildFavoritesTab(productProvider),
+          _buildWishlistTab(productProvider),
         ],
       ),
     );
   }
 
-  Widget _buildExploreTab(ProductProvider provider, ThemeData theme) {
+  // ============================================================
+  // TAB 1 : EXPLORER
+  // ============================================================
+  Widget _buildExploreTab(ProductProvider provider) {
     return Column(
       children: [
         // Catégories horizontales
@@ -114,16 +133,14 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFFE5592F)
-                              : Colors.white,
+                          color: isSelected ? primaryBlue : Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.grey.withOpacity(0.1),
-                              blurRadius: 8,
+                              blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
                           ],
@@ -131,7 +148,7 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
                         child: Icon(
                           category['icon'] as IconData,
                           color: isSelected ? Colors.white : Colors.grey[600],
-                          size: 24,
+                          size: 22,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -140,7 +157,7 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isSelected ? const Color(0xFFE5592F) : Colors.grey[600],
+                          color: isSelected ? primaryBlue : Colors.grey[600],
                         ),
                       ),
                     ],
@@ -164,7 +181,10 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
               const Spacer(),
               TextButton(
                 onPressed: () => _showAdvancedFilters(),
-                child: const Text('Filtres +'),
+                child: const Text(
+                  'Filtres +',
+                  style: TextStyle(color: primaryBlue),
+                ),
               ),
             ],
           ),
@@ -175,26 +195,29 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
           child: provider.isLoading
               ? const Center(child: CircularProgressIndicator())
               : provider.products.isEmpty
-                  ? _buildEmptyState()
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.7,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
+                  ? _buildEmptyState('Aucun produit trouvé')
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: GridView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.7,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: provider.products.length,
+                        itemBuilder: (context, index) {
+                          final product = provider.products[index];
+                          return ProductCard(
+                            product: product,
+                            showFavoriteButton: true,
+                            onTap: (_) => context.push('/market/product/${product['id']}'),
+                            onFavoriteTap: (productId) => provider.toggleFavorite(productId),
+                          );
+                        },
                       ),
-                      itemCount: provider.products.length,
-                      itemBuilder: (context, index) {
-                        final product = provider.products[index];
-                        return ProductCard(
-                          product: product,
-                          showFavoriteButton: true,
-                          // ✅ Correction : onTap accepte un paramètre (Map)
-                          onTap: (_) => _gotoProductDetail(product['id']),
-                          onFavoriteTap: (productId) => provider.toggleFavorite(productId),
-                        );
-                      },
                     ),
         ),
       ],
@@ -204,15 +227,18 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   Widget _buildQuickFilterChip(String label, IconData icon) {
     return FilterChip(
       label: Text(label),
-      avatar: Icon(icon, size: 16),
+      avatar: Icon(icon, size: 16, color: Colors.grey[600]),
       onSelected: (_) {},
       backgroundColor: Colors.white,
-      selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
+      selectedColor: primaryBlue.withOpacity(0.1),
       side: BorderSide(color: Colors.grey[300]!),
     );
   }
 
-  Widget _buildFavoritesTab(ProductProvider provider, ThemeData theme) {
+  // ============================================================
+  // TAB 2 : FAVORIS
+  // ============================================================
+  Widget _buildFavoritesTab(ProductProvider provider) {
     if (provider.isLoadingFavorites) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -240,15 +266,18 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
         return ProductCard(
           product: product,
           showFavoriteButton: true,
-          // ✅ Correction ici aussi
-          onTap: (_) => _gotoProductDetail(product['id']),
+          isFavorite: true,
+          onTap: (_) => context.push('/market/product/${product['id']}'),
           onFavoriteTap: (productId) => provider.toggleFavorite(productId),
         );
       },
     );
   }
 
-  Widget _buildWishlistTab(ProductProvider provider, ThemeData theme) {
+  // ============================================================
+  // TAB 3 : WISHLIST
+  // ============================================================
+  Widget _buildWishlistTab(ProductProvider provider) {
     if (provider.isLoadingWishlist) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -269,30 +298,50 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
         final item = provider.wishlist[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey[200]!),
+          ),
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
                 imageUrl: item['image_url'],
-                width: 60,
-                height: 60,
+                width: 50,
+                height: 50,
                 fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(
+                  width: 50,
+                  height: 50,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image, size: 24),
+                ),
               ),
             ),
-            title: Text(item['name']),
-            subtitle: Text('${item['price']} FCFA'),
+            title: Text(
+              item['name'] ?? 'Produit',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              '${item['price']?.toInt() ?? 0} FCFA',
+              style: const TextStyle(color: primaryBlue),
+            ),
             trailing: IconButton(
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () => provider.removeFromWishlist(item['id']),
             ),
-            onTap: () => _gotoProductDetail(item['product_id']),
+            onTap: () => context.push('/market/product/${item['product_id']}'),
           ),
         );
       },
     );
   }
 
-  Widget _buildEmptyState() {
+  // ============================================================
+  // ÉTATS VIDE
+  // ============================================================
+  Widget _buildEmptyState(String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -300,8 +349,8 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
           Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
-            'Aucun produit trouvé',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            message,
+            style: const TextStyle(fontSize: 18, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -329,10 +378,11 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
           ElevatedButton(
             onPressed: onAction,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
+              backgroundColor: primaryBlue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(title == 'Wishlist vide' ? 'Créer ma wishlist' : 'Explorer'),
           ),
@@ -341,22 +391,16 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
     );
   }
 
-  void _gotoProductDetail(String productId) {
-    Navigator.pushNamed(context, '/product/$productId');
-  }
-
-  void _openComparator() {
-    Navigator.pushNamed(context, '/compare-products');
-  }
-
-  void _manageAlerts() {
-    Navigator.pushNamed(context, '/price-alerts');
-  }
-
+  // ============================================================
+  // DIALOGUES
+  // ============================================================
   void _showAdvancedFilters() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => const AdvancedFiltersSheet(),
     );
   }
@@ -369,6 +413,9 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   }
 }
 
+// ============================================================
+// WIDGETS ANNEXES
+// ============================================================
 class AdvancedFiltersSheet extends StatelessWidget {
   const AdvancedFiltersSheet({super.key});
 
@@ -378,13 +425,34 @@ class AdvancedFiltersSheet extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Filtres avancés', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text(
+            'Filtres avancés',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 20),
-          // Range price slider
-          // Categories
-          // Brands
-          // Rating filter
+          // À implémenter : sliders de prix, catégories, etc.
+          const Text('Prix (FCFA)', style: TextStyle(fontWeight: FontWeight.w500)),
+          const RangeSlider(
+            values: RangeValues(0, 1000000),
+            min: 0,
+            max: 1000000,
+            divisions: 10,
+          ),
+          const SizedBox(height: 20),
+          const Text('Catégories', style: TextStyle(fontWeight: FontWeight.w500)),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: ['Mode', 'Électronique', 'Maison', 'Services', 'Véhicules'].map((cat) {
+              return FilterChip(
+                label: Text(cat),
+                selected: false,
+                onSelected: (_) {},
+              );
+            }).toList(),
+          ),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -399,7 +467,7 @@ class AdvancedFiltersSheet extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE5592F),
+                    backgroundColor: const Color(0xFF1A73E8),
                   ),
                   child: const Text('Appliquer'),
                 ),
@@ -456,7 +524,7 @@ class CreateWishlistDialog extends StatelessWidget {
             );
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE5592F),
+            backgroundColor: const Color(0xFF1A73E8),
           ),
           child: const Text('Créer'),
         ),
