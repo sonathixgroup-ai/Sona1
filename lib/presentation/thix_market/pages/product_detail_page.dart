@@ -33,14 +33,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final PageController _pageController = PageController();
   int _currentImageIndex = 0;
 
-  // Couleurs harmonisées avec la page d'accueil
   static const Color primaryBlue = Color(0xFF0066FF);
-  static const Color lightBlue = Color(0xFFE8F4FD);
   static const Color softBlue = Color(0xFFF0F7FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF1A1A2E);
   static const Color mutedText = Color(0xFF6B7280);
-  static const Color gold = Color(0xFFFFC107);
 
   @override
   void initState() {
@@ -263,7 +260,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
-  // ✅ Correction : ajout des vérifications pour éviter l'erreur "Produit introuvable"
   void _buyNow() async {
     if (_product.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -327,7 +323,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final shippingCost = _product['shipping_cost'] as double?;
     final warrantyMonths = _product['warranty_months'] as int?;
 
-    // ✅ Indique si le produit est disponible et chargé
     final isProductAvailable = !_product.isEmpty && (_product['stock'] ?? 0) > 0;
 
     return Scaffold(
@@ -497,10 +492,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: Colors.grey[200]),
+                // ✅ Correction : suppression des const Divider avec Colors.grey[200]
+                Divider(height: 1, color: Colors.grey[200]),
                 if (variants.isNotEmpty) _buildVariantsSection(variants),
                 if (colors.isNotEmpty) _buildColorsSection(colors),
-                const Divider(height: 1, color: Colors.grey[200]),
+                Divider(height: 1, color: Colors.grey[200]),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -529,7 +525,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: Colors.grey[200]),
+                Divider(height: 1, color: Colors.grey[200]),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -562,7 +558,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: Colors.grey[200]),
+                Divider(height: 1, color: Colors.grey[200]),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -587,7 +583,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: Colors.grey[200]),
+                Divider(height: 1, color: Colors.grey[200]),
                 if (_similarProducts.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -682,8 +678,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // ✅ Panier – désactivé si produit indisponible
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: isProductAvailable && !_isAddingToCart ? _addToCart : null,
@@ -706,8 +700,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // Chat
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _openChatWithSeller,
@@ -724,8 +716,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // ✅ Acheter – désactivé si produit indisponible
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: isProductAvailable && !_isAddingToCart ? _buyNow : null,
