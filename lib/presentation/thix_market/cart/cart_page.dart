@@ -1,8 +1,9 @@
+// lib/presentation/thix_market/cart/cart_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'cart_provider.dart';
+import 'cart_provider.dart'; // ✅ import relatif
 import 'cart_item_tile.dart';
 import 'cart_summary_widget.dart';
 
@@ -42,11 +43,11 @@ class CartPage extends StatelessWidget {
           if (cart.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+
           if (cart.cartItems.isEmpty) {
             return _buildEmptyCart(context);
           }
-          
+
           return Column(
             children: [
               Expanded(
