@@ -296,7 +296,7 @@ class _ProductComparatorState extends State<ProductComparator> {
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.black54,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    minimumSize: const Size(28, 28),
                   ),
                 ),
               ),
