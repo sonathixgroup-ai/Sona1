@@ -166,7 +166,8 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     }
 
     return InkWell(
-      onTap: () => _openChat(conversation['id'], otherUser),
+      // ✅ Correction : on caste otherUser en Map<String, dynamic>
+      onTap: () => _openChat(conversation['id'], Map<String, dynamic>.from(otherUser)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         color: isUnread ? primaryBlue.withOpacity(0.05) : Colors.white,
@@ -463,6 +464,8 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     );
   }
 
+  // ✅ Modification de la signature pour accepter Map<dynamic, dynamic> ou Map<String, dynamic>
+  // On peut laisser Map<String, dynamic> et faire le cast à l'appel (déjà fait)
   void _openChat(String conversationId, Map<String, dynamic> otherUser) {
     context.push(
       '/market/chat/$conversationId',
@@ -494,6 +497,9 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
 // ============================================================
 class VoiceCallSheet extends StatelessWidget {
   const VoiceCallSheet({super.key});
+
+  // ✅ Définition d'une constante locale pour primaryBlue
+  static const Color _primaryBlue = Color(0xFF1A73E8);
 
   @override
   Widget build(BuildContext context) {
@@ -542,7 +548,7 @@ class VoiceCallSheet extends StatelessWidget {
             icon: const Icon(Icons.call),
             label: const Text('Démarrer l\'appel'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
+              backgroundColor: _primaryBlue, // ✅ Utilisation de la constante locale
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
@@ -568,7 +574,7 @@ class VoiceCallSheet extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 32, color: primaryBlue),
+          Icon(icon, size: 32, color: _primaryBlue), // ✅ Utilisation de la constante locale
           const SizedBox(height: 8),
           Text(
             role,
