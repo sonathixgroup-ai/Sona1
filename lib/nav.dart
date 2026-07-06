@@ -1076,23 +1076,32 @@ class AppRouter {
       ),
     );
   },
-)
-        GoRoute(
-          path: '/network/hashtag/:tag',
-          name: 'networkHashtag',
-          pageBuilder: (context, state) {
-            final tag = state.pathParameters['tag']!;
-            return NoTransitionPage(child: HashtagPage(tag: tag));
-          },
-        ),
-        GoRoute(
-          path: '${AppRoutes.networkProfileBasePath}/:userId',
-          name: 'networkProfile',
-          pageBuilder: (context, state) {
-            final userId = (state.pathParameters['userId'] ?? '').trim();
-            return NoTransitionPage(child: ProfilePage(userId: userId));
-          },
-        ),
+),
+
+GoRoute(
+  path: '/network/hashtag/:tag',
+  name: 'networkHashtag',
+  pageBuilder: (context, state) {
+    final tag = state.pathParameters['tag']!;
+    return NoTransitionPage(child: HashtagPage(tag: tag));
+  },
+),
+
+// ✅ Correction de la route networkProfile
+GoRoute(
+  path: '${AppRoutes.networkProfileBasePath}/:userId',
+  name: 'networkProfile',
+  pageBuilder: (context, state) {
+    final userId = state.pathParameters['userId']!; // ✅ ajout du !
+    final currentProfileId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    return NoTransitionPage(
+      child: ProfilePage(
+        userId: userId,
+        currentProfileId: currentProfileId, // ✅ ajout du paramètre requis
+      ),
+    );
+  },
+),
         GoRoute(
           path: AppRoutes.profile,
           name: 'profile',
