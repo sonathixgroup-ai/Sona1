@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/widgets/live/live_offer_card.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -14,13 +15,34 @@ class LiveOfferCard extends StatelessWidget {
     this.onClaim,
   });
 
+  // Couleurs de l'application
+  static const Color navy = Color(0xFF1B2A4A);
+  static const Color gold = Color(0xFFC9962C);
+  static const Color danger = Color(0xFFE53935);
+  static const Color textMuted = Color(0xFF8A8FA3);
+  static const Color bgApp = Color(0xFFF6F7FB);
+  static const Color success = Color(0xFF4CAF50);
+
   @override
   Widget build(BuildContext context) {
     final timeLeft = offer['expires_at'] != null
         ? DateTime.parse(offer['expires_at']).difference(DateTime.now())
         : null;
     final isExpired = timeLeft != null && timeLeft.isNegative;
-    
+
+    // ✅ Devise dynamique
+    final currency = offer['currency'] ?? 'CDF';
+    final currencySymbol = currency == 'USD' ? '\$' : 'FC';
+
+    // ✅ Image : image_url ou images[0]
+    String imageUrl = offer['image_url'] ?? '';
+    if (imageUrl.isEmpty) {
+      final images = offer['images'] as List?;
+      if (images != null && images.isNotEmpty) {
+        imageUrl = images[0].toString();
+      }
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -37,12 +59,30 @@ class LiveOfferCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: Stack(
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: offer['image_url'] ?? '',
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                  imageUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            height: 140,
+                            color: bgApp,
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            height: 140,
+                            color: bgApp,
+                            child: Icon(Icons.image, color: textMuted),
+                          ),
+                        )
+                      : Container(
+                          height: 140,
+                          color: bgApp,
+                          child: Icon(Icons.image, color: textMuted),
+                        ),
                   if (offer['discount_percentage'] != null)
                     Positioned(
                       top: 8,
@@ -50,12 +90,16 @@ class LiveOfferCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: danger,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           '-${offer['discount_percentage'].toInt()}%',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -84,7 +128,7 @@ class LiveOfferCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Content
             Padding(
               padding: const EdgeInsets.all(12),
@@ -93,7 +137,11 @@ class LiveOfferCard extends StatelessWidget {
                 children: [
                   Text(
                     offer['title'] ?? 'Offre flash',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: navy,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -101,42 +149,45 @@ class LiveOfferCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${offer['price'].toInt()} FCFA',
+                        '${(offer['price'] as num).toInt()} $currencySymbol',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFE5592F),
+                          color: gold,
                         ),
                       ),
                       if (offer['original_price'] != null)
                         Padding(
                           padding: const EdgeInsets.only(left: 8),
                           child: Text(
-                            '${offer['original_price'].toInt()} FCFA',
+                            '${(offer['original_price'] as num).toInt()} $currencySymbol',
                             style: TextStyle(
                               decoration: TextDecoration.lineThrough,
                               fontSize: 12,
-                              color: Colors.grey[500],
+                              color: textMuted,
                             ),
                           ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  if (offer['stock'] != null)
+                  if (offer['stock'] != null) ...[
                     LinearProgressIndicator(
-                      value: ((offer['stock_initial'] - offer['stock']) / offer['stock_initial']),
+                      value: ((offer['stock_initial'] - offer['stock']) / offer['stock_initial'])
+                          .clamp(0.0, 1.0),
                       backgroundColor: Colors.grey[200],
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE5592F)),
+                      valueColor: AlwaysStoppedAnimation<Color>(gold),
+                      minHeight: 6,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  if (offer['stock'] != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         'Plus que ${offer['stock']} disponibles',
-                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 10, color: textMuted),
                       ),
                     ),
+                  ],
                   const SizedBox(height: 12),
                   if (onClaim != null)
                     SizedBox(
@@ -144,11 +195,21 @@ class LiveOfferCard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: isExpired ? null : onClaim,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE5592F),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          backgroundColor: isExpired ? textMuted : gold,
+                          foregroundColor: isExpired ? Colors.white : navy,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
+                          elevation: 0,
                         ),
-                        child: Text(isExpired ? 'Expirée' : 'Profiter'),
+                        child: Text(
+                          isExpired ? 'Expirée' : 'Profiter',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                 ],
