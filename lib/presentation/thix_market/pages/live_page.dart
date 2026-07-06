@@ -100,8 +100,9 @@ class _LivePageState extends State<LivePage> with SingleTickerProviderStateMixin
 
     final liveSessions = provider.liveSessions;
     if (liveSessions.isEmpty) {
+      // ✅ Correction : Icons.live_tv_off -> Icons.tv_off
       return _buildEmptyState(
-        icon: Icons.live_tv_off,
+        icon: Icons.tv_off,
         title: 'Aucun live en cours',
         subtitle: 'Revenez plus tard pour découvrir des diffusions',
         buttonText: 'Actualiser',
