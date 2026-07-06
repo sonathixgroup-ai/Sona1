@@ -67,7 +67,8 @@ class _PublishAnnouncementPageState extends State<PublishAnnouncementPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.store_off, size: 80, color: Colors.grey[300]),
+            // ✅ Correction : Icons.store_off → Icons.storefront
+            Icon(Icons.storefront, size: 80, color: Colors.grey[300]),
             const SizedBox(height: 16),
             const Text(
               'Vous n\'avez pas encore de boutique',
@@ -126,8 +127,9 @@ class _PublishAnnouncementPageState extends State<PublishAnnouncementPage> {
                       border: InputBorder.none,
                     ),
                     value: _selectedShopId,
-                    items: shops.map((shop) {
-                      return DropdownMenuItem(
+                    // ✅ Correction : ajout de <String>
+                    items: shops.map<DropdownMenuItem<String>>((shop) {
+                      return DropdownMenuItem<String>(
                         value: shop['id'],
                         child: Row(
                           children: [
