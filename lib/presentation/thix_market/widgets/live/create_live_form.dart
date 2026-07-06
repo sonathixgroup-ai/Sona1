@@ -1,9 +1,10 @@
 // lib/presentation/thix_market/widgets/live/create_live_form.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class CreateLiveForm extends StatefulWidget {
   final String shopId;
@@ -54,14 +55,12 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
 
   Future<void> _loadProducts() async {
     setState(() => _loadingProducts = true);
-
     try {
       final response = await Supabase.instance.client
           .from('products')
           .select('id, title, price, image_url')
           .eq('shop_id', widget.shopId)
           .eq('status', 'active');
-
       setState(() {
         _availableProducts = List<Map<String, dynamic>>.from(response);
         _loadingProducts = false;
@@ -86,7 +85,6 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
 
   Future<String?> _uploadThumbnail() async {
     if (_thumbnail == null) return null;
-
     try {
       final fileExt = _thumbnail!.path.split('.').last;
       final fileName = '${const Uuid().v4()}.$fileExt';
@@ -140,24 +138,37 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
     setState(() => _isLoading = true);
 
     try {
+      // 1. Upload du thumbnail
       final thumbnailUrl = await _uploadThumbnail();
 
+      // 2. Générer un channelName unique
       final channelName = 'live_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Token Agora - À remplacer par un appel à une Edge Function en production
-      // ⚠️ Actuellement simplifié : il faudra créer une Edge Function "generate-rtc-token"
-      // ou utiliser un token de test en développement.
-      String token = 'token_placeholder';
+      // 3. Appeler la Edge Function pour obtenir le token Agora
+      String token;
       try {
-        final tokenResponse = await Supabase.instance.client
-            .functions
-            .invoke('generate-rtc-token', body: {'channelName': channelName});
-        token = tokenResponse.data['token'] ?? token;
+        final tokenResponse = await Supabase.instance.client.functions.invoke(
+          'generate-rtc-token',
+          body: {'channelName': channelName},
+        );
+        token = tokenResponse.data['token'];
+        if (token == null) throw Exception('Token Agora non reçu');
       } catch (e) {
-        debugPrint('⚠️ Token Agora non généré : $e');
-        // Token placeholder pour le développement
+        // En cas d'échec de la fonction, on utilise un token de test (pour développement)
+        debugPrint('⚠️ Agora token generation failed: $e');
+        token = 'test_token_${DateTime.now().millisecondsSinceEpoch}';
+        // Optionnel : afficher un message à l'utilisateur
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Token Agora de test généré (fonction indisponible)'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
 
+      // 4. Créer l'enregistrement du live
       final liveData = {
         'shop_id': widget.shopId,
         'title': _titleController.text.trim(),
@@ -255,7 +266,7 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
             ),
             const SizedBox(height: 16),
 
-            // Title
+            // Titre
             const Text(
               'Titre *',
               style: TextStyle(fontWeight: FontWeight.w500, color: navy),
@@ -299,7 +310,7 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
             ),
             const SizedBox(height: 16),
 
-            // Products
+            // Produits disponibles
             const Text(
               'Produits à présenter',
               style: TextStyle(fontWeight: FontWeight.w500, color: navy),
@@ -345,13 +356,16 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
                     },
                     selectedColor: gold.withOpacity(0.2),
                     checkmarkColor: gold,
-                    avatar: product['image_url'] != null
-                        ? CachedNetworkImage(
-                            imageUrl: product['image_url'],
-                            width: 24,
-                            height: 24,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Icon(Icons.image, size: 16),
+                    avatar: product['image_url'] != null && product['image_url'].toString().isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: CachedNetworkImage(
+                              imageUrl: product['image_url'],
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => const Icon(Icons.image, size: 16),
+                            ),
                           )
                         : null,
                   );
@@ -359,7 +373,7 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
               ),
             const SizedBox(height: 16),
 
-            // Auction toggle
+            // Enchères
             SwitchListTile(
               title: const Text(
                 'Activer les enchères',
@@ -442,7 +456,7 @@ class _CreateLiveFormState extends State<CreateLiveForm> {
 
             const SizedBox(height: 24),
 
-            // Create button
+            // Bouton
             SizedBox(
               width: double.infinity,
               height: 48,
