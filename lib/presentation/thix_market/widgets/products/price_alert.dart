@@ -25,7 +25,6 @@ class _PriceAlertState extends State<PriceAlert> {
   bool _hasAlert = false;
   Map<String, dynamic>? _existingAlert;
 
-  // Couleurs de l'application
   static const Color navy = Color(0xFF1B2A4A);
   static const Color gold = Color(0xFFC9962C);
   static const Color danger = Color(0xFFE53935);
@@ -229,7 +228,6 @@ class _PriceAlertState extends State<PriceAlert> {
   }
 
   void _showAlertDialog() {
-    // Si l'utilisateur n'est pas connecté, on affiche directement la demande de connexion
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
       _showLoginRequired();
