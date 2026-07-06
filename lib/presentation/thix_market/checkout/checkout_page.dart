@@ -10,8 +10,28 @@ import 'order_confirmation_page.dart';
 import '../cart/cart_provider.dart';
 import '../delivery/delivery_address_selector.dart';
 
-class CheckoutPage extends StatelessWidget {
+class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
+
+  @override
+  State<CheckoutPage> createState() => _CheckoutPageState();
+}
+
+class _CheckoutPageState extends State<CheckoutPage> {
+  bool _isDataLoaded = false; // ✅ indicateur local pour éviter les rechargements multiples
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Charger les données une seule fois
+    if (!_isDataLoaded) {
+      _isDataLoaded = true;
+      final provider = context.read<CheckoutProvider>();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        provider.loadCheckoutData();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,13 +52,6 @@ class CheckoutPage extends StatelessWidget {
         ),
         body: Consumer<CheckoutProvider>(
           builder: (context, provider, _) {
-            // Charger les données au premier affichage
-            if (!provider.isInitialized) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                provider.loadCheckoutData();
-              });
-            }
-
             if (provider.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
