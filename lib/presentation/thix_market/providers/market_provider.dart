@@ -25,13 +25,13 @@ class MarketProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // ============================================================
-  // CHARGEMENT DES DONNÉES UNIQUEMENT DEPUIS SUPABASE
+  // CHARGEMENT DES DONNÉES
   // ============================================================
 
   Future<void> loadHomeData() async {
     _setLoading(true);
     try {
-      // Exécuter toutes les requêtes en parallèle
+      // Exécuter toutes les requêtes en parallèle (sans les notifications)
       final results = await Future.wait([
         _loadLiveSessions(),
         _loadFlashSales(),
@@ -39,17 +39,17 @@ class MarketProvider extends ChangeNotifier {
         _loadRecommendedProducts(),
         _loadFeaturedShops(),
         _loadForYouProducts(),
-        _loadUnreadNotifications(),
       ]);
 
-      // ✅ Cast explicite des résultats
+      // Affectation avec cast explicite
       _liveSessions = results[0] as List<Map<String, dynamic>>;
       _flashSales = results[1] as List<Map<String, dynamic>>;
       _promoBanners = results[2] as List<Map<String, dynamic>>;
       _recommendedProducts = results[3] as List<Map<String, dynamic>>;
       _featuredShops = results[4] as List<Map<String, dynamic>>;
       _forYouProducts = results[5] as List<Map<String, dynamic>>;
-      _unreadNotifications = results[6] as int;
+      // Les notifications ne sont pas chargées pour l'instant
+      _unreadNotifications = 0;
 
       notifyListeners();
     } catch (e) {
@@ -154,23 +154,6 @@ class MarketProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ Correction : utilisation de count: 'exact' (string)
-  Future<int> _loadUnreadNotifications() async {
-    try {
-      final userId = _supabase.auth.currentUser?.id;
-      if (userId == null) return 0;
-      final response = await _supabase
-          .from('notifications')
-          .select('id', count: 'exact')  // ← 'exact' au lieu de Count.exact
-          .eq('user_id', userId)
-          .eq('is_read', false);
-      return response.count ?? 0;
-    } catch (e) {
-      debugPrint('Error loading unread notifications: $e');
-      return 0;
-    }
-  }
-
   // ============================================================
   // UTILITAIRES
   // ============================================================
@@ -180,7 +163,6 @@ class MarketProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Méthode pour rafraîchir les données (pull-to-refresh)
   Future<void> refresh() async {
     await loadHomeData();
   }
