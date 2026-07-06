@@ -1,35 +1,40 @@
+// lib/presentation/thix_market/cart/cart_provider.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CartProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = false;
   bool _isSyncing = false;
   String? _currentUserId;
   Stream<List<Map<String, dynamic>>>? _cartStream;
 
+  // ============================================================
+  // GETTERS
+  // ============================================================
   List<Map<String, dynamic>> get cartItems => _cartItems;
   bool get isLoading => _isLoading;
   bool get isSyncing => _isSyncing;
-  
   int get itemCount => _cartItems.length;
-  
-  int get totalQuantity => _cartItems.fold<int>(0, (sum, item) => sum + ((item['quantity'] as int?) ?? 0));
-  
+  int get totalQuantity => _cartItems.fold<int>(
+    0,
+    (sum, item) => sum + ((item['quantity'] as int?) ?? 0),
+  );
+
   double get subtotal => _cartItems.fold(0.0, (sum, item) {
-    final price = (item['product']['price'] as num).toDouble();
-    final quantity = (item['quantity'] ?? 0).toInt();
-    return sum + (price * quantity);
-  });
-  
-  double get shippingCost {
-    return subtotal > 50000 ? 0 : 2500;
-  }
-  
+        final price = (item['product']?['price'] as num?)?.toDouble() ?? 0;
+        final quantity = (item['quantity'] ?? 0).toInt();
+        return sum + (price * quantity);
+      });
+
+  double get shippingCost => subtotal > 50000 ? 0 : 2500;
   double get total => subtotal + shippingCost;
 
+  // ============================================================
+  // INITIALISATION
+  // ============================================================
   CartProvider() {
     _init();
   }
@@ -40,7 +45,7 @@ class CartProvider extends ChangeNotifier {
       _setupRealtimeSubscription();
       loadCart();
     }
-    
+
     _supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
       if (session != null) {
@@ -56,21 +61,27 @@ class CartProvider extends ChangeNotifier {
     });
   }
 
+  // ============================================================
+  // REAL-TIME SUBSCRIPTION
+  // ============================================================
   void _setupRealtimeSubscription() {
     if (_currentUserId == null) return;
-    
+
     _cartStream = _supabase
         .from('cart')
         .stream(primaryKey: ['id'])
         .eq('user_id', _currentUserId!)
         .order('created_at', ascending: false)
         .map((data) => List<Map<String, dynamic>>.from(data));
-    
+
     _cartStream?.listen((updatedCart) async {
       await _syncCartWithProducts(updatedCart);
     });
   }
 
+  // ============================================================
+  // SYNC CART WITH PRODUCTS
+  // ============================================================
   Future<void> _syncCartWithProducts(List<Map<String, dynamic>> cartRecords) async {
     if (cartRecords.isEmpty) {
       _cartItems = [];
@@ -78,8 +89,9 @@ class CartProvider extends ChangeNotifier {
       return;
     }
 
-    setState(() => _isSyncing = true);
-    
+    _isSyncing = true;
+    notifyListeners();
+
     try {
       final List<Map<String, dynamic>> enrichedItems = [];
       for (var cartItem in cartRecords) {
@@ -90,50 +102,59 @@ class CartProvider extends ChangeNotifier {
               .select('*, shop:shops(name, logo_url)')
               .eq('id', productId)
               .maybeSingle();
-          
+
           if (productResponse != null) {
             enrichedItems.add({
               ...cartItem,
               'product': productResponse,
             });
           } else {
+            // Le produit a été supprimé, on retire l'article du panier
             await removeFromCart(cartItem['id']);
           }
         }
       }
       _cartItems = enrichedItems;
-      notifyListeners(); // ✅ correction : rafraîchit l'UI dès que le panier est synchronisé
     } catch (e) {
       debugPrint('Error syncing cart: $e');
     } finally {
-      setState(() => _isSyncing = false);
+      _isSyncing = false;
+      notifyListeners();
     }
   }
 
+  // ============================================================
+  // CHARGEMENT DU PANIER
+  // ============================================================
   Future<void> loadCart() async {
     if (_currentUserId == null) {
       _cartItems = [];
       notifyListeners();
       return;
     }
-    
-    setState(() => _isLoading = true);
-    
+
+    _isLoading = true;
+    notifyListeners();
+
     try {
       final response = await _supabase
           .from('cart')
           .select()
           .eq('user_id', _currentUserId!)
           .order('created_at', ascending: false);
-      
+
       await _syncCartWithProducts(List<Map<String, dynamic>>.from(response));
     } catch (e) {
       debugPrint('Error loading cart: $e');
     } finally {
-      setState(() => _isLoading = false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
+  // ============================================================
+  // AJOUTER AU PANIER
+  // ============================================================
   Future<void> addToCart({
     required String productId,
     int quantity = 1,
@@ -143,15 +164,17 @@ class CartProvider extends ChangeNotifier {
     if (_currentUserId == null) {
       throw Exception('Veuillez vous connecter');
     }
-    
+
     try {
+      // Vérifier si l'article existe déjà (même produit, même variante, même couleur)
       final existingItem = _cartItems.firstWhere(
-        (item) => item['product_id'] == productId && 
-                 item['variant'] == variant && 
-                 item['color'] == color,
+        (item) =>
+            item['product_id'] == productId &&
+            item['variant'] == variant &&
+            item['color'] == color,
         orElse: () => {},
       );
-      
+
       if (existingItem.isNotEmpty) {
         final newQuantity = (existingItem['quantity'] ?? 0) + quantity;
         await updateQuantity(existingItem['id'], newQuantity);
@@ -165,7 +188,7 @@ class CartProvider extends ChangeNotifier {
           'created_at': DateTime.now().toIso8601String(),
         });
       }
-      
+
       await loadCart();
     } catch (e) {
       debugPrint('Error adding to cart: $e');
@@ -173,18 +196,21 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
+  // ============================================================
+  // METTRE À JOUR LA QUANTITÉ
+  // ============================================================
   Future<void> updateQuantity(String cartItemId, int newQuantity) async {
     if (newQuantity <= 0) {
       await removeFromCart(cartItemId);
       return;
     }
-    
+
     try {
       await _supabase
           .from('cart')
           .update({'quantity': newQuantity})
           .eq('id', cartItemId);
-      
+
       final index = _cartItems.indexWhere((item) => item['id'] == cartItemId);
       if (index != -1) {
         _cartItems[index]['quantity'] = newQuantity;
@@ -196,13 +222,16 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
+  // ============================================================
+  // SUPPRIMER DU PANIER
+  // ============================================================
   Future<void> removeFromCart(String cartItemId) async {
     try {
       await _supabase
           .from('cart')
           .delete()
           .eq('id', cartItemId);
-      
+
       _cartItems.removeWhere((item) => item['id'] == cartItemId);
       notifyListeners();
     } catch (e) {
@@ -211,25 +240,23 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
+  // ============================================================
+  // VIDER LE PANIER
+  // ============================================================
   Future<void> clearCart() async {
     if (_currentUserId == null) return;
-    
+
     try {
       await _supabase
           .from('cart')
           .delete()
           .eq('user_id', _currentUserId!);
-      
+
       _cartItems.clear();
       notifyListeners();
     } catch (e) {
       debugPrint('Error clearing cart: $e');
       rethrow;
     }
-  }
-
-  void setState(VoidCallback fn) {
-    fn();
-    notifyListeners();
   }
 }
