@@ -89,7 +89,7 @@ import 'package:thix_id/presentation/thix_market/pages/auction_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/chat_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/dispute_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
-
+import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
 // ===== IMPORTS THIX SANTÉ =====
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
 import 'package:thix_id/presentation/thix_sante/thix_role.dart' ;
@@ -1192,6 +1192,14 @@ GoRoute(
                 return NoTransitionPage(child: ProductDetailPage(productId: productId));
               },
             ),
+            GoRoute(
+  path: 'shop/:shopId',
+  name: 'marketShopDetail',
+  pageBuilder: (context, state) {
+    final shopId = state.pathParameters['shopId']!;
+    return NoTransitionPage(child: ShopDetailPage(shopId: shopId));
+  },
+),
             GoRoute(
               path: 'compare',
               name: 'marketProductComparator',
