@@ -346,7 +346,7 @@ class _MyAppState extends State<MyApp> {
         ),
         // ✅ PROVIDER POUR THIX INFO (NEWS)
         ChangeNotifierProvider(
-          create: (_) => NewsProvider(NewsService()),
+          create: (_) => NewsProvider(NewsService(Supabase.instance.client)),
         ),
         ChangeNotifierProvider(create: (_) => MarketProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
