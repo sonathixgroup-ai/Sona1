@@ -197,7 +197,20 @@ class _ReceptionPanel extends StatelessWidget {
                           await counters.markSectionSeen(uid: meId, section: ThixSection.info);
                           if (context.mounted) {
                             context.pop();
-                            AlertInfoSheet.show(context);
+                            // ✅ Remplacement de AlertInfoSheet.show(context) par un AlertDialog
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Informations'),
+                                content: const Text('Voici les dernières informations importantes.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
                           }
                         },
                       ),
@@ -557,7 +570,20 @@ class _ReceptionPanel extends StatelessWidget {
           return;
         case ThixSection.info:
           context.pop();
-          AlertInfoSheet.show(context);
+          // ✅ Remplacement de AlertInfoSheet.show(context) par un AlertDialog
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Informations'),
+              content: const Text('Voici les dernières informations importantes.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
           return;
         case ThixSection.events:
           context.push(AppRoutes.thixEvent);
