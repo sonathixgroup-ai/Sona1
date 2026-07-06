@@ -6,8 +6,17 @@ import 'package:intl/intl.dart';
 
 class ChatPage extends StatefulWidget {
   final String conversationId;
+  final String? shopId;      // ✅ pour une nouvelle conversation
+  final String? title;       // ✅ titre affiché dans l'AppBar
+  final String? avatar;      // ✅ avatar du vendeur
 
-  const ChatPage({super.key, required this.conversationId});
+  const ChatPage({
+    super.key,
+    required this.conversationId,
+    this.shopId,
+    this.title,
+    this.avatar,
+  });
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -25,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   Map<String, dynamic>? _otherUser;
   String? _currentUserId;
   bool _isSending = false;
+  String? _conversationId; // réel ID de la conversation
 
   static const Color primaryBlue = Color(0xFF1A73E8);
   static const Color bgLight = Color(0xFFF8F9FA);
@@ -33,10 +43,7 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _currentUserId = Supabase.instance.client.auth.currentUser?.id;
-    _loadConversationDetails();
-    _fetchMessages();
-    _subscribeToMessages();
-    _markAsRead();
+    _initializeChat();
   }
 
   @override
@@ -47,12 +54,113 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+  Future<void> _initializeChat() async {
+    setState(() => _isLoading = true);
+
+    // Si conversationId fourni, on l'utilise
+    if (widget.conversationId.isNotEmpty) {
+      _conversationId = widget.conversationId;
+      await _loadConversationDetails();
+      await _fetchMessages();
+      _subscribeToMessages();
+      _markAsRead();
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // Sinon, on essaie de créer ou récupérer une conversation avec le vendeur (shopId)
+    if (widget.shopId != null && widget.shopId!.isNotEmpty) {
+      try {
+        // Récupérer l'ID du vendeur à partir du shopId
+        final shopResponse = await Supabase.instance.client
+            .from('shops')
+            .select('owner_id')
+            .eq('id', widget.shopId!)
+            .single();
+        final sellerId = shopResponse['owner_id'] as String?;
+        if (sellerId == null) {
+          throw Exception('Vendeur introuvable');
+        }
+        _otherUserId = sellerId;
+
+        // Vérifier si une conversation existe déjà entre les deux utilisateurs
+        final existingConv = await Supabase.instance.client
+            .from('conversations')
+            .select('id, participant_ids')
+            .contains('participant_ids', [_currentUserId, sellerId])
+            .maybeSingle();
+
+        if (existingConv != null) {
+          _conversationId = existingConv['id'];
+          // Mettre à jour le titre si nécessaire
+          await _loadConversationDetails();
+          await _fetchMessages();
+          _subscribeToMessages();
+          _markAsRead();
+        } else {
+          // Créer une nouvelle conversation
+          final newConv = await Supabase.instance.client
+              .from('conversations')
+              .insert({
+                'participant_ids': [_currentUserId, sellerId],
+                'title': widget.title ?? 'Discussion',
+                'created_at': DateTime.now().toIso8601String(),
+              })
+              .select()
+              .single();
+          _conversationId = newConv['id'];
+
+          // Ajouter les participants
+          await Supabase.instance.client
+              .from('conversation_participants')
+              .insert([
+                {
+                  'conversation_id': _conversationId,
+                  'user_id': _currentUserId,
+                  'unread_count': 0,
+                  'joined_at': DateTime.now().toIso8601String(),
+                },
+                {
+                  'conversation_id': _conversationId,
+                  'user_id': sellerId,
+                  'unread_count': 0,
+                  'joined_at': DateTime.now().toIso8601String(),
+                },
+              ]);
+
+          // Charger les infos de l'autre utilisateur
+          final userResponse = await Supabase.instance.client
+              .from('users')
+              .select('name, avatar')
+              .eq('id', sellerId)
+              .single();
+          _otherUser = userResponse;
+
+          _messages = [];
+          _subscribeToMessages();
+        }
+        setState(() => _isLoading = false);
+      } catch (e) {
+        setState(() {
+          _error = 'Erreur lors de l\'initialisation du chat';
+          _isLoading = false;
+        });
+        debugPrint('Error initializing chat: $e');
+      }
+    } else {
+      setState(() {
+        _error = 'Aucune conversation ou vendeur spécifié';
+        _isLoading = false;
+      });
+    }
+  }
+
   Future<void> _loadConversationDetails() async {
     try {
       final response = await Supabase.instance.client
           .from('conversations')
           .select('participant_ids, title')
-          .eq('id', widget.conversationId)
+          .eq('id', _conversationId!)
           .single();
 
       final participants = List<String>.from(response['participant_ids'] ?? []);
@@ -70,19 +178,23 @@ class _ChatPageState extends State<ChatPage> {
         _otherUser = userResponse;
       }
 
-      setState(() {});
+      // Si un titre est fourni en extra, on le priorise
+      if (widget.title != null && widget.title!.isNotEmpty) {
+        // On pourrait mettre à jour la conversation, mais pour l'affichage on utilise le widget.title
+      }
     } catch (e) {
       debugPrint('Error loading conversation details: $e');
     }
   }
 
   Future<void> _fetchMessages() async {
+    if (_conversationId == null) return;
     setState(() => _isLoading = true);
     try {
       final response = await Supabase.instance.client
           .from('messages')
           .select('*')
-          .eq('conversation_id', widget.conversationId)
+          .eq('conversation_id', _conversationId)
           .order('created_at', ascending: true);
 
       setState(() {
@@ -100,10 +212,11 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _subscribeToMessages() {
+    if (_conversationId == null) return;
     Supabase.instance.client
         .from('messages')
         .stream(primaryKey: ['id'])
-        .eq('conversation_id', widget.conversationId)
+        .eq('conversation_id', _conversationId)
         .order('created_at', ascending: true)
         .listen((data) {
       if (mounted) {
@@ -119,7 +232,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _markAsRead() async {
     final userId = _currentUserId;
-    if (userId == null) return;
+    if (userId == null || _conversationId == null) return;
 
     try {
       await Supabase.instance.client
@@ -129,7 +242,7 @@ class _ChatPageState extends State<ChatPage> {
             'last_read_at': DateTime.now().toIso8601String(),
           })
           .match({
-            'conversation_id': widget.conversationId,
+            'conversation_id': _conversationId,
             'user_id': userId,
           });
     } catch (e) {
@@ -139,7 +252,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty || _isSending || _conversationId == null) return;
 
     final userId = _currentUserId;
     if (userId == null) {
@@ -151,7 +264,7 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       await Supabase.instance.client.from('messages').insert({
-        'conversation_id': widget.conversationId,
+        'conversation_id': _conversationId,
         'sender_id': userId,
         'receiver_id': _otherUserId,
         'message': text,
@@ -165,7 +278,7 @@ class _ChatPageState extends State<ChatPage> {
             'last_message': text,
             'last_message_time': DateTime.now().toIso8601String(),
           })
-          .eq('id', widget.conversationId);
+          .eq('id', _conversationId);
 
       _messageController.clear();
       _focusNode.unfocus();
@@ -213,6 +326,28 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final isMe = (id) => id == _currentUserId;
 
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title ?? 'Chat'),
+          backgroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title ?? 'Chat'),
+          backgroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: _buildErrorState(),
+      );
+    }
+
     return Scaffold(
       backgroundColor: bgLight,
       appBar: AppBar(
@@ -220,17 +355,19 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundImage: _otherUser?['avatar'] != null
-                  ? CachedNetworkImageProvider(_otherUser!['avatar'])
-                  : null,
-              child: _otherUser?['avatar'] == null
+              backgroundImage: widget.avatar != null
+                  ? CachedNetworkImageProvider(widget.avatar!)
+                  : _otherUser?['avatar'] != null
+                      ? CachedNetworkImageProvider(_otherUser!['avatar'])
+                      : null,
+              child: widget.avatar == null && _otherUser?['avatar'] == null
                   ? const Icon(Icons.person, size: 18)
                   : null,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                _otherUser?['name'] ?? 'Discussion',
+                widget.title ?? _otherUser?['name'] ?? 'Discussion',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -256,34 +393,30 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? _buildErrorState()
-                    : _messages.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) {
-                              final message = _messages[index];
-                              final isOwn = isMe(message['sender_id']);
-                              final isFirst = index == 0 ||
-                                  _messages[index - 1]['sender_id'] !=
-                                      message['sender_id'];
-                              final isLast = index == _messages.length - 1 ||
-                                  _messages[index + 1]['sender_id'] !=
-                                      message['sender_id'];
+            child: _messages.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isOwn = isMe(message['sender_id']);
+                      final isFirst = index == 0 ||
+                          _messages[index - 1]['sender_id'] !=
+                              message['sender_id'];
+                      final isLast = index == _messages.length - 1 ||
+                          _messages[index + 1]['sender_id'] !=
+                              message['sender_id'];
 
-                              return _buildMessageBubble(
-                                message,
-                                isOwn,
-                                isFirst,
-                                isLast,
-                              );
-                            },
-                          ),
+                      return _buildMessageBubble(
+                        message,
+                        isOwn,
+                        isFirst,
+                        isLast,
+                      );
+                    },
+                  ),
           ),
           _buildMessageInput(),
         ],
@@ -304,10 +437,12 @@ class _ChatPageState extends State<ChatPage> {
           if (!isOwn && isFirst)
             CircleAvatar(
               radius: 14,
-              backgroundImage: _otherUser?['avatar'] != null
-                  ? CachedNetworkImageProvider(_otherUser!['avatar'])
-                  : null,
-              child: _otherUser?['avatar'] == null
+              backgroundImage: widget.avatar != null
+                  ? CachedNetworkImageProvider(widget.avatar!)
+                  : _otherUser?['avatar'] != null
+                      ? CachedNetworkImageProvider(_otherUser!['avatar'])
+                      : null,
+              child: widget.avatar == null && _otherUser?['avatar'] == null
                   ? const Icon(Icons.person, size: 14)
                   : null,
             ),
@@ -471,7 +606,7 @@ class _ChatPageState extends State<ChatPage> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _fetchMessages,
+            onPressed: () => _initializeChat(),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
             ),
