@@ -78,7 +78,7 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.store_off_rounded, size: 72, color: Colors.grey[300]),
+              Icon(Icons.store_off, size: 72, color: Colors.grey[300]), // ✅ correction
               const SizedBox(height: 16),
               const Text(
                 'Boutique introuvable',
