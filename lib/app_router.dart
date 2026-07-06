@@ -63,7 +63,7 @@ import 'package:thix_id/presentation/admin/admin_routes.dart';
 
 // THIX Market
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
-
+import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
@@ -1412,7 +1412,15 @@ class AppRouter {
           name: 'education',
           pageBuilder: (context, state) => NoTransitionPage(child: EducationPage()),
         ),
-
+              
+           GoRoute(
+  path: 'shop/:shopId',
+  name: 'marketShopDetail',
+  pageBuilder: (context, state) {
+    final shopId = state.pathParameters['shopId']!;
+    return NoTransitionPage(child: ShopDetailPage(shopId: shopId));
+  },
+),
         // ---- Training ----
         GoRoute(
           path: AppRoutes.trainingHome,
