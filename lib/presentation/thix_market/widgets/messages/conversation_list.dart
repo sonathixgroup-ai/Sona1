@@ -43,12 +43,12 @@ class _ConversationListState extends State<ConversationList> {
     final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    // ✅ Correction : utiliser .filter avec l'opérateur 'cs' (contains)
+    // ✅ CORRECTION : utiliser .contains au lieu de .filter
     _conversationsStream = Supabase.instance.client
         .from('conversations')
         .stream(primaryKey: ['id'])
-        .filter('participant_ids', 'cs', '{${userId}}') // ✅ Correction : opérateur cs pour array containment
-        .order('last_message_time', ascending: false) // ✅ maintenant correct
+        .contains('participant_ids', userId) // ✅ contient l'ID dans le tableau
+        .order('last_message_time', ascending: false)
         .map((data) => List<Map<String, dynamic>>.from(data));
 
     _conversationsStream?.listen((conversations) {
@@ -70,11 +70,11 @@ class _ConversationListState extends State<ConversationList> {
     }
 
     try {
-      // ✅ Correction : utiliser .filter avec 'cs'
+      // ✅ CORRECTION : utiliser .contains pour la requête simple aussi
       final response = await Supabase.instance.client
           .from('conversations')
           .select()
-          .filter('participant_ids', 'cs', '{${userId}}')
+          .contains('participant_ids', userId) // ✅ méthode contains
           .order('last_message_time', ascending: false);
 
       setState(() {
