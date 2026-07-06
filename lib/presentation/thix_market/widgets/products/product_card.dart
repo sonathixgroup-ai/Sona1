@@ -30,6 +30,10 @@ class ProductCard extends StatelessWidget {
         ? ((originalPrice - price) / originalPrice * 100).round()
         : 0;
 
+    // ✅ Devise dynamique
+    final currency = product['currency'] ?? 'CDF';
+    final currencySymbol = currency == 'USD' ? '\$' : 'FC';
+
     return GestureDetector(
       onTap: () => onTap?.call(product),
       child: Container(
@@ -110,23 +114,30 @@ class ProductCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${price.toInt()} FCFA',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFFE5592F),
-                    ),
-                  ),
-                  if (hasDiscount)
-                    Text(
-                      '${originalPrice.toInt()} FCFA',
-                      style: TextStyle(
-                        decoration: TextDecoration.lineThrough,
-                        fontSize: 11,
-                        color: Colors.grey[500],
+                  Row(
+                    children: [
+                      Text(
+                        '${price.toInt()} $currencySymbol',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFFE5592F),
+                        ),
                       ),
-                    ),
+                      if (hasDiscount)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Text(
+                            '${originalPrice.toInt()} $currencySymbol',
+                            style: TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
