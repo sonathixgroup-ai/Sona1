@@ -152,11 +152,12 @@ class MarketProvider extends ChangeNotifier {
     }
   }
 
+  // ✅ CORRECTION : ajout de image_url et images
   Future<List<Map<String, dynamic>>> _loadFlashSales() async {
     try {
       final response = await _supabase
           .from('products')
-          .select('*, shop:shops(name, city)')
+          .select('*, shop:shops(name, city), image_url, images')
           .eq('status', 'active')
           .eq('is_flash_sale', true)
           .order('created_at', ascending: false)
@@ -183,11 +184,12 @@ class MarketProvider extends ChangeNotifier {
     }
   }
 
+  // ✅ CORRECTION : ajout de image_url et images
   Future<List<Map<String, dynamic>>> _loadRecommendedProducts() async {
     try {
       final response = await _supabase
           .from('products')
-          .select('*, shop:shops(name, city)')
+          .select('*, shop:shops(name, city), image_url, images')
           .eq('status', 'active')
           .order('rating', ascending: false)
           .limit(10);
@@ -213,11 +215,12 @@ class MarketProvider extends ChangeNotifier {
     }
   }
 
+  // ✅ CORRECTION : ajout de image_url et images
   Future<List<Map<String, dynamic>>> _loadForYouProducts() async {
     try {
       final response = await _supabase
           .from('products')
-          .select('*, shop:shops(name, city)')
+          .select('*, shop:shops(name, city), image_url, images')
           .eq('status', 'active')
           .order('created_at', ascending: false)
           .limit(20);
