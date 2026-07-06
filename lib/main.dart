@@ -12,12 +12,13 @@ import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/services/news_service.dart'; // ✅ AJOUT
 import 'package:thix_id/providers/feed_provider.dart';
+import 'package:thix_id/providers/news_provider.dart'; // ✅ AJOUT
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
 import 'package:thix_id/presentation/chat/core/chat_repository.dart';
-// ❌ Supprimé : import 'package:thix_id/presentation/chat/core/chat_events.dart';
 import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
 import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
@@ -342,6 +343,10 @@ class _MyAppState extends State<MyApp> {
         // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
         ChangeNotifierProvider(
           create: (_) => EventProvider(widget.eventService),
+        ),
+        // ✅ PROVIDER POUR THIX INFO (NEWS)
+        ChangeNotifierProvider(
+          create: (_) => NewsProvider(NewsService()),
         ),
         ChangeNotifierProvider(create: (_) => MarketProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
