@@ -42,14 +42,14 @@ class MarketProvider extends ChangeNotifier {
         _loadUnreadNotifications(),
       ]);
 
-      // Mettre à jour les listes
-      _liveSessions = results[0];
-      _flashSales = results[1];
-      _promoBanners = results[2];
-      _recommendedProducts = results[3];
-      _featuredShops = results[4];
-      _forYouProducts = results[5];
-      _unreadNotifications = results[6];
+      // ✅ Cast explicite des résultats
+      _liveSessions = results[0] as List<Map<String, dynamic>>;
+      _flashSales = results[1] as List<Map<String, dynamic>>;
+      _promoBanners = results[2] as List<Map<String, dynamic>>;
+      _recommendedProducts = results[3] as List<Map<String, dynamic>>;
+      _featuredShops = results[4] as List<Map<String, dynamic>>;
+      _forYouProducts = results[5] as List<Map<String, dynamic>>;
+      _unreadNotifications = results[6] as int;
 
       notifyListeners();
     } catch (e) {
@@ -154,13 +154,14 @@ class MarketProvider extends ChangeNotifier {
     }
   }
 
+  // ✅ Correction : utilisation de count: 'exact' (string)
   Future<int> _loadUnreadNotifications() async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return 0;
       final response = await _supabase
           .from('notifications')
-          .select('id', count: Count.exact)
+          .select('id', count: 'exact')  // ← 'exact' au lieu de Count.exact
           .eq('user_id', userId)
           .eq('is_read', false);
       return response.count ?? 0;
