@@ -1,339 +1,118 @@
+// lib/presentation/network/messages/conversations_list.dart
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ConversationList extends StatefulWidget {
-  final Function(Map<String, dynamic>)? onConversationTap;
-  final String? currentUserId;
+import '../../../services/network_service.dart';
+import '../../../auth/auth_controller.dart';
+import 'chat_screen.dart';
 
-  const ConversationList({
-    super.key,
-    this.onConversationTap,
-    this.currentUserId,
-  });
+class ConversationsList extends StatefulWidget {
+  const ConversationsList({super.key});
 
   @override
-  State<ConversationList> createState() => _ConversationListState();
+  State<ConversationsList> createState() => _ConversationsListState();
 }
 
-class _ConversationListState extends State<ConversationList> {
-  List<Map<String, dynamic>> _conversations = [];
+class _ConversationsListState extends State<ConversationsList> {
+  List<Conversation> _conversations = [];
   bool _isLoading = true;
-  String? _searchQuery;
-  Stream<List<Map<String, dynamic>>>? _conversationsStream;
-
-  final Map<String, Map<String, dynamic>> _userCache = {};
-
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color danger = Color(0xFFE53935);
-  static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color bgApp = Color(0xFFF6F7FB);
+  late NetworkService _networkService;
 
   @override
   void initState() {
     super.initState();
-    _setupRealtimeSubscription();
+    _networkService = NetworkService(Supabase.instance.client);
     _loadConversations();
-  }
-
-  void _setupRealtimeSubscription() {
-    final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    // ✅ CORRECTION : utiliser 'contains' au lieu de 'filter'
-    _conversationsStream = Supabase.instance.client
-        .from('conversations')
-        .stream(primaryKey: ['id'])
-        .contains('participant_ids', userId) // ✅ méthode 'contains' pour les tableaux
-        .order('last_message_time', ascending: false)
-        .map((data) => List<Map<String, dynamic>>.from(data));
-
-    _conversationsStream?.listen((conversations) {
-      if (mounted) {
-        setState(() {
-          _conversations = conversations;
-          _isLoading = false;
-        });
-      }
-    });
   }
 
   Future<void> _loadConversations() async {
     setState(() => _isLoading = true);
-    final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
     try {
-      // ✅ CORRECTION : utiliser 'contains' pour la requête simple aussi
-      final response = await Supabase.instance.client
-          .from('conversations')
-          .select()
-          .contains('participant_ids', userId) // ✅ méthode 'contains'
-          .order('last_message_time', ascending: false);
-
+      final convs = await _networkService.getConversations();
       setState(() {
-        _conversations = List<Map<String, dynamic>>.from(response);
+        _conversations = convs;
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error loading conversations: $e');
+      debugPrint('❌ Error loading conversations: $e');
       setState(() => _isLoading = false);
-    }
-  }
-
-  Future<Map<String, dynamic>?> _getOtherUser(Map<String, dynamic> conversation) async {
-    final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return null;
-
-    final participants = List<String>.from(conversation['participant_ids'] ?? []);
-    final otherId = participants.firstWhere((id) => id != userId, orElse: () => '');
-    if (otherId.isEmpty) return null;
-
-    if (_userCache.containsKey(otherId)) {
-      return _userCache[otherId];
-    }
-
-    try {
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('id, name, avatar, is_online, last_seen')
-          .eq('id', otherId)
-          .single();
-
-      final userData = Map<String, dynamic>.from(response);
-      _userCache[otherId] = userData;
-      return userData;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<void> _markAsRead(String conversationId) async {
-    final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      await Supabase.instance.client
-          .from('conversation_participants')
-          .update({'unread_count': 0, 'last_read_at': DateTime.now().toIso8601String()})
-          .match({
-            'conversation_id': conversationId,
-            'user_id': userId,
-          });
-    } catch (e) {
-      debugPrint('Error marking as read: $e');
-    }
-  }
-
-  String _formatTime(String? timeStr) {
-    if (timeStr == null) return '';
-    try {
-      final date = DateTime.parse(timeStr);
-      final now = DateTime.now();
-      if (date.day == now.day && date.month == now.month && date.year == now.year) {
-        return DateFormat('HH:mm').format(date);
-      }
-      if (date.year == now.year) {
-        return DateFormat('dd/MM').format(date);
-      }
-      return DateFormat('dd/MM/yy').format(date);
-    } catch (_) {
-      return '';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_conversations.isEmpty) {
-      return _buildEmptyState();
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Rechercher une conversation...',
-              prefixIcon: const Icon(Icons.search, color: textMuted),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-                borderSide: BorderSide(color: gold, width: 2),
-              ),
-            ),
-            onChanged: (value) {
-              setState(() => _searchQuery = value.toLowerCase());
-            },
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Messages'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => context.pop(),
         ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _conversations.length,
-            itemBuilder: (context, index) {
-              final conv = _conversations[index];
-              if (_searchQuery != null && _searchQuery!.isNotEmpty) {
-                final title = conv['title']?.toLowerCase() ?? '';
-                if (!title.contains(_searchQuery!)) return const SizedBox.shrink();
-              }
-              return FutureBuilder<Map<String, dynamic>?>(
-                future: _getOtherUser(conv),
-                builder: (context, snapshot) {
-                  final otherUser = snapshot.data;
-                  return _buildConversationTile(conv, otherUser);
-                },
-              );
-            },
-          ),
-        ),
-      ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _conversations.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  itemCount: _conversations.length,
+                  itemBuilder: (context, index) => _buildConversationTile(_conversations[index]),
+                ),
     );
   }
 
-  Widget _buildConversationTile(Map<String, dynamic> conversation, Map<String, dynamic>? otherUser) {
-    final unreadCount = conversation['unread_count'] ?? 0;
-    final isUnread = unreadCount > 0;
-    final lastMessage = conversation['last_message'];
-    final lastMessageTime = conversation['last_message_time'];
-
-    return GestureDetector(
-      onTap: () {
-        _markAsRead(conversation['id']);
-        widget.onConversationTap?.call({
-          'conversation_id': conversation['id'],
-          'other_user': otherUser,
-          'title': conversation['title'] ?? otherUser?['name'] ?? 'Conversation',
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: isUnread ? danger.withOpacity(0.05) : Colors.white,
-        child: Row(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundImage: otherUser?['avatar'] != null
-                      ? CachedNetworkImageProvider(otherUser!['avatar'])
-                      : null,
-                  child: otherUser?['avatar'] == null
-                      ? Icon(Icons.person, size: 28, color: Colors.grey[400])
-                      : null,
-                ),
-                if (otherUser?['is_online'] == true)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conversation['title'] ?? otherUser?['name'] ?? 'Conversation',
-                          style: TextStyle(
-                            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 16,
-                            color: navy,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        _formatTime(lastMessageTime),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: textMuted,
-                          fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (conversation['is_typing'] == true)
-                        const SizedBox(
-                          width: 60,
-                          child: Text(
-                            'Écrit...',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: gold,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        )
-                      else
-                        Expanded(
-                          child: Text(
-                            lastMessage ?? 'Dernier message',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isUnread ? navy : textMuted,
-                              fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      if (unreadCount > 0)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: danger,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$unreadCount',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+  Widget _buildConversationTile(Conversation conversation) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: conversation.otherUserAvatar != null && conversation.otherUserAvatar!.isNotEmpty
+            ? NetworkImage(conversation.otherUserAvatar!)
+            : null,
+        child: conversation.otherUserAvatar == null || conversation.otherUserAvatar!.isEmpty
+            ? const Icon(Icons.person, size: 24)
+            : null,
+      ),
+      title: Text(
+        conversation.otherUserName,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        conversation.lastMessage,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: conversation.unreadCount > 0 ? Colors.black : Colors.grey,
+          fontWeight: conversation.unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            _formatTime(conversation.lastMessageAt),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          if (conversation.unreadCount > 0)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4AF37),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${conversation.unreadCount}',
+                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
+      ),
+      onTap: () {
+        context.push('/network/chat/${conversation.otherUserId}', extra: conversation.otherUserName);
+      },
     );
   }
 
@@ -342,19 +121,34 @@ class _ConversationListState extends State<ConversationList> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[300]),
+          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           const Text(
             'Aucune conversation',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+            style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Commencez à discuter avec des vendeurs',
-            style: TextStyle(color: textMuted),
+          const Text(
+            'Envoyez un message à quelqu\'un pour commencer',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    
+    if (diff.inDays > 0) {
+      return DateFormat('dd/MM').format(date);
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}h';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}min';
+    } else {
+      return 'maintenant';
+    }
   }
 }
