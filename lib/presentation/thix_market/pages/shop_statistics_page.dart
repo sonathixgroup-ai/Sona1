@@ -1,5 +1,5 @@
+// lib/presentation/thix_market/pages/shop_statistics_page.dart
 import 'package:flutter/material.dart';
-
 import '../widgets/shops/shop_statistics.dart';
 
 class ShopStatisticsPage extends StatelessWidget {
