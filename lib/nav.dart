@@ -1242,15 +1242,14 @@ GoRoute(
     final extra = state.extra as Map<String, dynamic>?;
     return NoTransitionPage(
       child: ChatPage(
-        conversationId: '', // À créer une nouvelle conversation
+        conversationId: '', // sera créée à l'ouverture
         shopId: shopId,
         title: extra?['title'] ?? 'Vendeur',
         avatar: extra?['userAvatar'],
       ),
     );
   },
-),
-            
+),            
             // Boutiques
             GoRoute(
               path: 'shop/create',
