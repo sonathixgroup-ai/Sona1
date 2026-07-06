@@ -70,8 +70,6 @@ import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
-import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
-import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
 
 // Module Santé
 import 'package:thix_id/presentation/thix_sante/thix_sante_page.dart';
@@ -239,9 +237,7 @@ class AppRoutes {
   static const String thixMedia = '/thix-media';
   static const String thixMediaVideo = '/thix-media/video';
   static const String adminMedia = '/admin/media';
-  static const String thixInfo = '/info';
-  static const String thixInfoArticleBasePath = '/info/a';
-
+  
   // THIX ÉVÉNEMENT
   static const String events = '/thix-event';
   static const String thixEvent = '/thix-event';
@@ -1266,19 +1262,7 @@ class AppRouter {
             );
           },
         ),
-        GoRoute(
-          path: AppRoutes.thixInfo,
-          name: 'thixInfo',
-          pageBuilder: (context, state) => NoTransitionPage(child: ThixInfoHomePage()),
-        ),
-        GoRoute(
-          path: '${AppRoutes.thixInfoArticleBasePath}/:id',
-          name: 'thixInfoArticle',
-          pageBuilder: (context, state) {
-            final id = (state.pathParameters['id'] ?? '').trim();
-            return NoTransitionPage(child: ThixInfoArticlePage(id: id));
-          },
-        ),
+        
         GoRoute(
           path: AppRoutes.reservation,
           name: 'reservation',
