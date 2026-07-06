@@ -62,30 +62,35 @@ class _MarketHomePageState extends State<MarketHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 1. Lives en cours (dynamique)
                   if (marketProvider.liveSessions.isNotEmpty) ...[
                     _buildLiveSessions(marketProvider.liveSessions),
                     const SizedBox(height: 12),
                   ],
+                  // 2. Catégories (widget statique, mais fonctionnel)
                   const CategoryGrid(),
                   const SizedBox(height: 12),
+                  // 3. Bannières promotionnelles (dynamique)
                   if (marketProvider.promoBanners.isNotEmpty) ...[
                     _buildPromoBanners(marketProvider.promoBanners),
                     const SizedBox(height: 12),
                   ],
-                  _buildSuperPromo(),
-                  const SizedBox(height: 16),
+                  // 4. Offres Flash (dynamique)
                   if (marketProvider.flashSales.isNotEmpty) ...[
                     _buildFlashSales(marketProvider.flashSales),
                     const SizedBox(height: 16),
                   ],
+                  // 5. Recommandé pour vous (dynamique)
                   if (marketProvider.recommendedProducts.isNotEmpty) ...[
                     _buildRecommendedSection(marketProvider.recommendedProducts),
                     const SizedBox(height: 16),
                   ],
+                  // 6. Boutiques mises en avant (dynamique)
                   if (marketProvider.featuredShops.isNotEmpty) ...[
                     _buildFeaturedShops(marketProvider.featuredShops),
                     const SizedBox(height: 16),
                   ],
+                  // 7. Découvrir plus (dynamique)
                   if (marketProvider.forYouProducts.isNotEmpty) ...[
                     _buildForYouSection(marketProvider.forYouProducts),
                   ],
@@ -100,6 +105,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // APP BAR (inchangée)
+  // ============================================================
   Widget _buildAppBar(MarketProvider provider) {
     return SliverAppBar(
       expandedHeight: 130,
@@ -224,7 +232,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // LIVES EN COURS
+  // LIVES EN COURS (inchangé, dynamique)
   // ============================================================
   Widget _buildLiveSessions(List<dynamic> lives) {
     return Column(
@@ -374,81 +382,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // SUPER PROMO
-  // ============================================================
-  Widget _buildSuperPromo() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A73E8), Color(0xFF0D47A1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: primaryBlue.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '⭐ SUPER PROMO',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '-50% SUR TOUT !',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () => context.push('/market/promo'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: primaryBlue,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: const Text(
-                    'J\'EN PROFITE →',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.local_offer,
-            color: Colors.white,
-            size: 40,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // BANNIÈRES PROMO
+  // BANNIÈRES PROMO (dynamique)
   // ============================================================
   Widget _buildPromoBanners(List<dynamic> banners) {
     return CarouselSlider(
@@ -475,7 +409,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // OFFRES FLASH
+  // OFFRES FLASH (dynamique)
   // ============================================================
   Widget _buildFlashSales(List<dynamic> flashSales) {
     return Column(
@@ -522,7 +456,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // RECOMMANDÉ POUR VOUS
+  // RECOMMANDÉ POUR VOUS (dynamique)
   // ============================================================
   Widget _buildRecommendedSection(List<dynamic> products) {
     return Column(
@@ -573,7 +507,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOUTIQUES MISES EN AVANT
+  // BOUTIQUES MISES EN AVANT (dynamique)
   // ============================================================
   Widget _buildFeaturedShops(List<dynamic> shops) {
     return Column(
@@ -667,7 +601,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // DÉCOUVRIR PLUS
+  // DÉCOUVRIR PLUS (dynamique)
   // ============================================================
   Widget _buildForYouSection(List<dynamic> products) {
     return Column(
@@ -718,7 +652,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // PRODUIT GRID (réutilisable) – avec image + devise
+  // PRODUIT GRID (réutilisable, avec devise et image)
   // ============================================================
   Widget _buildProductGridItem(Map<String, dynamic> product, {bool isFlash = false}) {
     final hasDiscount = product['discount_price'] != null &&
@@ -727,11 +661,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
         .toDouble();
     final originalPrice = product['price'].toDouble();
 
-    // ✅ Devise
     final currency = product['currency'] ?? 'CDF';
     final currencySymbol = currency == 'USD' ? '\$' : 'FC';
 
-    // ✅ Image : image_url ou images[0]
     String imageUrl = product['image_url'] ?? '';
     if (imageUrl.isEmpty) {
       final images = product['images'] as List?;
@@ -883,7 +815,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOTTOM NAV BAR
+  // BOTTOM NAV BAR (inchangé)
   // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
