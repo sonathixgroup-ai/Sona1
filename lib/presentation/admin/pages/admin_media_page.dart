@@ -36,11 +36,11 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
   bool _isRecommended = false;
   bool _isPublished = true;
 
-  // Support Web + Mobile
+  // Fichiers sélectionnés (PlatformFile pour file_picker)
   PlatformFile? _selectedCoverFile;
   PlatformFile? _selectedVideoFile;
-  
-  // Preview
+
+  // Prévisualisation
   String? _previewCoverUrl;
   String? _previewVideoUrl;
 
@@ -73,7 +73,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
       setState(() => _previewCoverUrl = null);
       return;
     }
-    
+
     if (kIsWeb && file.bytes != null) {
       final url = Uri.dataFromBytes(file.bytes!, mimeType: 'image/jpeg').toString();
       setState(() => _previewCoverUrl = url);
@@ -87,7 +87,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
       setState(() => _previewVideoUrl = null);
       return;
     }
-    
+
     if (kIsWeb && file.bytes != null) {
       final url = Uri.dataFromBytes(file.bytes!, mimeType: 'video/mp4').toString();
       setState(() => _previewVideoUrl = url);
@@ -126,25 +126,18 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
     }
   }
 
-  // Convert PlatformFile to File for mobile (ou garder PlatformFile)
-  File? _platformFileToFile(PlatformFile? platformFile) {
-    if (platformFile == null) return null;
-    if (kIsWeb) return null; // Web ne supporte pas File
-    if (platformFile.path == null) return null;
-    return File(platformFile.path!);
-  }
-
   Future<void> _saveMedia() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       if (_isEditing && _editingItem != null) {
+        // ✅ On passe directement les PlatformFile (le service gère l'upload)
         await _mediaService.updateWithFiles(
           _editingItem!,
-          newCoverFile: _platformFileToFile(_selectedCoverFile),
-          newVideoFile: _platformFileToFile(_selectedVideoFile),
+          newCoverFile: _selectedCoverFile,
+          newVideoFile: _selectedVideoFile,
         );
       } else {
         final newItem = MediaContent(
@@ -156,8 +149,8 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
           coverUrl: _coverUrlController.text,
           videoUrl: _videoUrlController.text,
           viewCount: int.tryParse(_viewCountController.text) ?? 0,
-          rankPosition: _rankPositionController.text.isNotEmpty 
-              ? int.parse(_rankPositionController.text) 
+          rankPosition: _rankPositionController.text.isNotEmpty
+              ? int.parse(_rankPositionController.text)
               : null,
           isTrending: _isTrending,
           isNewRelease: _isNewRelease,
@@ -166,17 +159,17 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        
+
         await _mediaService.insertWithFiles(
           newItem,
-          coverFile: _platformFileToFile(_selectedCoverFile),
-          videoFile: _platformFileToFile(_selectedVideoFile),
+          coverFile: _selectedCoverFile,
+          videoFile: _selectedVideoFile,
         );
       }
-      
+
       _resetForm();
       await _loadMedia();
-      
+
       if (mounted) {
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
@@ -209,9 +202,9 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
       ),
     );
     if (confirm != true) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       await _mediaService.deleteMedia(item);
       await _loadMedia();
@@ -301,33 +294,33 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextFormField(
                       controller: _titleController,
                       decoration: const InputDecoration(labelText: 'Titre *'),
                       validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
                     ),
                     const SizedBox(height: 12),
-                    
+
                     TextFormField(
                       controller: _subtitleController,
                       decoration: const InputDecoration(labelText: 'Sous-titre'),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     TextFormField(
                       controller: _typeController,
                       decoration: const InputDecoration(labelText: 'Type (Musique, Film...) *'),
                       validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
                     ),
                     const SizedBox(height: 12),
-                    
+
                     TextFormField(
                       controller: _yearController,
                       decoration: const InputDecoration(labelText: 'Année'),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
@@ -336,8 +329,8 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                       child: ListTile(
                         leading: const Icon(Icons.image),
                         title: Text(
-                          _selectedCoverFile == null 
-                              ? 'Aucun fichier image' 
+                          _selectedCoverFile == null
+                              ? 'Aucun fichier image'
                               : _selectedCoverFile!.name,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -361,7 +354,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
+
                     TextFormField(
                       controller: _coverUrlController,
                       decoration: const InputDecoration(
@@ -369,7 +362,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                         hintText: 'https://...',
                       ),
                     ),
-                    
+
                     // Preview Cover
                     if (_previewCoverUrl != null) ...[
                       const SizedBox(height: 12),
@@ -390,9 +383,9 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                         ),
                       ),
                     ],
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
@@ -401,8 +394,8 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                       child: ListTile(
                         leading: const Icon(Icons.video_file),
                         title: Text(
-                          _selectedVideoFile == null 
-                              ? 'Aucun fichier vidéo' 
+                          _selectedVideoFile == null
+                              ? 'Aucun fichier vidéo'
                               : _selectedVideoFile!.name,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -426,18 +419,18 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
+
                     TextFormField(
                       controller: _videoUrlController,
                       decoration: const InputDecoration(
                         labelText: 'URL vidéo (si pas de fichier)',
                         hintText: 'https://...',
                       ),
-                      validator: (v) => (v == null || v.isEmpty) && _selectedVideoFile == null 
-                          ? 'Fichier ou URL requis' 
+                      validator: (v) => (v == null || v.isEmpty) && _selectedVideoFile == null
+                          ? 'Fichier ou URL requis'
                           : null,
                     ),
-                    
+
                     // Preview Video
                     if (_previewVideoUrl != null) ...[
                       const SizedBox(height: 12),
@@ -453,23 +446,23 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                         ),
                       ),
                     ],
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     TextFormField(
                       controller: _viewCountController,
                       decoration: const InputDecoration(labelText: 'Nombre de vues'),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 12),
-                    
+
                     TextFormField(
                       controller: _rankPositionController,
                       decoration: const InputDecoration(labelText: 'Position dans tendances (1,2,3...)'),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 8),
-                    
+
                     SwitchListTile(
                       title: const Text('Tendance'),
                       value: _isTrending,
@@ -495,7 +488,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
                       contentPadding: EdgeInsets.zero,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     ElevatedButton(
                       onPressed: _saveMedia,
                       style: ElevatedButton.styleFrom(
@@ -521,7 +514,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     if (_error != null) {
       return Scaffold(
         body: Center(
@@ -541,7 +534,7 @@ class _AdminMediaPageState extends State<AdminMediaPage> {
         ),
       );
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Administration THIX MEDIA'),
@@ -681,7 +674,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     if (!_isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     return Stack(
       alignment: Alignment.center,
       children: [
