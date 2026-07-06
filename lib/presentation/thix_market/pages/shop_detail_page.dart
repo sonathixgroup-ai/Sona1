@@ -78,7 +78,7 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.store_off, size: 72, color: Colors.grey[300]), // ✅ correction
+              Icon(Icons.store, size: 72, color: Colors.grey[300]), // ✅ icône valide
               const SizedBox(height: 16),
               const Text(
                 'Boutique introuvable',
@@ -145,7 +145,7 @@ class _ShopDetailPageState extends State<ShopDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ============================================================
-            // EN-TÊTE DE LA BOUTIQUE (même style que ShopsPage)
+            // EN-TÊTE DE LA BOUTIQUE
             // ============================================================
             Container(
               padding: const EdgeInsets.all(16),
