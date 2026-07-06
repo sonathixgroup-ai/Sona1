@@ -348,9 +348,10 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
         children: [
           Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
+          // ✅ Correction : suppression du const pour utiliser Colors.grey[600]
           Text(
             message,
-            style: const TextStyle(fontSize: 18, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -432,7 +433,6 @@ class AdvancedFiltersSheet extends StatelessWidget {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          // À implémenter : sliders de prix, catégories, etc.
           const Text('Prix (FCFA)', style: TextStyle(fontWeight: FontWeight.w500)),
           const RangeSlider(
             values: RangeValues(0, 1000000),
