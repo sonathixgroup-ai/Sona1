@@ -263,7 +263,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
+  // ✅ Correction : ajout des vérifications pour éviter l'erreur "Produit introuvable"
   void _buyNow() async {
+    if (_product.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le produit n’est pas encore chargé.')),
+      );
+      return;
+    }
+    if ((_product['stock'] ?? 0) <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Produit en rupture de stock.')),
+      );
+      return;
+    }
     await _addToCart();
     if (mounted) {
       context.push('/market/checkout');
@@ -311,9 +324,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final currency = _product['currency'] ?? 'CDF';
     final currencySymbol = currency == 'USD' ? '\$' : 'FC';
 
-    // Données réelles de livraison
     final shippingCost = _product['shipping_cost'] as double?;
     final warrantyMonths = _product['warranty_months'] as int?;
+
+    // ✅ Indique si le produit est disponible et chargé
+    final isProductAvailable = !_product.isEmpty && (_product['stock'] ?? 0) > 0;
 
     return Scaffold(
       backgroundColor: pureWhite,
@@ -667,9 +682,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
               ),
               const SizedBox(width: 8),
+
+              // ✅ Panier – désactivé si produit indisponible
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart ? _addToCart : null,
+                  onPressed: isProductAvailable && !_isAddingToCart ? _addToCart : null,
                   icon: _isAddingToCart
                       ? const SizedBox(
                           width: 20,
@@ -689,6 +706,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
               ),
               const SizedBox(width: 8),
+
+              // Chat
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _openChatWithSeller,
@@ -705,9 +724,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
               ),
               const SizedBox(width: 8),
+
+              // ✅ Acheter – désactivé si produit indisponible
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: (_product['stock'] ?? 0) > 0 && !_isAddingToCart ? _buyNow : null,
+                  onPressed: isProductAvailable && !_isAddingToCart ? _buyNow : null,
                   icon: const Icon(Icons.flash_on),
                   label: const Text('Acheter'),
                   style: OutlinedButton.styleFrom(
@@ -727,9 +748,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  // ============================================================
-  // WIDGETS SECONDAIRES
-  // ============================================================
+  // ─── WIDGETS SECONDAIRES ───
 
   Widget _buildVariantsSection(List variants) {
     return Padding(
