@@ -66,22 +66,15 @@ class _VendorDashboardState extends State<VendorDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // En-tête boutique (ou absence)
               if (hasShop)
                 _buildShopHeader(shop!, context)
               else
                 _buildNoShopHeader(context),
               const SizedBox(height: 24),
-
-              // KPIs
               _buildKpiGrid(totalSales, pendingOrders.length, totalProducts, rating),
               const SizedBox(height: 24),
-
-              // Grille des actions
               _buildActionGrid(context, hasShop),
               const SizedBox(height: 24),
-
-              // Dernières commandes
               _buildRecentOrders(orders),
             ],
           ),
@@ -106,15 +99,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Vous n’avez pas encore de boutique',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+                const Text('Vous n’avez pas encore de boutique',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                const Text(
-                  'Créez votre boutique pour commencer à vendre',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                const Text('Créez votre boutique pour commencer à vendre',
+                    style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: () => context.push('/market/shop/create'),
@@ -152,14 +141,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  shop['name'] ?? 'Ma boutique',
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  shop['city'] ?? 'Ville non renseignée',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
+                Text(shop['name'] ?? 'Ma boutique',
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(shop['city'] ?? 'Ville non renseignée',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
           ),
