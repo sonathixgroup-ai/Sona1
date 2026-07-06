@@ -1064,13 +1064,19 @@ class AppRouter {
           },
         ),
         GoRoute(
-          path: '/network/comments/:postId',
-          name: 'networkComments',
-          pageBuilder: (context, state) {
-            final postId = state.pathParameters['postId']!;
-            return NoTransitionPage(child: CommentsPage(postId: postId));
-          },
-        ),
+  path: '/network/comments/:postId',
+  name: 'networkComments',
+  pageBuilder: (context, state) {
+    final postId = state.pathParameters['postId']!;
+    final currentProfileId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    return NoTransitionPage(
+      child: CommentsPage(
+        postId: postId,
+        currentProfileId: currentProfileId,
+      ),
+    );
+  },
+)
         GoRoute(
           path: '/network/hashtag/:tag',
           name: 'networkHashtag',
