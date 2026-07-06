@@ -192,8 +192,7 @@ import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
-import 'package:thix_id/presentation/thix_info/thix_info_article_page.dart';
-import 'package:thix_id/presentation/thix_info/thix_info_home_page.dart';
+
 
 // THIX ÉVÉNEMENT
 import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
@@ -423,7 +422,7 @@ static const String chatRecurringSchedule = '/chat/scheduled/recurring';
 
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
-  static String thixInfoArticle(String id) => '$thixInfoArticleBasePath/$id';
+  
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
   static String networkPost(String postId) => '$networkPostBasePath/$postId';
   static String networkCommunity(String communityId) => '$networkCommunityBasePath/$communityId';
@@ -2197,20 +2196,7 @@ GoRoute(
             );
           },
         ),
-        GoRoute(
-          path: AppRoutes.thixInfo,
-          name: 'thixInfo',
-          pageBuilder: (context, state) =>
-              NoTransitionPage(child: ThixInfoHomePage()),
-        ),
-        GoRoute(
-          path: '${AppRoutes.thixInfoArticleBasePath}/:id',
-          name: 'thixInfoArticle',
-          pageBuilder: (context, state) {
-            final id = (state.pathParameters['id'] ?? '').trim();
-            return NoTransitionPage(child: ThixInfoArticlePage(id: id));
-          },
-        ),
+        
         GoRoute(
           path: AppRoutes.reservation,
           name: 'reservation',
