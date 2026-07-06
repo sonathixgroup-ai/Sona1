@@ -1,3 +1,4 @@
+// lib/presentation/network/profile_page.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,19 +7,29 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart'; // ✅ AJOUT
+import 'package:url_launcher/url_launcher.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'widgets/pinned_post.dart';
 import 'dart:async';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends StatefulWidget { // ✅ StatefulWidget
   final String? userId;
-  const ProfilePage({super.key, this.userId});
+  final String? currentProfileId; // ✅ paramètre ajouté
+
+  const ProfilePage({
+    super.key,
+    this.userId,
+    this.currentProfileId,
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
+  // ... tout le reste du code reste inchangé
 }
 
 class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
