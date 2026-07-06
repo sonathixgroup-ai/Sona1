@@ -48,12 +48,18 @@ class _MarketHomePageState extends State<MarketHomePage> {
     super.dispose();
   }
 
-  void _goToMyShop(MarketProvider marketProvider, ShopProvider shopProvider) {
+  // ✅ Nouvelle méthode : va vers l'espace vendeur (SellPage) si boutique existe
+  void _goToSell(ShopProvider shopProvider) {
     if (shopProvider.hasShop) {
-      context.push('/market/shop/${shopProvider.myShopId}');
+      context.push('/market/sell');
     } else {
       context.push('/market/shop/create');
     }
+  }
+
+  // ✅ Méthode pour le panier
+  void _goToCart() {
+    context.push('/market/cart');
   }
 
   Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover, double iconSize = 22, IconData icon = Icons.image_outlined}) {
@@ -213,7 +219,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
                     ),
                 ],
               ),
-              _buildIconButton(Icons.storefront_rounded, () => _goToMyShop(marketProvider, shopProvider)),
+              // ✅ ICI : icône boutique -> espace vendeur (SellPage) ou création
+              _buildIconButton(Icons.storefront_rounded, () => _goToSell(shopProvider)),
               const SizedBox(width: 8),
             ],
           ),
@@ -371,7 +378,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         const SizedBox(width: 10),
         Expanded(
           child: GestureDetector(
-            onTap: () => _goToMyShop(marketProvider, shopProvider),
+            onTap: () => _goToSell(shopProvider), // ✅ redirige vers l'espace vendeur
             child: Container(
               height: 110,
               padding: const EdgeInsets.all(12),
@@ -592,7 +599,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOTTOM NAV
+  // BOTTOM NAV — PANIER à la place de Mon Shop
   // ============================================================
   Widget _buildBottomNavBar(MarketProvider marketProvider, ShopProvider shopProvider) {
     return Container(
@@ -605,7 +612,8 @@ class _MarketHomePageState extends State<MarketHomePage> {
             children: [
               _buildNavItem(Icons.home_rounded, 'Accueil', true, () {}),
               _buildNavItem(Icons.category_rounded, 'Catégories', false, () => context.push('/market/search')),
-              _buildNavItem(Icons.storefront_rounded, 'Mon Shop', false, () => _goToMyShop(marketProvider, shopProvider)),
+              // ✅ Panier
+              _buildNavItem(Icons.shopping_cart_rounded, 'Panier', false, _goToCart),
               _buildNavItem(Icons.message_rounded, 'Messages', false, () => context.push('/market/messages')),
               _buildNavItem(Icons.person_rounded, 'Compte', false, () => context.push('/market/activity')),
             ],
@@ -632,7 +640,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
 }
 
 // ============================================================
-// PRODUCT MARQUEE
+// PRODUCT MARQUEE (inchangé)
 // ============================================================
 class _ProductMarquee extends StatefulWidget {
   final List<dynamic> products;
