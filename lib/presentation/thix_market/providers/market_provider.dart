@@ -13,9 +13,6 @@ class MarketProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _forYouProducts = [];
   int _unreadNotifications = 0;
   bool _isLoading = false;
-  bool _isRefreshing = false;
-  String? _error;
-  DateTime? _lastLoadedAt;
 
   // Getters
   List<Map<String, dynamic>> get liveSessions => _liveSessions;
@@ -26,30 +23,15 @@ class MarketProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get forYouProducts => _forYouProducts;
   int get unreadNotifications => _unreadNotifications;
   bool get isLoading => _isLoading;
-  bool get isRefreshing => _isRefreshing;
-  String? get error => _error;
-  bool get hasData =>
-      _liveSessions.isNotEmpty ||
-      _flashSales.isNotEmpty ||
-      _promoBanners.isNotEmpty ||
-      _recommendedProducts.isNotEmpty ||
-      _featuredShops.isNotEmpty ||
-      _forYouProducts.isNotEmpty;
 
   // ============================================================
   // CHARGEMENT DES DONNÉES UNIQUEMENT DEPUIS SUPABASE
   // ============================================================
 
-  Future<void> loadHomeData({bool isRefresh = false}) async {
-    if (isRefresh) {
-      _isRefreshing = true;
-    } else {
-      _isLoading = true;
-    }
-    _error = null;
-    notifyListeners();
-
+  Future<void> loadHomeData() async {
+    _setLoading(true);
     try {
+      // Exécuter toutes les requêtes en parallèle
       final results = await Future.wait([
         _loadLiveSessions(),
         _loadFlashSales(),
@@ -60,21 +42,20 @@ class MarketProvider extends ChangeNotifier {
         _loadUnreadNotifications(),
       ]);
 
-      _liveSessions = results[0] as List<Map<String, dynamic>>;
-      _flashSales = results[1] as List<Map<String, dynamic>>;
-      _promoBanners = results[2] as List<Map<String, dynamic>>;
-      _recommendedProducts = results[3] as List<Map<String, dynamic>>;
-      _featuredShops = results[4] as List<Map<String, dynamic>>;
-      _forYouProducts = results[5] as List<Map<String, dynamic>>;
-      _unreadNotifications = results[6] as int;
-      _lastLoadedAt = DateTime.now();
+      // Mettre à jour les listes
+      _liveSessions = results[0];
+      _flashSales = results[1];
+      _promoBanners = results[2];
+      _recommendedProducts = results[3];
+      _featuredShops = results[4];
+      _forYouProducts = results[5];
+      _unreadNotifications = results[6];
+
+      notifyListeners();
     } catch (e) {
       debugPrint('Error loading home data from Supabase: $e');
-      _error = 'Impossible de charger les données. Vérifiez votre connexion.';
     } finally {
-      _isLoading = false;
-      _isRefreshing = false;
-      notifyListeners();
+      _setLoading(false);
     }
   }
 
@@ -179,11 +160,10 @@ class MarketProvider extends ChangeNotifier {
       if (userId == null) return 0;
       final response = await _supabase
           .from('notifications')
-          .select('id')
+          .select('id', count: Count.exact)
           .eq('user_id', userId)
-          .eq('is_read', false)
-          .count(CountOption.exact);
-      return response.count;
+          .eq('is_read', false);
+      return response.count ?? 0;
     } catch (e) {
       debugPrint('Error loading unread notifications: $e');
       return 0;
@@ -194,16 +174,13 @@ class MarketProvider extends ChangeNotifier {
   // UTILITAIRES
   // ============================================================
 
-  /// Pull-to-refresh : garde l'ancien contenu affiché pendant le refresh
-  Future<void> refresh() async {
-    await loadHomeData(isRefresh: true);
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
   }
 
-  /// Recharge seulement si les données ont plus de [maxAge] (évite les appels inutiles)
-  Future<void> loadIfStale({Duration maxAge = const Duration(minutes: 3)}) async {
-    if (_lastLoadedAt == null ||
-        DateTime.now().difference(_lastLoadedAt!) > maxAge) {
-      await loadHomeData();
-    }
+  // Méthode pour rafraîchir les données (pull-to-refresh)
+  Future<void> refresh() async {
+    await loadHomeData();
   }
 }
