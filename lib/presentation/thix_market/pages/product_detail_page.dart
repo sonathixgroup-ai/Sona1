@@ -7,7 +7,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../cart/cart_provider.dart';
+import '../cart/cart_provider.dart'; // ✅ chemin correct (un niveau au-dessus)
 import '../widgets/products/product_card.dart';
 
 class ProductDetailPage extends StatefulWidget {
