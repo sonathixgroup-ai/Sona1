@@ -184,7 +184,6 @@ class _ProductDetailState extends State<ProductDetail> {
     }
     setState(() => _isAddingToCart = true);
     try {
-      // Vérifier si déjà dans le panier
       final existing = await Supabase.instance.client
           .from('cart')
           .select()
@@ -255,6 +254,10 @@ class _ProductDetailState extends State<ProductDetail> {
     final images = (_product['images'] as List?)?.cast<String>() ?? [_product['image_url'] ?? ''];
     final variants = _product['variants'] as List? ?? [];
     final colors = _product['colors'] as List? ?? [];
+
+    // ✅ Devise dynamique
+    final currency = _product['currency'] ?? 'CDF';
+    final currencySymbol = currency == 'USD' ? '\$' : 'FC';
 
     return Scaffold(
       body: CustomScrollView(
@@ -398,7 +401,7 @@ class _ProductDetailState extends State<ProductDetail> {
                       Row(
                         children: [
                           Text(
-                            '${(hasDiscount ? _product['discount_price'] : _product['price']).toInt()} FCFA',
+                            '${(hasDiscount ? _product['discount_price'] : _product['price']).toInt()} $currencySymbol',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -409,7 +412,7 @@ class _ProductDetailState extends State<ProductDetail> {
                             Padding(
                               padding: const EdgeInsets.only(left: 8),
                               child: Text(
-                                '${_product['price'].toInt()} FCFA',
+                                '${_product['price'].toInt()} $currencySymbol',
                                 style: TextStyle(
                                   fontSize: 16,
                                   decoration: TextDecoration.lineThrough,
