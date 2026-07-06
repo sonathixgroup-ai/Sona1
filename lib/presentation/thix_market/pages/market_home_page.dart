@@ -20,10 +20,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
   final ScrollController _scrollController = ScrollController();
   bool _isAppBarExpanded = true;
 
-  // Couleurs inspirées de la capture d'écran (bleu doux et lumineux)
-  static const Color primaryBlue = Color(0xFF1A73E8);    // Bleu Google / THIX
-  static const Color lightBlue = Color(0xFFE8F0FE);     // Fond bleu très clair
-  static const Color secondaryBg = Color(0xFFF8F9FA);   // Fond gris clair
+  static const Color primaryBlue = Color(0xFF1A73E8);
+  static const Color lightBlue = Color(0xFFE8F0FE);
+  static const Color secondaryBg = Color(0xFFF8F9FA);
   static const Color cardBg = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF202124);
   static const Color textMedium = Color(0xFF5F6368);
@@ -64,37 +63,21 @@ class _MarketHomePageState extends State<MarketHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. LIVES EN COURS (version compacte)
                   _buildLiveSessions(marketProvider.liveSessions),
                   const SizedBox(height: 12),
-
-                  // 2. CATÉGORIES
                   const CategoryGrid(),
                   const SizedBox(height: 12),
-
-                  // 3. BANNIÈRES PROMO
                   _buildPromoBanners(marketProvider.promoBanners),
                   const SizedBox(height: 12),
-
-                  // 4. SUPER PROMO (style bleu)
                   _buildSuperPromo(),
                   const SizedBox(height: 16),
-
-                  // 5. OFFRES FLASH (4 colonnes)
                   _buildFlashSales(marketProvider.flashSales),
                   const SizedBox(height: 16),
-
-                  // 6. RECOMMANDÉ POUR VOUS (4 colonnes)
                   _buildRecommendedSection(marketProvider.recommendedProducts),
                   const SizedBox(height: 16),
-
-                  // 7. BOUTIQUES MISES EN AVANT
                   _buildFeaturedShops(marketProvider.featuredShops),
                   const SizedBox(height: 16),
-
-                  // 8. DÉCOUVRIR PLUS (4 × 8 colonnes)
                   _buildForYouSection(marketProvider.forYouProducts),
-
                   const SizedBox(height: 80),
                 ],
               ),
@@ -106,9 +89,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // APP BAR (style THIX ID)
-  // ============================================================
   Widget _buildAppBar(MarketProvider provider) {
     return SliverAppBar(
       expandedHeight: 130,
@@ -150,14 +130,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
                     ),
                   ),
                   const Spacer(),
-                  _buildIconButton(Icons.qr_code_scanner, () => context.push('/scan-qr'), Colors.grey[600]),
-                  _buildIconButton(Icons.notifications_none, () => context.push('/market/notifications'), Colors.grey[600]),
-                  _buildIconButton(Icons.storefront_outlined, () => context.push('/market/sell'), Colors.grey[600]),
+                  // ✅ Correction : Colors.grey[600] → Colors.grey.shade600
+                  _buildIconButton(Icons.qr_code_scanner, () => context.push('/scan-qr'), Colors.grey.shade600),
+                  _buildIconButton(Icons.notifications_none, () => context.push('/market/notifications'), Colors.grey.shade600),
+                  _buildIconButton(Icons.storefront_outlined, () => context.push('/market/sell'), Colors.grey.shade600),
                   const SizedBox(width: 16),
                 ],
               ),
               const SizedBox(height: 8),
-              // Barre de recherche
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GestureDetector(
@@ -221,9 +201,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 1. LIVES EN COURS
-  // ============================================================
+  // Les autres méthodes (_buildLiveSessions, _buildSuperPromo, etc.) restent inchangées.
+  // Je les inclus ci-dessous pour que le fichier soit complet.
+
   Widget _buildLiveSessions(List<dynamic> lives) {
     if (lives.isEmpty) return const SizedBox();
 
@@ -373,9 +353,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 2. SUPER PROMO (style THIX)
-  // ============================================================
   Widget _buildSuperPromo() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -447,9 +424,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 3. BANNIÈRES PROMOTIONNELLES
-  // ============================================================
   Widget _buildPromoBanners(List<dynamic> banners) {
     if (banners.isEmpty) return const SizedBox();
 
@@ -476,9 +450,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 4. OFFRES FLASH (4 colonnes)
-  // ============================================================
   Widget _buildFlashSales(List<dynamic> flashSales) {
     if (flashSales.isEmpty) return const SizedBox();
 
@@ -525,9 +496,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 5. RECOMMANDÉ POUR VOUS (4 colonnes)
-  // ============================================================
   Widget _buildRecommendedSection(List<dynamic> products) {
     if (products.isEmpty) return const SizedBox();
 
@@ -578,9 +546,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 6. BOUTIQUES MISES EN AVANT
-  // ============================================================
   Widget _buildFeaturedShops(List<dynamic> shops) {
     if (shops.isEmpty) return const SizedBox();
 
@@ -674,9 +639,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // 7. DÉCOUVRIR PLUS (4 × 8 colonnes)
-  // ============================================================
   Widget _buildForYouSection(List<dynamic> products) {
     if (products.isEmpty) return const SizedBox();
 
@@ -727,9 +689,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // WIDGET PRODUIT GRID (réutilisable)
-  // ============================================================
   Widget _buildProductGridItem(Map<String, dynamic> product, {bool isFlash = false}) {
     final hasDiscount = product['discount_price'] != null &&
         product['discount_price'] < product['price'];
@@ -877,9 +836,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // BOTTOM NAV BAR (style THIX ID)
-  // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
       decoration: BoxDecoration(
