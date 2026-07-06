@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/widgets/publish_announcement_form.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,16 +30,19 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   final _discountPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _brandController = TextEditingController();
-  
+  final _customCityController = TextEditingController();
+
   List<File> _selectedImages = [];
   String? _category;
   String? _condition;
   String? _shippingType;
-  String? _currency; // ✅ Nouveau champ
+  String? _currency;
+  String? _city; // ✅ pas de valeur par défaut — l'utilisateur doit choisir
+  String? _placement; // ✅ emplacement de la publication
   bool _freeShipping = false;
   bool _isService = false;
   bool _isLoading = false;
-  
+
   Position? _currentPosition;
 
   final List<Map<String, String>> _categories = [
@@ -66,10 +70,22 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     {'id': 'both', 'name': 'Les deux'},
   ];
 
-  // ✅ Liste des devises disponibles
   final List<Map<String, String>> _currencies = [
     {'id': 'USD', 'name': 'USD (\$)'},
     {'id': 'CDF', 'name': 'CDF (FC)'},
+  ];
+
+  // ✅ Emplacement de publication — mappé sur les colonnes utilisées par la home page
+  final List<Map<String, String>> _placements = [
+    {'id': 'normal', 'name': 'Découvrir (normal)'},
+    {'id': 'flash_sale', 'name': 'Offre Flash'},
+    {'id': 'recommended', 'name': 'Mis en avant / Recommandé'},
+  ];
+
+  // ✅ Villes RDC — pas de valeur par défaut, "Autre" ouvre un champ libre
+  final List<String> _cities = [
+    'Kinshasa', 'Lubumbashi', 'Mbuji-Mayi', 'Kananga', 'Kisangani',
+    'Bukavu', 'Goma', 'Matadi', 'Kolwezi', 'Likasi', 'Autre',
   ];
 
   final ImagePicker _picker = ImagePicker();
@@ -91,6 +107,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     _discountPriceController.dispose();
     _stockController.dispose();
     _brandController.dispose();
+    _customCityController.dispose();
     super.dispose();
   }
 
@@ -120,9 +137,27 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     _category = data['category'];
     _condition = data['condition'];
     _shippingType = data['shipping_type'];
-    _currency = data['currency'] ?? 'CDF'; // ✅ valeur par défaut
+    _currency = data['currency'] ?? 'CDF';
     _freeShipping = data['free_shipping'] ?? false;
     _isService = data['is_service'] ?? false;
+
+    // Ville : si elle ne fait pas partie de la liste, on bascule sur "Autre"
+    final existingCity = data['city'] as String?;
+    if (existingCity != null && _cities.contains(existingCity)) {
+      _city = existingCity;
+    } else if (existingCity != null && existingCity.isNotEmpty) {
+      _city = 'Autre';
+      _customCityController.text = existingCity;
+    }
+
+    // Emplacement : déduit des flags existants
+    if (data['is_flash_sale'] == true) {
+      _placement = 'flash_sale';
+    } else if (data['is_featured'] == true) {
+      _placement = 'recommended';
+    } else {
+      _placement = 'normal';
+    }
   }
 
   Future<void> _pickImages() async {
@@ -151,15 +186,15 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         final fileExt = image.path.split('.').last;
         final fileName = '${const Uuid().v4()}.$fileExt';
         final filePath = 'products/$fileName';
-        
+
         await Supabase.instance.client.storage
             .from('product_images')
             .upload(filePath, image);
-        
+
         final publicUrl = Supabase.instance.client.storage
             .from('product_images')
             .getPublicUrl(filePath);
-        
+
         urls.add(publicUrl);
       } catch (e) {
         debugPrint('Error uploading image: $e');
@@ -168,11 +203,26 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     return urls;
   }
 
+  String? _resolveCity() {
+    if (_city == 'Autre') {
+      final custom = _customCityController.text.trim();
+      return custom.isEmpty ? null : custom;
+    }
+    return _city;
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImages.isEmpty && widget.editAnnouncement == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ajoutez au moins une image')),
+      );
+      return;
+    }
+    final resolvedCity = _resolveCity();
+    if (resolvedCity == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Précisez la ville de publication')),
       );
       return;
     }
@@ -202,9 +252,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         'shipping_type': _shippingType,
         'free_shipping': _freeShipping,
         'is_service': _isService,
-        'currency': _currency, // ✅ ajout de la devise
+        'currency': _currency,
+        'city': resolvedCity, // ✅ ville obligatoire, saisie par l'utilisateur
+        'is_flash_sale': _placement == 'flash_sale', // ✅ emplacement
+        'is_featured': _placement == 'recommended',  // ✅ emplacement
         'images': imageUrls,
-        'image_url': imageUrls.isNotEmpty ? imageUrls.first : null, // ✅ image principale
+        'image_url': imageUrls.isNotEmpty ? imageUrls.first : null,
         'latitude': _currentPosition?.latitude,
         'longitude': _currentPosition?.longitude,
         'updated_at': DateTime.now().toIso8601String(),
@@ -215,27 +268,27 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             .from('products')
             .update(productData)
             .eq('id', widget.editAnnouncement!['id']);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Annonce mise à jour')),
         );
       } else {
         productData['created_at'] = DateTime.now().toIso8601String();
         productData['status'] = 'active';
-        
+
         final response = await Supabase.instance.client
             .from('products')
             .insert(productData)
             .select()
             .single();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Annonce publiée avec succès')),
         );
-        
+
         widget.onSuccess?.call(response);
       }
-      
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
       debugPrint('Error submitting form: $e');
@@ -257,12 +310,9 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Images
-            const Text(
-              'Photos du produit',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+            const Text('Photos du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Container(
+            SizedBox(
               height: 120,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
@@ -297,23 +347,16 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: FileImage(_selectedImages[index]),
-                            fit: BoxFit.cover,
-                          ),
+                          image: DecorationImage(image: FileImage(_selectedImages[index]), fit: BoxFit.cover),
                         ),
                       ),
                       Positioned(
-                        top: 4,
-                        right: 4,
+                        top: 4, right: 4,
                         child: GestureDetector(
                           onTap: () => _removeImage(index),
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(
-                              color: Colors.black54,
-                              shape: BoxShape.circle,
-                            ),
+                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                             child: const Icon(Icons.close, size: 14, color: Colors.white),
                           ),
                         ),
@@ -352,6 +395,46 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 12),
 
+            // ✅ Ville de publication — obligatoire, sans valeur par défaut
+            const Text('Ville de publication *', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            DropdownButtonFormField<String>(
+              value: _city,
+              hint: const Text('Sélectionnez une ville'),
+              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+              items: _cities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              onChanged: (v) => setState(() => _city = v),
+              validator: (v) => v == null ? 'Sélectionnez une ville' : null,
+            ),
+            if (_city == 'Autre') ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _customCityController,
+                decoration: InputDecoration(
+                  hintText: 'Précisez la ville',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                validator: (v) {
+                  if (_city == 'Autre' && (v == null || v.trim().isEmpty)) return 'Champ requis';
+                  return null;
+                },
+              ),
+            ],
+            const SizedBox(height: 12),
+
+            // ✅ Emplacement de la publication
+            const Text('Où voulez-vous publier ? *', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            DropdownButtonFormField<String>(
+              value: _placement,
+              hint: const Text('Choisissez un emplacement'),
+              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+              items: _placements.map((p) => DropdownMenuItem(value: p['id'], child: Text(p['name']!))).toList(),
+              onChanged: (v) => setState(() => _placement = v),
+              validator: (v) => v == null ? 'Champ requis' : null,
+            ),
+            const SizedBox(height: 12),
+
             // Prix + Devise
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,10 +449,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       TextFormField(
                         controller: _priceController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          hintText: '0',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                        decoration: InputDecoration(hintText: '0', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
                         validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
                       ),
                     ],
@@ -385,10 +465,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       TextFormField(
                         controller: _discountPriceController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          hintText: 'Optionnel',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                        decoration: InputDecoration(hintText: 'Optionnel', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
                       ),
                     ],
                   ),
@@ -397,17 +474,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 8),
 
-            // ✅ Devise (USD / CDF)
             const Text('Devise *', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _currency,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              items: _currencies.map((cur) {
-                return DropdownMenuItem(value: cur['id'], child: Text(cur['name']!));
-              }).toList(),
+              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+              items: _currencies.map((cur) => DropdownMenuItem(value: cur['id'], child: Text(cur['name']!))).toList(),
               onChanged: (v) => setState(() => _currency = v),
               validator: (v) => v == null ? 'Champ requis' : null,
             ),
@@ -425,10 +497,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       TextFormField(
                         controller: _stockController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          hintText: 'Stock disponible',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                        decoration: InputDecoration(hintText: 'Stock disponible', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
                         validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
                       ),
                     ],
@@ -443,10 +512,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: _brandController,
-                        decoration: InputDecoration(
-                          hintText: 'Ex: Apple, Samsung...',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                        decoration: InputDecoration(hintText: 'Ex: Apple, Samsung...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
                       ),
                     ],
                   ),
@@ -460,12 +526,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _category,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              items: _categories.map((cat) {
-                return DropdownMenuItem(value: cat['id'], child: Text(cat['name']!));
-              }).toList(),
+              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+              items: _categories.map((cat) => DropdownMenuItem(value: cat['id'], child: Text(cat['name']!))).toList(),
               onChanged: (v) => setState(() => _category = v),
               validator: (v) => v == null ? 'Champ requis' : null,
             ),
@@ -476,12 +538,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _condition,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              items: _conditions.map((cond) {
-                return DropdownMenuItem(value: cond['id'], child: Text(cond['name']!));
-              }).toList(),
+              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+              items: _conditions.map((cond) => DropdownMenuItem(value: cond['id'], child: Text(cond['name']!))).toList(),
               onChanged: (v) => setState(() => _condition = v),
               validator: (v) => v == null ? 'Champ requis' : null,
             ),
@@ -492,12 +550,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _shippingType,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              items: _shippingTypes.map((type) {
-                return DropdownMenuItem(value: type['id'], child: Text(type['name']!));
-              }).toList(),
+              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+              items: _shippingTypes.map((type) => DropdownMenuItem(value: type['id'], child: Text(type['name']!))).toList(),
               onChanged: (v) => setState(() => _shippingType = v),
               validator: (v) => v == null ? 'Champ requis' : null,
             ),
@@ -506,26 +560,25 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
               title: const Text('Livraison gratuite'),
               value: _freeShipping,
               onChanged: (v) => setState(() => _freeShipping = v),
-              activeColor: const Color(0xFFE5592F),
+              activeColor: const Color(0xFFC9962C),
               contentPadding: EdgeInsets.zero,
             ),
             SwitchListTile(
               title: const Text('Ceci est un service (réservation)'),
               value: _isService,
               onChanged: (v) => setState(() => _isService = v),
-              activeColor: const Color(0xFFE5592F),
+              activeColor: const Color(0xFFC9962C),
               contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 24),
 
-            // Submit button
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submitForm,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE5592F),
+                  backgroundColor: const Color(0xFF1B2A4A),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 child: _isLoading
