@@ -43,13 +43,14 @@ class _ConversationListState extends State<ConversationList> {
     final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    // ✅ Correction : utiliser .contains pour les tableaux
-    _conversationsStream = Supabase.instance.client
+    // ✅ Construction de la requête filtrée puis conversion en stream
+    final query = Supabase.instance.client
         .from('conversations')
-        .stream(primaryKey: ['id'])
-        .contains('participant_ids', userId) // ✅ au lieu de .filter
-        .order('last_message_time', ascending: false)
-        .map((data) => List<Map<String, dynamic>>.from(data));
+        .select()
+        .filter('participant_ids', 'cs', '{${userId}}') // opérateur 'cs' = contains
+        .order('last_message_time', ascending: false);
+
+    _conversationsStream = query.stream(primaryKey: ['id']).map((data) => List<Map<String, dynamic>>.from(data));
 
     _conversationsStream?.listen((conversations) {
       if (mounted) {
@@ -70,11 +71,10 @@ class _ConversationListState extends State<ConversationList> {
     }
 
     try {
-      // ✅ Correction : utiliser .contains pour les tableaux
       final response = await Supabase.instance.client
           .from('conversations')
           .select()
-          .contains('participant_ids', userId)
+          .filter('participant_ids', 'cs', '{${userId}}')
           .order('last_message_time', ascending: false);
 
       setState(() {
