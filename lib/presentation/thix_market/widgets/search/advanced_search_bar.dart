@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:debounce_throttle/debounce_throttle.dart';
+import 'dart:async';
 
 class AdvancedSearchBar extends StatefulWidget {
   final Function(String query, Map<String, dynamic> filters) onSearch;
@@ -25,12 +25,18 @@ class AdvancedSearchBar extends StatefulWidget {
 class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  late Debouncer<String> _debouncer;
-  
+  Timer? _debounceTimer;
+
   bool _isSearching = false;
   List<Map<String, dynamic>> _suggestions = [];
   String? _selectedCategory;
   String? _selectedSortBy;
+
+  static const Color navy = Color(0xFF1B2A4A);
+  static const Color gold = Color(0xFFC9962C);
+  static const Color danger = Color(0xFFE53935);
+  static const Color textMuted = Color(0xFF8A8FA3);
+  static const Color bgApp = Color(0xFFF6F7FB);
 
   final List<Map<String, dynamic>> _categories = [
     {'id': 'all', 'name': 'Toutes catégories', 'icon': Icons.category},
@@ -53,23 +59,12 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
   @override
   void initState() {
     super.initState();
-    // ✅ Initialisation correcte pour debounce_throttle 2.0.0
-    _debouncer = Debouncer<String>(
-      const Duration(milliseconds: 300),
-      initialValue: '',
-    );
-    // Écouter les valeurs émises
-    _debouncer.values.listen((query) {
-      if (query.isNotEmpty) {
-        _fetchSuggestions(query);
-      }
-    });
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
-    _debouncer.cancel();
+    _debounceTimer?.cancel();
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
@@ -79,9 +74,11 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
   void _onTextChanged() {
     final query = _controller.text;
     if (query.length >= 2) {
-      // ✅ Déclencher le debounce
-      _debouncer.setValue(query);
-      setState(() => _isSearching = query.isNotEmpty);
+      setState(() => _isSearching = true);
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        _fetchSuggestions(query);
+      });
     } else {
       setState(() {
         _suggestions = [];
@@ -105,6 +102,9 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
       }
     } catch (e) {
       debugPrint('Error fetching suggestions: $e');
+      setState(() {
+        _suggestions = [];
+      });
     }
   }
 
@@ -132,19 +132,24 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: _focusNode.hasFocus
-                          ? const Color(0xFFE5592F)
-                          : Colors.grey[200]!,
+                      color: _focusNode.hasFocus ? gold : Colors.grey[200]!,
                       width: 1.5,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       const SizedBox(width: 16),
-                      Icon(Icons.search, color: Colors.grey[400], size: 20),
+                      Icon(Icons.search, color: textMuted, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
@@ -152,6 +157,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                           focusNode: _focusNode,
                           decoration: const InputDecoration(
                             hintText: 'Rechercher produits, boutiques...',
+                            hintStyle: TextStyle(color: textMuted),
                             border: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
@@ -161,7 +167,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                       ),
                       if (_controller.text.isNotEmpty)
                         IconButton(
-                          icon: Icon(Icons.clear, color: Colors.grey[400], size: 18),
+                          icon: Icon(Icons.clear, color: textMuted, size: 18),
                           onPressed: () {
                             _controller.clear();
                             setState(() {
@@ -184,10 +190,21 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     color: _selectedCategory != null && _selectedCategory != 'all'
-                        ? const Color(0xFFE5592F).withOpacity(0.1)
-                        : Colors.grey[100],
+                        ? gold.withOpacity(0.1)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.grey[200]!),
+                    border: Border.all(
+                      color: _selectedCategory != null && _selectedCategory != 'all'
+                          ? gold
+                          : Colors.grey[200]!,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
@@ -198,8 +215,8 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                         )['icon'],
                         size: 18,
                         color: _selectedCategory != null && _selectedCategory != 'all'
-                            ? const Color(0xFFE5592F)
-                            : Colors.grey[600],
+                            ? gold
+                            : textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -209,14 +226,17 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                         style: TextStyle(
                           fontSize: 12,
                           color: _selectedCategory != null && _selectedCategory != 'all'
-                              ? const Color(0xFFE5592F)
-                              : Colors.grey[600],
+                              ? gold
+                              : textMuted,
+                          fontWeight: _selectedCategory != null && _selectedCategory != 'all'
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                       Icon(
                         Icons.arrow_drop_down,
                         size: 18,
-                        color: Colors.grey[400],
+                        color: textMuted,
                       ),
                     ],
                   ),
@@ -226,7 +246,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
           ),
         ),
 
-        // Suggestions et résultats
+        // Suggestions
         if (_isSearching && _suggestions.isNotEmpty)
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -244,17 +264,17 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
             child: Column(
               children: [
                 ..._suggestions.map((suggestion) => ListTile(
-                  leading: const Icon(Icons.search, size: 18),
+                  leading: const Icon(Icons.search, size: 18, color: textMuted),
                   title: Text(
-                    suggestion['text'],
-                    style: const TextStyle(fontSize: 14),
+                    suggestion['text'] ?? '',
+                    style: const TextStyle(fontSize: 14, color: navy),
                   ),
                   trailing: Text(
                     suggestion['type'] == 'product' ? 'Produit' : 'Boutique',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 11, color: textMuted),
                   ),
                   onTap: () {
-                    _controller.text = suggestion['text'];
+                    _controller.text = suggestion['text'] ?? '';
                     _performSearch();
                   },
                 )),
@@ -278,7 +298,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey,
+                          color: textMuted,
                         ),
                       ),
                       TextButton(
@@ -290,7 +310,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                         ),
                         child: const Text(
                           'Effacer',
-                          style: TextStyle(fontSize: 12, color: Colors.red),
+                          style: TextStyle(fontSize: 12, color: danger),
                         ),
                       ),
                     ],
@@ -302,8 +322,9 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                   children: widget.recentSearches!.map((search) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: bgApp,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: InkWell(
                       onTap: () {
@@ -315,11 +336,11 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.history, size: 14, color: Colors.grey[500]),
+                          Icon(Icons.history, size: 14, color: textMuted),
                           const SizedBox(width: 6),
                           Text(
                             search,
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 13, color: navy),
                           ),
                         ],
                       ),
@@ -348,7 +369,7 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
           children: [
             const Text(
               'Catégories',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: navy),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -369,8 +390,11 @@ class _AdvancedSearchBarState extends State<AdvancedSearchBar> {
                       _performSearch();
                     }
                   },
-                  selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
-                  checkmarkColor: const Color(0xFFE5592F),
+                  selectedColor: gold.withOpacity(0.1),
+                  checkmarkColor: gold,
+                  side: BorderSide(
+                    color: isSelected ? gold : Colors.grey[200]!,
+                  ),
                 );
               }).toList(),
             ),
