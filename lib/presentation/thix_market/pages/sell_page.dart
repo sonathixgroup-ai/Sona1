@@ -22,7 +22,7 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadData();
   }
 
@@ -31,6 +31,7 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
     await Future.wait([
       provider.loadMyAnnouncements(),
       provider.loadOrders(),
+      provider.loadMyLives(),
     ]);
   }
 
@@ -49,7 +50,7 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
-          'Vendre',
+          'Espace Vendeur',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: Colors.white,
@@ -60,6 +61,7 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
             Tab(text: 'Annonces'),
             Tab(text: 'Commandes'),
             Tab(text: 'Stats'),
+            Tab(text: 'Lives'),
           ],
           indicatorColor: const Color(0xFF1A73E8),
           labelColor: const Color(0xFF1A73E8),
@@ -78,22 +80,30 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
           _buildMyAnnouncements(sellProvider),
           _buildOrders(sellProvider),
           _buildStats(sellProvider),
+          _buildLives(sellProvider),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/market/announcement/publish'),
-        backgroundColor: const Color(0xFF1A73E8),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Publier',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      floatingActionButton: _tabController.index == 0 || _tabController.index == 3
+          ? FloatingActionButton.extended(
+              onPressed: _tabController.index == 0
+                  ? () => context.push('/market/announcement/publish')
+                  : () => context.push('/market/live/create'),
+              backgroundColor: const Color(0xFF1A73E8),
+              icon: Icon(
+                _tabController.index == 0 ? Icons.add : Icons.videocam,
+                color: Colors.white,
+              ),
+              label: Text(
+                _tabController.index == 0 ? 'Publier' : 'Créer un live',
+                style: const TextStyle(color: Colors.white),
+              ),
+            )
+          : null,
     );
   }
 
   // ============================================================
-  // TAB 1 : MES ANNONCES
+  // TAB 1 : ANNONCES
   // ============================================================
   Widget _buildMyAnnouncements(SellProvider provider) {
     if (provider.isLoading) {
@@ -230,7 +240,7 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              statusText!,
+                              statusText,
                               style: TextStyle(
                                 color: statusColor,
                                 fontSize: 11,
@@ -324,7 +334,6 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
       );
     }
 
-    // Grouper par statut
     final pendingOrders = provider.orders.where((o) => o['status'] == 'pending').toList();
     final preparingOrders = provider.orders.where((o) => o['status'] == 'preparing').toList();
     final shippedOrders = provider.orders.where((o) => o['status'] == 'shipped').toList();
@@ -474,7 +483,6 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          // KPIs
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -511,7 +519,6 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
           ),
           const SizedBox(height: 16),
 
-          // Graphique
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -592,7 +599,6 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
           ),
           const SizedBox(height: 16),
 
-          // Top produits
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -680,6 +686,223 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
   }
 
   // ============================================================
+  // TAB 4 : LIVES
+  // ============================================================
+  Widget _buildLives(SellProvider provider) {
+    if (provider.isLoadingLives) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (provider.myLives.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.live_tv, size: 80, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            const Text(
+              'Aucun live',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Créez votre premier live pour interagir avec vos clients',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => context.push('/market/live/create'),
+              icon: const Icon(Icons.videocam),
+              label: const Text('Démarrer un live'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A73E8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: provider.myLives.length,
+        itemBuilder: (context, index) {
+          final live = provider.myLives[index];
+          return _buildLiveCard(live);
+        },
+      ),
+    );
+  }
+
+  Widget _buildLiveCard(Map<String, dynamic> live) {
+    final isLive = live['status'] == 'live';
+    final viewers = live['viewer_count'] ?? 0;
+    final productsSold = live['products_sold'] ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: (live['thumbnail'] != null)
+                      ? CachedNetworkImage(
+                          imageUrl: live['thumbnail'],
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            width: 80,
+                            height: 80,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.live_tv, color: Colors.grey),
+                          ),
+                        )
+                      : Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.live_tv, color: Colors.grey),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              live['title'] ?? 'Live sans titre',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isLive)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.visibility, size: 14, color: Colors.grey[500]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$viewers vues',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.shopping_bag, size: 14, color: Colors.grey[500]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$productsSold vendus',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(
+                              DateTime.parse(live['created_at']),
+                            ),
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            Row(
+              children: [
+                if (isLive)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.push('/market/live/${live['id']}'),
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('Voir le live'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE53935),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.push('/market/live/${live['id']}/replay'),
+                      icon: const Icon(Icons.replay),
+                      label: const Text('Voir le replay'),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/market/live/${live['id']}/stats'),
+                    icon: const Icon(Icons.bar_chart),
+                    label: const Text('Stats'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey[300]!),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
   // UTILITAIRES
   // ============================================================
   Widget _buildEmptyState(String title, String subtitle, IconData icon, VoidCallback onAction) {
@@ -725,7 +948,6 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
       builder: (context) => BoostOptionsSheet(
         announcementId: announcementId,
         onBoostSelected: (package) {
-          // Logique d'achat du boost
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Boost ${package['name']} sélectionné')),
           );
@@ -735,7 +957,6 @@ class _SellPageState extends State<SellPage> with SingleTickerProviderStateMixin
   }
 
   void _shareAnnouncement(String id) {
-    // Logique de partage
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Partage en cours de développement')),
     );
