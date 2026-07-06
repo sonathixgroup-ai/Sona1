@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/widgets/dispute/mediation_badge.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -19,6 +20,12 @@ class _MediationBadgeState extends State<MediationBadge> {
   Map<String, dynamic>? _mediation;
   bool _isLoading = true;
 
+  static const Color navy = Color(0xFF1B2A4A);
+  static const Color gold = Color(0xFFC9962C);
+  static const Color danger = Color(0xFFE53935);
+  static const Color textMuted = Color(0xFF8A8FA3);
+  static const Color bgApp = Color(0xFFF6F7FB);
+
   @override
   void initState() {
     super.initState();
@@ -27,14 +34,14 @@ class _MediationBadgeState extends State<MediationBadge> {
 
   Future<void> _loadMediation() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final response = await Supabase.instance.client
           .from('mediations')
           .select('*, mediator:users(name, avatar, rating)')
           .eq('dispute_id', widget.disputeId)
           .maybeSingle();
-      
+
       setState(() {
         _mediation = response;
         _isLoading = false;
@@ -47,8 +54,13 @@ class _MediationBadgeState extends State<MediationBadge> {
 
   Future<void> _requestMediation() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-    
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez vous connecter')),
+      );
+      return;
+    }
+
     try {
       await Supabase.instance.client
           .from('mediations')
@@ -58,19 +70,27 @@ class _MediationBadgeState extends State<MediationBadge> {
             'requested_by': userId,
             'requested_at': DateTime.now().toIso8601String(),
           });
-      
+
       await _loadMediation();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Demande de médiation envoyée')),
+          const SnackBar(
+            content: Text('Demande de médiation envoyée'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       debugPrint('Error requesting mediation: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: danger,
+          ),
+        );
+      }
     }
   }
 
@@ -80,51 +100,97 @@ class _MediationBadgeState extends State<MediationBadge> {
       return const SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        child: CircularProgressIndicator(strokeWidth: 2, color: gold),
       );
     }
 
     if (_mediation != null) {
       final status = _mediation!['status'];
       final mediator = _mediation!['mediator'];
-      
+      final statusText = status == 'accepted'
+          ? 'Médiation acceptée'
+          : status == 'pending'
+              ? 'Médiation en attente'
+              : 'Médiation en cours';
+      final statusIcon = status == 'accepted'
+          ? Icons.check_circle_outline
+          : status == 'pending'
+              ? Icons.hourglass_empty
+              : Icons.gavel;
+
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: status == 'accepted' 
-                ? [Colors.green, Colors.lightGreen]
-                : status == 'pending'
-                    ? [Colors.orange, Colors.orangeAccent]
-                    : [Colors.blue, Colors.lightBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: status == 'accepted'
+              ? Colors.green.withOpacity(0.1)
+              : status == 'pending'
+                  ? Colors.orange.withOpacity(0.1)
+                  : gold.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: status == 'accepted'
+                ? Colors.green
+                : status == 'pending'
+                    ? Colors.orange
+                    : gold,
+            width: 1.5,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.gavel, size: 16, color: Colors.white),
+            Icon(
+              statusIcon,
+              size: 18,
+              color: status == 'accepted'
+                  ? Colors.green
+                  : status == 'pending'
+                      ? Colors.orange
+                      : gold,
+            ),
             const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  status == 'accepted' ? 'Médiation acceptée' :
-                  status == 'pending' ? 'Médiation en attente' : 'Médiation en cours',
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                  statusText,
+                  style: TextStyle(
+                    color: status == 'accepted'
+                        ? Colors.green
+                        : status == 'pending'
+                            ? Colors.orange
+                            : gold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (mediator != null)
-                  Text(
-                    'Médiateur: ${mediator['name']}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 10,
+                        backgroundImage: mediator['avatar'] != null
+                            ? CachedNetworkImageProvider(mediator['avatar'])
+                            : null,
+                        child: mediator['avatar'] == null
+                            ? Icon(Icons.person, size: 10, color: textMuted)
+                            : null,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Médiateur: ${mediator['name']}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: textMuted,
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
             const SizedBox(width: 8),
             if (status == 'accepted')
-              const Icon(Icons.check_circle, size: 16, color: Colors.white),
+              const Icon(Icons.check_circle, size: 16, color: Colors.green),
           ],
         ),
       );
@@ -135,9 +201,11 @@ class _MediationBadgeState extends State<MediationBadge> {
       icon: const Icon(Icons.gavel, size: 16),
       label: const Text('Demander une médiation'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFE5592F),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        backgroundColor: gold,
+        foregroundColor: navy,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 0,
       ),
     );
   }
