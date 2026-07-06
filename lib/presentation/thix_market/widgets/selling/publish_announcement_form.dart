@@ -1,4 +1,4 @@
-// lib/presentation/thix_market/widgets/publish_announcement_form.dart
+// lib/presentation/thix_market/widgets/selling/publish_announcement_form.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,11 +37,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   String? _condition;
   String? _shippingType;
   String? _currency;
-  String? _city; // ✅ pas de valeur par défaut — l'utilisateur doit choisir
-  String? _placement; // ✅ emplacement de la publication
+  String? _city;
+  String? _placement;
   bool _freeShipping = false;
   bool _isService = false;
   bool _isLoading = false;
+  bool _isUploading = false;
 
   Position? _currentPosition;
 
@@ -75,14 +76,12 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     {'id': 'CDF', 'name': 'CDF (FC)'},
   ];
 
-  // ✅ Emplacement de publication — mappé sur les colonnes utilisées par la home page
   final List<Map<String, String>> _placements = [
     {'id': 'normal', 'name': 'Découvrir (normal)'},
     {'id': 'flash_sale', 'name': 'Offre Flash'},
     {'id': 'recommended', 'name': 'Mis en avant / Recommandé'},
   ];
 
-  // ✅ Villes RDC — pas de valeur par défaut, "Autre" ouvre un champ libre
   final List<String> _cities = [
     'Kinshasa', 'Lubumbashi', 'Mbuji-Mayi', 'Kananga', 'Kisangani',
     'Bukavu', 'Goma', 'Matadi', 'Kolwezi', 'Likasi', 'Autre',
@@ -141,7 +140,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     _freeShipping = data['free_shipping'] ?? false;
     _isService = data['is_service'] ?? false;
 
-    // Ville : si elle ne fait pas partie de la liste, on bascule sur "Autre"
     final existingCity = data['city'] as String?;
     if (existingCity != null && _cities.contains(existingCity)) {
       _city = existingCity;
@@ -150,7 +148,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
       _customCityController.text = existingCity;
     }
 
-    // Emplacement : déduit des flags existants
     if (data['is_flash_sale'] == true) {
       _placement = 'flash_sale';
     } else if (data['is_featured'] == true) {
@@ -181,6 +178,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
 
   Future<List<String>> _uploadImages() async {
     List<String> urls = [];
+    setState(() => _isUploading = true);
     for (File image in _selectedImages) {
       try {
         final fileExt = image.path.split('.').last;
@@ -197,9 +195,10 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
 
         urls.add(publicUrl);
       } catch (e) {
-        debugPrint('Error uploading image: $e');
+        debugPrint('❌ Upload error: $e');
       }
     }
+    setState(() => _isUploading = false);
     return urls;
   }
 
@@ -253,9 +252,9 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         'free_shipping': _freeShipping,
         'is_service': _isService,
         'currency': _currency,
-        'city': resolvedCity, // ✅ ville obligatoire, saisie par l'utilisateur
-        'is_flash_sale': _placement == 'flash_sale', // ✅ emplacement
-        'is_featured': _placement == 'recommended',  // ✅ emplacement
+        'city': resolvedCity,
+        'is_flash_sale': _placement == 'flash_sale',
+        'is_featured': _placement == 'recommended',
         'images': imageUrls,
         'image_url': imageUrls.isNotEmpty ? imageUrls.first : null,
         'latitude': _currentPosition?.latitude,
@@ -309,7 +308,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Images
+            // Photos du produit
             const Text('Photos du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             SizedBox(
@@ -347,11 +346,15 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(image: FileImage(_selectedImages[index]), fit: BoxFit.cover),
+                          image: DecorationImage(
+                            image: FileImage(_selectedImages[index]),
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                       Positioned(
-                        top: 4, right: 4,
+                        top: 4,
+                        right: 4,
                         child: GestureDetector(
                           onTap: () => _removeImage(index),
                           child: Container(
@@ -395,7 +398,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 12),
 
-            // ✅ Ville de publication — obligatoire, sans valeur par défaut
+            // Ville de publication
             const Text('Ville de publication *', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
@@ -422,7 +425,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ],
             const SizedBox(height: 12),
 
-            // ✅ Emplacement de la publication
+            // Emplacement de publication
             const Text('Où voulez-vous publier ? *', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
@@ -435,7 +438,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 12),
 
-            // Prix + Devise
+            // Prix
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -449,7 +452,10 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       TextFormField(
                         controller: _priceController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(hintText: '0', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                        decoration: InputDecoration(
+                          hintText: '0',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                         validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
                       ),
                     ],
@@ -465,7 +471,10 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       TextFormField(
                         controller: _discountPriceController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(hintText: 'Optionnel', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                        decoration: InputDecoration(
+                          hintText: 'Optionnel',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
                     ],
                   ),
@@ -474,6 +483,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 8),
 
+            // Devise
             const Text('Devise *', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
@@ -485,7 +495,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 12),
 
-            // Stock + Marque
+            // Quantité + Marque
             Row(
               children: [
                 Expanded(
@@ -497,7 +507,10 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       TextFormField(
                         controller: _stockController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(hintText: 'Stock disponible', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                        decoration: InputDecoration(
+                          hintText: 'Stock disponible',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                         validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
                       ),
                     ],
@@ -512,7 +525,10 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: _brandController,
-                        decoration: InputDecoration(hintText: 'Ex: Apple, Samsung...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                        decoration: InputDecoration(
+                          hintText: 'Ex: Apple, Samsung...',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
                     ],
                   ),
@@ -556,6 +572,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
               validator: (v) => v == null ? 'Champ requis' : null,
             ),
             const SizedBox(height: 8),
+
+            // Toggles
             SwitchListTile(
               title: const Text('Livraison gratuite'),
               value: _freeShipping,
@@ -572,16 +590,17 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 24),
 
+            // Bouton Publier
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitForm,
+                onPressed: (_isLoading || _isUploading) ? null : _submitForm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1B2A4A),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: _isLoading
+                child: _isLoading || _isUploading
                     ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
                     : const Text('Publier', style: TextStyle(fontSize: 16)),
               ),
