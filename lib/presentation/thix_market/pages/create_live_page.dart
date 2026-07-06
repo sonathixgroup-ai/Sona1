@@ -56,7 +56,8 @@ class _CreateLivePageState extends State<CreateLivePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.store_off, size: 64, color: Colors.grey),
+          // ✅ Correction : Icons.store_off → Icons.storefront
+          const Icon(Icons.storefront, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           const Text(
             'Vous n\'avez pas encore de boutique',
@@ -101,8 +102,9 @@ class _CreateLivePageState extends State<CreateLivePage> {
                 ),
               ),
               value: _selectedShopId,
-              items: shops.map((shop) {
-                return DropdownMenuItem(
+              // ✅ Correction : ajout de <String> pour le type générique
+              items: shops.map<DropdownMenuItem<String>>((shop) {
+                return DropdownMenuItem<String>(
                   value: shop['id'],
                   child: Text(shop['name']),
                 );
