@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/pages/price_alert.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -24,6 +25,12 @@ class _PriceAlertState extends State<PriceAlert> {
   bool _hasAlert = false;
   Map<String, dynamic>? _existingAlert;
 
+  // Couleurs de l'application
+  static const Color navy = Color(0xFF1B2A4A);
+  static const Color gold = Color(0xFFC9962C);
+  static const Color danger = Color(0xFFE53935);
+  static const Color textMuted = Color(0xFF8A8FA3);
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +46,7 @@ class _PriceAlertState extends State<PriceAlert> {
   Future<void> _checkExistingAlert() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
-    
+
     try {
       final response = await Supabase.instance.client
           .from('price_alerts')
@@ -50,7 +57,7 @@ class _PriceAlertState extends State<PriceAlert> {
             'is_active': true,
           })
           .maybeSingle();
-      
+
       if (response != null) {
         setState(() {
           _existingAlert = response;
@@ -65,12 +72,12 @@ class _PriceAlertState extends State<PriceAlert> {
 
   Future<void> _createAlert() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    
+
     if (userId == null) {
       _showLoginRequired();
       return;
     }
-    
+
     final targetPrice = double.tryParse(_targetPriceController.text);
     if (targetPrice == null || targetPrice <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,16 +85,19 @@ class _PriceAlertState extends State<PriceAlert> {
       );
       return;
     }
-    
+
     if (targetPrice >= widget.currentPrice) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le prix cible doit être inférieur au prix actuel')),
+        const SnackBar(
+          content: Text('Le prix cible doit être inférieur au prix actuel'),
+          backgroundColor: danger,
+        ),
       );
       return;
     }
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       await Supabase.instance.client
           .from('price_alerts')
@@ -100,15 +110,15 @@ class _PriceAlertState extends State<PriceAlert> {
             'is_active': true,
             'created_at': DateTime.now().toIso8601String(),
           });
-      
+
       setState(() {
         _hasAlert = true;
         _isLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alerte de prix créée')),
+          const SnackBar(content: Text('Alerte de prix créée'), backgroundColor: Colors.green),
         );
         Navigator.pop(context);
       }
@@ -123,31 +133,34 @@ class _PriceAlertState extends State<PriceAlert> {
 
   Future<void> _deleteAlert() async {
     if (_existingAlert == null) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       await Supabase.instance.client
           .from('price_alerts')
           .update({'is_active': false})
           .eq('id', _existingAlert!['id']);
-      
+
       setState(() {
         _hasAlert = false;
         _existingAlert = null;
         _targetPriceController.clear();
         _isLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alerte supprimée')),
+          const SnackBar(content: Text('Alerte supprimée'), backgroundColor: Colors.grey),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       debugPrint('Error deleting alert: $e');
       setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de la suppression')),
+      );
     }
   }
 
@@ -165,10 +178,11 @@ class _PriceAlertState extends State<PriceAlert> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              context.go('/login');
+              context.push('/login');
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
+              backgroundColor: gold,
+              foregroundColor: navy,
             ),
             child: const Text('Se connecter'),
           ),
@@ -180,14 +194,15 @@ class _PriceAlertState extends State<PriceAlert> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showAlertDialog(),
+      onTap: _showAlertDialog,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _hasAlert ? Colors.green.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _hasAlert ? Colors.green : Colors.grey[300]!,
+            width: 1,
           ),
         ),
         child: Row(
@@ -196,14 +211,15 @@ class _PriceAlertState extends State<PriceAlert> {
             Icon(
               Icons.notifications_active,
               size: 16,
-              color: _hasAlert ? Colors.green : Colors.grey[600],
+              color: _hasAlert ? Colors.green : textMuted,
             ),
             const SizedBox(width: 4),
             Text(
               _hasAlert ? 'Alerte active' : 'Alerte prix',
               style: TextStyle(
                 fontSize: 12,
-                color: _hasAlert ? Colors.green : Colors.grey[600],
+                fontWeight: FontWeight.w500,
+                color: _hasAlert ? Colors.green : textMuted,
               ),
             ),
           ],
@@ -213,22 +229,43 @@ class _PriceAlertState extends State<PriceAlert> {
   }
 
   void _showAlertDialog() {
+    // Si l'utilisateur n'est pas connecté, on affiche directement la demande de connexion
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      _showLoginRequired();
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_hasAlert ? 'Gérer l\'alerte' : 'Créer une alerte de prix'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          _hasAlert ? 'Gérer l\'alerte' : 'Créer une alerte de prix',
+          style: const TextStyle(
+            color: navy,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Produit: ${widget.productTitle}'),
-            const SizedBox(height: 8),
-            Text('Prix actuel: ${widget.currentPrice.toInt()} FCFA'),
+            Text(
+              'Produit: ${widget.productTitle}',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Prix actuel: ${widget.currentPrice.toInt()} FCFA',
+              style: TextStyle(color: textMuted, fontSize: 13),
+            ),
             const SizedBox(height: 16),
             if (!_hasAlert) ...[
               const Text(
-                'Recevez une notification quand le prix descend en dessous de:',
-                style: TextStyle(fontSize: 12),
+                'Recevez une notification quand le prix descend en dessous de :',
+                style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -239,13 +276,18 @@ class _PriceAlertState extends State<PriceAlert> {
                   suffixText: 'FCFA',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: gold, width: 2),
                   ),
                 ),
               ),
             ] else ...[
-              Text('Prix cible: ${_existingAlert?['target_price']} FCFA'),
-              const SizedBox(height: 8),
-              Text('Créée le: ${_formatDate(_existingAlert?['created_at'])}'),
+              _buildInfoRow('Prix cible', '${_existingAlert?['target_price']} FCFA'),
+              const SizedBox(height: 6),
+              _buildInfoRow('Créée le', _formatDate(_existingAlert?['created_at'])),
             ],
           ],
         ),
@@ -260,20 +302,28 @@ class _PriceAlertState extends State<PriceAlert> {
                 Navigator.pop(context);
                 _deleteAlert();
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: danger),
               child: const Text('Supprimer'),
             ),
           if (!_hasAlert)
             ElevatedButton(
-              onPressed: _createAlert,
+              onPressed: _isLoading ? null : _createAlert,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE5592F),
+                backgroundColor: gold,
+                foregroundColor: navy,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               child: _isLoading
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: navy,
+                      ),
                     )
                   : const Text('Créer'),
             ),
@@ -282,9 +332,29 @@ class _PriceAlertState extends State<PriceAlert> {
     );
   }
 
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: textMuted),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+        ),
+      ],
+    );
+  }
+
   String _formatDate(String? dateStr) {
     if (dateStr == null) return '';
-    final date = DateTime.parse(dateStr);
-    return '${date.day}/${date.month}/${date.year}';
+    try {
+      final date = DateTime.parse(dateStr);
+      return '${date.day}/${date.month}/${date.year} à ${date.hour}h${date.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 }
