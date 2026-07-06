@@ -13,6 +13,13 @@ class MarketProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _forYouProducts = [];
   int _unreadNotifications = 0;
   bool _isLoading = false;
+  bool _isRefreshing = false;
+  String? _error;
+  DateTime? _lastLoadedAt;
+
+  // ✅ Shop de l'utilisateur connecté
+  String? _myShopId;
+  bool _isLoadingMyShop = false;
 
   // Getters
   List<Map<String, dynamic>> get liveSessions => _liveSessions;
@@ -23,15 +30,48 @@ class MarketProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get forYouProducts => _forYouProducts;
   int get unreadNotifications => _unreadNotifications;
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
+  String? get error => _error;
+  String? get myShopId => _myShopId;
+  bool get hasShop => _myShopId != null;
+  bool get isLoadingMyShop => _isLoadingMyShop;
+
+  bool get hasData =>
+      _liveSessions.isNotEmpty ||
+      _flashSales.isNotEmpty ||
+      _promoBanners.isNotEmpty ||
+      _recommendedProducts.isNotEmpty ||
+      _featuredShops.isNotEmpty ||
+      _forYouProducts.isNotEmpty;
+
+  /// Nom affiché dans le message de bienvenue ("Bonjour, {name}")
+  String get userDisplayName {
+    final user = _supabase.auth.currentUser;
+    final fullName = user?.userMetadata?['full_name'] as String?;
+    if (fullName != null && fullName.trim().isNotEmpty) {
+      return fullName.trim().split(' ').first;
+    }
+    final email = user?.email;
+    if (email != null && email.contains('@')) {
+      return email.split('@').first;
+    }
+    return 'Utilisateur';
+  }
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
   // ============================================================
 
-  Future<void> loadHomeData() async {
-    _setLoading(true);
+  Future<void> loadHomeData({bool isRefresh = false}) async {
+    if (isRefresh) {
+      _isRefreshing = true;
+    } else {
+      _isLoading = true;
+    }
+    _error = null;
+    notifyListeners();
+
     try {
-      // Exécuter toutes les requêtes en parallèle (sans les notifications)
       final results = await Future.wait([
         _loadLiveSessions(),
         _loadFlashSales(),
@@ -39,23 +79,57 @@ class MarketProvider extends ChangeNotifier {
         _loadRecommendedProducts(),
         _loadFeaturedShops(),
         _loadForYouProducts(),
+        _loadUnreadNotifications(),
       ]);
 
-      // Affectation avec cast explicite
       _liveSessions = results[0] as List<Map<String, dynamic>>;
       _flashSales = results[1] as List<Map<String, dynamic>>;
       _promoBanners = results[2] as List<Map<String, dynamic>>;
       _recommendedProducts = results[3] as List<Map<String, dynamic>>;
       _featuredShops = results[4] as List<Map<String, dynamic>>;
       _forYouProducts = results[5] as List<Map<String, dynamic>>;
-      // Les notifications ne sont pas chargées pour l'instant
-      _unreadNotifications = 0;
+      _unreadNotifications = results[6] as int;
+      _lastLoadedAt = DateTime.now();
 
-      notifyListeners();
+      // Charge le shop de l'utilisateur en parallèle (n'impacte pas home data si absent)
+      unawaited(loadMyShop());
     } catch (e) {
       debugPrint('Error loading home data from Supabase: $e');
+      _error = 'Impossible de charger les données. Vérifiez votre connexion.';
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      _isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  /// ✅ Récupère l'ID du shop appartenant à l'utilisateur connecté (s'il existe)
+  Future<void> loadMyShop() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      _myShopId = null;
+      notifyListeners();
+      return;
+    }
+
+    _isLoadingMyShop = true;
+    notifyListeners();
+
+    try {
+      final response = await _supabase
+          .from('shops')
+          .select('id')
+          .eq('owner_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+      _myShopId = response?['id'] as String?;
+    } catch (e) {
+      debugPrint('Error loading my shop: $e');
+      _myShopId = null;
+    } finally {
+      _isLoadingMyShop = false;
+      notifyListeners();
     }
   }
 
@@ -70,7 +144,7 @@ class MarketProvider extends ChangeNotifier {
           .select('*, shop:shops(name, logo_url, city)')
           .eq('status', 'live')
           .order('viewer_count', ascending: false)
-          .limit(5);
+          .limit(8);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('Error loading live sessions: $e');
@@ -116,7 +190,7 @@ class MarketProvider extends ChangeNotifier {
           .select('*, shop:shops(name, city)')
           .eq('status', 'active')
           .order('rating', ascending: false)
-          .limit(8);
+          .limit(10);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('Error loading recommended products: $e');
@@ -146,7 +220,7 @@ class MarketProvider extends ChangeNotifier {
           .select('*, shop:shops(name, city)')
           .eq('status', 'active')
           .order('created_at', ascending: false)
-          .limit(12);
+          .limit(20);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('Error loading "for you" products: $e');
@@ -154,16 +228,38 @@ class MarketProvider extends ChangeNotifier {
     }
   }
 
+  Future<int> _loadUnreadNotifications() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return 0;
+      final response = await _supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_read', false)
+          .count(CountOption.exact);
+      return response.count;
+    } catch (e) {
+      debugPrint('Error loading unread notifications: $e');
+      return 0;
+    }
+  }
+
   // ============================================================
   // UTILITAIRES
   // ============================================================
 
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+  Future<void> refresh() async {
+    await loadHomeData(isRefresh: true);
   }
 
-  Future<void> refresh() async {
-    await loadHomeData();
+  Future<void> loadIfStale({Duration maxAge = const Duration(minutes: 3)}) async {
+    if (_lastLoadedAt == null ||
+        DateTime.now().difference(_lastLoadedAt!) > maxAge) {
+      await loadHomeData();
+    }
   }
 }
+
+// Petit helper pour ignorer un Future sans bloquer (évite d'importer dart:async juste pour ça)
+void unawaited(Future<void> future) {}
