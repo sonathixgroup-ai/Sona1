@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/widgets/chat/conversation_list.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -23,6 +24,15 @@ class _ConversationListState extends State<ConversationList> {
   String? _searchQuery;
   Stream<List<Map<String, dynamic>>>? _conversationsStream;
 
+  // Cache pour les autres utilisateurs
+  final Map<String, Map<String, dynamic>> _userCache = {};
+
+  static const Color navy = Color(0xFF1B2A4A);
+  static const Color gold = Color(0xFFC9962C);
+  static const Color danger = Color(0xFFE53935);
+  static const Color textMuted = Color(0xFF8A8FA3);
+  static const Color bgApp = Color(0xFFF6F7FB);
+
   @override
   void initState() {
     super.initState();
@@ -37,7 +47,7 @@ class _ConversationListState extends State<ConversationList> {
     _conversationsStream = Supabase.instance.client
         .from('conversations')
         .stream(primaryKey: ['id'])
-        .eq('participant_ids', userId)
+        .contains('participant_ids', [userId]) // ✅ correction : array containment
         .order('last_message_time', ascending: false)
         .map((data) => List<Map<String, dynamic>>.from(data));
 
@@ -60,12 +70,13 @@ class _ConversationListState extends State<ConversationList> {
     }
 
     try {
+      // ✅ correction : utiliser contains pour les tableaux
       final response = await Supabase.instance.client
           .from('conversations')
           .select()
-          .eq('participant_ids', userId)
+          .contains('participant_ids', [userId])
           .order('last_message_time', ascending: false);
-      
+
       setState(() {
         _conversations = List<Map<String, dynamic>>.from(response);
         _isLoading = false;
@@ -79,18 +90,26 @@ class _ConversationListState extends State<ConversationList> {
   Future<Map<String, dynamic>?> _getOtherUser(Map<String, dynamic> conversation) async {
     final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return null;
-    
+
     final participants = List<String>.from(conversation['participant_ids'] ?? []);
     final otherId = participants.firstWhere((id) => id != userId, orElse: () => '');
     if (otherId.isEmpty) return null;
-    
+
+    // Vérifier le cache
+    if (_userCache.containsKey(otherId)) {
+      return _userCache[otherId];
+    }
+
     try {
       final response = await Supabase.instance.client
           .from('users')
           .select('id, name, avatar, is_online, last_seen')
           .eq('id', otherId)
           .single();
-      return response;
+
+      final userData = Map<String, dynamic>.from(response);
+      _userCache[otherId] = userData; // mettre en cache
+      return userData;
     } catch (e) {
       return null;
     }
@@ -99,7 +118,7 @@ class _ConversationListState extends State<ConversationList> {
   Future<void> _markAsRead(String conversationId) async {
     final userId = widget.currentUserId ?? Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
-    
+
     try {
       await Supabase.instance.client
           .from('conversation_participants')
@@ -115,15 +134,19 @@ class _ConversationListState extends State<ConversationList> {
 
   String _formatTime(String? timeStr) {
     if (timeStr == null) return '';
-    final date = DateTime.parse(timeStr);
-    final now = DateTime.now();
-    if (date.day == now.day && date.month == now.month && date.year == now.year) {
-      return DateFormat('HH:mm').format(date);
+    try {
+      final date = DateTime.parse(timeStr);
+      final now = DateTime.now();
+      if (date.day == now.day && date.month == now.month && date.year == now.year) {
+        return DateFormat('HH:mm').format(date);
+      }
+      if (date.year == now.year) {
+        return DateFormat('dd/MM').format(date);
+      }
+      return DateFormat('dd/MM/yy').format(date);
+    } catch (_) {
+      return '';
     }
-    if (date.year == now.year) {
-      return DateFormat('dd/MM').format(date);
-    }
-    return DateFormat('dd/MM/yy').format(date);
   }
 
   @override
@@ -138,27 +161,32 @@ class _ConversationListState extends State<ConversationList> {
 
     return Column(
       children: [
-        // Search bar
+        // Barre de recherche
         Padding(
           padding: const EdgeInsets.all(12),
           child: TextField(
             decoration: InputDecoration(
               hintText: 'Rechercher une conversation...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search, color: textMuted),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.grey[100],
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: BorderSide(color: gold, width: 2),
+              ),
             ),
             onChanged: (value) {
               setState(() => _searchQuery = value.toLowerCase());
             },
           ),
         ),
-        
-        // List
+
+        // Liste
         Expanded(
           child: ListView.builder(
             itemCount: _conversations.length,
@@ -187,19 +215,19 @@ class _ConversationListState extends State<ConversationList> {
     final isUnread = unreadCount > 0;
     final lastMessage = conversation['last_message'];
     final lastMessageTime = conversation['last_message_time'];
-    
+
     return GestureDetector(
       onTap: () {
         _markAsRead(conversation['id']);
         widget.onConversationTap?.call({
           'conversation_id': conversation['id'],
           'other_user': otherUser,
-          'title': conversation['title'],
+          'title': conversation['title'] ?? otherUser?['name'] ?? 'Conversation',
         });
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: isUnread ? const Color(0xFFE5592F).withOpacity(0.05) : Colors.white,
+        color: isUnread ? danger.withOpacity(0.05) : Colors.white,
         child: Row(
           children: [
             // Avatar
@@ -211,7 +239,7 @@ class _ConversationListState extends State<ConversationList> {
                       ? CachedNetworkImageProvider(otherUser!['avatar'])
                       : null,
                   child: otherUser?['avatar'] == null
-                      ? const Icon(Icons.person, size: 28, color: Colors.grey)
+                      ? Icon(Icons.person, size: 28, color: Colors.grey[400])
                       : null,
                 ),
                 if (otherUser?['is_online'] == true)
@@ -231,8 +259,8 @@ class _ConversationListState extends State<ConversationList> {
               ],
             ),
             const SizedBox(width: 12),
-            
-            // Content
+
+            // Contenu
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,6 +273,7 @@ class _ConversationListState extends State<ConversationList> {
                           style: TextStyle(
                             fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
                             fontSize: 16,
+                            color: navy,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -254,7 +283,7 @@ class _ConversationListState extends State<ConversationList> {
                         _formatTime(lastMessageTime),
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey[500],
+                          color: textMuted,
                           fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
                         ),
                       ),
@@ -270,7 +299,7 @@ class _ConversationListState extends State<ConversationList> {
                             'Écrit...',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFFE5592F),
+                              color: gold,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -281,7 +310,7 @@ class _ConversationListState extends State<ConversationList> {
                             lastMessage ?? 'Dernier message',
                             style: TextStyle(
                               fontSize: 13,
-                              color: isUnread ? Colors.black87 : Colors.grey[600],
+                              color: isUnread ? navy : textMuted,
                               fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
                             ),
                             maxLines: 1,
@@ -293,7 +322,7 @@ class _ConversationListState extends State<ConversationList> {
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE5592F),
+                            color: danger,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -325,12 +354,12 @@ class _ConversationListState extends State<ConversationList> {
           const SizedBox(height: 16),
           const Text(
             'Aucune conversation',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
           ),
           const SizedBox(height: 8),
           Text(
             'Commencez à discuter avec des vendeurs',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: textMuted),
           ),
         ],
       ),
