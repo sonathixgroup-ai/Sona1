@@ -12,9 +12,9 @@ import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/services/network_service.dart';
-import 'package:thix_id/services/news_service.dart'; // ✅ AJOUT
+import 'package:thix_id/services/news_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
-import 'package:thix_id/providers/news_provider.dart'; // ✅ AJOUT
+import 'package:thix_id/providers/news_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
@@ -79,33 +79,23 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
-    // ✅ On laisse l'erreur remonter pour que le FutureBuilder l'affiche
     await SupabaseConfig.initialize();
 
-    // 🔥 Services Supabase
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
 
-    // AuthController utilise SupabaseAuthManager
     final auth = AuthController(
       auth: SupabaseAuthManager(profiles: profiles),
     );
-
     await auth.init();
 
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
     feed.initRealtime();
 
-    // 🔔 Notifications de tâches
     await TaskNotification.init();
 
-    // 💬 THIX Chat — Bloc global, mais on NE CHARGE PAS les conversations ici
-    // car l'utilisateur n'est pas encore authentifié.
     final chatBloc = ChatBloc(ChatRepository());
-    // ❌ SUPPRESSION : chatBloc.add(LoadConversations());
-
-    // 🆕 Service des événements
     final eventService = EventService(SupabaseConfig.client);
 
     return _BootstrapResult(
@@ -124,7 +114,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
     return FutureBuilder<_BootstrapResult>(
       future: _future,
       builder: (context, snap) {
-        // ✅ Gestion de l'erreur d'initialisation
         if (snap.hasError) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
@@ -157,7 +146,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: () {
-                          // Recharger l'app entièrement
                           runApp(const ProviderScope(child: BootstrapApp()));
                         },
                         icon: const Icon(Icons.refresh),
@@ -344,9 +332,9 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
           create: (_) => EventProvider(widget.eventService),
         ),
-        // ✅ PROVIDER POUR THIX INFO (NEWS)
+        // ✅ THIX INFO – correction ici
         ChangeNotifierProvider(
-          create: (_) => NewsProvider(NewsService(Supabase.instance.client)),
+          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)), // <-- Correction
         ),
         ChangeNotifierProvider(create: (_) => MarketProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
