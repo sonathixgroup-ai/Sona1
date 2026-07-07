@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../models/recommendation.dart';
 import '../../../providers/recommendation_provider.dart';
 import '../common/formation_card.dart';
-
+import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 class RecommendationCarousel extends StatefulWidget {
   final String userId;
   final int? limit;
