@@ -3,7 +3,7 @@
 // Rôle : Catégorie de formations (ex: "Développement", "Design", etc.)
 // Permet de regrouper et filtrer les formations.
 // ------------------------------------------------------------------
-
+import 'formation.dart';
 class Category {
   final String id;
   final String name;
