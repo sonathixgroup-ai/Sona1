@@ -45,7 +45,7 @@ class EducationProvider extends ChangeNotifier {
 
   Future<void> loadCategories() async {
     try {
-      final response = await _service._supabase.from('categories').select('*');
+      _categories = await _service.getCategories();
       _categories = response.map((json) => Category.fromJson(json)).toList();
       notifyListeners();
     } catch (e) {
