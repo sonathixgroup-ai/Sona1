@@ -14,14 +14,12 @@ class CartItemTile extends StatelessWidget {
     required this.onRemove,
   });
 
-  // ─── Palette Élite ──────────────────────────────────────────────
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color primaryBlue = Color(0xFF2D6CDF);
   static const Color softBlue = Color(0xFFEFF5FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
   static const Color danger = Color(0xFFFF5B3D);
 
   @override
@@ -36,7 +34,6 @@ class CartItemTile extends StatelessWidget {
     final images = product['images'];
     final imageUrl = images is List && images.isNotEmpty ? images.first : product['image_url'];
 
-    // ✅ Devise dynamique
     final currency = product['currency'] ?? 'CDF';
     final symbol = currency == 'USD' ? '\$' : 'FC';
 
@@ -52,7 +49,6 @@ class CartItemTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
@@ -75,7 +71,6 @@ class CartItemTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            // Infos produit
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +118,6 @@ class CartItemTile extends StatelessWidget {
                           ),
                         ),
                       const Spacer(),
-                      // Quantité selector
                       Container(
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey[300]!),
