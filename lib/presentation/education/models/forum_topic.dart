@@ -1,72 +1,67 @@
-// ------------------------------------------------------------------
-// Fichier : models/forum_topic.dart
-// Rôle : Sujet de forum associé à une formation. Les utilisateurs
-// peuvent ouvrir des sujets pour poser des questions ou discuter.
-// ------------------------------------------------------------------
+import 'forum_reply.dart';
 
 class ForumTopic {
   final String id;
   final String formationId;
   final String userId;
   final String title;
-  final String body;
-  final String status; // 'open', 'closed'
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  // Relations
+  final String content;
+  bool isPinned;
+  bool isLocked;
+  int viewsCount;
+  int repliesCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   List<ForumReply>? replies;
-  String? authorName; // affichage
+  String? authorName;
 
   ForumTopic({
     required this.id,
     required this.formationId,
     required this.userId,
     required this.title,
-    required this.body,
-    required this.status,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.content,
+    this.isPinned = false,
+    this.isLocked = false,
+    this.viewsCount = 0,
+    this.repliesCount = 0,
+    this.createdAt,
+    this.updatedAt,
     this.replies,
     this.authorName,
   });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'formation_id': formationId,
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'status': status,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
-      };
 
   factory ForumTopic.fromJson(Map<String, dynamic> json) => ForumTopic(
         id: json['id'],
         formationId: json['formation_id'],
         userId: json['user_id'],
         title: json['title'],
-        body: json['body'],
-        status: json['status'],
-        createdAt: DateTime.parse(json['created_at']),
-        updatedAt: DateTime.parse(json['updated_at']),
+        content: json['content'],
+        isPinned: json['is_pinned'] ?? false,
+        isLocked: json['is_locked'] ?? false,
+        viewsCount: json['views_count'] ?? 0,
+        repliesCount: json['replies_count'] ?? 0,
+        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+        updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+        replies: json['replies'] != null
+            ? (json['replies'] as List).map((r) => ForumReply.fromJson(r)).toList()
+            : null,
+        authorName: json['author_name'],
       );
 
-  ForumTopic copyWith({
-    String? status,
-    List<ForumReply>? replies,
-  }) =>
-      ForumTopic(
-        id: id,
-        formationId: formationId,
-        userId: userId,
-        title: title,
-        body: body,
-        status: status ?? this.status,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        replies: replies ?? this.replies,
-        authorName: authorName,
-      );
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'formation_id': formationId,
+        'user_id': userId,
+        'title': title,
+        'content': content,
+        'is_pinned': isPinned,
+        'is_locked': isLocked,
+        'views_count': viewsCount,
+        'replies_count': repliesCount,
+        'created_at': createdAt?.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
+        'replies': replies?.map((r) => r.toJson()).toList(),
+        'author_name': authorName,
+      };
 }
