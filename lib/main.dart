@@ -34,6 +34,17 @@ import 'package:thix_id/presentation/thix_market/providers/support_provider.dart
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
 
+// ============================================================
+// ✅ IMPORTS EDUCATION
+// ============================================================
+import 'package:thix_id/education/providers/education_provider.dart';
+import 'package:thix_id/education/providers/progress_provider.dart';
+import 'package:thix_id/education/providers/certificate_provider.dart';
+import 'package:thix_id/education/providers/forum_provider.dart';
+import 'package:thix_id/education/providers/recommendation_provider.dart';
+import 'package:thix_id/education/education_routes.dart'; // pour les routes
+import 'package:thix_id/education/services/education_service.dart'; // nécessaire pour l'instanciation
+
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
@@ -334,8 +345,9 @@ class _MyAppState extends State<MyApp> {
         ),
         // ✅ THIX INFO – correction
         ChangeNotifierProvider(
-          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)), // ✅ correction
+          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)),
         ),
+        // 🆕 THIX MARKET
         ChangeNotifierProvider(create: (_) => MarketProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => SearchProvider()),
@@ -347,6 +359,25 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => SellProvider()),
         ChangeNotifierProvider(create: (_) => SupportProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+
+        // ============================================================
+        // ✅ NOUVEAUX PROVIDERS EDUCATION
+        // ============================================================
+        ChangeNotifierProvider(
+          create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ProgressProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CertificateProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ForumProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
+        ),
       ],
       child: Builder(
         builder: (context) {
@@ -357,7 +388,7 @@ class _MyAppState extends State<MyApp> {
             theme: lightTheme,
             darkTheme: darkTheme,
             themeMode: ThemeMode.system,
-            routerConfig: _router,
+            routerConfig: _router, // AppRouter inclut déjà les routes Education
             locale: locale,
             supportedLocales: LocaleController.supportedLocales,
             localizationsDelegates: const [
