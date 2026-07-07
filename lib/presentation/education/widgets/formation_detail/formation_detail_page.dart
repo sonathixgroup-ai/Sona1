@@ -2,12 +2,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../../models/formation.dart';
-import '../../../providers/education_provider.dart';
-import '../../../providers/progress_provider.dart';
-import '../widgets/common/education_empty_state.dart';
-import '../widgets/common/education_loading_shimmer.dart';
-import '../widgets/formation_detail/formation_module_list.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:thix_id/presentation/education/models/formation.dart';
+import 'package:thix_id/presentation/education/models/module.dart';
+import 'package:thix_id/presentation/education/models/lesson.dart';
+import 'package:thix_id/presentation/education/providers/education_provider.dart';
+import 'package:thix_id/presentation/education/providers/progress_provider.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_empty_state.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
+import 'package:thix_id/presentation/education/widgets/formation_detail/formation_module_list.dart';
 
 class FormationDetailPage extends StatefulWidget {
   final String formationId;
@@ -148,7 +152,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
                 style: const TextStyle(color: Color(0xFF7386A8), fontSize: 14),
               ),
               const Spacer(),
-              if (formation.level != null)
+              if (formation.level.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -179,7 +183,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
               const Spacer(),
               if (formation.price > 0)
                 Text(
-                  '${formation.price.toInt()} FC',
+                  '${formation.price.toInt()} ${formation.currency}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -249,6 +253,11 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
   }
 
   Widget _buildInfoRow(Formation formation) {
+    final totalLessons = formation.modules?.fold<int>(
+          0,
+          (sum, m) => sum + (m.lessons?.length ?? 0),
+        ) ?? 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -272,7 +281,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
           ),
           _buildInfoItem(
             Icons.video_library_rounded,
-            '${formation.modules?.fold<int>(0, (sum, m) => sum + (m.lessons?.length ?? 0)) ?? 0}',
+            '$totalLessons',
             'Leçons',
           ),
           _buildInfoItem(
