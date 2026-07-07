@@ -3,7 +3,7 @@
 // Rôle : Progression d'un utilisateur pour chaque leçon d'une formation.
 // Permet de suivre le détail de l'avancement.
 // ------------------------------------------------------------------
-
+import 'formation.dart';
 class UserProgress {
   final String id;
   final String userId;
