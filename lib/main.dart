@@ -37,14 +37,12 @@ import 'package:thix_id/services/event_service.dart';
 // ============================================================
 // ✅ IMPORTS EDUCATION
 // ============================================================
-import 'package:thix_id/education/providers/education_provider.dart';
-import 'package:thix_id/education/providers/progress_provider.dart';
-import 'package:thix_id/education/providers/certificate_provider.dart';
-import 'package:thix_id/education/providers/forum_provider.dart';
-import 'package:thix_id/education/providers/recommendation_provider.dart';
-import 'package:thix_id/education/education_routes.dart'; // pour les routes
-import 'package:thix_id/education/services/education_service.dart'; // nécessaire pour l'instanciation
-
+import 'package:thix_id/presentation/education/providers/education_provider.dart';
+import 'package:thix_id/presentation/education/providers/progress_provider.dart';
+import 'package:thix_id/presentation/education/providers/certificate_provider.dart';
+import 'package:thix_id/presentation/education/providers/forum_provider.dart';
+import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
+import 'package:thix_id/presentation/education/services/education_service.dart';
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
