@@ -334,8 +334,7 @@ class AppRoutes {
   static const String admin = '/admin';
   static const String thixMarket = '/market';
   // ─── Éducation ───
-  static const String education = '/education';
-  static const String trainingHome = '/education';          
+  static const String education = '/education';          
   static const String trainingDetailsBasePath = '/education'; 
   static const String education = '/education';
   static const String trainingHome = '/education';
