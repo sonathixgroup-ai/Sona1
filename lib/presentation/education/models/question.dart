@@ -1,55 +1,50 @@
-// ------------------------------------------------------------------
-// Fichier : models/question.dart
-// Rôle : Question d'une évaluation. Peut être à choix multiples,
-// vrai/faux ou ouverte. Les options sont stockées en JSON.
-// ------------------------------------------------------------------
-
+// models/question.dart
 class Question {
   final String id;
   final String evaluationId;
-  final String text;
-  final String type; // 'mcq', 'true_false', 'open'
-  final List<String> options; // pour les QCM
-  final String? correctAnswer; // pour les QCM et Vrai/Faux
+  final String question;
+  final List<String> options;
+  final int correctIndex;
+  final DateTime? createdAt;
 
   Question({
     required this.id,
     required this.evaluationId,
-    required this.text,
-    required this.type,
-    required this.options,
-    this.correctAnswer,
+    required this.question,
+    this.options = const [],
+    this.correctIndex = 0,
+    this.createdAt,
   });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'evaluation_id': evaluationId,
-        'text': text,
-        'type': type,
-        'options': options,
-        'correct_answer': correctAnswer,
-      };
 
   factory Question.fromJson(Map<String, dynamic> json) => Question(
         id: json['id'],
         evaluationId: json['evaluation_id'],
-        text: json['text'],
-        type: json['type'],
+        question: json['question'],
         options: List<String>.from(json['options'] ?? []),
-        correctAnswer: json['correct_answer'],
+        correctIndex: json['correct_index'] ?? 0,
+        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       );
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'evaluation_id': evaluationId,
+        'question': question,
+        'options': options,
+        'correct_index': correctIndex,
+        'created_at': createdAt?.toIso8601String(),
+      };
+
   Question copyWith({
-    String? text,
+    String? question,
     List<String>? options,
-    String? correctAnswer,
+    int? correctIndex,
   }) =>
       Question(
         id: id,
         evaluationId: evaluationId,
-        text: text ?? this.text,
-        type: type,
+        question: question ?? this.question,
         options: options ?? this.options,
-        correctAnswer: correctAnswer ?? this.correctAnswer,
+        correctIndex: correctIndex ?? this.correctIndex,
+        createdAt: createdAt,
       );
 }
