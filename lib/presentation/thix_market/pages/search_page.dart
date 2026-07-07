@@ -19,8 +19,17 @@ class _SearchPageState extends State<SearchPage> {
   bool _showRecentSearches = true;
   final ScrollController _scrollController = ScrollController();
 
-  static const Color primaryBlue = Color(0xFF1A73E8);
-  static const Color bgLight = Color(0xFFF8F9FA);
+  // ============================================================
+  // CHARTE ÉLITE (identique à MarketHomePage)
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
 
   @override
   void initState() {
@@ -54,70 +63,89 @@ class _SearchPageState extends State<SearchPage> {
     final searchProvider = context.watch<SearchProvider>();
 
     return Scaffold(
-      backgroundColor: bgLight,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => context.pop(),
-        ),
-        title: Container(
-          height: 46,
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              Icon(Icons.search, color: Colors.grey[500], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _focusNode,
-                  decoration: const InputDecoration(
-                    hintText: 'Rechercher produits, boutiques...',
-                    border: InputBorder.none,
-                    isDense: true,
-                    hintStyle: TextStyle(fontSize: 14),
-                  ),
-                  onSubmitted: (value) {
-                    setState(() => _showRecentSearches = false);
-                    searchProvider.searchProducts(value);
-                  },
-                ),
-              ),
-              if (_searchController.text.isNotEmpty)
-                IconButton(
-                  icon: Icon(Icons.clear, color: Colors.grey[400], size: 18),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _showRecentSearches = true);
-                    // ✅ Utilisation de reset()
-                    context.read<SearchProvider>().reset();
-                  },
-                ),
-              const SizedBox(width: 4),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black87),
-            onPressed: () => _showFilterBottomSheet(context, searchProvider),
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF7FAFF),
+      appBar: _buildAppBar(searchProvider),
       body: _buildBody(searchProvider),
     );
   }
 
+  // ─── APP BAR (dégradé élite) ──────────────────────────────────────
+  PreferredSizeWidget _buildAppBar(SearchProvider provider) {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [navyDeep, navy, primaryBlue],
+          ),
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(28),
+            bottomRight: Radius.circular(28),
+          ),
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        onPressed: () => context.pop(),
+      ),
+      title: Container(
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            Icon(Icons.search, color: Colors.white70, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _focusNode,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher produits, boutiques...',
+                  hintStyle: TextStyle(color: Colors.white60),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+                onSubmitted: (value) {
+                  setState(() => _showRecentSearches = false);
+                  provider.searchProducts(value);
+                },
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              IconButton(
+                icon: Icon(Icons.clear, color: Colors.white70, size: 18),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _showRecentSearches = true);
+                  context.read<SearchProvider>().reset();
+                },
+              ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.tune_rounded, color: Colors.white),
+          onPressed: () => _showFilterBottomSheet(context, provider),
+        ),
+      ],
+    );
+  }
+
+  // ─── BODY ──────────────────────────────────────────────────────────
   Widget _buildBody(SearchProvider provider) {
     if (provider.isLoading && provider.searchResults.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: primaryBlue));
     }
 
     if (_showRecentSearches && provider.recentSearches.isNotEmpty) {
@@ -131,9 +159,7 @@ class _SearchPageState extends State<SearchPage> {
     return _buildSearchResults(provider);
   }
 
-  // ============================================================
-  // RECHERCHES RÉCENTES
-  // ============================================================
+  // ─── RECHERCHES RÉCENTES ──────────────────────────────────────────
   Widget _buildRecentSearches(SearchProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,26 +171,26 @@ class _SearchPageState extends State<SearchPage> {
             children: [
               const Text(
                 'Recherches récentes',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText),
               ),
               TextButton(
                 onPressed: () => provider.clearRecentSearches(),
                 child: const Text(
                   'Effacer tout',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: Color(0xFFFF5B3D), fontWeight: FontWeight.w600),
                 ),
               ),
             ],
           ),
         ),
         ...provider.recentSearches.map((search) => ListTile(
-          leading: const Icon(Icons.history, color: Colors.grey),
+          leading: const Icon(Icons.history, color: mutedText),
           title: Text(
             search,
-            style: const TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 14, color: darkText),
           ),
           trailing: IconButton(
-            icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+            icon: const Icon(Icons.close, size: 18, color: mutedText),
             onPressed: () => provider.removeRecentSearch(search),
           ),
           onTap: () {
@@ -173,7 +199,7 @@ class _SearchPageState extends State<SearchPage> {
             provider.searchProducts(search);
           },
         )),
-        const Divider(height: 1),
+        const Divider(height: 1, color: softBlue),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -181,21 +207,21 @@ class _SearchPageState extends State<SearchPage> {
             children: [
               const Text(
                 'Suggestions de catégories',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText),
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _buildCategoryChip('Mode', Icons.checkroom),
-                  _buildCategoryChip('Électronique', Icons.phone_android),
-                  _buildCategoryChip('Maison', Icons.home),
-                  _buildCategoryChip('Sport', Icons.sports_soccer),
-                  _buildCategoryChip('Beauté', Icons.spa),
-                  _buildCategoryChip('Auto', Icons.directions_car),
-                  _buildCategoryChip('Immobilier', Icons.house),
-                  _buildCategoryChip('Services', Icons.build),
+                  _buildCategoryChip('Mode', Icons.checkroom_rounded),
+                  _buildCategoryChip('Électronique', Icons.phone_android_rounded),
+                  _buildCategoryChip('Maison', Icons.chair_rounded),
+                  _buildCategoryChip('Sport', Icons.sports_soccer_rounded),
+                  _buildCategoryChip('Beauté', Icons.spa_rounded),
+                  _buildCategoryChip('Auto', Icons.directions_car_rounded),
+                  _buildCategoryChip('Immobilier', Icons.house_rounded),
+                  _buildCategoryChip('Services', Icons.build_rounded),
                 ],
               ),
             ],
@@ -214,73 +240,74 @@ class _SearchPageState extends State<SearchPage> {
         setState(() => _showRecentSearches = false);
         context.read<SearchProvider>().searchProducts(label);
       },
-      backgroundColor: Colors.white,
+      backgroundColor: pureWhite,
       side: BorderSide(color: Colors.grey[200]!),
-      labelStyle: const TextStyle(fontSize: 13),
+      labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: darkText),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 
-  // ============================================================
-  // ÉTAT VIDE
-  // ============================================================
+  // ─── ÉTAT VIDE ─────────────────────────────────────────────────────
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 80, color: Colors.grey[300]),
+          Icon(Icons.search_off_rounded, size: 80, color: mutedText),
           const SizedBox(height: 16),
           const Text(
             'Aucun résultat trouvé',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText),
           ),
           const SizedBox(height: 8),
           Text(
             'Essayez d\'autres mots-clés',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: mutedText),
           ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: () {
               _searchController.clear();
               setState(() => _showRecentSearches = true);
-              // ✅ Utilisation de reset()
               context.read<SearchProvider>().reset();
             },
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             label: const Text('Nouvelle recherche'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: primaryBlue),
+              foregroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // RÉSULTATS DE RECHERCHE
-  // ============================================================
+  // ─── RÉSULTATS DE RECHERCHE ──────────────────────────────────────
   Widget _buildSearchResults(SearchProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
-          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          color: Colors.transparent,
           child: Row(
             children: [
               Text(
                 '${provider.totalResults} résultats',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                style: TextStyle(color: mutedText, fontSize: 14, fontWeight: FontWeight.w500),
               ),
               const Spacer(),
               GestureDetector(
                 onTap: () => _showFilterBottomSheet(context, provider),
                 child: Row(
                   children: [
-                    Icon(Icons.tune, size: 16, color: primaryBlue),
+                    Icon(Icons.tune_rounded, size: 16, color: primaryBlue),
                     const SizedBox(width: 4),
                     Text(
                       'Filtrer',
-                      style: TextStyle(color: primaryBlue, fontSize: 13),
+                      style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ],
                 ),
@@ -294,7 +321,7 @@ class _SearchPageState extends State<SearchPage> {
             padding: const EdgeInsets.all(12),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.7,
+              childAspectRatio: 0.68,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -304,7 +331,7 @@ class _SearchPageState extends State<SearchPage> {
                 return const Center(
                   child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(color: primaryBlue),
                   ),
                 );
               }
@@ -320,16 +347,15 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // ============================================================
-  // FILTRES
-  // ============================================================
+  // ─── FILTRES ──────────────────────────────────────────────────────
   void _showFilterBottomSheet(BuildContext context, SearchProvider provider) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      backgroundColor: pureWhite,
       builder: (context) => FilterBottomSheet(
         onApply: (filters) {
           provider.applyFilters(filters);
