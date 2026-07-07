@@ -1,6 +1,8 @@
 // lib/presentation/education/education_routes.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+// Routes apprenant
 import 'package:thix_id/presentation/education/screens/education_home.dart';
 import 'package:thix_id/presentation/education/screens/education_search_page.dart';
 import 'package:thix_id/presentation/education/screens/education_all_formations.dart';
@@ -12,6 +14,15 @@ import 'package:thix_id/presentation/education/pages/certificate_detail_page.dar
 import 'package:thix_id/presentation/education/pages/forum_topic_detail_page.dart';
 import 'package:thix_id/presentation/education/pages/recommendations_page.dart';
 import 'package:thix_id/presentation/education/models/certificate.dart';
+
+// Routes formateur (instructeur)
+import 'package:thix_id/presentation/education/instructor/instructor_dashboard.dart';
+import 'package:thix_id/presentation/education/instructor/course_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/create_course_page.dart';
+import 'package:thix_id/presentation/education/instructor/module_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/lesson_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/book_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/create_book_page.dart';
 
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -26,6 +37,9 @@ class NoTransitionPage<T> extends Page<T> {
       );
 }
 
+// ============================================================================
+// ROUTES APPRENANT (Éducation)
+// ============================================================================
 List<GoRoute> educationRoutes = [
   GoRoute(
     path: '/education',
@@ -104,5 +118,52 @@ List<GoRoute> educationRoutes = [
         pageBuilder: (context, state) => const NoTransitionPage(child: RecommendationsPage()),
       ),
     ],
+  ),
+];
+
+// ============================================================================
+// ROUTES FORMATEUR (Instructeur)
+// ============================================================================
+List<GoRoute> instructorRoutes = [
+  GoRoute(
+    path: '/instructor/dashboard',
+    name: 'instructorDashboard',
+    pageBuilder: (context, state) => const NoTransitionPage(child: InstructorDashboard()),
+  ),
+  GoRoute(
+    path: '/instructor/courses',
+    name: 'instructorCourses',
+    pageBuilder: (context, state) => const NoTransitionPage(child: CourseManagementPage()),
+  ),
+  GoRoute(
+    path: '/instructor/courses/create',
+    name: 'instructorCreateCourse',
+    pageBuilder: (context, state) => const NoTransitionPage(child: CreateCoursePage()),
+  ),
+  GoRoute(
+    path: '/instructor/courses/edit/:courseId',
+    name: 'instructorEditCourse',
+    pageBuilder: (context, state) {
+      final courseId = state.pathParameters['courseId']!;
+      return NoTransitionPage(child: CreateCoursePage(courseId: courseId));
+    },
+  ),
+  GoRoute(
+    path: '/instructor/books',
+    name: 'instructorBooks',
+    pageBuilder: (context, state) => const NoTransitionPage(child: BookManagementPage()),
+  ),
+  GoRoute(
+    path: '/instructor/books/create',
+    name: 'instructorCreateBook',
+    pageBuilder: (context, state) => const NoTransitionPage(child: CreateBookPage()),
+  ),
+  GoRoute(
+    path: '/instructor/books/edit/:bookId',
+    name: 'instructorEditBook',
+    pageBuilder: (context, state) {
+      final bookId = state.pathParameters['bookId']!;
+      return NoTransitionPage(child: CreateBookPage(bookId: bookId));
+    },
   ),
 ];
