@@ -1,7 +1,7 @@
 // lib/presentation/education/widgets/common/formation_card.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../models/formation.dart';
+import 'package:thix_id/presentation/education/models/formation.dart'; // ✅ Import unique
 
 class FormationCard extends StatelessWidget {
   final Formation formation;
@@ -38,7 +38,7 @@ class FormationCard extends StatelessWidget {
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: CachedNetworkImage(
-                imageUrl: formation.thumbnail ?? '',
+                imageUrl: formation.imageUrl ?? '', // ✅ field correct
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
