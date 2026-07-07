@@ -340,42 +340,42 @@ class _MyAppState extends State<MyApp> {
         BlocProvider<ChatBloc>.value(value: widget.chatBloc),
 
         // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<EventProvider>(
           create: (_) => EventProvider(widget.eventService),
         ),
         // ✅ THIX INFO – correction
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<NewsProvider>(
           create: (_) => NewsProvider(NewsService(SupabaseConfig.client)),
         ),
         // 🆕 THIX MARKET
-        ChangeNotifierProvider(create: (_) => MarketProvider()),
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(create: (_) => SearchProvider()),
-        ChangeNotifierProvider(create: (_) => ShopProvider()),
-        ChangeNotifierProvider(create: (_) => MessageProvider()),
-        ChangeNotifierProvider(create: (_) => LiveProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => ActivityProvider()),
-        ChangeNotifierProvider(create: (_) => SellProvider()),
-        ChangeNotifierProvider(create: (_) => SupportProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
+        ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
+        ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
+        ChangeNotifierProvider<ShopProvider>(create: (_) => ShopProvider()),
+        ChangeNotifierProvider<MessageProvider>(create: (_) => MessageProvider()),
+        ChangeNotifierProvider<LiveProvider>(create: (_) => LiveProvider()),
+        ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
+        ChangeNotifierProvider<ActivityProvider>(create: (_) => ActivityProvider()),
+        ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
+        ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
+        ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
 
         // ============================================================
-        // ✅ NOUVEAUX PROVIDERS EDUCATION
+        // ✅ NOUVEAUX PROVIDERS EDUCATION (avec types explicites)
         // ============================================================
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<EducationProvider>(
           create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
         ),
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<ProgressProvider>(
           create: (_) => ProgressProvider(EducationService(SupabaseConfig.client)),
         ),
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<CertificateProvider>(
           create: (_) => CertificateProvider(EducationService(SupabaseConfig.client)),
         ),
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<ForumProvider>(
           create: (_) => ForumProvider(EducationService(SupabaseConfig.client)),
         ),
-        ChangeNotifierProvider(
+        ChangeNotifierProvider<RecommendationProvider>(
           create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
         ),
       ],
