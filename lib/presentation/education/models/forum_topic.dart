@@ -1,3 +1,4 @@
+// models/forum_topic.dart
 import 'forum_reply.dart';
 
 class ForumTopic {
@@ -12,6 +13,8 @@ class ForumTopic {
   int repliesCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  // Relations
   List<ForumReply>? replies;
   String? authorName;
 
@@ -61,7 +64,31 @@ class ForumTopic {
         'replies_count': repliesCount,
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
-        'replies': replies?.map((r) => r.toJson()).toList(),
-        'author_name': authorName,
       };
+
+  ForumTopic copyWith({
+    String? title,
+    String? content,
+    bool? isPinned,
+    bool? isLocked,
+    int? viewsCount,
+    int? repliesCount,
+    List<ForumReply>? replies,
+    String? authorName,
+  }) =>
+      ForumTopic(
+        id: id,
+        formationId: formationId,
+        userId: userId,
+        title: title ?? this.title,
+        content: content ?? this.content,
+        isPinned: isPinned ?? this.isPinned,
+        isLocked: isLocked ?? this.isLocked,
+        viewsCount: viewsCount ?? this.viewsCount,
+        repliesCount: repliesCount ?? this.repliesCount,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        replies: replies ?? this.replies,
+        authorName: authorName ?? this.authorName,
+      );
 }
