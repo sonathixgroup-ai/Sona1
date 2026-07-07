@@ -8,7 +8,7 @@ import 'package:thix_id/presentation/education/models/module.dart';
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 import 'package:file_picker/file_picker.dart';
-
+import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 class CourseCreatePage extends StatefulWidget {
   final String? courseId;
   const CourseCreatePage({super.key, this.courseId});
