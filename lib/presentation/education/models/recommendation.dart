@@ -1,3 +1,4 @@
+// models/recommendation.dart
 import 'formation.dart';
 
 class Recommendation {
@@ -7,6 +8,8 @@ class Recommendation {
   final double score;
   final String? reason;
   final DateTime? createdAt;
+
+  // Relation
   Formation? formation;
 
   Recommendation({
@@ -36,6 +39,20 @@ class Recommendation {
         'score': score,
         'reason': reason,
         'created_at': createdAt?.toIso8601String(),
-        'formation': formation?.toJson(),
       };
+
+  Recommendation copyWith({
+    double? score,
+    String? reason,
+    Formation? formation,
+  }) =>
+      Recommendation(
+        id: id,
+        userId: userId,
+        formationId: formationId,
+        score: score ?? this.score,
+        reason: reason ?? this.reason,
+        createdAt: createdAt,
+        formation: formation ?? this.formation,
+      );
 }
