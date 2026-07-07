@@ -42,7 +42,7 @@ class CertificateDetailPage extends StatelessWidget {
               const SizedBox(height: 24),
               const Text(
                 'Certificat de formation',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.W800, color: Color(0xFF1A1A2E)),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E)),
               ),
               const SizedBox(height: 16),
               Container(
@@ -109,7 +109,7 @@ class CertificateDetailPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF7386A8))),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.W700, color: Color(0xFF1A1A2E))),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
         ],
       ),
     );
