@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SearchFilters extends StatefulWidget {
   final Function(Map<String, dynamic> filters) onApply;
@@ -16,6 +15,19 @@ class SearchFilters extends StatefulWidget {
 }
 
 class _SearchFiltersState extends State<SearchFilters> {
+  // ============================================================
+  // CHARTE ÉLITE (identique à la page d’accueil)
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color danger = Color(0xFFFF5B3D);
+
   RangeValues _priceRange = const RangeValues(0, 1000000);
   RangeValues _distanceRange = const RangeValues(0, 50);
   double _minRating = 0;
@@ -26,23 +38,23 @@ class _SearchFiltersState extends State<SearchFilters> {
   bool _onlyVerifiedSellers = false;
 
   final List<Map<String, dynamic>> _conditions = [
-    {'id': 'new', 'name': 'Neuf', 'icon': Icons.fiber_new},
-    {'id': 'like_new', 'name': 'Comme neuf', 'icon': Icons.star},
-    {'id': 'good', 'name': 'Bon état', 'icon': Icons.thumb_up},
-    {'id': 'fair', 'name': 'État correct', 'icon': Icons.hourglass_empty},
+    {'id': 'new', 'name': 'Neuf', 'icon': Icons.fiber_new_rounded},
+    {'id': 'like_new', 'name': 'Comme neuf', 'icon': Icons.star_rounded},
+    {'id': 'good', 'name': 'Bon état', 'icon': Icons.thumb_up_rounded},
+    {'id': 'fair', 'name': 'État correct', 'icon': Icons.hourglass_empty_rounded},
   ];
 
   final List<Map<String, dynamic>> _shippingOptions = [
-    {'id': 'delivery', 'name': 'Livraison', 'icon': Icons.local_shipping},
-    {'id': 'pickup', 'name': 'Retrait', 'icon': Icons.store},
-    {'id': 'both', 'name': 'Les deux', 'icon': Icons.swap_horiz},
+    {'id': 'delivery', 'name': 'Livraison', 'icon': Icons.local_shipping_rounded},
+    {'id': 'pickup', 'name': 'Retrait', 'icon': Icons.storefront_rounded},
+    {'id': 'both', 'name': 'Les deux', 'icon': Icons.swap_horiz_rounded},
   ];
 
   final List<Map<String, dynamic>> _paymentMethods = [
-    {'id': 'thix_money', 'name': 'THIX Money', 'icon': Icons.account_balance_wallet},
-    {'id': 'card', 'name': 'Carte bancaire', 'icon': Icons.credit_card},
-    {'id': 'mobile_money', 'name': 'Mobile Money', 'icon': Icons.phone_android},
-    {'id': 'cash', 'name': 'Espèces', 'icon': Icons.money},
+    {'id': 'thix_money', 'name': 'THIX Money', 'icon': Icons.account_balance_wallet_rounded},
+    {'id': 'card', 'name': 'Carte bancaire', 'icon': Icons.credit_card_rounded},
+    {'id': 'mobile_money', 'name': 'Mobile Money', 'icon': Icons.phone_android_rounded},
+    {'id': 'cash', 'name': 'Espèces', 'icon': Icons.money_rounded},
   ];
 
   @override
@@ -75,33 +87,38 @@ class _SearchFiltersState extends State<SearchFilters> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+      decoration: const BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête
+          // ─── En-tête ────────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Filtres avancés',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: darkText),
               ),
               TextButton(
                 onPressed: _resetFilters,
-                child: const Text('Réinitialiser'),
+                style: TextButton.styleFrom(foregroundColor: danger),
+                child: const Text('Réinitialiser', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // Prix
+          // ─── Prix ───────────────────────────────────────────────
           const Text(
-            'Prix (FCFA)',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            'Prix',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           RangeSlider(
             values: _priceRange,
             min: 0,
@@ -111,19 +128,18 @@ class _SearchFiltersState extends State<SearchFilters> {
               '${_priceRange.start.toInt()} FCFA',
               '${_priceRange.end.toInt()} FCFA',
             ),
-            activeColor: const Color(0xFFE5592F),
-            onChanged: (values) {
-              setState(() => _priceRange = values);
-            },
+            activeColor: primaryBlue,
+            inactiveColor: softBlue,
+            onChanged: (values) => setState(() => _priceRange = values),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
-          // Distance (si géolocalisation activée)
+          // ─── Distance ───────────────────────────────────────────
           const Text(
             'Distance (km)',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           RangeSlider(
             values: _distanceRange,
             min: 0,
@@ -133,19 +149,18 @@ class _SearchFiltersState extends State<SearchFilters> {
               '${_distanceRange.start.toInt()} km',
               '${_distanceRange.end.toInt()} km',
             ),
-            activeColor: const Color(0xFFE5592F),
-            onChanged: (values) {
-              setState(() => _distanceRange = values);
-            },
+            activeColor: primaryBlue,
+            inactiveColor: softBlue,
+            onChanged: (values) => setState(() => _distanceRange = values),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
-          // Note minimale
+          // ─── Note minimale ──────────────────────────────────────
           const Text(
             'Note minimum',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -154,33 +169,33 @@ class _SearchFiltersState extends State<SearchFilters> {
                   min: 0,
                   max: 5,
                   divisions: 10,
-                  activeColor: const Color(0xFFE5592F),
-                  label: _minRating.toString(),
-                  onChanged: (value) {
-                    setState(() => _minRating = value);
-                  },
+                  activeColor: primaryBlue,
+                  inactiveColor: softBlue,
+                  label: _minRating.toStringAsFixed(1),
+                  onChanged: (value) => setState(() => _minRating = value),
                 ),
               ),
               SizedBox(
                 width: 60,
                 child: Row(
                   children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                    const Icon(Icons.star_rounded, color: gold, size: 16),
+                    const SizedBox(width: 4),
                     Text(
                       _minRating.toStringAsFixed(1),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: darkText),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // État
+          // ─── État ───────────────────────────────────────────────
           const Text(
             'État',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -190,23 +205,27 @@ class _SearchFiltersState extends State<SearchFilters> {
               final isSelected = _selectedCondition == condition['id'];
               return FilterChip(
                 label: Text(condition['name']),
-                avatar: Icon(condition['icon'], size: 16),
+                avatar: Icon(condition['icon'], size: 16, color: isSelected ? primaryBlue : mutedText),
                 selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedCondition = selected ? condition['id'] : null;
-                  });
-                },
-                selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
+                onSelected: (selected) => setState(() {
+                  _selectedCondition = selected ? condition['id'] : null;
+                }),
+                selectedColor: softBlue,
+                checkmarkColor: primaryBlue,
+                side: BorderSide(
+                  color: isSelected ? primaryBlue : Colors.grey[200]!,
+                  width: isSelected ? 1.5 : 1,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // Options de livraison
+          // ─── Options de livraison ──────────────────────────────
           const Text(
             'Option de livraison',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -216,23 +235,27 @@ class _SearchFiltersState extends State<SearchFilters> {
               final isSelected = _selectedShipping == option['id'];
               return FilterChip(
                 label: Text(option['name']),
-                avatar: Icon(option['icon'], size: 16),
+                avatar: Icon(option['icon'], size: 16, color: isSelected ? primaryBlue : mutedText),
                 selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedShipping = selected ? option['id'] : null;
-                  });
-                },
-                selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
+                onSelected: (selected) => setState(() {
+                  _selectedShipping = selected ? option['id'] : null;
+                }),
+                selectedColor: softBlue,
+                checkmarkColor: primaryBlue,
+                side: BorderSide(
+                  color: isSelected ? primaryBlue : Colors.grey[200]!,
+                  width: isSelected ? 1.5 : 1,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // Modes de paiement
+          // ─── Modes de paiement ──────────────────────────────────
           const Text(
-            'Modes de paiement acceptés',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            'Modes de paiement',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -242,52 +265,65 @@ class _SearchFiltersState extends State<SearchFilters> {
               final isSelected = _selectedPaymentMethods.contains(method['id']);
               return FilterChip(
                 label: Text(method['name']),
-                avatar: Icon(method['icon'], size: 16),
+                avatar: Icon(method['icon'], size: 16, color: isSelected ? primaryBlue : mutedText),
                 selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedPaymentMethods.add(method['id']);
-                    } else {
-                      _selectedPaymentMethods.remove(method['id']);
-                    }
-                  });
-                },
-                selectedColor: const Color(0xFFE5592F).withOpacity(0.1),
+                onSelected: (selected) => setState(() {
+                  if (selected) {
+                    _selectedPaymentMethods.add(method['id']);
+                  } else {
+                    _selectedPaymentMethods.remove(method['id']);
+                  }
+                }),
+                selectedColor: softBlue,
+                checkmarkColor: primaryBlue,
+                side: BorderSide(
+                  color: isSelected ? primaryBlue : Colors.grey[200]!,
+                  width: isSelected ? 1.5 : 1,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // Options supplémentaires
+          // ─── Options supplémentaires ────────────────────────────
           SwitchListTile(
-            title: const Text('Livraison gratuite uniquement'),
+            title: const Text(
+              'Livraison gratuite uniquement',
+              style: TextStyle(fontWeight: FontWeight.w500, color: darkText),
+            ),
             value: _hasFreeShipping,
-            onChanged: (value) {
-              setState(() => _hasFreeShipping = value);
-            },
-            activeColor: const Color(0xFFE5592F),
+            onChanged: (value) => setState(() => _hasFreeShipping = value),
+            activeColor: primaryBlue,
+            inactiveTrackColor: softBlue,
+            contentPadding: EdgeInsets.zero,
           ),
           SwitchListTile(
-            title: const Text('Vendeurs vérifiés uniquement'),
+            title: const Text(
+              'Vendeurs vérifiés uniquement',
+              style: TextStyle(fontWeight: FontWeight.w500, color: darkText),
+            ),
             value: _onlyVerifiedSellers,
-            onChanged: (value) {
-              setState(() => _onlyVerifiedSellers = value);
-            },
-            activeColor: const Color(0xFFE5592F),
+            onChanged: (value) => setState(() => _onlyVerifiedSellers = value),
+            activeColor: primaryBlue,
+            inactiveTrackColor: softBlue,
+            contentPadding: EdgeInsets.zero,
           ),
           const SizedBox(height: 20),
 
-          // Boutons
+          // ─── Boutons ─────────────────────────────────────────────
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: BorderSide(color: Colors.grey[300]!),
+                    foregroundColor: mutedText,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Annuler'),
+                  child: const Text('Annuler', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -298,10 +334,12 @@ class _SearchFiltersState extends State<SearchFilters> {
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE5592F),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: primaryBlue,
+                    foregroundColor: pureWhite,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Appliquer'),
+                  child: const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
