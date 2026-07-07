@@ -7,7 +7,7 @@ import '../../../providers/education_provider.dart';
 import '../widgets/common/education_empty_state.dart';
 import '../widgets/forum/forum_topic_card.dart';
 import '../widgets/forum/forum_create_topic_dialog.dart';
-
+import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 class EducationForum extends StatefulWidget {
   final String formationId;
 
