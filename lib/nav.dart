@@ -2427,7 +2427,7 @@ GoRoute(
           },
                 ),
         ...educationRoutes,
-
+        ...instructorRoutes,
         // Admin
         GoRoute(
           path: '${AppRoutes.admin}/:module',
