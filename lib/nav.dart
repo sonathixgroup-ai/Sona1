@@ -337,7 +337,13 @@ class AppRoutes {
   static const String education = '/education';
   static const String trainingHome = '/education';          
   static const String trainingDetailsBasePath = '/education'; 
-
+  static const String education = '/education';
+  static const String trainingHome = '/education';
+  static const String trainingDetailsBasePath = '/education';
+  // Routes formateur
+  static const String instructorDashboard = '/instructor/dashboard';
+  static const String instructorCourses = '/instructor/courses';
+  
   // THIX Santé
   static const String thixSante = '/sante';
   static const String thixSantePatient = '/sante/patient';
