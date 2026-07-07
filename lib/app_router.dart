@@ -230,6 +230,10 @@ class AppRoutes {
   static const String thixMediaVideo = '/thix-media/video';
   static const String adminMedia = '/admin/media';
   
+static const String education = '/education';
+static const String trainingHome = '/education';
+static const String trainingDetailsBasePath = '/education';
+  
   // THIX ÉVÉNEMENT
   static const String events = '/thix-event';
   static const String thixEvent = '/thix-event';
