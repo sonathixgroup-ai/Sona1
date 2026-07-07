@@ -5,9 +5,16 @@ import 'package:thix_id/presentation/education/models/lesson.dart';
 import 'package:thix_id/presentation/education/models/video.dart';
 import 'package:thix_id/presentation/education/models/evaluation.dart';
 import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
+
 class LessonManagementPage extends StatefulWidget {
   final Lesson? lesson;
-  const LessonManagementPage({super.key, this.lesson});
+  final String? moduleId; // ✅ Ajout du paramètre moduleId
+
+  const LessonManagementPage({
+    super.key,
+    this.lesson,
+    this.moduleId,
+  });
 
   @override
   State<LessonManagementPage> createState() => _LessonManagementPageState();
@@ -37,14 +44,21 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
   Future<void> _uploadFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: _type == 'video' ? FileType.video : FileType.custom,
       allowedExtensions: _type == 'document' ? ['pdf', 'doc', 'docx', 'ppt', 'pptx'] : null,
     );
     if (result != null && result.files.isNotEmpty) {
-      // Simuler l'upload et récupérer l'URL
-      // Dans la vraie vie, vous utiliseriez Supabase Storage
+      // Simuler l'upload (à remplacer par un vrai upload vers Supabase Storage)
       setState(() {
         _contentController.text = 'uploaded_file_${DateTime.now().millisecondsSinceEpoch}.${result.files.first.extension}';
       });
@@ -73,7 +87,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               if (_formKey.currentState!.validate()) {
                 final lesson = Lesson(
                   id: widget.lesson?.id ?? '',
-                  moduleId: '',
+                  moduleId: widget.moduleId ?? '',
                   title: _titleController.text,
                   description: _descriptionController.text,
                   type: _type,
@@ -146,7 +160,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               else
                 TextFormField(
                   controller: _contentController,
-                  decoration:  InputDecoration(
+                  decoration: InputDecoration(
                     labelText: _type == 'quiz' || _type == 'evaluation' ? 'ID de l\'évaluation' : 'Consignes',
                   ),
                 ),
@@ -167,8 +181,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
                       ),
                     );
                     if (questions != null) {
-                      // Créer une évaluation avec les questions
-                      // ...
+                      // Créer une évaluation avec les questions (à implémenter)
                     }
                   },
                   child: const Text('Gérer les questions'),
