@@ -55,7 +55,6 @@ import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 
-import 'package:thix_id/education/education_routes.dart';
 // ==================== THIX INFO ====================
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
 import 'package:thix_id/presentation/thix_info/article_detail_page.dart';
@@ -2413,7 +2412,7 @@ GoRoute(
           },
         ),
        
-          ...educationRoutes,
+          
         
         // Jobs détail
         GoRoute(
