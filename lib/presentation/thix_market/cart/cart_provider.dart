@@ -29,6 +29,15 @@ class CartProvider extends ChangeNotifier {
         return sum + (price * quantity);
       });
 
+  // ✅ Devise dominante : on prend la devise du premier article, sinon CDF
+  String get currency {
+    if (_cartItems.isEmpty) return 'CDF';
+    final product = _cartItems.first['product'] as Map?;
+    return product?['currency'] ?? 'CDF';
+  }
+
+  String get currencySymbol => currency == 'USD' ? '\$' : 'FC';
+
   double get shippingCost => subtotal > 50000 ? 0 : 2500;
   double get total => subtotal + shippingCost;
 
