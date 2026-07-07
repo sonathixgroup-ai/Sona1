@@ -51,6 +51,13 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
           onPressed: () => context.pop(),
         ),
         actions: [
+          // ✅ Bouton Retour à l'espace apprenant
+          IconButton(
+            icon: const Icon(Icons.home_rounded),
+            onPressed: () => context.push('/education'),
+            tooltip: 'Retour à l\'espace apprenant',
+          ),
+          // Bouton Profil
           IconButton(
             icon: const Icon(Icons.person_outline_rounded),
             onPressed: () => context.push('/profile'),
