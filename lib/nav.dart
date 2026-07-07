@@ -279,6 +279,7 @@ import 'package:thix_id/presentation/chat/online_users/online_users_page.dart';
 import 'package:thix_id/presentation/chat/stories/new_story_page.dart';
 import 'package:thix_id/presentation/chat/stories/story_detail_page.dart';
 
+import 'package:thix_id/presentation/education/education_routes.dart';
 // ============================================================
 // Classes utilitaires
 // ============================================================
@@ -2433,7 +2434,7 @@ GoRoute(
             return NoTransitionPage(child: JobApplyPage(jobId: jobId));
           },
         ),
-        
+          ...educationRoutes
         // Admin
         GoRoute(
           path: '${AppRoutes.admin}/:module',
