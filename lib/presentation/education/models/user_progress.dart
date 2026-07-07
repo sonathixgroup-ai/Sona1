@@ -1,31 +1,42 @@
-// ------------------------------------------------------------------
-// Fichier : models/user_progress.dart
-// Rôle : Progression d'un utilisateur pour chaque leçon d'une formation.
-// Permet de suivre le détail de l'avancement.
-// ------------------------------------------------------------------
-import 'formation.dart';
+// models/user_progress.dart
+import 'lesson.dart';
+
 class UserProgress {
   final String id;
   final String userId;
   final String lessonId;
-  final String status; // 'not_started', 'in_progress', 'completed'
-  final double progress; // 0.0 à 1.0 (pourcentage de la leçon)
-  final DateTime lastAccessedAt;
-  final DateTime? completedAt;
+  String status; // 'not_started', 'in_progress', 'completed'
+  double progress; // 0.0 à 1.0
+  DateTime? lastAccessedAt;
+  DateTime? completedAt;
+  final DateTime? createdAt;
 
-  // Relations
+  // Relation
   Lesson? lesson;
 
   UserProgress({
     required this.id,
     required this.userId,
     required this.lessonId,
-    required this.status,
-    required this.progress,
-    required this.lastAccessedAt,
+    this.status = 'not_started',
+    this.progress = 0.0,
+    this.lastAccessedAt,
     this.completedAt,
+    this.createdAt,
     this.lesson,
   });
+
+  factory UserProgress.fromJson(Map<String, dynamic> json) => UserProgress(
+        id: json['id'],
+        userId: json['user_id'],
+        lessonId: json['lesson_id'],
+        status: json['status'] ?? 'not_started',
+        progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
+        lastAccessedAt: json['last_accessed_at'] != null ? DateTime.parse(json['last_accessed_at']) : null,
+        completedAt: json['completed_at'] != null ? DateTime.parse(json['completed_at']) : null,
+        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+        lesson: json['lesson'] != null ? Lesson.fromJson(json['lesson']) : null,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -33,21 +44,10 @@ class UserProgress {
         'lesson_id': lessonId,
         'status': status,
         'progress': progress,
-        'last_accessed_at': lastAccessedAt.toIso8601String(),
+        'last_accessed_at': lastAccessedAt?.toIso8601String(),
         'completed_at': completedAt?.toIso8601String(),
+        'created_at': createdAt?.toIso8601String(),
       };
-
-  factory UserProgress.fromJson(Map<String, dynamic> json) => UserProgress(
-        id: json['id'],
-        userId: json['user_id'],
-        lessonId: json['lesson_id'],
-        status: json['status'],
-        progress: (json['progress'] as num).toDouble(),
-        lastAccessedAt: DateTime.parse(json['last_accessed_at']),
-        completedAt: json['completed_at'] != null
-            ? DateTime.parse(json['completed_at'])
-            : null,
-      );
 
   UserProgress copyWith({
     String? status,
@@ -64,6 +64,7 @@ class UserProgress {
         progress: progress ?? this.progress,
         lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
         completedAt: completedAt ?? this.completedAt,
+        createdAt: createdAt,
         lesson: lesson ?? this.lesson,
       );
 }
