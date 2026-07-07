@@ -74,6 +74,7 @@ class CartPage extends StatelessWidget {
                 shippingCost: cart.shippingCost,
                 total: cart.total,
                 itemCount: cart.totalQuantity,
+                currencySymbol: cart.currencySymbol, // ✅ devise dynamique
                 onCheckout: () => _proceedToCheckout(context),
               ),
             ],
@@ -94,7 +95,6 @@ class CartPage extends StatelessWidget {
               color: const Color(0xFFEFF5FF),
               shape: BoxShape.circle,
             ),
-            // ✅ Correction : Icons.shopping_cart_outlined_rounded → Icons.shopping_cart_outlined
             child: Icon(Icons.shopping_cart_outlined, size: 80, color: const Color(0xFF7386A8)),
           ),
           const SizedBox(height: 16),
@@ -153,7 +153,13 @@ class CartPage extends StatelessWidget {
     if (!isLoggedIn) {
       context.go('/login');
     } else {
-      context.push('/market/checkout');
+      try {
+        context.push('/market/checkout');
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du checkout : ${e.toString()}')),
+        );
+      }
     }
   }
 }
