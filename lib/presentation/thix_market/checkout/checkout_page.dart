@@ -6,7 +6,6 @@ import 'checkout_provider.dart';
 import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
-import 'order_confirmation_page.dart';
 import '../cart/cart_provider.dart';
 import '../delivery/delivery_address_selector.dart';
 
@@ -18,17 +17,20 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  bool _isDataLoaded = false; // ✅ indicateur local pour éviter les rechargements multiples
+  bool _isDataLoaded = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Charger les données une seule fois
     if (!_isDataLoaded) {
       _isDataLoaded = true;
       final provider = context.read<CheckoutProvider>();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        provider.loadCheckoutData();
+        provider.loadCheckoutData().catchError((e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur de chargement : ${e.toString()}')),
+          );
+        });
       });
     }
   }
@@ -56,7 +58,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            return _buildStepContent(provider, context);
+            try {
+              return _buildStepContent(provider, context);
+            } catch (e) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Erreur : ${e.toString()}'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => context.pop(),
+                      child: const Text('Retour'),
+                    ),
+                  ],
+                ),
+              );
+            }
           },
         ),
       ),
@@ -79,7 +99,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 }
 
-// Étape Adresse (utilise DeliveryAddressSelector réutilisable)
 class _AddressStep extends StatelessWidget {
   final CheckoutProvider provider;
 
