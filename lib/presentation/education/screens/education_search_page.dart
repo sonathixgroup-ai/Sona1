@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../../models/formation.dart';
-import '../../../providers/education_provider.dart';
-import '../widgets/common/education_empty_state.dart';
-import '../widgets/formation_card.dart';
+import 'package:thix_id/presentation/education/models/formation.dart';
+import 'package:thix_id/presentation/education/providers/education_provider.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_empty_state.dart';
+import 'package:thix_id/presentation/education/widgets/common/formation_card.dart';
 
 class EducationSearchPage extends StatefulWidget {
   const EducationSearchPage({super.key});
@@ -38,8 +38,12 @@ class _EducationSearchPageState extends State<EducationSearchPage> {
     setState(() => _isSearching = true);
     try {
       final provider = context.read<EducationProvider>();
-      final results = await provider.getFormations(search: query);
-      setState(() => _results = results);
+      // Utilise loadFormations avec le paramètre search
+      await provider.loadFormations(search: query);
+      // La liste des formations est maintenant disponible dans provider.formations
+      setState(() {
+        _results = provider.formations;
+      });
     } catch (e) {
       // ignore
     } finally {
@@ -143,7 +147,7 @@ class _EducationSearchPageState extends State<EducationSearchPage> {
                           const SizedBox(height: 8),
                           Text(
                             'Tapez un mot-clé pour commencer',
-                            style: TextStyle(color: const Color(0xFF7386A8)),
+                            style: TextStyle(color: Color(0xFF7386A8)),
                           ),
                         ],
                       ),
