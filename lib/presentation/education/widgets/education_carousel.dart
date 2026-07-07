@@ -11,9 +11,7 @@ class EducationCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (formations.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (formations.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
       height: 200,
@@ -71,7 +69,7 @@ class EducationCarousel extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.W700,
+                            fontWeight: FontWeight.w700,
                             color: Color(0xFF1A1A2E),
                           ),
                         ),
@@ -87,13 +85,13 @@ class EducationCarousel extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               formation.rating.toStringAsFixed(1),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.W700),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(width: 8),
                             if (formation.price > 0)
                               Text(
                                 '${formation.price.toInt()} FC',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.W800, color: Color(0xFF2D6CDF)),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF2D6CDF)),
                               )
                             else
                               Container(
@@ -104,7 +102,7 @@ class EducationCarousel extends StatelessWidget {
                                 ),
                                 child: const Text(
                                   'Gratuit',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.W700, color: Color(0xFF2D6CDF)),
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF2D6CDF)),
                                 ),
                               ),
                           ],
