@@ -2425,23 +2425,20 @@ GoRoute(
             return NoTransitionPage(
                 child: JobDetailsPage(jobId: jobId, applied: applied));
           },
-        ),
-        GoRoute(
-          path: '/jobs/:jobId/apply',
-          name: 'jobApply',
-          pageBuilder: (context, state) {
-            final jobId = state.pathParameters['jobId'] ?? '';
-            return NoTransitionPage(child: JobApplyPage(jobId: jobId));
-          },
-        ),
-          ...educationRoutes
+                ),
+        ...educationRoutes,
+
         // Admin
         GoRoute(
           path: '${AppRoutes.admin}/:module',
           name: 'admin',
           pageBuilder: (context, state) {
-            final module = AdminModuleX.fromSlug(state.pathParameters['module']);
-            return NoTransitionPage(child: AdminPage(module: module));
+            final module = AdminModuleX.fromSlug(
+              state.pathParameters['module'],
+            );
+            return NoTransitionPage(
+              child: AdminPage(module: module),
+            );
           },
         ),
         GoRoute(
