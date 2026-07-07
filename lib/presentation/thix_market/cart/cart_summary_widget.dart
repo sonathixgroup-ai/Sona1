@@ -6,6 +6,7 @@ class CartSummaryWidget extends StatelessWidget {
   final double shippingCost;
   final double total;
   final int itemCount;
+  final String currencySymbol;
   final VoidCallback onCheckout;
 
   const CartSummaryWidget({
@@ -14,21 +15,18 @@ class CartSummaryWidget extends StatelessWidget {
     required this.shippingCost,
     required this.total,
     required this.itemCount,
+    required this.currencySymbol,
     required this.onCheckout,
   });
 
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color softBlue = Color(0xFFEFF5FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
 
   @override
   Widget build(BuildContext context) {
-    // Symbole par défaut : on pourrait le rendre dynamique, mais le panier utilise généralement une seule devise
-    const symbol = 'FC';
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -55,11 +53,11 @@ class CartSummaryWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            _buildRow('Sous-total ($itemCount articles)', subtotal, symbol),
+            _buildRow('Sous-total ($itemCount articles)', subtotal, currencySymbol),
             const SizedBox(height: 4),
-            _buildRow('Livraison', shippingCost, symbol),
+            _buildRow('Livraison', shippingCost, currencySymbol),
             const Divider(height: 24, thickness: 1),
-            _buildRow('Total', total, symbol, isTotal: true),
+            _buildRow('Total', total, currencySymbol, isTotal: true),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
