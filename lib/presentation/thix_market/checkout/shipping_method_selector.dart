@@ -1,5 +1,5 @@
+// lib/presentation/thix_market/checkout/shipping_method_selector.dart
 import 'package:flutter/material.dart';
-
 import 'checkout_provider.dart';
 
 class ShippingMethodSelector extends StatefulWidget {
@@ -14,6 +14,16 @@ class ShippingMethodSelector extends StatefulWidget {
 class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
   late final List<Map<String, dynamic>> _methods;
 
+  // ─── Palette Élite ──────────────────────────────────────────────
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color danger = Color(0xFFFF5B3D);
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +36,9 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
 
   @override
   Widget build(BuildContext context) {
+    // La devise de livraison est toujours en FC (CDF)
+    const shippingSymbol = 'FC';
+
     return Column(
       children: [
         Expanded(
@@ -39,9 +52,9 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
                 margin: const EdgeInsets.only(bottom: 12),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: isSelected ? const Color(0xFFE5592F) : Colors.grey[200]!,
+                    color: isSelected ? primaryBlue : Colors.grey[200]!,
                     width: isSelected ? 2 : 1,
                   ),
                 ),
@@ -49,9 +62,33 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
                   value: method,
                   groupValue: widget.provider.selectedShippingMethod,
                   onChanged: (value) => widget.provider.selectShippingMethod(value!),
-                  title: Text(method['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${method['days']} · ${method['price']} FCFA'),
-                  activeColor: const Color(0xFFE5592F),
+                  activeColor: primaryBlue,
+                  title: Text(
+                    method['name'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: darkText,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${method['days']} · ${method['price']} $shippingSymbol',
+                    style: TextStyle(color: mutedText),
+                  ),
+                  secondary: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isSelected ? primaryBlue.withOpacity(0.1) : softBlue,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      method['price'] == 0 ? 'GRATUIT' : '${method['price']} $shippingSymbol',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        color: isSelected ? primaryBlue : mutedText,
+                      ),
+                    ),
+                  ),
                 ),
               );
             },
@@ -64,11 +101,18 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
                 ? null
                 : () => widget.provider.selectShippingMethod(widget.provider.selectedShippingMethod!),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: primaryBlue,
+              foregroundColor: pureWhite,
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
             ),
-            child: const Text('Continuer'),
+            child: const Text(
+              'Continuer',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
           ),
         ),
       ],
