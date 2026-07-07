@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:thix_id/presentation/education/models/lesson.dart';
 import 'package:thix_id/presentation/education/models/video.dart';
 import 'package:thix_id/presentation/education/models/evaluation.dart';
-
+import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
 class LessonManagementPage extends StatefulWidget {
   final Lesson? lesson;
   const LessonManagementPage({super.key, this.lesson});
