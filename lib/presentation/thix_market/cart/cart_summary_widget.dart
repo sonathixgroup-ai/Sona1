@@ -17,17 +17,18 @@ class CartSummaryWidget extends StatelessWidget {
     required this.onCheckout,
   });
 
-  // ─── Palette Élite ──────────────────────────────────────────────
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color primaryBlue = Color(0xFF2D6CDF);
   static const Color softBlue = Color(0xFFEFF5FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
 
   @override
   Widget build(BuildContext context) {
+    // Symbole par défaut : on pourrait le rendre dynamique, mais le panier utilise généralement une seule devise
+    const symbol = 'FC';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -45,7 +46,6 @@ class CartSummaryWidget extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Ligne séparateur
             Container(
               width: 40,
               height: 4,
@@ -55,14 +55,12 @@ class CartSummaryWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            // Détails des prix
-            _buildRow('Sous-total ($itemCount articles)', subtotal),
+            _buildRow('Sous-total ($itemCount articles)', subtotal, symbol),
             const SizedBox(height: 4),
-            _buildRow('Livraison', shippingCost),
+            _buildRow('Livraison', shippingCost, symbol),
             const Divider(height: 24, thickness: 1),
-            _buildRow('Total', total, isTotal: true),
+            _buildRow('Total', total, symbol, isTotal: true),
             const SizedBox(height: 16),
-            // Bouton Continuer
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -91,13 +89,7 @@ class CartSummaryWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(String label, double value, {bool isTotal = false}) {
-    final currency = value >= 1000 ? 'FC' : 'FC'; // on pourrait récupérer la devise du panier, mais simplifié
-    // On affiche en FC par défaut, mais le panier utilise déjà la devise dynamique dans les items.
-    // Pour le total, on utilise le même symbole.
-    // On peut récupérer la devise du premier article, mais pour l'instant on met FC.
-    // On pourrait améliorer en ajoutant un paramètre, mais ce n'est pas critique.
-    final symbol = 'FC'; // à rendre dynamique si nécessaire
+  Widget _buildRow(String label, double value, String symbol, {bool isTotal = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
