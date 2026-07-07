@@ -37,7 +37,6 @@ class FormationCard extends StatelessWidget {
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: CachedNetworkImage(
-                // ✅ Utilisation de imageUrl (le champ existe dans Formation)
                 imageUrl: formation.imageUrl ?? 'https://via.placeholder.com/300x120',
                 height: 120,
                 width: double.infinity,
@@ -65,7 +64,7 @@ class FormationCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.W700,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFF1A1A2E),
                     ),
                   ),
@@ -90,7 +89,7 @@ class FormationCard extends StatelessWidget {
                           '${formation.price.toInt()} FC',
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.W800,
+                            fontWeight: FontWeight.w800,
                             color: Color(0xFF2D6CDF),
                           ),
                         )
@@ -105,7 +104,7 @@ class FormationCard extends StatelessWidget {
                             'Gratuit',
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.W700,
+                              fontWeight: FontWeight.w700,
                               color: Color(0xFF2D6CDF),
                             ),
                           ),
@@ -129,7 +128,7 @@ class FormationCard extends StatelessWidget {
                       children: [
                         Text(
                           'Progression',
-                          style: TextStyle(fontSize: 10, color: const Color(0xFF7386A8)),
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF7386A8)),
                         ),
                         Text(
                           '${(progress! * 100).toInt()}%',
