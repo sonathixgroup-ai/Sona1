@@ -307,7 +307,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
         ? auth.currentUser!.displayName.trim()
         : (auth.currentUser?.email.trim().isNotEmpty ?? false)
             ? auth.currentUser!.email.trim()
-            : 'Nathan';
+            : 'Bonjour';
     final badgeCountsStream = auth.currentUser == null
         ? Stream.value(SectionBadgeCounts.zero)
         : _counters.streamCounts(auth.currentUser!.id);
@@ -394,7 +394,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 context.push(AppRoutes.thixMedia);
                                 break;
                               case 'thixMarket':
-                                context.push(AppRoutes.thixMarket);
+                                context.push(AppRoutes.education);
                                 break;
                               case 'formations':
                                 context.push(AppRoutes.trainingHome);
