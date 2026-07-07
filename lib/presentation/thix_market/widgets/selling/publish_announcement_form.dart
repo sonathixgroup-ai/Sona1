@@ -1,5 +1,5 @@
 // lib/presentation/thix_market/widgets/selling/publish_announcement_form.dart
-import 'dart:io';
+import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,11 +31,14 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   final _stockController = TextEditingController();
   final _brandController = TextEditingController();
   final _customCityController = TextEditingController();
-  // ✅ Nouveaux contrôleurs pour les informations de livraison
   final _warrantyController = TextEditingController();
   final _shippingCostController = TextEditingController();
 
-  List<File> _selectedImages = [];
+  // ✅ Web + mobile compatible : on garde des XFile + un cache de bytes en mémoire
+  // au lieu de dart:io File / FileImage, qui ne fonctionnent pas sur Flutter Web.
+  List<XFile> _selectedImages = [];
+  final Map<String, Uint8List> _imageBytesCache = {};
+
   String? _category;
   String? _condition;
   String? _shippingType;
@@ -164,38 +167,55 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     }
   }
 
+  // ✅ Sélection d'images : on précharge immédiatement les bytes en mémoire
+  // (fonctionne sur mobile ET web, contrairement à File(x.path))
   Future<void> _pickImages() async {
     final List<XFile>? images = await _picker.pickMultiImage(
       maxWidth: 1024,
       maxHeight: 1024,
       imageQuality: 85,
     );
-    if (images != null) {
+    if (images != null && images.isNotEmpty) {
+      for (final img in images) {
+        try {
+          _imageBytesCache[img.path] = await img.readAsBytes();
+        } catch (e) {
+          debugPrint('❌ Erreur lecture image ${img.path}: $e');
+        }
+      }
       setState(() {
-        _selectedImages = images.map((x) => File(x.path)).toList();
+        _selectedImages = images;
       });
     }
   }
 
   void _removeImage(int index) {
     setState(() {
-      _selectedImages.removeAt(index);
+      final removed = _selectedImages.removeAt(index);
+      _imageBytesCache.remove(removed.path);
     });
   }
 
+  // ✅ Upload en binaire (uploadBinary) : compatible mobile + web
   Future<List<String>> _uploadImages() async {
     List<String> urls = [];
     setState(() => _isUploading = true);
     try {
-      for (File image in _selectedImages) {
+      for (final image in _selectedImages) {
         try {
-          final fileExt = image.path.split('.').last;
+          final bytes = _imageBytesCache[image.path] ?? await image.readAsBytes();
+          final fileExt = image.path.split('.').last.toLowerCase();
           final fileName = '${const Uuid().v4()}.$fileExt';
           final filePath = 'products/$fileName';
 
-          await Supabase.instance.client.storage
-              .from('product_images')
-              .upload(filePath, image);
+          await Supabase.instance.client.storage.from('product_images').uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: FileOptions(
+                  contentType: 'image/$fileExt',
+                  upsert: false,
+                ),
+              );
 
           final publicUrl = Supabase.instance.client.storage
               .from('product_images')
@@ -282,7 +302,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
         'latitude': _currentPosition?.latitude,
         'longitude': _currentPosition?.longitude,
         'updated_at': DateTime.now().toIso8601String(),
-        // ✅ Ajout des nouvelles colonnes
         'warranty_months': _warrantyController.text.isNotEmpty ? int.parse(_warrantyController.text) : null,
         'shipping_cost': _shippingCostController.text.isNotEmpty ? double.parse(_shippingCostController.text) : null,
       };
@@ -364,22 +383,41 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
                       ),
                     );
                   }
+
+                  final image = _selectedImages[index];
+                  final bytes = _imageBytesCache[image.path];
+
                   return Stack(
                     children: [
                       Container(
                         width: 100,
+                        height: 100,
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: FileImage(_selectedImages[index]),
-                            fit: BoxFit.cover,
-                          ),
+                          color: Colors.grey[100],
                         ),
+                        child: bytes != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.memory(
+                                  bytes,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
                       ),
                       Positioned(
                         top: 4,
-                        right: 4,
+                        right: 12,
                         child: GestureDetector(
                           onTap: () => _removeImage(index),
                           child: Container(
@@ -598,7 +636,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
             ),
             const SizedBox(height: 8),
 
-            // ✅ Informations de livraison supplémentaires
+            // Informations de livraison supplémentaires
             Row(
               children: [
                 Expanded(
