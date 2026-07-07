@@ -29,11 +29,11 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
     if (userId == null) return;
     final provider = context.read<EducationProvider>();
     await provider.loadFormations();
-    // Pour l'instant on compte toutes les formations (à filtrer par instructorId)
+    // TODO: filtrer par instructorId (ajouter champ instructor_id dans formations)
     setState(() {
       _totalCourses = provider.formations.length;
-      _totalStudents = 0; // à implémenter avec les inscriptions
-      _totalBooks = 0; // à implémenter avec un service Book
+      _totalStudents = 0; // à calculer via les inscriptions
+      _totalBooks = 0; // à charger via un service Book
       _loading = false;
     });
   }
@@ -131,6 +131,37 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+
+                  // Dernières activités (placeholder)
+                  const Text(
+                    'Dernières activités',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0A1F44).withOpacity(0.04),
+                          blurRadius: 12,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Aucune activité récente.',
+                        style: TextStyle(color: Color(0xFF7386A8)),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -143,7 +174,6 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-
   const _StatCard({
     required this.icon,
     required this.label,
@@ -194,7 +224,6 @@ class _QuickAction extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color color;
-
   const _QuickAction({
     required this.icon,
     required this.label,
