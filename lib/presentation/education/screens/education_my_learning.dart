@@ -2,12 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../../models/enrollment.dart';
-import '../../../providers/education_provider.dart';
-import '../../../providers/progress_provider.dart';
-import '../widgets/common/education_empty_state.dart';
-import '../widgets/common/education_loading_shimmer.dart';
-import '../widgets/formation_card.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:thix_id/presentation/education/models/enrollment.dart';
+import 'package:thix_id/presentation/education/providers/education_provider.dart';
+import 'package:thix_id/presentation/education/providers/progress_provider.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_empty_state.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
+import 'package:thix_id/presentation/education/widgets/common/formation_card.dart';
 
 class EducationMyLearning extends StatefulWidget {
   const EducationMyLearning({super.key});
