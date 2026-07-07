@@ -43,17 +43,16 @@ class EducationProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadCategories() async {
-    try {
-      _categories = await _service.getCategories();
-      _categories = response.map((json) => Category.fromJson(json)).toList();
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
+  // Dans education_provider.dart, méthode loadCategories :
+Future<void> loadCategories() async {
+  try {
+    _categories = await _service.getCategories(); // ✅ Correction
+    notifyListeners();
+  } catch (e) {
+    _error = e.toString();
+    notifyListeners();
   }
-
+}
   Future<void> loadFormationDetails(String formationId) async {
     _isLoading = true;
     notifyListeners();
