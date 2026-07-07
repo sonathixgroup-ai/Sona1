@@ -1,28 +1,38 @@
-// ------------------------------------------------------------------
-// Fichier : models/module.dart
-// Rôle : Module d'une formation. Une formation est composée de plusieurs
-// modules ordonnés. Chaque module contient plusieurs leçons.
-// ------------------------------------------------------------------
-import 'formation.dart';
+// models/module.dart
+import 'lesson.dart';
 
 class Module {
   final String id;
   final String formationId;
   final String title;
-  final String description;
-  final int order; // ordre d'affichage dans la formation
+  final String? description;
+  final int order;
+  final DateTime? createdAt;
 
-  // Relations
+  // Relation
   List<Lesson>? lessons;
 
   Module({
     required this.id,
     required this.formationId,
     required this.title,
-    required this.description,
-    required this.order,
+    this.description,
+    this.order = 0,
+    this.createdAt,
     this.lessons,
   });
+
+  factory Module.fromJson(Map<String, dynamic> json) => Module(
+        id: json['id'],
+        formationId: json['formation_id'],
+        title: json['title'],
+        description: json['description'],
+        order: json['order'] ?? 0,
+        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+        lessons: json['lessons'] != null
+            ? (json['lessons'] as List).map((l) => Lesson.fromJson(l)).toList()
+            : null,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -30,15 +40,8 @@ class Module {
         'title': title,
         'description': description,
         'order': order,
+        'created_at': createdAt?.toIso8601String(),
       };
-
-  factory Module.fromJson(Map<String, dynamic> json) => Module(
-        id: json['id'],
-        formationId: json['formation_id'],
-        title: json['title'],
-        description: json['description'],
-        order: json['order'],
-      );
 
   Module copyWith({
     String? title,
@@ -52,6 +55,7 @@ class Module {
         title: title ?? this.title,
         description: description ?? this.description,
         order: order ?? this.order,
+        createdAt: createdAt,
         lessons: lessons ?? this.lessons,
       );
 }
