@@ -7,12 +7,14 @@ class PriceAlert extends StatefulWidget {
   final String productId;
   final String productTitle;
   final double currentPrice;
+  final String? currency; // ✅ ajout de la devise
 
   const PriceAlert({
     super.key,
     required this.productId,
     required this.productTitle,
     required this.currentPrice,
+    this.currency,
   });
 
   @override
@@ -25,10 +27,16 @@ class _PriceAlertState extends State<PriceAlert> {
   bool _hasAlert = false;
   Map<String, dynamic>? _existingAlert;
 
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color danger = Color(0xFFE53935);
-  static const Color textMuted = Color(0xFF8A8FA3);
+  // ─── Palette Élite ──────────────────────────────────────────────
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color danger = Color(0xFFFF5B3D);
 
   @override
   void initState() {
@@ -167,12 +175,13 @@ class _PriceAlertState extends State<PriceAlert> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Connexion requise'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Connexion requise', style: TextStyle(color: darkText)),
         content: const Text('Veuillez vous connecter pour créer une alerte de prix'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: const Text('Annuler', style: TextStyle(color: mutedText)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -180,8 +189,8 @@ class _PriceAlertState extends State<PriceAlert> {
               context.push('/login');
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: gold,
-              foregroundColor: navy,
+              backgroundColor: primaryBlue,
+              foregroundColor: pureWhite,
             ),
             child: const Text('Se connecter'),
           ),
@@ -192,12 +201,14 @@ class _PriceAlertState extends State<PriceAlert> {
 
   @override
   Widget build(BuildContext context) {
+    final symbol = widget.currency == 'USD' ? '\$' : 'FC';
+
     return GestureDetector(
       onTap: _showAlertDialog,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: _hasAlert ? Colors.green.withOpacity(0.1) : Colors.transparent,
+          color: _hasAlert ? Colors.green.withOpacity(0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _hasAlert ? Colors.green : Colors.grey[300]!,
@@ -208,17 +219,17 @@ class _PriceAlertState extends State<PriceAlert> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.notifications_active,
+              Icons.notifications_active_rounded,
               size: 16,
-              color: _hasAlert ? Colors.green : textMuted,
+              color: _hasAlert ? Colors.green : mutedText,
             ),
             const SizedBox(width: 4),
             Text(
               _hasAlert ? 'Alerte active' : 'Alerte prix',
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: _hasAlert ? Colors.green : textMuted,
+                fontWeight: FontWeight.w600,
+                color: _hasAlert ? Colors.green : mutedText,
               ),
             ),
           ],
@@ -234,14 +245,16 @@ class _PriceAlertState extends State<PriceAlert> {
       return;
     }
 
+    final symbol = widget.currency == 'USD' ? '\$' : 'FC';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           _hasAlert ? 'Gérer l\'alerte' : 'Créer une alerte de prix',
           style: const TextStyle(
-            color: navy,
+            color: darkText,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -252,18 +265,18 @@ class _PriceAlertState extends State<PriceAlert> {
           children: [
             Text(
               'Produit: ${widget.productTitle}',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w600, color: darkText),
             ),
             const SizedBox(height: 4),
             Text(
-              'Prix actuel: ${widget.currentPrice.toInt()} FCFA',
-              style: TextStyle(color: textMuted, fontSize: 13),
+              'Prix actuel: ${widget.currentPrice.toInt()} $symbol',
+              style: TextStyle(color: mutedText, fontSize: 13),
             ),
             const SizedBox(height: 16),
             if (!_hasAlert) ...[
               const Text(
                 'Recevez une notification quand le prix descend en dessous de :',
-                style: TextStyle(fontSize: 13),
+                style: TextStyle(fontSize: 13, color: darkText),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -271,19 +284,19 @@ class _PriceAlertState extends State<PriceAlert> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   hintText: 'Prix cible',
-                  suffixText: 'FCFA',
+                  suffixText: symbol,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: gold, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: primaryBlue, width: 2),
                   ),
                 ),
               ),
             ] else ...[
-              _buildInfoRow('Prix cible', '${_existingAlert?['target_price']} FCFA'),
+              _buildInfoRow('Prix cible', '${_existingAlert?['target_price']} $symbol'),
               const SizedBox(height: 6),
               _buildInfoRow('Créée le', _formatDate(_existingAlert?['created_at'])),
             ],
@@ -292,7 +305,7 @@ class _PriceAlertState extends State<PriceAlert> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: const Text('Annuler', style: TextStyle(color: mutedText)),
           ),
           if (_hasAlert)
             TextButton(
@@ -301,16 +314,16 @@ class _PriceAlertState extends State<PriceAlert> {
                 _deleteAlert();
               },
               style: TextButton.styleFrom(foregroundColor: danger),
-              child: const Text('Supprimer'),
+              child: const Text('Supprimer', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           if (!_hasAlert)
             ElevatedButton(
               onPressed: _isLoading ? null : _createAlert,
               style: ElevatedButton.styleFrom(
-                backgroundColor: gold,
-                foregroundColor: navy,
+                backgroundColor: primaryBlue,
+                foregroundColor: pureWhite,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
@@ -320,10 +333,10 @@ class _PriceAlertState extends State<PriceAlert> {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: navy,
+                        color: Colors.white,
                       ),
                     )
-                  : const Text('Créer'),
+                  : const Text('Créer', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
         ],
       ),
@@ -335,12 +348,12 @@ class _PriceAlertState extends State<PriceAlert> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: textMuted),
+          style: const TextStyle(fontSize: 13, color: mutedText),
         ),
         const Spacer(),
         Text(
           value,
-          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
         ),
       ],
     );
