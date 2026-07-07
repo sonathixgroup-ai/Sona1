@@ -26,12 +26,19 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
   String? _errorMessage;
   List<Map<String, dynamic>> _scanHistory = [];
 
-  // Couleurs de l'application
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color danger = Color(0xFFE53935);
-  static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color bgApp = Color(0xFFF6F7FB);
+  // ============================================================
+  // CHARTE ÉLITE (identique à MarketHomePage)
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color danger = Color(0xFFFF5B3D);
+  static const Color bgApp = Color(0xFFF7FAFF);
 
   @override
   void initState() {
@@ -88,11 +95,9 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
     });
 
     try {
-      // Convertir l'image en base64
       final bytes = await imageFile.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      // Appeler l'Edge Function pour la recherche par image
       final response = await Supabase.instance.client
           .functions
           .invoke('image-search', body: {
@@ -104,7 +109,6 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
       final result = response.data;
 
       if (result != null) {
-        // Sauvegarder dans l'historique
         final userId = Supabase.instance.client.auth.currentUser?.id;
         if (userId != null) {
           await Supabase.instance.client
@@ -124,7 +128,6 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
             widget.onMultipleResults?.call(List<Map<String, dynamic>>.from(result['matches']));
           }
         } else {
-          // Aucun résultat
           widget.onResult(null);
           setState(() {
             _errorMessage = 'Aucun produit trouvé pour cette image';
@@ -150,27 +153,28 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      backgroundColor: pureWhite,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          color: pureWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
               'Choisir une image',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText),
             ),
             const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
                   child: _buildSourceButton(
-                    icon: Icons.camera_alt,
+                    icon: Icons.camera_alt_rounded,
                     label: 'Appareil photo',
                     onTap: () {
                       Navigator.pop(context);
@@ -181,7 +185,7 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildSourceButton(
-                    icon: Icons.photo_library,
+                    icon: Icons.photo_library_rounded,
                     label: 'Galerie',
                     onTap: () {
                       Navigator.pop(context);
@@ -191,7 +195,7 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
           ],
         ),
       ),
@@ -211,13 +215,20 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: gold.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [softBlue, Color(0xFFE3EDFF)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: primaryBlue.withOpacity(0.10), blurRadius: 12, offset: const Offset(0, 6)),
+              ],
             ),
-            child: Icon(icon, size: 32, color: gold),
+            child: Icon(icon, size: 32, color: primaryBlue),
           ),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12, color: navy)),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: darkText)),
         ],
       ),
     );
@@ -230,25 +241,22 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Bouton principal
+          // ─── Bouton principal ──────────────────────────────────
           InkWell(
             onTap: _showSourceSelector,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
             child: Container(
-              height: 120,
+              height: 130,
+              width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [gold, gold.withOpacity(0.7)],
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
+                  colors: [navy, primaryBlue],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(22),
                 boxShadow: [
-                  BoxShadow(
-                    color: gold.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
+                  BoxShadow(color: primaryBlue.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 12)),
                 ],
               ),
               child: Center(
@@ -260,25 +268,32 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
                         width: 32,
                         height: 32,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                          strokeWidth: 2.5,
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
                     else
-                      const Icon(Icons.camera_alt, size: 32, color: Colors.white),
-                    const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(Icons.camera_alt_rounded, size: 32, color: Colors.white),
+                      ),
+                    const SizedBox(height: 10),
                     Text(
                       _isProcessing ? 'Recherche en cours...' : 'Scanner par image',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
                       ),
                     ),
                     if (!_isProcessing)
                       Text(
                         'Prenez une photo ou choisissez une image',
-                        style: TextStyle(fontSize: 11, color: Colors.white70),
+                        style: TextStyle(fontSize: 12, color: Colors.white70),
                       ),
                   ],
                 ),
@@ -287,21 +302,22 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
           ),
 
           if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: danger.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: danger.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: danger.withOpacity(0.2)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.error_outline, size: 18, color: danger),
-                  const SizedBox(width: 8),
+                  Icon(Icons.error_outline_rounded, size: 20, color: danger),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(fontSize: 13, color: danger),
+                      style: TextStyle(fontSize: 13, color: danger, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -309,16 +325,12 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
             ),
           ],
 
-          // Historique des scans
+          // ─── Historique des scans ─────────────────────────────
           if (_scanHistory.isNotEmpty) ...[
             const SizedBox(height: 24),
             const Text(
               'Recherches récentes',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: navy,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -334,7 +346,7 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
                     child: Column(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(14),
                           child: CachedNetworkImage(
                             imageUrl: scan['image_url'] ?? '',
                             height: 60,
@@ -343,21 +355,21 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
                             placeholder: (_, __) => Container(
                               height: 60,
                               width: 60,
-                              color: bgApp,
-                              child: const Icon(Icons.image, color: textMuted),
+                              color: softBlue,
+                              child: const Icon(Icons.image_rounded, color: mutedText),
                             ),
                             errorWidget: (_, __, ___) => Container(
                               height: 60,
                               width: 60,
-                              color: bgApp,
-                              child: const Icon(Icons.broken_image, color: textMuted),
+                              color: softBlue,
+                              child: const Icon(Icons.broken_image_rounded, color: mutedText),
                             ),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           '${scan['result_count']} résultats',
-                          style: TextStyle(fontSize: 10, color: textMuted),
+                          style: TextStyle(fontSize: 10, color: mutedText, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -367,30 +379,41 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
             ),
           ],
 
-          // Conseils
+          // ─── Conseils ──────────────────────────────────────────
           const SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: bgApp,
-              borderRadius: BorderRadius.circular(12),
+              color: softBlue,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey[200]!),
             ),
             child: Row(
               children: [
-                Icon(Icons.tips_and_updates, size: 20, color: gold),
-                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(color: primaryBlue.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: Icon(Icons.tips_and_updates_rounded, size: 20, color: gold),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Conseils pour un meilleur résultat',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: navy),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: darkText),
                       ),
+                      const SizedBox(height: 4),
                       Text(
                         '• Utilisez une image claire et bien éclairée\n• Cadrez bien le produit\n• Évitez les arrière-plans chargés',
-                        style: TextStyle(fontSize: 10, color: textMuted),
+                        style: TextStyle(fontSize: 10.5, color: mutedText, height: 1.4),
                       ),
                     ],
                   ),
@@ -404,7 +427,7 @@ class _ImageSearchScannerState extends State<ImageSearchScanner> {
   }
 }
 
-// Widget pour afficher les résultats multiples
+// ─── Résultats multiples ──────────────────────────────────────────────
 class MultipleResultsDialog extends StatelessWidget {
   final List<Map<String, dynamic>> results;
   final Function(Map<String, dynamic>) onSelect;
@@ -415,15 +438,19 @@ class MultipleResultsDialog extends StatelessWidget {
     required this.onSelect,
   });
 
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color bgApp = Color(0xFFF6F7FB);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: pureWhite,
       child: Container(
         padding: const EdgeInsets.all(20),
         constraints: const BoxConstraints(maxWidth: 400),
@@ -433,12 +460,12 @@ class MultipleResultsDialog extends StatelessWidget {
           children: [
             const Text(
               'Plusieurs résultats trouvés',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep),
             ),
             const SizedBox(height: 4),
             Text(
               'Sélectionnez le produit correspondant',
-              style: TextStyle(color: textMuted),
+              style: TextStyle(color: mutedText, fontSize: 14),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -450,43 +477,54 @@ class MultipleResultsDialog extends StatelessWidget {
                   final currency = product['currency'] ?? 'CDF';
                   final symbol = currency == 'USD' ? '\$' : 'FC';
 
-                  return ListTile(
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: product['image_url'] ?? '',
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(
-                          color: bgApp,
-                          child: const Icon(Icons.image, color: textMuted),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: softBlue,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: product['image_url'] ?? '',
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image_rounded, color: mutedText),
+                          ),
                         ),
                       ),
-                    ),
-                    title: Text(
-                      product['title'] ?? 'Sans titre',
-                      style: const TextStyle(fontWeight: FontWeight.w500, color: navy),
-                    ),
-                    subtitle: Text(
-                      '${(product['price'] as num?)?.toInt() ?? 0} $symbol',
-                      style: TextStyle(color: textMuted),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: gold.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                      title: Text(
+                        product['title'] ?? 'Sans titre',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: navyDeep),
                       ),
-                      child: Text(
-                        '${product['similarity_score']?.toInt() ?? 0}%',
-                        style: const TextStyle(color: gold, fontWeight: FontWeight.bold),
+                      subtitle: Text(
+                        '${(product['price'] as num?)?.toInt() ?? 0} $symbol',
+                        style: TextStyle(color: mutedText),
                       ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [primaryBlue, navy],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${product['similarity_score']?.toInt() ?? 0}%',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        onSelect(product);
+                      },
                     ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      onSelect(product);
-                    },
                   );
                 },
               ),
