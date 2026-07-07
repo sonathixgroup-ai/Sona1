@@ -25,7 +25,8 @@ class _ModuleManagementPageState extends State<ModuleManagementPage> {
     if (widget.module != null) {
       _titleController.text = widget.module!.title;
       _descriptionController.text = widget.module!.description ?? '';
-      _lessons = List.from(widget.module!.lessons);
+      // ✅ Gestion de la nullabilité de `lessons`
+      _lessons = List.from(widget.module!.lessons ?? []);
     }
   }
 
