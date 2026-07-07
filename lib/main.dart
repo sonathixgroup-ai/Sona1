@@ -8,7 +8,8 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
-import 'package:thix_id/nav.dart';
+import 'package:thix_id/nav.dart'; // Pour AppRoutes
+import 'package:thix_id/app_router.dart'; // ✅ IMPORT AJOUTÉ pour AppRouter
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/services/network_service.dart';
@@ -43,6 +44,7 @@ import 'package:thix_id/presentation/education/providers/certificate_provider.da
 import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 import 'package:thix_id/presentation/education/services/education_service.dart';
+
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
@@ -359,7 +361,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
 
         // ============================================================
-        // ✅ NOUVEAUX PROVIDERS EDUCATION (avec types explicites)
+        // ✅ NOUVEAUX PROVIDERS EDUCATION
         // ============================================================
         ChangeNotifierProvider<EducationProvider>(
           create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
