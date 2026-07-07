@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
 import 'package:thix_id/presentation/education/providers/progress_provider.dart';
 import 'package:thix_id/presentation/education/providers/certificate_provider.dart';
+import 'package:thix_id/presentation/education/providers/recommendation_provider.dart'; // ✅ Import ajouté
 import 'package:thix_id/presentation/education/widgets/education_carousel.dart';
 import 'package:thix_id/presentation/education/widgets/common/education_category_chip.dart';
 import 'package:thix_id/presentation/education/widgets/common/formation_card.dart';
@@ -34,7 +35,7 @@ class _EducationHomeState extends State<EducationHome> {
     const _AllFormationsPage(),
     const _CertificatesPage(),
     const _LibraryPage(),
-    const _ProfilePage(),
+    const _ProfilePage(),  // ✅ Profil avec bouton formateur
   ];
 
   final List<String> _titles = [
@@ -139,7 +140,7 @@ class _HomePageState extends State<_HomePage> {
       educationProvider.loadFormations();
       educationProvider.loadCategories();
       if (userId != null) {
-        context.read<RecommendationProvider>().loadRecommendations(userId);
+        context.read<RecommendationProvider>().loadRecommendations(userId); // ✅ reconnu
       }
     });
   }
@@ -776,7 +777,7 @@ class _LibraryPage extends StatelessWidget {
 }
 
 // ============================================================================
-// PAGE 6 : PROFIL (PLACEHOLDER AVEC INFOS UTILISATEUR)
+// PAGE 6 : PROFIL AVEC BASCULEMENT MODE FORMATEUR
 // ============================================================================
 class _ProfilePage extends StatelessWidget {
   const _ProfilePage();
@@ -806,11 +807,10 @@ class _ProfilePage extends StatelessWidget {
               style: const TextStyle(color: Color(0xFF7386A8)),
             ),
             const SizedBox(height: 24),
+
+            // Bouton Éditer le profil
             ElevatedButton.icon(
-              onPressed: () {
-                // Rediriger vers le profil global ou un écran d'édition
-                context.push('/profile');
-              },
+              onPressed: () => context.push('/profile'),
               icon: const Icon(Icons.edit_rounded),
               label: const Text('Éditer le profil'),
               style: ElevatedButton.styleFrom(
@@ -822,6 +822,25 @@ class _ProfilePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+
+            // ✅ NOUVEAU : Passer en mode formateur
+            ElevatedButton.icon(
+              onPressed: () {
+                // Rediriger vers le tableau de bord formateur
+                context.push('/instructor/dashboard');
+              },
+              icon: const Icon(Icons.school_rounded),
+              label: const Text('Passer en mode formateur'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
             TextButton(
               onPressed: () {
                 // Déconnexion éventuelle
