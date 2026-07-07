@@ -16,11 +16,19 @@ import '../models/submission.dart';
 import '../models/virtual_class.dart';
 import '../models/calendar_event.dart';
 import '../models/book.dart';
+import '../models/recommendation.dart'; // ✅ IMPORT AJOUTÉ
+import '../models/category.dart';      // ✅ IMPORT AJOUTÉ (pour getCategories)
 
 class EducationService {
   final SupabaseClient _supabase;
 
   EducationService(this._supabase);
+
+  // ─── CATÉGORIES ────────────────────────────────────────────────
+  Future<List<Category>> getCategories() async {
+    final response = await _supabase.from('categories').select('*');
+    return response.map((json) => Category.fromJson(json)).toList();
+  }
 
   // ─── FORMATIONS ────────────────────────────────────────────────
   Future<List<Formation>> getFormations({
@@ -184,6 +192,11 @@ class EducationService {
   }
 
   // ─── PROGRESSION PAR LEÇON ────────────────────────────────────
+  // Alias pour getUserProgress (nom différent dans le provider)
+  Future<List<UserProgress>> getUserProgressForFormation(String userId, String formationId) async {
+    return getUserProgress(userId, formationId);
+  }
+
   Future<List<UserProgress>> getUserProgress(String userId, String formationId) async {
     // Récupérer tous les IDs de leçons de la formation
     final modules = await _supabase
@@ -229,6 +242,33 @@ class EducationService {
     }
   }
 
+  // ✅ NOUVELLE MÉTHODE : mise à jour de la progression d'une leçon
+  Future<void> updateLessonProgress(String userId, String lessonId, String status, double progress) async {
+    final now = DateTime.now().toIso8601String();
+    final existing = await _supabase
+        .from('user_progress')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('lesson_id', lessonId)
+        .maybeSingle();
+    if (existing != null) {
+      await _supabase.from('user_progress').update({
+        'status': status,
+        'progress': progress,
+        'last_accessed_at': now,
+        'completed_at': status == 'completed' ? now : null,
+      }).eq('id', existing['id']);
+    } else {
+      await _supabase.from('user_progress').insert({
+        'user_id': userId,
+        'lesson_id': lessonId,
+        'status': status,
+        'progress': progress,
+        'last_accessed_at': now,
+      });
+    }
+  }
+
   // ─── CERTIFICATS ───────────────────────────────────────────────
   Future<Certificate?> getCertificate(String userId, String formationId) async {
     final json = await _supabase
@@ -255,6 +295,23 @@ class EducationService {
       'verification_hash': hash,
     }).select().single();
     return Certificate.fromJson(json);
+  }
+
+  // ─── RECOMMANDATIONS ────────────────────────────────────────────
+  // ✅ NOUVELLE MÉTHODE
+  Future<List<Recommendation>> getRecommendations(String userId) async {
+    final response = await _supabase
+        .from('recommendations')
+        .select('*, formations(*)')
+        .eq('user_id', userId)
+        .order('score', ascending: false);
+    return response.map((json) {
+      final rec = Recommendation.fromJson(json);
+      if (json['formations'] != null) {
+        rec.formation = Formation.fromJson(json['formations']);
+      }
+      return rec;
+    }).toList();
   }
 
   // ─── FORUM ──────────────────────────────────────────────────────
