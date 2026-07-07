@@ -993,15 +993,19 @@ class _ProfileTab extends StatelessWidget {
                 );
               }),
             const SizedBox(height: AppSpacing.sm),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: () => TrainingsEditorSheet.show(context, profile: user, profileService: profileService),
-                icon: const Icon(Icons.school_rounded, color: Color(0xFF123B7A)),
-                label: const Text('Ajouter une formation'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0),
-              ),
-            ),
+Align(
+  alignment: Alignment.centerRight,
+  child: ElevatedButton.icon(
+    onPressed: () => context.push(AppRoutes.education),
+    icon: const Icon(Icons.school_rounded, color: Color(0xFF123B7A)),
+    label: const Text('Ajouter une formation'),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: LightModeColors.accent,
+      foregroundColor: const Color(0xFF123B7A),
+      elevation: 0,
+    ),
+  ),
+),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
