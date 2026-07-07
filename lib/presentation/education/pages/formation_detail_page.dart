@@ -102,7 +102,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
                           const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF7386A8)),
                           const SizedBox(width: 6),
                           Text(
-                            formation.instructor,
+                            formation.instructor ?? 'Instructeur',
                             style: const TextStyle(fontSize: 14, color: Color(0xFF7386A8)),
                           ),
                           const Spacer(),
@@ -122,14 +122,14 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
                       const SizedBox(height: 16),
 
                       // Description
-                      if (formation.description != null && formation.description!.isNotEmpty) ...[
+                      if (formation.description.isNotEmpty) ...[
                         const Text(
                           'Description',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.W800, color: Color(0xFF1A1A2E)),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E)),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          formation.description!,
+                          formation.description,
                           style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E), height: 1.5),
                         ),
                         const SizedBox(height: 16),
@@ -153,7 +153,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
                                     : 'Gratuit',
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.W800,
+                                  fontWeight: FontWeight.w800,
                                   color: Color(0xFF2D6CDF),
                                 ),
                               ),
@@ -196,13 +196,14 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
                       const SizedBox(height: 24),
 
                       // Modules
-                      if (formation.modules.isNotEmpty) ...[
+                      final modules = formation.modules ?? [];
+                      if (modules.isNotEmpty) ...[
                         const Text(
                           'Contenu de la formation',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.W800, color: Color(0xFF1A1A2E)),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E)),
                         ),
                         const SizedBox(height: 12),
-                        ...formation.modules.map((module) => _ModuleCard(module: module, isEnrolled: _isEnrolled)),
+                        ...modules.map((module) => _ModuleCard(module: module, isEnrolled: _isEnrolled)),
                       ],
                     ],
                   ),
@@ -219,6 +220,7 @@ class _ModuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lessons = module.lessons ?? [];
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -232,15 +234,15 @@ class _ModuleCard extends StatelessWidget {
         children: [
           Text(
             module.title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.W700, color: Color(0xFF1A1A2E)),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
           ),
           const SizedBox(height: 4),
           Text(
-            '${module.lessons.length} leçons',
+            '${lessons.length} leçons',
             style: const TextStyle(fontSize: 13, color: Color(0xFF7386A8)),
           ),
           const SizedBox(height: 8),
-          ...module.lessons.map((lesson) => _LessonTile(lesson: lesson, isEnrolled: isEnrolled)),
+          ...lessons.map((lesson) => _LessonTile(lesson: lesson, isEnrolled: isEnrolled)),
         ],
       ),
     );
@@ -276,7 +278,7 @@ class _LessonTile extends StatelessWidget {
               children: [
                 Text(
                   lesson.title,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.W600, color: Color(0xFF1A1A2E)),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)),
                 ),
                 if (lesson.durationMinutes > 0)
                   Text(
