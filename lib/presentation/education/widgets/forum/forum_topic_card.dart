@@ -73,7 +73,7 @@ class ForumTopicCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              topic.content, // ✅ 'body' -> 'content' dans le modèle ForumTopic
+              topic.content,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -101,7 +101,7 @@ class ForumTopicCard extends StatelessWidget {
                 const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF7386A8)),
                 const SizedBox(width: 4),
                 Text(
-                  _formatDate(topic.createdAt),
+                  _formatDate(topic.createdAt), // ✅ Accepte DateTime?
                   style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8)),
                 ),
               ],
@@ -112,7 +112,9 @@ class ForumTopicCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  // ✅ Méthode corrigée pour accepter DateTime? et gérer null
+  String _formatDate(DateTime? date) {
+    if (date == null) return '—';
     final now = DateTime.now();
     final diff = now.difference(date);
     if (diff.inDays > 0) {
