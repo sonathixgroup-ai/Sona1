@@ -2415,12 +2415,7 @@ GoRoute(
           },
         ),
        
-          GoRoute(
-  path: '/education',
-  name: 'educationTemp',
-  pageBuilder: (context, state) => const NoTransitionPage(child: EducationHome()),
-),
-        
+          
         // Jobs détail
         GoRoute(
           path: '/jobs/:jobId',
