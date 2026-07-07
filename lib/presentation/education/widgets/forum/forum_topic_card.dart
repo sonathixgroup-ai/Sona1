@@ -1,6 +1,6 @@
 // lib/presentation/education/widgets/forum/forum_topic_card.dart
 import 'package:flutter/material.dart';
-import '../../../models/forum_topic.dart';
+import 'package:thix_id/presentation/education/models/forum_topic.dart';
 
 class ForumTopicCard extends StatelessWidget {
   final ForumTopic topic;
@@ -73,7 +73,7 @@ class ForumTopicCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              topic.body,
+              topic.content, // ✅ 'body' -> 'content' dans le modèle ForumTopic
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
