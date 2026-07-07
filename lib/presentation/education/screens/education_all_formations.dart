@@ -1,10 +1,13 @@
 // lib/presentation/education/screens/education_all_formations.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/education_provider.dart';
-import '../widgets/common/education_category_chip.dart';
-import '../widgets/common/education_loading_shimmer.dart';
-import '../widgets/formation_card.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:thix_id/presentation/education/providers/education_provider.dart';
+import 'package:thix_id/presentation/education/models/category.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_category_chip.dart';
+import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
+import 'package:thix_id/presentation/education/widgets/common/formation_card.dart';
 
 class EducationAllFormations extends StatefulWidget {
   const EducationAllFormations({super.key});
@@ -16,6 +19,15 @@ class EducationAllFormations extends StatefulWidget {
 class _EducationAllFormationsState extends State<EducationAllFormations> {
   String _selectedCategory = 'all';
   String _selectedLevel = 'all';
+
+  // Catégorie "Tous" pour l'affichage (sans description, car le modèle n'en a pas)
+  Category get _allCategory => Category(
+        id: 'all',
+        name: 'Tous',
+        icon: null,
+        createdAt: DateTime.now(),
+        formations: null,
+      );
 
   @override
   void initState() {
@@ -65,7 +77,7 @@ class _EducationAllFormationsState extends State<EducationAllFormations> {
                     itemCount: categories.length + 1,
                     itemBuilder: (context, index) {
                       final cat = index == 0
-                          ? Category(id: 'all', name: 'Tous', description: '', createdAt: DateTime.now())
+                          ? _allCategory
                           : categories[index - 1];
                       final isSelected = _selectedCategory == cat.id;
                       return Padding(
@@ -106,7 +118,7 @@ class _EducationAllFormationsState extends State<EducationAllFormations> {
                               padding: const EdgeInsets.only(bottom: 12),
                               child: FormationCard(
                                 formation: formation,
-                                onTap: () => Navigator.pushNamed(context, '/education/formation/${formation.id}'),
+                                onTap: () => context.push('/education/formation/${formation.id}'),
                               ),
                             );
                           },
