@@ -18,11 +18,16 @@ class _ProductComparatorState extends State<ProductComparator> {
   bool _isLoading = false;
   final int _maxCompareProducts = 4;
 
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color danger = Color(0xFFE53935);
-  static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color bgApp = Color(0xFFF6F7FB);
+  // ─── Palette Élite ──────────────────────────────────────────────
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color danger = Color(0xFFFF5B3D);
 
   @override
   void initState() {
@@ -91,40 +96,41 @@ class _ProductComparatorState extends State<ProductComparator> {
     if (_products.length < 2) return;
     final buffer = StringBuffer('Comparaison de produits :\n\n');
     for (final product in _products) {
+      final currency = product['currency'] ?? 'CDF';
+      final symbol = currency == 'USD' ? '\$' : 'FC';
       buffer.writeln('📦 ${product['title']}');
-      buffer.writeln('   Prix : ${(product['price'] as num).toInt()} FCFA');
+      buffer.writeln('   Prix : ${(product['price'] as num).toInt()} $symbol');
       buffer.writeln('   Marque : ${product['brand'] ?? 'Non spécifiée'}');
       buffer.writeln('   Note : ${product['rating']?.toStringAsFixed(1) ?? '0'} ⭐');
       buffer.writeln('   Stock : ${product['stock'] ?? 0} unités');
-      buffer.writeln(
-          '   Livraison : ${product['free_shipping'] == true ? 'Gratuite' : 'Payante'}');
+      buffer.writeln('   Livraison : ${product['free_shipping'] == true ? 'Gratuite' : 'Payante'}');
       buffer.writeln('   Garantie : ${product['warranty_months'] ?? 0} mois');
       buffer.writeln('');
     }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Partager la comparaison', style: TextStyle(color: navy, fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Partager la comparaison', style: TextStyle(color: darkText, fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
-          child: SelectableText(buffer.toString(), style: const TextStyle(fontSize: 14)),
+          child: SelectableText(buffer.toString(), style: const TextStyle(fontSize: 14, color: darkText)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
+            child: const Text('Fermer', style: TextStyle(color: mutedText)),
           ),
           ElevatedButton(
             onPressed: () {
-              // Intégrer le package share ici pour un vrai partage
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Partage copié dans le presse-papiers')),
               );
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: gold,
-              foregroundColor: navy,
+              backgroundColor: primaryBlue,
+              foregroundColor: pureWhite,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Copier'),
           ),
@@ -136,22 +142,22 @@ class _ProductComparatorState extends State<ProductComparator> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgApp,
+      backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
-        title: const Text('Comparateur de produits', style: TextStyle(color: navy, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: const Text('Comparateur de produits', style: TextStyle(color: darkText, fontWeight: FontWeight.bold)),
+        backgroundColor: pureWhite,
         elevation: 0,
         actions: [
           if (_products.isNotEmpty)
             TextButton.icon(
               onPressed: _clearAll,
-              icon: const Icon(Icons.delete_outline, color: danger),
+              icon: const Icon(Icons.delete_outline_rounded, color: danger),
               label: const Text('Effacer tout', style: TextStyle(color: danger)),
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: gold))
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
           : _products.isEmpty
               ? _buildEmptyState()
               : Column(
@@ -167,7 +173,7 @@ class _ProductComparatorState extends State<ProductComparator> {
                             Container(
                               width: 120,
                               padding: const EdgeInsets.all(12),
-                              color: Colors.white,
+                              color: pureWhite,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -197,29 +203,29 @@ class _ProductComparatorState extends State<ProductComparator> {
                               Container(
                                 width: 200,
                                 padding: const EdgeInsets.all(12),
-                                color: Colors.white,
+                                color: pureWhite,
                                 child: Column(
                                   children: [
                                     const SizedBox(height: 100),
                                     InkWell(
                                       onTap: _addProduct,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(16),
                                       child: Container(
                                         height: 150,
                                         width: 150,
                                         decoration: BoxDecoration(
-                                          color: bgApp,
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: softBlue,
+                                          borderRadius: BorderRadius.circular(16),
                                           border: Border.all(color: Colors.grey[300]!),
                                         ),
                                         child: Column(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
-                                            Icon(Icons.add, size: 40, color: textMuted),
+                                            Icon(Icons.add_rounded, size: 40, color: mutedText),
                                             const SizedBox(height: 8),
                                             Text(
                                               'Ajouter un produit',
-                                              style: TextStyle(color: textMuted),
+                                              style: TextStyle(color: mutedText, fontWeight: FontWeight.w500),
                                             ),
                                           ],
                                         ),
@@ -237,20 +243,20 @@ class _ProductComparatorState extends State<ProductComparator> {
                     if (_products.length >= 2)
                       Container(
                         padding: const EdgeInsets.all(16),
-                        color: Colors.white,
+                        color: pureWhite,
                         child: Row(
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: _shareComparison,
-                                icon: const Icon(Icons.share),
+                                icon: const Icon(Icons.share_rounded),
                                 label: const Text('Partager la comparaison'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: gold,
-                                  foregroundColor: navy,
+                                  backgroundColor: primaryBlue,
+                                  foregroundColor: pureWhite,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
                               ),
@@ -264,10 +270,13 @@ class _ProductComparatorState extends State<ProductComparator> {
   }
 
   Widget _buildProductColumn(Map<String, dynamic> product, int index) {
+    final currency = product['currency'] ?? 'CDF';
+    final symbol = currency == 'USD' ? '\$' : 'FC';
+
     return Container(
       width: 200,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: pureWhite,
         border: Border(left: BorderSide(color: Colors.grey[200]!)),
       ),
       child: Column(
@@ -283,8 +292,8 @@ class _ProductComparatorState extends State<ProductComparator> {
                 fit: BoxFit.cover,
                 errorWidget: (_, __, ___) => Container(
                   height: 200,
-                  color: bgApp,
-                  child: const Icon(Icons.image, color: Colors.grey),
+                  color: softBlue,
+                  child: const Icon(Icons.image_rounded, color: mutedText),
                 ),
               ),
               Positioned(
@@ -292,7 +301,7 @@ class _ProductComparatorState extends State<ProductComparator> {
                 right: 8,
                 child: IconButton(
                   onPressed: () => _removeProduct(index),
-                  icon: const Icon(Icons.close, size: 20, color: Colors.white),
+                  icon: const Icon(Icons.close_rounded, size: 20, color: Colors.white),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.black54,
                     padding: EdgeInsets.zero,
@@ -309,14 +318,14 @@ class _ProductComparatorState extends State<ProductComparator> {
               children: [
                 Text(
                   product['title'] ?? '',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: navy),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: darkText),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   product['shop']?['name'] ?? 'Boutique',
-                  style: TextStyle(fontSize: 12, color: textMuted),
+                  style: TextStyle(fontSize: 12, color: mutedText),
                 ),
               ],
             ),
@@ -326,11 +335,11 @@ class _ProductComparatorState extends State<ProductComparator> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Text(
-              '${(product['price'] as num).toInt()} FCFA',
+              '${(product['price'] as num).toInt()} $symbol',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: gold,
+                color: primaryBlue,
               ),
             ),
           ),
@@ -340,7 +349,7 @@ class _ProductComparatorState extends State<ProductComparator> {
             padding: const EdgeInsets.all(12),
             child: Text(
               product['brand'] ?? 'Non spécifiée',
-              style: const TextStyle(color: navy),
+              style: const TextStyle(color: darkText),
             ),
           ),
 
@@ -349,11 +358,11 @@ class _ProductComparatorState extends State<ProductComparator> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(Icons.star, size: 14, color: Colors.amber),
+                Icon(Icons.star_rounded, size: 14, color: gold),
                 const SizedBox(width: 4),
                 Text(
                   '${product['rating']?.toStringAsFixed(1) ?? 0}',
-                  style: const TextStyle(color: navy),
+                  style: const TextStyle(color: darkText),
                 ),
               ],
             ),
@@ -376,7 +385,7 @@ class _ProductComparatorState extends State<ProductComparator> {
             child: Text(
               product['free_shipping'] == true ? 'Gratuite' : 'Payante',
               style: TextStyle(
-                color: product['free_shipping'] == true ? Colors.green : textMuted,
+                color: product['free_shipping'] == true ? Colors.green : mutedText,
               ),
             ),
           ),
@@ -386,7 +395,7 @@ class _ProductComparatorState extends State<ProductComparator> {
             padding: const EdgeInsets.all(12),
             child: Text(
               '${product['warranty_months'] ?? 0} mois',
-              style: const TextStyle(color: navy),
+              style: const TextStyle(color: darkText),
             ),
           ),
         ],
@@ -399,8 +408,8 @@ class _ProductComparatorState extends State<ProductComparator> {
       title,
       style: const TextStyle(
         fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: navy,
+        fontWeight: FontWeight.w700,
+        color: darkText,
       ),
     );
   }
@@ -410,25 +419,32 @@ class _ProductComparatorState extends State<ProductComparator> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.compare_arrows, size: 64, color: Colors.grey[300]),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: softBlue,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.compare_arrows_rounded, size: 64, color: mutedText),
+          ),
           const SizedBox(height: 16),
           const Text(
             'Aucun produit à comparer',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: navy),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText),
           ),
           const SizedBox(height: 8),
           Text(
             'Ajoutez jusqu\'à $_maxCompareProducts produits',
-            style: TextStyle(color: textMuted),
+            style: TextStyle(color: mutedText),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _addProduct,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: const Text('Ajouter un produit'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: gold,
-              foregroundColor: navy,
+              backgroundColor: primaryBlue,
+              foregroundColor: pureWhite,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             ),
@@ -462,10 +478,14 @@ class _ProductSelectorState extends State<ProductSelector> {
   bool _isLoading = true;
   String _searchQuery = '';
 
-  static const Color navy = Color(0xFF1B2A4A);
-  static const Color gold = Color(0xFFC9962C);
-  static const Color textMuted = Color(0xFF8A8FA3);
-  static const Color bgApp = Color(0xFFF6F7FB);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color gold = Color(0xFFE3B23C);
 
   @override
   void initState() {
@@ -478,7 +498,7 @@ class _ProductSelectorState extends State<ProductSelector> {
     try {
       var query = Supabase.instance.client
           .from('products')
-          .select('id, title, price, image_url, shop:shops(name)');
+          .select('id, title, price, currency, image_url, shop:shops(name)');
 
       if (widget.excludeIds.isNotEmpty) {
         query = query.not('id', 'in', widget.excludeIds);
@@ -500,13 +520,13 @@ class _ProductSelectorState extends State<ProductSelector> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgApp,
+      backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
-        title: const Text('Sélectionner des produits', style: TextStyle(color: navy, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: const Text('Sélectionner des produits', style: TextStyle(color: darkText, fontWeight: FontWeight.bold)),
+        backgroundColor: pureWhite,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: navy),
+          icon: const Icon(Icons.close_rounded, color: darkText),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -517,7 +537,7 @@ class _ProductSelectorState extends State<ProductSelector> {
               },
               child: Text(
                 'Ajouter (${_selectedIds.length})',
-                style: const TextStyle(color: gold, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -530,16 +550,17 @@ class _ProductSelectorState extends State<ProductSelector> {
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Rechercher...',
-                prefixIcon: const Icon(Icons.search, color: textMuted),
+                hintStyle: TextStyle(color: mutedText),
+                prefixIcon: const Icon(Icons.search_rounded, color: mutedText),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: pureWhite,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: gold, width: 2),
+                  borderSide: const BorderSide(color: primaryBlue, width: 2),
                 ),
               ),
               onChanged: (value) {
@@ -552,17 +573,17 @@ class _ProductSelectorState extends State<ProductSelector> {
           // Liste des produits
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: gold))
+                ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                 : _products.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inbox, size: 64, color: Colors.grey[300]),
+                            Icon(Icons.inbox_rounded, size: 64, color: Colors.grey[300]),
                             const SizedBox(height: 16),
                             Text(
                               'Aucun produit disponible',
-                              style: TextStyle(color: textMuted),
+                              style: TextStyle(color: mutedText),
                             ),
                           ],
                         ),
@@ -572,9 +593,12 @@ class _ProductSelectorState extends State<ProductSelector> {
                         itemBuilder: (context, index) {
                           final product = _products[index];
                           final isSelected = _selectedIds.contains(product['id']);
+                          final currency = product['currency'] ?? 'CDF';
+                          final symbol = currency == 'USD' ? '\$' : 'FC';
+
                           return CheckboxListTile(
-                            activeColor: gold,
-                            checkColor: Colors.white,
+                            activeColor: primaryBlue,
+                            checkColor: pureWhite,
                             value: isSelected,
                             onChanged: (selected) {
                               setState(() {
@@ -587,21 +611,22 @@ class _ProductSelectorState extends State<ProductSelector> {
                             },
                             title: Text(
                               product['title'] ?? '',
-                              style: const TextStyle(fontWeight: FontWeight.w500, color: navy),
+                              style: const TextStyle(fontWeight: FontWeight.w600, color: darkText),
                             ),
                             subtitle: Text(
                               product['shop']?['name'] ?? 'Boutique',
-                              style: TextStyle(color: textMuted),
+                              style: TextStyle(color: mutedText),
                             ),
                             secondary: Text(
-                              '${(product['price'] as num).toInt()} FCFA',
+                              '${(product['price'] as num).toInt()} $symbol',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: gold,
+                                color: primaryBlue,
                               ),
                             ),
                             controlAffinity: ListTileControlAffinity.leading,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           );
                         },
                       ),
@@ -611,11 +636,11 @@ class _ProductSelectorState extends State<ProductSelector> {
           if (_selectedIds.length >= widget.maxSelect)
             Container(
               padding: const EdgeInsets.all(12),
-              color: gold.withOpacity(0.1),
+              color: softBlue,
               child: Center(
                 child: Text(
                   'Maximum ${widget.maxSelect} produit(s) sélectionné(s)',
-                  style: TextStyle(color: navy, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: darkText, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
