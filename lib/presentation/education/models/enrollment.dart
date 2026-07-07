@@ -3,7 +3,7 @@
 // Rôle : Inscription d'un utilisateur à une formation. Suit la
 // progression globale et le statut de l'inscription.
 // ------------------------------------------------------------------
-
+import 'formation.dart';
 class Enrollment {
   final String id;
   final String userId;
