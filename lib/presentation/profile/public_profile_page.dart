@@ -16,7 +16,6 @@ import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/models/thix_profile.dart';
-import 'package:thix_id/presentation/common/trainings_editor_sheet.dart';
 import 'package:thix_id/services/verification_status.dart';
 import 'package:thix_id/theme.dart';
 
