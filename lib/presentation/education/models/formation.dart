@@ -1,12 +1,4 @@
-// ------------------------------------------------------------------
-// Fichier : models/formation.dart
-// Rôle : Représente une formation (cours) proposée sur la plateforme.
-// Une formation contient plusieurs modules, est associée à une catégorie
-// et à un formateur (instructor). Elle peut être suivie par plusieurs
-// utilisateurs (via Enrollment).
-// ------------------------------------------------------------------
-
-// ✅ IMPORTS MANQUANTS
+// models/formation.dart
 import 'category.dart';
 import 'module.dart';
 import 'enrollment.dart';
@@ -24,7 +16,7 @@ class Formation {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // Relations (non persistées, pour faciliter l'affichage)
+  // Relations
   Category? category;
   List<Module>? modules;
   List<Enrollment>? enrollments;
@@ -46,7 +38,27 @@ class Formation {
     this.enrollments,
   });
 
-  // Sérialisation JSON (Supabase)
+  factory Formation.fromJson(Map<String, dynamic> json) => Formation(
+        id: json['id'],
+        title: json['title'],
+        description: json['description'],
+        categoryId: json['category_id'],
+        instructorId: json['instructor_id'],
+        level: json['level'],
+        duration: json['duration'],
+        price: (json['price'] as num).toDouble(),
+        status: json['status'],
+        createdAt: DateTime.parse(json['created_at']),
+        updatedAt: DateTime.parse(json['updated_at']),
+        category: json['category'] != null ? Category.fromJson(json['category']) : null,
+        modules: json['modules'] != null
+            ? (json['modules'] as List).map((m) => Module.fromJson(m)).toList()
+            : null,
+        enrollments: json['enrollments'] != null
+            ? (json['enrollments'] as List).map((e) => Enrollment.fromJson(e)).toList()
+            : null,
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -60,20 +72,6 @@ class Formation {
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
-
-  factory Formation.fromJson(Map<String, dynamic> json) => Formation(
-        id: json['id'],
-        title: json['title'],
-        description: json['description'],
-        categoryId: json['category_id'],
-        instructorId: json['instructor_id'],
-        level: json['level'],
-        duration: json['duration'],
-        price: (json['price'] as num).toDouble(),
-        status: json['status'],
-        createdAt: DateTime.parse(json['created_at']),
-        updatedAt: DateTime.parse(json['updated_at']),
-      );
 
   Formation copyWith({
     String? title,
