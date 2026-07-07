@@ -1,42 +1,30 @@
+// lib/presentation/education/education_routes.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 // Apprenant
-import 'screens/education_home.dart';
-import 'screens/education_search_page.dart';
-import 'screens/education_all_formations.dart';
-import 'screens/education_my_learning.dart';
-import 'screens/education_certificates.dart';
-import 'screens/education_forum.dart';
-import 'pages/formation_detail_page.dart';
-import 'pages/certificate_detail_page.dart';
-import 'pages/forum_topic_detail_page.dart';
-import 'pages/recommendations_page.dart';
-import 'models/certificate.dart';
+import 'package:thix_id/presentation/education/screens/education_home.dart';
+import 'package:thix_id/presentation/education/screens/education_search_page.dart';
+import 'package:thix_id/presentation/education/screens/education_all_formations.dart';
+import 'package:thix_id/presentation/education/screens/education_my_learning.dart';
+import 'package:thix_id/presentation/education/screens/education_certificates.dart';
+import 'package:thix_id/presentation/education/screens/education_forum.dart';
+import 'package:thix_id/presentation/education/pages/formation_detail_page.dart';
+import 'package:thix_id/presentation/education/pages/certificate_detail_page.dart';
+import 'package:thix_id/presentation/education/pages/forum_topic_detail_page.dart';
+import 'package:thix_id/presentation/education/pages/recommendations_page.dart';
+import 'package:thix_id/presentation/education/models/certificate.dart';
 
-// Formateur (routes fonctionnelles uniquement)
-import 'instructor/dashboard/instructor_dashboard.dart';
-import 'instructor/courses/course_list_page.dart';
-import 'instructor/courses/course_create_page.dart';
-import 'instructor/content/module_management_page.dart';
-import 'instructor/content/lesson_management_page.dart';
-// Les pages suivantes sont manquantes, on les importe seulement si elles existent
-// import 'instructor/content/resource_upload_page.dart';
-// import 'instructor/evaluations/evaluation_create_page.dart';
-import 'instructor/evaluations/question_management_page.dart';
-// import 'instructor/students/student_list_page.dart';
-// import 'instructor/students/student_progress_page.dart';
-// import 'instructor/performance/performance_dashboard.dart';
-// import 'instructor/communication/announcements_page.dart';
-// import 'instructor/communication/forum_management_page.dart';
-// import 'instructor/assignments/assignment_correction_page.dart';
-// import 'instructor/certificates/certificate_settings_page.dart';
-// import 'instructor/calendar/instructor_calendar_page.dart';
-// import 'instructor/virtual_class/virtual_class_page.dart';
-import 'instructor/book_management_page.dart';
-import 'instructor/create_book_page.dart';
-// Bannière "À la une"
-// import 'instructor/promotion/banner_management_page.dart'; // à décommenter si le fichier existe
+// Formateur – routes fonctionnelles
+import 'package:thix_id/presentation/education/instructor/dashboard/instructor_dashboard.dart';
+import 'package:thix_id/presentation/education/instructor/courses/course_list_page.dart';
+import 'package:thix_id/presentation/education/instructor/courses/course_create_page.dart';
+import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/content/lesson_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/evaluations/question_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/book_management_page.dart';
+import 'package:thix_id/presentation/education/instructor/create_book_page.dart';
+// import 'package:thix_id/presentation/education/instructor/promotion/banner_management_page.dart'; // à décommenter plus tard
 
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -83,80 +71,27 @@ List<GoRoute> educationRoutes = [
   ),
 ];
 
-// Seules les routes formateur dont les widgets sont réellement implémentés sont conservées.
-// Les autres (resource_upload, evaluation_create, students, performance, communication, assignments, certificates, calendar, virtual_class) seront ajoutées ultérieurement.
 List<GoRoute> instructorRoutes = [
-  // Dashboard
-  GoRoute(
-    path: '/instructor/dashboard',
-    name: 'instructorDashboard',
-    pageBuilder: (_, __) => const NoTransitionPage(child: InstructorDashboard()),
-  ),
-  // Gestion des cours
-  GoRoute(
-    path: '/instructor/courses',
-    name: 'instructorCourses',
-    pageBuilder: (_, __) => const NoTransitionPage(child: CourseListPage()),
-  ),
-  GoRoute(
-    path: '/instructor/courses/create',
-    name: 'instructorCreateCourse',
-    pageBuilder: (_, __) => const NoTransitionPage(child: CourseCreatePage()),
-  ),
-  GoRoute(
-    path: '/instructor/courses/edit/:courseId',
-    name: 'instructorEditCourse',
-    pageBuilder: (_, state) {
-      final id = state.pathParameters['courseId']!;
-      return NoTransitionPage(child: CourseCreatePage(courseId: id));
-    },
-  ),
-  // Contenu (modules et leçons)
-  GoRoute(
-    path: '/instructor/content/modules/:courseId',
-    name: 'instructorCourseModules',
-    pageBuilder: (_, state) {
-      final id = state.pathParameters['courseId']!;
-      return NoTransitionPage(child: ModuleManagementPage(courseId: id));
-    },
-  ),
-  GoRoute(
-    path: '/instructor/content/lessons/create',
-    name: 'instructorCreateLesson',
-    pageBuilder: (_, __) => const NoTransitionPage(child: LessonManagementPage()),
-  ),
-  // Évaluations (questions uniquement, car evaluation_create est manquant)
-  GoRoute(
-    path: '/instructor/evaluations/:evaluationId/questions',
-    name: 'instructorEvaluationQuestions',
-    pageBuilder: (_, state) {
-      final id = state.pathParameters['evaluationId']!;
-      return NoTransitionPage(child: QuestionManagementPage(evaluationId: id));
-    },
-  ),
-  // Livres
-  GoRoute(
-    path: '/instructor/books',
-    name: 'instructorBooks',
-    pageBuilder: (_, __) => const NoTransitionPage(child: BookManagementPage()),
-  ),
-  GoRoute(
-    path: '/instructor/books/create',
-    name: 'instructorCreateBook',
-    pageBuilder: (_, __) => const NoTransitionPage(child: CreateBookPage()),
-  ),
-  GoRoute(
-    path: '/instructor/books/edit/:bookId',
-    name: 'instructorEditBook',
-    pageBuilder: (_, state) {
-      final id = state.pathParameters['bookId']!;
-      return NoTransitionPage(child: CreateBookPage(bookId: id));
-    },
-  ),
-  // Bannière "À la une" (si le fichier existe)
-  // GoRoute(
-  //   path: '/instructor/banner',
-  //   name: 'instructorBanner',
-  //   pageBuilder: (_, __) => const NoTransitionPage(child: BannerManagementPage()),
-  // ),
+  GoRoute(path: '/instructor/dashboard', name: 'instructorDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: InstructorDashboard())),
+  GoRoute(path: '/instructor/courses', name: 'instructorCourses', pageBuilder: (_, __) => const NoTransitionPage(child: CourseListPage())),
+  GoRoute(path: '/instructor/courses/create', name: 'instructorCreateCourse', pageBuilder: (_, __) => const NoTransitionPage(child: CourseCreatePage())),
+  GoRoute(path: '/instructor/courses/edit/:courseId', name: 'instructorEditCourse', pageBuilder: (_, state) {
+    final id = state.pathParameters['courseId']!;
+    return NoTransitionPage(child: CourseCreatePage(courseId: id));
+  }),
+  GoRoute(path: '/instructor/content/modules/:courseId', name: 'instructorCourseModules', pageBuilder: (_, state) {
+    final id = state.pathParameters['courseId']!;
+    return NoTransitionPage(child: ModuleManagementPage(courseId: id));
+  }),
+  GoRoute(path: '/instructor/content/lessons/create', name: 'instructorCreateLesson', pageBuilder: (_, __) => const NoTransitionPage(child: LessonManagementPage())),
+  GoRoute(path: '/instructor/evaluations/:evaluationId/questions', name: 'instructorEvaluationQuestions', pageBuilder: (_, state) {
+    final id = state.pathParameters['evaluationId']!;
+    return NoTransitionPage(child: QuestionManagementPage(evaluationId: id));
+  }),
+  GoRoute(path: '/instructor/books', name: 'instructorBooks', pageBuilder: (_, __) => const NoTransitionPage(child: BookManagementPage())),
+  GoRoute(path: '/instructor/books/create', name: 'instructorCreateBook', pageBuilder: (_, __) => const NoTransitionPage(child: CreateBookPage())),
+  GoRoute(path: '/instructor/books/edit/:bookId', name: 'instructorEditBook', pageBuilder: (_, state) {
+    final id = state.pathParameters['bookId']!;
+    return NoTransitionPage(child: CreateBookPage(bookId: id));
+  }),
 ];
