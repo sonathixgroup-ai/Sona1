@@ -34,7 +34,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   final _warrantyController = TextEditingController();
   final _shippingCostController = TextEditingController();
 
-  // ✅ Stockage des images en XFile + cache bytes
   List<XFile> _selectedImages = [];
   final Map<String, Uint8List> _imageBytesCache = {};
 
@@ -193,9 +192,80 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     });
   }
 
-  // ✅ Mapping extension -> MIME type
-  String _getContentType(String filePath) {
-    final ext = filePath.split('.').last.toLowerCase();
+  String _getExtensionFromMime(String? mimeType) {
+    if (mimeType == null) return 'jpg';
+    switch (mimeType) {
+      case 'image/jpeg':
+        return 'jpg';
+      case 'image/png':
+        return 'png';
+      case 'image/gif':
+        return 'gif';
+      case 'image/webp':
+        return 'webp';
+      case 'image/heic':
+        return 'heic';
+      case 'image/bmp':
+        return 'bmp';
+      case 'image/tiff':
+        return 'tiff';
+      default:
+        return 'jpg';
+    }
+  }
+
+  Future<List<String>> _uploadImages() async {
+    List<String> urls = [];
+    setState(() => _isUploading = true);
+    try {
+      for (final image in _selectedImages) {
+        try {
+          final bytes = _imageBytesCache[image.path] ?? await image.readAsBytes();
+          // Utiliser le MIME type fourni par XFile, ou le déduire
+          String? mimeType = image.mimeType;
+          if (mimeType == null) {
+            // fallback : déduire de l'extension
+            final ext = image.path.split('.').last.toLowerCase();
+            mimeType = _getContentTypeFromExt(ext);
+          }
+          // Déterminer l'extension à partir du MIME type
+          final ext = _getExtensionFromMime(mimeType);
+          final fileName = '${const Uuid().v4()}.$ext';
+          final filePath = 'products/$fileName';
+
+          await Supabase.instance.client.storage.from('product_images').uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: FileOptions(
+                  contentType: mimeType,
+                  cacheControl: '3600',
+                  upsert: false,
+                ),
+              );
+
+          final publicUrl = Supabase.instance.client.storage
+              .from('product_images')
+              .getPublicUrl(filePath);
+
+          urls.add(publicUrl);
+          debugPrint('✅ Upload réussi : $publicUrl (type: $mimeType)');
+        } catch (e) {
+          debugPrint('❌ Upload error pour une image: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erreur upload image: ${e.toString()}'), backgroundColor: Colors.red),
+            );
+          }
+          rethrow;
+        }
+      }
+    } finally {
+      setState(() => _isUploading = false);
+    }
+    return urls;
+  }
+
+  String _getContentTypeFromExt(String ext) {
     switch (ext) {
       case 'jpg':
       case 'jpeg':
@@ -216,55 +286,8 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
       case 'svg':
         return 'image/svg+xml';
       default:
-        // fallback : on utilise image/jpeg
-        debugPrint('⚠️ Extension non reconnue : $ext, utilisation de image/jpeg');
         return 'image/jpeg';
     }
-  }
-
-  // ✅ Upload corrigé avec Content-Type explicite
-  Future<List<String>> _uploadImages() async {
-    List<String> urls = [];
-    setState(() => _isUploading = true);
-    try {
-      for (final image in _selectedImages) {
-        try {
-          final bytes = _imageBytesCache[image.path] ?? await image.readAsBytes();
-          final fileExt = image.path.split('.').last.toLowerCase();
-          final fileName = '${const Uuid().v4()}.$fileExt';
-          final filePath = 'products/$fileName';
-          final contentType = _getContentType(image.path);
-
-          await Supabase.instance.client.storage.from('product_images').uploadBinary(
-                filePath,
-                bytes,
-                fileOptions: FileOptions(
-                  contentType: contentType,
-                  cacheControl: '3600',
-                  upsert: false,
-                ),
-              );
-
-          final publicUrl = Supabase.instance.client.storage
-              .from('product_images')
-              .getPublicUrl(filePath);
-
-          urls.add(publicUrl);
-          debugPrint('✅ Upload réussi : $publicUrl (type: $contentType)');
-        } catch (e) {
-          debugPrint('❌ Upload error pour une image: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur upload image: ${e.toString()}'), backgroundColor: Colors.red),
-            );
-          }
-          rethrow;
-        }
-      }
-    } finally {
-      setState(() => _isUploading = false);
-    }
-    return urls;
   }
 
   String? _resolveCity() {
