@@ -5,10 +5,11 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/education/models/formation.dart';
 import 'package:thix_id/presentation/education/models/module.dart';
+import 'package:thix_id/presentation/education/models/lesson.dart';
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
+
 class CourseCreatePage extends StatefulWidget {
   final String? courseId;
   const CourseCreatePage({super.key, this.courseId});
@@ -55,9 +56,6 @@ class _CourseCreatePageState extends State<CourseCreatePage> {
       allowMultiple: false,
     );
     if (result != null && result.files.isNotEmpty) {
-      // Ici, vous devriez uploader l'image vers Supabase Storage
-      // et récupérer l'URL publique.
-      // Pour l'exemple, on simule avec un chemin local.
       setState(() {
         _imageUrlController.text = result.files.first.path ?? '';
       });
@@ -98,6 +96,7 @@ class _CourseCreatePageState extends State<CourseCreatePage> {
         description: _descriptionController.text,
         categoryId: _categoryId,
         instructorId: userId,
+        instructorName: _instructorController.text, // ✅ correction ici
         level: _level,
         duration: totalDuration,
         price: double.tryParse(_priceController.text) ?? 0.0,
@@ -109,13 +108,12 @@ class _CourseCreatePageState extends State<CourseCreatePage> {
         status: 'draft',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        instructor: _instructorController.text,
         modules: _modules,
       );
 
       // Sauvegarde
-      // final provider = context.read<EducationProvider>();
-      // await provider.createFormation(formation);
+      final provider = context.read<EducationProvider>();
+      await provider.createFormation(formation);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -238,7 +236,7 @@ class _CourseCreatePageState extends State<CourseCreatePage> {
                                   child: DropdownButtonFormField<String>(
                                     value: _currency,
                                     items: const [
-                                      DropdownMenuItem(value: 'USD', child: Text('USD $')),
+                                      DropdownMenuItem(value: 'USD', child: Text('USD \$')),
                                       DropdownMenuItem(value: 'FC', child: Text('FC')),
                                     ],
                                     onChanged: (v) => setState(() => _currency = v!),
