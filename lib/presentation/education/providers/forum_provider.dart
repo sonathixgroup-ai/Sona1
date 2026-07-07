@@ -58,11 +58,12 @@ class ForumProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
+      // ✅ Appel avec paramètres positionnels (correspond à la signature du service)
       final topic = await _service.createForumTopic(
-        formationId: formationId,
-        userId: userId,
-        title: title,
-        body: body,
+        formationId,
+        userId,
+        title,
+        body,
       );
       _topics.insert(0, topic);
       _error = null;
@@ -102,10 +103,11 @@ class ForumProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
+      // ✅ Appel avec paramètres positionnels
       final reply = await _service.createForumReply(
-        topicId: topicId,
-        userId: userId,
-        body: body,
+        topicId,
+        userId,
+        body,
       );
       _replies.add(reply);
       _error = null;
