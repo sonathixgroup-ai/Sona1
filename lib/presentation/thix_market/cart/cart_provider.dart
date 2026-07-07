@@ -23,22 +23,47 @@ class CartProvider extends ChangeNotifier {
     (sum, item) => sum + ((item['quantity'] as int?) ?? 0),
   );
 
+  /// Sous-total (devise du produit, peut être USD ou CDF)
   double get subtotal => _cartItems.fold(0.0, (sum, item) {
         final price = (item['product']?['price'] as num?)?.toDouble() ?? 0;
         final quantity = (item['quantity'] ?? 0).toInt();
         return sum + (price * quantity);
       });
 
-  // ✅ Devise dominante : on prend la devise du premier article, sinon CDF
+  // ============================================================
+  // GESTION DE LA DEVISES
+  // ============================================================
+  /// Devise dominante du panier (premier article)
   String get currency {
     if (_cartItems.isEmpty) return 'CDF';
     final product = _cartItems.first['product'] as Map?;
     return product?['currency'] ?? 'CDF';
   }
 
+  /// Symbole de la devise ( $ ou FC )
   String get currencySymbol => currency == 'USD' ? '\$' : 'FC';
 
-  double get shippingCost => subtotal > 50000 ? 0 : 2500;
+  // ============================================================
+  // FRAIS DE LIVRAISON (toujours en CDF/FC)
+  // ============================================================
+  static const double _shippingCostFC = 2500;
+  static const double _freeShippingThresholdFC = 50000;
+
+  /// Convertit le sous-total en FC pour le calcul du seuil
+  double get _subtotalInFC {
+    if (currency == 'CDF') return subtotal;
+    // Conversion approximative 1 USD = 2500 FC
+    return subtotal * 2500;
+  }
+
+  double get shippingCost {
+    return _subtotalInFC > _freeShippingThresholdFC ? 0 : _shippingCostFC;
+  }
+
+  /// Symbole de la livraison (toujours FC)
+  String get shippingSymbol => 'FC';
+
+  /// Total = sous-total + frais de livraison (affiché dans la devise du produit)
   double get total => subtotal + shippingCost;
 
   // ============================================================
