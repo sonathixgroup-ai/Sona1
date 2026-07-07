@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
 import 'package:thix_id/presentation/education/providers/progress_provider.dart';
 import 'package:thix_id/presentation/education/providers/certificate_provider.dart';
-import 'package:thix_id/presentation/education/providers/recommendation_provider.dart'; // ✅ Import ajouté
+import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 import 'package:thix_id/presentation/education/widgets/education_carousel.dart';
 import 'package:thix_id/presentation/education/widgets/common/education_category_chip.dart';
 import 'package:thix_id/presentation/education/widgets/common/formation_card.dart';
@@ -35,7 +35,7 @@ class _EducationHomeState extends State<EducationHome> {
     const _AllFormationsPage(),
     const _CertificatesPage(),
     const _LibraryPage(),
-    const _ProfilePage(),  // ✅ Profil avec bouton formateur
+    const _ProfilePage(),
   ];
 
   final List<String> _titles = [
@@ -119,7 +119,7 @@ class _EducationHomeState extends State<EducationHome> {
 }
 
 // ============================================================================
-// PAGE 1 : ACCUEIL
+// PAGE 1 : ACCUEIL (AVEC BANNIÈRE À LA UNE)
 // ============================================================================
 class _HomePage extends StatefulWidget {
   const _HomePage();
@@ -140,7 +140,7 @@ class _HomePageState extends State<_HomePage> {
       educationProvider.loadFormations();
       educationProvider.loadCategories();
       if (userId != null) {
-        context.read<RecommendationProvider>().loadRecommendations(userId); // ✅ reconnu
+        context.read<RecommendationProvider>().loadRecommendations(userId);
       }
     });
   }
@@ -152,135 +152,46 @@ class _HomePageState extends State<_HomePage> {
     final formations = educationProvider.formations;
     final isLoading = educationProvider.isLoading;
 
-    // Données fictives pour un rendu immédiat
-    final sampleCategories = [
-      Category(id: '1', name: 'Développement', icon: null, createdAt: DateTime.now()),
-      Category(id: '2', name: 'Design', icon: null, createdAt: DateTime.now()),
-      Category(id: '3', name: 'Marketing', icon: null, createdAt: DateTime.now()),
-      Category(id: '4', name: 'Business', icon: null, createdAt: DateTime.now()),
-      Category(id: '5', name: 'Santé', icon: null, createdAt: DateTime.now()),
-    ];
-
-    final sampleFormations = [
-      Formation(
-        id: '1',
-        title: 'Flutter & Dart – Maîtrisez le développement mobile',
-        description: 'Apprenez à créer des applications mobiles performantes avec Flutter.',
-        categoryId: '1',
-        instructorId: '1',
-        level: 'intermediate',
-        duration: 120,
-        price: 49.99,
-        status: 'published',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        instructor: 'Jean Dupont',
-        rating: 4.8,
-        reviewsCount: 125,
-        imageUrl: 'https://via.placeholder.com/300x200?text=Flutter',
-        isFree: false,
-        isCertifying: true,
-        durationHours: 2,
-        difficulty: 'intermediate',
-      ),
-      Formation(
-        id: '2',
-        title: 'UI/UX Design – Les fondamentaux',
-        description: 'Maîtrisez les bases du design d’interface et d’expérience utilisateur.',
-        categoryId: '2',
-        instructorId: '2',
-        level: 'beginner',
-        duration: 90,
-        price: 0.0,
-        status: 'published',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        instructor: 'Marie Martin',
-        rating: 4.9,
-        reviewsCount: 98,
-        imageUrl: 'https://via.placeholder.com/300x200?text=UI/UX',
-        isFree: true,
-        isCertifying: false,
-        durationHours: 1,
-        difficulty: 'beginner',
-      ),
-    ];
-
-    final displayCategories = categories.isEmpty ? sampleCategories : categories;
-    final displayFormations = formations.isEmpty ? sampleFormations : formations;
+    // Sélectionner la formation "À la une" (par exemple la plus récente, ou une formation spécifique)
+    final featuredFormation = formations.isNotEmpty ? formations.first : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Bannière
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E293B), Color(0xFF2D6CDF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // ─── BANNIÈRE À LA UNE ────────────────────────────
+          // (Cette bannière pourra être gérée depuis l'espace instructeur plus tard)
+          if (featuredFormation != null)
+            _FeaturedBanner(formation: featuredFormation)
+          else
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E293B), Color(0xFF2D6CDF)],
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '🚀 Boostez vos compétences',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Découvrez nos formations certifiantes et passez au niveau supérieur.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFCBD5E1),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      ElevatedButton(
-                        onPressed: () => context.push('/education/all'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1E293B),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: const Text('Voir toutes les formations'),
-                      ),
-                    ],
+              padding: const EdgeInsets.all(20),
+              child: const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '🚀 À la une : Découvrez nos formations du moment !',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
                   ),
-                ),
-                const Icon(
-                  Icons.school_rounded,
-                  size: 60,
-                  color: Color(0xFFCBD5E1),
-                ),
-              ],
+                  Icon(Icons.trending_up_rounded, color: Colors.white, size: 40),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 24),
 
-          // Catégories
+          // ─── CATÉGORIES ────────────────────────────────────
           const Text(
             'Catégories',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -295,7 +206,7 @@ class _HomePageState extends State<_HomePage> {
                     educationProvider.loadFormations();
                   },
                 ),
-                ...displayCategories.map((cat) {
+                ...categories.map((cat) {
                   return Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: EducationCategoryChip(
@@ -313,14 +224,10 @@ class _HomePageState extends State<_HomePage> {
           ),
           const SizedBox(height: 24),
 
-          // Continuer votre apprentissage (placeholder)
+          // ─── CONTINUER VOTRE APPRENTISSAGE ──────────────
           const Text(
             'Continuer votre apprentissage',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 12),
           Container(
@@ -354,19 +261,12 @@ class _HomePageState extends State<_HomePage> {
                     children: [
                       const Text(
                         'Flutter & Dart – Maîtrisez...',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Progression : 65%',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: const Color(0xFF475569),
-                        ),
+                        style: TextStyle(fontSize: 13, color: const Color(0xFF475569)),
                       ),
                       const SizedBox(height: 8),
                       ClipRRect(
@@ -390,45 +290,33 @@ class _HomePageState extends State<_HomePage> {
           ),
           const SizedBox(height: 24),
 
-          // Formations populaires
+          // ─── FORMATIONS POPULAIRES ──────────────────────
           const Text(
             'Les plus populaires',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 12),
           EducationCarousel(
-            formations: displayFormations.take(5).toList(),
+            formations: formations.take(5).toList(),
           ),
           const SizedBox(height: 24),
 
-          // Recommandations
+          // ─── RECOMMANDATIONS ─────────────────────────────
           const Text(
             'Recommandé pour vous',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 12),
           RecommendationCarousel(),
           const SizedBox(height: 24),
 
-          // Toutes les formations (grille)
+          // ─── TOUTES LES FORMATIONS (GRILLE) ─────────────
           const Text(
             'Toutes les formations',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 12),
-          if (displayFormations.isEmpty)
+          if (formations.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
@@ -448,9 +336,9 @@ class _HomePageState extends State<_HomePage> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              itemCount: displayFormations.length,
+              itemCount: formations.length,
               itemBuilder: (context, index) {
-                final formation = displayFormations[index];
+                final formation = formations[index];
                 return FormationCard(
                   formation: formation,
                   onTap: () => context.push('/education/formation/${formation.id}'),
@@ -459,6 +347,125 @@ class _HomePageState extends State<_HomePage> {
             ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+}
+
+// ─── WIDGET BANNIÈRE À LA UNE ──────────────────────────────────────
+class _FeaturedBanner extends StatelessWidget {
+  final Formation formation;
+  const _FeaturedBanner({required this.formation});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/education/formation/${formation.id}'),
+      child: Container(
+        height: 140,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E293B), Color(0xFF2D6CDF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0A1F44).withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'À LA UNE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    formation.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        formation.rating.toStringAsFixed(1),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(width: 12),
+                      if (!formation.isFree)
+                        Text(
+                          '${formation.price.toInt()} ${formation.currency}',
+                          style: const TextStyle(color: Color(0xFFCBD5E1), fontWeight: FontWeight.w700),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Gratuit',
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: formation.imageUrl != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.network(
+                        formation.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.image_rounded, color: Colors.white38, size: 40),
+                      ),
+                    )
+                  : const Icon(Icons.school_rounded, color: Colors.white38, size: 40),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -808,7 +815,6 @@ class _ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Bouton Éditer le profil
             ElevatedButton.icon(
               onPressed: () => context.push('/profile'),
               icon: const Icon(Icons.edit_rounded),
@@ -823,12 +829,8 @@ class _ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // ✅ NOUVEAU : Passer en mode formateur
             ElevatedButton.icon(
-              onPressed: () {
-                // Rediriger vers le tableau de bord formateur
-                context.push('/instructor/dashboard');
-              },
+              onPressed: () => context.push('/instructor/dashboard'),
               icon: const Icon(Icons.school_rounded),
               label: const Text('Passer en mode formateur'),
               style: ElevatedButton.styleFrom(
@@ -842,9 +844,7 @@ class _ProfilePage extends StatelessWidget {
             const SizedBox(height: 12),
 
             TextButton(
-              onPressed: () {
-                // Déconnexion éventuelle
-              },
+              onPressed: () {},
               child: const Text('Se déconnecter', style: TextStyle(color: Color(0xFFEF4444))),
             ),
           ],
