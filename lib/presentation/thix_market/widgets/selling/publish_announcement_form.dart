@@ -34,8 +34,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
   final _warrantyController = TextEditingController();
   final _shippingCostController = TextEditingController();
 
-  // ✅ Web + mobile compatible : on garde des XFile + un cache de bytes en mémoire
-  // au lieu de dart:io File / FileImage, qui ne fonctionnent pas sur Flutter Web.
+  // ✅ Stockage des images en XFile + cache bytes
   List<XFile> _selectedImages = [];
   final Map<String, Uint8List> _imageBytesCache = {};
 
@@ -167,8 +166,6 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     }
   }
 
-  // ✅ Sélection d'images : on précharge immédiatement les bytes en mémoire
-  // (fonctionne sur mobile ET web, contrairement à File(x.path))
   Future<void> _pickImages() async {
     final List<XFile>? images = await _picker.pickMultiImage(
       maxWidth: 1024,
@@ -196,7 +193,36 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
     });
   }
 
-  // ✅ Upload en binaire (uploadBinary) : compatible mobile + web
+  // ✅ Mapping extension -> MIME type
+  String _getContentType(String filePath) {
+    final ext = filePath.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      case 'bmp':
+        return 'image/bmp';
+      case 'tiff':
+      case 'tif':
+        return 'image/tiff';
+      case 'svg':
+        return 'image/svg+xml';
+      default:
+        // fallback : on utilise image/jpeg
+        debugPrint('⚠️ Extension non reconnue : $ext, utilisation de image/jpeg');
+        return 'image/jpeg';
+    }
+  }
+
+  // ✅ Upload corrigé avec Content-Type explicite
   Future<List<String>> _uploadImages() async {
     List<String> urls = [];
     setState(() => _isUploading = true);
@@ -207,12 +233,14 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
           final fileExt = image.path.split('.').last.toLowerCase();
           final fileName = '${const Uuid().v4()}.$fileExt';
           final filePath = 'products/$fileName';
+          final contentType = _getContentType(image.path);
 
           await Supabase.instance.client.storage.from('product_images').uploadBinary(
                 filePath,
                 bytes,
                 fileOptions: FileOptions(
-                  contentType: 'image/$fileExt',
+                  contentType: contentType,
+                  cacheControl: '3600',
                   upsert: false,
                 ),
               );
@@ -222,7 +250,7 @@ class _PublishAnnouncementFormState extends State<PublishAnnouncementForm> {
               .getPublicUrl(filePath);
 
           urls.add(publicUrl);
-          debugPrint('✅ Upload réussi : $publicUrl');
+          debugPrint('✅ Upload réussi : $publicUrl (type: $contentType)');
         } catch (e) {
           debugPrint('❌ Upload error pour une image: $e');
           if (mounted) {
