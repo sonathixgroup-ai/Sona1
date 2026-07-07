@@ -7,7 +7,7 @@ import '../providers/market_provider.dart';
 import '../providers/shop_provider.dart';
 import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../vendor/vendor_dashboard.dart'; // ✅ import du dashboard vendeur
+import '../vendor/vendor_dashboard.dart';
 
 class MarketHomePage extends StatefulWidget {
   const MarketHomePage({super.key});
@@ -18,20 +18,23 @@ class MarketHomePage extends StatefulWidget {
 
 class _MarketHomePageState extends State<MarketHomePage> {
   final ScrollController _scrollController = ScrollController();
+  final PageController _bannerController = PageController();
+  Timer? _bannerTimer;
+  int _currentBannerIndex = 0;
 
   // ============================================================
   // CHARTE THIX MARKET — Élite Institutionnel Bleu / Blanc
   // ============================================================
-  static const Color navyDeep = Color(0xFF0A1F44);   // fond profond, autorité
-  static const Color navy = Color(0xFF123B7A);        // dégradé header
-  static const Color primaryBlue = Color(0xFF2D6CDF); // accent lumineux principal
-  static const Color electricBlue = Color(0xFF4E8CFF); // touche brillance
-  static const Color softBlue = Color(0xFFEFF5FF);     // fond clair cartes/icônes
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color electricBlue = Color(0xFF4E8CFF);
+  static const Color softBlue = Color(0xFFEFF5FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);         // accent premium rare
-  static const Color glow = Color(0xFF2D6CDF);         // couleur des ombres lumineuses
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color glow = Color(0xFF2D6CDF);
 
   @override
   void initState() {
@@ -46,16 +49,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _bannerController.dispose();
+    _bannerTimer?.cancel();
     super.dispose();
   }
 
-  // ✅ Redirige vers l'espace vendeur (VendorDashboard)
-  void _goToVendor() {
-    context.push('/market/vendor/dashboard');
-  }
-
+  void _goToVendor() => context.push('/market/vendor/dashboard');
   void _goToCart() => context.push('/market/cart');
-  void _goToWishlist() => context.push('/market/buy'); // ✅ Wishlist → page Acheter
+  void _goToWishlist() => context.push('/market/buy');
 
   Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
     if (url == null || url.trim().isEmpty) {
@@ -69,12 +70,30 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
+  // ============================================================
+  // BANNIÈRE : autoplay toutes les 6 secondes
+  // ============================================================
+  void _startBannerAutoplay(List<dynamic> banners) {
+    if (banners.isEmpty) return;
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
+      if (_bannerController.hasClients && banners.isNotEmpty) {
+        final nextPage = (_currentBannerIndex + 1) % banners.length;
+        _bannerController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOutCubic,
+        );
+        setState(() => _currentBannerIndex = nextPage);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final marketProvider = context.watch<MarketProvider>();
     final shopProvider = context.watch<ShopProvider>();
 
-    // Combinaison des produits pour la section "Tous les produits"
     final Map<String, dynamic> allById = {};
     for (final p in [
       ...marketProvider.flashSales,
@@ -84,20 +103,22 @@ class _MarketHomePageState extends State<MarketHomePage> {
       allById[p['id'].toString()] = p;
     }
     final allProducts = allById.values.toList();
-
-    // Bannières réelles
     final banners = marketProvider.promoBanners;
 
+    // Démarrer l'autoplay dès que les bannières sont chargées
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (banners.isNotEmpty) _startBannerAutoplay(banners);
+    });
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF), // fond légèrement bleuté, plus lumineux que du blanc pur
+      backgroundColor: const Color(0xFFF7FAFF),
       body: RefreshIndicator(
         color: primaryBlue,
         onRefresh: () => marketProvider.refresh(),
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            // AppBar sans doublon de localisation
-            _buildAppBar(marketProvider, shopProvider),
+            _buildAppBar(),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -105,25 +126,21 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-                    // Bannières réelles (carousel)
+                    // Bannières rectangulaires, agrandies
                     if (banners.isNotEmpty) ...[
                       _buildBannerCarousel(banners),
                       const SizedBox(height: 22),
                     ],
-                    // Catégories
                     _buildCategorySection(),
                     const SizedBox(height: 22),
-                    // Flash Sale
                     if (marketProvider.flashSales.isNotEmpty) ...[
                       _buildFlashSaleSection(marketProvider.flashSales),
                       const SizedBox(height: 22),
                     ],
-                    // Recommandé
                     if (marketProvider.recommendedProducts.isNotEmpty) ...[
                       _buildRecommendedSection(marketProvider.recommendedProducts),
                       const SizedBox(height: 22),
                     ],
-                    // Tous les produits
                     if (allProducts.isNotEmpty) ...[
                       _sectionHeader('Tous les produits', onSeeAll: () => context.push('/market/buy')),
                       const SizedBox(height: 10),
@@ -142,11 +159,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // APP BAR — dégradé incurvé, lumineux
+  // APP BAR — « THIX MARKET » au lieu de la localisation
   // ============================================================
-  Widget _buildAppBar(MarketProvider marketProvider, ShopProvider shopProvider) {
-    // Récupérer la ville de l'utilisateur (mock pour l'instant, à remplacer par un vrai provider)
-    final userCity = 'Abidjan, CI'; // À remplacer par la vraie localisation
+  Widget _buildAppBar() {
     return SliverAppBar(
       pinned: true,
       floating: true,
@@ -176,14 +191,22 @@ class _MarketHomePageState extends State<MarketHomePage> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.location_on_rounded, size: 15, color: gold),
+            child: const Icon(Icons.storefront_rounded, size: 18, color: gold),
           ),
           const SizedBox(width: 8),
-          Text(userCity, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+          const Text(
+            'THIX MARKET',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: 0.6,
+            ),
+          ),
           const Spacer(),
           _buildIconButton(Icons.search_rounded, () => context.push('/market/search')),
           _buildIconButton(Icons.notifications_none_rounded, () => context.push('/market/notifications')),
-          _buildIconButton(Icons.storefront_rounded, _goToVendor), // ✅ redirige vers l'espace vendeur
+          _buildIconButton(Icons.storefront_rounded, _goToVendor),
         ],
       ),
     );
@@ -209,26 +232,35 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BANNIÈRES (réelles, carousel) — incurvées, lumineuses
+  // BANNIÈRE : rectangle, bord droit, plus haute, autoplay 6s
   // ============================================================
   Widget _buildBannerCarousel(List<dynamic> banners) {
     return SizedBox(
-      height: 150,
+      height: 180, // agrandi
       child: PageView.builder(
+        controller: _bannerController,
         itemCount: banners.length,
-        controller: PageController(viewportFraction: 0.92),
+        onPageChanged: (index) {
+          setState(() => _currentBannerIndex = index);
+        },
         itemBuilder: (context, index) {
           final banner = banners[index];
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: [
-                BoxShadow(color: navyDeep.withOpacity(0.14), blurRadius: 22, offset: const Offset(0, 12)),
-              ],
-              image: DecorationImage(
-                image: NetworkImage(banner['image_url'] ?? ''),
-                fit: BoxFit.cover,
+          return GestureDetector(
+            onTap: () {
+              // Redirige vers les offres flash ou une page dédiée
+              context.push('/market/flash-sales');
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(0), // rectangle
+                boxShadow: [
+                  BoxShadow(color: navyDeep.withOpacity(0.14), blurRadius: 22, offset: const Offset(0, 12)),
+                ],
+                image: DecorationImage(
+                  image: NetworkImage(banner['image_url'] ?? ''),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           );
@@ -238,7 +270,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CATÉGORIES — icônes lumineuses, coins arrondis
+  // CATÉGORIES
   // ============================================================
   Widget _buildCategorySection() {
     final categories = [
@@ -370,7 +402,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CARTE PRODUIT HORIZONTALE (pour Flash/Recommandé) — luminosité + incurvé
+  // CARTE PRODUIT HORIZONTALE
   // ============================================================
   Widget _buildProductHorizontalCard(Map<String, dynamic> product, {bool isFlash = false}) {
     final currency = product['currency'] ?? 'FC';
@@ -463,7 +495,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // GRILLE PRODUITS (Tous les produits)
+  // GRILLE PRODUITS
   // ============================================================
   Widget _productGrid(List<dynamic> products) {
     return GridView.builder(
@@ -628,7 +660,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOTTOM NAV BAR — flottante, incurvée, lumineuse
+  // BOTTOM NAV BAR
   // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
@@ -648,7 +680,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(Icons.home_rounded, 'Accueil', true, () {}),
-              _buildNavItem(Icons.favorite_border_rounded, 'Wishlist', false, _goToWishlist), // ✅ Wishlist → BuyPage
+              _buildNavItem(Icons.favorite_border_rounded, 'Wishlist', false, _goToWishlist),
               _buildNavItem(Icons.shopping_cart_rounded, 'Panier', false, _goToCart),
               _buildNavItem(Icons.chat_rounded, 'Chat', false, () => context.push('/market/messages')),
               _buildNavItem(Icons.person_outline_rounded, 'Profil', false, () => context.push('/market/activity')),
