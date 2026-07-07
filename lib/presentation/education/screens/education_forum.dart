@@ -33,7 +33,7 @@ class _EducationForumState extends State<EducationForum> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
-        title: const Text('Forum', style: TextStyle(fontWeight: FontWeight.W800, color: Color(0xFF1A1A2E))),
+        title: const Text('Forum', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
