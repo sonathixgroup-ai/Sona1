@@ -55,6 +55,7 @@ import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 
+import 'package:thix_id/education/education_routes.dart';
 // ==================== THIX INFO ====================
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
 import 'package:thix_id/presentation/thix_info/article_detail_page.dart';
@@ -332,6 +333,10 @@ class AppRoutes {
   static const String opportunities = '/opportunities';
   static const String admin = '/admin';
   static const String thixMarket = '/market';
+  // ─── Éducation ───
+  static const String education = '/education';
+  static const String trainingHome = '/education';          
+  static const String trainingDetailsBasePath = '/education'; 
 
   // THIX Santé
   static const String thixSante = '/sante';
@@ -2407,6 +2412,9 @@ GoRoute(
                 child: OpportunityApplyPage(opportunityId: opportunityId));
           },
         ),
+       
+          ...educationRoutes,
+        
         // Jobs détail
         GoRoute(
           path: '/jobs/:jobId',
