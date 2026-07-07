@@ -1,12 +1,12 @@
 // lib/presentation/education/widgets/common/formation_card.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:thix_id/presentation/education/models/formation.dart'; // ✅ Import unique
+import 'package:thix_id/presentation/education/models/formation.dart';
 
 class FormationCard extends StatelessWidget {
   final Formation formation;
   final VoidCallback? onTap;
-  final double? progress; // 0.0 à 1.0, optionnel (si l'utilisateur est inscrit)
+  final double? progress;
 
   const FormationCard({
     super.key,
@@ -34,11 +34,11 @@ class FormationCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image / thumbnail
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: CachedNetworkImage(
-                imageUrl: formation.imageUrl ?? '', // ✅ field correct
+                // ✅ Utilisation de imageUrl (le champ existe dans Formation)
+                imageUrl: formation.imageUrl ?? 'https://via.placeholder.com/300x120',
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -54,7 +54,6 @@ class FormationCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Infos
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -66,17 +65,14 @@ class FormationCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.W700,
                       color: Color(0xFF1A1A2E),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     formation.category?.name ?? 'Non catégorisé',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF7386A8),
-                    ),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8)),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -94,7 +90,7 @@ class FormationCard extends StatelessWidget {
                           '${formation.price.toInt()} FC',
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.W800,
                             color: Color(0xFF2D6CDF),
                           ),
                         )
@@ -109,7 +105,7 @@ class FormationCard extends StatelessWidget {
                             'Gratuit',
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.W700,
                               color: Color(0xFF2D6CDF),
                             ),
                           ),
