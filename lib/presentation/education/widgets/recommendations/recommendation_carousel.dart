@@ -22,7 +22,7 @@ class RecommendationCarousel extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'Recommandé pour vous',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.W800, color: Color(0xFF1A1A2E)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E)),
           ),
         ),
         const SizedBox(height: 12),
@@ -78,7 +78,7 @@ class RecommendationCarousel extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.W700,
+                                fontWeight: FontWeight.w700,
                                 color: Color(0xFF1A1A2E),
                               ),
                             ),
