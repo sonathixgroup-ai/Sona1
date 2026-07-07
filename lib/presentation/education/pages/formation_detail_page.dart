@@ -51,6 +51,9 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
     final provider = context.watch<EducationProvider>();
     final formation = provider.currentFormation;
 
+    // ✅ Déclaration extraite pour éviter l'erreur dans le Column
+    final modules = formation?.modules ?? [];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
@@ -195,8 +198,7 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Modules
-                      final modules = formation.modules ?? [];
+                      // Modules (la variable `modules` est définie avant le retour)
                       if (modules.isNotEmpty) ...[
                         const Text(
                           'Contenu de la formation',
