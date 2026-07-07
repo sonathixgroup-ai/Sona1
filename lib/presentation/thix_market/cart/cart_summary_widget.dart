@@ -1,4 +1,4 @@
-// lib/presentation/thix_market/cart/cart_summary_widget.dart
+// lib/presentation/thix_market/cart/cart_summary_widget.dart (nouvelle version)
 import 'package:flutter/material.dart';
 
 class CartSummaryWidget extends StatelessWidget {
@@ -6,7 +6,8 @@ class CartSummaryWidget extends StatelessWidget {
   final double shippingCost;
   final double total;
   final int itemCount;
-  final String currencySymbol;
+  final String subtotalSymbol;
+  final String shippingSymbol;
   final VoidCallback onCheckout;
 
   const CartSummaryWidget({
@@ -15,7 +16,8 @@ class CartSummaryWidget extends StatelessWidget {
     required this.shippingCost,
     required this.total,
     required this.itemCount,
-    required this.currencySymbol,
+    required this.subtotalSymbol,
+    required this.shippingSymbol,
     required this.onCheckout,
   });
 
@@ -53,11 +55,11 @@ class CartSummaryWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            _buildRow('Sous-total ($itemCount articles)', subtotal, currencySymbol),
+            _buildRow('Sous-total ($itemCount articles)', subtotal, subtotalSymbol),
             const SizedBox(height: 4),
-            _buildRow('Livraison', shippingCost, currencySymbol),
+            _buildRow('Livraison', shippingCost, shippingSymbol),
             const Divider(height: 24, thickness: 1),
-            _buildRow('Total', total, currencySymbol, isTotal: true),
+            _buildRow('Total', total, subtotalSymbol, isTotal: true),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
