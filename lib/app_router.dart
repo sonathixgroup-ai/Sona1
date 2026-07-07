@@ -1387,14 +1387,6 @@ class AppRouter {
             return NoTransitionPage(child: JobApplyPage(jobId: jobId));
           },
         ),
-
-        // ---- Education ----
-        GoRoute(
-          path: AppRoutes.education,
-          name: 'education',
-          pageBuilder: (context, state) => NoTransitionPage(child: EducationPage()),
-        ),
-              
            GoRoute(
   path: 'shop/:shopId',
   name: 'marketShopDetail',
