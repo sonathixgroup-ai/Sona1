@@ -72,7 +72,7 @@ class _EducationHomeState extends State<EducationHome> {
         imageUrl: 'https://via.placeholder.com/300x200?text=Flutter',
         isFree: false,
         isCertifying: true,
-        durationHours: 2,
+        durationHours: 2, // ✅ int
         difficulty: 'intermediate',
       ),
       Formation(
@@ -93,10 +93,10 @@ class _EducationHomeState extends State<EducationHome> {
         imageUrl: 'https://via.placeholder.com/300x200?text=UI/UX',
         isFree: true,
         isCertifying: false,
-        durationHours: 1.5,
+        durationHours: 1, // ✅ int
         difficulty: 'beginner',
       ),
-      // Ajoutez d'autres formations pour le rendu...
+      // Ajoutez d'autres formations ici (avec durationHours en int)
     ];
 
     final displayCategories = categories.isEmpty ? sampleCategories : categories;
@@ -240,9 +240,7 @@ class _EducationHomeState extends State<EducationHome> {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Continuer votre apprentissage (si l'utilisateur a des inscriptions) ---
-                  // TODO: Implémenter avec les données réelles des inscriptions
-                  // Pour l'instant, on affiche un placeholder
+                  // --- Continuer votre apprentissage (placeholder) ---
                   const Text(
                     'Continuer votre apprentissage',
                     style: TextStyle(
