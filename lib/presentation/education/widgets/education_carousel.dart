@@ -75,7 +75,7 @@ class EducationCarousel extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          formation.instructor,
+                          formation.instructor ?? 'Instructeur',
                           style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8)),
                         ),
                         const SizedBox(height: 4),
