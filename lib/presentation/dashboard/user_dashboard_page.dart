@@ -423,7 +423,7 @@ class ActivationCalloutCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.lg),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.verified_rounded, color: Color(0xFF0A2F5C)),
+                child: const Icon(Icons.verified_rounded, color: Color(0xFF123B7A)),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -451,12 +451,12 @@ class ActivationCalloutCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF0A2F5C)),
+                const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF123B7A)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Paiement fictif (simulation) : aucune API réelle n\'est utilisée pour le moment.',
-                    style: context.textStyles.bodySmall?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w700, height: 1.3),
+                    style: context.textStyles.bodySmall?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w700, height: 1.3),
                   ),
                 ),
               ],
@@ -467,9 +467,9 @@ class ActivationCalloutCard extends StatelessWidget {
             height: 52,
             child: ElevatedButton.icon(
               onPressed: onActivate,
-              icon: const Icon(Icons.payments_rounded, color: Color(0xFF0A2F5C)),
-              label: Text('Activer mon compte (paiement fictif)', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-              style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+              icon: const Icon(Icons.payments_rounded, color: Color(0xFF123B7A)),
+              label: Text('Activer mon compte (paiement fictif)', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+              style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
             ),
           ),
         ],
@@ -494,12 +494,12 @@ class _DashboardBackground extends StatelessWidget {
       children: [
         Container(
           decoration: const BoxDecoration(
-            gradient: RadialGradient(center: Alignment.center, radius: 1.35, colors: [Color(0xFF0F2B4A), Color(0xFF0A2F5C)]),
+            gradient: RadialGradient(center: Alignment.center, radius: 1.35, colors: [Color(0xFFEFF5FF), Color(0xFFF6F9FF)]),
           ),
         ),
         Align(
           alignment: Alignment.center,
-          child: Opacity(opacity: 0.028, child: Icon(Icons.fingerprint_rounded, size: 650, color: context.theme.colorScheme.onPrimary)),
+          child: Opacity(opacity: 0.05, child: Icon(Icons.fingerprint_rounded, size: 650, color: const Color(0xFF123B7A))),
         ),
       ],
     );
@@ -532,7 +532,7 @@ class _DashboardTopBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0A3D62), Color(0xFF0F2B4A)]),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF123B7A), Color(0xFF2D6CDF)]),
       ),
       child: Stack(
         children: [
@@ -636,7 +636,7 @@ class _HeaderIdentityCard extends StatelessWidget {
                     child: Container(
                       width: 30,
                       height: 30,
-                      decoration: BoxDecoration(color: verified ? LightModeColors.success : LightModeColors.accent, shape: BoxShape.circle, border: Border.all(color: const Color(0xFF0F2B4A), width: 3)),
+                      decoration: BoxDecoration(color: verified ? LightModeColors.success : LightModeColors.accent, shape: BoxShape.circle, border: Border.all(color: const Color(0xFF123B7A), width: 3)),
                       alignment: Alignment.center,
                       child: Icon(verified ? Icons.check_rounded : Icons.hourglass_bottom_rounded, color: Colors.white, size: 16),
                     ),
@@ -748,9 +748,9 @@ class _ScorePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.insights_rounded, color: Color(0xFF0A2F5C), size: 16),
+          const Icon(Icons.insights_rounded, color: Color(0xFF123B7A), size: 16),
           const SizedBox(width: 6),
-          Text('THIX Score: $clamped/100', style: context.textStyles.labelSmall?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
+          Text('THIX Score: $clamped/100', style: context.textStyles.labelSmall?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
         ],
       ),
     );
@@ -780,7 +780,7 @@ class _DashboardTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-      decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0F2B4A), Color(0xFF0A2F5C)])),
+      decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF123B7A), Color(0xFF2D6CDF)])),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.06),
@@ -824,7 +824,7 @@ class _ChatFab extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.22), width: 2),
       ),
       alignment: Alignment.center,
-      child: const Icon(Icons.forum_rounded, size: 26, color: Color(0xFF0A2F5C)),
+      child: const Icon(Icons.forum_rounded, size: 26, color: Color(0xFF123B7A)),
     );
   }
 }
@@ -997,9 +997,9 @@ class _ProfileTab extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: ElevatedButton.icon(
                 onPressed: () => TrainingsEditorSheet.show(context, profile: user, profileService: profileService),
-                icon: const Icon(Icons.school_rounded, color: Color(0xFF0A2F5C)),
+                icon: const Icon(Icons.school_rounded, color: Color(0xFF123B7A)),
                 label: const Text('Ajouter une formation'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0),
+                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0),
               ),
             ),
             Align(
@@ -1296,9 +1296,9 @@ class _DocumentsTab extends StatelessWidget {
                   if (!context.mounted) return;
                   context.push(AppRoutes.vault);
                 },
-                icon: const Icon(Icons.upload_rounded, color: Color(0xFF0A2F5C)),
+                icon: const Icon(Icons.upload_rounded, color: Color(0xFF123B7A)),
                 label: const Text('Uploader un nouveau document (1 USD)'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16)),
               ),
             ],
           ),
@@ -1350,9 +1350,9 @@ class _ConfirmFeeSheet {
                 height: 52,
                 child: ElevatedButton.icon(
                   onPressed: () => context.pop(true),
-                  icon: const Icon(Icons.payments_rounded, color: Color(0xFF0A2F5C)),
-                  label: Text(amountLabel, style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                  icon: const Icon(Icons.payments_rounded, color: Color(0xFF123B7A)),
+                  label: Text(amountLabel, style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -1407,9 +1407,9 @@ class _ExperienceSkillsTab extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
                   onPressed: () => _ExperienceEditorSheet.show(context, profile: user, profileService: profileService),
-                  icon: const Icon(Icons.add_rounded, color: Color(0xFF0A2F5C)),
+                  icon: const Icon(Icons.add_rounded, color: Color(0xFF123B7A)),
                   label: const Text('Ajouter une expérience'),
-                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0),
+                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0),
                 ),
               ),
             ],
@@ -1450,7 +1450,7 @@ class _ExperienceSkillsTab extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        StatusChip(label: level, bg: LightModeColors.accent.withValues(alpha: 0.18), textColor: const Color(0xFF0A2F5C)),
+                        StatusChip(label: level, bg: LightModeColors.accent.withValues(alpha: 0.18), textColor: const Color(0xFF123B7A)),
                       ],
                     ),
                   );
@@ -1524,7 +1524,7 @@ class _FormationsTab extends StatelessWidget {
                             StatusChip(
                               label: status,
                               bg: (status.toLowerCase().contains('compl') ? LightModeColors.success : LightModeColors.accent).withValues(alpha: 0.18),
-                              textColor: const Color(0xFF0A2F5C),
+                              textColor: const Color(0xFF123B7A),
                             ),
                           ],
                         ),
@@ -1547,9 +1547,9 @@ class _FormationsTab extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               ElevatedButton.icon(
                 onPressed: () => context.push(AppRoutes.education),
-                icon: const Icon(Icons.explore_rounded, color: Color(0xFF0A2F5C)),
+                icon: const Icon(Icons.explore_rounded, color: Color(0xFF123B7A)),
                 label: const Text('Parcourir et s’inscrire'),
-                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16)),
               ),
             ],
           ),
@@ -1635,10 +1635,10 @@ class _CvTabState extends State<_CvTab> {
                           }
                         },
                   icon: _exporting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C)))
-                      : const Icon(Icons.download_rounded, color: Color(0xFF0A2F5C)),
-                  label: Text('Télécharger CV Numérique (PDF)', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
+                      : const Icon(Icons.download_rounded, color: Color(0xFF123B7A)),
+                  label: Text('Télécharger CV Numérique (PDF)', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -2143,10 +2143,10 @@ class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
                   child: ElevatedButton.icon(
                     onPressed: _saving ? null : () => _save(existing),
                     icon: _saving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C)))
-                        : const Icon(Icons.save_rounded, color: Color(0xFF0A2F5C)),
-                    label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
+                        : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
+                    label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                   ),
                 ),
                 if (_editingIndex != null) ...[
@@ -2320,8 +2320,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             ),
             floatingActionButton: FloatingActionButton.extended(
               onPressed: () => ThixIdentitySheets.showQrScanSheet(context),
-              icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF0A2F5C)),
-              label: Text("Scanner mon ID", style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C))),
+              icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF123B7A)),
+              label: Text("Scanner mon ID", style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A))),
               backgroundColor: LightModeColors.accent,
             ),
           ),
@@ -2551,10 +2551,10 @@ class _ParcoursEditorBodyState extends State<_ParcoursEditorBody> {
                   child: ElevatedButton.icon(
                     onPressed: _saving ? null : _save,
                     icon: _saving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C)))
-                        : const Icon(Icons.save_rounded, color: Color(0xFF0A2F5C)),
-                    label: Text('SAUVEGARDER', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
+                        : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
+                    label: Text('SAUVEGARDER', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                   ),
                 ),
               ],
@@ -2747,9 +2747,9 @@ class _EmergencyContactsEditorBodyState extends State<_EmergencyContactsEditorBo
                   height: 52,
                   child: ElevatedButton.icon(
                     onPressed: _saving ? null : () => _save(existing),
-                    icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C))) : const Icon(Icons.save_rounded, color: Color(0xFF0A2F5C)),
-                    label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                    icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A))) : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
+                    label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                   ),
                 ),
                 if (_editingIndex != null) ...[
@@ -3074,10 +3074,10 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
                   child: ElevatedButton.icon(
                     onPressed: _saving ? null : () => _save(existing),
                     icon: _saving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C)))
-                        : const Icon(Icons.save_rounded, color: Color(0xFF0A2F5C)),
-                    label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
-                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
+                        : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
+                    label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                   ),
                 ),
                 if (_editingIndex != null) ...[
@@ -3757,8 +3757,8 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                           height: 54,
                           child: ElevatedButton(
                             onPressed: _saving ? null : _addLanguage,
-                            style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
-                            child: Text('Ajouter', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900, color: const Color(0xFF0A2F5C))),
+                            style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
+                            child: Text('Ajouter', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900, color: const Color(0xFF123B7A))),
                           ),
                         ),
                       ],
@@ -4138,12 +4138,12 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                 child: ElevatedButton.icon(
                   onPressed: _saving ? null : _save,
                   icon: _saving
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C)))
-                      : const Icon(Icons.save_rounded, color: Color(0xFF0A2F5C)),
-                  label: Text('SAUVEGARDER', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
+                      : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
+                  label: Text('SAUVEGARDER', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: LightModeColors.accent,
-                    foregroundColor: const Color(0xFF0A2F5C),
+                    foregroundColor: const Color(0xFF123B7A),
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
                   ),
@@ -4446,10 +4446,10 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                   child: ElevatedButton.icon(
                     onPressed: _saving ? null : () => _save(existing),
                     icon: _saving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0A2F5C)))
-                        : const Icon(Icons.save_rounded, color: Color(0xFF0A2F5C)),
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
+                        : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
                     label: Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR'),
-                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
+                    style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full))),
                   ),
                 ),
                 if (_editingIndex != null) ...[
