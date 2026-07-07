@@ -146,7 +146,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               else
                 TextFormField(
                   controller: _contentController,
-                  decoration: const InputDecoration(
+                  decoration:  InputDecoration(
                     labelText: _type == 'quiz' || _type == 'evaluation' ? 'ID de l\'évaluation' : 'Consignes',
                   ),
                 ),
