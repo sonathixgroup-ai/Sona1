@@ -1,4 +1,4 @@
-// lib/presentation/thix_market/cart/cart_page.dart
+// lib/presentation/thix_market/cart/cart_page.dart (avec les corrections)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -74,7 +74,8 @@ class CartPage extends StatelessWidget {
                 shippingCost: cart.shippingCost,
                 total: cart.total,
                 itemCount: cart.totalQuantity,
-                currencySymbol: cart.currencySymbol, // ✅ devise dynamique
+                subtotalSymbol: cart.currencySymbol,
+                shippingSymbol: cart.shippingSymbol, // ✅ toujours 'FC'
                 onCheckout: () => _proceedToCheckout(context),
               ),
             ],
@@ -152,14 +153,15 @@ class CartPage extends StatelessWidget {
     final isLoggedIn = context.read<AuthController>().isAuthenticated;
     if (!isLoggedIn) {
       context.go('/login');
-    } else {
-      try {
-        context.push('/market/checkout');
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du checkout : ${e.toString()}')),
-        );
-      }
+      return;
+    }
+    // Vérifier que la route /market/checkout existe
+    try {
+      context.push('/market/checkout');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du checkout : ${e.toString()}')),
+      );
     }
   }
 }
