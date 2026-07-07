@@ -94,7 +94,8 @@ class CartPage extends StatelessWidget {
               color: const Color(0xFFEFF5FF),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.shopping_cart_outlined_rounded, size: 80, color: const Color(0xFF7386A8)),
+            // ✅ Correction : Icons.shopping_cart_outlined_rounded → Icons.shopping_cart_outlined
+            child: Icon(Icons.shopping_cart_outlined, size: 80, color: const Color(0xFF7386A8)),
           ),
           const SizedBox(height: 16),
           const Text(
