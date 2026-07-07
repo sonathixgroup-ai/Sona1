@@ -1,50 +1,50 @@
-// ------------------------------------------------------------------
-// Fichier : models/video.dart
-// Rôle : Vidéo associée à une leçon. Contient l'URL de la vidéo, sa
-// durée et une miniature.
-// ------------------------------------------------------------------
-
+// models/video.dart
 class Video {
   final String id;
   final String lessonId;
+  final String title;
   final String url;
   final int duration; // en secondes
-  final String? thumbnail;
+  final DateTime? createdAt;
 
   Video({
     required this.id,
     required this.lessonId,
+    required this.title,
     required this.url,
-    required this.duration,
-    this.thumbnail,
+    this.duration = 0,
+    this.createdAt,
   });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'lesson_id': lessonId,
-        'url': url,
-        'duration': duration,
-        'thumbnail': thumbnail,
-      };
 
   factory Video.fromJson(Map<String, dynamic> json) => Video(
         id: json['id'],
         lessonId: json['lesson_id'],
+        title: json['title'],
         url: json['url'],
-        duration: json['duration'],
-        thumbnail: json['thumbnail'],
+        duration: json['duration'] ?? 0,
+        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       );
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'lesson_id': lessonId,
+        'title': title,
+        'url': url,
+        'duration': duration,
+        'created_at': createdAt?.toIso8601String(),
+      };
+
   Video copyWith({
+    String? title,
     String? url,
     int? duration,
-    String? thumbnail,
   }) =>
       Video(
         id: id,
         lessonId: lessonId,
+        title: title ?? this.title,
         url: url ?? this.url,
         duration: duration ?? this.duration,
-        thumbnail: thumbnail ?? this.thumbnail,
+        createdAt: createdAt,
       );
 }
