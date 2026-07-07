@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/full_screen_message.dart';
@@ -228,12 +227,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(
-        t == AccountType.enterprise
-            ? AppRoutes.enterpriseDashboard
-            : AppRoutes.userDashboard,
-      );
+      context.go(AppRoutes.userDashboard);
     } else {
       context.push(AppRoutes.login);
     }
@@ -1462,8 +1456,7 @@ class _FloatingBottomNav extends StatelessWidget {
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
+      context.go(AppRoutes.userDashboard);
       return;
     }
     context.push(AppRoutes.login);
