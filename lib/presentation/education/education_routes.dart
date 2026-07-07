@@ -26,18 +26,7 @@ import 'package:thix_id/presentation/education/instructor/book_management_page.d
 import 'package:thix_id/presentation/education/instructor/create_book_page.dart';
 // import 'package:thix_id/presentation/education/instructor/promotion/banner_management_page.dart'; // à décommenter plus tard
 
-class NoTransitionPage<T> extends Page<T> {
-  final Widget child;
-  const NoTransitionPage({required this.child, super.key});
-  @override
-  Route<T> createRoute(BuildContext context) => PageRouteBuilder<T>(
-        settings: this,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (context, animation, secondaryAnimation) => child,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
-      );
-}
+// ❌ SUPPRIMER la définition de NoTransitionPage (déjà dans app_router.dart)
 
 List<GoRoute> educationRoutes = [
   GoRoute(
