@@ -37,7 +37,7 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
   }
 
   Future<void> _loadCourse() async {
-    // TODO: charger les données du cours existant via provider.getFormationDetails
+    // TODO: charger les données du cours existant
   }
 
   Future<void> _saveCourse() async {
@@ -47,6 +47,12 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
 
+      // ✅ Gestion de null pour les listes de leçons
+      final totalDuration = _modules.fold<int>(0, (sum, m) {
+        final lessons = m.lessons ?? [];
+        return sum + lessons.fold<int>(0, (s, l) => s + l.durationMinutes);
+      });
+
       final formation = Formation(
         id: widget.courseId ?? '',
         title: _titleController.text,
@@ -54,7 +60,7 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
         categoryId: _categoryId,
         instructorId: userId,
         level: _level,
-        duration: _modules.fold(0, (sum, m) => sum + m.lessons.fold(0, (s, l) => s + l.durationMinutes)),
+        duration: totalDuration,
         price: double.tryParse(_priceController.text) ?? 0.0,
         status: 'published',
         createdAt: DateTime.now(),
@@ -236,7 +242,7 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
                                 child: Text('${_modules.indexOf(module) + 1}'),
                               ),
                               title: Text(module.title),
-                              subtitle: Text('${module.lessons.length} leçons'),
+                              subtitle: Text('${(module.lessons ?? []).length} leçons'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
