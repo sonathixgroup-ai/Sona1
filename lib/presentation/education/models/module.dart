@@ -3,6 +3,7 @@
 // Rôle : Module d'une formation. Une formation est composée de plusieurs
 // modules ordonnés. Chaque module contient plusieurs leçons.
 // ------------------------------------------------------------------
+import 'formation.dart';
 
 class Module {
   final String id;
