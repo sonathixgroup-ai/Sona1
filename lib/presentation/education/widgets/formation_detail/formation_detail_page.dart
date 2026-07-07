@@ -143,6 +143,19 @@ class _FormationDetailPageState extends State<FormationDetailPage> {
             ),
           ),
           const SizedBox(height: 8),
+          // ✅ Affichage du formateur (correction)
+          if (formation.instructorName != null && formation.instructorName!.isNotEmpty)
+            Row(
+              children: [
+                const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF7386A8)),
+                const SizedBox(width: 4),
+                Text(
+                  formation.instructorName!,
+                  style: const TextStyle(color: Color(0xFF7386A8), fontSize: 14),
+                ),
+              ],
+            ),
+          const SizedBox(height: 4),
           Row(
             children: [
               const Icon(Icons.school_rounded, size: 16, color: Color(0xFF7386A8)),
