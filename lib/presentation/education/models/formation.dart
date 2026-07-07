@@ -6,6 +6,11 @@
 // utilisateurs (via Enrollment).
 // ------------------------------------------------------------------
 
+// ✅ IMPORTS MANQUANTS
+import 'category.dart';
+import 'module.dart';
+import 'enrollment.dart';
+
 class Formation {
   final String id;
   final String title;
@@ -20,7 +25,6 @@ class Formation {
   final DateTime updatedAt;
 
   // Relations (non persistées, pour faciliter l'affichage)
-  // Ces getters seront remplis par le provider ou le service.
   Category? category;
   List<Module>? modules;
   List<Enrollment>? enrollments;
@@ -69,7 +73,6 @@ class Formation {
         status: json['status'],
         createdAt: DateTime.parse(json['created_at']),
         updatedAt: DateTime.parse(json['updated_at']),
-        // Les relations ne sont pas incluses par défaut, on les ajoute via des méthodes séparées.
       );
 
   Formation copyWith({
