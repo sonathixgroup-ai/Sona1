@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
-import 'package:thix_id/presentation/education/providers/student_provider.dart'; // à créer
 
 class InstructorDashboard extends StatefulWidget {
   const InstructorDashboard({super.key});
@@ -157,6 +156,13 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                         label: 'Calendrier',
                         onTap: () => context.push('/instructor/calendar'),
                         color: const Color(0xFF0D9488),
+                      ),
+                      // ✅ NOUVEAU : Gestion de la bannière "À la une"
+                      _QuickAction(
+                        icon: Icons.flag_rounded,
+                        label: 'Bannière À la une',
+                        onTap: () => context.push('/instructor/banner'),
+                        color: const Color(0xFFEF4444),
                       ),
                     ],
                   ),
