@@ -1,26 +1,19 @@
 // lib/presentation/thix_market/checkout/checkout_provider.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart'; // ✅ import absolu
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 
 class CheckoutProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // États du checkout
   bool _isLoading = false;
   bool _isProcessing = false;
-  String _currentStep = 'address'; // address, shipping, payment, confirmation
-
-  // Données utilisateur
+  String _currentStep = 'address';
   List<Map<String, dynamic>> _savedAddresses = [];
   Map<String, dynamic>? _selectedAddress;
   Map<String, dynamic>? _selectedShippingMethod;
   Map<String, dynamic>? _selectedPaymentMethod;
-
-  // Infos utilisateur
   Map<String, dynamic> _userInfo = {};
-
-  // Résultat commande
   Map<String, dynamic>? _createdOrder;
   String? _paymentIntentId;
   String? _paymentUrl;
@@ -36,12 +29,12 @@ class CheckoutProvider extends ChangeNotifier {
   Map<String, dynamic> get userInfo => _userInfo;
   Map<String, dynamic>? get createdOrder => _createdOrder;
 
-  // Charger les données initiales
   Future<void> loadCheckoutData() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Utilisateur non connecté');
 
-    setState(() => _isLoading = true);
+    _isLoading = true;
+    notifyListeners();
     try {
       await _loadSavedAddresses(userId);
       await _loadUserInfo(userId);
@@ -49,7 +42,8 @@ class CheckoutProvider extends ChangeNotifier {
     } catch (e) {
       rethrow;
     } finally {
-      setState(() => _isLoading = false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -60,7 +54,6 @@ class CheckoutProvider extends ChangeNotifier {
         .eq('id', userId)
         .single();
     _userInfo = response;
-
     if (_userInfo['default_address_id'] != null) {
       _selectedAddress = _savedAddresses.firstWhere(
         (a) => a['id'] == _userInfo['default_address_id'],
@@ -80,7 +73,6 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Gestion des adresses
   void selectAddress(Map<String, dynamic> address) {
     _selectedAddress = address;
     _currentStep = 'shipping';
@@ -90,8 +82,8 @@ class CheckoutProvider extends ChangeNotifier {
   Future<void> addAddress(Map<String, dynamic> newAddress) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
-
-    setState(() => _isLoading = true);
+    _isLoading = true;
+    notifyListeners();
     try {
       final response = await _supabase
           .from('addresses')
@@ -106,25 +98,23 @@ class CheckoutProvider extends ChangeNotifier {
       _selectedAddress = response;
       notifyListeners();
     } finally {
-      setState(() => _isLoading = false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  // Gestion livraison
   void selectShippingMethod(Map<String, dynamic> method) {
     _selectedShippingMethod = method;
     _currentStep = 'payment';
     notifyListeners();
   }
 
-  // Gestion paiement
   void selectPaymentMethod(Map<String, dynamic> method) {
     _selectedPaymentMethod = method;
     _currentStep = 'confirmation';
     notifyListeners();
   }
 
-  // Création de la commande et traitement paiement
   Future<Map<String, dynamic>> processOrder({
     required CartProvider cartProvider,
     required double total,
@@ -136,10 +126,10 @@ class CheckoutProvider extends ChangeNotifier {
     if (_selectedShippingMethod == null) throw Exception('Mode de livraison requis');
     if (_selectedPaymentMethod == null) throw Exception('Moyen de paiement requis');
 
-    setState(() => _isProcessing = true);
+    _isProcessing = true;
+    notifyListeners();
 
     try {
-      // 1. Créer la commande
       final orderData = {
         'user_id': userId,
         'address_id': _selectedAddress!['id'],
@@ -157,7 +147,6 @@ class CheckoutProvider extends ChangeNotifier {
           .single();
       _createdOrder = orderResponse;
 
-      // 2. Ajouter les articles de la commande
       for (var item in items) {
         await _supabase.from('order_items').insert({
           'order_id': _createdOrder!['id'],
@@ -169,11 +158,9 @@ class CheckoutProvider extends ChangeNotifier {
         });
       }
 
-      // 3. Traitement du paiement selon méthode
       final paymentResult = await _processPayment(total);
 
       if (paymentResult['success'] == true) {
-        // Mettre à jour statut commande
         await _supabase
             .from('orders')
             .update({
@@ -183,7 +170,6 @@ class CheckoutProvider extends ChangeNotifier {
             })
             .eq('id', _createdOrder!['id']);
 
-        // Vider le panier
         await cartProvider.clearCart();
 
         return _createdOrder!;
@@ -191,9 +177,11 @@ class CheckoutProvider extends ChangeNotifier {
         throw Exception(paymentResult['error'] ?? 'Paiement échoué');
       }
     } catch (e) {
+      debugPrint('❌ Checkout error: $e');
       rethrow;
     } finally {
-      setState(() => _isProcessing = false);
+      _isProcessing = false;
+      notifyListeners();
     }
   }
 
@@ -202,7 +190,6 @@ class CheckoutProvider extends ChangeNotifier {
 
     switch (method) {
       case 'card':
-        // Appel à Stripe (via Edge Function)
         final response = await _supabase.functions.invoke('create-payment-intent', body: {
           'amount': amount,
           'currency': 'XOF',
@@ -212,7 +199,6 @@ class CheckoutProvider extends ChangeNotifier {
         return {'success': true, 'payment_intent_id': _paymentIntentId};
 
       case 'mobile_money':
-        // Appel API Mobile Money
         final response = await _supabase.functions.invoke('mobile-money-payment', body: {
           'amount': amount,
           'phone': _userInfo['phone'],
@@ -222,7 +208,6 @@ class CheckoutProvider extends ChangeNotifier {
         return {'success': true, 'payment_url': _paymentUrl};
 
       case 'thix_money':
-        // Paiement via wallet interne
         final response = await _supabase.rpc('deduct_wallet_balance', params: {
           'user_id': _supabase.auth.currentUser!.id,
           'amount': amount,
