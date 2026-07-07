@@ -7,14 +7,13 @@ class Enrollment {
   final String userId;
   final DateTime enrolledAt;
   String status; // 'active', 'completed', 'cancelled'
-  double progress; // 0.0 à 1.0
+  double progress;
   double amountPaid;
   final String? paymentId;
-  final DateTime? completedAt;
+  DateTime? completedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  // Relation
   Formation? formation;
 
   Enrollment({
@@ -41,10 +40,18 @@ class Enrollment {
         progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
         amountPaid: (json['amount_paid'] as num?)?.toDouble() ?? 0.0,
         paymentId: json['payment_id'],
-        completedAt: json['completed_at'] != null ? DateTime.parse(json['completed_at']) : null,
-        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-        updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
-        formation: json['formation'] != null ? Formation.fromJson(json['formation']) : null,
+        completedAt: json['completed_at'] != null
+            ? DateTime.parse(json['completed_at'])
+            : null,
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'])
+            : null,
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'])
+            : null,
+        formation: json['formation'] != null
+            ? Formation.fromJson(json['formation'])
+            : null,
       );
 
   Map<String, dynamic> toJson() => {
