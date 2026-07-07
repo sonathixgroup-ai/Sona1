@@ -16,14 +16,15 @@ import 'package:thix_id/presentation/education/pages/recommendations_page.dart';
 import 'package:thix_id/presentation/education/models/certificate.dart';
 
 // ─── ROUTES FORMATEUR (Instructeur) ──────────────────────────────
-// Dashboard
+
+// Tableau de bord
 import 'package:thix_id/presentation/education/instructor/dashboard/instructor_dashboard.dart';
 
-// Cours
+// Gestion des cours
 import 'package:thix_id/presentation/education/instructor/courses/course_list_page.dart';
 import 'package:thix_id/presentation/education/instructor/courses/course_create_page.dart';
 
-// Contenu
+// Contenu pédagogique
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/content/lesson_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/content/resource_upload_page.dart';
@@ -55,7 +56,7 @@ import 'package:thix_id/presentation/education/instructor/calendar/instructor_ca
 // Classe virtuelle
 import 'package:thix_id/presentation/education/instructor/virtual_class/virtual_class_page.dart';
 
-// Bibliothèque (gestion des livres)
+// Bibliothèque (livres)
 import 'package:thix_id/presentation/education/instructor/book_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/create_book_page.dart';
 
@@ -285,7 +286,7 @@ List<GoRoute> instructorRoutes = [
     pageBuilder: (context, state) => const NoTransitionPage(child: VirtualClassPage()),
   ),
 
-  // Livres
+  // Livres (bibliothèque)
   GoRoute(
     path: '/instructor/books',
     name: 'instructorBooks',
