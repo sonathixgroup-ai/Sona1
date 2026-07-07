@@ -46,7 +46,7 @@ class _EducationHomeState extends State<EducationHome> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
-        title: const Text('Formations', style: TextStyle(fontWeight: FontWeight.W800, color: Color(0xFF1A1A2E))),
+        title: const Text('Formations', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -64,7 +64,7 @@ class _EducationHomeState extends State<EducationHome> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Recommandations
-                  const RecommendationCarousel(),
+                  RecommendationCarousel(), // ← supprimer const
 
                   // Catégories
                   Padding(
