@@ -14,7 +14,6 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/presentation/common/parcours_form.dart';
 import 'package:thix_id/presentation/common/date_picker_field.dart';
-import 'package:thix_id/presentation/common/trainings_editor_sheet.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
 import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/presentation/common/upload_document_preview.dart';
