@@ -1,129 +1,106 @@
-// lib/presentation/education/pages/recommendations_page.dart
+// lib/presentation/education/widgets/recommendations/recommendation_carousel.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 import 'package:thix_id/presentation/education/models/recommendation.dart';
-import 'package:thix_id/presentation/education/widgets/common/education_loading_shimmer.dart';
 
-class RecommendationsPage extends StatefulWidget {
-  const RecommendationsPage({super.key});
-
-  @override
-  State<RecommendationsPage> createState() => _RecommendationsPageState();
-}
-
-class _RecommendationsPageState extends State<RecommendationsPage> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRecommendations();
-    });
-  }
-
-  Future<void> _loadRecommendations() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-    final provider = context.read<RecommendationProvider>();
-    await provider.loadRecommendations(userId);
-  }
+class RecommendationCarousel extends StatelessWidget {
+  const RecommendationCarousel({super.key});
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RecommendationProvider>();
     final recommendations = provider.recommendations;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF),
-      appBar: AppBar(
-        title: const Text('Recommandations', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1A1A2E)),
-          onPressed: () => context.pop(),
+    if (recommendations.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Recommandé pour vous',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E)),
+          ),
         ),
-      ),
-      body: provider.isLoading
-          ? const EducationLoadingShimmer()
-          : recommendations.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.lightbulb_outline_rounded, size: 64, color: Color(0xFFD1D5DB)),
-                      SizedBox(height: 16),
-                      Text(
-                        'Aucune recommandation pour le moment',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Suivez des formations pour recevoir des suggestions',
-                        style: TextStyle(color: Color(0xFF7386A8)),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: recommendations.length,
+            itemBuilder: (context, index) {
+              final rec = recommendations[index];
+              final formation = rec.formation;
+              if (formation == null) return const SizedBox.shrink();
+              return GestureDetector(
+                onTap: () => context.push('/education/formation/${formation.id}'),
+                child: Container(
+                  width: 220,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0A1F44).withOpacity(0.06),
+                        blurRadius: 12,
                       ),
                     ],
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: recommendations.length,
-                  itemBuilder: (context, index) {
-                    final rec = recommendations[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE7EEFC)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F7FF),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          image: formation.imageUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(formation.imageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            rec.formation?.title ?? 'Formation recommandée',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
-                          ),
-                          const SizedBox(height: 4),
-                          if (rec.reason != null)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              rec.reason!,
-                              style: const TextStyle(fontSize: 13, color: Color(0xFF7386A8)),
+                              formation.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A2E),
+                              ),
                             ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Icon(Icons.trending_up_rounded, size: 16, color: Color(0xFF2D6CDF)),
-                              const SizedBox(width: 4),
+                            const SizedBox(height: 4),
+                            if (rec.reason != null)
                               Text(
-                                'Score de pertinence: ${(rec.score * 10).toInt()}%',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF2D6CDF)),
+                                rec.reason!,
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF7386A8)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              const Spacer(),
-                              ElevatedButton(
-                                onPressed: () {
-                                  if (rec.formation != null) {
-                                    context.push('/education/formation/${rec.formation!.id}');
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2D6CDF),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                ),
-                                child: const Text('Voir'),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
