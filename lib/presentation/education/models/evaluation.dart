@@ -3,7 +3,7 @@
 // Rôle : Évaluation (quiz) associée à une leçon. Contient une liste
 // de questions et un score de réussite.
 // ------------------------------------------------------------------
-
+import 'formation.dart';
 class Evaluation {
   final String id;
   final String lessonId;
