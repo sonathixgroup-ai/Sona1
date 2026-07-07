@@ -11,10 +11,10 @@ class ForumTopic {
   bool isLocked;
   int viewsCount;
   int repliesCount;
+  String status; // 'open', 'closed', 'locked'  // ✅ ajout
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  // Relations
   List<ForumReply>? replies;
   String? authorName;
 
@@ -28,6 +28,7 @@ class ForumTopic {
     this.isLocked = false,
     this.viewsCount = 0,
     this.repliesCount = 0,
+    this.status = 'open',  // ✅ valeur par défaut
     this.createdAt,
     this.updatedAt,
     this.replies,
@@ -44,6 +45,7 @@ class ForumTopic {
         isLocked: json['is_locked'] ?? false,
         viewsCount: json['views_count'] ?? 0,
         repliesCount: json['replies_count'] ?? 0,
+        status: json['status'] ?? 'open',  // ✅
         createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
         updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
         replies: json['replies'] != null
@@ -62,6 +64,7 @@ class ForumTopic {
         'is_locked': isLocked,
         'views_count': viewsCount,
         'replies_count': repliesCount,
+        'status': status,  // ✅
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
       };
@@ -73,6 +76,7 @@ class ForumTopic {
     bool? isLocked,
     int? viewsCount,
     int? repliesCount,
+    String? status,
     List<ForumReply>? replies,
     String? authorName,
   }) =>
@@ -86,6 +90,7 @@ class ForumTopic {
         isLocked: isLocked ?? this.isLocked,
         viewsCount: viewsCount ?? this.viewsCount,
         repliesCount: repliesCount ?? this.repliesCount,
+        status: status ?? this.status,  // ✅
         createdAt: createdAt,
         updatedAt: updatedAt,
         replies: replies ?? this.replies,
