@@ -75,7 +75,7 @@ class EducationCarousel extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          formation.instructor ?? 'Instructeur',
+                          formation.instructorName ?? 'Instructeur', // ✅ correction
                           style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8)),
                         ),
                         const SizedBox(height: 4),
@@ -90,7 +90,7 @@ class EducationCarousel extends StatelessWidget {
                             const SizedBox(width: 8),
                             if (formation.price > 0)
                               Text(
-                                '${formation.price.toInt()} FC',
+                                '${formation.price.toInt()} ${formation.currency}',
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF2D6CDF)),
                               )
                             else
