@@ -1,46 +1,32 @@
-// ------------------------------------------------------------------
-// Fichier : models/lesson.dart
-// Rôle : Leçon d'un module. Chaque leçon peut être de type vidéo,
-// texte ou quiz. Elle est liée à une vidéo ou à une évaluation.
-// ------------------------------------------------------------------
+import 'video.dart';
+import 'evaluation.dart';
 
 class Lesson {
   final String id;
   final String moduleId;
   final String title;
-  final String description;
-  final String type; // 'video', 'text', 'quiz'
+  final String? description;
+  final String type; // 'video', 'text', 'quiz', 'assignment'
+  final int durationMinutes;
   final int order;
-  final String? videoId; // si type == 'video'
-  final String? evaluationId; // si type == 'quiz'
-
-  // Relations
-  Video? video;
-  Evaluation? evaluation;
+  final String? content;
+  final Video? video;
+  final Evaluation? evaluation;
+  final DateTime? createdAt;
 
   Lesson({
     required this.id,
     required this.moduleId,
     required this.title,
-    required this.description,
+    this.description,
     required this.type,
-    required this.order,
-    this.videoId,
-    this.evaluationId,
+    this.durationMinutes = 0,
+    this.order = 0,
+    this.content,
     this.video,
     this.evaluation,
+    this.createdAt,
   });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'module_id': moduleId,
-        'title': title,
-        'description': description,
-        'type': type,
-        'order': order,
-        'video_id': videoId,
-        'evaluation_id': evaluationId,
-      };
 
   factory Lesson.fromJson(Map<String, dynamic> json) => Lesson(
         id: json['id'],
@@ -48,28 +34,25 @@ class Lesson {
         title: json['title'],
         description: json['description'],
         type: json['type'],
-        order: json['order'],
-        videoId: json['video_id'],
-        evaluationId: json['evaluation_id'],
+        durationMinutes: json['duration_minutes'] ?? 0,
+        order: json['order'] ?? 0,
+        content: json['content'],
+        video: json['video'] != null ? Video.fromJson(json['video']) : null,
+        evaluation: json['evaluation'] != null ? Evaluation.fromJson(json['evaluation']) : null,
+        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       );
 
-  Lesson copyWith({
-    String? title,
-    String? description,
-    int? order,
-    Video? video,
-    Evaluation? evaluation,
-  }) =>
-      Lesson(
-        id: id,
-        moduleId: moduleId,
-        title: title ?? this.title,
-        description: description ?? this.description,
-        type: type,
-        order: order ?? this.order,
-        videoId: videoId,
-        evaluationId: evaluationId,
-        video: video ?? this.video,
-        evaluation: evaluation ?? this.evaluation,
-      );
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'module_id': moduleId,
+        'title': title,
+        'description': description,
+        'type': type,
+        'duration_minutes': durationMinutes,
+        'order': order,
+        'content': content,
+        'video': video?.toJson(),
+        'evaluation': evaluation?.toJson(),
+        'created_at': createdAt?.toIso8601String(),
+      };
 }
