@@ -3,20 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart'; // ✅ absolu
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 import 'cart_item_tile.dart';
 import 'cart_summary_widget.dart';
+
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF7FAFF),
       appBar: AppBar(
         title: const Text(
           'Mon panier',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF10192E)),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -28,7 +29,7 @@ class CartPage extends StatelessWidget {
                   onPressed: () => _showClearCartDialog(context),
                   child: const Text(
                     'Vider',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: Color(0xFFFF5B3D), fontWeight: FontWeight.w700),
                   ),
                 );
               }
@@ -40,7 +41,7 @@ class CartPage extends StatelessWidget {
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
           if (cart.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF2D6CDF)));
           }
 
           if (cart.cartItems.isEmpty) {
@@ -87,26 +88,34 @@ class CartPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[300]),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF5FF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.shopping_cart_outlined_rounded, size: 80, color: const Color(0xFF7386A8)),
+          ),
           const SizedBox(height: 16),
           const Text(
             'Votre panier est vide',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF10192E)),
           ),
           const SizedBox(height: 8),
           Text(
             'Ajoutez des produits à votre panier pour continuer',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: Color(0xFF7386A8), fontSize: 14),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => context.push('/market/buy'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
+              backgroundColor: const Color(0xFF2D6CDF),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             ),
-            child: const Text('Découvrir les produits'),
+            child: const Text('Découvrir les produits', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -117,20 +126,21 @@ class CartPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Vider le panier'),
-        content: const Text('Êtes-vous sûr de vouloir supprimer tous les articles ?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Vider le panier', style: TextStyle(color: Color(0xFF10192E))),
+        content: const Text('Êtes-vous sûr de vouloir supprimer tous les articles ?', style: TextStyle(color: Color(0xFF7386A8))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: const Text('Annuler', style: TextStyle(color: Color(0xFF7386A8))),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               context.read<CartProvider>().clearCart();
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Vider'),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5B3D)),
+            child: const Text('Vider', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
