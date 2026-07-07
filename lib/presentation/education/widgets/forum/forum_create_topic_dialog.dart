@@ -1,7 +1,8 @@
 // lib/presentation/education/widgets/forum/forum_create_topic_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/forum_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 
 class ForumCreateTopicDialog extends StatefulWidget {
   final String formationId;
@@ -133,6 +134,7 @@ class _ForumCreateTopicDialogState extends State<ForumCreateTopicDialog> {
       return;
     }
 
+    // ✅ Supabase maintenant disponible
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
