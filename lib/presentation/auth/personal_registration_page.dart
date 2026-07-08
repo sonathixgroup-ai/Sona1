@@ -42,7 +42,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _thixIdGenerated = '';
   String _uid = '';
   bool _isLoading = false;
-  bool _otpSent = false;
+  bool _otpSent = false; // deviendra true après l'envoi du code
   int _step = 1;
 
   static const Map<String, String> _countryCodes = {
@@ -124,6 +124,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _step = 2);
   }
 
+  // ---------- Envoi du code OTP (inscription) ----------
   Future<void> _sendOtp() async {
     if (_isLoading) return;
     final email = _emailC.text.trim();
@@ -152,12 +153,16 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           'registration_status': 'draft_step1',
         },
       );
+      // Si l'inscription réussit immédiatement (pas de confirmation email), on passe à l'étape 2
       _otpSent = true;
       _snack('Un code de vérification a été envoyé à votre email.');
+      setState(() {});
     } catch (e) {
+      // Si l'erreur est celle de la confirmation email, c'est un succès
       if (e is AuthException && e.message.contains('Inscription enregistrée')) {
         _otpSent = true;
         _snack('Un code de vérification a été envoyé à votre email.');
+        setState(() {});
       } else {
         _snack(_rawError(e));
       }
@@ -166,6 +171,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
+  // ---------- Vérification OTP et finalisation ----------
   Future<void> _verifyAndRegister() async {
     if (_isLoading) return;
     final code = _otpC.text.trim();
@@ -385,8 +391,15 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         onPressed = _goToStep2;
         break;
       case 2:
-        label = _isLoading ? 'ENVOI EN COURS...' : 'S\'INSCRIRE';
-        onPressed = _verifyAndRegister;
+        // Si le code OTP n'est pas encore envoyé, le bouton déclenche l'envoi
+        // Sinon, il déclenche la vérification
+        if (!_otpSent) {
+          label = 'ENVOYER LE CODE OTP';
+          onPressed = _sendOtp;
+        } else {
+          label = _isLoading ? 'VÉRIFICATION...' : 'VÉRIFIER LE CODE';
+          onPressed = _verifyAndRegister;
+        }
         break;
       case 3:
         label = 'ACCUEIL';
@@ -626,13 +639,16 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        // Bouton d'envoi OTP (visible même si déja envoyé, mais désactivé)
         Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: isLoading ? null : onSendOtp,
+                onPressed: isLoading || isOtpSent ? null : onSendOtp,
                 icon: const Icon(Icons.send, size: 18),
-                label: Text(isOtpSent ? 'Code envoyé ✓' : 'Envoyer le code OTP'),
+                label: Text(
+                  isOtpSent ? '✅ Code envoyé' : '📩 Envoyer le code OTP',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isOtpSent ? Colors.green.shade600 : LightModeColors.accent,
                   foregroundColor: Colors.white,
@@ -645,13 +661,14 @@ class _Step2Account extends StatelessWidget {
             ),
           ],
         ),
+        // Si le code a été envoyé, afficher les champs OTP et THIX CHAT
         if (isOtpSent) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(
             controller: otpC,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              labelText: 'Code de vérification reçu par email',
+              labelText: 'Code de vérification reçu par email *',
               prefixIcon: const Icon(Icons.confirmation_number_outlined),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -662,7 +679,7 @@ class _Step2Account extends StatelessWidget {
           TextField(
             controller: thixChatC,
             decoration: InputDecoration(
-              labelText: 'THIX CHAT (nom d\'utilisateur public)',
+              labelText: 'THIX CHAT (nom d\'utilisateur public) *',
               hintText: '@john_doe_123',
               prefixIcon: const Icon(Icons.chat_outlined),
               border: OutlineInputBorder(
