@@ -1,4 +1,3 @@
-// --- personal_registration_page.dart ---
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +13,8 @@ import 'package:thix_id/theme.dart';
 // ============================================================================
 
 class PersonalRegistrationPage extends StatefulWidget {
-  const PersonalRegistrationPage({super.key});
+  final int? initialStep; // ajout
+  const PersonalRegistrationPage({super.key, this.initialStep});
 
   @override
   State<PersonalRegistrationPage> createState() =>
@@ -23,7 +23,7 @@ class PersonalRegistrationPage extends StatefulWidget {
 
 class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _userService = UserService(Supabase.instance.client);
-  int _step = 1;
+  late int _step;
 
   // Contrôleurs étape 1
   final _nameC = TextEditingController();
@@ -50,6 +50,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     'Côte d\'Ivoire', 'Sénégal', 'Cameroun',
     'France', 'Belgique', 'Canada', 'États-Unis', 'Autre'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _step = widget.initialStep ?? 1;
+  }
 
   @override
   void dispose() {
@@ -334,7 +340,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   Future<void> _resendOtp() async {
     try {
-      await Supabase.instance.client.auth.resend(type: OtpType.signup, email: _emailC.text.trim());
+      final auth = context.read<AuthController>();
+      await auth.resendOTP(email: _emailC.text.trim());
       _snack('Un nouveau code vous a été envoyé par email.');
     } catch (e) {
       _snack('Erreur lors du renvoi : $e');
@@ -415,7 +422,21 @@ class _Step1Simplified extends StatelessWidget {
           value: country,
           isExpanded: true,
           decoration: InputDecoration(labelText: 'Pays *', prefixIcon: const Icon(Icons.public), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
-          items: const [DropdownMenuItem(value: 'République Démocratique du Congo', child: Text('République Démocratique du Congo')), /*...*/].map((e) => DropdownMenuItem(value: e.value, child: Text(e.value!))).toList(),
+          items: const [
+            DropdownMenuItem(value: 'République Démocratique du Congo', child: Text('République Démocratique du Congo')),
+            DropdownMenuItem(value: 'Rwanda', child: Text('Rwanda')),
+            DropdownMenuItem(value: 'Burundi', child: Text('Burundi')),
+            DropdownMenuItem(value: 'Ouganda', child: Text('Ouganda')),
+            DropdownMenuItem(value: 'Angola', child: Text('Angola')),
+            DropdownMenuItem(value: 'Côte d\'Ivoire', child: Text('Côte d\'Ivoire')),
+            DropdownMenuItem(value: 'Sénégal', child: Text('Sénégal')),
+            DropdownMenuItem(value: 'Cameroun', child: Text('Cameroun')),
+            DropdownMenuItem(value: 'France', child: Text('France')),
+            DropdownMenuItem(value: 'Belgique', child: Text('Belgique')),
+            DropdownMenuItem(value: 'Canada', child: Text('Canada')),
+            DropdownMenuItem(value: 'États-Unis', child: Text('États-Unis')),
+            DropdownMenuItem(value: 'Autre', child: Text('Autre')),
+          ],
           onChanged: onCountryChanged,
         ),
         const SizedBox(height: 12),
@@ -428,7 +449,7 @@ class _Step1Simplified extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
-            onPressed: () => context.go(AppRoutes.forgotPassword),
+            onPressed: () => context.go(AppRoutes.login), // redirection temporaire
             child: const Text('Mot de passe oublié ?'),
           ),
         ),
