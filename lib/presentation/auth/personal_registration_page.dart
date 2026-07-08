@@ -345,7 +345,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           confirmC: _confirmC,
           otpC: _otpC,
           thixChatC: _thixChatC,
-          onSendOtp: _sendOtp,
           isOtpSent: _otpSent,
           isLoading: _isLoading,
         );
@@ -575,7 +574,6 @@ class _Step1Profile extends StatelessWidget {
 
 class _Step2Account extends StatelessWidget {
   final TextEditingController emailC, passwordC, confirmC, otpC, thixChatC;
-  final VoidCallback onSendOtp;
   final bool isOtpSent, isLoading;
 
   const _Step2Account({
@@ -584,7 +582,6 @@ class _Step2Account extends StatelessWidget {
     required this.confirmC,
     required this.otpC,
     required this.thixChatC,
-    required this.onSendOtp,
     required this.isOtpSent,
     required this.isLoading,
   });
@@ -606,6 +603,7 @@ class _Step2Account extends StatelessWidget {
         TextField(
           controller: emailC,
           keyboardType: TextInputType.emailAddress,
+          enabled: !isOtpSent,
           decoration: InputDecoration(
             labelText: 'Email *',
             prefixIcon: const Icon(Icons.email_outlined),
@@ -618,6 +616,7 @@ class _Step2Account extends StatelessWidget {
         TextField(
           controller: passwordC,
           obscureText: true,
+          enabled: !isOtpSent,
           decoration: InputDecoration(
             labelText: 'Mot de passe * (8 caractères min)',
             prefixIcon: const Icon(Icons.lock_outline),
@@ -630,6 +629,7 @@ class _Step2Account extends StatelessWidget {
         TextField(
           controller: confirmC,
           obscureText: true,
+          enabled: !isOtpSent,
           decoration: InputDecoration(
             labelText: 'Confirmer le mot de passe *',
             prefixIcon: const Icon(Icons.lock_outline),
@@ -639,36 +639,32 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Bouton "Envoyer le code OTP" – devient inactif après envoi
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: (isLoading || isOtpSent) ? null : onSendOtp,
-                icon: Icon(
-                  isOtpSent ? Icons.check_circle : Icons.send,
-                  size: 18,
-                ),
-                label: Text(
-                  isOtpSent ? '✅ Code envoyé' : '📩 Envoyer le code OTP',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isOtpSent ? Colors.green.shade600 : LightModeColors.accent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
+        if (isOtpSent)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.green.shade200),
             ),
-          ],
-        ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Code envoyé à ${emailC.text}',
+                    style: TextStyle(color: Colors.green.shade800),
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 16),
-        // Champ OTP (toujours visible)
         TextField(
           controller: otpC,
           keyboardType: TextInputType.number,
+          enabled: isOtpSent,
           decoration: InputDecoration(
             labelText: 'Code de vérification reçu par email *',
             prefixIcon: const Icon(Icons.confirmation_number_outlined),
@@ -678,9 +674,9 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Champ THIX CHAT (toujours visible)
         TextField(
           controller: thixChatC,
+          enabled: isOtpSent,
           decoration: InputDecoration(
             labelText: 'THIX CHAT (nom d\'utilisateur public) *',
             hintText: '@john_doe_123',
