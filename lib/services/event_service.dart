@@ -166,6 +166,53 @@ class EventService {
     }
   }
 
+  /// Récupère tous les événements pour le modérateur (y compris passés, annulés, etc.)
+  Future<List<Event>> getEventsForModerator({String? status}) async {
+    try {
+      // Vérifier que l'utilisateur est modérateur/admin
+      final uid = currentUserId;
+      if (uid.isEmpty) {
+        debugPrint('⚠️ getEventsForModerator: utilisateur non connecté');
+        return [];
+      }
+
+      // Vérification du rôle (optionnelle mais recommandée)
+      final userRole = await _supabase
+          .from('users')
+          .select('role')
+          .eq('id', uid)
+          .maybeSingle();
+      if (userRole == null ||
+          (userRole['role'] != 'moderator' && userRole['role'] != 'admin')) {
+        debugPrint('⚠️ getEventsForModerator: permission refusée');
+        return [];
+      }
+
+      var query = _supabase.from('events').select('*');
+      if (status != null && status != 'all') {
+        query = query.eq('status', status);
+      }
+      final response = await query.order('created_at', ascending: false);
+
+      final events = <Event>[];
+      for (final e in response as List) {
+        final eventMap = Map<String, dynamic>.from((e as Map).cast<String, dynamic>());
+        final eventId = (eventMap['id'] ?? '').toString();
+        final isLiked = eventId.isNotEmpty ? await _isEventLiked(eventId) : false;
+        events.add(Event.fromJson({
+          ...eventMap,
+          'is_liked': isLiked,
+        }));
+      }
+
+      debugPrint('📋 getEventsForModerator: ${events.length} événements trouvés');
+      return events;
+    } catch (e) {
+      debugPrint('❌ Error getEventsForModerator: $e');
+      return [];
+    }
+  }
+
   Future<Event?> getEventById(String eventId) async {
     try {
       final response = await _supabase
@@ -493,6 +540,17 @@ class EventService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Admin non connecté');
 
+    // Vérification du rôle (optionnelle)
+    final userRole = await _supabase
+        .from('users')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+    if (userRole == null ||
+        (userRole['role'] != 'moderator' && userRole['role'] != 'admin')) {
+      throw Exception('Permission refusée');
+    }
+
     debugPrint('📝 createEvent: Création de l\'événement "$title"');
 
     final now = DateTime.now().toIso8601String();
@@ -528,6 +586,17 @@ class EventService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Admin non connecté');
 
+    // Vérification du rôle
+    final userRole = await _supabase
+        .from('users')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+    if (userRole == null ||
+        (userRole['role'] != 'moderator' && userRole['role'] != 'admin')) {
+      throw Exception('Permission refusée');
+    }
+
     await _supabase
         .from('events')
         .update({
@@ -541,6 +610,17 @@ class EventService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Admin non connecté');
 
+    // Vérification du rôle
+    final userRole = await _supabase
+        .from('users')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+    if (userRole == null ||
+        (userRole['role'] != 'moderator' && userRole['role'] != 'admin')) {
+      throw Exception('Permission refusée');
+    }
+
     await _supabase.from('events').delete().eq('id', eventId);
   }
 
@@ -552,6 +632,17 @@ class EventService {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return null;
+
+      // Vérification du rôle
+      final userRole = await _supabase
+          .from('users')
+          .select('role')
+          .eq('id', uid)
+          .maybeSingle();
+      if (userRole == null ||
+          (userRole['role'] != 'moderator' && userRole['role'] != 'admin')) {
+        return null;
+      }
 
       final file = File(filePath);
       final bytes = await file.readAsBytes();
@@ -575,6 +666,20 @@ class EventService {
 
   Future<Map<String, dynamic>> getAdminStats() async {
     try {
+      final uid = currentUserId;
+      if (uid.isEmpty) return _emptyStats();
+
+      // Vérification du rôle
+      final userRole = await _supabase
+          .from('users')
+          .select('role')
+          .eq('id', uid)
+          .maybeSingle();
+      if (userRole == null ||
+          (userRole['role'] != 'moderator' && userRole['role'] != 'admin')) {
+        return _emptyStats();
+      }
+
       final response = await _supabase.from('events').select('*');
       final List<dynamic> events = response as List;
 
@@ -601,13 +706,17 @@ class EventService {
       };
     } catch (e) {
       debugPrint('❌ Error getAdminStats: $e');
-      return {
-        'total_events': 0,
-        'upcoming_events': 0,
-        'total_views': 0,
-        'total_likes': 0,
-      };
+      return _emptyStats();
     }
+  }
+
+  Map<String, dynamic> _emptyStats() {
+    return {
+      'total_events': 0,
+      'upcoming_events': 0,
+      'total_views': 0,
+      'total_likes': 0,
+    };
   }
 
   // ============================================================
