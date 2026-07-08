@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -99,11 +96,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
-    // ✅ Garantit un minimum de 5 secondes d'affichage du splash premium,
-    // même si le chargement Supabase termine plus vite (pour laisser le
-    // temps à l'animation "Powered by SONATHIX GROUP" de se voir).
-    final splashMinDuration = Future.delayed(const Duration(seconds: 5));
-
     await SupabaseConfig.initialize();
 
     final profiles = ProfileService();
@@ -122,9 +114,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
     final chatBloc = ChatBloc(ChatRepository());
     final eventService = EventService(SupabaseConfig.client);
-
-    // Attend que les 5 secondes minimum soient écoulées avant de continuer
-    await splashMinDuration;
 
     return _BootstrapResult(
       auth: auth,
@@ -149,61 +138,44 @@ class _BootstrapAppState extends State<BootstrapApp> {
             darkTheme: darkTheme,
             themeMode: ThemeMode.system,
             home: Scaffold(
-              backgroundColor: const Color(0xFFF7FAFF),
               body: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEFF5FF),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.cloud_off_rounded,
-                          size: 38,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                      Icon(
+                        Icons.cloud_off_rounded,
+                        size: 72,
+                        color: Theme.of(context).colorScheme.error,
                       ),
-                      const SizedBox(height: 18),
-                      const Text(
+                      const SizedBox(height: 16),
+                      Text(
                         'Connexion impossible',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF10192E)),
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: Color(0xFF7386A8)),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: () {
                           runApp(const ProviderScope(child: BootstrapApp()));
                         },
-                        icon: const Icon(Icons.refresh_rounded),
+                        icon: const Icon(Icons.refresh),
                         label: const Text('Réessayer'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF123B7A),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
                       ),
                       if (kDebugMode) ...[
                         const SizedBox(height: 16),
                         Text(
                           'Erreur : ${snap.error}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.red,
-                            fontFamily: 'monospace',
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.red,
+                                fontFamily: 'monospace',
+                              ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -267,250 +239,52 @@ class _BootstrapResult {
   });
 }
 
-// ─── Écran de chargement — Premium Institutionnel Bleu/Blanc ────────────
+// ─── Écran de chargement ───────────────────────────────────────────────
 
-class _StartupLoadingPage extends StatefulWidget {
+class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
 
   @override
-  State<_StartupLoadingPage> createState() => _StartupLoadingPageState();
-}
-
-class _StartupLoadingPageState extends State<_StartupLoadingPage> with TickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final AnimationController _dotsController;
-
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color softBlue = Color(0xFFEFF5FF);
-  static const Color background = Color(0xFFF7FAFF);
-  static const Color mutedText = Color(0xFF7386A8);
-  static const Color darkText = Color(0xFF10192E);
-  static const Color gold = Color(0xFFE3B23C);
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat(reverse: true);
-
-    // ✅ Points rotatifs — tournent pendant tout le chargement (≥ 5 secondes)
-    _dotsController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    _dotsController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: background,
-      body: Stack(
-        children: [
-          // ── Formes incurvées d'arrière-plan, lumineuses ──
-          Positioned(
-            top: -120,
-            right: -90,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [primaryBlue.withOpacity(0.14), Colors.transparent]),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -140,
-            left: -100,
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [navy.withOpacity(0.10), Colors.transparent]),
-              ),
-            ),
-          ),
-
-          // ── Contenu central ──
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedBuilder(
-                    animation: _pulseController,
-                    builder: (context, child) {
-                      final scale = 1.0 + (_pulseController.value * 0.06);
-                      return Transform.scale(scale: scale, child: child);
-                    },
-                    child: Container(
-                      height: 84,
-                      width: 84,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [navyDeep, navy, primaryBlue],
-                        ),
-                        borderRadius: BorderRadius.circular(26),
-                        boxShadow: [
-                          BoxShadow(color: primaryBlue.withOpacity(0.35), blurRadius: 26, offset: const Offset(0, 12)),
-                        ],
-                      ),
-                      child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 38),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [navyDeep, primaryBlue],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'THIX ID',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Chargement sécurisé…',
-                    style: TextStyle(fontSize: 13, color: mutedText, fontWeight: FontWeight.w500),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 26),
-                  // ✅ Points rotatifs
-                  _RotatingDotsLoader(controller: _dotsController),
-                  const SizedBox(height: 26),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: softBlue,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.lock_rounded, size: 12, color: navy),
-                        SizedBox(width: 5),
-                        Text(
-                          'Connexion chiffrée',
-                          style: TextStyle(fontSize: 10.5, color: navy, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ✅ Powered by SONATHIX GROUP — bas de l'écran
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 28,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 1,
-                    color: navy.withOpacity(0.14),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Powered by',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      color: mutedText.withOpacity(0.9),
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'SONATHIX GROUP',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: navy,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// ✅ Indicateur de chargement — points qui tournent en orbite
-// ============================================================
-class _RotatingDotsLoader extends StatelessWidget {
-  final AnimationController controller;
-  const _RotatingDotsLoader({required this.controller});
-
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 46,
-      height: 46,
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
-          return Stack(
-            alignment: Alignment.center,
-            children: List.generate(3, (index) {
-              final angleOffset = (index * (2 * math.pi / 3));
-              final angle = (controller.value * 2 * math.pi) + angleOffset;
-              const radius = 18.0;
-              final dx = radius * math.cos(angle);
-              final dy = radius * math.sin(angle);
-
-              // Effet de pulsation douce en plus de la rotation
-              final scale = 0.7 + (0.3 * ((math.sin(angle) + 1) / 2));
-
-              return Transform.translate(
-                offset: Offset(dx, dy),
-                child: Transform.scale(
-                  scale: scale,
-                  child: Container(
-                    width: 9,
-                    height: 9,
-                    decoration: const BoxDecoration(
-                      color: primaryBlue,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+      backgroundColor: cs.surface,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 56,
+                width: 56,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-              );
-            }),
-          );
-        },
+                child: Icon(Icons.verified_user_rounded, color: cs.primary),
+              ),
+              const SizedBox(height: 14),
+              Text('THIX ID', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 6),
+              Text(
+                'Chargement sécurisé…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: 140,
+                child: LinearProgressIndicator(
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -542,55 +316,21 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-// ✅ WidgetsBindingObserver ajouté pour détecter le retour au premier plan
-// et reconnecter Supabase Realtime + rafraîchir la session (fixe le bug
-// où l'app "gèle" après un long moment en arrière-plan).
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends State<MyApp> {
   late final LocaleController _localeController;
   late final _router;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _localeController = LocaleController()..init();
     _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     widget.chatBloc.close();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      _handleAppResumed();
-    }
-  }
-
-  // ✅ Correctif : reconnecte le WebSocket Realtime de Supabase et rafraîchit
-  // la session au retour au premier plan. Sans cela, iOS/Android suspendent
-  // la connexion réseau en arrière-plan prolongé et l'app reste "figée"
-  // (aucune donnée ne se recharge) même quand on revient dessus.
-  Future<void> _handleAppResumed() async {
-    try {
-      final client = SupabaseConfig.client;
-
-      // Relance le canal Realtime s'il a été coupé par l'OS
-      client.realtime.connect();
-
-      // Rafraîchit la session pour éviter un token expiré silencieusement
-      await client.auth.refreshSession();
-
-      // Recharge le fil d'actualité en temps réel
-      widget.feed.initRealtime();
-    } catch (e) {
-      debugPrint('⚠️ Erreur lors de la reprise après mise en arrière-plan: $e');
-    }
   }
 
   @override
