@@ -10,10 +10,7 @@ import 'package:thix_id/services/push_notification_service.dart';
 import 'package:thix_id/services/supabase_safe_write.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
-/// Supabase-backed auth + profile persistence.
-///
-/// - Auth: Supabase Auth (email/password)
-/// - Profile row: created/updated in Supabase table `public.profiles`
+/// Implémentation Supabase de AuthManager.
 class SupabaseAuthManager implements AuthManager {
   final SupabaseClient _client;
   final ProfileService _profiles;
@@ -327,8 +324,16 @@ class SupabaseAuthManager implements AuthManager {
     }
   }
 
+  // ==========================================================================
+  // MÉTHODES PUBLIQUES
+  // ==========================================================================
+
   @override
-  Future<AppUser> signInWithEmailOrThixId({required String identifier, required String password, required bool rememberMe}) async {
+  Future<AppUser> signInWithEmailOrThixId({
+    required String identifier,
+    required String password,
+    required bool rememberMe,
+  }) async {
     final id = identifier.trim();
     if (id.isEmpty) throw AuthException('Identifiant requis.');
     if (password.isEmpty) throw AuthException('Mot de passe requis.');
@@ -380,6 +385,7 @@ class SupabaseAuthManager implements AuthManager {
       final session = res.session;
       final user = res.user;
       if (user == null || session == null) {
+        // Inscription en attente de confirmation email : l'utilisateur n'est pas encore connecté
         throw AuthException(
           'Inscription enregistrée. Confirmez votre email puis connectez-vous: votre profil sera créé automatiquement.',
         );
@@ -439,16 +445,87 @@ class SupabaseAuthManager implements AuthManager {
     }
   }
 
+  // --- Nouvelle méthode simplifiée pour compte personnel ---
   @override
-  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) async {
+  Future<AppUser> registerPersonal({
+    required String email,
+    required String password,
+    required String displayName,
+    required bool rememberMe,
+    Map<String, dynamic>? profileDraft,
+  }) {
+    return registerWithEmail(
+      email: email,
+      password: password,
+      displayName: displayName,
+      accountType: AccountType.personal,
+      rememberMe: rememberMe,
+      profileDraft: profileDraft,
+    );
+  }
+
+  // --- Vérification OTP ---
+  @override
+  Future<void> verifyOTP({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      await _client.auth.verifyOTP(
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+        type: OtpType.email,
+      );
+      // La session sera mise à jour automatiquement via onAuthStateChange.
+      // On peut forcer un rafraîchissement pour être sûr.
+      await _refreshCurrentUser();
+    } catch (e) {
+      debugPrint('SupabaseAuthManager: verifyOTP failed err=$e');
+      throw AuthException('Code invalide ou expiré.');
+    }
+  }
+
+  // --- Renvoi du code OTP ---
+  @override
+  Future<void> resendOTP({required String email}) async {
+    try {
+      await _client.auth.resend(
+        type: OtpType.signup,
+        email: email.trim().toLowerCase(),
+      );
+    } catch (e) {
+      debugPrint('SupabaseAuthManager: resendOTP failed err=$e');
+      throw AuthException('Impossible de renvoyer le code.');
+    }
+  }
+
+  // --- Rafraîchir l'utilisateur courant ---
+  Future<void> _refreshCurrentUser() async {
+    final session = _client.auth.currentSession;
+    if (session != null) {
+      final hydrated = await _hydrateUser(session.user);
+      _currentUser.value = hydrated;
+      _bindProfileSync(session.user.id);
+    }
+  }
+
+  // --- Téléphone (non implémenté) ---
+  @override
+  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) {
     throw AuthException('Connexion téléphone indisponible dans cette version.');
   }
 
   @override
-  Future<AppUser> confirmPhoneCode({required PhoneAuthSession session, required String smsCode, String? displayName, AccountType accountType = AccountType.personal}) async {
+  Future<AppUser> confirmPhoneCode({
+    required PhoneAuthSession session,
+    required String smsCode,
+    String? displayName,
+    AccountType accountType = AccountType.personal,
+  }) {
     throw AuthException('Connexion téléphone indisponible dans cette version.');
   }
 
+  // --- Déconnexion ---
   @override
   Future<void> signOut() async {
     await _client.auth.signOut();
@@ -500,5 +577,14 @@ class SupabaseAuthManager implements AuthManager {
     _bindProfileSync(user.id);
   }
 
+  // --- Helpers ---
   bool _isValidEmail(String email) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+}
+
+/// Exception personnalisée pour l'authentification.
+class AuthException implements Exception {
+  final String message;
+  AuthException(this.message);
+  @override
+  String toString() => 'AuthException: $message';
 }
