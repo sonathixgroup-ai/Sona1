@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -96,6 +99,11 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
+    // ✅ Garantit un minimum de 5 secondes d'affichage du splash premium,
+    // même si le chargement Supabase termine plus vite (pour laisser le
+    // temps à l'animation "Powered by SONATHIX GROUP" de se voir).
+    final splashMinDuration = Future.delayed(const Duration(seconds: 5));
+
     await SupabaseConfig.initialize();
 
     final profiles = ProfileService();
@@ -114,6 +122,9 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
     final chatBloc = ChatBloc(ChatRepository());
     final eventService = EventService(SupabaseConfig.client);
+
+    // Attend que les 5 secondes minimum soient écoulées avant de continuer
+    await splashMinDuration;
 
     return _BootstrapResult(
       auth: auth,
@@ -265,8 +276,9 @@ class _StartupLoadingPage extends StatefulWidget {
   State<_StartupLoadingPage> createState() => _StartupLoadingPageState();
 }
 
-class _StartupLoadingPageState extends State<_StartupLoadingPage> with SingleTickerProviderStateMixin {
+class _StartupLoadingPageState extends State<_StartupLoadingPage> with TickerProviderStateMixin {
   late final AnimationController _pulseController;
+  late final AnimationController _dotsController;
 
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
@@ -284,11 +296,18 @@ class _StartupLoadingPageState extends State<_StartupLoadingPage> with SingleTic
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..repeat(reverse: true);
+
+    // ✅ Points rotatifs — tournent pendant tout le chargement (≥ 5 secondes)
+    _dotsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _dotsController.dispose();
     super.dispose();
   }
 
@@ -375,19 +394,10 @@ class _StartupLoadingPageState extends State<_StartupLoadingPage> with SingleTic
                     style: TextStyle(fontSize: 13, color: mutedText, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    width: 160,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        minHeight: 6,
-                        backgroundColor: softBlue,
-                        valueColor: const AlwaysStoppedAnimation<Color>(primaryBlue),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 26),
+                  // ✅ Points rotatifs
+                  _RotatingDotsLoader(controller: _dotsController),
+                  const SizedBox(height: 26),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
@@ -410,7 +420,97 @@ class _StartupLoadingPageState extends State<_StartupLoadingPage> with SingleTic
               ),
             ),
           ),
+
+          // ✅ Powered by SONATHIX GROUP — bas de l'écran
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 28,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 1,
+                    color: navy.withOpacity(0.14),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Powered by',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: mutedText.withOpacity(0.9),
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'SONATHIX GROUP',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: navy,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ✅ Indicateur de chargement — points qui tournent en orbite
+// ============================================================
+class _RotatingDotsLoader extends StatelessWidget {
+  final AnimationController controller;
+  const _RotatingDotsLoader({required this.controller});
+
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          return Stack(
+            alignment: Alignment.center,
+            children: List.generate(3, (index) {
+              final angleOffset = (index * (2 * math.pi / 3));
+              final angle = (controller.value * 2 * math.pi) + angleOffset;
+              const radius = 18.0;
+              final dx = radius * math.cos(angle);
+              final dy = radius * math.sin(angle);
+
+              // Effet de pulsation douce en plus de la rotation
+              final scale = 0.7 + (0.3 * ((math.sin(angle) + 1) / 2));
+
+              return Transform.translate(
+                offset: Offset(dx, dy),
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      color: primaryBlue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          );
+        },
       ),
     );
   }
