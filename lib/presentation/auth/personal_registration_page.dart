@@ -13,7 +13,7 @@ import 'package:thix_id/theme.dart';
 // ============================================================================
 
 class PersonalRegistrationPage extends StatefulWidget {
-  final int? initialStep; // ajout
+  final int? initialStep;
   const PersonalRegistrationPage({super.key, this.initialStep});
 
   @override
@@ -76,8 +76,17 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     context.go(AppRoutes.login);
   }
 
+  // ---------- GESTION D'ERREUR AMÉLIORÉE ----------
   String _rawError(Object e) {
-    if (e is PostgrestException) return 'Erreur: ${e.message} (code: ${e.code})';
+    // Essaie d'extraire un message lisible depuis l'exception
+    try {
+      final dynamic dyn = e;
+      final message = dyn.message;
+      if (message is String && message.isNotEmpty) {
+        return 'Erreur: $message';
+      }
+    } catch (_) {}
+    // Si l'exception a une propriété 'toString' plus explicite
     return e.toString();
   }
 
@@ -120,7 +129,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _otpSent = true;
       setState(() => _step = 2);
     } catch (e) {
-      _snack(_rawError(e));
+      _snack(_rawError(e)); // ← affiche l'erreur réelle
     } finally {
       setState(() => _isLoading = false);
     }
@@ -383,7 +392,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 }
 
 // ============================================================================
-// SOUS-WIDGETS
+// SOUS-WIDGETS (inchangés, conservés pour intégrité)
 // ============================================================================
 
 class _Step1Simplified extends StatelessWidget {
@@ -449,7 +458,7 @@ class _Step1Simplified extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
-            onPressed: () => context.go(AppRoutes.login), // redirection temporaire
+            onPressed: () => context.go(AppRoutes.login),
             child: const Text('Mot de passe oublié ?'),
           ),
         ),
