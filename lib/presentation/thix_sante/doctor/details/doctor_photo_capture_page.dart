@@ -12,7 +12,7 @@ class DoctorPhotoCapturePage extends StatelessWidget {
         title: const Text('Prendre une photo'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.popOrGo('/sante/doctor/dashboard'),
+          onPressed: () => context.go('/sante/doctor/dashboard'),
         ),
       ),
       body: const Center(
