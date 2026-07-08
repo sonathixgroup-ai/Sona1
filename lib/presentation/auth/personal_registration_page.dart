@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -724,11 +725,11 @@ class _Step3Final extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _buildInfoTile('THIX ID', thixId, Icons.verified_user, Colors.blue, showCopy: true),
+        _buildInfoTile(context, 'THIX ID', thixId, Icons.verified_user, Colors.blue, showCopy: true),
         const SizedBox(height: 12),
-        _buildInfoTile('THIX CHAT', thixChat, Icons.chat, Colors.orange, showCopy: false),
+        _buildInfoTile(context, 'THIX CHAT', thixChat, Icons.chat, Colors.orange, showCopy: false),
         const SizedBox(height: 12),
-        _buildInfoTile('UID (identifiant unique)', uid, Icons.fingerprint, Colors.grey, showCopy: false),
+        _buildInfoTile(context, 'UID (identifiant unique)', uid, Icons.fingerprint, Colors.grey, showCopy: false),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(16),
@@ -758,7 +759,7 @@ class _Step3Final extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoTile(String label, String value, IconData icon, Color color, {bool showCopy = false}) {
+  Widget _buildInfoTile(BuildContext context, String label, String value, IconData icon, Color color, {bool showCopy = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -793,9 +794,12 @@ class _Step3Final extends StatelessWidget {
           if (showCopy)
             IconButton(
               onPressed: () {
-                // Copier le THIX ID (à implémenter avec Clipboard)
+                Clipboard.setData(ClipboardData(text: value));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$label copié !')),
+                  SnackBar(
+                    content: Text('$label copié dans le presse-papier !'),
+                    backgroundColor: Colors.green,
+                  ),
                 );
               },
               icon: const Icon(Icons.copy, size: 18),
