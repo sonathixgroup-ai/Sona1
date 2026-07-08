@@ -76,17 +76,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     context.go(AppRoutes.login);
   }
 
-  // ---------- GESTION D'ERREUR AMÉLIORÉE ----------
+  // ========== GESTION D'ERREUR AMÉLIORÉE ==========
   String _rawError(Object e) {
-    // Essaie d'extraire un message lisible depuis l'exception
-    try {
-      final dynamic dyn = e;
-      final message = dyn.message;
-      if (message is String && message.isNotEmpty) {
-        return 'Erreur: $message';
-      }
-    } catch (_) {}
-    // Si l'exception a une propriété 'toString' plus explicite
+    if (e is AuthException) return 'Erreur: ${e.message}';
+    if (e is PostgrestException) return 'Erreur: ${e.message} (code: ${e.code})';
     return e.toString();
   }
 
@@ -129,7 +122,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _otpSent = true;
       setState(() => _step = 2);
     } catch (e) {
-      _snack(_rawError(e)); // ← affiche l'erreur réelle
+      _snack(_rawError(e));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -392,7 +385,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 }
 
 // ============================================================================
-// SOUS-WIDGETS (inchangés, conservés pour intégrité)
+// SOUS-WIDGETS (inchangés)
 // ============================================================================
 
 class _Step1Simplified extends StatelessWidget {
