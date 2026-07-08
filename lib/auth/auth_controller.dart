@@ -44,18 +44,49 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return u;
     } catch (e) {
-      rethrow; // ← on relance l'exception pour que l'UI puisse la traiter
+      rethrow;
     }
   }
 
-  Future<AppUser> registerEnterprise({...}) async {
-    // similaire
+  Future<AppUser> registerEnterprise({
+    required String email,
+    required String password,
+    required String displayName,
+    required bool rememberMe,
+    Map<String, dynamic>? profileDraft,
+  }) async {
+    try {
+      final u = await _auth.registerWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
+        accountType: AccountType.enterprise,
+        rememberMe: rememberMe,
+        profileDraft: profileDraft,
+      );
+      notifyListeners();
+      return u;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) => _auth.startPhoneAuth(phoneNumber: phoneNumber);
 
-  Future<AppUser> confirmPhoneCode({...}) async {
-    // ...
+  Future<AppUser> confirmPhoneCode({
+    required PhoneAuthSession session,
+    required String smsCode,
+    String? displayName,
+    AccountType accountType = AccountType.personal,
+  }) async {
+    final u = await _auth.confirmPhoneCode(
+      session: session,
+      smsCode: smsCode,
+      displayName: displayName,
+      accountType: accountType,
+    );
+    notifyListeners();
+    return u;
   }
 
   Future<void> signOut() async {
@@ -68,7 +99,7 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ========== MÉTHODES OTP ==========
+  // OTP
   Future<void> verifyOTP({required String email, required String token}) async {
     await _auth.verifyOTP(email: email, token: token);
     notifyListeners();
