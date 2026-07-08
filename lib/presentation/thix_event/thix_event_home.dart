@@ -70,13 +70,11 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   }
 
   Future<void> _initializeData() async {
-    // Attendre que le contexte soit disponible
     await Future.delayed(Duration.zero);
     
     if (mounted) {
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
       
-      // Charger les données avec gestion d'erreur
       try {
         await Future.wait([
           eventProvider.fetchEvents(),
@@ -174,7 +172,6 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     final isLoading = eventProvider.isLoading;
     final hasError = eventProvider.error != null;
 
-    // Afficher un loader pendant l'initialisation
     if (!_isInitialized && isLoading) {
       return const Scaffold(
         backgroundColor: _EventColors.background,
@@ -186,7 +183,6 @@ class _ThixEventHomeState extends State<ThixEventHome> {
       );
     }
 
-    // Afficher une erreur si nécessaire
     if (hasError && events.isEmpty) {
       return Scaffold(
         backgroundColor: _EventColors.background,
@@ -253,7 +249,6 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           SliverToBoxAdapter(child: _buildSectionHeader('Événements recommandés', '/thix-event/recommended')),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           
-          // Section événements recommandés
           if (isLoading && recommendedEvents.isEmpty)
             const SliverToBoxAdapter(
               child: Padding(
@@ -303,7 +298,6 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           SliverToBoxAdapter(child: _buildSectionHeader('Prochains événements', '/thix-event/upcoming')),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           
-          // Section prochains événements
           if (isLoading && upcomingEvents.isEmpty)
             const SliverToBoxAdapter(
               child: Padding(
@@ -389,28 +383,17 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                   const Text('Découvrez, réservez, vivez l\'exceptionnel.', style: TextStyle(color: Colors.white70, fontSize: 10)),
                 ],
               ),
-              // ============================================================
-              // ROW DES ICÔNES DROITE
-              // ============================================================
               Row(
                 children: [
                   _headerIconButton(Icons.search_rounded, () => context.push('/thix-event/search')),
                   _headerIconButton(Icons.notifications_none_rounded, _showNotificationSettings),
 
-                  // 👇 BOUTON MODÉRATEUR CONDITIONNEL
-                  Consumer<AuthProvider>(
-                    builder: (context, auth, _) {
-                      if (auth.isModerator) {
-                        return _headerIconButton(
-                          Icons.admin_panel_settings_rounded,
-                          () => context.push('/moderator'),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
+                  // 👇 BOUTON MODÉRATEUR TOUJOURS VISIBLE (test)
+                  _headerIconButton(
+                    Icons.admin_panel_settings_rounded,
+                    () => context.push('/moderator'),
                   ),
 
-                  // Profil
                   GestureDetector(
                     onTap: () => context.push('/profile'),
                     child: Container(
