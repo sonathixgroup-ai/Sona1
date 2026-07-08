@@ -14,7 +14,8 @@ import 'package:thix_id/theme.dart';
 // ============================================================================
 
 class PersonalRegistrationPage extends StatefulWidget {
-  const PersonalRegistrationPage({super.key});
+  final int? initialStep; // ajout pour compatibilité
+  const PersonalRegistrationPage({super.key, this.initialStep});
 
   @override
   State<PersonalRegistrationPage> createState() =>
@@ -122,7 +123,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     if (name.isEmpty) return _snack('Nom complet requis.');
     if (dob.isEmpty) return _snack('Date de naissance requise.');
     if (_country == null) return _snack('Veuillez choisir votre pays.');
-    // Occupation optionnelle
     setState(() => _step = 2);
   }
 
@@ -142,7 +142,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
-      // On crée le compte (l'email de confirmation est envoyé automatiquement)
       await auth.registerPersonal(
         email: email,
         password: pass,
@@ -160,7 +159,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _snack('Un code de vérification a été envoyé à votre email.');
     } catch (e) {
       if (e is AuthException && e.message.contains('Inscription enregistrée')) {
-        // Cas où l'email de confirmation est envoyé mais pas de session immédiate
         _otpSent = true;
         _snack('Un code de vérification a été envoyé à votre email.');
       } else {
@@ -180,7 +178,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
-      // Vérifier l'OTP
       await auth.verifyOTP(email: _emailC.text.trim(), token: code);
       _snack('Email vérifié avec succès !');
 
@@ -200,7 +197,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: chatId);
       await _userService.updateProfile(
         uid: me.id,
-        thixId: thixId,
+        thixId: thixId,          // <-- ajout du paramètre
         thixChat: claimed,
         registrationStatus: 'active',
       );
@@ -799,7 +796,7 @@ class _Step3Final extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
             ),
           ),
           if (label == 'THIX ID')
