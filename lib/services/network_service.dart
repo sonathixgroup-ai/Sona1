@@ -12,7 +12,7 @@ import '../models/network_notification.dart';
 import '../models/network_story.dart';
 
 // ============================================================
-// CLASSE POSTSCORE (pour le tri intelligent)
+// CLASSE POSTSCORE
 // ============================================================
 class PostScore {
   final NetworkPost post;
@@ -27,7 +27,8 @@ class NetworkService {
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
-  /// Normalise la colonne `media_url` en liste d'URLs.
+  /// Returns a list of image URLs for a post row, normalising the DB column
+  /// `media_url` (single string) into the model's `image_urls` (array).
   static List<String> _imageUrlsFromRow(Map<String, dynamic> row) {
     if (row['image_urls'] != null) {
       return List<String>.from(row['image_urls'] as List);
@@ -40,7 +41,8 @@ class NetworkService {
   // SECTION 1: POSTS - GET FEED (AVEC PAGINATION)
   // ============================================================
 
-  /// Récupère les posts publics non archivés avec pagination.
+  /// Récupère les posts publics avec pagination (offset et limit).
+  /// Utilise `.range()` de Supabase pour la pagination.
   Future<List<NetworkPost>> getFeedPosts({int limit = 20, int start = 0}) async {
     try {
       final currentUserId = this.currentUserId;
@@ -60,16 +62,13 @@ class NetworkService {
             )
           ''')
           .eq('is_public', true)
-          .is('archived_at', null)   // 🔥 Exclut les archives
           .order('created_at', ascending: false)
           .range(start, start + limit - 1);
 
-      debugPrint('📊 getFeedPosts: ${(response as List).length} posts bruts reçus');
+      debugPrint('📊 getFeedPosts: ${(response as List).length} posts bruts reçus de Supabase');
 
       final posts = <NetworkPost>[];
       for (var e in response) {
-        // Récupération des likes et commentaires pour ce post (on pourrait optimiser
-        // en groupant, mais pour le feed paginé c'est acceptable).
         final likesData = await _supabase
             .from('post_likes')
             .select('id')
@@ -98,7 +97,7 @@ class NetworkService {
         }));
       }
 
-      debugPrint('✅ getFeedPosts: ${posts.length} posts convertis');
+      debugPrint('✅ getFeedPosts: ${posts.length} posts convertis et prêts à afficher');
       return posts;
     } catch (e, stack) {
       debugPrint('❌ Error getFeedPosts: $e');
@@ -108,7 +107,7 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 2: FEED INTELLIGENT (OPTIMISÉ)
+  // SECTION 2: FEED INTELLIGENT (IA & ALGORITHME)
   // ============================================================
 
   Future<List<NetworkPost>> getSmartFeed({int limit = 20}) async {
@@ -116,7 +115,6 @@ class NetworkService {
       final currentUserId = this.currentUserId;
       if (currentUserId.isEmpty) return [];
 
-      // 1. Récupération des posts bruts (non archivés)
       final response = await _supabase
           .from('posts')
           .select('''
@@ -128,67 +126,50 @@ class NetworkService {
             )
           ''')
           .eq('is_public', true)
-          .is('archived_at', null)   // 🔥 Exclut les archives
           .limit(100);
 
-      if (response.isEmpty) return [];
-
-      final postIds = (response as List).map((e) => e['id'] as String).toList();
-
-      // 2. Récupération groupée des likes
-      final likesData = await _supabase
-          .from('post_likes')
-          .select('post_id, user_id')
-          .inFilter('post_id', postIds);
-
-      final likesByPost = <String, List<String>>{};
-      for (var like in likesData as List) {
-        final pid = like['post_id'] as String;
-        likesByPost.putIfAbsent(pid, () => []).add(like['user_id'] as String);
-      }
-
-      // 3. Récupération groupée des commentaires
-      final commentsData = await _supabase
-          .from('comments')
-          .select('post_id')
-          .inFilter('post_id', postIds);
-
-      final commentsCountByPost = <String, int>{};
-      for (var comment in commentsData as List) {
-        final pid = comment['post_id'] as String;
-        commentsCountByPost[pid] = (commentsCountByPost[pid] ?? 0) + 1;
-      }
-
-      // 4. Connexions de l'utilisateur
       final connections = await _supabase
           .from('connections')
           .select('connection_id')
           .eq('user_id', currentUserId)
           .eq('status', 'accepted');
+
       final connectedUserIds = (connections as List)
           .map((c) => c['connection_id'] as String)
           .toSet();
 
       final postsWithScores = <PostScore>[];
 
-      for (var e in response) {
-        final postId = e['id'];
-        final userId = e['user_id'];
-        final likedUsers = likesByPost[postId] ?? [];
-        final isLiked = likedUsers.contains(currentUserId);
+      for (var e in response as List) {
+        final likesData = await _supabase
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', e['id']);
+
+        final commentsData = await _supabase
+            .from('comments')
+            .select('id')
+            .eq('post_id', e['id']);
+
+        final userLikedData = await _supabase
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', e['id'])
+            .eq('user_id', currentUserId);
+
+        final userData = e['users'] as Map<String, dynamic>?;
 
         final post = NetworkPost.fromJson({
           ...e,
-          'author_name': e['users']?['display_name'] ?? 'Utilisateur',
-          'author_avatar': e['users']?['photo_url'],
-          'author_title': e['users']?['profession'],
-          'likes_count': likedUsers.length,
-          'comments_count': commentsCountByPost[postId] ?? 0,
-          'is_liked': isLiked,
+          'author_name': userData?['display_name'] ?? 'Utilisateur',
+          'author_avatar': userData?['photo_url'],
+          'author_title': userData?['profession'],
+          'likes_count': (likesData as List).length,
+          'comments_count': (commentsData as List).length,
+          'is_liked': (userLikedData as List).isNotEmpty,
           'image_urls': _imageUrlsFromRow(e),
         });
 
-        // --- Calcul du score (identique à votre logique) ---
         double score = 0;
         score += post.likesCount * 1.0;
         score += post.commentsCount * 3.0;
@@ -207,8 +188,6 @@ class NetworkService {
           else if (engagementRate > 1) score += 10;
         }
 
-        // Bonus si l'utilisateur a déjà liké d'autres posts de l'auteur
-        // (on simplifie en comptant les likes antérieurs)
         final previousLikes = await _supabase
             .from('post_likes')
             .select('id')
@@ -220,7 +199,7 @@ class NetworkService {
           score += 15 * previousLikes.length.clamp(0, 3);
         }
 
-        // Bonus pour les posts de l'utilisateur lui-même (toujours prioritaires)
+        // ✅ BONUS : les posts de l'utilisateur courant sont toujours prioritaires
         if (post.userId == currentUserId) {
           score += 1000;
         }
@@ -243,14 +222,12 @@ class NetworkService {
   // SECTION 3: POST INDIVIDUEL (GET, CREATE, UPDATE, DELETE)
   // ============================================================
 
-  /// Récupère un post par son ID.
-  /// Si `allowArchived` est true, le propriétaire peut le voir même s'il est archivé.
-  Future<NetworkPost?> getPostById(String postId, {bool allowArchived = false}) async {
+  Future<NetworkPost?> getPostById(String postId) async {
     try {
       final currentUserId = this.currentUserId;
       if (currentUserId.isEmpty) return null;
 
-      var query = _supabase
+      final response = await _supabase
           .from('posts')
           .select('''
             *,
@@ -260,20 +237,10 @@ class NetworkService {
               profession
             )
           ''')
-          .eq('id', postId);
+          .eq('id', postId)
+          .maybeSingle();
 
-      if (!allowArchived) {
-        query = query.is('archived_at', null);
-      }
-
-      final response = await query.maybeSingle();
       if (response == null) return null;
-
-      // Sécurité : si le post est archivé et l'utilisateur n'est pas le propriétaire,
-      // on bloque l'accès.
-      if (response['archived_at'] != null && response['user_id'] != currentUserId) {
-        return null;
-      }
 
       final likesData = await _supabase
           .from('post_likes')
@@ -309,7 +276,6 @@ class NetworkService {
     }
   }
 
-  /// Crée un nouveau post (non archivé par défaut).
   Future<String> createPost(String content, List<String> images) async {
     final currentUserId = this.currentUserId;
     if (currentUserId.isEmpty) throw Exception('User not logged in');
@@ -323,7 +289,6 @@ class NetworkService {
       'media_type': images.isNotEmpty ? 'image' : 'none',
       'is_public': true,
       'created_at': DateTime.now().toIso8601String(),
-      // archived_at n'est pas défini => null par défaut
     }).select('id').single();
 
     final postId = response['id'] as String;
@@ -592,7 +557,6 @@ class NetworkService {
         .select('*, users:user_id(display_name, photo_url, profession)')
         .eq('user_id', userId)
         .eq('is_pinned', true)
-        .is('archived_at', null)   // Éviter les archives épinglées
         .maybeSingle();
 
     if (response == null) return null;
@@ -605,7 +569,6 @@ class NetworkService {
         .select('*, users:user_id(display_name, photo_url, profession)')
         .eq('user_id', userId)
         .eq('is_pinned', true)
-        .is('archived_at', null)
         .order('created_at', ascending: false);
 
     return (response as List).map((e) => NetworkPost.fromJson(e)).toList();
@@ -667,15 +630,7 @@ class NetworkService {
         .eq('user_id', currentUserId)
         .order('saved_at', ascending: false);
 
-    // On filtre les posts archivés dans la liste des sauvegardes
-    final List<NetworkPost> saved = [];
-    for (var e in response as List) {
-      final postJson = e['post'];
-      if (postJson != null && postJson['archived_at'] == null) {
-        saved.add(NetworkPost.fromJson(postJson));
-      }
-    }
-    return saved;
+    return (response as List).map((e) => NetworkPost.fromJson(e['post'])).toList();
   }
 
   // ============================================================
@@ -699,14 +654,7 @@ class NetworkService {
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 
-    final List<NetworkPost> reposts = [];
-    for (var e in response as List) {
-      final postJson = e['post'];
-      if (postJson != null && postJson['archived_at'] == null) {
-        reposts.add(NetworkPost.fromJson(postJson));
-      }
-    }
-    return reposts;
+    return (response as List).map((e) => NetworkPost.fromJson(e['post'])).toList();
   }
 
   // ============================================================
@@ -1186,6 +1134,10 @@ class NetworkService {
   // SECTION 13: MESSAGES PRIVÉS (Direct Messages)
   // ============================================================
 
+  // ⚠️ Ces méthodes utilisent la table `messages` (existante)
+  // pour la messagerie directe. Cette table doit exister dans la base de données.
+  // Si vous utilisez `thix_chat_messages` à la place, adaptez les noms.
+
   Future<List<Conversation>> getConversations() async {
     try {
       final currentUserId = this.currentUserId;
@@ -1426,12 +1378,10 @@ class NetworkService {
 
       if (response == null) return null;
 
-      // Compter uniquement les posts non archivés
       final postsData = await _supabase
           .from('posts')
           .select('id')
-          .eq('user_id', userId)
-          .is('archived_at', null);
+          .eq('user_id', userId);
 
       final followersData = await _supabase
           .from('connections')
@@ -1462,7 +1412,6 @@ class NetworkService {
     }
   }
 
-  /// Récupère les posts publics (non archivés) d'un utilisateur.
   Future<List<NetworkPost>> getUserPosts(String userId) async {
     try {
       final response = await _supabase
@@ -1474,7 +1423,6 @@ class NetworkService {
             )
           ''')
           .eq('user_id', userId)
-          .is('archived_at', null)   // 🔥 Seulement les posts actifs
           .order('created_at', ascending: false);
 
       return (response as List).map((e) => NetworkPost.fromJson({
@@ -1490,35 +1438,6 @@ class NetworkService {
       debugPrint('Error getUserPosts: $e');
       return [];
     }
-  }
-
-  /// Récupère les posts archivés de l'utilisateur connecté (uniquement les siens).
-  Future<List<NetworkPost>> getMyArchivedPosts() async {
-    final currentUserId = this.currentUserId;
-    if (currentUserId.isEmpty) return [];
-
-    final response = await _supabase
-        .from('posts')
-        .select('''
-          *,
-          users:user_id (
-            display_name, photo_url, profession
-          )
-        ''')
-        .eq('user_id', currentUserId)
-        .not('archived_at', 'is', null)   // 🔥 Uniquement les archivés
-        .order('archived_at', ascending: false);
-
-    return (response as List).map((e) => NetworkPost.fromJson({
-      ...e,
-      'author_name': e['users']?['display_name'] ?? 'Utilisateur',
-      'author_avatar': e['users']?['photo_url'],
-      'author_title': e['users']?['profession'],
-      'likes_count': 0,
-      'comments_count': 0,
-      'is_liked': false,
-      'image_urls': _imageUrlsFromRow(e),
-    })).toList();
   }
 
   // ============================================================
@@ -1583,7 +1502,6 @@ class NetworkService {
             users!user_id (display_name, photo_url)
           ''')
           .ilike('content', '%$query%')
-          .is('archived_at', null)   // 🔥 Exclut les archives de la recherche
           .order('created_at', ascending: false)
           .limit(20);
 
