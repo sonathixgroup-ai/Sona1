@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_user.dart';
 
@@ -10,7 +11,7 @@ class UserService {
 
   Future<void> updateProfile({
     required String uid,
-    String? thixId, // <-- AJOUT
+    String? thixId,
     String? displayName,
     String? fullName,
     String? photoUrl,
@@ -70,7 +71,7 @@ class UserService {
     final Map<String, dynamic> updates = {};
 
     // Informations personnelles
-    if (thixId != null) updates['thix_id'] = thixId; // <-- AJOUT
+    if (thixId != null) updates['thix_id'] = thixId;
     if (displayName != null) updates['display_name'] = displayName;
     if (fullName != null) updates['full_name'] = fullName;
     if (photoUrl != null) updates['photo_url'] = photoUrl;
@@ -205,19 +206,83 @@ class UserService {
 
   // ==================== MÉTHODES POUR THIX ID ====================
 
+  /// Génère ou récupère un THIX ID unique pour l'utilisateur.
+  /// Priorise l'appel à la fonction RPC 'ensure_thix_id' (plus robuste),
+  /// avec un fallback local qui vérifie l'unicité en base.
   Future<String> ensureThixId({required String uid}) async {
-    final row = await _supabase.from('profiles').select('thix_id').eq('id', uid).maybeSingle();
-    final existing = (row?['thix_id'] ?? '').toString().trim();
-    if (existing.isNotEmpty && existing != 'THIX-PENDING') return existing;
-    final candidate = 'THIX-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
-    await _supabase.from('profiles').update({'thix_id': candidate}).eq('id', uid);
-    return candidate;
+    try {
+      // Tentative d'appel RPC (recommandé)
+      final result = await _supabase.rpc('ensure_thix_id', params: {'p_user_id': uid});
+      return result as String;
+    } catch (e) {
+      // Fallback : génération locale avec vérification d'unicité
+      debugPrint('⚠️ RPC ensure_thix_id failed: $e');
+
+      // Vérifier si un ID existe déjà
+      final row = await _supabase.from('profiles').select('thix_id').eq('id', uid).maybeSingle();
+      final existing = (row?['thix_id'] ?? '').toString().trim();
+      if (existing.isNotEmpty && existing != 'THIX-PENDING') return existing;
+
+      // Générer un ID unique (basé sur timestamp + suffixe aléatoire)
+      String candidate;
+      int attempts = 0;
+      do {
+        final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        candidate = 'THIX-${timestamp.substring(5)}';
+        attempts++;
+        // En cas de collision, ajouter un suffixe aléatoire
+        if (attempts > 5) {
+          candidate = 'THIX-${timestamp.substring(5)}-${Random().nextInt(9999)}';
+        }
+        // Vérifier l'unicité en base
+        final existingRow = await _supabase
+            .from('profiles')
+            .select('id')
+            .eq('thix_id', candidate)
+            .maybeSingle();
+        if (existingRow == null) break;
+      } while (true);
+
+      // Enregistrer l'ID
+      await _supabase.from('profiles').update({'thix_id': candidate}).eq('id', uid);
+      return candidate;
+    }
   }
 
+  /// Réserve un THIX CHAT pour l'utilisateur.
+  /// Idéalement, utilisez la fonction RPC 'reserve_thix_chat' pour garantir l'unicité.
   Future<String> ensureThixChat({required String uid, required String desired}) async {
-    final normalized = desired.trim().toLowerCase();
-    await _supabase.from('profiles').update({'thix_chat': normalized}).eq('id', uid);
-    return normalized;
+    // Nettoyer le nom
+    String normalized = desired.trim().toLowerCase();
+    // Supprimer le '@' en début s'il est présent
+    if (normalized.startsWith('@')) {
+      normalized = normalized.substring(1);
+    }
+    // Limiter la longueur
+    if (normalized.length > 20) {
+      normalized = normalized.substring(0, 20);
+    }
+    // Remplacer les caractères non autorisés
+    normalized = normalized.replaceAll(RegExp(r'[^a-z0-9._]'), '');
+    if (normalized.isEmpty) {
+      normalized = 'user${Random().nextInt(9999)}';
+    }
+    // Ajouter le '@' pour le stockage
+    final finalChat = '@$normalized';
+
+    // Vérifier si le chat est déjà pris (si on n'utilise pas le RPC)
+    try {
+      // On peut tenter d'appeler le RPC s'il existe
+      final result = await _supabase.rpc('reserve_thix_chat', params: {
+        'p_user_id': uid,
+        'p_desired_chat': finalChat,
+      });
+      return result as String;
+    } catch (_) {
+      // Fallback : écrire directement (risque de collision)
+      await _supabase.from('profiles').update({'thix_chat': finalChat}).eq('id', uid);
+      return finalChat;
+    }
   }
 
   // ==================== MÉTHODES POUR HOME PAGE ====================
