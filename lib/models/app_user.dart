@@ -1,5 +1,6 @@
 import 'dart:convert';
-
+import 'account_type.dart';
+export 'account_type.dart'; // pour rendre AccountType disponible via app_user.dart
 enum AccountType { personal, enterprise }
 
 class AppUser {
