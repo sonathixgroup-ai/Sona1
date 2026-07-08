@@ -787,7 +787,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
                       certificationsCount: 0,
                       experiencesCount: 0,
                       consultationsCount: 0,
-                      onBack: () => context.popOrGo(AppRoutes.home),
+                      onBack: () => context.go(AppRoutes.home),
                       onCopyThixId: null,
                     )
                   else
@@ -878,7 +878,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
                                 certificationsCount: _countCertificationsFromEducation(edu),
                                 experiencesCount: exp.length,
                                 consultationsCount: 0,
-                                onBack: () => context.popOrGo(AppRoutes.home),
+                                onBack: () => context.go(AppRoutes.home),
                                 onCopyThixId: thixId.trim().isEmpty
                                     ? null
                                     : () async {
