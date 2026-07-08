@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/full_screen_message.dart';
@@ -224,13 +225,9 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
   }
 
+  // ✅ CORRECTION : aller directement vers le profil
   void _onProfileTap() {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.go(AppRoutes.userDashboard);
-    } else {
-      context.push(AppRoutes.login);
-    }
+    context.go(AppRoutes.profile);
   }
 
   Future<void> _openThixAi() async {
@@ -376,7 +373,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                                 context.push(AppRoutes.thixMedia);
                                 break;
                               case 'thixMarket':
-                                context.push(AppRoutes.thixMarket); // ✅ CORRECTION
+                                context.push(AppRoutes.thixMarket);
                                 break;
                               case 'formations':
                                 context.push(AppRoutes.trainingHome);
@@ -1439,6 +1436,9 @@ class _MiniRoundAction extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// BOTTOM NAVIGATION (CORRIGÉE)
+// ============================================================================
 class _FloatingBottomNav extends StatelessWidget {
   final VoidCallback onScanTap;
 
@@ -1453,10 +1453,11 @@ class _FloatingBottomNav extends StatelessWidget {
     context.push(AppRoutes.login);
   }
 
+  // ✅ CORRECTION : aller directement vers le profil
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      context.go(AppRoutes.userDashboard);
+      context.go(AppRoutes.profile);
       return;
     }
     context.push(AppRoutes.login);
