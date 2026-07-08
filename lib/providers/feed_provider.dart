@@ -15,13 +15,12 @@ class FeedProvider extends ChangeNotifier {
   String? _error;
   bool _realtimeInitialized = false;
 
-  // Real-time
+  // Real-time listening
   RealtimeChannel? _realtimeChannel;
   Timer? _autoRefreshTimer;
   DateTime? _lastRefresh;
 
-  FeedProvider(this._networkService, {SupabaseClient? supabase})
-      : _supabase = supabase;
+  FeedProvider(this._networkService, {SupabaseClient? supabase}) : _supabase = supabase;
 
   // Getters
   List<NetworkPost> get posts => _posts;
@@ -35,7 +34,11 @@ class FeedProvider extends ChangeNotifier {
   // ============================================================
 
   void initRealtime() {
-    if (_realtimeInitialized) return;
+    if (_realtimeInitialized) {
+      debugPrint('⚠️ FeedProvider: Realtime déjà initialisé, skip');
+      return;
+    }
+    debugPrint('🎙️ FeedProvider: Initialisation realtime...');
     _realtimeInitialized = true;
     _setupRealtimeListener();
     _setupAutoRefresh();
@@ -47,105 +50,114 @@ class FeedProvider extends ChangeNotifier {
   }
 
   void _setupRealtimeListener() {
-    if (_supabase == null) return;
+    try {
+      if (_supabase == null) {
+        debugPrint('❌ FeedProvider: Supabase client manquant');
+        return;
+      }
 
-    _realtimeChannel = _supabase!
-        .channel('public:posts_feed')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'posts',
-          callback: (payload) => _onPostInserted(payload),
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'public',
-          table: 'posts',
-          callback: (payload) => _onPostUpdated(payload),
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.delete,
-          schema: 'public',
-          table: 'posts',
-          callback: (payload) => _onPostDeleted(payload),
-        );
+      _realtimeChannel = _supabase!
+          .channel('public:posts_feed')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'posts',
+            callback: (payload) async {
+              debugPrint('📬 [REALTIME] Nouvelle publication détectée!');
+              await _onPostInserted();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'posts',
+            callback: (payload) async {
+              debugPrint('📝 [REALTIME] Publication mise à jour');
+              await _onPostUpdated();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.delete,
+            schema: 'public',
+            table: 'posts',
+            callback: (payload) {
+              debugPrint('🗑️ [REALTIME] Publication supprimée');
+              _onPostDeleted(payload.oldRecord);
+            },
+          );
 
-    _realtimeChannel!.subscribe((status, err) {
-      if (err != null) debugPrint('❌ Realtime error: $err');
-    });
+      _realtimeChannel!.subscribe((status, err) {
+        if (err != null) {
+          debugPrint('❌ FeedProvider Realtime error: $err');
+        } else {
+          debugPrint('✅ FeedProvider: Realtime connecté - status: $status');
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ FeedProvider _setupRealtimeListener error: $e');
+    }
   }
 
   void _setupAutoRefresh() {
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-      if (!_isLoading) await _autoRefresh();
+      if (!_isLoading) {
+        await _autoRefresh();
+      }
     });
+    debugPrint('✅ FeedProvider: Auto-refresh activé (10s)');
   }
 
-  // ============================================================
-  // TRAITEMENT DES ÉVÉNEMENTS REALTIME (OPTIMISÉ)
-  // ============================================================
-
-  Future<void> _onPostInserted(PostgresChangePayload payload) async {
+  Future<void> _autoRefresh() async {
     try {
-      final newPost = NetworkPost.fromJson(payload.newRecord);
-      // On ne l'ajoute que s'il n'est pas archivé
-      if (newPost.archivedAt == null) {
-        _posts.insert(0, newPost);
-        notifyListeners();
-        debugPrint('📥 Post ajouté en temps réel : ${newPost.id}');
+      final now = DateTime.now();
+      if (_lastRefresh != null && now.difference(_lastRefresh!).inSeconds < 3) {
+        return;
       }
+      _lastRefresh = now;
+      await loadFeed(feedType: _currentFeedType);
     } catch (e) {
-      debugPrint('❌ _onPostInserted error: $e');
+      debugPrint('❌ FeedProvider _autoRefresh error: $e');
     }
   }
 
-  Future<void> _onPostUpdated(PostgresChangePayload payload) async {
-    try {
-      final updatedPost = NetworkPost.fromJson(payload.newRecord);
-      final index = _posts.indexWhere((p) => p.id == updatedPost.id);
+  Future<void> _onPostInserted() async {
+    debugPrint('📬 FeedProvider: Nouveau post inséré - rechargement du feed...');
+    await loadFeed(feedType: _currentFeedType);
+  }
 
-      if (updatedPost.archivedAt != null) {
-        // Le post a été archivé → on le retire s'il est dans la liste
-        if (index != -1) {
-          _posts.removeAt(index);
-          notifyListeners();
-          debugPrint('🗑️ Post archivé retiré : ${updatedPost.id}');
-        }
+  Future<void> _onPostUpdated() async {
+    debugPrint('📝 FeedProvider: Post mis à jour - rechargement du feed...');
+    await loadFeed(feedType: _currentFeedType);
+  }
+
+  void _onPostDeleted(dynamic deletedRecord) {
+    try {
+      if (deletedRecord == null) return;
+      final Map<String, dynamic> jsonData;
+      if (deletedRecord is Map<String, dynamic>) {
+        jsonData = deletedRecord;
       } else {
-        // Le post est actif (archivedAt null)
-        if (index != -1) {
-          // Mise à jour des infos (likes, comments, etc.)
-          _posts[index] = updatedPost;
-        } else {
-          // Nouveau post actif (peut arriver si désarchivé ou ajouté hors realtime)
-          _posts.insert(0, updatedPost);
-        }
-        notifyListeners();
-        debugPrint('🔄 Post mis à jour : ${updatedPost.id}');
+        jsonData = (deletedRecord as Map).cast<String, dynamic>();
       }
-    } catch (e) {
-      debugPrint('❌ _onPostUpdated error: $e');
-    }
-  }
-
-  void _onPostDeleted(PostgresChangePayload payload) {
-    try {
-      final deletedId = payload.oldRecord['id'] as String?;
-      if (deletedId != null) {
+      final deletedId = jsonData['id'] as String?;
+      if (deletedId != null && deletedId.isNotEmpty) {
         _posts.removeWhere((p) => p.id == deletedId);
         notifyListeners();
-        debugPrint('🗑️ Post supprimé : $deletedId');
+        debugPrint('✅ FeedProvider: Post $deletedId supprimé');
       }
     } catch (e) {
-      debugPrint('❌ _onPostDeleted error: $e');
+      debugPrint('❌ FeedProvider _onPostDeleted error: $e');
     }
   }
 
   // ============================================================
-  // CHARGEMENT DU FEED (AVEC FILTRE)
+  // CHARGEMENT DU FEED
   // ============================================================
 
+  /// Charge le feed.
+  /// Pour l'instant, on utilise toujours getFeedPosts() pour garantir
+  /// l'affichage (le smart feed peut échouer silencieusement).
   Future<void> loadFeed({String? feedType, int limit = 20, bool force = false}) async {
     if (_isLoading && !force) return;
 
@@ -156,45 +168,25 @@ class FeedProvider extends ChangeNotifier {
     try {
       if (feedType != null) _currentFeedType = feedType;
 
-      // 👉 La méthode getFeedPosts doit déjà filtrer archived_at IS NULL
+      // ✅ FIX : On utilise toujours getFeedPosts (flux simple)
+      // Le smart feed (getSmartFeed) peut retourner 0 à cause de requêtes
+      // supplémentaires qui échouent (ex: table 'connections' absente).
+      debugPrint('🔄 loadFeed: utilisation de getFeedPosts (mode simplifié)');
       final newPosts = await _networkService.getFeedPosts(limit: limit);
+
+      // Optionnel : on pourrait plus tard réintroduire le switch
+      // en fonction du feedType, mais pour l'instant c'est plus sûr.
+
       _posts = newPosts;
       _hasMore = newPosts.length >= limit;
       _lastRefresh = DateTime.now();
+
     } catch (e) {
       _error = e.toString();
-      debugPrint('❌ loadFeed error: $e');
+      debugPrint('❌ FeedProvider loadFeed error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
-    }
-  }
-
-  /// Rafraîchissement forcé (pull-to-refresh)
-  Future<void> refreshFeed() async {
-    await loadFeed(feedType: _currentFeedType, force: true);
-  }
-
-  // ============================================================
-  // AUTO-REFRESH (si nécessaire, mais on peut le désactiver)
-  // ============================================================
-
-  Future<void> _autoRefresh() async {
-    try {
-      final now = DateTime.now();
-      if (_lastRefresh != null && now.difference(_lastRefresh!).inSeconds < 3) return;
-      _lastRefresh = now;
-      // Rechargement discret (sans afficher le spinner)
-      final newPosts = await _networkService.getFeedPosts(limit: 20);
-      // Comparer et mettre à jour uniquement si différent
-      if (_posts.length != newPosts.length ||
-          !_posts.every((p) => newPosts.any((np) => np.id == p.id))) {
-        _posts = newPosts;
-        notifyListeners();
-        debugPrint('🔄 Auto-refresh effectué');
-      }
-    } catch (e) {
-      debugPrint('❌ _autoRefresh error: $e');
     }
   }
 
@@ -204,13 +196,17 @@ class FeedProvider extends ChangeNotifier {
 
   Future<bool> createPost(String content, List<String> images) async {
     try {
+      debugPrint('📝 FeedProvider: création du post...');
       final postId = await _networkService.createPost(content, images);
-      if (postId.isEmpty) return false;
-      // Le realtime insérera le post s'il est actif, donc pas besoin de recharger.
-      // Mais on peut forcer un refresh au cas où.
-      await refreshFeed();
+      if (postId.isEmpty) {
+        debugPrint('❌ FeedProvider: pas d\'ID retourné');
+        return false;
+      }
+      debugPrint('✅ FeedProvider: post créé avec ID: $postId');
+      await loadFeed(feedType: _currentFeedType, force: true);
       return true;
     } catch (e) {
+      debugPrint('❌ FeedProvider createPost error: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -227,40 +223,43 @@ class FeedProvider extends ChangeNotifier {
       if (index == -1) return;
 
       final post = _posts[index];
-      final currentLike = post.isLiked;
+      final currentLikeStatus = post.isLiked;
 
-      // Optimistic update
-      _posts[index] = post.copyWith(
-        likesCount: currentLike ? post.likesCount - 1 : post.likesCount + 1,
-        isLiked: !currentLike,
-      );
-      notifyListeners();
-
-      // Appel API
-      if (currentLike) {
+      if (currentLikeStatus) {
         await _networkService.unlikePost(postId);
+        _posts[index] = post.copyWith(
+          likesCount: (post.likesCount - 1).clamp(0, double.infinity).toInt(),
+          isLiked: false,
+        );
       } else {
         await _networkService.likePost(postId);
+        _posts[index] = post.copyWith(
+          likesCount: post.likesCount + 1,
+          isLiked: true,
+        );
       }
+
+      notifyListeners();
     } catch (e) {
-      // Revert en cas d'erreur
-      await loadFeed(feedType: _currentFeedType, force: true);
-      debugPrint('❌ toggleLike error: $e');
+      debugPrint('❌ FeedProvider toggleLike error: $e');
     }
   }
 
   Future<void> addComment(String postId, String comment) async {
     try {
       await _networkService.addComment(postId, comment);
+
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index != -1) {
-        _posts[index] = _posts[index].copyWith(
-          commentsCount: _posts[index].commentsCount + 1,
+        final post = _posts[index];
+        _posts[index] = post.copyWith(
+          commentsCount: post.commentsCount + 1,
         );
         notifyListeners();
       }
+      debugPrint('✅ FeedProvider: Commentaire ajouté');
     } catch (e) {
-      debugPrint('❌ addComment error: $e');
+      debugPrint('❌ FeedProvider addComment error: $e');
     }
   }
 
