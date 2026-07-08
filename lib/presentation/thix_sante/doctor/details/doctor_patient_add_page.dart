@@ -69,7 +69,7 @@ class _DoctorPatientAddPageState extends State<DoctorPatientAddPage> {
         title: const Text('Ajouter un patient'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.popOrGo('/sante/doctor/patients'),
+          onPressed: () => context.go('/sante/doctor/patients'),
         ),
       ),
       body: ListView(
