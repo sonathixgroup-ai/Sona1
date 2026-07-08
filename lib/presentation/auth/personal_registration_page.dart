@@ -907,7 +907,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   void _back() {
     if (_isLoading) return;
     if (_step <= 1) {
-      context.popOrGo(AppRoutes.home);
+      context.go(AppRoutes.home);
       return;
     }
     setState(() => _step -= 1);
