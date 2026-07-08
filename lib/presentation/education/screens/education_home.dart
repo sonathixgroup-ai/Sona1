@@ -17,6 +17,23 @@ import 'package:thix_id/presentation/education/models/formation.dart';
 import 'package:thix_id/presentation/education/models/certificate.dart';
 
 // ============================================================================
+// CHARTE THIX EDUCATION — Élite Institutionnel Bleu / Blanc
+// ============================================================================
+class _EduColors {
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color background = Color(0xFFF7FAFF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color border = Color(0xFFE7EEFC);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color green = Color(0xFF10B981);
+}
+
+// ============================================================================
 // PAGE PRINCIPALE AVEC BOTTOM NAVIGATION
 // ============================================================================
 class EducationHome extends StatefulWidget {
@@ -47,72 +64,160 @@ class _EducationHomeState extends State<EducationHome> {
     'Profil',
   ];
 
+  final List<IconData> _navIcons = [
+    Icons.home_rounded,
+    Icons.book_rounded,
+    Icons.school_rounded,
+    Icons.verified_rounded,
+    Icons.library_books_rounded,
+    Icons.person_rounded,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          _titles[_selectedIndex],
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1E293B),
+      backgroundColor: _EduColors.background,
+      appBar: _buildAppBar(),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  // ============================================================
+  // APP BAR — dégradé incurvé bleu institutionnel
+  // ============================================================
+  PreferredSizeWidget _buildAppBar() {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(72),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_EduColors.navyDeep, _EduColors.navy, _EduColors.primaryBlue],
           ),
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(26),
+            bottomRight: Radius.circular(26),
+          ),
+          boxShadow: [
+            BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
+          ],
         ),
-        actions: [
-          if (_selectedIndex == 0)
-            IconButton(
-              icon: const Icon(Icons.search_rounded, color: Color(0xFF475569)),
-              onPressed: () => context.push('/education/search'),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(_navIcons[_selectedIndex], size: 16, color: _EduColors.gold),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    _titles[_selectedIndex],
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                if (_selectedIndex == 0) _appBarIcon(Icons.search_rounded, () => context.push('/education/search')),
+                _appBarIcon(Icons.notifications_none_rounded, () {}),
+              ],
             ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF475569)),
-            onPressed: () {},
           ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: const Color(0xFFE2E8F0), height: 1),
         ),
       ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF2D6CDF),
-        unselectedItemColor: const Color(0xFF64748B),
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book_rounded),
-            label: 'Mes cours',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.school_rounded),
-            label: 'Apprendre',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.verified_rounded),
-            label: 'Certificats',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.library_books_rounded),
-            label: 'Bibliothèque',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
+    );
+  }
+
+  Widget _appBarIcon(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(11),
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.14),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: Colors.white, size: 17),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BOTTOM NAV — flottante, incurvée
+  // ============================================================
+  Widget _buildBottomNavBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      decoration: BoxDecoration(
+        color: _EduColors.pureWhite,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(color: _EduColors.navyDeep.withOpacity(0.12), blurRadius: 22, offset: const Offset(0, 9)),
         ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(_titles.length, (index) {
+              return _navItem(
+                _navIcons[index],
+                _titles[index],
+                _selectedIndex == index,
+                () => setState(() => _selectedIndex = index),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(IconData icon, String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: isSelected ? _EduColors.softBlue : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: isSelected ? _EduColors.primaryBlue : _EduColors.mutedText, size: 20),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                color: isSelected ? _EduColors.primaryBlue : _EduColors.mutedText,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -156,22 +261,26 @@ class _HomePageState extends State<_HomePage> {
     final featuredFormation = formations.isNotEmpty ? formations.first : null;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ─── BANNIÈRE À LA UNE ────────────────────────────
-          // (Cette bannière pourra être gérée depuis l'espace instructeur plus tard)
           if (featuredFormation != null)
             _FeaturedBanner(formation: featuredFormation)
           else
             Container(
-              height: 120,
+              height: 130,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF2D6CDF)],
+                  colors: [_EduColors.navyDeep, _EduColors.navy, _EduColors.primaryBlue],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(color: _EduColors.navyDeep.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 9)),
+                ],
               ),
               padding: const EdgeInsets.all(20),
               child: const Row(
@@ -179,21 +288,21 @@ class _HomePageState extends State<_HomePage> {
                   Expanded(
                     child: Text(
                       '🚀 À la une : Découvrez nos formations du moment !',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, height: 1.25),
                     ),
                   ),
-                  Icon(Icons.trending_up_rounded, color: Colors.white, size: 40),
+                  Icon(Icons.trending_up_rounded, color: Colors.white, size: 38),
                 ],
               ),
             ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // ─── CATÉGORIES ────────────────────────────────────
           const Text(
             'Catégories',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: _EduColors.darkText),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -222,107 +331,127 @@ class _HomePageState extends State<_HomePage> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // ─── CONTINUER VOTRE APPRENTISSAGE ──────────────
           const Text(
             'Continuer votre apprentissage',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: _EduColors.darkText),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              color: _EduColors.pureWhite,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _EduColors.border),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0A1F44).withOpacity(0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: _EduColors.navyDeep.withOpacity(0.05),
+                  blurRadius: 14,
+                  offset: const Offset(0, 7),
                 ),
               ],
             ),
             child: Row(
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(colors: [_EduColors.softBlue, Color(0xFFE3EDFF)]),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.play_circle_filled, color: Color(0xFF2D6CDF), size: 40),
+                  child: const Icon(Icons.play_circle_filled_rounded, color: _EduColors.primaryBlue, size: 36),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Flutter & Dart – Maîtrisez...',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _EduColors.darkText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         'Progression : 65%',
-                        style: TextStyle(fontSize: 13, color: const Color(0xFF475569)),
+                        style: TextStyle(fontSize: 12, color: _EduColors.mutedText, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 8),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(20),
                         child: LinearProgressIndicator(
                           value: 0.65,
-                          backgroundColor: const Color(0xFFE2E8F0),
-                          color: const Color(0xFF2D6CDF),
-                          minHeight: 6,
+                          backgroundColor: _EduColors.softBlue,
+                          color: _EduColors.primaryBlue,
+                          minHeight: 7,
                         ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                  onPressed: () {},
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: _EduColors.softBlue, borderRadius: BorderRadius.circular(20)),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _EduColors.navy),
+                    onPressed: () {},
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // ─── FORMATIONS POPULAIRES ──────────────────────
           const Text(
             'Les plus populaires',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: _EduColors.darkText),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           EducationCarousel(
             formations: formations.take(5).toList(),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // ─── RECOMMANDATIONS ─────────────────────────────
           const Text(
             'Recommandé pour vous',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: _EduColors.darkText),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           RecommendationCarousel(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // ─── TOUTES LES FORMATIONS (GRILLE) ─────────────
           const Text(
             'Toutes les formations',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: _EduColors.darkText),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (formations.isEmpty)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Text(
-                  'Aucune formation disponible pour le moment.',
-                  style: TextStyle(color: Color(0xFF7386A8)),
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: const BoxDecoration(color: _EduColors.softBlue, shape: BoxShape.circle),
+                      child: Icon(Icons.school_rounded, size: 32, color: _EduColors.navy.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Aucune formation disponible pour le moment.',
+                      style: TextStyle(color: _EduColors.mutedText),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -362,19 +491,19 @@ class _FeaturedBanner extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/education/formation/${formation.id}'),
       child: Container(
-        height: 140,
+        height: 148,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1E293B), Color(0xFF2D6CDF)],
+            colors: [_EduColors.navyDeep, _EduColors.navy, _EduColors.primaryBlue],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0A1F44).withOpacity(0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: _EduColors.navyDeep.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -389,16 +518,16 @@ class _FeaturedBanner extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: _EduColors.gold,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
                       'À LA UNE',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
+                        color: _EduColors.navyDeep,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ),
@@ -407,7 +536,7 @@ class _FeaturedBanner extends StatelessWidget {
                     formation.title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
                     ),
@@ -433,8 +562,8 @@ class _FeaturedBanner extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
                             'Gratuit',
@@ -446,23 +575,25 @@ class _FeaturedBanner extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 10),
             Container(
-              width: 80,
-              height: 80,
+              width: 84,
+              height: 84,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withOpacity(0.18)),
               ),
               child: formation.imageUrl != null
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       child: Image.network(
                         formation.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.image_rounded, color: Colors.white38, size: 40),
+                        errorBuilder: (_, __, ___) => const Icon(Icons.image_rounded, color: Colors.white38, size: 38),
                       ),
                     )
-                  : const Icon(Icons.school_rounded, color: Colors.white38, size: 40),
+                  : const Icon(Icons.school_rounded, color: Colors.white38, size: 38),
             ),
           ],
         ),
@@ -503,24 +634,29 @@ class _MyLearningPageState extends State<_MyLearningPage> {
     final enrollments = provider.myEnrollments;
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: _EduColors.primaryBlue));
     }
 
     if (enrollments.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.book_rounded, size: 64, color: Color(0xFFD1D5DB)),
-            SizedBox(height: 16),
-            Text(
-              'Aucune formation en cours',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+            Container(
+              width: 84,
+              height: 84,
+              decoration: const BoxDecoration(color: _EduColors.softBlue, shape: BoxShape.circle),
+              child: Icon(Icons.book_rounded, size: 36, color: _EduColors.navy.withOpacity(0.5)),
             ),
-            SizedBox(height: 8),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
+              'Aucune formation en cours',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _EduColors.darkText),
+            ),
+            const SizedBox(height: 8),
+            const Text(
               'Inscrivez-vous à une formation pour commencer',
-              style: TextStyle(color: Color(0xFF7386A8)),
+              style: TextStyle(color: _EduColors.mutedText),
             ),
           ],
         ),
@@ -576,11 +712,12 @@ class _AllFormationsPageState extends State<_AllFormationsPage> {
     final formations = provider.formations;
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: _EduColors.primaryBlue));
     }
 
     return Column(
       children: [
+        const SizedBox(height: 4),
         // Barre de catégories
         SizedBox(
           height: 44,
@@ -616,7 +753,7 @@ class _AllFormationsPageState extends State<_AllFormationsPage> {
               ? const Center(
                   child: Text(
                     'Aucune formation disponible',
-                    style: TextStyle(color: Color(0xFF7386A8)),
+                    style: TextStyle(color: _EduColors.mutedText),
                   ),
                 )
               : ListView.builder(
@@ -671,24 +808,33 @@ class _CertificatesPageState extends State<_CertificatesPage> {
     final certificates = provider.certificates;
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: _EduColors.primaryBlue));
     }
 
     if (certificates.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.verified_rounded, size: 64, color: Color(0xFFD1D5DB)),
-            SizedBox(height: 16),
-            Text(
-              'Aucun certificat',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+            Container(
+              width: 84,
+              height: 84,
+              decoration: const BoxDecoration(color: _EduColors.softBlue, shape: BoxShape.circle),
+              child: Icon(Icons.verified_rounded, size: 36, color: _EduColors.navy.withOpacity(0.5)),
             ),
-            SizedBox(height: 8),
-            Text(
-              'Terminez une formation certifiante pour obtenir votre certificat',
-              style: TextStyle(color: Color(0xFF7386A8)),
+            const SizedBox(height: 16),
+            const Text(
+              'Aucun certificat',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _EduColors.darkText),
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'Terminez une formation certifiante pour obtenir votre certificat',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _EduColors.mutedText),
+              ),
             ),
           ],
         ),
@@ -704,47 +850,59 @@ class _CertificatesPageState extends State<_CertificatesPage> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE7EEFC)),
+            color: _EduColors.pureWhite,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _EduColors.border),
+            boxShadow: [
+              BoxShadow(color: _EduColors.navyDeep.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 6)),
+            ],
           ),
           child: Row(
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF2D6CDF), Color(0xFF123B7A)],
+                    colors: [_EduColors.navyDeep, _EduColors.primaryBlue],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(color: _EduColors.primaryBlue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
+                  ],
                 ),
                 child: const Icon(Icons.verified_rounded, color: Colors.white, size: 28),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Certificat',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _EduColors.darkText),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Délivré le ${cert.issuedAt.day}/${cert.issuedAt.month}/${cert.issuedAt.year}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF7386A8)),
+                      style: const TextStyle(fontSize: 12, color: _EduColors.mutedText),
                     ),
                     Text(
                       'ID: ${cert.verificationHash.substring(0, 8)}...',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF7386A8)),
+                      style: const TextStyle(fontSize: 11, color: _EduColors.mutedText),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFF7386A8)),
-                onPressed: () => context.push('/education/certificate/${cert.id}', extra: cert),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(color: _EduColors.softBlue, borderRadius: BorderRadius.circular(20)),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.chevron_right_rounded, color: _EduColors.navy, size: 20),
+                  onPressed: () => context.push('/education/certificate/${cert.id}', extra: cert),
+                ),
               ),
             ],
           ),
@@ -762,20 +920,25 @@ class _LibraryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.library_books_rounded, size: 64, color: Color(0xFFD1D5DB)),
-          SizedBox(height: 16),
-          Text(
-            'Bibliothèque',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+          Container(
+            width: 92,
+            height: 92,
+            decoration: const BoxDecoration(color: _EduColors.softBlue, shape: BoxShape.circle),
+            child: Icon(Icons.library_books_rounded, size: 40, color: _EduColors.navy.withOpacity(0.5)),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 16),
+          const Text(
+            'Bibliothèque',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: _EduColors.darkText),
+          ),
+          const SizedBox(height: 8),
+          const Text(
             'Bientôt disponible',
-            style: TextStyle(color: Color(0xFF7386A8)),
+            style: TextStyle(color: _EduColors.mutedText),
           ),
         ],
       ),
@@ -798,46 +961,66 @@ class _ProfilePage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircleAvatar(
-              radius: 48,
-              backgroundColor: Color(0xFFE2E8F0),
-              child: Icon(Icons.person, size: 48, color: Color(0xFF475569)),
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(colors: [_EduColors.navyDeep, _EduColors.primaryBlue]),
+                boxShadow: [
+                  BoxShadow(color: _EduColors.primaryBlue.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8)),
+                ],
+              ),
+              child: const Icon(Icons.person_rounded, size: 48, color: Colors.white),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               user?.email ?? 'Utilisateur',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _EduColors.darkText),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               'ID: ${user?.id ?? 'Non connecté'}',
-              style: const TextStyle(color: Color(0xFF7386A8)),
+              style: const TextStyle(color: _EduColors.mutedText, fontSize: 12),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 26),
 
-            ElevatedButton.icon(
-              onPressed: () => context.push('/profile'),
-              icon: const Icon(Icons.edit_rounded),
-              label: const Text('Éditer le profil'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2D6CDF),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push('/profile'),
+                icon: const Icon(Icons.edit_rounded),
+                label: const Text('Éditer le profil'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _EduColors.navyDeep,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
 
-            ElevatedButton.icon(
-              onPressed: () => context.push('/instructor/dashboard'),
-              icon: const Icon(Icons.school_rounded),
-              label: const Text('Passer en mode formateur'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push('/instructor/dashboard'),
+                icon: const Icon(Icons.school_rounded),
+                label: const Text('Passer en mode formateur'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _EduColors.green,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                 ),
               ),
             ),
@@ -845,7 +1028,7 @@ class _ProfilePage extends StatelessWidget {
 
             TextButton(
               onPressed: () {},
-              child: const Text('Se déconnecter', style: TextStyle(color: Color(0xFFEF4444))),
+              child: const Text('Se déconnecter', style: TextStyle(color: Color(0xFFE5484D), fontWeight: FontWeight.w700)),
             ),
           ],
         ),
