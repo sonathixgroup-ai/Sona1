@@ -33,7 +33,7 @@ class OpportunityDetailsPage extends StatelessWidget {
                     const Spacer(),
                     Text('Opportunité introuvable.', style: context.textStyles.titleMedium?.copyWith(color: context.theme.colorScheme.onSurface)),
                     const SizedBox(height: AppSpacing.lg),
-                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => context.popOrGo(AppRoutes.opportunities), child: const Text('Retour'))),
+                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => context.go(AppRoutes.opportunities), child: const Text('Retour'))),
                     const Spacer(),
                   ],
                 ),
@@ -137,7 +137,7 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(onPressed: () => context.popOrGo(AppRoutes.opportunities), icon: const Icon(Icons.arrow_back_ios_new_rounded)),
+        IconButton(onPressed: () => context.go(AppRoutes.opportunities), icon: const Icon(Icons.arrow_back_ios_new_rounded)),
         Expanded(child: Text('THIX Opportunités', style: context.textStyles.titleLarge?.copyWith(color: context.theme.colorScheme.onSurface, fontWeight: FontWeight.w900))),
       ],
     );
