@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/models/account_type.dart';
 
 class AuthController extends ChangeNotifier {
   static AuthController? _instance;
@@ -78,7 +79,12 @@ class AuthController extends ChangeNotifier {
     String? displayName,
     AccountType accountType = AccountType.personal,
   }) async {
-    final u = await _auth.confirmPhoneCode(session: session, smsCode: smsCode, displayName: displayName, accountType: accountType);
+    final u = await _auth.confirmPhoneCode(
+      session: session,
+      smsCode: smsCode,
+      displayName: displayName,
+      accountType: accountType,
+    );
     notifyListeners();
     return u;
   }
@@ -91,5 +97,22 @@ class AuthController extends ChangeNotifier {
   Future<void> updateCurrentUser(AppUser user) async {
     await _auth.updateCurrentUser(user);
     notifyListeners();
+  }
+
+  // ==========================================================================
+  // MÉTHODES OTP (vérification par email)
+  // ==========================================================================
+
+  /// Vérifie le code OTP reçu par email.
+  Future<void> verifyOTP({required String email, required String token}) async {
+    await _auth.verifyOTP(email: email, token: token);
+    // La session sera mise à jour automatiquement via le listener.
+    // On notifie les listeners pour rafraîchir l'UI.
+    notifyListeners();
+  }
+
+  /// Renvoie un nouveau code OTP par email.
+  Future<void> resendOTP({required String email}) async {
+    await _auth.resendOTP(email: email);
   }
 }
