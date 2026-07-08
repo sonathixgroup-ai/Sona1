@@ -42,9 +42,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _thixIdGenerated = '';
   String _uid = '';
   bool _isLoading = false;
-  bool _otpSent = false;
+  bool _otpSent = false; // indique si le code a été envoyé (pour affichage)
   int _step = 1;
 
+  // Mapping pays -> code
   static const Map<String, String> _countryCodes = {
     'République Démocratique du Congo': 'CD',
     'Rwanda': 'RW',
@@ -99,6 +100,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return e.toString();
   }
 
+  // ---------- Génération du THIX ID ----------
   String _generateThixId(String country, String dob, String uid) {
     final countryCode = _countryCodes[country] ?? 'XX';
     final now = DateTime.now();
@@ -115,6 +117,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return hash.toString().substring(0, 6).toUpperCase();
   }
 
+  // ---------- Navigation étape 1 → 2 ----------
   Future<void> _goToStep2() async {
     final name = _nameC.text.trim();
     final dob = _dobC.text.trim();
@@ -124,9 +127,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _step = 2);
   }
 
-  // ---------- Envoi du code OTP (bouton bleu) ----------
+  // ---------- Envoi du code OTP (inscription) ----------
   Future<void> _sendOtp() async {
+    // On permet l'envoi même si _otpSent est true (renvoi)
     if (_isLoading) return;
+
     final email = _emailC.text.trim();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
@@ -140,6 +145,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
+      // On crée le compte (l'email de confirmation est envoyé automatiquement)
       await auth.registerPersonal(
         email: email,
         password: pass,
@@ -155,16 +161,14 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       );
       _otpSent = true;
       _snack('Code de vérification envoyé à votre email.');
-      setState(() {});
     } catch (e) {
-      // Traiter l'exception "inscription enregistrée" comme un succès
+      // Si l'erreur indique que l'email doit être confirmé, c'est un succès
       final message = e is AuthException ? e.message.toLowerCase() : '';
       if (message.contains('inscription enregistrée') ||
           message.contains('confirm') ||
           message.contains('confirmez')) {
         _otpSent = true;
         _snack('Code de vérification envoyé à votre email.');
-        setState(() {});
       } else {
         _snack(_rawError(e));
       }
@@ -173,30 +177,40 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ---------- Vérification OTP et finalisation (bouton jaune, étape 2) ----------
+  // ---------- Vérification du code OTP et finalisation ----------
   Future<void> _verifyAndRegister() async {
     if (_isLoading) return;
+
     final code = _otpC.text.trim();
-    if (code.isEmpty) return _snack('Veuillez saisir le code reçu par email.');
+    if (code.isEmpty) {
+      _snack('Veuillez saisir le code reçu par email.');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
+      // Vérification du code OTP
       await auth.verifyOTP(email: _emailC.text.trim(), token: code);
       _snack('Email vérifié avec succès !');
 
       final me = auth.currentUser;
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
 
+      // Génération du THIX ID personnalisé
       final thixId = _generateThixId(_country!, _dobC.text.trim(), me.id);
       _thixIdGenerated = thixId;
       _uid = me.id;
 
-      final chatId = _thixChatC.text.trim().isNotEmpty
+      // Récupération du THIX CHAT saisi
+      final desiredChat = _thixChatC.text.trim().isNotEmpty
           ? _thixChatC.text.trim()
           : _suggestChatFromName(_nameC.text.trim());
 
-      final claimed = await _userService.ensureThixChat(uid: me.id, desired: chatId);
+      // Réservation du THIX CHAT (unique)
+      final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
+
+      // Mise à jour du profil (THIX ID, THIX CHAT, status)
       await _userService.updateProfile(
         uid: me.id,
         thixId: thixId,
@@ -221,6 +235,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return candidate.length > 21 ? candidate.substring(0, 21) : candidate;
   }
 
+  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -228,6 +243,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       body: SafeArea(
         child: Stack(
           children: [
+            // Entête avec dégradé
             Positioned(
               top: 0,
               left: 0,
@@ -272,12 +288,14 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                 ),
               ),
             ),
+            // Corps scrollable
             SingleChildScrollView(
               padding: const EdgeInsets.only(top: 130, bottom: 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 16),
+                  // Carte blanche
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.all(24),
@@ -303,8 +321,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  // Bouton principal (jaune)
                   _buildMainButton(),
                   const SizedBox(height: 16),
+                  // Lien retour / connexion
                   if (_step < 3)
                     TextButton(
                       onPressed: () {
@@ -393,15 +413,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         onPressed = _goToStep2;
         break;
       case 2:
-        if (!_otpSent) {
-          // Tant que l'OTP n'a pas été envoyé, le bouton jaune ne sert à rien ici
-          // (l'envoi se fait via le bouton bleu dans _Step2Account)
-          label = 'EN ATTENTE DU CODE OTP';
-          onPressed = null;
-        } else {
-          label = _isLoading ? 'VÉRIFICATION...' : 'VÉRIFIER LE CODE OTP';
-          onPressed = _verifyAndRegister;
-        }
+        // Le bouton jaune est TOUJOURS actif : son rôle est de confirmer l'OTP
+        label = _isLoading ? 'VÉRIFICATION...' : 'CONFIRMER LE CODE OTP';
+        onPressed = _verifyAndRegister;
         break;
       case 3:
         label = 'ACCUEIL';
@@ -418,23 +432,19 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: onPressed == null
-                  ? [Colors.grey.shade400, Colors.grey.shade400]
-                  : const [Color(0xFFF9C74F), Color(0xFFF8961E)],
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF9C74F), Color(0xFFF8961E)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(30),
-            boxShadow: onPressed == null
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.orange.shade300.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.orange.shade300.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -609,7 +619,6 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Email et mot de passe restent toujours visibles et modifiables
         TextField(
           controller: emailC,
           keyboardType: TextInputType.emailAddress,
@@ -646,7 +655,7 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Bouton bleu : demande / renvoi du code OTP (toujours actif)
+        // Bouton "Envoyer le code OTP" (toujours visible, toujours actif)
         Row(
           children: [
             Expanded(
@@ -657,7 +666,7 @@ class _Step2Account extends StatelessWidget {
                   size: 18,
                 ),
                 label: Text(
-                  isOtpSent ? '🔄 Renvoyer le code OTP' : '📩 Envoyer le code OTP',
+                  isOtpSent ? '🔁 Renvoyer le code OTP' : '📩 Envoyer le code OTP',
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: LightModeColors.accent,
@@ -673,15 +682,9 @@ class _Step2Account extends StatelessWidget {
         ),
         if (isOtpSent) ...[
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green.shade600, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                'Code envoyé à ${emailC.text}',
-                style: TextStyle(color: Colors.green.shade700, fontSize: 12),
-              ),
-            ],
+          Text(
+            '✅ Un code a été envoyé à votre adresse email.',
+            style: TextStyle(color: Colors.green.shade700, fontSize: 14),
           ),
         ],
         const SizedBox(height: 16),
