@@ -7,7 +7,7 @@ import 'video_player_page.dart';
 import '../../models/media_content.dart';
 import '../../services/media_service.dart';
 import '../../app_router.dart'; // ✅ chemin corrigé (deux niveaux)
-
+import 'package:thix_id/nav.dart' show AppRoutes;
 // ============================================================
 // CHARTE THIX MEDIA — Élite Institutionnel Bleu / Blanc
 // ============================================================
