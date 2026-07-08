@@ -45,6 +45,12 @@ import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 import 'package:thix_id/presentation/education/services/education_service.dart';
 
+// ============================================================
+// ✅ IMPORTS MODERATEUR
+// ============================================================
+import 'package:thix_id/providers/auth_provider.dart';
+import 'package:thix_id/providers/moderator_provider.dart';
+
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
@@ -378,6 +384,16 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<RecommendationProvider>(
           create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
         ),
+
+        // ============================================================
+        // ✅ NOUVEAUX PROVIDERS MODERATEUR
+        // ============================================================
+        ChangeNotifierProvider<AuthProvider>(
+          create: (_) => AuthProvider(SupabaseConfig.client),
+        ),
+        ChangeNotifierProvider<ModeratorProvider>(
+          create: (_) => ModeratorProvider(widget.eventService),
+        ),
       ],
       child: Builder(
         builder: (context) {
@@ -388,7 +404,7 @@ class _MyAppState extends State<MyApp> {
             theme: lightTheme,
             darkTheme: darkTheme,
             themeMode: ThemeMode.system,
-            routerConfig: _router, // AppRouter inclut déjà les routes Education
+            routerConfig: _router, // AppRouter inclut déjà les routes Education et Moderator
             locale: locale,
             supportedLocales: LocaleController.supportedLocales,
             localizationsDelegates: const [
