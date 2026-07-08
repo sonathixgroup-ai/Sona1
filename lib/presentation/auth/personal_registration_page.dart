@@ -45,23 +45,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   bool _otpSent = false; // indique si le code a été envoyé (pour affichage)
   int _step = 1;
 
-  // Mapping pays -> code
-  static const Map<String, String> _countryCodes = {
-    'République Démocratique du Congo': 'CD',
-    'Rwanda': 'RW',
-    'Burundi': 'BI',
-    'Ouganda': 'UG',
-    'Angola': 'AO',
-    "Côte d'Ivoire": 'CI',
-    'Sénégal': 'SN',
-    'Cameroun': 'CM',
-    'France': 'FR',
-    'Belgique': 'BE',
-    'Canada': 'CA',
-    'États-Unis': 'US',
-    'Autre': 'XX',
-  };
-
   static const List<String> _countryList = [
     'République Démocratique du Congo',
     'Rwanda',
@@ -100,23 +83,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return e.toString();
   }
 
-  // ---------- Génération du THIX ID ----------
-  String _generateThixId(String country, String dob, String uid) {
-    final countryCode = _countryCodes[country] ?? 'XX';
-    final now = DateTime.now();
-    final year = now.year.toString().substring(2);
-    final month = now.month.toString().padLeft(2, '0');
-    final random = Random().nextInt(999999).toString().padLeft(6, '0');
-    final key = _generateVerificationKey(uid, countryCode, now);
-    return 'THIX-$countryCode-$year$month-$random-$key';
-  }
-
-  String _generateVerificationKey(String uid, String countryCode, DateTime date) {
-    final raw = '$uid-$countryCode-${date.millisecondsSinceEpoch}';
-    final hash = raw.hashCode.abs();
-    return hash.toString().substring(0, 6).toUpperCase();
-  }
-
   // ---------- Navigation étape 1 → 2 ----------
   Future<void> _goToStep2() async {
     final name = _nameC.text.trim();
@@ -129,7 +95,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   // ---------- Envoi du code OTP (inscription) ----------
   Future<void> _sendOtp() async {
-    // On permet l'envoi même si _otpSent est true (renvoi)
     if (_isLoading) return;
 
     final email = _emailC.text.trim();
@@ -145,7 +110,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
-      // On crée le compte (l'email de confirmation est envoyé automatiquement)
       await auth.registerPersonal(
         email: email,
         password: pass,
@@ -197,8 +161,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       final me = auth.currentUser;
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
 
-      // Génération du THIX ID personnalisé
-      final thixId = _generateThixId(_country!, _dobC.text.trim(), me.id);
+      // ✅ Génération du THIX ID via le service (garantit l'unicité)
+      final thixId = await _userService.ensureThixId(uid: me.id);
       _thixIdGenerated = thixId;
       _uid = me.id;
 
