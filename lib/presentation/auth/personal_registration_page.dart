@@ -126,7 +126,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   // ---------- Envoi du code OTP (inscription) ----------
   Future<void> _sendOtp() async {
-    if (_isLoading) return;
+    if (_isLoading || _otpSent) return; // éviter double envoi
     final email = _emailC.text.trim();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
@@ -153,20 +153,17 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           'registration_status': 'draft_step1',
         },
       );
-      // Succès immédiat (sans confirmation) : on passe à l'affichage de l'OTP
       _otpSent = true;
-      _snack('Un code de vérification a été envoyé à votre email.');
+      _snack('Code de vérification envoyé à votre email.');
       setState(() {});
     } catch (e) {
-      // Si l'erreur indique que l'email doit être confirmé, c'est un succès
       if (e is AuthException && 
           (e.message.contains('Inscription enregistrée') ||
            e.message.toLowerCase().contains('confirm'))) {
         _otpSent = true;
-        _snack('Un code de vérification a été envoyé à votre email.');
+        _snack('Code de vérification envoyé à votre email.');
         setState(() {});
       } else {
-        // Autre erreur : on l'affiche
         _snack(_rawError(e));
       }
     } finally {
@@ -398,7 +395,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           label = 'ENVOYER LE CODE OTP';
           onPressed = _sendOtp;
         } else {
-          label = _isLoading ? 'VÉRIFICATION...' : 'VÉRIFIER LE CODE';
+          label = _isLoading ? 'VÉRIFICATION...' : 'CONFIRMER';
           onPressed = _verifyAndRegister;
         }
         break;
@@ -640,59 +637,62 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Bouton "Envoyer le code OTP" (visible uniquement si l'OTP n'est pas encore envoyé)
-        if (!isOtpSent)
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: isLoading ? null : onSendOtp,
-                  icon: const Icon(Icons.send, size: 18),
-                  label: const Text('📩 Envoyer le code OTP'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: LightModeColors.accent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+        // Bouton "Envoyer le code OTP" (toujours visible, désactivé après envoi)
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: (isLoading || isOtpSent) ? null : onSendOtp,
+                icon: Icon(
+                  isOtpSent ? Icons.check_circle : Icons.send,
+                  size: 18,
+                ),
+                label: Text(
+                  isOtpSent ? '✅ Code envoyé' : '📩 Envoyer le code OTP',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isOtpSent ? Colors.green.shade600 : LightModeColors.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
-            ],
-          ),
-        // Si le code a été envoyé, afficher les champs OTP et THIX CHAT
-        if (isOtpSent) ...[
-          const SizedBox(height: 16),
-          TextField(
-            controller: otpC,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Code de vérification reçu par email *',
-              prefixIcon: const Icon(Icons.confirmation_number_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Champ OTP (toujours visible)
+        TextField(
+          controller: otpC,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Code de vérification reçu par email *',
+            prefixIcon: const Icon(Icons.confirmation_number_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: thixChatC,
-            decoration: InputDecoration(
-              labelText: 'THIX CHAT (nom d\'utilisateur public) *',
-              hintText: '@john_doe_123',
-              prefixIcon: const Icon(Icons.chat_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+        ),
+        const SizedBox(height: 12),
+        // Champ THIX CHAT (toujours visible)
+        TextField(
+          controller: thixChatC,
+          decoration: InputDecoration(
+            labelText: 'THIX CHAT (nom d\'utilisateur public) *',
+            hintText: '@john_doe_123',
+            prefixIcon: const Icon(Icons.chat_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères)',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-          ),
-        ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères)',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
       ],
     );
   }
