@@ -42,7 +42,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _thixIdGenerated = '';
   String _uid = '';
   bool _isLoading = false;
-  bool _otpSent = false;      // false tant que le code n'est pas envoyé
+  bool _otpSent = false;
   int _step = 1;
 
   static const Map<String, String> _countryCodes = {
@@ -124,9 +124,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _step = 2);
   }
 
-  // ---------- Envoi du code OTP (inscription) ----------
+  // ---------- Envoi du code OTP ----------
   Future<void> _sendOtp() async {
-    if (_isLoading || _otpSent) return; // éviter double envoi
+    if (_isLoading || _otpSent) return;
     final email = _emailC.text.trim();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
@@ -157,9 +157,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _snack('Code de vérification envoyé à votre email.');
       setState(() {});
     } catch (e) {
-      if (e is AuthException && 
-          (e.message.contains('Inscription enregistrée') ||
-           e.message.toLowerCase().contains('confirm'))) {
+      // Traiter l'exception "inscription enregistrée" comme un succès
+      final message = e is AuthException ? e.message.toLowerCase() : '';
+      if (message.contains('inscription enregistrée') ||
+          message.contains('confirm') ||
+          message.contains('confirmez')) {
         _otpSent = true;
         _snack('Code de vérification envoyé à votre email.');
         setState(() {});
@@ -637,7 +639,7 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Bouton "Envoyer le code OTP" (toujours visible, désactivé après envoi)
+        // Bouton "Envoyer le code OTP" – devient inactif après envoi
         Row(
           children: [
             Expanded(
