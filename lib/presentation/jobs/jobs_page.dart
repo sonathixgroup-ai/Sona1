@@ -219,7 +219,7 @@ class _JobsPageState extends State<JobsPage> {
                       Row(
                         children: [
                           IconButton(
-                            onPressed: () => context.popOrGo(AppRoutes.home),
+                            onPressed: () => context.go(AppRoutes.home),
                             icon: Icon(Icons.arrow_back_ios_new_rounded, color: cs.onSurface),
                           ),
                           Expanded(
