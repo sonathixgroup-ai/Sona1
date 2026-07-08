@@ -178,7 +178,7 @@ class _JobApplyPageState extends State<JobApplyPage> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: () => context.popOrGo(AppRoutes.jobs),
+                        onPressed: () => context.go(AppRoutes.jobs),
                         child: const Text('Retour'),
                       ),
                     ),
@@ -325,7 +325,7 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          onPressed: () => context.popOrGo('/jobs/$jobId'),
+          onPressed: () => contex.go('/jobs/$jobId'),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text),
         ),
         Expanded(
