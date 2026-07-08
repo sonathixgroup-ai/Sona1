@@ -124,9 +124,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _step = 2);
   }
 
-  // ---------- Envoi du code OTP ----------
+  // ---------- Envoi du code OTP (bouton bleu) ----------
   Future<void> _sendOtp() async {
-    if (_isLoading || _otpSent) return;
+    if (_isLoading) return;
     final email = _emailC.text.trim();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
@@ -173,7 +173,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ---------- Vérification OTP et finalisation ----------
+  // ---------- Vérification OTP et finalisation (bouton jaune, étape 2) ----------
   Future<void> _verifyAndRegister() async {
     if (_isLoading) return;
     final code = _otpC.text.trim();
@@ -345,6 +345,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           confirmC: _confirmC,
           otpC: _otpC,
           thixChatC: _thixChatC,
+          onSendOtp: _sendOtp,
           isOtpSent: _otpSent,
           isLoading: _isLoading,
         );
@@ -393,10 +394,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         break;
       case 2:
         if (!_otpSent) {
-          label = 'ENVOYER LE CODE OTP';
-          onPressed = _sendOtp;
+          // Tant que l'OTP n'a pas été envoyé, le bouton jaune ne sert à rien ici
+          // (l'envoi se fait via le bouton bleu dans _Step2Account)
+          label = 'EN ATTENTE DU CODE OTP';
+          onPressed = null;
         } else {
-          label = _isLoading ? 'VÉRIFICATION...' : 'CONFIRMER';
+          label = _isLoading ? 'VÉRIFICATION...' : 'VÉRIFIER LE CODE OTP';
           onPressed = _verifyAndRegister;
         }
         break;
@@ -415,19 +418,23 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF9C74F), Color(0xFFF8961E)],
+            gradient: LinearGradient(
+              colors: onPressed == null
+                  ? [Colors.grey.shade400, Colors.grey.shade400]
+                  : const [Color(0xFFF9C74F), Color(0xFFF8961E)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.orange.shade300.withValues(alpha: 0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            boxShadow: onPressed == null
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.orange.shade300.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -574,6 +581,7 @@ class _Step1Profile extends StatelessWidget {
 
 class _Step2Account extends StatelessWidget {
   final TextEditingController emailC, passwordC, confirmC, otpC, thixChatC;
+  final VoidCallback onSendOtp;
   final bool isOtpSent, isLoading;
 
   const _Step2Account({
@@ -582,6 +590,7 @@ class _Step2Account extends StatelessWidget {
     required this.confirmC,
     required this.otpC,
     required this.thixChatC,
+    required this.onSendOtp,
     required this.isOtpSent,
     required this.isLoading,
   });
@@ -600,10 +609,10 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        // Email et mot de passe restent toujours visibles et modifiables
         TextField(
           controller: emailC,
           keyboardType: TextInputType.emailAddress,
-          enabled: !isOtpSent,
           decoration: InputDecoration(
             labelText: 'Email *',
             prefixIcon: const Icon(Icons.email_outlined),
@@ -616,7 +625,6 @@ class _Step2Account extends StatelessWidget {
         TextField(
           controller: passwordC,
           obscureText: true,
-          enabled: !isOtpSent,
           decoration: InputDecoration(
             labelText: 'Mot de passe * (8 caractères min)',
             prefixIcon: const Icon(Icons.lock_outline),
@@ -629,7 +637,6 @@ class _Step2Account extends StatelessWidget {
         TextField(
           controller: confirmC,
           obscureText: true,
-          enabled: !isOtpSent,
           decoration: InputDecoration(
             labelText: 'Confirmer le mot de passe *',
             prefixIcon: const Icon(Icons.lock_outline),
@@ -639,32 +646,49 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        if (isOtpSent)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.green.shade200),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Code envoyé à ${emailC.text}',
-                    style: TextStyle(color: Colors.green.shade800),
-                  ),
+        // Bouton bleu : demande / renvoi du code OTP (toujours actif)
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: isLoading ? null : onSendOtp,
+                icon: Icon(
+                  isOtpSent ? Icons.refresh : Icons.send,
+                  size: 18,
                 ),
-              ],
+                label: Text(
+                  isOtpSent ? '🔄 Renvoyer le code OTP' : '📩 Envoyer le code OTP',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: LightModeColors.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
+          ],
+        ),
+        if (isOtpSent) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green.shade600, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                'Code envoyé à ${emailC.text}',
+                style: TextStyle(color: Colors.green.shade700, fontSize: 12),
+              ),
+            ],
           ),
+        ],
         const SizedBox(height: 16),
+        // Champ OTP (toujours visible)
         TextField(
           controller: otpC,
           keyboardType: TextInputType.number,
-          enabled: isOtpSent,
           decoration: InputDecoration(
             labelText: 'Code de vérification reçu par email *',
             prefixIcon: const Icon(Icons.confirmation_number_outlined),
@@ -674,9 +698,9 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        // Champ THIX CHAT (toujours visible)
         TextField(
           controller: thixChatC,
-          enabled: isOtpSent,
           decoration: InputDecoration(
             labelText: 'THIX CHAT (nom d\'utilisateur public) *',
             hintText: '@john_doe_123',
