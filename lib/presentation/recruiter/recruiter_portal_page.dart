@@ -68,7 +68,7 @@ class _RecruiterPortalPageState extends State<RecruiterPortalPage> {
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () => context.popOrGo(AppRoutes.home),
+                        onPressed: () => context.go(AppRoutes.home),
                         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text),
                       ),
                       Expanded(
