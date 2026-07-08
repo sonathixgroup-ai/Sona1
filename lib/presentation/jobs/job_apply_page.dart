@@ -325,7 +325,7 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          onPressed: () => contex.go('/jobs/$jobId'),
+          onPressed: () => context.go('/jobs/$jobId');
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text),
         ),
         Expanded(
