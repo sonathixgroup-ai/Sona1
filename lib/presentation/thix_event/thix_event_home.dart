@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../providers/event_provider.dart';
+import '../../providers/auth_provider.dart';        // ← AJOUTÉ pour le rôle
 import '../../models/event_model.dart';
 import 'widgets/event_card.dart';
 import 'widgets/category_chip.dart';
@@ -388,10 +389,28 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                   const Text('Découvrez, réservez, vivez l\'exceptionnel.', style: TextStyle(color: Colors.white70, fontSize: 10)),
                 ],
               ),
+              // ============================================================
+              // ROW DES ICÔNES DROITE
+              // ============================================================
               Row(
                 children: [
                   _headerIconButton(Icons.search_rounded, () => context.push('/thix-event/search')),
                   _headerIconButton(Icons.notifications_none_rounded, _showNotificationSettings),
+
+                  // 👇 BOUTON MODÉRATEUR CONDITIONNEL
+                  Consumer<AuthProvider>(
+                    builder: (context, auth, _) {
+                      if (auth.isModerator) {
+                        return _headerIconButton(
+                          Icons.admin_panel_settings_rounded,
+                          () => context.push('/moderator'),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+
+                  // Profil
                   GestureDetector(
                     onTap: () => context.push('/profile'),
                     child: Container(
