@@ -83,7 +83,7 @@ class _JobDashboardPageState extends State<JobDashboardPage> {
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () => context.popOrGo(AppRoutes.jobs),
+                        onPressed: () => go(AppRoutes.jobs),
                         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text),
                       ),
                       Expanded(
