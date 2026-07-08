@@ -46,9 +46,18 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   static const List<String> _countryList = [
     'République Démocratique du Congo',
-    'Rwanda', 'Burundi', 'Ouganda', 'Angola',
-    'Côte d\'Ivoire', 'Sénégal', 'Cameroun',
-    'France', 'Belgique', 'Canada', 'États-Unis', 'Autre'
+    'Rwanda',
+    'Burundi',
+    'Ouganda',
+    'Angola',
+    'Côte d\'Ivoire',
+    'Sénégal',
+    'Cameroun',
+    'France',
+    'Belgique',
+    'Canada',
+    'États-Unis',
+    'Autre'
   ];
 
   @override
@@ -59,8 +68,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   @override
   void dispose() {
-    _nameC.dispose(); _dobC.dispose(); _emailC.dispose();
-    _passwordC.dispose(); _confirmC.dispose(); _otpC.dispose();
+    _nameC.dispose();
+    _dobC.dispose();
+    _emailC.dispose();
+    _passwordC.dispose();
+    _confirmC.dispose();
+    _otpC.dispose();
     _thixChatC.dispose();
     super.dispose();
   }
@@ -78,8 +91,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
   // ========== GESTION D'ERREUR AMÉLIORÉE ==========
   String _rawError(Object e) {
+    // Si c'est une AuthException, on prend son message
     if (e is AuthException) return 'Erreur: ${e.message}';
+    // Si c'est une PostgrestException (Supabase)
     if (e is PostgrestException) return 'Erreur: ${e.message} (code: ${e.code})';
+    // Fallback
     return e.toString();
   }
 
@@ -118,11 +134,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           'registration_status': 'draft_step1',
         },
       );
-      // Supabase envoie l'email de vérification automatiquement
       _otpSent = true;
       setState(() => _step = 2);
     } catch (e) {
-      _snack(_rawError(e));
+      _snack(_rawError(e)); // ← message réel
     } finally {
       setState(() => _isLoading = false);
     }
@@ -203,11 +218,15 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         child: Stack(
           children: [
             Positioned(
-              top: 0, left: 0, right: 0, height: 180,
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 180,
               child: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [Color(0xFF0A3D62), Color(0xFF1A5A8C)],
                   ),
                 ),
@@ -215,11 +234,24 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('THIX ID', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: LightModeColors.accent, fontWeight: FontWeight.w900,
-                      )),
+                      Text(
+                        'THIX ID',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              color: LightModeColors.accent,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Créer votre identité sécurisée', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
+                      Text(
+                        'Créer votre identité sécurisée',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.white70),
+                      ),
                     ],
                   ),
                 ),
@@ -238,7 +270,13 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(28),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 8))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
@@ -275,14 +313,32 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         return Row(
           children: [
             Container(
-              width: 36, height: 36,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: active ? LightModeColors.accent : done ? Colors.green : Colors.grey.shade300,
+                color: active
+                    ? LightModeColors.accent
+                    : done
+                        ? Colors.green
+                        : Colors.grey.shade300,
               ),
-              child: Center(child: Text(done ? '✓' : '${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              child: Center(
+                child: Text(
+                  done ? '✓' : '${i + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-            if (i < 2) Container(width: 40, height: 2, color: done ? Colors.green : Colors.grey.shade300),
+            if (i < 2)
+              Container(
+                width: 40,
+                height: 2,
+                color: done ? Colors.green : Colors.grey.shade300,
+              ),
           ],
         );
       }),
@@ -293,10 +349,15 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     switch (_step) {
       case 1:
         return _Step1Simplified(
-          nameC: _nameC, dobC: _dobC,
-          gender: _gender, onGenderChanged: (v) => setState(() => _gender = v),
-          country: _country, onCountryChanged: (v) => setState(() => _country = v),
-          emailC: _emailC, passwordC: _passwordC, confirmC: _confirmC,
+          nameC: _nameC,
+          dobC: _dobC,
+          gender: _gender,
+          onGenderChanged: (v) => setState(() => _gender = v),
+          country: _country,
+          onCountryChanged: (v) => setState(() => _country = v),
+          emailC: _emailC,
+          passwordC: _passwordC,
+          confirmC: _confirmC,
           onPickDob: _pickDob,
         );
       case 2:
@@ -317,7 +378,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
             setState(() {});
           },
         );
-      default: return const SizedBox.shrink();
+      default:
+        return const SizedBox.shrink();
     }
   }
 
@@ -330,12 +392,17 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       firstDate: DateTime(now.year - 110),
       lastDate: DateTime(now.year - 10),
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: LightModeColors.accent)),
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: LightModeColors.accent,
+              ),
+        ),
         child: child!,
       ),
     );
     if (picked != null) {
-      final v = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      final v =
+          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       setState(() => _dobC.text = v);
     }
   }
@@ -354,10 +421,21 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     String label;
     VoidCallback? onPressed;
     switch (_step) {
-      case 1: label = 'SUIVANT →'; onPressed = _submitStep1; break;
-      case 2: label = 'VÉRIFIER'; onPressed = _verifyOtp; break;
-      case 3: label = 'TERMINER'; onPressed = _finishRegistration; break;
-      default: label = ''; onPressed = null;
+      case 1:
+        label = 'SUIVANT →';
+        onPressed = _submitStep1;
+        break;
+      case 2:
+        label = 'VÉRIFIER';
+        onPressed = _verifyOtp;
+        break;
+      case 3:
+        label = 'TERMINER';
+        onPressed = _finishRegistration;
+        break;
+      default:
+        label = '';
+        onPressed = null;
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -366,16 +444,43 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFF9C74F), Color(0xFFF8961E)]),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF9C74F), Color(0xFFF8961E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(30),
-            boxShadow: [BoxShadow(color: Colors.orange.shade300.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 6))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.orange.shade300.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (_isLoading) const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white))),
-              if (_isLoading) const SizedBox(width: 12),
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.2)),
+              if (_isLoading) ...const [
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+              ],
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ],
           ),
         ),
@@ -385,7 +490,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 }
 
 // ============================================================================
-// SOUS-WIDGETS (inchangés)
+// SOUS-WIDGETS
 // ============================================================================
 
 class _Step1Simplified extends StatelessWidget {
@@ -394,59 +499,146 @@ class _Step1Simplified extends StatelessWidget {
   final ValueChanged<String?> onGenderChanged, onCountryChanged;
   final VoidCallback onPickDob;
 
-  const _Step1Simplified({required this.nameC, required this.dobC, required this.gender, required this.onGenderChanged, required this.country, required this.onCountryChanged, required this.emailC, required this.passwordC, required this.confirmC, required this.onPickDob});
+  const _Step1Simplified({
+    required this.nameC,
+    required this.dobC,
+    required this.gender,
+    required this.onGenderChanged,
+    required this.country,
+    required this.onCountryChanged,
+    required this.emailC,
+    required this.passwordC,
+    required this.confirmC,
+    required this.onPickDob,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Informations personnelles', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0A3D62))),
+        const Text(
+          'Informations personnelles',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0A3D62),
+          ),
+        ),
         const SizedBox(height: 16),
-        TextField(controller: nameC, decoration: InputDecoration(labelText: 'Nom complet *', prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+        TextField(
+          controller: nameC,
+          decoration: InputDecoration(
+            labelText: 'Nom complet *',
+            prefixIcon: const Icon(Icons.person_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         GestureDetector(
           onTap: onPickDob,
           child: AbsorbPointer(
-            child: TextField(controller: dobC, decoration: InputDecoration(labelText: 'Date de naissance *', prefixIcon: const Icon(Icons.calendar_today), suffixIcon: const Icon(Icons.arrow_drop_down), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+            child: TextField(
+              controller: dobC,
+              decoration: InputDecoration(
+                labelText: 'Date de naissance *',
+                prefixIcon: const Icon(Icons.calendar_today),
+                suffixIcon: const Icon(Icons.arrow_drop_down),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: gender,
           isExpanded: true,
-          decoration: InputDecoration(labelText: 'Sexe *', prefixIcon: const Icon(Icons.wc), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
-          items: const [DropdownMenuItem(value: 'Homme', child: Text('Homme')), DropdownMenuItem(value: 'Femme', child: Text('Femme')), DropdownMenuItem(value: 'Autre', child: Text('Autre'))],
+          decoration: InputDecoration(
+            labelText: 'Sexe *',
+            prefixIcon: const Icon(Icons.wc),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'Homme', child: Text('Homme')),
+            DropdownMenuItem(value: 'Femme', child: Text('Femme')),
+            DropdownMenuItem(value: 'Autre', child: Text('Autre')),
+          ],
           onChanged: onGenderChanged,
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: country,
           isExpanded: true,
-          decoration: InputDecoration(labelText: 'Pays *', prefixIcon: const Icon(Icons.public), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
+          decoration: InputDecoration(
+            labelText: 'Pays *',
+            prefixIcon: const Icon(Icons.public),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
           items: const [
-            DropdownMenuItem(value: 'République Démocratique du Congo', child: Text('République Démocratique du Congo')),
+            DropdownMenuItem(
+                value: 'République Démocratique du Congo',
+                child: Text('République Démocratique du Congo')),
             DropdownMenuItem(value: 'Rwanda', child: Text('Rwanda')),
             DropdownMenuItem(value: 'Burundi', child: Text('Burundi')),
             DropdownMenuItem(value: 'Ouganda', child: Text('Ouganda')),
             DropdownMenuItem(value: 'Angola', child: Text('Angola')),
-            DropdownMenuItem(value: 'Côte d\'Ivoire', child: Text('Côte d\'Ivoire')),
+            DropdownMenuItem(
+                value: 'Côte d\'Ivoire', child: Text('Côte d\'Ivoire')),
             DropdownMenuItem(value: 'Sénégal', child: Text('Sénégal')),
             DropdownMenuItem(value: 'Cameroun', child: Text('Cameroun')),
             DropdownMenuItem(value: 'France', child: Text('France')),
             DropdownMenuItem(value: 'Belgique', child: Text('Belgique')),
             DropdownMenuItem(value: 'Canada', child: Text('Canada')),
-            DropdownMenuItem(value: 'États-Unis', child: Text('États-Unis')),
+            DropdownMenuItem(
+                value: 'États-Unis', child: Text('États-Unis')),
             DropdownMenuItem(value: 'Autre', child: Text('Autre')),
           ],
           onChanged: onCountryChanged,
         ),
         const SizedBox(height: 12),
-        TextField(controller: emailC, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: 'Email *', prefixIcon: const Icon(Icons.email_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+        TextField(
+          controller: emailC,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            labelText: 'Email *',
+            prefixIcon: const Icon(Icons.email_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: passwordC, obscureText: true, decoration: InputDecoration(labelText: 'Mot de passe * (8 caractères min)', prefixIcon: const Icon(Icons.lock_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+        TextField(
+          controller: passwordC,
+          obscureText: true,
+          decoration: InputDecoration(
+            labelText: 'Mot de passe * (8 caractères min)',
+            prefixIcon: const Icon(Icons.lock_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: confirmC, obscureText: true, decoration: InputDecoration(labelText: 'Confirmer le mot de passe *', prefixIcon: const Icon(Icons.lock_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+        TextField(
+          controller: confirmC,
+          obscureText: true,
+          decoration: InputDecoration(
+            labelText: 'Confirmer le mot de passe *',
+            prefixIcon: const Icon(Icons.lock_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
@@ -466,24 +658,59 @@ class _Step2VerifyEmail extends StatelessWidget {
   final VoidCallback onResend;
   final bool isLoading;
 
-  const _Step2VerifyEmail({required this.otpC, required this.email, required this.onResend, required this.isLoading});
+  const _Step2VerifyEmail({
+    required this.otpC,
+    required this.email,
+    required this.onResend,
+    required this.isLoading,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Vérification par email', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0A3D62))),
+        const Text(
+          'Vérification par email',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0A3D62),
+          ),
+        ),
         const SizedBox(height: 8),
-        Text('Un code de vérification a été envoyé à $email.', style: const TextStyle(color: Colors.grey)),
+        Text(
+          'Un code de vérification a été envoyé à $email.',
+          style: const TextStyle(color: Colors.grey),
+        ),
         const SizedBox(height: 20),
-        TextField(controller: otpC, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Code de vérification', prefixIcon: const Icon(Icons.confirmation_number_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+        TextField(
+          controller: otpC,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Code de vérification',
+            prefixIcon: const Icon(Icons.confirmation_number_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton(onPressed: onResend, child: const Text('Renvoyer le code')),
-            if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            TextButton(
+              onPressed: onResend,
+              child: const Text('Renvoyer le code'),
+            ),
+            if (isLoading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                ),
+              ),
           ],
         ),
       ],
@@ -496,14 +723,26 @@ class _Step3ChooseIdentifiers extends StatelessWidget {
   final String thixId, uid;
   final VoidCallback onSuggest;
 
-  const _Step3ChooseIdentifiers({required this.thixChatC, required this.thixId, required this.uid, required this.onSuggest});
+  const _Step3ChooseIdentifiers({
+    required this.thixChatC,
+    required this.thixId,
+    required this.uid,
+    required this.onSuggest,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Vos identifiants THIX', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0A3D62))),
+        const Text(
+          'Vos identifiants THIX',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0A3D62),
+          ),
+        ),
         const SizedBox(height: 16),
         _buildIdTile('THIX ID', thixId, Icons.verified_user, Colors.green),
         const SizedBox(height: 12),
@@ -516,15 +755,29 @@ class _Step3ChooseIdentifiers extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: thixChatC,
-                decoration: InputDecoration(labelText: 'THIX CHAT', hintText: '@john_doe_123', prefixIcon: const Icon(Icons.chat_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
+                decoration: InputDecoration(
+                  labelText: 'THIX CHAT',
+                  hintText: '@john_doe_123',
+                  prefixIcon: const Icon(Icons.chat_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 8),
-            IconButton(onPressed: onSuggest, icon: const Icon(Icons.auto_awesome), tooltip: 'Suggérer un nom'),
+            IconButton(
+              onPressed: onSuggest,
+              icon: const Icon(Icons.auto_awesome),
+              tooltip: 'Suggérer un nom',
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        Text('Choisissez un identifiant unique pour vos discussions. 3 à 20 caractères, lettres, chiffres, . et _ autorisés.', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Text(
+          'Choisissez un identifiant unique pour vos discussions. 3 à 20 caractères, lettres, chiffres, . et _ autorisés.',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
       ],
     );
   }
@@ -532,7 +785,11 @@ class _Step3ChooseIdentifiers extends StatelessWidget {
   Widget _buildIdTile(String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withValues(alpha: 0.2))),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
       child: Row(
         children: [
           Icon(icon, color: color),
@@ -541,8 +798,20 @@ class _Step3ChooseIdentifiers extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ],
             ),
           ),
