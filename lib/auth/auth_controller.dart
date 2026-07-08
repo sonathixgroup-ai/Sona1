@@ -2,21 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
-import 'package:thix_id/models/account_type.dart';
 
 class AuthController extends ChangeNotifier {
   static AuthController? _instance;
 
-  /// Global singleton accessor used by some legacy pages (ex: THIX Santé).
-  ///
-  /// In Dreamflow, the app also injects an AuthController via Provider.
-  /// We keep both worlds consistent by assigning the first constructed
-  /// instance (usually the bootstrap instance) to this singleton.
   static AuthController get instance => _instance ??= AuthController();
 
   final AuthManager _auth;
 
-  /// Defaults to SupabaseAuthManager to enforce Supabase-only backend.
   AuthController({AuthManager? auth}) : _auth = auth ?? SupabaseAuthManager() {
     _instance ??= this;
     _auth.currentUserListenable.addListener(notifyListeners);
@@ -99,19 +92,12 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ==========================================================================
-  // MÉTHODES OTP (vérification par email)
-  // ==========================================================================
-
-  /// Vérifie le code OTP reçu par email.
+  // Méthodes OTP
   Future<void> verifyOTP({required String email, required String token}) async {
     await _auth.verifyOTP(email: email, token: token);
-    // La session sera mise à jour automatiquement via le listener.
-    // On notifie les listeners pour rafraîchir l'UI.
     notifyListeners();
   }
 
-  /// Renvoie un nouveau code OTP par email.
   Future<void> resendOTP({required String email}) async {
     await _auth.resendOTP(email: email);
   }
