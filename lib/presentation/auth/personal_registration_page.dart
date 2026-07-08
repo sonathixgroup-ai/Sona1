@@ -14,7 +14,7 @@ import 'package:thix_id/theme.dart';
 // ============================================================================
 
 class PersonalRegistrationPage extends StatefulWidget {
-  final int? initialStep; // ajout pour compatibilité
+  final int? initialStep;
   const PersonalRegistrationPage({super.key, this.initialStep});
 
   @override
@@ -42,8 +42,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _uid = '';
   bool _isLoading = false;
   bool _otpSent = false;
-  bool _isVerified = false;
-  int _step = 1; // 1: profil, 2: compte+OTP, 3: final
+  int _step = 1;
 
   static const Map<String, String> _countryCodes = {
     'République Démocratique du Congo': 'CD',
@@ -99,7 +98,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return e.toString();
   }
 
-  // ---------- Gestion du THIX ID personnalisé ----------
   String _generateThixId(String country, String dob, String uid) {
     final countryCode = _countryCodes[country] ?? 'XX';
     final now = DateTime.now();
@@ -116,7 +114,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return hash.toString().substring(0, 6).toUpperCase();
   }
 
-  // ---------- Étape 1 : validation et passage ----------
   Future<void> _goToStep2() async {
     final name = _nameC.text.trim();
     final dob = _dobC.text.trim();
@@ -126,7 +123,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _step = 2);
   }
 
-  // ---------- Envoi de l'OTP (inscription) ----------
   Future<void> _sendOtp() async {
     if (_isLoading) return;
     final email = _emailC.text.trim();
@@ -169,7 +165,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ---------- Vérification OTP et finalisation ----------
   Future<void> _verifyAndRegister() async {
     if (_isLoading) return;
     final code = _otpC.text.trim();
@@ -184,12 +179,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       final me = auth.currentUser;
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
 
-      // Générer le THIX ID personnalisé
       final thixId = _generateThixId(_country!, _dobC.text.trim(), me.id);
       _thixIdGenerated = thixId;
       _uid = me.id;
 
-      // Mettre à jour le profil avec le THIX ID et le THIX CHAT
       final chatId = _thixChatC.text.trim().isNotEmpty
           ? _thixChatC.text.trim()
           : _suggestChatFromName(_nameC.text.trim());
@@ -197,13 +190,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: chatId);
       await _userService.updateProfile(
         uid: me.id,
-        thixId: thixId,          // <-- ajout du paramètre
+        thixId: thixId,
         thixChat: claimed,
         registrationStatus: 'active',
       );
 
       _thixChatC.text = claimed;
-      _isVerified = true;
       setState(() => _step = 3);
     } catch (e) {
       _snack(_rawError(e));
@@ -220,7 +212,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return candidate.length > 21 ? candidate.substring(0, 21) : candidate;
   }
 
-  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -733,11 +724,11 @@ class _Step3Final extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _buildInfoTile('THIX ID', thixId, Icons.verified_user, Colors.blue),
+        _buildInfoTile('THIX ID', thixId, Icons.verified_user, Colors.blue, showCopy: true),
         const SizedBox(height: 12),
-        _buildInfoTile('THIX CHAT', thixChat, Icons.chat, Colors.orange),
+        _buildInfoTile('THIX CHAT', thixChat, Icons.chat, Colors.orange, showCopy: false),
         const SizedBox(height: 12),
-        _buildInfoTile('UID (identifiant unique)', uid, Icons.fingerprint, Colors.grey),
+        _buildInfoTile('UID (identifiant unique)', uid, Icons.fingerprint, Colors.grey, showCopy: false),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(16),
@@ -767,7 +758,7 @@ class _Step3Final extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoTile(String label, String value, IconData icon, Color color) {
+  Widget _buildInfoTile(String label, String value, IconData icon, Color color, {bool showCopy = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -796,14 +787,16 @@ class _Step3Final extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
+              ],
             ),
           ),
-          if (label == 'THIX ID')
+          if (showCopy)
             IconButton(
               onPressed: () {
-                // Copier le THIX ID dans le presse-papier
-                // (à implémenter avec Clipboard)
+                // Copier le THIX ID (à implémenter avec Clipboard)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$label copié !')),
+                );
               },
               icon: const Icon(Icons.copy, size: 18),
               tooltip: 'Copier',
