@@ -173,6 +173,8 @@ import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
 import '../presentation/moderator/moderator_home.dart';
 import '../presentation/moderator/moderator_event_list.dart';
 import '../presentation/moderator/moderator_event_form.dart';
+import 'package:provider/provider.dart';
+import 'package:thix_id/providers/auth_provider.dart';
 
 // ==================== PAGE DE TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
