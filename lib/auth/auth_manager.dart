@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:thix_id/models/app_user.dart';
-import 'package:thix_id/models/account_type.dart';
 
 /// Gestionnaire d'authentification abstrait.
 abstract class AuthManager {
