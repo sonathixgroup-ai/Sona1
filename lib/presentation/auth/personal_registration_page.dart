@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -9,12 +10,11 @@ import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/theme.dart';
 
 // ============================================================================
-// PAGE PRINCIPALE (SIMPLIFIÉE)
+// PAGE D'INSCRIPTION SIMPLIFIÉE (2 ÉTAPES)
 // ============================================================================
 
 class PersonalRegistrationPage extends StatefulWidget {
-  final int? initialStep;
-  const PersonalRegistrationPage({super.key, this.initialStep});
+  const PersonalRegistrationPage({super.key});
 
   @override
   State<PersonalRegistrationPage> createState() =>
@@ -23,26 +23,42 @@ class PersonalRegistrationPage extends StatefulWidget {
 
 class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _userService = UserService(Supabase.instance.client);
-  late int _step;
 
-  // Contrôleurs étape 1
+  // ---------- Étape 1 : Profil ----------
   final _nameC = TextEditingController();
   final _dobC = TextEditingController();
-  String? _gender;
   String? _country;
+  final _occupationC = TextEditingController();
+
+  // ---------- Étape 2 : Compte et vérification ----------
   final _emailC = TextEditingController();
   final _passwordC = TextEditingController();
   final _confirmC = TextEditingController();
-
-  // Étape 2 : vérification email
   final _otpC = TextEditingController();
-  bool _otpSent = false;
-
-  // Étape 3 : THIX CHAT
   final _thixChatC = TextEditingController();
-  String _thixId = '---';
-  String _uid = '---';
+
+  String _thixIdGenerated = '';
+  String _uid = '';
   bool _isLoading = false;
+  bool _otpSent = false;
+  bool _isVerified = false;
+  int _step = 1; // 1: profil, 2: compte+OTP, 3: final
+
+  static const Map<String, String> _countryCodes = {
+    'République Démocratique du Congo': 'CD',
+    'Rwanda': 'RW',
+    'Burundi': 'BI',
+    'Ouganda': 'UG',
+    'Angola': 'AO',
+    "Côte d'Ivoire": 'CI',
+    'Sénégal': 'SN',
+    'Cameroun': 'CM',
+    'France': 'FR',
+    'Belgique': 'BE',
+    'Canada': 'CA',
+    'États-Unis': 'US',
+    'Autre': 'XX',
+  };
 
   static const List<String> _countryList = [
     'République Démocratique du Congo',
@@ -50,7 +66,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     'Burundi',
     'Ouganda',
     'Angola',
-    'Côte d\'Ivoire',
+    "Côte d'Ivoire",
     'Sénégal',
     'Cameroun',
     'France',
@@ -61,15 +77,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _step = widget.initialStep ?? 1;
-  }
-
-  @override
   void dispose() {
     _nameC.dispose();
     _dobC.dispose();
+    _occupationC.dispose();
     _emailC.dispose();
     _passwordC.dispose();
     _confirmC.dispose();
@@ -81,34 +92,47 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   void _snack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
-  bool _hasSupabaseSession() =>
-      Supabase.instance.client.auth.currentSession != null;
-
-  void _handleUnauthed() {
-    _snack('Session expirée. Veuillez vous reconnecter.');
-    context.go(AppRoutes.login);
-  }
-
-  // ========== GESTION D'ERREUR AMÉLIORÉE ==========
   String _rawError(Object e) {
     if (e is AuthException) return 'Erreur: ${e.message}';
     if (e is PostgrestException) return 'Erreur: ${e.message} (code: ${e.code})';
     return e.toString();
   }
 
-  // ---------- Étape 1 ----------
-  Future<void> _submitStep1() async {
-    if (_isLoading) return;
+  // ---------- Gestion du THIX ID personnalisé ----------
+  String _generateThixId(String country, String dob, String uid) {
+    final countryCode = _countryCodes[country] ?? 'XX';
+    final now = DateTime.now();
+    final year = now.year.toString().substring(2);
+    final month = now.month.toString().padLeft(2, '0');
+    final random = Random().nextInt(999999).toString().padLeft(6, '0');
+    final key = _generateVerificationKey(uid, countryCode, now);
+    return 'THIX-$countryCode-$year$month-$random-$key';
+  }
+
+  String _generateVerificationKey(String uid, String countryCode, DateTime date) {
+    final raw = '$uid-$countryCode-${date.millisecondsSinceEpoch}';
+    final hash = raw.hashCode.abs();
+    return hash.toString().substring(0, 6).toUpperCase();
+  }
+
+  // ---------- Étape 1 : validation et passage ----------
+  Future<void> _goToStep2() async {
     final name = _nameC.text.trim();
     final dob = _dobC.text.trim();
+    if (name.isEmpty) return _snack('Nom complet requis.');
+    if (dob.isEmpty) return _snack('Date de naissance requise.');
+    if (_country == null) return _snack('Veuillez choisir votre pays.');
+    // Occupation optionnelle
+    setState(() => _step = 2);
+  }
+
+  // ---------- Envoi de l'OTP (inscription) ----------
+  Future<void> _sendOtp() async {
+    if (_isLoading) return;
     final email = _emailC.text.trim();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
 
-    if (name.isEmpty) return _snack('Nom complet requis.');
-    if (dob.isEmpty) return _snack('Date de naissance requise.');
-    if (_gender == null) return _snack('Veuillez choisir votre sexe.');
-    if (_country == null) return _snack('Veuillez choisir votre pays.');
     if (email.isEmpty || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
       return _snack('Email invalide.');
     }
@@ -118,30 +142,28 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
+      // On crée le compte (l'email de confirmation est envoyé automatiquement)
       await auth.registerPersonal(
         email: email,
         password: pass,
-        displayName: name,
+        displayName: _nameC.text.trim(),
         rememberMe: true,
         profileDraft: {
-          'full_name': name,
-          'date_of_birth': dob,
-          'gender': _gender,
+          'full_name': _nameC.text.trim(),
+          'date_of_birth': _dobC.text.trim(),
           'country_or_origin': _country,
+          'occupation': _occupationC.text.trim(),
           'registration_status': 'draft_step1',
         },
       );
-      // Si l'exécution arrive ici, l'inscription est immédiate (pas de confirmation email)
       _otpSent = true;
-      setState(() => _step = 2);
+      _snack('Un code de vérification a été envoyé à votre email.');
     } catch (e) {
-      // Si l'erreur est "Inscription enregistrée", c'est que la confirmation email est demandée
       if (e is AuthException && e.message.contains('Inscription enregistrée')) {
-        // C'est un cas normal : on passe à l'étape 2 sans afficher d'erreur
+        // Cas où l'email de confirmation est envoyé mais pas de session immédiate
         _otpSent = true;
-        setState(() => _step = 2);
+        _snack('Un code de vérification a été envoyé à votre email.');
       } else {
-        // Autre erreur : on l'affiche
         _snack(_rawError(e));
       }
     } finally {
@@ -149,8 +171,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ---------- Étape 2 : vérification OTP ----------
-  Future<void> _verifyOtp() async {
+  // ---------- Vérification OTP et finalisation ----------
+  Future<void> _verifyAndRegister() async {
     if (_isLoading) return;
     final code = _otpC.text.trim();
     if (code.isEmpty) return _snack('Veuillez saisir le code reçu par email.');
@@ -158,15 +180,33 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
+      // Vérifier l'OTP
       await auth.verifyOTP(email: _emailC.text.trim(), token: code);
       _snack('Email vérifié avec succès !');
 
       final me = auth.currentUser;
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
-      _thixId = await _userService.ensureThixId(uid: me.id);
+
+      // Générer le THIX ID personnalisé
+      final thixId = _generateThixId(_country!, _dobC.text.trim(), me.id);
+      _thixIdGenerated = thixId;
       _uid = me.id;
-      final suggested = _suggestChatFromName(_nameC.text.trim());
-      _thixChatC.text = suggested;
+
+      // Mettre à jour le profil avec le THIX ID et le THIX CHAT
+      final chatId = _thixChatC.text.trim().isNotEmpty
+          ? _thixChatC.text.trim()
+          : _suggestChatFromName(_nameC.text.trim());
+
+      final claimed = await _userService.ensureThixChat(uid: me.id, desired: chatId);
+      await _userService.updateProfile(
+        uid: me.id,
+        thixId: thixId,
+        thixChat: claimed,
+        registrationStatus: 'active',
+      );
+
+      _thixChatC.text = claimed;
+      _isVerified = true;
       setState(() => _step = 3);
     } catch (e) {
       _snack(_rawError(e));
@@ -183,38 +223,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return candidate.length > 21 ? candidate.substring(0, 21) : candidate;
   }
 
-  // ---------- Étape 3 : finalisation ----------
-  Future<void> _finishRegistration() async {
-    if (_isLoading) return;
-    final chatId = _thixChatC.text.trim();
-    if (chatId.isEmpty) return _snack('Veuillez choisir un THIX CHAT.');
-    if (!RegExp(r'^@[a-zA-Z0-9._]{3,20}$').hasMatch(chatId)) {
-      return _snack('Format : @ + 3 à 20 caractères (lettres, chiffres, . ou _)');
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final me = context.read<AuthController>().currentUser;
-      if (me == null) throw Exception('Utilisateur non authentifié.');
-      final claimed = await _userService.ensureThixChat(uid: me.id, desired: chatId);
-      if (claimed != chatId) {
-        _snack('Ce THIX CHAT est déjà pris. Nous avons choisi : $claimed');
-        _thixChatC.text = claimed;
-      }
-      await _userService.updateProfile(
-        uid: me.id,
-        thixChat: claimed,
-        registrationStatus: 'active',
-      );
-      _snack('Inscription terminée ! Bienvenue sur THIX ID.');
-      context.go(AppRoutes.home);
-    } catch (e) {
-      _snack(_rawError(e));
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
@@ -227,7 +235,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
               top: 0,
               left: 0,
               right: 0,
-              height: 180,
+              height: 160,
               child: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -252,7 +260,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Créer votre identité sécurisée',
+                        _step == 1
+                            ? 'Étape 1/2 : Votre profil'
+                            : _step == 2
+                                ? 'Étape 2/2 : Création du compte'
+                                : 'Inscription terminée',
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
@@ -264,12 +276,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
               ),
             ),
             SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 140, bottom: 40),
+              padding: const EdgeInsets.only(top: 130, bottom: 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildStepIndicator(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.all(24),
@@ -285,7 +296,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                       ],
                     ),
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 400),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
                       child: KeyedSubtree(
                         key: ValueKey(_step),
                         child: _buildStepContent(),
@@ -294,11 +307,19 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                   ),
                   const SizedBox(height: 20),
                   _buildMainButton(),
-                  const SizedBox(height: 20),
-                  if (_step > 1)
+                  const SizedBox(height: 16),
+                  if (_step < 3)
                     TextButton(
-                      onPressed: () => setState(() => _step = _step - 1),
-                      child: const Text('Revenir à l\'étape précédente'),
+                      onPressed: () {
+                        if (_step == 2) {
+                          setState(() => _step = 1);
+                        } else {
+                          context.go(AppRoutes.login);
+                        }
+                      },
+                      child: Text(
+                        _step == 2 ? 'Revenir à l\'étape 1' : 'Déjà un compte ? Se connecter',
+                      ),
                     ),
                 ],
               ),
@@ -309,80 +330,33 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     );
   }
 
-  Widget _buildStepIndicator() {
-    final steps = ['Profil', 'Vérification', 'Identifiants'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (i) {
-        final active = i + 1 == _step;
-        final done = i + 1 < _step;
-        return Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active
-                    ? LightModeColors.accent
-                    : done
-                        ? Colors.green
-                        : Colors.grey.shade300,
-              ),
-              child: Center(
-                child: Text(
-                  done ? '✓' : '${i + 1}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            if (i < 2)
-              Container(
-                width: 40,
-                height: 2,
-                color: done ? Colors.green : Colors.grey.shade300,
-              ),
-          ],
-        );
-      }),
-    );
-  }
-
   Widget _buildStepContent() {
     switch (_step) {
       case 1:
-        return _Step1Simplified(
+        return _Step1Profile(
           nameC: _nameC,
           dobC: _dobC,
-          gender: _gender,
-          onGenderChanged: (v) => setState(() => _gender = v),
           country: _country,
           onCountryChanged: (v) => setState(() => _country = v),
-          emailC: _emailC,
-          passwordC: _passwordC,
-          confirmC: _confirmC,
+          occupationC: _occupationC,
           onPickDob: _pickDob,
         );
       case 2:
-        return _Step2VerifyEmail(
+        return _Step2Account(
+          emailC: _emailC,
+          passwordC: _passwordC,
+          confirmC: _confirmC,
           otpC: _otpC,
-          email: _emailC.text.trim(),
-          onResend: _resendOtp,
+          thixChatC: _thixChatC,
+          onSendOtp: _sendOtp,
+          isOtpSent: _otpSent,
           isLoading: _isLoading,
         );
       case 3:
-        return _Step3ChooseIdentifiers(
-          thixChatC: _thixChatC,
-          thixId: _thixId,
+        return _Step3Final(
+          thixId: _thixIdGenerated,
+          thixChat: _thixChatC.text,
           uid: _uid,
-          onSuggest: () {
-            final suggested = _suggestChatFromName(_nameC.text.trim());
-            _thixChatC.text = suggested;
-            setState(() {});
-          },
         );
       default:
         return const SizedBox.shrink();
@@ -413,31 +387,21 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  Future<void> _resendOtp() async {
-    try {
-      final auth = context.read<AuthController>();
-      await auth.resendOTP(email: _emailC.text.trim());
-      _snack('Un nouveau code vous a été envoyé par email.');
-    } catch (e) {
-      _snack('Erreur lors du renvoi : $e');
-    }
-  }
-
   Widget _buildMainButton() {
     String label;
     VoidCallback? onPressed;
     switch (_step) {
       case 1:
         label = 'SUIVANT →';
-        onPressed = _submitStep1;
+        onPressed = _goToStep2;
         break;
       case 2:
-        label = 'VÉRIFIER';
-        onPressed = _verifyOtp;
+        label = _isLoading ? 'ENVOI EN COURS...' : 'S\'INSCRIRE';
+        onPressed = _verifyAndRegister;
         break;
       case 3:
-        label = 'TERMINER';
-        onPressed = _finishRegistration;
+        label = 'ACCUEIL';
+        onPressed = () => context.go(AppRoutes.home);
         break;
       default:
         label = '';
@@ -499,22 +463,18 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 // SOUS-WIDGETS
 // ============================================================================
 
-class _Step1Simplified extends StatelessWidget {
-  final TextEditingController nameC, dobC, emailC, passwordC, confirmC;
-  final String? gender, country;
-  final ValueChanged<String?> onGenderChanged, onCountryChanged;
+class _Step1Profile extends StatelessWidget {
+  final TextEditingController nameC, dobC, occupationC;
+  final String? country;
+  final ValueChanged<String?> onCountryChanged;
   final VoidCallback onPickDob;
 
-  const _Step1Simplified({
+  const _Step1Profile({
     required this.nameC,
     required this.dobC,
-    required this.gender,
-    required this.onGenderChanged,
+    required this.occupationC,
     required this.country,
     required this.onCountryChanged,
-    required this.emailC,
-    required this.passwordC,
-    required this.confirmC,
     required this.onPickDob,
   });
 
@@ -526,7 +486,7 @@ class _Step1Simplified extends StatelessWidget {
         const Text(
           'Informations personnelles',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: Color(0xFF0A3D62),
           ),
@@ -561,24 +521,6 @@ class _Step1Simplified extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          value: gender,
-          isExpanded: true,
-          decoration: InputDecoration(
-            labelText: 'Sexe *',
-            prefixIcon: const Icon(Icons.wc),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'Homme', child: Text('Homme')),
-            DropdownMenuItem(value: 'Femme', child: Text('Femme')),
-            DropdownMenuItem(value: 'Autre', child: Text('Autre')),
-          ],
-          onChanged: onGenderChanged,
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
           value: country,
           isExpanded: true,
           decoration: InputDecoration(
@@ -597,19 +539,68 @@ class _Step1Simplified extends StatelessWidget {
             DropdownMenuItem(value: 'Ouganda', child: Text('Ouganda')),
             DropdownMenuItem(value: 'Angola', child: Text('Angola')),
             DropdownMenuItem(
-                value: 'Côte d\'Ivoire', child: Text('Côte d\'Ivoire')),
+                value: "Côte d'Ivoire", child: Text("Côte d'Ivoire")),
             DropdownMenuItem(value: 'Sénégal', child: Text('Sénégal')),
             DropdownMenuItem(value: 'Cameroun', child: Text('Cameroun')),
             DropdownMenuItem(value: 'France', child: Text('France')),
             DropdownMenuItem(value: 'Belgique', child: Text('Belgique')),
             DropdownMenuItem(value: 'Canada', child: Text('Canada')),
-            DropdownMenuItem(
-                value: 'États-Unis', child: Text('États-Unis')),
+            DropdownMenuItem(value: 'États-Unis', child: Text('États-Unis')),
             DropdownMenuItem(value: 'Autre', child: Text('Autre')),
           ],
           onChanged: onCountryChanged,
         ),
         const SizedBox(height: 12),
+        TextField(
+          controller: occupationC,
+          decoration: InputDecoration(
+            labelText: 'Occupation (facultatif)',
+            prefixIcon: const Icon(Icons.work_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Ces informations permettront de générer votre identifiant THIX ID unique.',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _Step2Account extends StatelessWidget {
+  final TextEditingController emailC, passwordC, confirmC, otpC, thixChatC;
+  final VoidCallback onSendOtp;
+  final bool isOtpSent, isLoading;
+
+  const _Step2Account({
+    required this.emailC,
+    required this.passwordC,
+    required this.confirmC,
+    required this.otpC,
+    required this.thixChatC,
+    required this.onSendOtp,
+    required this.isOtpSent,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Création du compte',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0A3D62),
+          ),
+        ),
+        const SizedBox(height: 16),
         TextField(
           controller: emailC,
           keyboardType: TextInputType.emailAddress,
@@ -645,152 +636,143 @@ class _Step1Simplified extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () => context.go(AppRoutes.login),
-            child: const Text('Mot de passe oublié ?'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Step2VerifyEmail extends StatelessWidget {
-  final TextEditingController otpC;
-  final String email;
-  final VoidCallback onResend;
-  final bool isLoading;
-
-  const _Step2VerifyEmail({
-    required this.otpC,
-    required this.email,
-    required this.onResend,
-    required this.isLoading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Vérification par email',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0A3D62),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Un code de vérification a été envoyé à $email.',
-          style: const TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: otpC,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'Code de vérification',
-            prefixIcon: const Icon(Icons.confirmation_number_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(
-              onPressed: onResend,
-              child: const Text('Renvoyer le code'),
-            ),
-            if (isLoading)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _Step3ChooseIdentifiers extends StatelessWidget {
-  final TextEditingController thixChatC;
-  final String thixId, uid;
-  final VoidCallback onSuggest;
-
-  const _Step3ChooseIdentifiers({
-    required this.thixChatC,
-    required this.thixId,
-    required this.uid,
-    required this.onSuggest,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Vos identifiants THIX',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0A3D62),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildIdTile('THIX ID', thixId, Icons.verified_user, Colors.green),
-        const SizedBox(height: 12),
-        _buildIdTile('UID (utilisateur)', uid, Icons.fingerprint, Colors.blue),
-        const SizedBox(height: 20),
-        const Divider(),
-        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: thixChatC,
-                decoration: InputDecoration(
-                  labelText: 'THIX CHAT',
-                  hintText: '@john_doe_123',
-                  prefixIcon: const Icon(Icons.chat_outlined),
-                  border: OutlineInputBorder(
+              child: ElevatedButton.icon(
+                onPressed: isLoading ? null : onSendOtp,
+                icon: const Icon(Icons.send, size: 18),
+                label: Text(isOtpSent ? 'Code envoyé ✓' : 'Envoyer le code OTP'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isOtpSent ? Colors.green.shade600 : LightModeColors.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: onSuggest,
-              icon: const Icon(Icons.auto_awesome),
-              tooltip: 'Suggérer un nom',
-            ),
           ],
+        ),
+        if (isOtpSent) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: otpC,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Code de vérification reçu par email',
+              prefixIcon: const Icon(Icons.confirmation_number_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: thixChatC,
+            decoration: InputDecoration(
+              labelText: 'THIX CHAT (nom d\'utilisateur public)',
+              hintText: '@john_doe_123',
+              prefixIcon: const Icon(Icons.chat_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères)',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Step3Final extends StatelessWidget {
+  final String thixId, thixChat, uid;
+
+  const _Step3Final({
+    required this.thixId,
+    required this.thixChat,
+    required this.uid,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          '🎉 Inscription terminée !',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0A3D62),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified, color: Colors.green, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Votre compte est actif et votre identité THIX ID est générée.',
+                  style: TextStyle(color: Colors.green.shade800),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildInfoTile('THIX ID', thixId, Icons.verified_user, Colors.blue),
+        const SizedBox(height: 12),
+        _buildInfoTile('THIX CHAT', thixChat, Icons.chat, Colors.orange),
+        const SizedBox(height: 12),
+        _buildInfoTile('UID (identifiant unique)', uid, Icons.fingerprint, Colors.grey),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.qr_code, color: Colors.black),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Un QR code sera disponible dans votre profil pour un partage sécurisé.',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Choisissez un identifiant unique pour vos discussions. 3 à 20 caractères, lettres, chiffres, . et _ autorisés.',
+          'Format THIX ID : ${thixId.substring(0, 15)}... (clé de vérification incluse)',
           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
       ],
     );
   }
 
-  Widget _buildIdTile(String label, String value, IconData icon, Color color) {
+  Widget _buildInfoTile(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -806,10 +788,7 @@ class _Step3ChooseIdentifiers extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 Text(
                   value,
@@ -817,10 +796,21 @@ class _Step3ChooseIdentifiers extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          if (label == 'THIX ID')
+            IconButton(
+              onPressed: () {
+                // Copier le THIX ID dans le presse-papier
+                // (à implémenter avec Clipboard)
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              tooltip: 'Copier',
+            ),
         ],
       ),
     );
