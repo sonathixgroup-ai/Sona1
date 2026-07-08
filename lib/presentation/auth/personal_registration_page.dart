@@ -42,7 +42,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _thixIdGenerated = '';
   String _uid = '';
   bool _isLoading = false;
-  bool _otpSent = false; // deviendra true après l'envoi du code
+  bool _otpSent = false;      // false tant que le code n'est pas envoyé
   int _step = 1;
 
   static const Map<String, String> _countryCodes = {
@@ -153,17 +153,20 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           'registration_status': 'draft_step1',
         },
       );
-      // Si l'inscription réussit immédiatement (pas de confirmation email), on passe à l'étape 2
+      // Succès immédiat (sans confirmation) : on passe à l'affichage de l'OTP
       _otpSent = true;
       _snack('Un code de vérification a été envoyé à votre email.');
       setState(() {});
     } catch (e) {
-      // Si l'erreur est celle de la confirmation email, c'est un succès
-      if (e is AuthException && e.message.contains('Inscription enregistrée')) {
+      // Si l'erreur indique que l'email doit être confirmé, c'est un succès
+      if (e is AuthException && 
+          (e.message.contains('Inscription enregistrée') ||
+           e.message.toLowerCase().contains('confirm'))) {
         _otpSent = true;
         _snack('Un code de vérification a été envoyé à votre email.');
         setState(() {});
       } else {
+        // Autre erreur : on l'affiche
         _snack(_rawError(e));
       }
     } finally {
@@ -391,8 +394,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         onPressed = _goToStep2;
         break;
       case 2:
-        // Si le code OTP n'est pas encore envoyé, le bouton déclenche l'envoi
-        // Sinon, il déclenche la vérification
         if (!_otpSent) {
           label = 'ENVOYER LE CODE OTP';
           onPressed = _sendOtp;
@@ -639,28 +640,27 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Bouton d'envoi OTP (visible même si déja envoyé, mais désactivé)
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: isLoading || isOtpSent ? null : onSendOtp,
-                icon: const Icon(Icons.send, size: 18),
-                label: Text(
-                  isOtpSent ? '✅ Code envoyé' : '📩 Envoyer le code OTP',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isOtpSent ? Colors.green.shade600 : LightModeColors.accent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+        // Bouton "Envoyer le code OTP" (visible uniquement si l'OTP n'est pas encore envoyé)
+        if (!isOtpSent)
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: isLoading ? null : onSendOtp,
+                  icon: const Icon(Icons.send, size: 18),
+                  label: const Text('📩 Envoyer le code OTP'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LightModeColors.accent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         // Si le code a été envoyé, afficher les champs OTP et THIX CHAT
         if (isOtpSent) ...[
           const SizedBox(height: 16),
