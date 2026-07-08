@@ -291,10 +291,10 @@ class _DocumentVaultPageState extends State<DocumentVaultPage> {
                             final auth = context.read<AuthController>();
                             if (auth.isAuthenticated) {
                               final t = auth.currentUser?.accountType;
-                              context.popOrGo(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
+                              context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
                               return;
                             }
-                            context.popOrGo(AppRoutes.home);
+                            context.go(AppRoutes.home);
                           },
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
