@@ -1,46 +1,57 @@
 import 'package:flutter/foundation.dart';
 import 'package:thix_id/models/app_user.dart';
+import 'package:thix_id/models/account_type.dart';
 
-/// AuthManager defines the contract for authentication implementations.
-///
-/// In this project we provide a local-first implementation (no backend).
-/// Later you can swap this for Firebase/Supabase while keeping the same API.
+/// Gestionnaire d'authentification abstrait.
 abstract class AuthManager {
+  /// Utilisateur courant (ValueNotifier).
   ValueListenable<AppUser?> get currentUserListenable;
 
+  /// Utilisateur courant (lecture directe).
   AppUser? get currentUser;
 
+  /// Initialise le gestionnaire (écoute des changements d'état).
   Future<void> init();
 
+  /// Connexion par email (ou THIX ID – ici seulement email).
   Future<AppUser> signInWithEmailOrThixId({
     required String identifier,
     required String password,
     required bool rememberMe,
   });
 
+  /// Inscription par email (profil personnel).
   Future<AppUser> registerWithEmail({
     required String email,
     required String password,
     required String displayName,
     required AccountType accountType,
     required bool rememberMe,
-    /// Optional additional profile fields to persist during sign-up.
-    ///
-    /// For Supabase, these values are stored in Auth `user_metadata` when email
-    /// confirmation is enabled (session can be null). They will then be copied
-    /// into `public.profiles` at first authenticated login.
     Map<String, dynamic>? profileDraft,
   });
 
-  /// Starts a phone sign-in / registration flow.
-  ///
-  /// UI should call this first to send SMS, then call [confirmPhoneCode].
+  /// Inscription simplifiée pour un compte personnel.
+  Future<AppUser> registerPersonal({
+    required String email,
+    required String password,
+    required String displayName,
+    required bool rememberMe,
+    Map<String, dynamic>? profileDraft,
+  });
+
+  /// Vérification du code OTP envoyé par email.
+  Future<void> verifyOTP({
+    required String email,
+    required String token,
+  });
+
+  /// Renvoie un code OTP par email.
+  Future<void> resendOTP({required String email});
+
+  /// Démarrage de l'authentification par téléphone (non implémenté).
   Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber});
 
-  /// Confirms SMS code and returns the authenticated user.
-  ///
-  /// If the user profile doc doesn't exist yet, it will be created with
-  /// the provided [displayName] and [accountType].
+  /// Confirmation du code téléphone (non implémenté).
   Future<AppUser> confirmPhoneCode({
     required PhoneAuthSession session,
     required String smsCode,
@@ -48,37 +59,21 @@ abstract class AuthManager {
     AccountType accountType = AccountType.personal,
   });
 
+  /// Déconnexion.
   Future<void> signOut();
 
+  /// Suppression du compte (non implémenté).
   Future<void> deleteAccount();
 
+  /// Mise à jour de l'email.
   Future<void> updateEmail(String newEmail);
 
+  /// Demande de réinitialisation du mot de passe.
   Future<void> requestPasswordReset(String email);
 
-  /// Updates the current user locally (and remotely when applicable).
-  ///
-  /// Used when backend activation assigns a new THIX UID, photo, etc.
+  /// Met à jour l'utilisateur courant (profil).
   Future<void> updateCurrentUser(AppUser user);
 }
 
-class AuthException implements Exception {
-  final String message;
-  AuthException(this.message);
-  @override
-  String toString() => message;
-}
-
-class PhoneAuthSession {
-  final String phoneNumber;
-  final String? verificationId;
-  final int? forceResendingToken;
-  final Object? webConfirmationResult;
-
-  const PhoneAuthSession({
-    required this.phoneNumber,
-    required this.verificationId,
-    required this.forceResendingToken,
-    required this.webConfirmationResult,
-  });
-}
+/// Session téléphone (placeholder).
+class PhoneAuthSession {}
