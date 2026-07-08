@@ -2222,7 +2222,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                       _DashboardTopBar(
                         user: me.copyWith(displayName: profile.displayName, photoUrl: profile.photoUrl, bio: profile.bio, countryOrOrigin: profile.countryOrOrigin, occupation: profile.occupation, thixChat: profile.thixChat, languages: profile.languages),
                         score: thixScore,
-                        onBack: () => context.popOrGo(AppRoutes.home),
+                        onBack: () => context.go(AppRoutes.home),
                         onOpenSettings: () => context.push(AppRoutes.settings),
                         onLogout: () async {
                           await context.read<AuthController>().signOut();
