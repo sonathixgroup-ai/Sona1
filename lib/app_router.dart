@@ -169,6 +169,10 @@ import 'package:thix_id/presentation/thix_event/my_tickets_page.dart';
 import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
 import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
 import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
+// moderateur evenement
+import '../presentation/moderator/moderator_home.dart';
+import '../presentation/moderator/moderator_event_list.dart';
+import '../presentation/moderator/moderator_event_form.dart';
 
 // ==================== PAGE DE TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
@@ -246,6 +250,12 @@ static const String trainingDetailsBasePath = '/education';
   static const String thixEventSeatSelection = '/thix-event/seat-selection/:eventId';
   static const String thixEventWaitingQueue = '/thix-event/waiting-queue/:eventId';
 
+// Routes modérateur
+static const String moderatorHome = '/moderator';
+static const String moderatorEvents = '/moderator/events';
+static const String moderatorEventCreate = '/moderator/event/create';
+static const String moderatorEventEdit = '/moderator/event/edit/:id';
+  
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   
@@ -1399,7 +1409,35 @@ class AppRouter {
     return NoTransitionPage(child: ShopDetailPage(shopId: shopId));
   },
 ),
-       
+       // ============================================================
+// ROUTES MODÉRATEUR (à insérer dans GoRouter)
+// ============================================================
+
+GoRoute(
+  path: '/moderator',
+  builder: (context, state) => const ModeratorHome(),
+  redirect: (context, state) {
+    final auth = context.read<AuthProvider>();
+    return auth.isModerator ? null : '/thix-event';
+  },
+  routes: [
+    GoRoute(
+      path: 'events',
+      builder: (context, state) => const ModeratorEventList(),
+    ),
+    GoRoute(
+      path: 'event/create',
+      builder: (context, state) => const ModeratorEventForm(),
+    ),
+    GoRoute(
+      path: 'event/edit/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return ModeratorEventForm(eventId: id);
+      },
+    ),
+  ],
+),
 
         // ---- Admin ----
         GoRoute(
