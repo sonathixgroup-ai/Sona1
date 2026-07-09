@@ -88,7 +88,14 @@ class AppRoutes {
   static const String moderatorEvents = '/moderator/events';
   static const String moderatorEventCreate = '/moderator/event/create';
   static const String moderatorEventEdit = '/moderator/event/edit/:id';
-
+   //----+++- Mon Pays--------
+static const String monPays = '/mon-pays';
+static const String monPaysAdmin = '/mon-pays/admin';
+static const String monPaysAuthorities = '/mon-pays/authorities';
+static const String monPaysNews = '/mon-pays/news';
+static const String monPaysAuthorityDetail = '/mon-pays/authority/:id';
+static const String monPaysNewsDetail = '/mon-pays/news/:id';
+  
   // Helpers
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
