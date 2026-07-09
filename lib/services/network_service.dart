@@ -51,13 +51,14 @@ class NetworkService {
         return [];
       }
 
+      // ✅ CORRECTION : Utilisation de 'profiles' au lieu de 'users'
       final response = await _supabase
           .from('posts')
           .select('''
             *,
-            users:user_id (
+            profiles:user_id (
               display_name,
-              photo_url,
+              avatar_url,
               profession
             )
           ''')
@@ -87,9 +88,9 @@ class NetworkService {
 
         posts.add(NetworkPost.fromJson({
           ...e,
-          'author_name': e['users']?['display_name'] ?? 'Utilisateur',
-          'author_avatar': e['users']?['photo_url'],
-          'author_title': e['users']?['profession'],
+          'author_name': e['profiles']?['display_name'] ?? 'Utilisateur',
+          'author_avatar': e['profiles']?['avatar_url'], // Corrigé : avatar_url
+          'author_title': e['profiles']?['profession'],
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
           'is_liked': (likedData as List).isNotEmpty,
@@ -115,13 +116,14 @@ class NetworkService {
       final currentUserId = this.currentUserId;
       if (currentUserId.isEmpty) return [];
 
+      // ✅ CORRECTION : 'profiles'
       final response = await _supabase
           .from('posts')
           .select('''
             *,
-            users:user_id (
+            profiles:user_id (
               display_name,
-              photo_url,
+              avatar_url,
               profession
             )
           ''')
@@ -157,12 +159,12 @@ class NetworkService {
             .eq('post_id', e['id'])
             .eq('user_id', currentUserId);
 
-        final userData = e['users'] as Map<String, dynamic>?;
+        final userData = e['profiles'] as Map<String, dynamic>?;
 
         final post = NetworkPost.fromJson({
           ...e,
           'author_name': userData?['display_name'] ?? 'Utilisateur',
-          'author_avatar': userData?['photo_url'],
+          'author_avatar': userData?['avatar_url'],
           'author_title': userData?['profession'],
           'likes_count': (likesData as List).length,
           'comments_count': (commentsData as List).length,
@@ -199,7 +201,6 @@ class NetworkService {
           score += 15 * previousLikes.length.clamp(0, 3);
         }
 
-        // ✅ BONUS : les posts de l'utilisateur courant sont toujours prioritaires
         if (post.userId == currentUserId) {
           score += 1000;
         }
@@ -219,7 +220,7 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 3: POST INDIVIDUEL (GET, CREATE, UPDATE, DELETE)
+  // SECTION 3: POST INDIVIDUEL
   // ============================================================
 
   Future<NetworkPost?> getPostById(String postId) async {
@@ -231,9 +232,9 @@ class NetworkService {
           .from('posts')
           .select('''
             *,
-            users:user_id (
+            profiles:user_id (
               display_name,
-              photo_url,
+              avatar_url,
               profession
             )
           ''')
@@ -258,12 +259,12 @@ class NetworkService {
           .eq('post_id', postId)
           .eq('user_id', currentUserId);
 
-      final userData = response['users'] as Map<String, dynamic>?;
+      final userData = response['profiles'] as Map<String, dynamic>?;
 
       return NetworkPost.fromJson({
         ...response,
         'author_name': userData?['display_name'] ?? 'Utilisateur',
-        'author_avatar': userData?['photo_url'],
+        'author_avatar': userData?['avatar_url'],
         'author_title': userData?['profession'],
         'likes_count': (likesData as List).length,
         'comments_count': (commentsData as List).length,
@@ -391,7 +392,7 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 4: INTERACTIONS (LIKES, COMMENTAIRES, PARTAGES)
+  // SECTION 4: INTERACTIONS
   // ============================================================
 
   Future<void> likePost(String postId) async {
@@ -457,10 +458,10 @@ class NetworkService {
           .from('comments')
           .select('''
             *,
-            users!user_id (
+            profiles!user_id (
               id,
               display_name,
-              photo_url
+              avatar_url
             )
           ''')
           .eq('post_id', postId)
@@ -469,8 +470,8 @@ class NetworkService {
       return (response as List).map((e) => {
         'id': e['id'],
         'user_id': e['user_id'],
-        'user_name': e['users']['display_name'],
-        'user_avatar': e['users']['photo_url'],
+        'user_name': e['profiles']['display_name'],
+        'user_avatar': e['profiles']['avatar_url'],
         'content': e['content'],
         'created_at': e['created_at'],
       }).toList();
@@ -532,7 +533,7 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 5: ÉPINGLER LES POSTS
+  // SECTION 5: ÉPINGLER
   // ============================================================
 
   Future<void> pinPost(String postId) async {
@@ -554,24 +555,34 @@ class NetworkService {
   Future<NetworkPost?> getPinnedPost(String userId) async {
     final response = await _supabase
         .from('posts')
-        .select('*, users:user_id(display_name, photo_url, profession)')
+        .select('*, profiles:user_id(display_name, avatar_url, profession)')
         .eq('user_id', userId)
         .eq('is_pinned', true)
         .maybeSingle();
 
     if (response == null) return null;
-    return NetworkPost.fromJson(response);
+    return NetworkPost.fromJson({
+      ...response,
+      'author_name': response['profiles']?['display_name'],
+      'author_avatar': response['profiles']?['avatar_url'],
+      'author_title': response['profiles']?['profession'],
+    });
   }
 
   Future<List<NetworkPost>> getPinnedPosts(String userId) async {
     final response = await _supabase
         .from('posts')
-        .select('*, users:user_id(display_name, photo_url, profession)')
+        .select('*, profiles:user_id(display_name, avatar_url, profession)')
         .eq('user_id', userId)
         .eq('is_pinned', true)
         .order('created_at', ascending: false);
 
-    return (response as List).map((e) => NetworkPost.fromJson(e)).toList();
+    return (response as List).map((e) => NetworkPost.fromJson({
+      ...e,
+      'author_name': e['profiles']?['display_name'],
+      'author_avatar': e['profiles']?['avatar_url'],
+      'author_title': e['profiles']?['profession'],
+    })).toList();
   }
 
   Future<void> unpinPost(String postId) async {
@@ -582,7 +593,7 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 6: SAUVEGARDER LES POSTS
+  // SECTION 6: SAUVEGARDER
   // ============================================================
 
   Future<void> savePost(String postId) async {
@@ -672,9 +683,9 @@ class NetworkService {
           .from('stories')
           .select('''
             *,
-            users!user_id (
+            profiles!user_id (
               display_name,
-              photo_url,
+              avatar_url,
               profession
             )
           ''')
@@ -683,13 +694,13 @@ class NetworkService {
           .order('created_at', ascending: false);
 
       return (response as List).map((e) {
-        final userData = e['users'] as Map<String, dynamic>?;
+        final userData = e['profiles'] as Map<String, dynamic>?;
         return NetworkStory.fromJson({
           ...e,
           'image_url': e['image_url'] ?? e['media_url'] ?? '',
           'profiles': userData != null ? {
             'display_name': userData['display_name'],
-            'avatar_url': userData['photo_url'],
+            'avatar_url': userData['avatar_url'],
             'title': userData['profession'],
           } : null,
         });
@@ -776,7 +787,7 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 10: UPLOAD IMAGES & VIDEOS
+  // SECTION 10: UPLOAD IMAGES
   // ============================================================
 
   Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async {
@@ -798,26 +809,6 @@ class NetworkService {
     }
   }
 
-  @Deprecated('Use uploadImageBytes + PlatformFile.bytes instead (Web-safe).')
-  Future<String?> uploadImage(String filePath, {String bucket = 'post_images'}) async {
-    debugPrint('NetworkService.uploadImage(filePath) is not Web-safe. Use uploadImageBytes instead.');
-    return null;
-  }
-
-  @Deprecated('Use uploadImageBytes + PlatformFile.bytes instead (Web-safe).')
-  Future<List<String>> uploadMultipleImages(List<String> filePaths, {String bucket = 'post_images'}) async {
-    debugPrint('NetworkService.uploadMultipleImages(filePaths) is not Web-safe.');
-    return [];
-  }
-
-  Future<String?> uploadAvatar(String filePath) async {
-    return uploadImage(filePath, bucket: 'avatars');
-  }
-
-  Future<String?> uploadStoryImage(String filePath) async {
-    return uploadImage(filePath, bucket: 'story_images');
-  }
-
   Future<void> deleteImage(String imageUrl, {String bucket = 'post_images'}) async {
     try {
       final uri = Uri.parse(imageUrl);
@@ -831,11 +822,6 @@ class NetworkService {
     } catch (e) {
       debugPrint('Error deleting image: $e');
     }
-  }
-
-  @Deprecated('Use uploadImageBytes + createPost(content, urls) instead (Web-safe).')
-  Future<void> createPostWithImages(String content, List<String> imagePaths) async {
-    debugPrint('NetworkService.createPostWithImages is not Web-safe.');
   }
 
   // ============================================================
@@ -1062,8 +1048,8 @@ class NetworkService {
       if (currentUserId.isEmpty) return [];
 
       final response = await _supabase
-          .from('users')
-          .select('id, display_name, photo_url, profession')
+          .from('profiles')
+          .select('id, display_name, avatar_url, profession')
           .neq('id', currentUserId)
           .limit(limit);
 
@@ -1080,7 +1066,7 @@ class NetworkService {
         suggestions.add(NetworkConnection(
           id: user['id'],
           name: user['display_name'] ?? 'Utilisateur',
-          avatar: user['photo_url'],
+          avatar: user['avatar_url'],
           title: user['profession'] ?? 'Membre THIX',
           mutualConnections: mutualCount,
         ));
@@ -1131,12 +1117,8 @@ class NetworkService {
   }
 
   // ============================================================
-  // SECTION 13: MESSAGES PRIVÉS (Direct Messages)
+  // SECTION 13: MESSAGES PRIVÉS
   // ============================================================
-
-  // ⚠️ Ces méthodes utilisent la table `messages` (existante)
-  // pour la messagerie directe. Cette table doit exister dans la base de données.
-  // Si vous utilisez `thix_chat_messages` à la place, adaptez les noms.
 
   Future<List<Conversation>> getConversations() async {
     try {
@@ -1151,11 +1133,11 @@ class NetworkService {
             content,
             created_at,
             is_read,
-            sender:users!messages_sender_id (
-              id, display_name, photo_url
+            sender:profiles!messages_sender_id (
+              id, display_name, avatar_url
             ),
-            receiver:users!messages_receiver_id (
-              id, display_name, photo_url
+            receiver:profiles!messages_receiver_id (
+              id, display_name, avatar_url
             )
           ''')
           .or('sender_id.eq.$currentUserId,receiver_id.eq.$currentUserId')
@@ -1177,7 +1159,7 @@ class NetworkService {
             id: otherId,
             otherUserId: otherId,
             otherUserName: otherUser?['display_name'] ?? 'Utilisateur',
-            otherUserAvatar: otherUser?['photo_url'],
+            otherUserAvatar: otherUser?['avatar_url'],
             lastMessage: msg['content'],
             lastMessageAt: DateTime.parse(msg['created_at']),
             lastMessageIsFromMe: msg['sender_id'] == currentUserId,
@@ -1269,9 +1251,9 @@ class NetworkService {
           .from('notifications')
           .select('''
             *,
-            users!sender_id (
+            profiles!sender_id (
               display_name,
-              photo_url
+              avatar_url
             ),
             posts!post_id (
               id, content
@@ -1364,11 +1346,11 @@ class NetworkService {
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
       final response = await _supabase
-          .from('users')
+          .from('profiles')
           .select('''
             id,
             display_name,
-            photo_url,
+            avatar_url,
             profession,
             bio,
             skills
@@ -1398,7 +1380,7 @@ class NetworkService {
       return {
         'id': response['id'],
         'display_name': response['display_name'],
-        'photo_url': response['photo_url'],
+        'photo_url': response['avatar_url'],
         'profession': response['profession'],
         'bio': response['bio'],
         'skills': response['skills'] ?? [],
@@ -1418,8 +1400,8 @@ class NetworkService {
           .from('posts')
           .select('''
             *,
-            users!user_id (
-              display_name, photo_url, profession
+            profiles!user_id (
+              display_name, avatar_url, profession
             )
           ''')
           .eq('user_id', userId)
@@ -1427,9 +1409,9 @@ class NetworkService {
 
       return (response as List).map((e) => NetworkPost.fromJson({
         ...e,
-        'author_name': e['users']?['display_name'],
-        'author_avatar': e['users']?['photo_url'],
-        'author_title': e['users']?['profession'],
+        'author_name': e['profiles']?['display_name'],
+        'author_avatar': e['profiles']?['avatar_url'],
+        'author_title': e['profiles']?['profession'],
         'likes_count': 0,
         'comments_count': 0,
         'is_liked': false,
@@ -1481,8 +1463,8 @@ class NetworkService {
   Future<List<Map<String, dynamic>>> searchUsers(String query) async {
     try {
       final response = await _supabase
-          .from('users')
-          .select('id, display_name, photo_url, profession')
+          .from('profiles')
+          .select('id, display_name, avatar_url, profession')
           .ilike('display_name', '%$query%')
           .limit(20);
 
@@ -1499,7 +1481,7 @@ class NetworkService {
           .from('posts')
           .select('''
             id, content, created_at,
-            users!user_id (display_name, photo_url)
+            profiles!user_id (display_name, avatar_url)
           ''')
           .ilike('content', '%$query%')
           .order('created_at', ascending: false)
@@ -1565,7 +1547,7 @@ class NetworkService {
 
     try {
       final people = await _supabase
-          .from('users')
+          .from('profiles')
           .select('id')
           .neq('id', currentUserId)
           .limit(10);
