@@ -737,15 +737,15 @@ class AppRouter {
         GoRoute(
           path: '/moderator',
           name: 'moderatorHome',
-          builder: (_, state) {
+          builder: (context, state) { // ✅ contexte corrigé
             final authProvider = context.read<AuthProvider>();
             if (!authProvider.isModerator) return const ThixEventHome();
             return const ModeratorHome();
           },
           routes: [
-            GoRoute(path: 'events', name: 'moderatorEvents', builder: (_, __) => const ModeratorEventList()),
-            GoRoute(path: 'event/create', name: 'moderatorEventCreate', builder: (_, __) => const ModeratorEventForm()),
-            GoRoute(path: 'event/edit/:id', name: 'moderatorEventEdit', builder: (_, state) => ModeratorEventForm(eventId: state.pathParameters['id']!)),
+            GoRoute(path: 'events', name: 'moderatorEvents', builder: (context, state) => const ModeratorEventList()),
+            GoRoute(path: 'event/create', name: 'moderatorEventCreate', builder: (context, state) => const ModeratorEventForm()),
+            GoRoute(path: 'event/edit/:id', name: 'moderatorEventEdit', builder: (context, state) => ModeratorEventForm(eventId: state.pathParameters['id']!)),
           ],
         ),
 
