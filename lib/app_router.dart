@@ -60,6 +60,39 @@ import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 
+// ---- THIX Market ----
+import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/search_page.dart' as marketSearch;
+import 'package:thix_id/presentation/thix_market/pages/shops_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/buy_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/sell_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/messages_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/live_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/my_activity_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/market_settings_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/help_support_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/product_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/product_comparator_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/price_alerts_page.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_page.dart';
+import 'package:thix_id/presentation/thix_market/checkout/checkout_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/order_history_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/order_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/create_shop_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/manage_shop_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/shop_statistics_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/publish_announcement_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/edit_announcement_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/live_stream_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/create_live_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/live_replay_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/auction_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/chat_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/dispute_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
+import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
+import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
 
 // ---- THIX Info ----
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
@@ -190,12 +223,11 @@ import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
-// THIX Chat - nouvelles pages
+// ---- THIX Chat (nouvelle version) ----
 import 'package:thix_id/presentation/chat/screens/chat_list_page.dart';
 import 'package:thix_id/presentation/chat/screens/new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart' as NewChat;
 import 'package:thix_id/models/chat/chat_conversation.dart';
-
 // ==================== CLASSE DE TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -373,8 +405,9 @@ class AppRouter {
           ],
         ),
 
+        // ---- THIX Chat (principal) ----
         
-  // ---- THIX Chat (nouvelle version) ----
+              // ---- THIX Chat (nouveau) ----
 GoRoute(
   path: '/chat',
   name: 'chatList',
@@ -390,15 +423,35 @@ GoRoute(
   name: 'chatConversation',
   pageBuilder: (context, state) {
     final conversationId = state.pathParameters['conversationId']!;
+    // Récupérer la conversation passée via state.extra (optionnel)
     final conversation = state.extra as ChatConversation?;
     return NoTransitionPage(
       child: NewChat.ChatScreen(
         conversationId: conversationId,
-        conversation: conversation,
+        conversation: conversation ?? ChatConversation(
+          id: conversationId,
+          isGroup: false,
+          participantIds: [],
+          updatedAt: DateTime.now(),
+        ),
       ),
     );
   },
 ),
+            
+
+        // ---- Vault & Settings ----
+        GoRoute(
+          path: AppRoutes.vault,
+          name: 'document-vault',
+          pageBuilder: (context, state) => NoTransitionPage(child: DocumentVaultPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.settings,
+          name: 'settings',
+          pageBuilder: (context, state) => NoTransitionPage(child: SettingsPage()),
+        ),
+
         // ---- Réseau Pro ----
         GoRoute(
           path: AppRoutes.network,
