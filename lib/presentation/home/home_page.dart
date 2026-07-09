@@ -403,7 +403,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                               case 'thixMoney':
                                 context.push(AppRoutes.thixMoney);
                                 break;
-                              case 'servicesGov':
+                              case 'monPays':
+                                context.push(AppRoutes.monPays);
                                 break;
                               case 'reservation':
                                 context.push(AppRoutes.reservation);
@@ -1060,7 +1061,7 @@ class _ServicesGrid extends StatelessWidget {
       {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
       {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
       {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
-      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.domainGov},
+      {'key': 'monPays', 'icon': Icons.flag, 'title': 'Mon Pays', 'color': AppColors.domainGov},
       {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
     ];
 
