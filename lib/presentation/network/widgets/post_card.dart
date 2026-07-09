@@ -9,7 +9,7 @@ import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:provider/provider.dart';
 
-// ─── COULEURS THIX PRO — identiques à NetworkProHome pour cohérence ───
+// ─── COULEURS (inchangées) ───
 class _PostColors {
   static const Color background = Color(0xFFF6F9FF);
   static const Color white = Color(0xFFFFFFFF);
@@ -67,7 +67,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
 
   final TextEditingController _quoteController = TextEditingController();
 
-  // ✅ Regex combinée : couleur {c:#HEX}...{c}, gras **...**, italique *...*, mention @, hashtag #
+  // ─── PARSING RICHE (regex combinée) ───
   static final RegExp _richContentRegex = RegExp(
     r'\{c:(#[0-9A-Fa-f]{6,8})\}([\s\S]*?)\{c\}'
     r'|\*\*([\s\S]+?)\*\*'
@@ -75,6 +75,10 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     r'|@(\w+)'
     r'|#(\w+)',
   );
+
+  // Cache du contenu parsé pour éviter de re‑parser à chaque build
+  List<InlineSpan>? _cachedSpans;
+  String? _lastContent; // pour invalider le cache
 
   @override
   void initState() {
@@ -85,6 +89,26 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    _cacheParsedContent();
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.content != widget.post.content) {
+      _cacheParsedContent();
+    }
+    if (oldWidget.post != widget.post) {
+      _post = widget.post;
+    }
+  }
+
+  void _cacheParsedContent() {
+    _lastContent = widget.post.content;
+    _cachedSpans = _parseContent(
+      widget.post.content,
+      const TextStyle(fontSize: 14, height: 1.45, color: _PostColors.textDark),
+    );
   }
 
   @override
@@ -94,12 +118,12 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  // ─── FORMATAGE DE LA DATE ───
+  // ─── FORMATAGE DATE ───
   String _getTimeAgo(DateTime dateTime) {
     return timeago.format(dateTime, locale: 'fr');
   }
 
-  // ─── PARSING ENRICHI : gras / italique / couleur / mentions / hashtags ───
+  // ─── PARSING (inchangé) ───
   List<InlineSpan> _parseContent(String content, TextStyle baseStyle) {
     final List<InlineSpan> spans = [];
     int lastIndex = 0;
@@ -110,7 +134,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       }
 
       if (match.group(1) != null) {
-        // ── Couleur {c:#HEX}texte{c}
         final hex = match.group(1)!.replaceFirst('#', '');
         final inner = match.group(2) ?? '';
         Color color;
@@ -122,15 +145,12 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         }
         spans.add(TextSpan(children: _parseContent(inner, baseStyle.copyWith(color: color))));
       } else if (match.group(3) != null) {
-        // ── Gras **texte**
         final inner = match.group(3)!;
         spans.add(TextSpan(children: _parseContent(inner, baseStyle.copyWith(fontWeight: FontWeight.w800))));
       } else if (match.group(4) != null) {
-        // ── Italique *texte*
         final inner = match.group(4)!;
         spans.add(TextSpan(children: _parseContent(inner, baseStyle.copyWith(fontStyle: FontStyle.italic))));
       } else if (match.group(5) != null) {
-        // ── Mention @user
         final value = match.group(5)!;
         spans.add(
           TextSpan(
@@ -140,7 +160,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           ),
         );
       } else if (match.group(6) != null) {
-        // ── Hashtag #tag
         final value = match.group(6)!;
         spans.add(
           TextSpan(
@@ -159,6 +178,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     return spans;
   }
 
+  // ─── NAVIGATION ───
   void _navigateToUser(String username) {
     try {
       Navigator.pushNamed(context, '/profile/$username');
@@ -187,17 +207,106 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // ─── ACTIONS ───
+  // ─── GRILLE D’IMAGES (améliorée avec gestion d’erreur) ───
+  Widget _buildImageGrid(List<String> imageUrls) {
+    if (imageUrls.isEmpty) return const SizedBox.shrink();
 
+    // Si une seule image : affichage plein largeur
+    if (imageUrls.length == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: _buildNetworkImage(imageUrls.first, height: 250, width: double.infinity),
+      );
+    }
+
+    // Grille 2 colonnes (max 4 affichées)
+    final int displayCount = imageUrls.length > 4 ? 4 : imageUrls.length;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: displayCount,
+      itemBuilder: (context, index) {
+        // Si c'est le 4ème élément et qu'il y a plus de 4 images, afficher le compteur
+        if (index == 3 && imageUrls.length > 4) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildNetworkImage(imageUrls[index], fit: BoxFit.cover),
+              Container(
+                color: Colors.black45,
+                child: Center(
+                  child: Text(
+                    '+${imageUrls.length - 4}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: _buildNetworkImage(imageUrls[index], fit: BoxFit.cover),
+        );
+      },
+    );
+  }
+
+  // Widget d'image avec gestion de chargement et erreur
+  Widget _buildNetworkImage(String url, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+    return Image.network(
+      url,
+      height: height,
+      width: width,
+      fit: fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height ?? 200,
+          width: width,
+          color: _PostColors.softBlue,
+          child: Center(
+            child: CircularProgressIndicator(
+              color: _PostColors.primary,
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: height ?? 200,
+        width: width,
+        color: _PostColors.softBlue,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image_rounded, size: 44, color: _PostColors.primary.withOpacity(0.4)),
+            const SizedBox(height: 8),
+            const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── ACTIONS (inchangées) ───
   Future<void> _toggleLike() async {
     _likeAnimationController.forward(from: 0.0);
     final newIsLiked = !_post.isLiked;
     final newCount = _post.likesCount + (newIsLiked ? 1 : -1);
     setState(() {
-      _post = _post.copyWith(
-        isLiked: newIsLiked,
-        likesCount: newCount,
-      );
+      _post = _post.copyWith(isLiked: newIsLiked, likesCount: newCount);
     });
 
     try {
@@ -291,10 +400,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       try {
         await _networkService.repost(_post.id, _quoteController.text);
         setState(() {
-          _post = _post.copyWith(
-            repostsCount: _post.repostsCount + 1,
-            isReposted: true,
-          );
+          _post = _post.copyWith(repostsCount: _post.repostsCount + 1, isReposted: true);
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -414,6 +520,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         await _networkService.updatePost(_post.id, newContent);
         setState(() {
           _post = _post.copyWith(content: newContent);
+          _cacheParsedContent(); // rafraîchir le cache
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -502,7 +609,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
   }
 
-  // ─── FORMATAGE DES NOMBRES ───
+  // ─── FORMATAGE NOMBRES ───
   String _formatCount(int count) {
     if (count >= 1000000) {
       return '${(count / 1000000).toStringAsFixed(1)}M';
@@ -519,7 +626,6 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     final isOwner = auth.currentUser?.id == _post.userId;
 
     final hasImage = _post.imageUrls.isNotEmpty;
-    final imageUrl = hasImage ? _post.imageUrls.first : null;
     final hasContent = _post.content.isNotEmpty;
 
     return AnimatedContainer(
@@ -553,22 +659,25 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                 // ─── HEADER ───
                 Row(
                   children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary]),
-                      ),
-                      child: CircleAvatar(
-                        radius: 19,
-                        backgroundColor: _PostColors.softBlue,
-                        backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
-                            ? NetworkImage(_post.authorAvatar!)
-                            : null,
-                        child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
-                            ? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep)
-                            : null,
+                    Semantics(
+                      label: 'Avatar de ${_post.authorName}',
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary]),
+                        ),
+                        child: CircleAvatar(
+                          radius: 19,
+                          backgroundColor: _PostColors.softBlue,
+                          backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
+                              ? NetworkImage(_post.authorAvatar!)
+                              : null,
+                          child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
+                              ? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep)
+                              : null,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -725,13 +834,13 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                 ),
                 const SizedBox(height: 12),
 
-                // ─── CONTENU — gras / italique / couleur / mentions / hashtags interprétés ───
+                // ─── CONTENU (avec cache) ───
                 if (hasContent)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: RichText(
                       text: TextSpan(
-                        children: _parseContent(
+                        children: _cachedSpans ?? _parseContent(
                           _post.content,
                           const TextStyle(fontSize: 14, height: 1.45, color: _PostColors.textDark),
                         ),
@@ -739,127 +848,105 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                     ),
                   ),
 
-                // ─── IMAGE ───
-                if (hasImage)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.network(
-                      imageUrl!,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 200,
-                          color: _PostColors.softBlue,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: _PostColors.primary,
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 200,
-                        color: _PostColors.softBlue,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image_rounded, size: 44, color: _PostColors.primary.withOpacity(0.4)),
-                            const SizedBox(height: 8),
-                            const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                if (hasImage) const SizedBox(height: 12),
+                // ─── GRILLE D’IMAGES (NOUVEAU) ───
+                if (hasImage) ...[
+                  _buildImageGrid(_post.imageUrls),
+                  const SizedBox(height: 12),
+                ],
 
                 // ─── ACTIONS ───
                 Row(
                   children: [
                     // Like
-                    InkWell(
-                      onTap: _toggleLike,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            ScaleTransition(
-                              scale: _likeAnimationController,
-                              child: Icon(
-                                _post.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                color: _post.isLiked ? _PostColors.red : _PostColors.textSecondary,
-                                size: 19,
+                    Semantics(
+                      label: _post.isLiked ? 'Retirer le like' : 'Aimer',
+                      child: InkWell(
+                        onTap: _toggleLike,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              ScaleTransition(
+                                scale: _likeAnimationController,
+                                child: Icon(
+                                  _post.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  color: _post.isLiked ? _PostColors.red : _PostColors.textSecondary,
+                                  size: 19,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              _formatCount(_post.likesCount),
-                              style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                              const SizedBox(width: 5),
+                              Text(
+                                _formatCount(_post.likesCount),
+                                style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 18),
 
                     // Comment
-                    InkWell(
-                      onTap: widget.onComment ?? () {},
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary),
-                            const SizedBox(width: 5),
-                            Text(
-                              _formatCount(_post.commentsCount),
-                              style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                    Semantics(
+                      label: 'Commenter',
+                      child: InkWell(
+                        onTap: widget.onComment ?? () {},
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary),
+                              const SizedBox(width: 5),
+                              Text(
+                                _formatCount(_post.commentsCount),
+                                style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 18),
 
                     // Share
-                    InkWell(
-                      onTap: widget.onShare ?? () {},
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: const [
-                            Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary),
-                            SizedBox(width: 5),
-                            Text('Partager', style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
-                          ],
+                    Semantics(
+                      label: 'Partager',
+                      child: InkWell(
+                        onTap: widget.onShare ?? () {},
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary),
+                              SizedBox(width: 5),
+                              Text('Partager', style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                     const Spacer(),
 
                     // Save
-                    InkWell(
-                      onTap: _toggleSave,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _post.isSaved ? _PostColors.softBlue : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          _post.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                          size: 19,
-                          color: _post.isSaved ? _PostColors.gold : _PostColors.textSecondary,
+                    Semantics(
+                      label: _post.isSaved ? 'Retirer des favoris' : 'Sauvegarder',
+                      child: InkWell(
+                        onTap: _toggleSave,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _post.isSaved ? _PostColors.softBlue : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            _post.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            size: 19,
+                            color: _post.isSaved ? _PostColors.gold : _PostColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),
