@@ -5,9 +5,8 @@ import '../../models/chat/chat_participant.dart';
 
 class PresenceService {
   final SupabaseClient _supabase;
-  final Map<String, String> _userStatus = {}; // userId -> status
+  final Map<String, String> _userStatus = {};
   final Map<String, String> _userCustomStatus = {};
-  final Map<String, DateTime> _userLastSeen = {};
   bool _isSubscribed = false;
   RealtimeChannel? _presenceChannel;
 
@@ -17,7 +16,6 @@ class PresenceService {
 
   // ─── GESTION DU STATUT PERSONNEL ──────────────────────────────
 
-  /// Met à jour le statut de l'utilisateur courant
   Future<void> updateStatus(String status, {String? customStatus}) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
@@ -34,7 +32,6 @@ class PresenceService {
       _userStatus[uid] = status;
       _userCustomStatus[uid] = customStatus;
 
-      // Diffuser le changement via Realtime
       if (_presenceChannel != null) {
         await _presenceChannel!.send({
           'type': 'status_update',
@@ -48,7 +45,6 @@ class PresenceService {
     }
   }
 
-  /// Récupère le statut d'un utilisateur
   Future<ChatParticipant?> getUserStatus(String userId) async {
     try {
       final response = await _supabase
@@ -95,7 +91,6 @@ class PresenceService {
     }
   }
 
-  /// Récupère les statuts de plusieurs utilisateurs
   Future<List<ChatParticipant>> getUsersStatus(List<String> userIds) async {
     if (userIds.isEmpty) return [];
 
@@ -137,9 +132,8 @@ class PresenceService {
     }
   }
 
-  // ─── REALTIME : ÉCOUTE DES CHANGEMENTS ────────────────────────
+  // ─── REALTIME ──────────────────────────────────────────────────
 
-  /// S'abonne aux mises à jour de présence pour les utilisateurs d'une conversation
   Stream<List<ChatParticipant>> subscribeToPresence(String conversationId) {
     return _supabase
         .channel('presence:$conversationId')
@@ -147,30 +141,21 @@ class PresenceService {
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'user_presence',
-          callback: (payload) {
-            // La mise à jour est reçue, on peut diffuser
-          },
+          callback: (payload) {},
         )
         .subscribe()
-        .onData((data) {
-          // Convertir les données en liste de participants
-          // (simplifié, à adapter)
-        });
+        .map((data) => <ChatParticipant>[]); // À adapter selon votre logique
   }
 
-  /// Initialise le canal de présence pour l'utilisateur courant
   Future<void> initPresence() async {
     if (_isSubscribed) return;
     final uid = currentUserId;
     if (uid.isEmpty) return;
 
-    // Créer le canal principal de présence
     _presenceChannel = _supabase.channel('presence:all');
 
-    // S'abonner aux événements de présence
     await _presenceChannel!
         .on('presence', (event, payload) {
-          // Gérer les événements de présence (join, leave, update)
           if (payload['type'] == 'join') {
             _userStatus[payload['user_id']] = payload['status'];
           } else if (payload['type'] == 'leave') {
@@ -181,20 +166,16 @@ class PresenceService {
         })
         .subscribe();
 
-    // Envoyer l'état initial
     await _presenceChannel!.send({
       'type': 'join',
       'user_id': uid,
       'status': UserStatus.online,
     });
 
-    // Marquer l'utilisateur comme en ligne dans la base
     await updateStatus(UserStatus.online);
-
     _isSubscribed = true;
   }
 
-  /// Marquer l'utilisateur comme hors ligne
   Future<void> setOffline() async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
@@ -211,24 +192,15 @@ class PresenceService {
     }
   }
 
-  // ─── MÉTHODES D'ACCÈS AUX STATUTS EN MÉMOIRE ──────────────────
-
-  /// Récupère le statut d'un utilisateur depuis la mémoire
   String? getStatus(String userId) => _userStatus[userId];
-
-  /// Récupère le statut personnalisé d'un utilisateur
   String? getCustomStatus(String userId) => _userCustomStatus[userId];
-
-  /// Vérifie si un utilisateur est en ligne
   bool isOnline(String userId) => _userStatus[userId] == UserStatus.online;
 
-  /// Nettoie la connexion
   void dispose() {
     setOffline();
     _presenceChannel = null;
     _isSubscribed = false;
     _userStatus.clear();
     _userCustomStatus.clear();
-    _userLastSeen.clear();
   }
 }
