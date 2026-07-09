@@ -224,10 +224,9 @@ import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
 // ---- THIX Chat ----
-import 'package:thix_id/presentation/chat/chat_list_page.dart';
-import 'package:thix_id/presentation/chat/new_conversation_page.dart';
-import 'package:thix_id/presentation/chat/chat_screen.dart';
-import 'package:thix_id/models/chat/chat_conversation.dart';
+import 'presentation/chat/chat_list_page.dart';
+import 'presentation/chat/chat_screen.dart' as ThixChat;  // Alias pour éviter le conflit
+import 'presentation/chat/new_conversation_page.dart';
 
 // ==================== CLASSE DE TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
@@ -406,7 +405,7 @@ class AppRouter {
           ],
         ),
 
-        // ---- THIX Chat (principal) ----
+// ---- THIX Chat (principal) ----
 GoRoute(
   path: AppRoutes.chat,
   name: 'chat',
@@ -424,7 +423,7 @@ GoRoute(
     final conversationId = state.pathParameters['conversationId']!;
     final conversation = state.extra as ChatConversation?;
     return NoTransitionPage(
-      child: ChatScreen(
+      child: ThixChat.ChatScreen(
         conversationId: conversationId,
         conversation: conversation,
       ),
