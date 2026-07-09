@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_highlight/flutter_highlight.dart';        // ✅ IMPORT AJOUTÉ
-import 'package:flutter_highlight/themes/monokai-sublime.dart'; // ✅ IMPORT AJOUTÉ
+import 'package:flutter_highlight/flutter_highlight.dart';         // ✅ DÉPENDANCE
+import 'package:flutter_highlight/themes/monokai-sublime.dart';  // ✅ THÈME
 
 class ChatCodeSnippet extends StatelessWidget {
   final String code;
@@ -64,10 +64,10 @@ class ChatCodeSnippet extends StatelessWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(12),
-            child: HighlightView(  // ✅ Maintenant disponible
+            child: HighlightView(
               code,
               language: language,
-              theme: monokaiSublimeTheme,  // ✅ Maintenant disponible
+              theme: monokaiSublimeTheme,
               padding: EdgeInsets.zero,
               textStyle: const TextStyle(
                 fontSize: 12,
