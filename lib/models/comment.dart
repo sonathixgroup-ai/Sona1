@@ -4,11 +4,12 @@ class Comment {
   final String userId;
   final String userName;
   final String? userAvatar;
-  final String content;
+  String content; // ← plus final
   final DateTime createdAt;
-  final int likesCount;
-  final bool isLiked;
-  final List<Comment> replies; // sous‑commentaires
+  int likesCount; // ← plus final
+  bool isLiked; // ← plus final
+  final String? parentId;
+  List<Comment> replies; // ← plus final (si vous voulez pouvoir ajouter des réponses)
 
   Comment({
     required this.id,
@@ -20,23 +21,40 @@ class Comment {
     required this.createdAt,
     this.likesCount = 0,
     this.isLiked = false,
+    this.parentId,
     this.replies = const [],
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
+    // Assurez-vous que les clés correspondent à votre base
     return Comment(
       id: json['id'],
       postId: json['post_id'],
       userId: json['user_id'],
-      userName: json['user_name'] ?? 'Utilisateur',
-      userAvatar: json['user_avatar'],
-      content: json['content'],
+      userName: json['profiles']?['display_name'] ?? json['user_name'] ?? 'Utilisateur',
+      userAvatar: json['profiles']?['avatar_url'] ?? json['user_avatar'],
+      content: json['content'] ?? '',
       createdAt: DateTime.parse(json['created_at']),
       likesCount: json['likes_count'] ?? 0,
       isLiked: json['is_liked'] ?? false,
+      parentId: json['parent_id'],
       replies: (json['replies'] as List?)
           ?.map((e) => Comment.fromJson(e))
           .toList() ?? [],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'post_id': postId,
+    'user_id': userId,
+    'user_name': userName,
+    'user_avatar': userAvatar,
+    'content': content,
+    'created_at': createdAt.toIso8601String(),
+    'likes_count': likesCount,
+    'is_liked': isLiked,
+    'parent_id': parentId,
+    'replies': replies.map((e) => e.toJson()).toList(),
+  };
 }
