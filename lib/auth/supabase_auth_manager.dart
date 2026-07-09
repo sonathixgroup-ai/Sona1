@@ -159,8 +159,8 @@ class SupabaseAuthManager implements AuthManager {
 
       final base = AppUser(
         id: uid,
-        thixId: 'THIX-PENDING-$uid', // Rendu unique pour éviter la contrainte de clé dupliquée
-        thixChat: '',
+        thixId: 'THIX-PENDING-$uid', // Rendu unique
+        thixChat: 'user_$uid',       // Rendu unique pour éviter profiles_thix_chat_unique_idx
         thixScore: null,
         email: email,
         phone: user.phone,
@@ -230,7 +230,7 @@ class SupabaseAuthManager implements AuthManager {
     return AppUser(
       id: uid,
       thixId: (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? row['thixUid'] ?? 'THIX-PENDING-$uid').toString(),
-      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? '').toString(),
+      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? 'user_$uid').toString(),
       thixScore: (row['thix_score'] as num?)?.toInt() ?? (row['thixScore'] as num?)?.toInt(),
       email: email,
       phone: phone,
@@ -398,8 +398,8 @@ class SupabaseAuthManager implements AuthManager {
       final now = DateTime.now();
       final appUser = AppUser(
         id: user.id,
-        thixId: 'THIX-PENDING-${user.id}', // Rendu unique ici aussi pour l'inscription directe
-        thixChat: '',
+        thixId: 'THIX-PENDING-${user.id}',
+        thixChat: 'user_${user.id}', // Rendu unique à l'inscription pour éviter la duplication
         thixScore: null,
         email: normalizedEmail,
         phone: user.phone,
