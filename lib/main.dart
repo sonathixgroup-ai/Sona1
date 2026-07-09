@@ -8,8 +8,8 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
-import 'package:thix_id/nav.dart' show AppRoutes; // Pour AppRoutes
-import 'package:thix_id/app_router.dart'; // ✅ IMPORT AJOUTÉ pour AppRouter
+import 'package:thix_id/nav.dart' show AppRoutes;
+import 'package:thix_id/app_router.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/services/network_service.dart';
@@ -18,9 +18,8 @@ import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/providers/news_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
-import 'package:thix_id/presentation/chat/core/chat_bloc.dart';
-import 'package:thix_id/presentation/chat/core/chat_repository.dart';
-import 'package:thix_id/presentation/chat/tasks/task_notification.dart';
+
+// ─── THIX MARKET ───
 import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/live_provider.dart';
@@ -31,13 +30,9 @@ import 'package:thix_id/presentation/thix_market/providers/search_provider.dart'
 import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart'; // ✅ Vérifié et actif
-import 'package:thix_id/providers/event_provider.dart';
-import 'package:thix_id/services/event_service.dart';
+import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
 
-// ============================================================
-// ✅ IMPORTS EDUCATION
-// ============================================================
+// ─── EDUCATION ───
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
 import 'package:thix_id/presentation/education/providers/progress_provider.dart';
 import 'package:thix_id/presentation/education/providers/certificate_provider.dart';
@@ -45,11 +40,13 @@ import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 import 'package:thix_id/presentation/education/services/education_service.dart';
 
-// ============================================================
-// ✅ IMPORTS MODERATEUR
-// ============================================================
+// ─── MODERATEUR ───
 import 'package:thix_id/providers/auth_provider.dart';
 import 'package:thix_id/providers/moderator_provider.dart';
+
+// ─── THIX ÉVÉNEMENT ───
+import 'package:thix_id/providers/event_provider.dart';
+import 'package:thix_id/services/event_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN
@@ -63,6 +60,7 @@ Future<void> main() async {
     debugPrint('FlutterError: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
   };
+
   ErrorWidget.builder = (FlutterErrorDetails details) {
     debugPrint('ErrorWidget: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
@@ -96,7 +94,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
-    // 1. Initialisation de la configuration de base de Supabase (Obligatoire et local)
+    // 1. Initialisation de la configuration de base de Supabase
     await SupabaseConfig.initialize();
 
     final profiles = ProfileService();
@@ -105,17 +103,17 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final auth = AuthController(
       auth: SupabaseAuthManager(profiles: profiles),
     );
-    
-    // 2. Sécurisation de l'authentification (Empêche l'application de crasher au lancement)
+
+    // 2. Sécurisation de l'authentification
     try {
       await auth.init();
     } catch (e) {
-      debugPrint("⚠️ Échec initialisation de l'authentification (Mode déconnecté ou erreur DB) : $e");
+      debugPrint("⚠️ Échec initialisation de l'authentification : $e");
     }
 
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
-    
+
     // 3. Sécurisation du flux Realtime
     try {
       feed.initRealtime();
@@ -123,14 +121,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
       debugPrint("⚠️ Échec de l'initialisation Realtime : $e");
     }
 
-    // 4. Sécurisation des notifications
-    try {
-      await TaskNotification.init();
-    } catch (e) {
-      debugPrint("⚠️ Échec des notifications locales : $e");
-    }
-
-    final chatBloc = ChatBloc(ChatRepository());
     final eventService = EventService(SupabaseConfig.client);
 
     return _BootstrapResult(
@@ -139,7 +129,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
       userService: userService,
       network: network,
       feed: feed,
-      chatBloc: chatBloc,
       eventService: eventService,
     );
   }
@@ -212,7 +201,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 userService: snap.data!.userService,
                 network: snap.data!.network,
                 feed: snap.data!.feed,
-                chatBloc: snap.data!.chatBloc,
                 eventService: snap.data!.eventService,
               )
             : MaterialApp(
@@ -237,13 +225,14 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 }
 
+// ─── Résultat du bootstrap ────────────────────────────────────────────────
+
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
   final UserService userService;
   final NetworkService network;
   final FeedProvider feed;
-  final ChatBloc chatBloc;
   final EventService eventService;
 
   const _BootstrapResult({
@@ -252,12 +241,11 @@ class _BootstrapResult {
     required this.userService,
     required this.network,
     required this.feed,
-    required this.chatBloc,
     required this.eventService,
   });
 }
 
-// ─── Écran de chargement ───────────────────────────────────────────────
+// ─── Écran de chargement ──────────────────────────────────────────────────
 
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
@@ -308,7 +296,7 @@ class _StartupLoadingPage extends StatelessWidget {
   }
 }
 
-// ─── Application principale ─────────────────────────────────────────────
+// ─── Application principale ──────────────────────────────────────────────
 
 class MyApp extends StatefulWidget {
   final AuthController auth;
@@ -316,7 +304,6 @@ class MyApp extends StatefulWidget {
   final UserService userService;
   final NetworkService network;
   final FeedProvider feed;
-  final ChatBloc chatBloc;
   final EventService eventService;
 
   const MyApp({
@@ -326,7 +313,6 @@ class MyApp extends StatefulWidget {
     required this.userService,
     required this.network,
     required this.feed,
-    required this.chatBloc,
     required this.eventService,
   });
 
@@ -347,7 +333,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
-    widget.chatBloc.close();
     super.dispose();
   }
 
@@ -355,23 +340,29 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ─── AUTH & LANGUE ───
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
+
+        // ─── SERVICES ───
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<UserService>.value(value: widget.userService),
         Provider<NetworkService>.value(value: widget.network),
-        ChangeNotifierProvider.value(value: widget.feed),
-        BlocProvider<ChatBloc>.value(value: widget.chatBloc),
 
-        // 🆕 PROVIDER POUR LES ÉVÉNEMENTS
+        // ─── FEED ───
+        ChangeNotifierProvider.value(value: widget.feed),
+
+        // ─── ÉVÉNEMENTS ───
         ChangeNotifierProvider<EventProvider>(
           create: (_) => EventProvider(widget.eventService),
         ),
-        // ✅ THIX INFO – correction
+
+        // ─── THIX INFO ───
         ChangeNotifierProvider<NewsProvider>(
           create: (_) => NewsProvider(NewsService(SupabaseConfig.client)),
         ),
-        // 🆕 THIX MARKET
+
+        // ─── THIX MARKET ───
         ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
         ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
         ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
@@ -384,9 +375,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
 
-        // ============================================================
-        // ✅ NOUVEAUX PROVIDERS EDUCATION
-        // ============================================================
+        // ─── EDUCATION ───
         ChangeNotifierProvider<EducationProvider>(
           create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
         ),
@@ -403,9 +392,7 @@ class _MyAppState extends State<MyApp> {
           create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
         ),
 
-        // ============================================================
-        // ✅ NOUVEAUX PROVIDERS MODERATEUR
-        // ============================================================
+        // ─── MODERATEUR ───
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(SupabaseConfig.client),
         ),
@@ -422,7 +409,7 @@ class _MyAppState extends State<MyApp> {
             theme: lightTheme,
             darkTheme: darkTheme,
             themeMode: ThemeMode.system,
-            routerConfig: _router, // AppRouter inclut déjà les routes Education et Moderator
+            routerConfig: _router,
             locale: locale,
             supportedLocales: LocaleController.supportedLocales,
             localizationsDelegates: const [
