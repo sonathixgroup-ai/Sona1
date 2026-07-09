@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
+import 'package:supabase_flutter/supabase_flutter.dart' as sup show AuthException;
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
@@ -351,7 +352,7 @@ class SupabaseAuthManager implements AuthManager {
       _currentUser.value = hydrated;
       _bindProfileSync(user.id);
       return hydrated;
-    } on SupabaseAuthException catch (e) {
+    } on sup.AuthException catch (e) {
       debugPrint('Supabase Auth error during login: ${e.message}');
       throw AuthException(e.message);
     } catch (e) {
@@ -442,7 +443,7 @@ class SupabaseAuthManager implements AuthManager {
 
       _currentUser.value = appUser;
       return appUser;
-    } on SupabaseAuthException catch (e) {
+    } on sup.AuthException catch (e) {
       debugPrint('Supabase Auth error during registration: ${e.message}');
       throw AuthException(e.message);
     } catch (e) {
@@ -481,7 +482,7 @@ class SupabaseAuthManager implements AuthManager {
         type: OtpType.email,
       );
       await _refreshCurrentUser();
-    } on SupabaseAuthException catch (e) {
+    } on sup.AuthException catch (e) {
       throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: verifyOTP failed err=$e');
@@ -496,7 +497,7 @@ class SupabaseAuthManager implements AuthManager {
         type: OtpType.signup,
         email: email.trim().toLowerCase(),
       );
-    } on SupabaseAuthException catch (e) {
+    } on sup.AuthException catch (e) {
       throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: resendOTP failed err=$e');
