@@ -225,6 +225,10 @@ import 'presentation/chat/chat_list_page.dart';
 import 'presentation/chat/chat_screen.dart' as ThixChat;
 import 'presentation/chat/new_conversation_page.dart';
 
+//----------Mon Pays -------------
+import 'package:thix_id/presentation/mon_pays/mon_pays_page.dart';
+import 'package:thix_id/presentation/mon_pays/admin/admin_dashboard_page.dart';
+
 // ==================== TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -315,6 +319,27 @@ class AppRouter {
             return '${AppRoutes.enterprisePortalBase(slug)}/dashboard/overview';
           }),
         ]),
+
+        // ---- Mon Pays ----
+GoRoute(
+  path: AppRoutes.monPays,
+  name: 'monPays',
+  pageBuilder: (_, __) => NoTransitionPage(child: const MonPaysPage()),
+),
+GoRoute(
+  path: AppRoutes.monPaysAdmin,
+  name: 'monPaysAdmin',
+  pageBuilder: (_, __) => NoTransitionPage(child: const AdminDashboardPage()),
+  redirect: (context, state) {
+    final auth = context.read<AuthController>();
+    if (!auth.isAuthenticated) return AppRoutes.login;
+    final user = auth.currentUser;
+    if (user == null || (user.role != 'admin' && user.role != 'moderateur')) {
+      return AppRoutes.monPays; // ou AppRoutes.home
+    }
+    return null;
+  },
+),
 
         // ---- THIX Chat (simplifié) ----
         GoRoute(
