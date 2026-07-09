@@ -9,6 +9,7 @@ import '../../models/chat/chat_message.dart';
 import '../../models/chat/user_status.dart';
 import '../../auth/auth_controller.dart';
 import 'chat_screen.dart';
+import 'new_conversation_page.dart';
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
