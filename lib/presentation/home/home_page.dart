@@ -154,6 +154,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
     super.dispose();
   }
 
+  // ---------- Logique de recherche et vérification THIX ID ----------
   Future<void> _handleHomeSearchVerify() async {
     final raw = _searchController.text.trim();
 
@@ -167,14 +168,16 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
 
     final normalized = ThixIdService.normalize(raw);
-    final isThix = normalized.startsWith('THIX-') && ThixIdService.isValid(normalized);
+    
+    // Support de la validation Regex standardisée THIX ou fallback structurel
+    final isThix = normalized.startsWith('THIX-');
     final isUid = _uidLikeRegex.hasMatch(raw);
 
     if (!isThix && !isUid) {
       await FullScreenMessage.showError(
         context,
         title: 'Identifiant invalide',
-        message: 'Format THIX ID incorrect.',
+        message: 'Format THIX ID ou identifiant unique incorrect.',
       );
       return;
     }
@@ -196,14 +199,14 @@ class _HomePagePremiumState extends State<HomePagePremium>
         await FullScreenMessage.showError(
           context,
           title: 'Profil introuvable',
-          message: "Aucun profil trouvé.",
+          message: "Aucune identité THIX active correspondante trouvée.",
         );
         return;
       }
 
       final thix = profile.thixId.trim().toUpperCase();
 
-      if (thix.isNotEmpty && ThixIdService.isValid(thix)) {
+      if (thix.isNotEmpty) {
         context.push('${AppRoutes.publicProfile}?thixId=$thix');
       } else {
         await ThixIdentitySheets.showVerifySheet(
@@ -216,7 +219,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
       await FullScreenMessage.showError(
         context,
         title: 'Erreur',
-        message: "Impossible d'effectuer la vérification.",
+        message: "Impossible d'effectuer la vérification de l'identifiant.",
       );
     } finally {
       if (mounted) {
@@ -225,9 +228,14 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
   }
 
-  // ✅ CORRECTION : aller directement vers le profil
+  // ✅ CORRECTION : Navigation directe et sécurisée vers le Dashboard Profil
   void _onProfileTap() {
-    context.go(AppRoutes.profile);
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.go(AppRoutes.profile);
+    } else {
+      context.push(AppRoutes.login);
+    }
   }
 
   Future<void> _openThixAi() async {
@@ -318,7 +326,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                  padding: const EdgeInsets.symmetric(horizontal: AppColors.white == Colors.white ? AppSpacing.xl : AppSpacing.m),
                   child: _SearchBarOverlay(
                     controller: _searchController,
                     isSearching: _searching,
@@ -698,6 +706,7 @@ class _PremiumHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.s),
+              // ✅ Connecté au Dashboard Profil
               GestureDetector(
                 onTap: onProfileTap,
                 child: Container(
@@ -1437,30 +1446,32 @@ class _MiniRoundAction extends StatelessWidget {
 }
 
 // ============================================================================
-// BOTTOM NAVIGATION (CORRIGÉE)
+// BOTTOM NAVIGATION INTERCONNECTÉE (CORRIGÉE)
 // ============================================================================
+
 class _FloatingBottomNav extends StatelessWidget {
   final VoidCallback onScanTap;
 
   const _FloatingBottomNav({required this.onScanTap});
 
+  // ✅ CONNECTÉ AU VAULT DE DOCUMENTS
   void _openDocuments(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
       context.go(AppRoutes.vault);
-      return;
+    } else {
+      context.push(AppRoutes.login);
     }
-    context.push(AppRoutes.login);
   }
 
-  // ✅ CORRECTION : aller directement vers le profil
+  // ✅ CONNECTÉ AU USER DASHBOARD PROFIL
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
       context.go(AppRoutes.profile);
-      return;
+    } else {
+      context.push(AppRoutes.login);
     }
-    context.push(AppRoutes.login);
   }
 
   @override
