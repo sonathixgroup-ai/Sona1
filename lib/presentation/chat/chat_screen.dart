@@ -5,7 +5,6 @@ import '../../services/chat/chat_service.dart';
 import '../../services/chat/presence_service.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
-import '../../models/chat/chat_participant.dart';
 import '../../models/chat/user_status.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_input_bar.dart';
