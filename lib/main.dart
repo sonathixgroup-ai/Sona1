@@ -28,10 +28,9 @@ import 'package:thix_id/presentation/thix_market/providers/market_provider.dart'
 import 'package:thix_id/presentation/thix_market/providers/message_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/product_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/search_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
-import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
 
@@ -96,6 +95,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
+    // 1. Initialisation de la configuration de base de Supabase (Obligatoire et local)
     await SupabaseConfig.initialize();
 
     final profiles = ProfileService();
@@ -104,13 +104,30 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final auth = AuthController(
       auth: SupabaseAuthManager(profiles: profiles),
     );
-    await auth.init();
+    
+    // 2. Sécurisation de l'authentification (Empêche l'application de crasher au lancement)
+    try {
+      await auth.init();
+    } catch (e) {
+      debugPrint("⚠️ Échec initialisation de l'authentification (Mode déconnecté ou erreur DB) : $e");
+    }
 
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
-    feed.initRealtime();
+    
+    // 3. Sécurisation du flux Realtime
+    try {
+      feed.initRealtime();
+    } catch (e) {
+      debugPrint("⚠️ Échec de l'initialisation Realtime : $e");
+    }
 
-    await TaskNotification.init();
+    // 4. Sécurisation des notifications
+    try {
+      await TaskNotification.init();
+    } catch (e) {
+      debugPrint("⚠️ Échec des notifications locales : $e");
+    }
 
     final chatBloc = ChatBloc(ChatRepository());
     final eventService = EventService(SupabaseConfig.client);
