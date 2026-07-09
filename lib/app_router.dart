@@ -224,8 +224,9 @@ import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
 // ---- THIX Chat ----
+import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'presentation/chat/chat_list_page.dart';
-import 'presentation/chat/chat_screen.dart' as ThixChat;  // Alias pour éviter le conflit
+import 'presentation/chat/chat_screen.dart' as ThixChat;  // Alias pour éviter le conflit avec le réseau Pro
 import 'presentation/chat/new_conversation_page.dart';
 
 // ==================== CLASSE DE TRANSITION SANS ANIMATION ====================
