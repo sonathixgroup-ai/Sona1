@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import '../../models/chat/user_status.dart';      // ✅ IMPORT OBLIGATOIRE
+import '../../models/chat/user_status.dart';
 import '../../models/chat/chat_participant.dart';
 
 class PresenceService {
@@ -31,7 +31,6 @@ class PresenceService {
       _userCustomStatus[uid] = customStatus;
 
       if (_presenceChannel != null) {
-        // ✅ Utilisation de track() pour la présence
         await _presenceChannel!.track({
           'user_id': uid,
           'status': status,
