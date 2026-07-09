@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import '../../models/chat/user_status.dart';
-import '../../models/chat/chat_participant.dart';
+import 'package:thix_id/models/chat/user_status.dart';
+import 'package:thix_id/models/chat/chat_participant.dart';
 
 class PresenceService {
   final SupabaseClient _supabase;
@@ -132,8 +132,9 @@ class PresenceService {
 
     _presenceChannel = _supabase.channel('presence:all');
 
+    // ✅ CORRECTION : un seul paramètre pour le callback
     _presenceChannel!
-        .on('presence', (event, payload) {
+        .on('presence', (payload) {
           if (payload['type'] == 'join') {
             _userStatus[payload['user_id']] = payload['status'];
           } else if (payload['type'] == 'leave') {
