@@ -228,7 +228,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      context.go(AppRoutes.profile);
+      context.go(AppRoutes.userDashboard);
     } else {
       context.push(AppRoutes.login);
     }
@@ -915,7 +915,7 @@ class _QuickActionsRow extends StatelessWidget {
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onChatTap,
+              onTap: onChatTap: () => context.go(AppRoutes.chat),
             ),
           ),
         ),
@@ -1461,7 +1461,7 @@ class _FloatingBottomNav extends StatelessWidget {
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      context.go(AppRoutes.profile);
+      context.go(AppRoutes.userDashboard);
     } else {
       context.push(AppRoutes.login);
     }
