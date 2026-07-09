@@ -228,6 +228,7 @@ import 'package:thix_id/presentation/chat/screens/chat_list_page.dart';
 import 'package:thix_id/presentation/chat/screens/new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/chat_conversation_screen.dart' as NewChat;
 import 'package:thix_id/models/chat/chat_conversation.dart';
+
 // ==================== CLASSE DE TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
@@ -405,41 +406,32 @@ class AppRouter {
           ],
         ),
 
-        // ---- THIX Chat (principal) ----
-        
-              // ---- THIX Chat (nouveau) ----
+        // ---- THIX Chat (principal) ---
 GoRoute(
-  path: '/chat',
-  name: 'chatList',
-  pageBuilder: (context, state) => NoTransitionPage(child: const ChatListPage()),
-),
-GoRoute(
-  path: '/chat/new',
-  name: 'chatNew',
-  pageBuilder: (context, state) => NoTransitionPage(child: const NewConversationPage()),
-),
-GoRoute(
-  path: '/chat/:conversationId',
-  name: 'chatConversation',
-  pageBuilder: (context, state) {
-    final conversationId = state.pathParameters['conversationId']!;
-    // Récupérer la conversation passée via state.extra (optionnel)
-    final conversation = state.extra as ChatConversation?;
-    return NoTransitionPage(
-      child: NewChat.ChatScreen(
-        conversationId: conversationId,
-        conversation: conversation ?? ChatConversation(
-          id: conversationId,
-          isGroup: false,
-          participantIds: [],
-          updatedAt: DateTime.now(),
-        ),
-      ),
-    );
-  },
-),
-            
-
+  path: AppRoutes.chat,
+  name: 'chat',
+  pageBuilder: (context, state) => NoTransitionPage(child: const ThixChatPage()),
+  routes: [
+    GoRoute(
+      path: 'new',
+      name: 'chatNew',
+      pageBuilder: (context, state) => NoTransitionPage(child: const NewChatPage()),
+    ),
+    GoRoute(
+      path: ':conversationId',
+      name: 'chatConversation',
+      pageBuilder: (context, state) {
+        final conversationId = state.pathParameters['conversationId']!;
+        final conversation = state.extra as ChatConversation?;
+        return NoTransitionPage(
+          child: ChatConversationScreen(
+            conversationId: conversationId,
+            conversation: conversation,
+          ),
+        );
+      },
+    ),
+  
         // ---- Vault & Settings ----
         GoRoute(
           path: AppRoutes.vault,
