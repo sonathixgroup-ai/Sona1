@@ -203,7 +203,7 @@ class SupabaseAuthManager implements AuthManager {
   AccountType _accountTypeFromMeta(Map<String, dynamic>? meta) {
     final raw = (meta?['account_type'] ?? meta?['accountType'] ?? '').toString().trim().toLowerCase();
     if (raw == AccountType.enterprise.name) return AccountType.enterprise;
-    return AccountType.personal; // toujours retourner une valeur
+    return AccountType.personal;
   }
 
   AppUser _appUserFromProfileRow({
@@ -321,12 +321,12 @@ class SupabaseAuthManager implements AuthManager {
       );
     } catch (e) {
       debugPrint('SupabaseAuthManager: profiles upsert failed uid=${user.id} err=$e');
-      rethrow; // propager l'erreur
+      rethrow;
     }
   }
 
   // ==========================================================================
-  // MÉTHODES PUBLIQUES
+  // MÉTHODES PUBLIQUES CORRIGÉES
   // ==========================================================================
 
   @override
@@ -351,9 +351,12 @@ class SupabaseAuthManager implements AuthManager {
       _currentUser.value = hydrated;
       _bindProfileSync(user.id);
       return hydrated;
+    } on SupabaseAuthException catch (e) {
+      debugPrint('Supabase Auth error during login: ${e.message}');
+      throw AuthException(e.message);
     } catch (e) {
-      debugPrint('SupabaseAuthManager: signIn failed err=$e');
-      throw AuthException('Connexion impossible.');
+      debugPrint('SupabaseAuthManager: signIn crash/DB err=$e');
+      throw AuthException('Erreur technique (Base de données) : ${e.toString()}');
     }
   }
 
@@ -386,7 +389,6 @@ class SupabaseAuthManager implements AuthManager {
       final session = res.session;
       final user = res.user;
       if (user == null || session == null) {
-        // Inscription en attente de confirmation email
         throw AuthException(
           'Inscription enregistrée. Confirmez votre email puis connectez-vous: votre profil sera créé automatiquement.',
         );
@@ -440,17 +442,12 @@ class SupabaseAuthManager implements AuthManager {
 
       _currentUser.value = appUser;
       return appUser;
+    } on SupabaseAuthException catch (e) {
+      debugPrint('Supabase Auth error during registration: ${e.message}');
+      throw AuthException(e.message);
     } catch (e) {
-      debugPrint('SupabaseAuthManager: register failed err=$e');
-      String msg;
-      if (e is PostgrestException) {
-        msg = '${e.message} (code: ${e.code})';
-      } else if (e is AuthException) {
-        msg = e.message;
-      } else {
-        msg = e.toString();
-      }
-      throw AuthException(msg);
+      debugPrint('SupabaseAuthManager: register crash/DB err=$e');
+      throw AuthException('Erreur lors de la création du compte/profil : ${e.toString()}');
     }
   }
 
@@ -484,15 +481,11 @@ class SupabaseAuthManager implements AuthManager {
         type: OtpType.email,
       );
       await _refreshCurrentUser();
+    } on SupabaseAuthException catch (e) {
+      throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: verifyOTP failed err=$e');
-      String msg;
-      if (e is PostgrestException) {
-        msg = '${e.message} (code: ${e.code})';
-      } else {
-        msg = e.toString();
-      }
-      throw AuthException(msg);
+      throw AuthException(e.toString());
     }
   }
 
@@ -503,15 +496,11 @@ class SupabaseAuthManager implements AuthManager {
         type: OtpType.signup,
         email: email.trim().toLowerCase(),
       );
+    } on SupabaseAuthException catch (e) {
+      throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: resendOTP failed err=$e');
-      String msg;
-      if (e is PostgrestException) {
-        msg = '${e.message} (code: ${e.code})';
-      } else {
-        msg = e.toString();
-      }
-      throw AuthException(msg);
+      throw AuthException(e.toString());
     }
   }
 
@@ -524,7 +513,6 @@ class SupabaseAuthManager implements AuthManager {
     }
   }
 
-  // --- Téléphone (non implémenté) ---
   @override
   Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) {
     throw AuthException('Connexion téléphone indisponible dans cette version.');
@@ -592,11 +580,9 @@ class SupabaseAuthManager implements AuthManager {
     _bindProfileSync(user.id);
   }
 
-  // --- Helper ---
   bool _isValidEmail(String email) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
 }
 
-/// Exception personnalisée pour l'authentification.
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
