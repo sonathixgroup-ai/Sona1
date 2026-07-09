@@ -29,14 +29,6 @@ class PresenceService {
 
       _userStatus[uid] = status;
       _userCustomStatus[uid] = customStatus;
-
-      if (_presenceChannel != null) {
-        await _presenceChannel!.track({
-          'user_id': uid,
-          'status': status,
-          'custom_status': customStatus,
-        });
-      }
     } catch (e) {
       debugPrint('❌ updateStatus: $e');
     }
@@ -123,33 +115,39 @@ class PresenceService {
     }
   }
 
-  // ─── REALTIME PRESENCE ──────────────────────────────────
+  // ─── REALTIME ────────────────────────────────────────────────
 
   Future<void> initPresence() async {
     if (_isSubscribed) return;
     final uid = currentUserId;
     if (uid.isEmpty) return;
 
+    // Canal dédié aux mises à jour de présence
     _presenceChannel = _supabase.channel('presence:all');
 
-    // ✅ CORRECTION : un seul paramètre pour le callback
+    // Écouter les changements sur la table user_presence
     _presenceChannel!
-        .on('presence', (payload) {
-          if (payload['type'] == 'join') {
-            _userStatus[payload['user_id']] = payload['status'];
-          } else if (payload['type'] == 'leave') {
-            _userStatus[payload['user_id']] = UserStatus.offline;
-          } else if (payload['type'] == 'update') {
-            _userStatus[payload['user_id']] = payload['status'];
-          }
-        })
+        .onPostgresChange(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'user_presence',
+          callback: (payload) {
+            // Mettre à jour le cache local
+            if (payload.newRecord != null) {
+              final userId = payload.newRecord['user_id'];
+              final status = payload.newRecord['status'];
+              final customStatus = payload.newRecord['custom_status'];
+              if (userId != null) {
+                _userStatus[userId] = status ?? UserStatus.offline;
+                _userCustomStatus[userId] = customStatus;
+              }
+            }
+          },
+        )
         .subscribe((status, error) async {
           if (status == RealtimeSubscribeStatus.subscribed) {
-            await _presenceChannel!.track({
-              'user_id': uid,
-              'status': UserStatus.online,
-              'custom_status': _userCustomStatus[uid] ?? '',
-            });
+            // Marquer l'utilisateur comme en ligne
+            await updateStatus(UserStatus.online);
             _isSubscribed = true;
           }
         });
@@ -162,7 +160,6 @@ class PresenceService {
     await updateStatus(UserStatus.offline);
 
     if (_presenceChannel != null) {
-      await _presenceChannel!.untrack();
       await _presenceChannel!.unsubscribe();
       _isSubscribed = false;
     }
