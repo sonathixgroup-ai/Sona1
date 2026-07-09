@@ -322,7 +322,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), // ✅ Correction appliquée ici
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _SearchBarOverlay(
                     controller: _searchController,
                     isSearching: _searching,
@@ -915,7 +915,7 @@ class _QuickActionsRow extends StatelessWidget {
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onChatTap: () => context.go(AppRoutes.chat),
+              onTap: onChatTap, // ✅ Correction ici
             ),
           ),
         ),
