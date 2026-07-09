@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
 // ============================================================================
@@ -88,6 +87,7 @@ class NotificationCountersService {
   static const _opportunitiesTable = 'opportunities';
   static const _jobsTable = 'jobs';
   static const _formationsTable = 'formations';
+  static const _messagesTable = 'messages'; // ✅ Table des messages
 
   String _prefKey(String uid, ThixSection section) =>
       'last_seen_${uid}_${section.name}';
@@ -133,12 +133,16 @@ class NotificationCountersService {
     }
   }
 
+  /// Compte les messages non lus reçus par l'utilisateur depuis la date donnée.
+  /// Utilise la colonne `receiver_id` (ou `to_uid` selon votre schéma).
   Future<int> _countMessagesSince(String uid, DateTime? since) async {
     try {
+      // 🔥 On utilise _client et la table 'messages'
       var query = _client
-          .from(ChatService.messagesTable)
+          .from(_messagesTable)
           .select('id')
-          .eq('to_uid', uid);
+          .eq('receiver_id', uid)  // Ajuste selon ton schéma (peut être 'to_uid')
+          .eq('is_read', false);
       if (since != null) {
         query = query.gt('created_at', since.toIso8601String());
       }
@@ -151,8 +155,8 @@ class NotificationCountersService {
   }
 
   Future<SectionBadgeCounts> _computeCounts(String uid) async {
-    final messages = await _supabase
-    .from('messages')
+    // 🔥 Récupération des dernières dates de lecture
+    final messagesSince = await _getLastSeen(uid, ThixSection.messages);
     final infoSince = await _getLastSeen(uid, ThixSection.info);
     final eventsSince = await _getLastSeen(uid, ThixSection.events);
     final formationsSince = await _getLastSeen(uid, ThixSection.formations);
