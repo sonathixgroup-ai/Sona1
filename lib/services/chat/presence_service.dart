@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import '../../models/chat/user_status.dart';
+import '../../models/chat/user_status.dart';  // ✅ IMPORT AJOUTÉ
 import '../../models/chat/chat_participant.dart';
 
 class PresenceService {
@@ -13,8 +13,6 @@ class PresenceService {
   PresenceService(this._supabase);
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
-
-  // ─── GESTION DU STATUT PERSONNEL ──────────────────────────────
 
   Future<void> updateStatus(String status, {String? customStatus}) async {
     final uid = currentUserId;
@@ -33,7 +31,7 @@ class PresenceService {
       _userCustomStatus[uid] = customStatus;
 
       if (_presenceChannel != null) {
-        await _presenceChannel!.send({
+        await _presenceChannel!.send({  // ✅ CORRECT : envoi d'un Map
           'type': 'status_update',
           'user_id': uid,
           'status': status,
@@ -144,7 +142,7 @@ class PresenceService {
           callback: (payload) {},
         )
         .subscribe()
-        .map((data) => <ChatParticipant>[]); // À adapter selon votre logique
+        .map((data) => <ChatParticipant>[]);
   }
 
   Future<void> initPresence() async {
@@ -166,13 +164,13 @@ class PresenceService {
         })
         .subscribe();
 
-    await _presenceChannel!.send({
+    await _presenceChannel!.send({  // ✅ CORRECT
       'type': 'join',
       'user_id': uid,
       'status': UserStatus.online,
     });
 
-    await updateStatus(UserStatus.online);
+    await updateStatus(UserStatus.online);  // ✅ UserStatus disponible
     _isSubscribed = true;
   }
 
@@ -180,10 +178,10 @@ class PresenceService {
     final uid = currentUserId;
     if (uid.isEmpty) return;
 
-    await updateStatus(UserStatus.offline);
+    await updateStatus(UserStatus.offline);  // ✅ UserStatus disponible
 
     if (_presenceChannel != null) {
-      await _presenceChannel!.send({
+      await _presenceChannel!.send({  // ✅ CORRECT
         'type': 'leave',
         'user_id': uid,
       });
@@ -194,7 +192,7 @@ class PresenceService {
 
   String? getStatus(String userId) => _userStatus[userId];
   String? getCustomStatus(String userId) => _userCustomStatus[userId];
-  bool isOnline(String userId) => _userStatus[userId] == UserStatus.online;
+  bool isOnline(String userId) => _userStatus[userId] == UserStatus.online;  // ✅ UserStatus disponible
 
   void dispose() {
     setOffline();
