@@ -1,9 +1,9 @@
 // lib/presentation/chat/new_conversation_page.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/services/chat/chat_service.dart';
-import 'package:thix_id/models/chat/chat_conversation.dart';
-import 'package:thix_id/presentation/chat/chat_screen.dart';
+import '../../services/chat/chat_service.dart';
+import '../../models/chat/chat_conversation.dart';
+import 'chat_screen.dart';
 
 class NewConversationPage extends StatefulWidget {
   const NewConversationPage({super.key});
