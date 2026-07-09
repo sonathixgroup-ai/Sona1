@@ -63,55 +63,7 @@ class AppRoutes {
   static const String thixInfoCreate = '/thix-info/admin/create';
   static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
 
-  // THIX Chat
-  static const String chatStatus = '/chat/status';
-  static const String chatStatusUpdate = '/chat/status/update';
-  static const String chatSpaces = '/chat/spaces';
-  static const String chatCall = '/chat/call';
-  static const String chatIncomingCall = '/chat/incoming';
-  static const String chatSearch = '/chat/search';
-  static const String chatNotifications = '/chat/notifications';
-  static const String chatStats = '/chat/stats';
-  static const String chatNew = '/chat/new';
-  static const String chatFilters = '/chat/filters';
-  static const String chatOnline = '/chat/online';
-  static const String chatStoryNew = '/chat/story/new';
-  static const String chatStoryDetail = '/chat/story/:storyId';
-  static const String chatEphemeralSettings = '/chat/ephemeral/settings';
-  static const String chatTranslationSettings = '/chat/translation/settings';
-  static const String chatThemes = '/chat/themes';
-  static const String chatBubbleCustomize = '/chat/bubble/customize';
-  static const String chatNotificationSounds = '/chat/notification/sounds';
-  static const String chatWallpaper = '/chat/wallpaper';
-  static const String chatFontSize = '/chat/font/size';
-  static const String chatThemePreview = '/chat/theme/preview';
-  static const String chatStatusSettings = '/chat/status/settings';
-  static const String chatAvailabilitySchedule = '/chat/availability/schedule';
-  static const String chatStatusPresets = '/chat/status/presets';
-  static const String chatArchive = '/chat/archive';
-  static const String chatExport = '/chat/export/:id';
-  static const String chatExportEncrypted = '/chat/export/encrypted/:id';
-  static const String chatDataSaver = '/chat/data/saver';
-  static const String chatWidgetsConfig = '/chat/widgets/config';
-  static const String chatWidgetsPreview = '/chat/widgets/preview';
-  static const String chatSecurityLock = '/chat/security/lock';
-  static const String chatSecretFolder = '/chat/secret/folder';
-  static const String chatSecretConversation = '/chat/secret/conversation/:id';
-  static const String chatSelfDestruct = '/chat/self-destruct';
-  static const String chatAntiScreenshot = '/chat/anti-screenshot';
-  static const String chatFakeInterface = '/chat/fake-interface';
-  static const String chatTheftProtection = '/chat/theft-protection';
-  static const String chatSessionManager = '/chat/session';
-  static const String chatEncryption = '/chat/encryption';
-  static const String chatOfflineSettings = '/chat/offline/settings';
-  static const String chatContactShare = '/chat/contact/share/:userId';
-  static const String chatVideoMessage = '/chat/video-message';
-  static const String chatMessageReminder = '/chat/reminder';
-  static const String chatConfidentialMessage = '/chat/confidential';
-  static const String chatSmartNotifications = '/chat/smart-notifications';
-  static const String chatVoiceTranslation = '/chat/voice-translation';
-  static const String chatGroupWaitingRoom = '/chat/group/waiting-room';
-  static const String chatRecurringSchedule = '/chat/scheduled/recurring';
+
 
   // THIX Événement
   static const String thixEvent = '/thix-event';
