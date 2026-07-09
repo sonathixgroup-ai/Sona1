@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:thix_id/models/chat/chat_message.dart';
+import 'package:thix_id/models/chat/chat_message.dart';   // ✅ IMPORT CORRECT
 import 'package:thix_id/models/chat/user_status.dart';
 import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
