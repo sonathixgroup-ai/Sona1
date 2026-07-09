@@ -154,7 +154,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
     super.dispose();
   }
 
-  // ---------- Logique de recherche et vérification THIX ID ----------
   Future<void> _handleHomeSearchVerify() async {
     final raw = _searchController.text.trim();
 
@@ -168,8 +167,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
 
     final normalized = ThixIdService.normalize(raw);
-    
-    // Support de la validation Regex standardisée THIX ou fallback structurel
     final isThix = normalized.startsWith('THIX-');
     final isUid = _uidLikeRegex.hasMatch(raw);
 
@@ -228,7 +225,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
   }
 
-  // ✅ CORRECTION : Navigation directe et sécurisée vers le Dashboard Profil
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
@@ -326,7 +322,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppColors.white == Colors.white ? AppSpacing.xl : AppSpacing.m),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), // ✅ Correction appliquée ici
                   child: _SearchBarOverlay(
                     controller: _searchController,
                     isSearching: _searching,
@@ -706,7 +702,6 @@ class _PremiumHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.s),
-              // ✅ Connecté au Dashboard Profil
               GestureDetector(
                 onTap: onProfileTap,
                 child: Container(
@@ -1454,7 +1449,6 @@ class _FloatingBottomNav extends StatelessWidget {
 
   const _FloatingBottomNav({required this.onScanTap});
 
-  // ✅ CONNECTÉ AU VAULT DE DOCUMENTS
   void _openDocuments(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
@@ -1464,7 +1458,6 @@ class _FloatingBottomNav extends StatelessWidget {
     }
   }
 
-  // ✅ CONNECTÉ AU USER DASHBOARD PROFIL
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
