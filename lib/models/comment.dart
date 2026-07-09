@@ -1,33 +1,42 @@
-// lib/models/comment.dart
-
 class Comment {
   final String id;
   final String postId;
-  final String authorId;
+  final String userId;
+  final String userName;
+  final String? userAvatar;
   final String content;
-  final String? parentId;
   final DateTime createdAt;
-  final Map<String, dynamic>? author;
+  final int likesCount;
+  final bool isLiked;
+  final List<Comment> replies; // sous‑commentaires
 
   Comment({
     required this.id,
     required this.postId,
-    required this.authorId,
+    required this.userId,
+    required this.userName,
+    this.userAvatar,
     required this.content,
-    this.parentId,
     required this.createdAt,
-    this.author,
+    this.likesCount = 0,
+    this.isLiked = false,
+    this.replies = const [],
   });
 
-  factory Comment.fromMap(Map<String, dynamic> map) {
+  factory Comment.fromJson(Map<String, dynamic> json) {
     return Comment(
-      id: map['id'] as String? ?? '',
-      postId: map['post_id'] as String? ?? '',
-      authorId: (map['author'] is String) ? (map['author'] as String) : ((map['author'] as Map?)?['id'] as String? ?? ''),
-      content: map['content'] as String? ?? '',
-      parentId: map['parent_id'] as String?,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      author: (map['profiles'] is Map) ? Map<String, dynamic>.from(map['profiles'] as Map) : null,
+      id: json['id'],
+      postId: json['post_id'],
+      userId: json['user_id'],
+      userName: json['user_name'] ?? 'Utilisateur',
+      userAvatar: json['user_avatar'],
+      content: json['content'],
+      createdAt: DateTime.parse(json['created_at']),
+      likesCount: json['likes_count'] ?? 0,
+      isLiked: json['is_liked'] ?? false,
+      replies: (json['replies'] as List?)
+          ?.map((e) => Comment.fromJson(e))
+          .toList() ?? [],
     );
   }
 }
