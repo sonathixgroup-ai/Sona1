@@ -6,7 +6,7 @@ import 'package:thix_id/models/chat/chat_participant.dart';
 class PresenceService {
   final SupabaseClient _supabase;
   final Map<String, String> _userStatus = {};
-  final Map<String, String> _userCustomStatus = {};
+  final Map<String, String?> _userCustomStatus = {}; // ✅ autorise null
   bool _isSubscribed = false;
   RealtimeChannel? _presenceChannel;
 
@@ -28,7 +28,7 @@ class PresenceService {
       });
 
       _userStatus[uid] = status;
-      _userCustomStatus[uid] = customStatus;
+      _userCustomStatus[uid] = customStatus; // ✅ assignation compatible
     } catch (e) {
       debugPrint('❌ updateStatus: $e');
     }
@@ -122,31 +122,22 @@ class PresenceService {
     final uid = currentUserId;
     if (uid.isEmpty) return;
 
-    // Canal dédié aux mises à jour de présence
     _presenceChannel = _supabase.channel('presence:all');
 
-    // Écouter les changements sur la table user_presence
+    // Écouter les mises à jour de la table user_presence
     _presenceChannel!
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'public',
-          table: 'user_presence',
-          callback: (payload) {
-            // Mettre à jour le cache local
-            if (payload.newRecord != null) {
-              final userId = payload.newRecord['user_id'];
-              final status = payload.newRecord['status'];
-              final customStatus = payload.newRecord['custom_status'];
-              if (userId != null) {
-                _userStatus[userId] = status ?? UserStatus.offline;
-                _userCustomStatus[userId] = customStatus;
-              }
+        .on('postgres_changes', (payload) {
+          if (payload != null && payload['type'] == 'UPDATE') {
+            final record = payload['new'];
+            final userId = record?['user_id'];
+            final status = record?['status'];
+            if (userId != null) {
+              _userStatus[userId] = status ?? UserStatus.offline;
             }
-          },
-        )
+          }
+        })
         .subscribe((status, error) async {
           if (status == RealtimeSubscribeStatus.subscribed) {
-            // Marquer l'utilisateur comme en ligne
             await updateStatus(UserStatus.online);
             _isSubscribed = true;
           }
