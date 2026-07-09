@@ -1,4 +1,3 @@
-// lib/presentation/chat/widgets/chat_message_bubble.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../models/chat/chat_message.dart';
@@ -44,7 +43,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     return Column(
       crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        // Message cité (réponse)
         if (widget.replyToMessage != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 4, left: 16, right: 16),
@@ -83,7 +81,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ),
           ),
 
-        // Bulle principale
         GestureDetector(
           onLongPress: () {
             setState(() => _showReactions = !_showReactions);
@@ -111,7 +108,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Contenu du message
                   if (msg.isCodeSnippet && msg.codeContent != null)
                     ChatCodeSnippet(
                       code: msg.codeContent!,
@@ -127,10 +123,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                         fontSize: 14,
                       ),
                     ),
-
                   const SizedBox(height: 4),
-
-                  // Date + accusés
                   Row(
                     mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
                     children: [
@@ -159,8 +152,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                       ],
                     ],
                   ),
-
-                  // Réactions (affichées sous le message)
                   if (msg.reactions.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -175,7 +166,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
           ),
         ),
 
-        // Barre d'actions (hover ou appui long)
         if (_isHovering || _showReactions)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -218,7 +208,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   }
 
   Widget _buildMediaContent() {
-    // Placeholder pour l'affichage des médias (image, vidéo, audio)
     return Container(
       constraints: const BoxConstraints(maxHeight: 200),
       decoration: BoxDecoration(
