@@ -62,8 +62,15 @@ class AppRoutes {
   static const String thixInfoAdmin = '/thix-info/admin';
   static const String thixInfoCreate = '/thix-info/admin/create';
   static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
+  
 
+  // ─── THIX Chat ──────────────────────────────────────────────
+  static const String chat = '/chat';
+  static const String chatNew = '/chat/new';
+  static const String chatConversation = '/chat/:conversationId';
 
+  // Helper pour générer une route avec paramètre
+  static String chatDetail(String conversationId) => '/chat/$conversationId';
 
   // THIX Événement
   static const String thixEvent = '/thix-event';
