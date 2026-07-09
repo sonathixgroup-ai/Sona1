@@ -6,14 +6,13 @@ import 'package:thix_id/models/chat/chat_participant.dart';
 class PresenceService {
   final SupabaseClient _supabase;
   final Map<String, String> _userStatus = {};
-  final Map<String, String?> _userCustomStatus = {}; // ✅ autorise null
-  bool _isSubscribed = false;
-  RealtimeChannel? _presenceChannel;
+  final Map<String, String?> _userCustomStatus = {};
 
   PresenceService(this._supabase);
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
+  /// Met à jour le statut dans la base et en mémoire
   Future<void> updateStatus(String status, {String? customStatus}) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
@@ -28,12 +27,13 @@ class PresenceService {
       });
 
       _userStatus[uid] = status;
-      _userCustomStatus[uid] = customStatus; // ✅ assignation compatible
+      _userCustomStatus[uid] = customStatus;
     } catch (e) {
       debugPrint('❌ updateStatus: $e');
     }
   }
 
+  /// Récupère le statut d'un utilisateur
   Future<ChatParticipant?> getUserStatus(String userId) async {
     try {
       final response = await _supabase
@@ -77,6 +77,7 @@ class PresenceService {
     }
   }
 
+  /// Récupère les statuts de plusieurs utilisateurs
   Future<List<ChatParticipant>> getUsersStatus(List<String> userIds) async {
     if (userIds.isEmpty) return [];
 
@@ -115,55 +116,25 @@ class PresenceService {
     }
   }
 
-  // ─── REALTIME ────────────────────────────────────────────────
-
+  /// Initialisation (pas de Realtime pour l'instant)
   Future<void> initPresence() async {
-    if (_isSubscribed) return;
-    final uid = currentUserId;
-    if (uid.isEmpty) return;
-
-    _presenceChannel = _supabase.channel('presence:all');
-
-    // Écouter les mises à jour de la table user_presence
-    _presenceChannel!
-        .on('postgres_changes', (payload) {
-          if (payload != null && payload['type'] == 'UPDATE') {
-            final record = payload['new'];
-            final userId = record?['user_id'];
-            final status = record?['status'];
-            if (userId != null) {
-              _userStatus[userId] = status ?? UserStatus.offline;
-            }
-          }
-        })
-        .subscribe((status, error) async {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            await updateStatus(UserStatus.online);
-            _isSubscribed = true;
-          }
-        });
+    // On marque l'utilisateur comme en ligne au démarrage
+    await updateStatus(UserStatus.online);
   }
 
+  /// Passe le statut à "hors ligne"
   Future<void> setOffline() async {
-    final uid = currentUserId;
-    if (uid.isEmpty) return;
-
     await updateStatus(UserStatus.offline);
-
-    if (_presenceChannel != null) {
-      await _presenceChannel!.unsubscribe();
-      _isSubscribed = false;
-    }
   }
 
+  // Récupération mémoire
   String? getStatus(String userId) => _userStatus[userId];
   String? getCustomStatus(String userId) => _userCustomStatus[userId];
   bool isOnline(String userId) => _userStatus[userId] == UserStatus.online;
 
+  /// Nettoyage
   void dispose() {
     setOffline();
-    _presenceChannel = null;
-    _isSubscribed = false;
     _userStatus.clear();
     _userCustomStatus.clear();
   }
