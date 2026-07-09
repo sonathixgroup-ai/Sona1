@@ -1,4 +1,3 @@
-// lib/presentation/chat/widgets/chat_code_snippet.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -25,7 +24,6 @@ class ChatCodeSnippet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête avec langage
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
@@ -63,7 +61,6 @@ class ChatCodeSnippet extends StatelessWidget {
               ],
             ),
           ),
-          // Code
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(12),
