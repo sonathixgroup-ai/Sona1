@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/chat/chat_message.dart';
@@ -13,8 +14,7 @@ class ChatService {
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
-  // ─── CONVERSATIONS ──────────────────────────────────────────────
-
+  // ---------- CONVERSATIONS ----------
   Future<List<ChatConversation>> getConversations() async {
     try {
       final uid = currentUserId;
@@ -183,8 +183,7 @@ class ChatService {
         .eq('id', conversationId);
   }
 
-  // ─── MESSAGES ──────────────────────────────────────────────────
-
+  // ---------- MESSAGES ----------
   Future<List<ChatMessage>> getMessages(
     String conversationId, {
     int limit = 50,
@@ -337,30 +336,15 @@ class ChatService {
     }
   }
 
-  // ─── REALTIME ──────────────────────────────────────────────────
-
-  /// S'abonner aux nouveaux messages d'une conversation
-  Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
-    return _supabase
-        .channel('messages:$conversationId')
-        .onPostgresChange(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'messages',
-          callback: (payload) {
-            // Déclenche une mise à jour en direct
-            // Le Stream gère la diffusion
-          },
-        )
-        .subscribe()
-        .onData((data) {
-          // Convertir les nouvelles données en liste de messages
-          // (simplifié, à adapter selon la gestion de l'état)
-        });
+  // ---------- REALTIME (à implémenter ultérieurement) ----------
+  void subscribeToMessages(String conversationId) {
+    // À implémenter avec on('postgres_changes')
   }
 
   void dispose() {
-    _subscriptions.values.forEach((sub) => sub.cancel());
+    for (var sub in _subscriptions.values) {
+      sub.cancel();
+    }
     _subscriptions.clear();
   }
 }
