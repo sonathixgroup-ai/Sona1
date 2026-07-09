@@ -23,8 +23,6 @@ class _ChatListPageState extends State<ChatListPage> {
   List<ChatConversation> _filteredConversations = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  bool _showOnlyUnread = false;
 
   @override
   void initState() {
@@ -32,7 +30,7 @@ class _ChatListPageState extends State<ChatListPage> {
     _chatService = ChatService(Supabase.instance.client);
     _presenceService = PresenceService(Supabase.instance.client);
     _loadConversations();
-    _initPresence();
+    _presenceService.initPresence();
   }
 
   @override
@@ -48,7 +46,7 @@ class _ChatListPageState extends State<ChatListPage> {
       final convs = await _chatService.getConversations();
       setState(() {
         _conversations = convs;
-        _applyFilter();
+        _filteredConversations = convs;
         _isLoading = false;
       });
     } catch (e) {
@@ -61,63 +59,73 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
-  Future<void> _initPresence() async {
-    await _presenceService.initPresence();
-  }
-
-  void _applyFilter() {
+  void _onSearchChanged(String value) {
+    final query = value.toLowerCase();
     setState(() {
       _filteredConversations = _conversations.where((conv) {
-        final matchSearch = _searchQuery.isEmpty ||
-            conv.displayName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            (conv.lastMessage?.content ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
-        final matchUnread = !_showOnlyUnread || conv.unreadCount > 0;
-        return matchSearch && matchUnread;
+        return conv.displayName.toLowerCase().contains(query) ||
+            (conv.lastMessage?.content ?? '').toLowerCase().contains(query);
       }).toList();
     });
-  }
-
-  void _onSearchChanged(String value) {
-    _searchQuery = value;
-    _applyFilter();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('THIX CHAT'), backgroundColor: Colors.white),
+      appBar: AppBar(
+        title: const Text('THIX CHAT'),
+        backgroundColor: Colors.white,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _filteredConversations.isEmpty
-              ? const Center(child: Text('Aucune conversation'))
-              : ListView.builder(
-                  itemCount: _filteredConversations.length,
-                  itemBuilder: (context, index) {
-                    final conv = _filteredConversations[index];
-                    return ListTile(
-                      title: Text(conv.displayName),
-                      subtitle: Text(conv.lastMessage?.content ?? ''),
-                      trailing: conv.unreadCount > 0
-                          ? CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.blue,
-                              child: Text('${conv.unreadCount}'),
-                            )
-                          : null,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              conversationId: conv.id,
-                              conversation: conv,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher...',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: _onSearchChanged,
+                  ),
                 ),
+                Expanded(
+                  child: _filteredConversations.isEmpty
+                      ? const Center(child: Text('Aucune conversation'))
+                      : ListView.builder(
+                          itemCount: _filteredConversations.length,
+                          itemBuilder: (context, index) {
+                            final conv = _filteredConversations[index];
+                            return ListTile(
+                              title: Text(conv.displayName),
+                              subtitle: Text(conv.lastMessage?.content ?? ''),
+                              trailing: conv.unreadCount > 0
+                                  ? CircleAvatar(
+                                      radius: 12,
+                                      backgroundColor: Colors.blue,
+                                      child: Text('${conv.unreadCount}'),
+                                    )
+                                  : null,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      conversationId: conv.id,
+                                      conversation: conv,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
