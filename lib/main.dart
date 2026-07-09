@@ -31,6 +31,7 @@ import 'package:thix_id/presentation/thix_market/providers/search_provider.dart'
 import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart'; // ✅ Vérifié et actif
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
 
