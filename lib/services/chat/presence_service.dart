@@ -127,7 +127,7 @@ class PresenceService {
 
     // Écouter les changements sur la table user_presence
     _presenceChannel!
-        .onPostgresChange(
+        .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'user_presence',
