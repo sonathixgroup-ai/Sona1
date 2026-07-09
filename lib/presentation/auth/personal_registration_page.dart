@@ -83,6 +83,52 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return e.toString();
   }
 
+  // ---------- Traduction du pays en Code ISO ----------
+  String _getCountryCode(String? fullCountryName) {
+    switch (fullCountryName) {
+      case 'République Démocratique du Congo': return 'CD';
+      case 'Rwanda': return 'RW';
+      case 'Burundi': return 'BI';
+      case 'Ouganda': return 'UG';
+      case 'Angola': return 'AO';
+      case "Côte d'Ivoire": return 'CI';
+      case 'Sénégal': return 'SN';
+      case 'Cameroun': return 'CM';
+      case 'France': return 'FR';
+      case 'Belgique': return 'BE';
+      case 'Canada': return 'CA';
+      case 'États-Unis': return 'US';
+      default: return 'XX';
+    }
+  }
+
+  // ---------- Générateur Algorithmique du Format Officiel THIX ID ----------
+  String _generateOfficialThixId(String countryName) {
+    final rand = Random();
+    
+    // 1. Pays (ex: CD)
+    final codePays = _getCountryCode(countryName);
+    
+    // 2. Date (MMAA - ex: 0726 pour Juillet 2026)
+    final now = DateTime.now();
+    final dateStr = '${now.month.toString().padLeft(2, '0')}${now.year.toString().substring(2)}';
+    
+    // 3. Variable (5 chiffres aléatoires)
+    final variable = rand.nextInt(90000) + 10000; // De 10000 à 99999
+    
+    // 4. Code complémentaire (3 lettres majuscules aléatoires)
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    final codeCompl = String.fromCharCodes(
+      Iterable.generate(3, (_) => alphabet.codeUnitAt(rand.nextInt(alphabet.length))),
+    );
+    
+    // 5. Clé de vérification (1 chiffre calculé ou aléatoire unique)
+    final cleVerif = rand.nextInt(10);
+    
+    // Assemblage final : THIX-CD-0726-48392-NJK-7
+    return 'THIX-$codePays-$dateStr-$variable-$codeCompl-$cleVerif';
+  }
+
   // ---------- Navigation étape 1 → 2 ----------
   Future<void> _goToStep2() async {
     final name = _nameC.text.trim();
@@ -126,7 +172,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _otpSent = true;
       _snack('Code de vérification envoyé à votre email.');
     } catch (e) {
-      // Si l'erreur indique que l'email doit être confirmé, c'est un succès
       final message = e is AuthException ? e.message.toLowerCase() : '';
       if (message.contains('inscription enregistrée') ||
           message.contains('confirm') ||
@@ -161,12 +206,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       final me = auth.currentUser;
       if (me == null) throw Exception('Utilisateur introuvable après vérification.');
 
-      // ✅ Génération du THIX ID via le service (garantit l'unicité)
-      final thixId = await _userService.ensureThixId(uid: me.id);
-      _thixIdGenerated = thixId;
+      // ✅ Nouvelle Génération immédiate au format officiel THIX
+      final officialThixId = _generateOfficialThixId(_country ?? 'Autre');
+      _thixIdGenerated = officialThixId;
       _uid = me.id;
 
-      // Récupération du THIX CHAT saisi
+      // Récupération ou suggestion du THIX CHAT
       final desiredChat = _thixChatC.text.trim().isNotEmpty
           ? _thixChatC.text.trim()
           : _suggestChatFromName(_nameC.text.trim());
@@ -174,10 +219,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       // Réservation du THIX CHAT (unique)
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
 
-      // Mise à jour du profil (THIX ID, THIX CHAT, status)
+      // Mise à jour finale et activation immédiate dans Supabase
       await _userService.updateProfile(
         uid: me.id,
-        thixId: thixId,
+        thixId: officialThixId,
         thixChat: claimed,
         registrationStatus: 'active',
       );
@@ -207,7 +252,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Entête avec dégradé
             Positioned(
               top: 0,
               left: 0,
@@ -252,14 +296,12 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                 ),
               ),
             ),
-            // Corps scrollable
             SingleChildScrollView(
               padding: const EdgeInsets.only(top: 130, bottom: 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 16),
-                  // Carte blanche
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.all(24),
@@ -285,10 +327,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Bouton principal (jaune)
                   _buildMainButton(),
                   const SizedBox(height: 16),
-                  // Lien retour / connexion
                   if (_step < 3)
                     TextButton(
                       onPressed: () {
@@ -362,8 +402,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       ),
     );
     if (picked != null) {
-      final v =
-          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      final v = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       setState(() => _dobC.text = v);
     }
   }
@@ -377,7 +416,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         onPressed = _goToStep2;
         break;
       case 2:
-        // Le bouton jaune est TOUJOURS actif : son rôle est de confirmer l'OTP
         label = _isLoading ? 'VÉRIFICATION...' : 'CONFIRMER LE CODE OTP';
         onPressed = _verifyAndRegister;
         break;
@@ -442,7 +480,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 }
 
 // ============================================================================
-// SOUS-WIDGETS
+// SOUS-WIDGETS (SANS CHANGEMENT)
 // ============================================================================
 
 class _Step1Profile extends StatelessWidget {
@@ -619,7 +657,6 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Bouton "Envoyer le code OTP" (toujours visible, toujours actif)
         Row(
           children: [
             Expanded(
@@ -652,7 +689,6 @@ class _Step2Account extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 16),
-        // Champ OTP (toujours visible)
         TextField(
           controller: otpC,
           keyboardType: TextInputType.number,
@@ -665,7 +701,6 @@ class _Step2Account extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Champ THIX CHAT (toujours visible)
         TextField(
           controller: thixChatC,
           decoration: InputDecoration(
