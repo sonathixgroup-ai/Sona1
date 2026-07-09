@@ -8,7 +8,6 @@ import '../../models/chat/user_status.dart';
 
 class ChatService {
   final SupabaseClient _supabase;
-  final Map<String, StreamSubscription> _subscriptions = {};
 
   ChatService(this._supabase);
 
@@ -334,17 +333,5 @@ class ChatService {
       debugPrint('❌ getMessageById: $e');
       return null;
     }
-  }
-
-  // ---------- REALTIME (à implémenter ultérieurement) ----------
-  void subscribeToMessages(String conversationId) {
-    // À implémenter avec on('postgres_changes')
-  }
-
-  void dispose() {
-    for (var sub in _subscriptions.values) {
-      sub.cancel();
-    }
-    _subscriptions.clear();
   }
 }
