@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/services/chat_service.dart';
+import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
 // ============================================================================
@@ -151,7 +151,8 @@ class NotificationCountersService {
   }
 
   Future<SectionBadgeCounts> _computeCounts(String uid) async {
-    final messagesSince = await _getLastSeen(uid, ThixSection.messages);
+    final messages = await _supabase
+    .from('messages')
     final infoSince = await _getLastSeen(uid, ThixSection.info);
     final eventsSince = await _getLastSeen(uid, ThixSection.events);
     final formationsSince = await _getLastSeen(uid, ThixSection.formations);
