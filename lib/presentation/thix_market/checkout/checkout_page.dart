@@ -6,52 +6,61 @@ import 'checkout_provider.dart';
 import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
-import '../cart/cart_provider.dart';
 import '../delivery/delivery_address_selector.dart';
+import '../delivery/delivery_provider.dart'; // ✅ Import crucial du DeliveryProvider
 
-class CheckoutPage extends StatefulWidget {
+// 1. Initialisation propre des Providers avant d'afficher la page
+class CheckoutPage extends StatelessWidget {
   const CheckoutPage({super.key});
 
   @override
-  State<CheckoutPage> createState() => _CheckoutPageState();
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        // On crée et on charge le CheckoutProvider
+        ChangeNotifierProvider(
+          create: (_) => CheckoutProvider()..loadCheckoutData(),
+        ),
+        // On crée et on charge le DeliveryProvider manquant !
+        ChangeNotifierProvider(
+          create: (_) => DeliveryProvider()..init(),
+        ),
+      ],
+      child: const _CheckoutContent(),
+    );
+  }
 }
 
-class _CheckoutPageState extends State<CheckoutPage> {
-  bool _isDataLoaded = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // On s'assure que le chargement ne se lance qu'une seule fois
-    if (!_isDataLoaded) {
-      _isDataLoaded = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<CheckoutProvider>().loadCheckoutData();
-      });
-    }
-  }
+// 2. Contenu principal de la page
+class _CheckoutContent extends StatelessWidget {
+  const _CheckoutContent();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Validation de commande'),
+        title: const Text(
+          'Validation de commande',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
           onPressed: () => context.pop(),
         ),
       ),
       body: Consumer<CheckoutProvider>(
         builder: (context, provider, _) {
-          // 1. Affichage de l'état de chargement global
+          // A. Chargement
           if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFE5592F)),
+            );
           }
 
-          // 2. Affichage des erreurs interceptées par le Provider (ex: RLS, réseau)
+          // B. Affichage d'une erreur de base de données (si existante)
           if (provider.errorMessage != null) {
             return Center(
               child: Padding(
@@ -61,11 +70,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   children: [
                     const Icon(Icons.error_outline, size: 64, color: Colors.red),
                     const SizedBox(height: 16),
-                    Text(
-                      provider.errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
+                    Text(provider.errorMessage!, textAlign: TextAlign.center),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: () => provider.loadCheckoutData(),
@@ -74,10 +79,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE5592F),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
                     ),
                   ],
@@ -86,24 +87,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
             );
           }
 
-          // 3. Affichage sécurisé de l'étape en cours
+          // C. Affichage sécurisé de l'étape
           try {
             return _buildStepContent(provider);
           } catch (e) {
-            // Sécurité anti-écran blanc au cas où un widget enfant crashe
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.warning_amber_rounded, size: 64, color: Colors.orange),
-                  const SizedBox(height: 16),
-                  Text('Erreur d\'interface : ${e.toString()}', textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => provider.loadCheckoutData(),
-                    child: const Text('Recharger la page'),
-                  ),
-                ],
+              child: Text(
+                'Erreur interface: $e',
+                style: const TextStyle(color: Colors.red),
               ),
             );
           }
@@ -128,7 +119,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 }
 
-// Widget pour l'étape Adresse
+// 3. Widget pour l'étape Adresse
 class _AddressStep extends StatelessWidget {
   final CheckoutProvider provider;
 
@@ -143,6 +134,7 @@ class _AddressStep extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: DeliveryAddressSelector(
               onAddressSelected: (address) {
+                // Fait le lien entre DeliveryProvider et CheckoutProvider
                 provider.selectAddress(address);
               },
             ),
@@ -153,7 +145,7 @@ class _AddressStep extends StatelessWidget {
           child: ElevatedButton(
             onPressed: provider.selectedAddress != null
                 ? () => provider.selectAddress(provider.selectedAddress!)
-                : null,
+                : null, // Le bouton s'active si une adresse est sélectionnée
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE5592F),
               foregroundColor: Colors.white,
