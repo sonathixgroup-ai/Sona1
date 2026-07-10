@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart'; // Nouvel import requis
+import 'package:uuid/uuid.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/chat_participant.dart';
@@ -14,12 +14,16 @@ class ChatService {
 
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
-  // ---------- CONVERSATIONS ----------
+  // ============================================================
+  // CONVERSATIONS
+  // ============================================================
+
   Future<List<ChatConversation>> getConversations() async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
+      // 1. Récupérer les conversations du participant
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -31,27 +35,60 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
+      // 2. Récupérer les conversations avec les infos des participants
       final response = await _supabase
           .from('conversations')
-          .select('*')
+          .select('''
+              *,
+              conversation_participants!inner (
+                  user_id,
+                  profiles!user_id (
+                      username,
+                      full_name,
+                      avatar_url
+                  )
+              )
+          ''')
           .inFilter('id', conversationIds)
           .order('updated_at', ascending: false);
 
       final conversations = <ChatConversation>[];
 
       for (var conv in response as List) {
-        final participants = await _supabase
-            .from('conversation_participants')
-            .select('user_id')
-            .eq('conversation_id', conv['id']);
-
-        final participantIds = (participants as List)
-            .map((e) => e['user_id'] as String)
+        final participants = conv['conversation_participants'] as List;
+        
+        // Extraire les IDs et les noms des participants
+        final participantIds = participants
+            .map((p) => p['user_id'] as String)
             .toList();
+            
+        // Trouver l'autre participant (pour les conversations individuelles)
+        String? otherParticipantName;
+        String? otherParticipantAvatar;
+        
+        if (!(conv['is_group'] ?? false) && participants.length == 2) {
+          final other = participants.firstWhere(
+            (p) => p['user_id'] != uid,
+            orElse: () => null,
+          );
+          if (other != null) {
+            final profile = other['profiles'] as Map<String, dynamic>?;
+            otherParticipantName = profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu';
+            otherParticipantAvatar = profile?['avatar_url'];
+          }
+        }
 
+        // 3. Récupérer le dernier message
         final lastMsg = await _supabase
             .from('messages')
-            .select('*')
+            .select('''
+                *,
+                profiles!sender_id (
+                    username,
+                    full_name,
+                    avatar_url
+                )
+            ''')
             .eq('conversation_id', conv['id'])
             .eq('is_deleted', false)
             .order('created_at', ascending: false)
@@ -63,6 +100,7 @@ class ChatService {
           lastMessage = ChatMessage.fromJson(lastMsg);
         }
 
+        // 4. Compter les messages non lus
         final unread = await _supabase
             .from('messages')
             .select('id')
@@ -70,12 +108,15 @@ class ChatService {
             .eq('is_read', false)
             .neq('sender_id', uid);
 
+        // 5. Créer l'objet Conversation
         conversations.add(ChatConversation(
           id: conv['id'],
           isGroup: conv['is_group'] ?? false,
           groupName: conv['group_name'],
           groupAvatar: conv['group_avatar'],
           participantIds: participantIds,
+          otherParticipantName: otherParticipantName,
+          otherParticipantAvatar: otherParticipantAvatar,
           lastMessage: lastMessage,
           unreadCount: (unread as List).length,
           updatedAt: DateTime.parse(conv['updated_at']),
@@ -90,7 +131,6 @@ class ChatService {
     }
   }
 
-  // Fonction corrigée avec génération d'UUID côté client
   Future<ChatConversation> createConversation({
     required List<String> participantIds,
     bool isGroup = false,
@@ -125,15 +165,27 @@ class ChatService {
               .select('*')
               .eq('id', cid)
               .single();
-          return ChatConversation.fromJson(convData);
+          
+          // Récupérer les infos de l'autre participant
+          final otherProfile = await _supabase
+              .from('profiles')
+              .select('username, full_name, avatar_url')
+              .eq('id', otherId)
+              .single();
+              
+          return ChatConversation.fromJson({
+            ...convData,
+            'other_participant_name': otherProfile['full_name'] ?? otherProfile['username'] ?? 'Utilisateur inconnu',
+            'other_participant_avatar': otherProfile['avatar_url'],
+          });
         }
       }
     }
 
-    // 1. On génère l'ID de la conversation nous-même
+    // Générer l'ID de la conversation
     final String conversationId = const Uuid().v4();
 
-    // 2. On insère sans faire de .select().single() pour éviter l'erreur RLS 42501
+    // Insérer la conversation
     await _supabase.from('conversations').insert({
       'id': conversationId,
       'is_group': isGroup,
@@ -143,7 +195,7 @@ class ChatService {
       'is_pinned': false,
     });
 
-    // 3. On insère les participants
+    // Insérer les participants
     for (var pid in participantIds) {
       await _supabase.from('conversation_participants').insert({
         'conversation_id': conversationId,
@@ -153,7 +205,20 @@ class ChatService {
       });
     }
 
-    // 4. On retourne l'objet reconstitué manuellement
+    // Récupérer les infos de l'autre participant (pour une conversation individuelle)
+    String? otherName;
+    String? otherAvatar;
+    if (!isGroup && participantIds.length == 2) {
+      final otherId = participantIds.firstWhere((id) => id != uid);
+      final otherProfile = await _supabase
+          .from('profiles')
+          .select('username, full_name, avatar_url')
+          .eq('id', otherId)
+          .single();
+      otherName = otherProfile['full_name'] ?? otherProfile['username'] ?? 'Utilisateur inconnu';
+      otherAvatar = otherProfile['avatar_url'];
+    }
+
     return ChatConversation.fromJson({
       'id': conversationId,
       'is_group': isGroup,
@@ -162,6 +227,8 @@ class ChatService {
       'updated_at': DateTime.now().toIso8601String(),
       'is_pinned': false,
       'participant_ids': participantIds,
+      'other_participant_name': otherName,
+      'other_participant_avatar': otherAvatar,
     });
   }
 
@@ -194,7 +261,65 @@ class ChatService {
         .eq('id', conversationId);
   }
 
-  // ---------- MESSAGES ----------
+  Future<ChatConversation?> getConversation(String conversationId) async {
+    try {
+      final uid = currentUserId;
+      if (uid.isEmpty) return null;
+
+      final response = await _supabase
+          .from('conversations')
+          .select('''
+              *,
+              conversation_participants!inner (
+                  user_id,
+                  profiles!user_id (
+                      username,
+                      full_name,
+                      avatar_url
+                  )
+              )
+          ''')
+          .eq('id', conversationId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      final participants = response['conversation_participants'] as List;
+      final participantIds = participants
+          .map((p) => p['user_id'] as String)
+          .toList();
+
+      String? otherParticipantName;
+      String? otherParticipantAvatar;
+      
+      if (!(response['is_group'] ?? false) && participants.length == 2) {
+        final other = participants.firstWhere(
+          (p) => p['user_id'] != uid,
+          orElse: () => null,
+        );
+        if (other != null) {
+          final profile = other['profiles'] as Map<String, dynamic>?;
+          otherParticipantName = profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu';
+          otherParticipantAvatar = profile?['avatar_url'];
+        }
+      }
+
+      return ChatConversation.fromJson({
+        ...response,
+        'participant_ids': participantIds,
+        'other_participant_name': otherParticipantName,
+        'other_participant_avatar': otherParticipantAvatar,
+      });
+    } catch (e) {
+      debugPrint('❌ getConversation: $e');
+      return null;
+    }
+  }
+
+  // ============================================================
+  // MESSAGES
+  // ============================================================
+
   Future<List<ChatMessage>> getMessages(
     String conversationId, {
     int limit = 50,
@@ -204,15 +329,27 @@ class ChatService {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
+      // Requête avec JOIN sur profiles pour récupérer les noms
       final response = await _supabase
           .from('messages')
-          .select('*')
+          .select('''
+              *,
+              profiles!sender_id (
+                  username,
+                  full_name,
+                  avatar_url
+              )
+          ''')
           .eq('conversation_id', conversationId)
           .eq('is_deleted', false)
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      return (response as List).map((e) => ChatMessage.fromJson(e)).toList();
+      return (response as List)
+          .map((e) => ChatMessage.fromJson(e))
+          .toList()
+          .reversed
+          .toList(); // Reversed pour avoir l'ordre chronologique
     } catch (e) {
       debugPrint('❌ getMessages: $e');
       return [];
@@ -239,6 +376,7 @@ class ChatService {
         ? now.add(Duration(seconds: ephemeralDuration))
         : null;
 
+    // Insérer le message
     final response = await _supabase.from('messages').insert({
       'conversation_id': conversationId,
       'sender_id': uid,
@@ -256,8 +394,16 @@ class ChatService {
       'is_code_snippet': isCodeSnippet,
       'code_language': codeLanguage,
       'code_content': codeContent,
-    }).select().single();
+    }).select('''
+        *,
+        profiles!sender_id (
+            username,
+            full_name,
+            avatar_url
+        )
+    ''').single();
 
+    // Mettre à jour le timestamp de la conversation
     await _supabase
         .from('conversations')
         .update({'updated_at': now.toIso8601String()})
@@ -335,7 +481,14 @@ class ChatService {
     try {
       final response = await _supabase
           .from('messages')
-          .select('*')
+          .select('''
+              *,
+              profiles!sender_id (
+                  username,
+                  full_name,
+                  avatar_url
+              )
+          ''')
           .eq('id', messageId)
           .eq('is_deleted', false)
           .maybeSingle();
@@ -344,6 +497,139 @@ class ChatService {
     } catch (e) {
       debugPrint('❌ getMessageById: $e');
       return null;
+    }
+  }
+
+  // ============================================================
+  // MESSAGES ÉPHÉMÈRES - Nettoyage
+  // ============================================================
+
+  Future<void> cleanupEphemeralMessages() async {
+    try {
+      await _supabase
+          .from('messages')
+          .delete()
+          .eq('is_ephemeral', true)
+          .lt('delete_at', DateTime.now().toIso8601String());
+    } catch (e) {
+      debugPrint('❌ cleanupEphemeralMessages: $e');
+    }
+  }
+
+  // ============================================================
+  // PRÉSENCE / STATUT
+  // ============================================================
+
+  Future<void> updatePresence(String status, {String? customStatus}) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) return;
+
+    await _supabase.from('user_presence').upsert({
+      'user_id': uid,
+      'status': status,
+      'custom_status': customStatus,
+      'last_seen_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<UserStatus?> getUserPresence(String userId) async {
+    try {
+      final response = await _supabase
+          .from('user_presence')
+          .select('''
+              *,
+              profiles!user_id (
+                  username,
+                  full_name,
+                  avatar_url
+              )
+          ''')
+          .eq('user_id', userId)
+          .maybeSingle();
+      if (response == null) return null;
+      return UserStatus.fromJson(response);
+    } catch (e) {
+      debugPrint('❌ getUserPresence: $e');
+      return null;
+    }
+  }
+
+  Future<List<UserStatus>> getUsersPresence(List<String> userIds) async {
+    try {
+      if (userIds.isEmpty) return [];
+      final response = await _supabase
+          .from('user_presence')
+          .select('''
+              *,
+              profiles!user_id (
+                  username,
+                  full_name,
+                  avatar_url
+              )
+          ''')
+          .inFilter('user_id', userIds);
+      return (response as List).map((e) => UserStatus.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('❌ getUsersPresence: $e');
+      return [];
+    }
+  }
+
+  // ============================================================
+  // STREAM / REALTIME
+  // ============================================================
+
+  Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
+    return _supabase
+        .channel('messages:$conversationId')
+        .onPostgresChange(
+          event: PostgresChangeEvent.all,
+          callback: (payload) {},
+          schema: 'public',
+          table: 'messages',
+          filter: 'conversation_id=eq.$conversationId',
+        )
+        .subscribe()
+        .asStream()
+        .map((_) => []);
+  }
+
+  Stream<ChatMessage?> subscribeToNewMessages(String conversationId) {
+    return _supabase
+        .channel('new_messages:$conversationId')
+        .onPostgresChange(
+          event: PostgresChangeEvent.insert,
+          callback: (payload) {},
+          schema: 'public',
+          table: 'messages',
+          filter: 'conversation_id=eq.$conversationId',
+        )
+        .subscribe()
+        .asStream()
+        .map((event) => null);
+  }
+
+  // ============================================================
+  // UPLOAD DE FICHIERS (pour les médias)
+  // ============================================================
+
+  Future<String?> uploadFile(String bucket, String path, List<int> fileData) async {
+    try {
+      await _supabase.storage.from(bucket).uploadBinary(path, fileData);
+      final url = _supabase.storage.from(bucket).getPublicUrl(path);
+      return url;
+    } catch (e) {
+      debugPrint('❌ uploadFile: $e');
+      return null;
+    }
+  }
+
+  Future<void> deleteFile(String bucket, String path) async {
+    try {
+      await _supabase.storage.from(bucket).remove([path]);
+    } catch (e) {
+      debugPrint('❌ deleteFile: $e');
     }
   }
 }
