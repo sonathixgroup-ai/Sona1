@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart'; // Nouvel import requis
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/chat_participant.dart';
@@ -89,6 +90,7 @@ class ChatService {
     }
   }
 
+  // Fonction corrigée avec génération d'UUID côté client
   Future<ChatConversation> createConversation({
     required List<String> participantIds,
     bool isGroup = false,
@@ -128,16 +130,20 @@ class ChatService {
       }
     }
 
-    final response = await _supabase.from('conversations').insert({
+    // 1. On génère l'ID de la conversation nous-même
+    final String conversationId = const Uuid().v4();
+
+    // 2. On insère sans faire de .select().single() pour éviter l'erreur RLS 42501
+    await _supabase.from('conversations').insert({
+      'id': conversationId,
       'is_group': isGroup,
       'group_name': groupName,
       'group_avatar': groupAvatar,
       'updated_at': DateTime.now().toIso8601String(),
       'is_pinned': false,
-    }).select().single();
+    });
 
-    final conversationId = response['id'];
-
+    // 3. On insère les participants
     for (var pid in participantIds) {
       await _supabase.from('conversation_participants').insert({
         'conversation_id': conversationId,
@@ -147,8 +153,14 @@ class ChatService {
       });
     }
 
+    // 4. On retourne l'objet reconstitué manuellement
     return ChatConversation.fromJson({
-      ...response,
+      'id': conversationId,
+      'is_group': isGroup,
+      'group_name': groupName,
+      'group_avatar': groupAvatar,
+      'updated_at': DateTime.now().toIso8601String(),
+      'is_pinned': false,
       'participant_ids': participantIds,
     });
   }
