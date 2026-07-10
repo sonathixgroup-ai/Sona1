@@ -2,11 +2,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/routes/app_routes.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../nav.dart';
 import '../cards/wanted_person_card.dart';
 import '../providers/wanted_people_provider.dart';
 import '../widgets/section_title.dart';
 import '../utils/mon_pays_colors.dart';
+import '../utils/mon_pays_text_styles.dart';
+import '../enums/wanted_status.dart';
+import '../models/wanted_person_model.dart';
 
 class WantedPeopleSection extends ConsumerWidget {
   const WantedPeopleSection({Key? key}) : super(key: key);
@@ -18,8 +22,8 @@ class WantedPeopleSection extends ConsumerWidget {
     return wantedAsync.when(
       data: (people) {
         if (people.isEmpty) return const SizedBox.shrink();
-        final dangerous = people.where((p) => p.status == WantedStatus.dangerous).toList();
-        final missing = people.where((p) => p.status == WantedStatus.missing).toList();
+        final dangerous = people.where((p) => p.status == WantedStatus.dangereuse).toList();
+        final missing = people.where((p) => p.status == WantedStatus.disparue).toList();
         if (dangerous.isEmpty && missing.isEmpty) return const SizedBox.shrink();
 
         return Container(
