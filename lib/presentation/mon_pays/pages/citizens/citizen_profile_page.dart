@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/citizens_provider.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/error_widget.dart'; // ✅
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
 
 class CitizenProfilePage extends ConsumerWidget {
   final String id;
-
   const CitizenProfilePage({Key? key, required this.id}) : super(key: key);
 
   @override
@@ -38,7 +37,6 @@ class CitizenProfilePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Photo et nom
                 CircleAvatar(
                   radius: 60,
                   backgroundImage: citizen.photoUrl != null
@@ -106,7 +104,6 @@ class CitizenProfilePage extends ConsumerWidget {
                 ],
                 const Divider(height: 32),
 
-                // Citation
                 if (citizen.quote != null) ...[
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -134,8 +131,6 @@ class CitizenProfilePage extends ConsumerWidget {
                 ],
 
                 const SizedBox(height: 20),
-
-                // Bouton retour
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -157,7 +152,7 @@ class CitizenProfilePage extends ConsumerWidget {
         },
         loading: () => const Center(child: LoadingWidget()),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: MonPaysErrorWidget( // ✅ corrigé
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(citizenProvider(id)),
           ),
