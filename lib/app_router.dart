@@ -415,7 +415,7 @@ GoRoute(
 GoRoute(
   path: AppRoutes.monPaysVideos,
   name: 'monPaysVideos',
-  pageBuilder: (_, __) => NoTransitionPage(child: const VideosPage()),
+  pageBuilder: (_, __) => NoTransitionPage(child: VideosPage()),
 ),
 GoRoute(
   path: AppRoutes.monPaysDocumentaries,
