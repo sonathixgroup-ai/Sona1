@@ -125,7 +125,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
           ),
 
           // 10. Participer & S'exprimer (bouton "Explorer") – remplace urgence
-          const SliverToBoxAdapter(
+           SliverToBoxAdapter(
             child: ParticipationSection(),
           ),
 
