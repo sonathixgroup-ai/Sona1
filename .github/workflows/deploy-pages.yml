@@ -29,14 +29,13 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # 👉 LA SOLUTION EST ICI : Génération des modèles JSON avant la compilation
+      # 👉 Génération des modèles JSON avant la compilation
       - name: Generate data models
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build web
-        # Flutter web requires --base-href values to start and end with "/".
-        # This repository is deployed as a project page at "/Sona1/".
-        run: flutter build web --release --base-href /Sona1/
+        # 👉 LA SOLUTION EST ICI : Ajout de --no-tree-shake-icons à la fin de la commande
+        run: flutter build web --release --base-href /Sona1/ --no-tree-shake-icons
 
       # GitHub Pages does not provide SPA rewrite by default.
       # Copy index.html to 404.html so deep links (go_router paths) load the app.
