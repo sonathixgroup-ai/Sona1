@@ -6,7 +6,7 @@ import 'checkout_provider.dart';
 import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
-import '../cart/cart_provider.dart';
+import '../delivery/delivery_provider.dart';
 import '../delivery/delivery_address_selector.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -21,22 +21,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _isLoading = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isDataLoaded) {
-      _isDataLoaded = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadData();
-      });
-    }
+  void initState() {
+    super.initState();
+    // Initialiser DeliveryProvider au chargement de la page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
+
     try {
-      final provider = Provider.of<CheckoutProvider>(context, listen: false);
-      await provider.loadCheckoutData();
+      // 1. Charger les adresses via DeliveryProvider
+      final deliveryProvider = Provider.of<DeliveryProvider>(context, listen: false);
+      await deliveryProvider.loadAddresses();
+
+      // 2. Si une adresse est sélectionnée, la synchroniser avec CheckoutProvider
+      if (deliveryProvider.selectedAddress != null) {
+        final checkoutProvider = Provider.of<CheckoutProvider>(context, listen: false);
+        checkoutProvider.selectAddress(deliveryProvider.selectedAddress!);
+      }
+
+      // 3. Charger les données du checkout
+      final checkoutProvider = Provider.of<CheckoutProvider>(context, listen: false);
+      await checkoutProvider.loadCheckoutData();
+
+      _isDataLoaded = true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -97,7 +109,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget _buildStepContent(CheckoutProvider provider) {
     switch (provider.currentStep) {
       case 'address':
-        return _AddressStep(provider: provider);
+        return _AddressStep(
+          onAddressSelected: (address) {
+            provider.selectAddress(address);
+          },
+        );
       case 'shipping':
         return ShippingMethodSelector(provider: provider);
       case 'payment':
@@ -110,14 +126,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 }
 
-// Widget pour l'étape Adresse
+// ─── ÉTAPE ADRESSE CORRIGÉE ───
 class _AddressStep extends StatelessWidget {
-  final CheckoutProvider provider;
+  final Function(Map<String, dynamic>) onAddressSelected;
 
-  const _AddressStep({required this.provider});
+  const _AddressStep({required this.onAddressSelected});
 
   @override
   Widget build(BuildContext context) {
+    final deliveryProvider = context.watch<DeliveryProvider>();
+    final checkoutProvider = context.watch<CheckoutProvider>();
+
     return Column(
       children: [
         Expanded(
@@ -125,7 +144,9 @@ class _AddressStep extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: DeliveryAddressSelector(
               onAddressSelected: (address) {
-                provider.selectAddress(address);
+                // ✅ Sélectionner l'adresse dans DeliveryProvider ET CheckoutProvider
+                deliveryProvider.selectAddress(address);
+                onAddressSelected(address);
               },
             ),
           ),
@@ -133,8 +154,12 @@ class _AddressStep extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
-            onPressed: provider.selectedAddress != null
-                ? () => provider.selectAddress(provider.selectedAddress!)
+            onPressed: deliveryProvider.selectedAddress != null
+                ? () {
+                    // ✅ Synchroniser et passer à l'étape suivante
+                    final address = deliveryProvider.selectedAddress!;
+                    checkoutProvider.selectAddress(address);
+                  }
                 : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE5592F),
