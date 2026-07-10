@@ -1,32 +1,32 @@
-import 'package:intl/intl.dart';
-
 class ChatMessage {
   final String id;
   final String conversationId;
   final String senderId;
+  final String senderName;  // 👈 AJOUTÉ
+  final String? senderAvatar;  // 👈 AJOUTÉ (optionnel)
   final String content;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? mediaUrl;
-  final String? mediaType; // 'image', 'video', 'audio', 'document'
+  final String? mediaType;
   final bool isRead;
   final bool isDelivered;
   final String? replyToId;
   final bool isDeleted;
-
-  // NOUVEAUTÉS
   final bool isEphemeral;
-  final int? ephemeralDuration; // en secondes
+  final int? ephemeralDuration;
   final DateTime? deleteAt;
   final bool isCodeSnippet;
-  final String? codeLanguage; // 'dart', 'python', 'javascript', ...
-  final String? codeContent; // contenu du code (peut être différent de content)
+  final String? codeLanguage;
+  final String? codeContent;
   final List<MessageReaction> reactions;
 
   ChatMessage({
     required this.id,
     required this.conversationId,
     required this.senderId,
+    required this.senderName,  // 👈 REQUIS
+    this.senderAvatar,  // 👈 OPTIONNEL
     required this.content,
     required this.createdAt,
     this.updatedAt,
@@ -46,10 +46,15 @@ class ChatMessage {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    // 👈 Récupérer les infos du profil
+    final profile = json['profiles'] as Map<String, dynamic>?;
+    
     return ChatMessage(
       id: json['id'] ?? '',
       conversationId: json['conversation_id'] ?? '',
       senderId: json['sender_id'] ?? '',
+      senderName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu',  // 👈
+      senderAvatar: profile?['avatar_url'],  // 👈
       content: json['content'] ?? '',
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -104,6 +109,8 @@ class ChatMessage {
     String? id,
     String? conversationId,
     String? senderId,
+    String? senderName,  // 👈
+    String? senderAvatar,  // 👈
     String? content,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -125,6 +132,8 @@ class ChatMessage {
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
       senderId: senderId ?? this.senderId,
+      senderName: senderName ?? this.senderName,  // 👈
+      senderAvatar: senderAvatar ?? this.senderAvatar,  // 👈
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -144,24 +153,5 @@ class ChatMessage {
     );
   }
 
-  // Vérifier si le message est encore valable (pas détruit)
   bool get isActive => !isDeleted && (deleteAt == null || deleteAt!.isAfter(DateTime.now()));
-}
-
-class MessageReaction {
-  final String userId;
-  final String reaction; // emoji
-
-  MessageReaction({required this.userId, required this.reaction});
-
-  factory MessageReaction.fromJson(Map<String, dynamic> json) =>
-      MessageReaction(
-        userId: json['user_id'] ?? '',
-        reaction: json['reaction'] ?? '',
-      );
-
-  Map<String, dynamic> toJson() => {
-    'user_id': userId,
-    'reaction': reaction,
-  };
 }
