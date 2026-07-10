@@ -1,4 +1,5 @@
 // lib/presentation/chat/new_conversation_page.dart
+import 'dart:async'; // Ajouté pour le Timer (Debounce)
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/chat_service.dart';
@@ -16,9 +17,14 @@ class _NewConversationPageState extends State<NewConversationPage> {
   final TextEditingController _searchController = TextEditingController();
   final List<Map<String, dynamic>> _results = [];
   final List<Map<String, dynamic>> _selected = [];
+  
   bool _isLoading = false;
+  bool _isCreatingChat = false; // Ajouté pour empêcher le double-clic
   String _groupName = '';
-  bool _isGroup = false;
+  
+  // Supprimé _isGroup car il est déduit par _selected.length > 1
+  
+  Timer? _debounce; // Ajouté pour optimiser les requêtes de recherche
 
   final supabase = Supabase.instance.client;
   late ChatService _chatService;
@@ -33,16 +39,22 @@ class _NewConversationPageState extends State<NewConversationPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debounce?.cancel(); // Ne pas oublier d'annuler le timer
     super.dispose();
   }
 
   void _onSearchChanged() {
-    final query = _searchController.text.trim();
-    if (query.isNotEmpty) {
-      _searchUsers(query);
-    } else {
-      setState(() => _results.clear());
-    }
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    
+    // Attendre 300ms après la dernière frappe avant de lancer la recherche (Debounce)
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final query = _searchController.text.trim();
+      if (query.isNotEmpty) {
+        _searchUsers(query);
+      } else {
+        setState(() => _results.clear());
+      }
+    });
   }
 
   /// Recherche par identifiant THIX CHAT ou par nom
@@ -110,6 +122,9 @@ class _NewConversationPageState extends State<NewConversationPage> {
   }
 
   Future<void> _startChat() async {
+    // Empêcher de relancer si déjà en cours de création
+    if (_isCreatingChat) return; 
+
     if (_selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sélectionnez au moins une personne')),
@@ -117,10 +132,20 @@ class _NewConversationPageState extends State<NewConversationPage> {
       return;
     }
 
+    // Sécurisation de l'utilisateur actuel pour éviter un crash si déconnecté
+    final currentUser = supabase.auth.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur : Utilisateur non authentifié.')),
+      );
+      return;
+    }
+
+    setState(() => _isCreatingChat = true); // Afficher le chargement
+
     final participantIds = _selected.map((u) => u['id'] as String).toList();
-    final currentUserId = supabase.auth.currentUser!.id;
-    if (!participantIds.contains(currentUserId)) {
-      participantIds.add(currentUserId);
+    if (!participantIds.contains(currentUser.id)) {
+      participantIds.add(currentUser.id);
     }
 
     try {
@@ -145,6 +170,10 @@ class _NewConversationPageState extends State<NewConversationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingChat = false); // Cacher le chargement
+      }
     }
   }
 
@@ -161,14 +190,29 @@ class _NewConversationPageState extends State<NewConversationPage> {
         ),
         actions: [
           if (_selected.isNotEmpty)
-            TextButton.icon(
-              onPressed: _startChat,
-              icon: const Icon(Icons.send),
-              label: Text('Démarrer (${_selected.length})'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFD4AF37),
-              ),
-            ),
+            // Remplacement du bouton par un loader si _isCreatingChat est vrai
+            _isCreatingChat
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.0),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFFD4AF37),
+                        ),
+                      ),
+                    ),
+                  )
+                : TextButton.icon(
+                    onPressed: _startChat,
+                    icon: const Icon(Icons.send),
+                    label: Text('Démarrer (${_selected.length})'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFD4AF37),
+                    ),
+                  ),
         ],
       ),
       body: Column(
@@ -248,13 +292,15 @@ class _NewConversationPageState extends State<NewConversationPage> {
           // Résultats
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
                 : _results.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.people_outline, size: 60, color: Colors.grey[300]),
+                            Icon(Icons.people_outline,
+                                size: 60, color: Colors.grey[300]),
                             const SizedBox(height: 12),
                             Text(
                               _searchController.text.isEmpty
@@ -274,7 +320,8 @@ class _NewConversationPageState extends State<NewConversationPage> {
                         itemCount: _results.length,
                         itemBuilder: (context, index) {
                           final user = _results[index];
-                          final isSelected = _selected.any((s) => s['id'] == user['id']);
+                          final isSelected =
+                              _selected.any((s) => s['id'] == user['id']);
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundImage: user['avatar_url'] != null
@@ -303,10 +350,12 @@ class _NewConversationPageState extends State<NewConversationPage> {
                               ],
                             ),
                             trailing: isSelected
-                                ? const Icon(Icons.check_circle, color: Color(0xFFD4AF37))
+                                ? const Icon(Icons.check_circle,
+                                    color: Color(0xFFD4AF37))
                                 : (_selected.length > 1 || _selected.isEmpty
                                     ? IconButton(
-                                        icon: const Icon(Icons.add_circle_outline),
+                                        icon: const Icon(
+                                            Icons.add_circle_outline),
                                         onPressed: () => _toggleSelection(user),
                                       )
                                     : null),
