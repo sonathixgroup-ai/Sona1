@@ -23,6 +23,7 @@ import '../models/news_model.dart';
 import '../models/value_model.dart';
 import '../models/video_model.dart';
 import '../models/wanted_person_model.dart';
+import '../services/mon_pays_service.dart';
 
 class MonPaysRepository {
   final AuthoritiesRepository _authoritiesRepo;
@@ -63,6 +64,24 @@ class MonPaysRepository {
        _consultationsRepo = consultationsRepo,
        _governmentRepo = governmentRepo,
        _searchRepo = searchRepo;
+
+  /// Crée un MonPaysRepository à partir d'un MonPaysService.
+  factory MonPaysRepository.fromService(MonPaysService service) {
+    return MonPaysRepository(
+      authoritiesRepo: AuthoritiesRepository(service.authorities),
+      historyRepo: HistoryRepository(service.history),
+      newsRepo: NewsRepository(service.news),
+      agenciesRepo: AgenciesRepository(service.agencies),
+      videosRepo: VideosRepository(service.videos),
+      documentariesRepo: DocumentariesRepository(service.documentaries),
+      wantedRepo: WantedPeopleRepository(service.wantedPeople),
+      citizensRepo: CitizensRepository(service.citizens),
+      valuesRepo: ValuesRepository(service.values),
+      consultationsRepo: ConsultationsRepository(service.consultations),
+      governmentRepo: GovernmentRepository(service.government),
+      searchRepo: SearchRepository(service.search),
+    );
+  }
 
   Future<Map<String, dynamic>> getAllData() async {
     final results = await Future.wait([
