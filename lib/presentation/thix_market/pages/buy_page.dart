@@ -17,17 +17,28 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   String _selectedCategory = 'all';
   final ScrollController _scrollController = ScrollController();
 
-  static const Color primaryBlue = Color(0xFF1A73E8);
-  static const Color bgLight = Color(0xFFF8F9FA);
+  // ============================================================
+  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF6F7FB);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color danger = Color(0xFFD64545);
+  static const Color hairline = Color(0xFFE7EAF3);
 
   final List<Map<String, dynamic>> categories = [
-    {'id': 'all', 'name': 'Tous', 'icon': Icons.apps},
-    {'id': 'fashion', 'name': 'Mode', 'icon': Icons.checkroom},
-    {'id': 'electronics', 'name': 'Électronique', 'icon': Icons.phone_android},
-    {'id': 'home', 'name': 'Maison', 'icon': Icons.home},
-    {'id': 'services', 'name': 'Services', 'icon': Icons.build},
-    {'id': 'vehicles', 'name': 'Véhicules', 'icon': Icons.directions_car},
-    {'id': 'realestate', 'name': 'Immobilier', 'icon': Icons.house},
+    {'id': 'all', 'name': 'Tous', 'icon': Icons.apps_rounded},
+    {'id': 'fashion', 'name': 'Mode', 'icon': Icons.checkroom_rounded},
+    {'id': 'electronics', 'name': 'Électronique', 'icon': Icons.phone_android_rounded},
+    {'id': 'home', 'name': 'Maison', 'icon': Icons.chair_rounded},
+    {'id': 'services', 'name': 'Services', 'icon': Icons.build_rounded},
+    {'id': 'vehicles', 'name': 'Véhicules', 'icon': Icons.directions_car_rounded},
+    {'id': 'realestate', 'name': 'Immobilier', 'icon': Icons.house_rounded},
   ];
 
   @override
@@ -60,47 +71,116 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
     final productProvider = context.watch<ProductProvider>();
 
     return Scaffold(
-      backgroundColor: bgLight,
-      appBar: AppBar(
-        title: const Text(
-          'Acheter',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        bottom: TabBar(
+      backgroundColor: ivory,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          _buildInstitutionalAppBar(),
+        ],
+        body: TabBarView(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Explorer'),
-            Tab(text: 'Favoris'),
-            Tab(text: 'Wishlist'),
+          children: [
+            _buildExploreTab(productProvider),
+            _buildFavoritesTab(productProvider),
+            _buildWishlistTab(productProvider),
           ],
-          indicatorColor: primaryBlue,
-          labelColor: primaryBlue,
-          unselectedLabelColor: Colors.grey,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.compare_arrows, color: Colors.black87),
-            onPressed: () => context.push('/market/compare'),
+      ),
+    );
+  }
+
+  // ============================================================
+  // APP BAR INSTITUTIONNEL — dégradé navy, tabs pilule blanche
+  // ============================================================
+  Widget _buildInstitutionalAppBar() {
+    return SliverAppBar(
+      pinned: true,
+      floating: true,
+      elevation: 0,
+      backgroundColor: navyDeep,
+      surfaceTintColor: navyDeep,
+      toolbarHeight: 60,
+      expandedHeight: 60,
+      automaticallyImplyLeading: false,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [navyDeep, navy],
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_active, color: Colors.black87),
-            onPressed: () => context.push('/market/price-alerts'),
+        ),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: gold.withOpacity(0.5)),
+            ),
+            child: const Icon(Icons.shopping_bag_rounded, size: 16, color: gold),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black87),
-            onPressed: _loadData,
+          const SizedBox(width: 10),
+          const Text(
+            'Acheter',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white),
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildExploreTab(productProvider),
-          _buildFavoritesTab(productProvider),
-          _buildWishlistTab(productProvider),
-        ],
+      actions: [
+        _appBarIconButton(Icons.compare_arrows_rounded, () => context.push('/market/compare')),
+        _appBarIconButton(Icons.notifications_active_rounded, () => context.push('/market/price-alerts')),
+        _appBarIconButton(Icons.refresh_rounded, _loadData),
+        const SizedBox(width: 6),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(52),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Explorer'),
+              Tab(text: 'Favoris'),
+              Tab(text: 'Wishlist'),
+            ],
+            indicator: BoxDecoration(
+              color: gold,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: navyDeep,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+            dividerColor: Colors.transparent,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _appBarIconButton(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(11),
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: Colors.white.withOpacity(0.18)),
+        ),
+        child: Icon(icon, size: 16, color: Colors.white),
       ),
     );
   }
@@ -111,12 +191,15 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   Widget _buildExploreTab(ProductProvider provider) {
     return Column(
       children: [
-        // Catégories horizontales
+        const SizedBox(height: 10),
+        // ============================================================
+        // CATÉGORIES — icônes circulaires cerclées d'or
+        // ============================================================
         SizedBox(
-          height: 80,
+          height: 86,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             itemCount: categories.length,
             itemBuilder: (context, index) {
               final category = categories[index];
@@ -127,37 +210,43 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
                   provider.loadProducts(category: category['id']);
                 },
                 child: Container(
-                  width: 70,
-                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  width: 68,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        width: 52,
+                        height: 52,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: isSelected ? primaryBlue : Colors.white,
+                          color: isSelected ? navyDeep : pureWhite,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? navyDeep : hairline,
+                            width: isSelected ? 0 : 1,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                              color: isSelected ? navyDeep.withOpacity(0.25) : navyDeep.withOpacity(0.04),
+                              blurRadius: isSelected ? 14 : 8,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: Icon(
                           category['icon'] as IconData,
-                          color: isSelected ? Colors.white : Colors.grey[600],
-                          size: 22,
+                          color: isSelected ? gold : mutedText,
+                          size: 21,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Text(
                         category['name'],
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isSelected ? primaryBlue : Colors.grey[600],
+                          fontSize: 9.5,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                          color: isSelected ? navy : mutedText,
                         ),
                       ),
                     ],
@@ -167,40 +256,59 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
             },
           ),
         ),
-        
-        // Filtres rapides
+        const SizedBox(height: 6),
+
+        // ============================================================
+        // FILTRES RAPIDES
+        // ============================================================
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             children: [
-              _buildQuickFilterChip('Prix', Icons.attach_money),
+              _buildQuickFilterChip('Prix', Icons.attach_money_rounded),
               const SizedBox(width: 8),
-              _buildQuickFilterChip('Distance', Icons.location_on),
+              _buildQuickFilterChip('Distance', Icons.location_on_rounded),
               const SizedBox(width: 8),
-              _buildQuickFilterChip('Note', Icons.star),
+              _buildQuickFilterChip('Note', Icons.star_rounded),
               const Spacer(),
-              TextButton(
-                onPressed: () => _showAdvancedFilters(),
-                child: const Text(
-                  'Filtres +',
-                  style: TextStyle(color: primaryBlue),
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: _showAdvancedFilters,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [navyDeep, navy]),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.tune_rounded, size: 13, color: gold),
+                      SizedBox(width: 5),
+                      Text('Filtres', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11.5)),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        
-        // Produits
+        const SizedBox(height: 4),
+
+        // ============================================================
+        // GRILLE PRODUITS
+        // ============================================================
         Expanded(
           child: provider.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: primaryBlue))
               : provider.products.isEmpty
                   ? _buildEmptyState('Aucun produit trouvé')
                   : RefreshIndicator(
+                      color: primaryBlue,
                       onRefresh: _loadData,
                       child: GridView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 20),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           childAspectRatio: 0.7,
@@ -225,13 +333,21 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildQuickFilterChip(String label, IconData icon) {
-    return FilterChip(
-      label: Text(label),
-      avatar: Icon(icon, size: 16, color: Colors.grey[600]),
-      onSelected: (_) {},
-      backgroundColor: Colors.white,
-      selectedColor: primaryBlue.withOpacity(0.1),
-      side: BorderSide(color: Colors.grey[300]!),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: navy),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: darkText)),
+        ],
+      ),
     );
   }
 
@@ -240,20 +356,20 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   // ============================================================
   Widget _buildFavoritesTab(ProductProvider provider) {
     if (provider.isLoadingFavorites) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: primaryBlue));
     }
 
     if (provider.favorites.isEmpty) {
       return _buildEmptyStateWithAction(
         'Aucun favori',
         'Ajoutez des produits à vos favoris pour les retrouver facilement',
-        Icons.favorite_border,
+        Icons.favorite_border_rounded,
         () => _tabController.animateTo(0),
       );
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.7,
@@ -279,14 +395,14 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   // ============================================================
   Widget _buildWishlistTab(ProductProvider provider) {
     if (provider.isLoadingWishlist) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: primaryBlue));
     }
 
     if (provider.wishlist.isEmpty) {
       return _buildEmptyStateWithAction(
         'Wishlist vide',
         'Créez une liste de souhaits partageable',
-        Icons.share,
+        Icons.share_rounded,
         () => _createWishlist(),
       );
     }
@@ -296,40 +412,50 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
       itemCount: provider.wishlist.length,
       itemBuilder: (context, index) {
         final item = provider.wishlist[index];
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey[200]!),
+          decoration: BoxDecoration(
+            color: pureWhite,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: hairline),
+            boxShadow: [
+              BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
           ),
           child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             leading: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
                 imageUrl: item['image_url'],
-                width: 50,
-                height: 50,
+                width: 52,
+                height: 52,
                 fit: BoxFit.cover,
+                placeholder: (_, __) => Container(width: 52, height: 52, color: ivory),
                 errorWidget: (_, __, ___) => Container(
-                  width: 50,
-                  height: 50,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.image, size: 24),
+                  width: 52,
+                  height: 52,
+                  color: ivory,
+                  child: const Icon(Icons.image_rounded, size: 22, color: mutedText),
                 ),
               ),
             ),
             title: Text(
               item['name'] ?? 'Produit',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: darkText),
             ),
             subtitle: Text(
               '${item['price']?.toInt() ?? 0} FCFA',
-              style: const TextStyle(color: primaryBlue),
+              style: const TextStyle(color: navy, fontWeight: FontWeight.w800, fontSize: 12.5),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => provider.removeFromWishlist(item['id']),
+            trailing: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => provider.removeFromWishlist(item['id']),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: danger.withOpacity(0.08), shape: BoxShape.circle),
+                child: const Icon(Icons.delete_outline_rounded, size: 17, color: danger),
+              ),
             ),
             onTap: () => context.push('/market/product/${item['product_id']}'),
           ),
@@ -339,18 +465,23 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
   }
 
   // ============================================================
-  // ÉTATS VIDE
+  // ÉTATS VIDE — institutionnels
   // ============================================================
   Widget _buildEmptyState(String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[300]),
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+            child: const Icon(Icons.shopping_bag_outlined, size: 38, color: mutedText),
+          ),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            style: const TextStyle(fontSize: 15, color: mutedText, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -359,34 +490,50 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
 
   Widget _buildEmptyStateWithAction(String title, String subtitle, IconData icon, VoidCallback onAction) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: onAction,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: navyDeep.withOpacity(0.06),
+                shape: BoxShape.circle,
+                border: Border.all(color: gold.withOpacity(0.4), width: 1.4),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Icon(icon, size: 38, color: navy),
             ),
-            child: Text(title == 'Wishlist vide' ? 'Créer ma wishlist' : 'Explorer'),
-          ),
-        ],
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: darkText),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(color: mutedText, fontSize: 13, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 22),
+            InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: onAction,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 13),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [navyDeep, navy]),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text(
+                  title == 'Wishlist vide' ? 'Créer ma wishlist' : 'Explorer',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -398,9 +545,7 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => const AdvancedFiltersSheet(),
     );
   }
@@ -414,71 +559,123 @@ class _BuyPageState extends State<BuyPage> with SingleTickerProviderStateMixin {
 }
 
 // ============================================================
-// WIDGETS ANNEXES
+// WIDGETS ANNEXES — charte institutionnelle
 // ============================================================
 class AdvancedFiltersSheet extends StatelessWidget {
   const AdvancedFiltersSheet({super.key});
 
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF6F7FB);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color hairline = Color(0xFFE7EAF3);
+
   @override
   Widget build(BuildContext context) {
-    // 🔧 Variables d'état locales (si on veut les rendre interactives)
-    // Ici on les simule avec des valeurs statiques pour l'exemple.
     RangeValues _priceRange = const RangeValues(0, 1000000);
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.all(22),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Filtres avancés',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(color: ivory, borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.tune_rounded, size: 17, color: navy),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Filtres avancés',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: darkText),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
-          const Text('Prix (FCFA)', style: TextStyle(fontWeight: FontWeight.w500)),
-          // ✅ Correction : ajout de onChanged et suppression du const
-          RangeSlider(
-            values: _priceRange,
-            min: 0,
-            max: 1000000,
-            divisions: 10,
-            onChanged: (newValues) {
-              // Ici on mettrait à jour l'état si le widget était Stateful
-              // Pour l'instant, on ne fait rien (exemple non interactif)
-              // Mais on peut afficher les valeurs dans un Text par exemple.
-            },
+          const Text('Prix (FCFA)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: darkText)),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: navy,
+              inactiveTrackColor: hairline,
+              thumbColor: gold,
+              overlayColor: gold.withOpacity(0.15),
+            ),
+            child: RangeSlider(
+              values: _priceRange,
+              min: 0,
+              max: 1000000,
+              divisions: 10,
+              onChanged: (newValues) {},
+            ),
           ),
-          const SizedBox(height: 20),
-          const Text('Catégories', style: TextStyle(fontWeight: FontWeight.w500)),
+          const SizedBox(height: 14),
+          const Text('Catégories', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: darkText)),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: ['Mode', 'Électronique', 'Maison', 'Services', 'Véhicules'].map((cat) {
-              return FilterChip(
-                label: Text(cat),
-                selected: false,
-                onSelected: (_) {},
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                decoration: BoxDecoration(
+                  color: ivory,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: hairline),
+                ),
+                child: Text(cat, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: darkText)),
               );
             }).toList(),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Réinitialiser'),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: navy, width: 1.6),
+                    foregroundColor: navy,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Réinitialiser', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A73E8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [navyDeep, navy]),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Text('Appliquer'),
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                  ),
                 ),
               ),
             ],
@@ -492,52 +689,109 @@ class AdvancedFiltersSheet extends StatelessWidget {
 class CreateWishlistDialog extends StatelessWidget {
   const CreateWishlistDialog({super.key});
 
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color hairline = Color(0xFFE7EAF3);
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Créer une wishlist'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Nom de la liste',
-              hintText: 'Ex: Cadeaux Noël',
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.favorite_rounded, size: 16, color: gold),
+                ),
+                const SizedBox(width: 10),
+                const Text('Créer une wishlist', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Description (optionnel)',
+            const SizedBox(height: 18),
+            TextField(
+              decoration: InputDecoration(
+                labelText: 'Nom de la liste',
+                hintText: 'Ex: Cadeaux Noël',
+                labelStyle: const TextStyle(color: mutedText),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: hairline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: navy, width: 1.6),
+                ),
+              ),
             ),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            title: const Text('Liste publique'),
-            value: true,
-            onChanged: (_) {},
-          ),
-        ],
+            const SizedBox(height: 12),
+            TextField(
+              decoration: InputDecoration(
+                labelText: 'Description (optionnel)',
+                labelStyle: const TextStyle(color: mutedText),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: hairline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: navy, width: 1.6),
+                ),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Liste publique', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: darkText)),
+              value: true,
+              activeColor: navy,
+              activeTrackColor: gold.withOpacity(0.4),
+              onChanged: (_) {},
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler', style: TextStyle(color: mutedText, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [navyDeep, navy]),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Wishlist créée avec succès')),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Créer', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Wishlist créée avec succès')),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A73E8),
-          ),
-          child: const Text('Créer'),
-        ),
-      ],
     );
   }
 }
