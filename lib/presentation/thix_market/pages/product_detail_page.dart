@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../cart/cart_provider.dart';
 import '../widgets/products/product_card.dart';
+// Importer la page de checkout pour une navigation directe en cas de besoin
+import '../checkout/checkout_page.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final String productId;
@@ -260,7 +262,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
-  void _buyNow() async {
+  // ─── MÉTHODE BUY NOW CORRIGÉE ───
+  Future<void> _buyNow() async {
+    // Vérifications préliminaires
     if (_product.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Le produit n’est pas encore chargé.')),
@@ -273,9 +277,50 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       );
       return;
     }
-    await _addToCart();
-    if (mounted) {
-      context.push('/market/checkout');
+
+    // Désactiver les boutons pendant le traitement
+    setState(() => _isAddingToCart = true);
+
+    try {
+      // 1. Ajouter au panier
+      await _addToCart();
+
+      // 2. Recharger le panier pour être sûr
+      final cartProvider = context.read<CartProvider>();
+      await cartProvider.loadCart();
+
+      // 3. Vérifier que le panier contient bien des articles
+      if (cartProvider.cartItems.isEmpty) {
+        throw Exception('Le panier est vide après ajout.');
+      }
+
+      // 4. Naviguer vers le checkout
+      if (mounted) {
+        // Tentative avec GoRouter (si la route est définie)
+        try {
+          context.push('/market/checkout');
+        } catch (e) {
+          // Si la route GoRouter échoue, utiliser la navigation classique
+          debugPrint('⚠️ GoRouter failed, using fallback navigation: $e');
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CheckoutPage(),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur dans _buyNow: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAddingToCart = false);
     }
   }
 
@@ -492,7 +537,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ],
                   ),
                 ),
-                // ✅ Correction : suppression des const Divider avec Colors.grey[200]
                 Divider(height: 1, color: Colors.grey[200]),
                 if (variants.isNotEmpty) _buildVariantsSection(variants),
                 if (colors.isNotEmpty) _buildColorsSection(colors),
