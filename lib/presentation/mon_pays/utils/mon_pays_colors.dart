@@ -3,16 +3,15 @@
 import 'package:flutter/material.dart';
 
 /// Palette de couleurs institutionnelles pour le module Mon Pays
-/// Inspirée des couleurs de la République Démocratique du Congo
 class MonPaysColors {
   // Couleurs principales
-  static const Color primaryRed = Color(0xFFE53935); // Rouge RDC
-  static const Color primaryBlue = Color(0xFF0033A0); // Bleu RDC
-  static const Color primaryYellow = Color(0xFFFFD700); // Or RDC
+  static const Color primaryRed = Color(0xFFE53935);
+  static const Color primaryBlue = Color(0xFF0033A0);
+  static const Color primaryYellow = Color(0xFFFFD700);
 
   // Neutres
   static const Color primaryWhite = Color(0xFFFFFFFF);
-  static const Color backgroundLight = Color(0xFFFFF5F5); // Fond clair avec touche rouge
+  static const Color backgroundLight = Color(0xFFFFF5F5);
   static const Color backgroundDark = Color(0xFF1A1A2E);
 
   // Textes
@@ -20,18 +19,20 @@ class MonPaysColors {
   static const Color textSecondary = Color(0xFF757575);
   static const Color textHint = Color(0xFFBDBDBD);
   static const Color textLight = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF1A1A1A);
+  static const Color darkText = Color(0xFF1A1A1A); // ✅ AJOUTÉ
+
   // États
   static const Color success = Color(0xFF2E7D32);
   static const Color warning = Color(0xFFFF9800);
   static const Color dangerRed = Color(0xFFD32F2F);
+  static const Color goldBadge = Color(0xFFFFD700); // ✅ AJOUTÉ
 
   // Bordures et ombres
   static const Color cardBorder = Color(0xFFE5E7EB);
   static const Color shadowLight = Color(0x0F000000);
   static const Color shadowSecondary = Color(0x0A000000);
 
-  // Dégradés institutionnels
+  // Dégradés
   static const LinearGradient gradientRedBlue = LinearGradient(
     colors: [primaryRed, primaryBlue],
     begin: Alignment.topLeft,
@@ -56,7 +57,7 @@ class MonPaysColors {
     end: Alignment.bottomRight,
   );
 
-  // Ombres prédéfinies
+  // Ombres
   static List<BoxShadow> get defaultShadow => [
         BoxShadow(
           color: primaryRed.withOpacity(0.15),
