@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import '../utils/mon_pays_colors.dart';
 import '../utils/mon_pays_text_styles.dart';
 
-class ErrorWidget extends StatelessWidget {
+/// Widget d'erreur personnalisé pour le module Mon Pays
+/// Utilisez `MonPaysErrorWidget` au lieu de `ErrorWidget` pour éviter
+/// le conflit avec `flutter/widgets.dart`
+class MonPaysErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
 
-  const ErrorWidget({
+  const MonPaysErrorWidget({
     Key? key,
     required this.message,
     this.onRetry,
