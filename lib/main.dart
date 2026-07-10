@@ -31,6 +31,7 @@ import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
+import 'package:thix_id/presentation/thix_market/checkout/checkout_provider.dart'; // ✅ AJOUT
 
 // ─── EDUCATION ───
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
@@ -363,18 +364,19 @@ class _MyAppState extends State<MyApp> {
         ),
 
         // ─── THIX MARKET ───
-ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
-ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
-ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
-ChangeNotifierProvider<ShopProvider>(create: (_) => ShopProvider()),
-ChangeNotifierProvider<MessageProvider>(create: (_) => MessageProvider()),
-ChangeNotifierProvider<LiveProvider>(create: (_) => LiveProvider()),
-ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
-ChangeNotifierProvider<CheckoutProvider>(create: (_) => CheckoutProvider()), // ✅ AJOUTÉ
-ChangeNotifierProvider<ActivityProvider>(create: (_) => ActivityProvider()),
-ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
-ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
-ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
+        ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
+        ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
+        ChangeNotifierProvider<ShopProvider>(create: (_) => ShopProvider()),
+        ChangeNotifierProvider<MessageProvider>(create: (_) => MessageProvider()),
+        ChangeNotifierProvider<LiveProvider>(create: (_) => LiveProvider()),
+        ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
+        ChangeNotifierProvider<CheckoutProvider>(create: (_) => CheckoutProvider()), // ✅ AJOUTÉ
+        ChangeNotifierProvider<ActivityProvider>(create: (_) => ActivityProvider()),
+        ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
+        ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
+        ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
+
         // ─── EDUCATION ───
         ChangeNotifierProvider<EducationProvider>(
           create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
