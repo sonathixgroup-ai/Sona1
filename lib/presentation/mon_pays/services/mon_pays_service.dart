@@ -1,3 +1,4 @@
+
 // lib/presentation/mon_pays/services/mon_pays_service.dart
 
 import 'agencies_service.dart';
@@ -67,33 +68,50 @@ class MonPaysService {
 
   /// Récupère toutes les données en parallèle.
   Future<Map<String, dynamic>> getAllData() async {
-    final results = await Future.wait([
-      _authoritiesService.getAll(),
-      _historyService.getAll(),
-      _newsService.getAll(),
-      _agenciesService.getAll(),
-      _videosService.getAll(),
-      _documentariesService.getAll(),
-      _wantedPeopleService.getAll(),
-      _citizensService.getAll(),
-      _valuesService.getAll(),
-      _consultationsService.getAll(),
-      _governmentService.getAll(),
-    ]);
+    try {
+      final results = await Future.wait([
+        _authoritiesService.getAll(),
+        _historyService.getAll(),
+        _newsService.getAll(),
+        _agenciesService.getAll(),
+        _videosService.getAll(),
+        _documentariesService.getAll(),
+        _wantedPeopleService.getAll(),
+        _citizensService.getAll(),
+        _valuesService.getAll(),
+        _consultationsService.getAll(),
+        _governmentService.getAll(),
+      ]);
 
-    return {
-      'authorities': results[0] as List<Authority>,
-      'historicalFigures': results[1] as List<HistoricalFigure>,
-      'news': results[2] as List<News>,
-      'agencies': results[3] as List<Agency>,
-      'videos': results[4] as List<Video>,
-      'documentaries': results[5] as List<Documentary>,
-      'wantedPersons': results[6] as List<WantedPerson>,
-      'exemplaryCitizens': results[7] as List<ExemplaryCitizen>,
-      'values': results[8] as List<Value>,
-      'consultations': results[9] as List<Consultation>,
-      'governments': results[10] as List<Government>,
-    };
+      return {
+        'authorities': results[0] as List<Authority>? ?? [],
+        'historicalFigures': results[1] as List<HistoricalFigure>? ?? [],
+        'news': results[2] as List<News>? ?? [],
+        'agencies': results[3] as List<Agency>? ?? [],
+        'videos': results[4] as List<Video>? ?? [],
+        'documentaries': results[5] as List<Documentary>? ?? [],
+        'wantedPersons': results[6] as List<WantedPerson>? ?? [],
+        'exemplaryCitizens': results[7] as List<ExemplaryCitizen>? ?? [],
+        'values': results[8] as List<Value>? ?? [],
+        'consultations': results[9] as List<Consultation>? ?? [],
+        'governments': results[10] as List<Government>? ?? [],
+      };
+    } catch (e) {
+      // En cas d'erreur, retourner des listes vides
+      return {
+        'authorities': [],
+        'historicalFigures': [],
+        'news': [],
+        'agencies': [],
+        'videos': [],
+        'documentaries': [],
+        'wantedPersons': [],
+        'exemplaryCitizens': [],
+        'values': [],
+        'consultations': [],
+        'governments': [],
+      };
+    }
   }
 
   // Getters pour les services individuels (si nécessaire)
