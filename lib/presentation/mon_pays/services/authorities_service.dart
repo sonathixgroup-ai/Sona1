@@ -1,41 +1,52 @@
 // lib/presentation/mon_pays/services/authorities_service.dart
 
-import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/authority_model.dart';
-import '../utils/mon_pays_constants.dart';
 
 class AuthoritiesService {
-  final Dio _dio;
+  final SupabaseClient _supabase;
 
-  AuthoritiesService(this._dio);
+  AuthoritiesService(this._supabase);
 
   Future<List<Authority>> getAll() async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.authoritiesEndpoint}');
-    return (response.data as List).map((e) => Authority.fromJson(e)).toList();
+    final response = await _supabase
+        .from('authorities')
+        .select('*');
+    return (response as List).map((e) => Authority.fromJson(e)).toList();
   }
 
   Future<Authority> getById(String id) async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.authoritiesEndpoint}/$id');
-    return Authority.fromJson(response.data);
+    final response = await _supabase
+        .from('authorities')
+        .select('*')
+        .eq('id', id)
+        .single();
+    return Authority.fromJson(response);
   }
 
   Future<Authority> create(Authority authority) async {
-    final response = await _dio.post(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.authoritiesEndpoint}',
-      data: authority.toJson(),
-    );
-    return Authority.fromJson(response.data);
+    final response = await _supabase
+        .from('authorities')
+        .insert(authority.toJson())
+        .select()
+        .single();
+    return Authority.fromJson(response);
   }
 
   Future<Authority> update(Authority authority) async {
-    final response = await _dio.put(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.authoritiesEndpoint}/${authority.id}',
-      data: authority.toJson(),
-    );
-    return Authority.fromJson(response.data);
+    final response = await _supabase
+        .from('authorities')
+        .update(authority.toJson())
+        .eq('id', authority.id)
+        .select()
+        .single();
+    return Authority.fromJson(response);
   }
 
   Future<void> delete(String id) async {
-    await _dio.delete('${MonPaysConstants.baseUrl}${MonPaysConstants.authoritiesEndpoint}/$id');
+    await _supabase
+        .from('authorities')
+        .delete()
+        .eq('id', id);
   }
 }
