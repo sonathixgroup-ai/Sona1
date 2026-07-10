@@ -3,11 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart'; // ✅ import ajouté
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/documentaries_provider.dart';
 import '../../widgets/loading_widget.dart';
-import '../../widgets/error_widget.dart'; // ✅ pour MonPaysErrorWidget
+import '../../widgets/error_widget.dart';
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
 
@@ -40,7 +40,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
         if (youtubeId != null) {
           _youtubeController = YoutubePlayerController(
             initialVideoId: youtubeId,
-            flags: YoutubePlayerFlags( // ✅ plus de const
+            flags: const YoutubePlayerFlags(
               autoPlay: true,
               mute: false,
               isLive: false,
