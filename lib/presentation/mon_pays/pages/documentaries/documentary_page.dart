@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/documentaries_provider.dart';
 import '../../widgets/loading_widget.dart';
@@ -20,9 +19,7 @@ class DocumentaryPage extends ConsumerStatefulWidget {
 }
 
 class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
-  YoutubePlayerController? _youtubeController;
-  VideoPlayerController? _localController;
-  bool _isYoutube = false;
+  VideoPlayerController? _controller;
   bool _isLoading = true;
   String? _error;
 
@@ -35,44 +32,23 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
   Future<void> _loadDocumentary() async {
     try {
       final documentary = await ref.read(documentaryProvider(widget.id).future);
-      if (documentary.url != null && documentary.url!.contains('youtube.com')) {
-        final youtubeId = YoutubePlayerController.getYoutubeVideoId(documentary.url!);
-        if (youtubeId != null) {
-          _youtubeController = YoutubePlayerController(
-            initialVideoId: youtubeId,
-            flags: const YoutubePlayerFlags(
-              autoPlay: true,
-              mute: false,
-              isLive: false,
-            ),
-          );
-          _isYoutube = true;
-        } else {
-          _error = 'Lien YouTube invalide';
-        }
-      } else if (documentary.url != null && documentary.url!.startsWith('http')) {
-        _localController = VideoPlayerController.networkUrl(Uri.parse(documentary.url!));
-        await _localController!.initialize();
-        await _localController!.play();
-        _isYoutube = false;
-      } else {
-        _isYoutube = false;
+      if (documentary.url != null && documentary.url!.startsWith('http')) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(documentary.url!));
+        await _controller!.initialize();
+        await _controller!.play();
       }
     } catch (e) {
       _error = 'Erreur de chargement du documentaire';
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   void dispose() {
-    _youtubeController?.dispose();
-    _localController?.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -109,28 +85,17 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
               : FutureBuilder(
                   future: ref.read(documentaryProvider(widget.id).future),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                     final documentary = snapshot.data!;
                     return SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (documentary.url != null && documentary.url!.isNotEmpty) ...[
-                            _isYoutube && _youtubeController != null
-                                ? YoutubePlayer(
-                                    controller: _youtubeController!,
-                                    showVideoProgressIndicator: true,
-                                  )
-                                : _localController != null &&
-                                        _localController!.value.isInitialized
-                                    ? VideoPlayer(_localController!)
-                                    : const SizedBox.shrink(),
-                            const SizedBox(height: 16),
-                          ],
-                          if (documentary.url == null || documentary.url!.isEmpty)
+                          if (_controller != null && _controller!.value.isInitialized)
+                            VideoPlayer(_controller!),
+                          const SizedBox(height: 16),
+                          if (documentary.thumbnailUrl != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Image.network(
@@ -141,20 +106,13 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                                 errorBuilder: (_, __, ___) => Container(
                                   height: 200,
                                   color: MonPaysColors.backgroundLight,
-                                  child: const Icon(
-                                    Icons.movie,
-                                    size: 50,
-                                    color: MonPaysColors.textHint,
-                                  ),
+                                  child: const Icon(Icons.movie, size: 50, color: MonPaysColors.textHint),
                                 ),
                               ),
                             ),
                           const SizedBox(height: 16),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
                               color: MonPaysColors.primaryRed.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
@@ -178,11 +136,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.timer,
-                                size: 16,
-                                color: MonPaysColors.textSecondary,
-                              ),
+                              const Icon(Icons.timer, size: 16, color: MonPaysColors.textSecondary),
                               const SizedBox(width: 4),
                               Text(
                                 'Durée: ${documentary.duration}',
@@ -190,13 +144,9 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                                   color: MonPaysColors.textSecondary,
                                 ),
                               ),
-                              const SizedBox(width: 16),
                               if (documentary.year != null) ...[
-                                const Icon(
-                                  Icons.calendar_today,
-                                  size: 16,
-                                  color: MonPaysColors.textSecondary,
-                                ),
+                                const SizedBox(width: 16),
+                                const Icon(Icons.calendar_today, size: 16, color: MonPaysColors.textSecondary),
                                 const SizedBox(width: 4),
                                 Text(
                                   documentary.year!,
@@ -219,9 +169,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                             const SizedBox(height: 8),
                             Text(
                               documentary.description!,
-                              style: MonPaysTextStyles.bodyMedium.copyWith(
-                                height: 1.6,
-                              ),
+                              style: MonPaysTextStyles.bodyMedium.copyWith(height: 1.6),
                             ),
                           ],
                           const SizedBox(height: 20),
