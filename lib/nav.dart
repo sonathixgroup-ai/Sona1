@@ -1,4 +1,5 @@
 // lib/nav.dart
+
 class AppRoutes {
   static const String start = '/start';
   static const String home = '/';
@@ -12,7 +13,7 @@ class AppRoutes {
   static const String userDashboard = '/user-dashboard';
   static const String enterpriseDashboard = '/enterprise-dashboard';
   static const String enterprisePortalBasePath = '/company';
-  
+
   static const String vault = '/vault';
   static const String settings = '/settings';
   static const String network = '/network';
@@ -33,14 +34,14 @@ class AppRoutes {
   static const String opportunities = '/opportunities';
   static const String admin = '/admin';
   static const String thixMarket = '/market';
-  
-  // Éducation
+
+  // Éducationinstructor/dashboard
   static const String education = '/education';
   static const String trainingHome = '/education';
   static const String trainingDetailsBasePath = '/education';
-  static const String instructorDashboard = '/instructor/dashboard';
+  static const String instructorDashboard = '/';
   static const String instructorCourses = '/instructor/courses';
-  
+
   // Santé
   static const String thixSante = '/sante';
   static const String thixSantePatient = '/sante/patient';
@@ -51,7 +52,7 @@ class AppRoutes {
   static const String thixMedia = '/thix-media';
   static const String thixMediaVideo = '/thix-media/video';
   static const String adminMedia = '/admin/media';
-  
+
   // THIX INFO
   static const String thixInfo = '/thix-info';
   static const String thixInfoArticle = '/thix-info/article/:articleId';
@@ -62,14 +63,11 @@ class AppRoutes {
   static const String thixInfoAdmin = '/thix-info/admin';
   static const String thixInfoCreate = '/thix-info/admin/create';
   static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
-  
 
-  // ─── THIX Chat ──────────────────────────────────────────────
+  // THIX Chat
   static const String chat = '/chat';
   static const String chatNew = '/chat/new';
   static const String chatConversation = '/chat/:conversationId';
-
-  // Helper pour générer une route avec paramètre
   static String chatDetail(String conversationId) => '/chat/$conversationId';
 
   // THIX Événement
@@ -88,15 +86,75 @@ class AppRoutes {
   static const String moderatorEvents = '/moderator/events';
   static const String moderatorEventCreate = '/moderator/event/create';
   static const String moderatorEventEdit = '/moderator/event/edit/:id';
-   //----+++- Mon Pays--------
-static const String monPays = '/mon-pays';
-static const String monPaysAdmin = '/mon-pays/admin';
-static const String monPaysAuthorities = '/mon-pays/authorities';
-static const String monPaysNews = '/mon-pays/news';
-static const String monPaysAuthorityDetail = '/mon-pays/authority/:id';
-static const String monPaysNewsDetail = '/mon-pays/news/:id';
-  
-  // Helpers
+
+  // ========================================================================
+  // MON PAYS - Toutes les routes du module
+  // ========================================================================
+  // Page principale
+  static const String monPays = '/mon-pays';
+  static const String monPaysAdmin = '/mon-pays/admin';
+
+  // Pages "Voir tout" (listes complètes)
+  static const String monPaysAuthorities = '/mon-pays/authorities';
+  static const String monPaysGovernment = '/mon-pays/government';
+  static const String monPaysMinistries = '/mon-pays/ministries';
+  static const String monPaysAgencies = '/mon-pays/agencies';
+  static const String monPaysHistory = '/mon-pays/history';
+  static const String monPaysNews = '/mon-pays/news';
+  static const String monPaysValues = '/mon-pays/values';
+  static const String monPaysVideos = '/mon-pays/videos';
+  static const String monPaysDocumentaries = '/mon-pays/documentaries';
+  static const String monPaysWanted = '/mon-pays/wanted';
+  static const String monPaysCitizens = '/mon-pays/citizens';
+  static const String monPaysConsultations = '/mon-pays/consultations';
+  static const String monPaysEmergency = '/mon-pays/emergency';
+  static const String monPaysSearch = '/mon-pays/search';
+
+  // Pages de détail (avec paramètre :id)
+  static const String monPaysAuthorityDetail = '/mon-pays/authority/:id';
+  static const String monPaysGovernmentDetail = '/mon-pays/government/:id';
+  static const String monPaysMinistryDetail = '/mon-pays/ministry/:id';
+  static const String monPaysAgencyDetail = '/mon-pays/agency/:id';
+  static const String monPaysAgencyServices = '/mon-pays/agency/:id/services';
+  static const String monPaysHistoryDetail = '/mon-pays/history/:id';
+  static const String monPaysNewsDetail = '/mon-pays/news/:id';
+  static const String monPaysValueDetail = '/mon-pays/value/:id';
+  static const String monPaysVideoDetail = '/mon-pays/video/:id';
+  static const String monPaysDocumentaryDetail = '/mon-pays/documentary/:id';
+  static const String monPaysWantedDetail = '/mon-pays/wanted/:id';
+  static const String monPaysCitizenDetail = '/mon-pays/citizen/:id';
+  static const String monPaysConsultationDetail = '/mon-pays/consultation/:id';
+
+  // Pages spécifiques des valeurs
+  static const String monPaysConstitution = '/mon-pays/constitution';
+  static const String monPaysLaws = '/mon-pays/laws';
+  static const String monPaysInstitutions = '/mon-pays/institutions';
+  static const String monPaysRights = '/mon-pays/rights';
+  static const String monPaysDuties = '/mon-pays/duties';
+  static const String monPaysJustice = '/mon-pays/justice';
+
+  // Résultat de recherche (avec paramètre)
+  static const String monPaysSearchResult = '/mon-pays/search/result';
+
+  // Helpers pour générer des routes dynamiques (Mon Pays)
+  static String monPaysAuthorityDetailPath(String id) => '/mon-pays/authority/$id';
+  static String monPaysGovernmentDetailPath(String id) => '/mon-pays/government/$id';
+  static String monPaysMinistryDetailPath(String id) => '/mon-pays/ministry/$id';
+  static String monPaysAgencyDetailPath(String id) => '/mon-pays/agency/$id';
+  static String monPaysAgencyServicesPath(String id) => '/mon-pays/agency/$id/services';
+  static String monPaysHistoryDetailPath(String id) => '/mon-pays/history/$id';
+  static String monPaysNewsDetailPath(String id) => '/mon-pays/news/$id';
+  static String monPaysValueDetailPath(String id) => '/mon-pays/value/$id';
+  static String monPaysVideoDetailPath(String id) => '/mon-pays/video/$id';
+  static String monPaysDocumentaryDetailPath(String id) => '/mon-pays/documentary/$id';
+  static String monPaysWantedDetailPath(String id) => '/mon-pays/wanted/$id';
+  static String monPaysCitizenDetailPath(String id) => '/mon-pays/citizen/$id';
+  static String monPaysConsultationDetailPath(String id) => '/mon-pays/consultation/$id';
+  static String monPaysSearchResultPath(String query) => '/mon-pays/search/result?q=$query';
+
+  // ========================================================================
+  // HELPERS GÉNÉRIQUES
+  // ========================================================================
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
