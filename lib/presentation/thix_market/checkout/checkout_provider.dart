@@ -33,8 +33,6 @@ class CheckoutProvider extends ChangeNotifier {
   Future<void> loadCheckoutData() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
-      // Si l'utilisateur n'est pas connecté, on peut soit lever une exception,
-      // soit initialiser avec des données vides. Ici on lève une exception explicite.
       throw Exception('Utilisateur non connecté');
     }
 
@@ -46,12 +44,12 @@ class CheckoutProvider extends ChangeNotifier {
         _loadSavedAddresses(userId),
         _loadUserInfo(userId),
       ]);
-      // Si aucune adresse n'est sélectionnée, on prend la première par défaut
       if (_selectedAddress == null && _savedAddresses.isNotEmpty) {
         _selectedAddress = _savedAddresses.first;
       }
       _currentStep = 'address';
     } catch (e) {
+      debugPrint('❌ Erreur chargement checkout: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -60,29 +58,75 @@ class CheckoutProvider extends ChangeNotifier {
   }
 
   Future<void> _loadUserInfo(String userId) async {
-    final response = await _supabase
-        .from('users')
-        .select('id, name, email, phone, default_address_id')
-        .eq('id', userId)
-        .single();
-    _userInfo = response;
-    if (_userInfo['default_address_id'] != null) {
-      _selectedAddress = _savedAddresses.firstWhere(
-        (a) => a['id'] == _userInfo['default_address_id'],
-        orElse: () => {},
-      );
+    try {
+      // ✅ Essayer avec 'full_name' (le plus courant)
+      final response = await _supabase
+          .from('users')
+          .select('id, full_name, email, phone, default_address_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response != null) {
+        _userInfo = response;
+      } else {
+        // Fallback : essayer avec 'name' si 'full_name' n'existe pas
+        try {
+          final fallbackResponse = await _supabase
+              .from('users')
+              .select('id, name, email, phone, default_address_id')
+              .eq('id', userId)
+              .maybeSingle();
+          if (fallbackResponse != null) {
+            _userInfo = fallbackResponse;
+            // Si on a 'name' mais pas 'full_name', on crée un alias
+            if (_userInfo['name'] != null && _userInfo['full_name'] == null) {
+              _userInfo['full_name'] = _userInfo['name'];
+            }
+          }
+        } catch (_) {
+          // Si les deux échouent, on récupère juste l'essentiel
+          final minimalResponse = await _supabase
+              .from('users')
+              .select('id, email, phone, default_address_id')
+              .eq('id', userId)
+              .maybeSingle();
+          if (minimalResponse != null) {
+            _userInfo = minimalResponse;
+            _userInfo['full_name'] = 'Utilisateur';
+          }
+        }
+      }
+
+      if (_userInfo['default_address_id'] != null) {
+        _selectedAddress = _savedAddresses.firstWhere(
+          (a) => a['id'] == _userInfo['default_address_id'],
+          orElse: () => {},
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Erreur chargement user info: $e');
+      // On continue même en cas d'erreur pour ne pas bloquer le checkout
+      _userInfo = {
+        'id': userId,
+        'full_name': 'Utilisateur',
+        'email': '',
+        'phone': '',
+      };
     }
-    // Pas de notify ici car on est dans un Future.wait global
   }
 
   Future<void> _loadSavedAddresses(String userId) async {
-    final response = await _supabase
-        .from('addresses')
-        .select()
-        .eq('user_id', userId)
-        .order('is_default', ascending: false); // true en premier
-    _savedAddresses = List<Map<String, dynamic>>.from(response);
-    // Pas de notify ici
+    try {
+      final response = await _supabase
+          .from('addresses')
+          .select()
+          .eq('user_id', userId)
+          .order('is_default', ascending: false);
+      _savedAddresses = List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('⚠️ Erreur chargement adresses: $e');
+      _savedAddresses = [];
+    }
   }
 
   // ─── SÉLECTION D'ADRESSE ───
@@ -147,7 +191,6 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Créer la commande
       final orderData = {
         'user_id': userId,
         'address_id': _selectedAddress!['id'],
@@ -165,7 +208,6 @@ class CheckoutProvider extends ChangeNotifier {
           .single();
       _createdOrder = orderResponse;
 
-      // 2. Ajouter les articles de la commande
       for (var item in items) {
         await _supabase.from('order_items').insert({
           'order_id': _createdOrder!['id'],
@@ -177,11 +219,9 @@ class CheckoutProvider extends ChangeNotifier {
         });
       }
 
-      // 3. Traiter le paiement
       final paymentResult = await _processPayment(total);
 
       if (paymentResult['success'] == true) {
-        // 4. Mettre à jour la commande
         await _supabase
             .from('orders')
             .update({
@@ -191,10 +231,8 @@ class CheckoutProvider extends ChangeNotifier {
             })
             .eq('id', _createdOrder!['id']);
 
-        // 5. Vider le panier
         await cartProvider.clearCart();
 
-        // 6. Retourner la commande mise à jour
         final updatedOrder = await _supabase
             .from('orders')
             .select()
@@ -203,13 +241,10 @@ class CheckoutProvider extends ChangeNotifier {
         _createdOrder = updatedOrder;
         return _createdOrder!;
       } else {
-        // Paiement échoué : on peut annuler la commande ou la laisser en pending
-        // Ici on laisse en pending, mais on pourrait la supprimer.
         throw Exception(paymentResult['error'] ?? 'Paiement échoué');
       }
     } catch (e) {
       debugPrint('❌ Checkout error: $e');
-      // En cas d'erreur, on peut supprimer la commande pour éviter les orphelins
       if (_createdOrder != null) {
         try {
           await _supabase
@@ -253,7 +288,7 @@ class CheckoutProvider extends ChangeNotifier {
             'mobile-money-payment',
             body: {
               'amount': amount,
-              'phone': _userInfo['phone'],
+              'phone': _userInfo['phone'] ?? '',
               'order_id': _createdOrder!['id'],
             },
           );
@@ -300,7 +335,6 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── MÉTHODE UTILE POUR METTRE À JOUR L'ÉTAT ───
   void setState(VoidCallback fn) {
     fn();
     notifyListeners();
@@ -308,7 +342,6 @@ class CheckoutProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    // Pas de streams à fermer, mais on peut nettoyer si besoin
     super.dispose();
   }
 }
