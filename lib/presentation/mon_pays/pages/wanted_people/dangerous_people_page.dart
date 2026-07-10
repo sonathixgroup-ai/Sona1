@@ -3,13 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routes/app_routes.dart';
+import '../../../../nav.dart'; // ✅ import ajouté pour AppRoutes
 import '../../cards/wanted_person_card.dart';
 import '../../providers/wanted_people_provider.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
-import '../../utils/mon_pays_colors.dart';
-import '../../utils/mon_pays_text_styles.dart';
+import '../../widgets/empty_widget.dart';
+import '../../widgets/error_widget.dart'; // ✅ pour MonPaysErrorWidget
 import '../../enums/wanted_status.dart';
 
 class DangerousPeoplePage extends ConsumerWidget {
@@ -21,15 +20,10 @@ class DangerousPeoplePage extends ConsumerWidget {
 
     return wantedAsync.when(
       data: (people) {
-        final dangerous = people.where((p) => p.status == WantedStatus.dangerous).toList();
+        final dangerous = people.where((p) => p.status == WantedStatus.dangereuse).toList(); // ✅ corrigé
         if (dangerous.isEmpty) {
-          return Center(
-            child: Text(
-              'Aucune personne dangereuse signalée',
-              style: MonPaysTextStyles.bodyLarge.copyWith(
-                color: MonPaysColors.textSecondary,
-              ),
-            ),
+          return const EmptyWidget(
+            message: 'Aucune personne dangereuse signalée',
           );
         }
         return ListView.builder(
@@ -46,9 +40,7 @@ class DangerousPeoplePage extends ConsumerWidget {
                     '${AppRoutes.monPaysWantedDetail}'.replaceFirst(':id', person.id),
                   );
                 },
-                onReport: () {
-                  // Ouvrir le dialogue de signalement
-                },
+                onReport: () {}, // à implémenter
               ),
             );
           },
@@ -56,7 +48,7 @@ class DangerousPeoplePage extends ConsumerWidget {
       },
       loading: () => const Center(child: LoadingWidget()),
       error: (error, stack) => Center(
-        child: ErrorWidget(
+        child: MonPaysErrorWidget( // ✅ corrigé
           message: 'Erreur de chargement : $error',
           onRetry: () => ref.refresh(wantedPeopleProvider),
         ),
