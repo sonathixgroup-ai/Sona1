@@ -9,10 +9,13 @@ class CitizensService {
   CitizensService(this._supabase);
 
   Future<List<ExemplaryCitizen>> getAll() async {
-    final response = await _supabase
-        .from('exemplary_citizens')
-        .select('*');
-    return (response as List).map((e) => ExemplaryCitizen.fromJson(e)).toList();
+    try {
+      final response = await _supabase.from('exemplary_citizens').select('*');
+      if (response == null || response is! List) return [];
+      return (response as List).map((e) => ExemplaryCitizen.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<ExemplaryCitizen> getById(String id) async {
@@ -44,9 +47,6 @@ class CitizensService {
   }
 
   Future<void> delete(String id) async {
-    await _supabase
-        .from('exemplary_citizens')
-        .delete()
-        .eq('id', id);
+    await _supabase.from('exemplary_citizens').delete().eq('id', id);
   }
 }
