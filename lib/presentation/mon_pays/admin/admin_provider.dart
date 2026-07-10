@@ -16,7 +16,6 @@ import '../repositories/wanted_people_repository.dart';
 import '../repositories/citizens_repository.dart';
 import '../repositories/consultations_repository.dart';
 import '../providers/mon_pays_provider.dart';
-import 'package:thix_id/presentation/mon_pays/providers/ministry_provider.dart';
 
 final adminControllerProvider = StateNotifierProvider<AdminController, AdminState>((ref) {
   final authoritiesRepo = ref.watch(authoritiesRepositoryProvider);
