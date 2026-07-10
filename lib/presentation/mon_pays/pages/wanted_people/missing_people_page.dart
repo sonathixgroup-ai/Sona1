@@ -3,13 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routes/app_routes.dart';
+import '../../../../nav.dart'; // ✅ import ajouté
 import '../../cards/wanted_person_card.dart';
 import '../../providers/wanted_people_provider.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
-import '../../utils/mon_pays_colors.dart';
-import '../../utils/mon_pays_text_styles.dart';
+import '../../widgets/empty_widget.dart';
+import '../../widgets/error_widget.dart';
 import '../../enums/wanted_status.dart';
 
 class MissingPeoplePage extends ConsumerWidget {
@@ -21,15 +20,10 @@ class MissingPeoplePage extends ConsumerWidget {
 
     return wantedAsync.when(
       data: (people) {
-        final missing = people.where((p) => p.status == WantedStatus.missing).toList();
+        final missing = people.where((p) => p.status == WantedStatus.disparue).toList(); // ✅ corrigé
         if (missing.isEmpty) {
-          return Center(
-            child: Text(
-              'Aucune personne disparue signalée',
-              style: MonPaysTextStyles.bodyLarge.copyWith(
-                color: MonPaysColors.textSecondary,
-              ),
-            ),
+          return const EmptyWidget(
+            message: 'Aucune personne disparue signalée',
           );
         }
         return ListView.builder(
@@ -46,9 +40,7 @@ class MissingPeoplePage extends ConsumerWidget {
                     '${AppRoutes.monPaysWantedDetail}'.replaceFirst(':id', person.id),
                   );
                 },
-                onReport: () {
-                  // Ouvrir le dialogue de signalement
-                },
+                onReport: () {},
               ),
             );
           },
@@ -56,7 +48,7 @@ class MissingPeoplePage extends ConsumerWidget {
       },
       loading: () => const Center(child: LoadingWidget()),
       error: (error, stack) => Center(
-        child: ErrorWidget(
+        child: MonPaysErrorWidget( // ✅ corrigé
           message: 'Erreur de chargement : $error',
           onRetry: () => ref.refresh(wantedPeopleProvider),
         ),
