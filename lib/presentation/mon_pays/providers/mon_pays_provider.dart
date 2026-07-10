@@ -31,6 +31,7 @@ import '../services/citizens_service.dart';
 import '../services/consultations_service.dart';
 import '../services/search_service.dart';
 import '../services/values_service.dart';
+import '../services/mon_pays_service.dart';
 import '../mon_pays_controller.dart';
 import '../mon_pays_state.dart';
 
@@ -74,23 +75,48 @@ final citizensRepositoryProvider = Provider<CitizensRepository>((ref) => Citizen
 final consultationsRepositoryProvider = Provider<ConsultationsRepository>((ref) => ConsultationsRepository(ref.watch(consultationsServiceProvider)));
 final searchRepositoryProvider = Provider<SearchRepository>((ref) => SearchRepository(ref.watch(searchServiceProvider)));
 
+// ─── MonPaysService (agrégateur) ────────────────────────────────
+
+final monPaysServiceProvider = Provider<MonPaysService>((ref) {
+  return MonPaysService(
+    authoritiesService: ref.watch(authoritiesServiceProvider),
+    historyService: ref.watch(historyServiceProvider),
+    newsService: ref.watch(newsServiceProvider),
+    agenciesService: ref.watch(agenciesServiceProvider),
+    videosService: ref.watch(videosServiceProvider),
+    documentariesService: ref.watch(documentariesServiceProvider),
+    wantedPeopleService: ref.watch(wantedPeopleServiceProvider),
+    citizensService: ref.watch(citizensServiceProvider),
+    valuesService: ref.watch(valuesServiceProvider),
+    consultationsService: ref.watch(consultationsServiceProvider),
+    governmentService: ref.watch(governmentServiceProvider),
+    searchService: ref.watch(searchServiceProvider),
+  );
+});
+
 // ─── MonPaysRepository agrégateur ──────────────────────────────
 
 final monPaysRepositoryProvider = Provider<MonPaysRepository>((ref) {
-  return MonPaysRepository(
-    authoritiesRepo: ref.watch(authoritiesRepositoryProvider),
-    historyRepo: ref.watch(historyRepositoryProvider),
-    newsRepo: ref.watch(newsRepositoryProvider),
-    agenciesRepo: ref.watch(agenciesRepositoryProvider),
-    videosRepo: ref.watch(videosRepositoryProvider),
-    documentariesRepo: ref.watch(documentariesRepositoryProvider),
-    wantedRepo: ref.watch(wantedPeopleRepositoryProvider),
-    citizensRepo: ref.watch(citizensRepositoryProvider),
-    valuesRepo: ref.watch(valuesRepositoryProvider),
-    consultationsRepo: ref.watch(consultationsRepositoryProvider),
-    governmentRepo: ref.watch(governmentRepositoryProvider),
-    searchRepo: ref.watch(searchRepositoryProvider),
-  );
+  // Vous pouvez utiliser soit le service agrégateur, soit les repositories individuels
+  // Version avec le service agrégateur :
+  final service = ref.watch(monPaysServiceProvider);
+  return MonPaysRepository.fromService(service);
+  
+  // Version avec les repositories individuels (alternative) :
+  // return MonPaysRepository(
+  //   authoritiesRepo: ref.watch(authoritiesRepositoryProvider),
+  //   historyRepo: ref.watch(historyRepositoryProvider),
+  //   newsRepo: ref.watch(newsRepositoryProvider),
+  //   agenciesRepo: ref.watch(agenciesRepositoryProvider),
+  //   videosRepo: ref.watch(videosRepositoryProvider),
+  //   documentariesRepo: ref.watch(documentariesRepositoryProvider),
+  //   wantedRepo: ref.watch(wantedPeopleRepositoryProvider),
+  //   citizensRepo: ref.watch(citizensRepositoryProvider),
+  //   valuesRepo: ref.watch(valuesRepositoryProvider),
+  //   consultationsRepo: ref.watch(consultationsRepositoryProvider),
+  //   governmentRepo: ref.watch(governmentRepositoryProvider),
+  //   searchRepo: ref.watch(searchRepositoryProvider),
+  // );
 });
 
 // ─── Contrôleur ─────────────────────────────────────────────────
