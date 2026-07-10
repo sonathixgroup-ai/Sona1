@@ -20,7 +20,7 @@ class WantedPersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDangerous = person.status == WantedStatus.dangerous;
+    final isDangerous = person.status == WantedStatus.dangereuse;
     return GestureDetector(
       onTap: onTap,
       child: Card(
