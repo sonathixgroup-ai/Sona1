@@ -3,14 +3,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routes/app_routes.dart';
-import '../../cards/consultation_card.dart';
+import '../../../../nav.dart'; // pour AppRoutes
+import '../../models/consultation_model.dart';
 import '../../providers/consultations_provider.dart';
+import '../../cards/consultation_card.dart';
 import '../../widgets/app_bar.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
-import '../../utils/mon_pays_colors.dart';
-import '../../utils/mon_pays_text_styles.dart';
+import '../../widgets/empty_widget.dart';
+import '../../widgets/error_widget.dart' as custom; // alias pour éviter conflit
 
 class ConsultationsPage extends ConsumerWidget {
   const ConsultationsPage({Key? key}) : super(key: key);
@@ -26,16 +26,11 @@ class ConsultationsPage extends ConsumerWidget {
       body: consultationsAsync.when(
         data: (consultations) {
           if (consultations.isEmpty) {
-            return Center(
-              child: Text(
-                'Aucune consultation disponible',
-                style: MonPaysTextStyles.bodyLarge.copyWith(
-                  color: MonPaysColors.textSecondary,
-                ),
-              ),
+            return const EmptyWidget(
+              message: 'Aucune consultation disponible',
             );
           }
-          // Filtrer pour afficher les actives en premier
+          // Tri : les actives d'abord
           final sorted = List<Consultation>.from(consultations)
             ..sort((a, b) {
               if (a.isActive && !b.isActive) return -1;
@@ -65,7 +60,7 @@ class ConsultationsPage extends ConsumerWidget {
           ),
         ),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: custom.MonPaysErrorWidget(
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(consultationsProvider),
           ),
