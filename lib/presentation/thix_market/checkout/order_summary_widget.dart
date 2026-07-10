@@ -10,28 +10,23 @@ class OrderSummaryWidget extends StatelessWidget {
 
   const OrderSummaryWidget({super.key, required this.provider});
 
-  // ─── Palette Élite ──────────────────────────────────────────────
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
+  // ─── Palette THIX ID ────────────────────────────────────────────
+  static const Color thixOrange = Color(0xFFE5592F);
   static const Color softBlue = Color(0xFFEFF5FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color danger = Color(0xFFFF5B3D);
 
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
 
-    // Devises
+    // Devises et Montants
     final subtotalSymbol = cartProvider.currencySymbol;
-    final shippingSymbol = cartProvider.shippingSymbol; // toujours 'FC'
-
-    // Montants
-    final subtotal = cartProvider.subtotal;
-    final shippingCost = provider.selectedShippingMethod?['price'] as double? ?? 0;
-    final total = subtotal + shippingCost;
+    final total = cartProvider.subtotal; // On n'ajoute plus de frais de livraison ici
+    
+    final shippingLabel = provider.selectedShippingMethod?['price_label'] ?? 'À déterminer';
+    final shippingName = provider.selectedShippingMethod?['name'] ?? 'Livraison';
 
     // Items
     final items = cartProvider.cartItems.map((item) {
@@ -57,23 +52,27 @@ class OrderSummaryWidget extends StatelessWidget {
               children: [
                 // ─── Adresse ────────────────────────────────────
                 _buildSection('Adresse de livraison', [
-                  Text(provider.selectedAddress?['full_name'] ?? ''),
-                  Text(provider.selectedAddress?['address_line'] ?? ''),
-                  Text('${provider.selectedAddress?['city']}, ${provider.selectedAddress?['postal_code']}'),
+                  Text(provider.selectedAddress?['full_name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('${provider.selectedAddress?['address_line']}'),
+                  Text('${provider.selectedAddress?['commune']}, ${provider.selectedAddress?['city']}'),
+                  if (provider.selectedAddress?['landmark'] != null && provider.selectedAddress!['landmark'].toString().isNotEmpty)
+                    Text('Repère: ${provider.selectedAddress?['landmark']}', style: const TextStyle(fontStyle: FontStyle.italic)),
                   Text('Tél: ${provider.selectedAddress?['phone']}'),
+                  if (provider.selectedAddress?['alt_phone'] != null && provider.selectedAddress!['alt_phone'].toString().isNotEmpty)
+                    Text('Tél alt: ${provider.selectedAddress?['alt_phone']}'),
                 ]),
                 const SizedBox(height: 16),
 
                 // ─── Mode de livraison ─────────────────────────
                 _buildSection('Mode de livraison', [
-                  Text('${provider.selectedShippingMethod?['name']} - ${(provider.selectedShippingMethod?['price'] ?? 0).toInt()} $shippingSymbol'),
-                  Text('Livraison sous ${provider.selectedShippingMethod?['days']}'),
+                  Text(shippingName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('Frais : $shippingLabel', style: const TextStyle(color: thixOrange, fontWeight: FontWeight.w500)),
                 ]),
                 const SizedBox(height: 16),
 
                 // ─── Moyen de paiement ─────────────────────────
                 _buildSection('Moyen de paiement', [
-                  Text(provider.selectedPaymentMethod?['name'] ?? ''),
+                  Text(provider.selectedPaymentMethod?['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
                 ]),
                 const SizedBox(height: 16),
 
@@ -81,23 +80,30 @@ class OrderSummaryWidget extends StatelessWidget {
                 const Text('Articles', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
                 const SizedBox(height: 8),
                 ...items.map((item) => ListTile(
-                  leading: item['image_url'] != null
-                      ? Image.network(item['image_url'], width: 40, height: 40, fit: BoxFit.cover)
-                      : const Icon(Icons.image_rounded, color: mutedText),
-                  title: Text(item['product_name'], style: const TextStyle(fontWeight: FontWeight.w600, color: darkText)),
-                  subtitle: Text('Quantité: ${item['quantity']}', style: TextStyle(color: mutedText)),
+                  contentPadding: EdgeInsets.zero,
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: item['image_url'] != null
+                        ? Image.network(item['image_url'], width: 50, height: 50, fit: BoxFit.cover)
+                        : Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.image_rounded, color: mutedText)),
+                  ),
+                  title: Text(item['product_name'], style: const TextStyle(fontWeight: FontWeight.w600, color: darkText, fontSize: 14)),
+                  subtitle: Text('Qté: ${item['quantity']}', style: TextStyle(color: mutedText, fontSize: 12)),
                   trailing: Text(
                     '${(item['price'] * item['quantity']).toInt()} $subtotalSymbol',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: primaryBlue),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: darkText),
                   ),
                 )),
-                const Divider(height: 24),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(),
+                ),
 
                 // ─── Prix ──────────────────────────────────────
-                _buildPriceRow('Sous-total', subtotal, subtotalSymbol),
-                _buildPriceRow('Livraison', shippingCost, shippingSymbol),
-                const Divider(),
-                _buildPriceRow('Total', total, subtotalSymbol, isTotal: true),
+                _buildPriceRow('Sous-total', '${total.toInt()} $subtotalSymbol'),
+                _buildPriceRow('Livraison', shippingLabel, isHighlight: true),
+                const Divider(height: 24),
+                _buildPriceRow('Total à payer (hors livraison)', '${total.toInt()} $subtotalSymbol', isTotal: true),
               ],
             ),
           ),
@@ -112,19 +118,19 @@ class OrderSummaryWidget extends StatelessWidget {
   Widget _buildSection(String title, List<Widget> children) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: softBlue,
+        color: Colors.grey[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: darkText)),
-          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: darkText, fontSize: 15)),
+          const SizedBox(height: 12),
           ...children.map((child) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: const EdgeInsets.only(bottom: 4),
             child: child,
           )),
         ],
@@ -132,26 +138,26 @@ class OrderSummaryWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceRow(String label, double value, String symbol, {bool isTotal = false}) {
+  Widget _buildPriceRow(String label, String value, {bool isTotal = false, bool isHighlight = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
+              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w500,
               fontSize: isTotal ? 16 : 14,
               color: isTotal ? darkText : mutedText,
             ),
           ),
           Text(
-            '${value.toInt()} $symbol',
+            value,
             style: TextStyle(
-              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
-              fontSize: isTotal ? 18 : 15,
-              color: isTotal ? primaryBlue : darkText,
+              fontWeight: isTotal ? FontWeight.w800 : (isHighlight ? FontWeight.w600 : FontWeight.w700),
+              fontSize: isTotal ? 18 : 14,
+              color: isTotal ? darkText : (isHighlight ? thixOrange : darkText),
             ),
           ),
         ],
@@ -173,7 +179,7 @@ class OrderSummaryWidget extends StatelessWidget {
           try {
             final order = await provider.processOrder(
               cartProvider: cartProvider,
-              total: total,
+              total: total, // On envoie le total sans frais de port
               items: items,
             );
             if (context.mounted) {
@@ -190,29 +196,21 @@ class OrderSummaryWidget extends StatelessWidget {
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(e.toString()),
-                  backgroundColor: danger,
-                ),
+                SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
               );
             }
           }
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryBlue,
+          backgroundColor: thixOrange,
           foregroundColor: pureWhite,
-          minimumSize: const Size(double.infinity, 52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          minimumSize: const Size(double.infinity, 56),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
         ),
         child: provider.isProcessing
             ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Text(
-                'Confirmer et payer',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-              ),
+            : const Text('Confirmer la commande', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
       ),
     );
   }
