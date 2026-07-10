@@ -1,41 +1,52 @@
 // lib/presentation/mon_pays/services/law_service.dart
 
-import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/law_model.dart';
-import '../utils/mon_pays_constants.dart';
 
 class LawService {
-  final Dio _dio;
+  final SupabaseClient _supabase;
 
-  LawService(this._dio);
+  LawService(this._supabase);
 
   Future<List<Law>> getAll() async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.lawsEndpoint}');
-    return (response.data as List).map((e) => Law.fromJson(e)).toList();
+    final response = await _supabase
+        .from('laws')  // ou 'values' selon votre table
+        .select('*');
+    return (response as List).map((e) => Law.fromJson(e)).toList();
   }
 
   Future<Law> getById(String id) async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.lawsEndpoint}/$id');
-    return Law.fromJson(response.data);
+    final response = await _supabase
+        .from('laws')
+        .select('*')
+        .eq('id', id)
+        .single();
+    return Law.fromJson(response);
   }
 
   Future<Law> create(Law law) async {
-    final response = await _dio.post(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.lawsEndpoint}',
-      data: law.toJson(),
-    );
-    return Law.fromJson(response.data);
+    final response = await _supabase
+        .from('laws')
+        .insert(law.toJson())
+        .select()
+        .single();
+    return Law.fromJson(response);
   }
 
   Future<Law> update(Law law) async {
-    final response = await _dio.put(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.lawsEndpoint}/${law.id}',
-      data: law.toJson(),
-    );
-    return Law.fromJson(response.data);
+    final response = await _supabase
+        .from('laws')
+        .update(law.toJson())
+        .eq('id', law.id)
+        .select()
+        .single();
+    return Law.fromJson(response);
   }
 
   Future<void> delete(String id) async {
-    await _dio.delete('${MonPaysConstants.baseUrl}${MonPaysConstants.lawsEndpoint}/$id');
+    await _supabase
+        .from('laws')
+        .delete()
+        .eq('id', id);
   }
 }
