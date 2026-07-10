@@ -9,10 +9,13 @@ class HistoryService {
   HistoryService(this._supabase);
 
   Future<List<HistoricalFigure>> getAll() async {
-    final response = await _supabase
-        .from('historical_figures')
-        .select('*');
-    return (response as List).map((e) => HistoricalFigure.fromJson(e)).toList();
+    try {
+      final response = await _supabase.from('historical_figures').select('*');
+      if (response == null || response is! List) return [];
+      return (response as List).map((e) => HistoricalFigure.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<HistoricalFigure> getById(String id) async {
@@ -44,9 +47,6 @@ class HistoryService {
   }
 
   Future<void> delete(String id) async {
-    await _supabase
-        .from('historical_figures')
-        .delete()
-        .eq('id', id);
+    await _supabase.from('historical_figures').delete().eq('id', id);
   }
 }
