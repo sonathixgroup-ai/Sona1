@@ -15,9 +15,8 @@ import '../repositories/documentaries_repository.dart';
 import '../repositories/wanted_people_repository.dart';
 import '../repositories/citizens_repository.dart';
 import '../repositories/consultations_repository.dart';
-import '../providers/mon_pays_provider.dart'; // pour les repositories déjà définis
+import '../providers/mon_pays_provider.dart';
 
-// On réutilise les repositories déjà définis dans mon_pays_provider
 final adminControllerProvider = StateNotifierProvider<AdminController, AdminState>((ref) {
   final authoritiesRepo = ref.watch(authoritiesRepositoryProvider);
   final governmentRepo = ref.watch(governmentRepositoryProvider);
