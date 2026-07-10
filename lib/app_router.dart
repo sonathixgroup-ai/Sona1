@@ -250,6 +250,7 @@ import 'package:thix_id/presentation/mon_pays/pages/values/rights_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/duties_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/justice_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/emergency/emergency_page.dart';
+import 'package:thix_id/presentation/mon_pays/pages/videos/videos_page.dart'; 
 import 'package:thix_id/presentation/mon_pays/pages/videos/video_player_page.dart' as monPaysVideo;
 import 'package:thix_id/presentation/mon_pays/pages/documentaries/documentaries_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/documentaries/documentary_page.dart';
