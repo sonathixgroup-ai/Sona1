@@ -1,41 +1,52 @@
 // lib/presentation/mon_pays/services/consultations_service.dart
 
-import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/consultation_model.dart';
-import '../utils/mon_pays_constants.dart';
 
 class ConsultationsService {
-  final Dio _dio;
+  final SupabaseClient _supabase;
 
-  ConsultationsService(this._dio);
+  ConsultationsService(this._supabase);
 
   Future<List<Consultation>> getAll() async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.consultationsEndpoint}');
-    return (response.data as List).map((e) => Consultation.fromJson(e)).toList();
+    final response = await _supabase
+        .from('consultations')
+        .select('*');
+    return (response as List).map((e) => Consultation.fromJson(e)).toList();
   }
 
   Future<Consultation> getById(String id) async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.consultationsEndpoint}/$id');
-    return Consultation.fromJson(response.data);
+    final response = await _supabase
+        .from('consultations')
+        .select('*')
+        .eq('id', id)
+        .single();
+    return Consultation.fromJson(response);
   }
 
   Future<Consultation> create(Consultation consultation) async {
-    final response = await _dio.post(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.consultationsEndpoint}',
-      data: consultation.toJson(),
-    );
-    return Consultation.fromJson(response.data);
+    final response = await _supabase
+        .from('consultations')
+        .insert(consultation.toJson())
+        .select()
+        .single();
+    return Consultation.fromJson(response);
   }
 
   Future<Consultation> update(Consultation consultation) async {
-    final response = await _dio.put(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.consultationsEndpoint}/${consultation.id}',
-      data: consultation.toJson(),
-    );
-    return Consultation.fromJson(response.data);
+    final response = await _supabase
+        .from('consultations')
+        .update(consultation.toJson())
+        .eq('id', consultation.id)
+        .select()
+        .single();
+    return Consultation.fromJson(response);
   }
 
   Future<void> delete(String id) async {
-    await _dio.delete('${MonPaysConstants.baseUrl}${MonPaysConstants.consultationsEndpoint}/$id');
+    await _supabase
+        .from('consultations')
+        .delete()
+        .eq('id', id);
   }
 }
