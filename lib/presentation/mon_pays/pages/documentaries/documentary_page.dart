@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'; // ✅ import ajouté
 import 'package:video_player/video_player.dart';
 import '../../providers/documentaries_provider.dart';
 import '../../widgets/loading_widget.dart';
@@ -40,7 +40,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
         if (youtubeId != null) {
           _youtubeController = YoutubePlayerController(
             initialVideoId: youtubeId,
-            flags: const YoutubePlayerFlags(
+            flags: YoutubePlayerFlags( // ✅ plus de const
               autoPlay: true,
               mute: false,
               isLive: false,
@@ -95,7 +95,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
           ? const Center(child: LoadingWidget())
           : _error != null
               ? Center(
-                  child: MonPaysErrorWidget( // ✅ corrigé
+                  child: MonPaysErrorWidget(
                     message: _error!,
                     onRetry: () {
                       setState(() {
@@ -118,7 +118,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (documentary.url != null) ...[
+                          if (documentary.url != null && documentary.url!.isNotEmpty) ...[
                             _isYoutube && _youtubeController != null
                                 ? YoutubePlayer(
                                     controller: _youtubeController,
