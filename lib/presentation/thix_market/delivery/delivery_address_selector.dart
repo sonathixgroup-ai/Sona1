@@ -15,23 +15,23 @@ class DeliveryAddressSelector extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (provider.addresses.isEmpty) {
-          return _buildEmptyState(context, provider);
-        }
-
         return Column(
           children: [
+            // On utilise un Expanded pour l'affichage de l'état vide OU de la liste
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: provider.addresses.length,
-                itemBuilder: (context, index) {
-                  final address = provider.addresses[index];
-                  final isSelected = provider.selectedAddress?['id'] == address['id'];
-                  return _buildAddressCard(context, address, isSelected, provider);
-                },
-              ),
+              child: provider.addresses.isEmpty
+                  ? _buildEmptyState(context, provider)
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: provider.addresses.length,
+                      itemBuilder: (context, index) {
+                        final address = provider.addresses[index];
+                        final isSelected = provider.selectedAddress?['id'] == address['id'];
+                        return _buildAddressCard(context, address, isSelected, provider);
+                      },
+                    ),
             ),
+            // ✅ Ce bouton s'affiche maintenant TOUJOURS en bas
             _buildAddAddressButton(context, provider),
           ],
         );
@@ -39,7 +39,6 @@ class DeliveryAddressSelector extends StatelessWidget {
     );
   }
 
-  // ✅ Ajout du paramètre BuildContext context
   Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, bool isSelected, DeliveryProvider provider) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -169,7 +168,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                         'phone': phoneCtrl.text,
                         'is_default': isDefault,
                       });
-                      Navigator.pop(context);
+                      if (context.mounted) Navigator.pop(context);
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F), minimumSize: const Size(double.infinity, 48)),
@@ -225,7 +224,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: () {
                           provider.deleteAddress(address['id']);
-                          Navigator.pop(context);
+                          if (context.mounted) Navigator.pop(context);
                         },
                         style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
                         child: const Text('Supprimer'),
@@ -244,7 +243,7 @@ class DeliveryAddressSelector extends StatelessWidget {
                               'phone': phoneCtrl.text,
                               'is_default': isDefault,
                             });
-                            Navigator.pop(context);
+                            if (context.mounted) Navigator.pop(context);
                           }
                         },
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5592F)),
