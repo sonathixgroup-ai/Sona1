@@ -1,14 +1,16 @@
 // lib/presentation/mon_pays/providers/emergency_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/emergency_contact_model.dart'; // (à définir)
-import '../repositories/emergency_repository.dart'; // (à définir)
+import '../models/emergency_contact_model.dart';
+import '../repositories/emergency_repository.dart';
 
-// Exemple simple, peut être adapté selon vos besoins
+final emergencyRepositoryProvider = Provider<EmergencyRepository>(
+  (_) => EmergencyRepository(),
+);
+
 final emergencyContactsProvider = FutureProvider<List<EmergencyContact>>((ref) async {
-  // Ajoutez votre logique
-  return [];
+  final repo = ref.watch(emergencyRepositoryProvider);
+  return repo.getAll();
 });
 
-// Ou bien un StateProvider pour gérer l'état d'urgence
 final emergencyStateProvider = StateProvider<bool>((ref) => false);

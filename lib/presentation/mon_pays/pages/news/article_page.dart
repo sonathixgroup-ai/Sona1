@@ -184,7 +184,7 @@ class ArticlePage extends ConsumerWidget {
         },
         loading: () => const Center(child: LoadingWidget()),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: MonPaysErrorWidget(
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(newsItemProvider(id)),
           ),

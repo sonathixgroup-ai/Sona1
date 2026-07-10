@@ -60,7 +60,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
       return Scaffold(
         appBar: const MonPaysAppBar(),
         body: Center(
-          child: ErrorWidget(
+          child: MonPaysErrorWidget(
             message: state.error!,
             onRetry: () {
               ref.read(monPaysControllerProvider.notifier).refreshData();

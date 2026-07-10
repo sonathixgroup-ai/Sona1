@@ -358,6 +358,19 @@ class AppUser {
     final v = thixId.trim().toUpperCase();
     return v.isNotEmpty && v != 'THIX-PENDING' && v != 'THIX-000000';
   }
+
+  /// Returns the role of the user derived from their [registrationStatus] or
+  /// [occupation] field. Returns 'admin' or 'moderateur' when the status
+  /// indicates an elevated role, otherwise returns null.
+  String? get role {
+    final status = (registrationStatus ?? '').trim().toLowerCase();
+    if (status == 'admin') return 'admin';
+    if (status == 'moderateur' || status == 'moderator') return 'moderateur';
+    final occ = (occupation ?? '').trim().toLowerCase();
+    if (occ == 'admin') return 'admin';
+    if (occ == 'moderateur' || occ == 'moderator') return 'moderateur';
+    return null;
+  }
 }
 
 class DocumentSnapshot {

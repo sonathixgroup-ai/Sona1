@@ -1,32 +1,28 @@
-// lib/presentation/mon_pays/pages/government/ministry_detail_page.dart
+// lib/presentation/mon_pays/pages/government/government_detail_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routes/app_routes.dart';
-import '../../providers/ministry_provider.dart';
-import '../../widgets/error_widget.dart';
-import '../../widgets/loading_widget.dart';
+import '../../providers/government_provider.dart';
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
+import '../../widgets/error_widget.dart';
+import '../../widgets/loading_widget.dart';
 
-class MinistryDetailPage extends ConsumerWidget {
+class GovernmentDetailPage extends ConsumerWidget {
   final String id;
 
-  const MinistryDetailPage({Key? key, required this.id}) : super(key: key);
+  const GovernmentDetailPage({Key? key, required this.id}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Supposons un provider `ministryProvider` avec famille
-    final ministryAsync = ref.watch(ministryProvider(id));
+    final governmentAsync = ref.watch(governmentItemProvider(id));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Détail du ministère',
-          style: MonPaysTextStyles.heading6.copyWith(
-            color: Colors.white,
-          ),
+          'Détail du Gouvernement',
+          style: MonPaysTextStyles.heading6.copyWith(color: Colors.white),
         ),
         backgroundColor: MonPaysColors.primaryBlue,
         elevation: 0,
@@ -35,14 +31,13 @@ class MinistryDetailPage extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: ministryAsync.when(
-        data: (ministry) {
+      body: governmentAsync.when(
+        data: (government) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // En-tête avec logo
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -55,12 +50,12 @@ class MinistryDetailPage extends ConsumerWidget {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(
-                          ministry.logoUrl ?? 'https://via.placeholder.com/80',
+                          government.logoUrl ?? 'https://via.placeholder.com/80',
                           height: 60,
                           width: 60,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Icon(
-                            Icons.business_center,
+                            Icons.account_balance,
                             size: 40,
                             color: Colors.white,
                           ),
@@ -68,27 +63,37 @@ class MinistryDetailPage extends ConsumerWidget {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Text(
-                          ministry.name,
-                          style: MonPaysTextStyles.heading5.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              government.name,
+                              style: MonPaysTextStyles.heading5.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (government.type != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                government.type!,
+                                style: MonPaysTextStyles.bodySmall.copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Informations
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -102,7 +107,7 @@ class MinistryDetailPage extends ConsumerWidget {
                           ),
                         ),
                         const Divider(),
-                        if (ministry.description != null) ...[
+                        if (government.description != null) ...[
                           Text(
                             'Description',
                             style: MonPaysTextStyles.bodySmall.copyWith(
@@ -111,26 +116,17 @@ class MinistryDetailPage extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            ministry.description!,
-                            style: MonPaysTextStyles.bodyMedium,
-                          ),
+                          Text(government.description!, style: MonPaysTextStyles.bodyMedium),
                           const SizedBox(height: 12),
                         ],
-                        if (ministry.ministerId != null) ...[
-                          _infoRow('Ministre', 'ID: ${ministry.ministerId}'),
-                        ],
-                        if (ministry.website != null) ...[
-                          _infoRow('Site web', ministry.website!),
+                        if (government.website != null) ...[
+                          _infoRow('Site web', government.website!),
                         ],
                       ],
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Actions
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -140,9 +136,7 @@ class MinistryDetailPage extends ConsumerWidget {
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: MonPaysColors.primaryBlue),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -154,7 +148,7 @@ class MinistryDetailPage extends ConsumerWidget {
         error: (error, stack) => Center(
           child: MonPaysErrorWidget(
             message: 'Erreur de chargement : $error',
-            onRetry: () => ref.refresh(ministryProvider(id)),
+            onRetry: () => ref.refresh(governmentItemProvider(id)),
           ),
         ),
       ),
@@ -180,9 +174,7 @@ class MinistryDetailPage extends ConsumerWidget {
           Expanded(
             child: Text(
               value,
-              style: MonPaysTextStyles.bodySmall.copyWith(
-                color: MonPaysColors.textPrimary,
-              ),
+              style: MonPaysTextStyles.bodySmall.copyWith(color: MonPaysColors.textPrimary),
             ),
           ),
         ],

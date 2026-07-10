@@ -17,7 +17,15 @@ import '../repositories/consultations_repository.dart';
 import '../models/authority_model.dart';
 import '../models/news_model.dart';
 import '../models/agency_model.dart';
-// ... autres imports
+import '../models/government_model.dart';
+import '../models/ministry_model.dart';
+import '../models/history_model.dart';
+import '../models/law_model.dart';
+import '../models/video_model.dart';
+import '../models/documentary_model.dart';
+import '../models/wanted_person_model.dart';
+import '../models/citizen_model.dart';
+import '../models/consultation_model.dart';
 
 class AdminController extends StateNotifier<AdminState> {
   final AuthoritiesRepository _authoritiesRepo;

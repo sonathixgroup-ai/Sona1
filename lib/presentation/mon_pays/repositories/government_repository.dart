@@ -1,16 +1,16 @@
-// lib/presentation/mon_pays/repositories/documentaries_repository.dart
+// lib/presentation/mon_pays/repositories/government_repository.dart
 
-import '../models/documentary_model.dart';
-import '../services/documentaries_service.dart';
+import '../models/government_model.dart';
+import '../services/government_service.dart';
 
-class DocumentariesRepository {
-  final DocumentariesService _service;
+class GovernmentRepository {
+  final GovernmentService _service;
 
-  DocumentariesRepository(this._service);
+  GovernmentRepository(this._service);
 
-  Future<List<Documentary>> getAll() => _service.getAll();
-  Future<Documentary> getById(String id) => _service.getById(id);
-  Future<Documentary> create(Documentary documentary) => _service.create(documentary);
-  Future<Documentary> update(Documentary documentary) => _service.update(documentary);
+  Future<List<Government>> getAll() => _service.getAll();
+  Future<Government> getById(String id) => _service.getById(id);
+  Future<Government> create(Government government) => _service.create(government);
+  Future<Government> update(Government government) => _service.update(government);
   Future<void> delete(String id) => _service.delete(id);
 }

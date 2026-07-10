@@ -21,7 +21,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
-  late YoutubePlayerController _youtubeController;
+  YoutubePlayerController? _youtubeController;
   VideoPlayerController? _localController;
   bool _isYoutube = false;
   bool _isLoading = true;
@@ -74,7 +74,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
 
   @override
   void dispose() {
-    _youtubeController.dispose();
+    _youtubeController?.dispose();
     _localController?.dispose();
     super.dispose();
   }
@@ -98,7 +98,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
           ? const Center(child: LoadingWidget())
           : _error != null
               ? Center(
-                  child: ErrorWidget(
+                  child: MonPaysErrorWidget(
                     message: _error!,
                     onRetry: () {
                       setState(() {
@@ -116,7 +116,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
                       flex: 3,
                       child: _isYoutube
                           ? YoutubePlayer(
-                              controller: _youtubeController,
+                              controller: _youtubeController!,
                               showVideoProgressIndicator: true,
                             )
                           : _localController != null && _localController!.value.isInitialized

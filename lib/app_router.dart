@@ -226,9 +226,12 @@ import 'presentation/chat/chat_screen.dart' as ThixChat;
 import 'presentation/chat/new_conversation_page.dart';
 
 // ---- Mon Pays (Pages) ----
+import 'package:thix_id/presentation/mon_pays/mon_pays_page.dart';
+import 'package:thix_id/presentation/mon_pays/admin/admin_dashboard_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/authorities/authorities_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/authorities/authority_detail_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/government/government_page.dart';
+import 'package:thix_id/presentation/mon_pays/pages/government/government_detail_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/government/ministry_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/government/ministry_detail_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/agencies/agencies_page.dart';
@@ -239,14 +242,15 @@ import 'package:thix_id/presentation/mon_pays/pages/history/historical_figure_pa
 import 'package:thix_id/presentation/mon_pays/pages/news/news_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/news/article_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/values_page.dart';
+import 'package:thix_id/presentation/mon_pays/pages/values/value_detail_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/constitution_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/laws_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/institutions_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/rights_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/duties_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/values/justice_page.dart';
+import 'package:thix_id/presentation/mon_pays/pages/emergency/emergency_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/videos/video_player_page.dart' as monPaysVideo;
-import 'package:thix_id/presentation/mon_pays/pages/videos/video_player_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/documentaries/documentaries_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/documentaries/documentary_page.dart';
 import 'package:thix_id/presentation/mon_pays/pages/wanted_people/wanted_people_page.dart';
@@ -514,7 +518,7 @@ GoRoute(
   name: 'monPaysVideoDetail',
   pageBuilder: (_, state) {
     final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: VideoPlayerPage(id: id));
+    return NoTransitionPage(child: monPaysVideo.VideoPlayerPage(id: id));
   },
 ),
 GoRoute(
