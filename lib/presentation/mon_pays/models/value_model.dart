@@ -12,18 +12,10 @@ class Value extends Equatable {
   final String? description;
   final String? iconCode;
   final String? category;
-
-  // Champs pour la Constitution (articles)
   final String? content;
   final List<Article>? articles;
-
-  // Champs pour les Lois
   final String? summary;
-
-  // Champs pour les Institutions
   final String? name;
-
-  // Champs pour la Justice
   final List<Organization>? organizations;
 
   const Value({
@@ -83,7 +75,7 @@ class Value extends Equatable {
       ];
 }
 
-// Modèle Article (pour la Constitution)
+// Modèle Article
 @JsonSerializable()
 class Article extends Equatable {
   final String number;
@@ -103,7 +95,7 @@ class Article extends Equatable {
   List<Object?> get props => [number, title, content];
 }
 
-// Modèle Organization (pour la Justice)
+// Modèle Organization
 @JsonSerializable()
 class Organization extends Equatable {
   final String id;
