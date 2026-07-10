@@ -18,8 +18,6 @@ final valueProvider = FutureProvider.family<Value, String>((ref, id) async {
 // Constitution
 final constitutionProvider = FutureProvider<Value>((ref) async {
   final repo = ref.watch(valuesRepositoryProvider);
-  // Assurez-vous que vous avez une méthode getConstitution() dans ValuesRepository
-  // ou alors filtrez les valeurs par catégorie
   final values = await repo.getAll();
   return values.firstWhere((v) => v.title == 'Constitution');
 });
