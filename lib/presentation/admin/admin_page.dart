@@ -1,3 +1,4 @@
+// lib/presentation/admin/admin_page.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
@@ -13,9 +14,23 @@ import 'package:thix_id/presentation/admin/pages/admin_events_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_trainings_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_audit_activity_page.dart';
 import 'package:thix_id/presentation/admin/pages/admin_access_requests_page.dart';
+import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/services/admin_rbac_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
+
+// ============================================================
+// COULEURS LOCALES
+// ============================================================
+class _AdminPageColors {
+  static const Color primary = Color(0xFF1A237E);
+  static const Color secondary = Color(0xFFD4AF37);
+  static const Color accent = Color(0xFF00BCD4);
+  static const Color success = Color(0xFF2E7D32);
+  static const Color warning = Color(0xFFF57C00);
+  static const Color error = Color(0xFFC62828);
+  static const Color info = Color(0xFF0288D1);
+}
 
 class AdminPage extends StatefulWidget {
   final AdminModule module;
@@ -32,6 +47,8 @@ class _AdminPageState extends State<AdminPage> {
   bool _loading = true;
 
   RealtimeChannel? _roleChannel;
+  
+  Key _contentKey = const ValueKey('admin_content');
 
   @override
   void initState() {
@@ -41,23 +58,26 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   void _subscribeRoleRealtime() {
-    // If the membership row changes, refresh role live.
     final uid = SupabaseConfig.client.auth.currentUser?.id;
     if (uid == null || uid.trim().isEmpty) return;
+    
     try {
       _roleChannel = SupabaseConfig.client.channel('admin:rbac:$uid');
-      _roleChannel!
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: AdminRbacService.table,
-            filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
-            callback: (_) {
-              // Avoid setState storms; just reload.
-              _loadRole();
+      
+      (_roleChannel as dynamic)
+          .on(
+            'postgres_changes',
+            {
+              'event': '*',
+              'schema': 'public',
+              'table': AdminRbacService.table,
+              'filter': 'user_id=eq.$uid',
             },
+            (_) => _loadRole(),
           )
-          .subscribe();
+          .subscribe((status, [error]) {
+            debugPrint('AdminPage realtime: status=$status, error=$error');
+          });
     } catch (e) {
       debugPrint('AdminPage: role realtime subscribe failed err=$e');
     }
@@ -74,9 +94,10 @@ class _AdminPageState extends State<AdminPage> {
   @override
   void didUpdateWidget(covariant AdminPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Role may change while navigating (rare) or after policy updates.
     if (oldWidget.module != widget.module) {
-      // no-op: keep role cached
+      debugPrint('🔄 Module changé: ${oldWidget.module.slug} → ${widget.module.slug}');
+      _contentKey = ValueKey('admin_${widget.module.slug}_${DateTime.now().millisecondsSinceEpoch}');
+      setState(() {});
     }
   }
 
@@ -99,24 +120,32 @@ class _AdminPageState extends State<AdminPage> {
       return AdminShell(
         module: widget.module,
         role: null,
-        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(_AdminPageColors.secondary),
+          ),
+        ),
       );
     }
 
-    // Guard UI: If no role, show a protected screen.
     if (_role == null) {
       return AdminShell(
         module: widget.module,
         role: null,
         child: AdminPlaceholderPage(
-          title: 'Access Restricted',
-          description: 'Your account is authenticated, but no admin role is assigned.\n\nAsk a Super Admin to grant access in `thix_admin_memberships`.',
+          title: 'Accès Restreint',
+          description: 'Votre compte est authentifié mais aucun rôle administrateur n\'est assigné.\n\nDemandez à un Super Admin de vous accorder les droits dans `thix_admin_memberships`.',
           icon: Icons.lock_rounded,
         ),
       );
     }
 
-    return AdminShell(module: widget.module, role: _role, child: _moduleChild(widget.module));
+    return AdminShell(
+      key: _contentKey,
+      module: widget.module, 
+      role: _role, 
+      child: _moduleChild(widget.module)
+    );
   }
 
   Widget _moduleChild(AdminModule module) {
@@ -130,13 +159,13 @@ class _AdminPageState extends State<AdminPage> {
       case AdminModule.verification:
         return const AdminVerificationPage();
       case AdminModule.events:
-        return const AdminEventsPage();
+  return AdminEventsPage(role: _role ?? '');
       case AdminModule.trainings:
         return const AdminTrainingsPage();
       case AdminModule.uid:
         return const AdminPlaceholderPage(
-          title: 'THIX UID Management',
-          description: 'Generate & lifecycle-manage THIX UIDs, link biometrics, validate identities.',
+          title: 'Gestion THIX UID',
+          description: 'Génération et cycle de vie des THIX UIDs, liaison biométrique, validation d\'identité.',
           icon: Icons.badge_rounded,
         );
       case AdminModule.jobs:
@@ -145,44 +174,200 @@ class _AdminPageState extends State<AdminPage> {
         return AdminNewsPage(role: _role ?? '');
       case AdminModule.chat:
         return const AdminPlaceholderPage(
-          title: 'THIX Chat Admin',
-          description: 'Moderation, abuse reports, conversation analytics, secure monitoring policies.',
+          title: 'Administration THIX Chat',
+          description: 'Modération, signalements, analyse des conversations, politiques de surveillance sécurisées.',
           icon: Icons.forum_rounded,
         );
       case AdminModule.sos:
         return const AdminSosEmergencyPage();
       case AdminModule.institutions:
         return const AdminPlaceholderPage(
-          title: 'University & Institution Panel',
-          description: 'Partner onboarding, academic validation workflows, bulk certification tools, analytics.',
+          title: 'Panel Universités & Institutions',
+          description: 'Intégration des partenaires, workflows de validation académique, outils de certification en masse, analytiques.',
           icon: Icons.account_balance_rounded,
         );
       case AdminModule.analytics:
         return const AdminPlaceholderPage(
-          title: 'Analytics & Reporting',
-          description: 'Realtime charts, growth, fraud analytics, engagement, exports.',
+          title: 'Analytiques & Rapports',
+          description: 'Graphiques en temps réel, croissance, analyses de fraude, engagement, exports.',
           icon: Icons.query_stats_rounded,
         );
       case AdminModule.cybersecurity:
         return const AdminPlaceholderPage(
-          title: 'Cybersecurity Center',
-          description: 'Threat monitoring, anomaly detection, audit logs, encryption status, server health.',
+          title: 'Centre de Cybersécurité',
+          description: 'Surveillance des menaces, détection d\'anomalies, journaux d\'audit, état du chiffrement, santé des serveurs.',
           icon: Icons.shield_rounded,
         );
       case AdminModule.api:
         return const AdminPlaceholderPage(
-          title: 'API & Integration Center',
-          description: 'API keys, external integrations, government APIs, enterprise dashboards.',
+          title: 'Centre API & Intégration',
+          description: 'Clés API, intégrations externes, API gouvernementales, tableaux de bord d\'entreprise.',
           icon: Icons.api_rounded,
         );
       case AdminModule.settings:
         return const AdminPlaceholderPage(
-          title: 'Admin Settings',
-          description: 'Branding, localization, permissions system, notification rules.',
+          title: 'Paramètres Administrateur',
+          description: 'Personnalisation, localisation, système de permissions, règles de notification.',
           icon: Icons.tune_rounded,
         );
       case AdminModule.audit:
         return const AdminAuditActivityPage();
+      case AdminModule.media:
+        return const AdminMediaPage();
+    }
+  }
+}
+
+enum AdminModule {
+  overview,
+  accessRequests,
+  users,
+  verification,
+  events,
+  trainings,
+  uid,
+  jobs,
+  news,
+  chat,
+  sos,
+  institutions,
+  analytics,
+  cybersecurity,
+  api,
+  settings,
+  audit,
+  media,
+}
+
+extension AdminModuleX on AdminModule {
+  String get slug {
+    switch (this) {
+      case AdminModule.overview:
+        return 'overview';
+      case AdminModule.accessRequests:
+        return 'access-requests';
+      case AdminModule.users:
+        return 'users';
+      case AdminModule.verification:
+        return 'verification';
+      case AdminModule.events:
+        return 'events';
+      case AdminModule.trainings:
+        return 'trainings';
+      case AdminModule.uid:
+        return 'uid';
+      case AdminModule.jobs:
+        return 'jobs';
+      case AdminModule.news:
+        return 'news';
+      case AdminModule.chat:
+        return 'chat';
+      case AdminModule.sos:
+        return 'sos';
+      case AdminModule.institutions:
+        return 'institutions';
+      case AdminModule.analytics:
+        return 'analytics';
+      case AdminModule.cybersecurity:
+        return 'cybersecurity';
+      case AdminModule.api:
+        return 'api';
+      case AdminModule.settings:
+        return 'settings';
+      case AdminModule.audit:
+        return 'audit';
+      case AdminModule.media:
+        return 'media';
+    }
+  }
+
+  static AdminModule fromSlug(String? slug) {
+    final s = (slug ?? '').trim().toLowerCase();
+    for (final m in AdminModule.values) {
+      if (m.slug == s) return m;
+    }
+    return AdminModule.overview;
+  }
+  
+  String get label {
+    switch (this) {
+      case AdminModule.overview:
+        return 'Vue d\'ensemble';
+      case AdminModule.accessRequests:
+        return 'Demandes d\'accès';
+      case AdminModule.users:
+        return 'Utilisateurs';
+      case AdminModule.verification:
+        return 'Vérifications';
+      case AdminModule.events:
+        return 'Événements';
+      case AdminModule.trainings:
+        return 'Formations';
+      case AdminModule.uid:
+        return 'Gestion UID';
+      case AdminModule.jobs:
+        return 'Offres d\'emploi';
+      case AdminModule.news:
+        return 'Actualités';
+      case AdminModule.chat:
+        return 'Chat';
+      case AdminModule.sos:
+        return 'SOS Urgences';
+      case AdminModule.institutions:
+        return 'Institutions';
+      case AdminModule.analytics:
+        return 'Analytiques';
+      case AdminModule.cybersecurity:
+        return 'Cybersécurité';
+      case AdminModule.api:
+        return 'API';
+      case AdminModule.settings:
+        return 'Paramètres';
+      case AdminModule.audit:
+        return 'Audit';
+      case AdminModule.media:
+        return 'Médias';
+    }
+  }
+  
+  IconData get icon {
+    switch (this) {
+      case AdminModule.overview:
+        return Icons.dashboard;
+      case AdminModule.accessRequests:
+        return Icons.request_page;
+      case AdminModule.users:
+        return Icons.people;
+      case AdminModule.verification:
+        return Icons.verified;
+      case AdminModule.events:
+        return Icons.event;
+      case AdminModule.trainings:
+        return Icons.school;
+      case AdminModule.uid:
+        return Icons.badge;
+      case AdminModule.jobs:
+        return Icons.work;
+      case AdminModule.news:
+        return Icons.newspaper;
+      case AdminModule.chat:
+        return Icons.chat;
+      case AdminModule.sos:
+        return Icons.sos;
+      case AdminModule.institutions:
+        return Icons.account_balance;
+      case AdminModule.analytics:
+        return Icons.analytics;
+      case AdminModule.cybersecurity:
+        return Icons.security;
+      case AdminModule.api:
+        return Icons.api;
+      case AdminModule.settings:
+        return Icons.settings;
+      case AdminModule.audit:
+        return Icons.history;
+      case AdminModule.media:
+        return Icons.photo_library;
     }
   }
 }

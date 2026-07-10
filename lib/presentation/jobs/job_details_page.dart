@@ -63,7 +63,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
-                            onPressed: () => context.popOrGo(AppRoutes.jobs),
+                            onPressed: () => context.go(AppRoutes.jobs),
                             style: FilledButton.styleFrom(backgroundColor: accent, foregroundColor: Colors.white),
                             child: const Text('Retour'),
                           ),
@@ -264,7 +264,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                               width: double.infinity,
                               height: 52,
                               child: OutlinedButton.icon(
-                                onPressed: () => context.popOrGo(AppRoutes.jobs),
+                                onPressed: () => context.go(AppRoutes.jobs),
                                 style: OutlinedButton.styleFrom(side: BorderSide(color: divider), foregroundColor: cs.onSurface),
                                 icon: Icon(Icons.arrow_back_rounded, color: cs.onSurface.withValues(alpha: 0.75)),
                                 label: const Text('Retour'),
@@ -296,7 +296,7 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          onPressed: () => context.popOrGo(AppRoutes.jobs),
+          onPressed: () => context.go(AppRoutes.jobs),
           icon: Icon(Icons.arrow_back_ios_new_rounded, color: accent),
         ),
         Expanded(

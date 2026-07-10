@@ -1,9 +1,8 @@
-// lib/presentation/network/widgets/create_story_dialog.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/network_service.dart';
-import 'package:thix_id/services/upload_service.dart';
 
 class CreateStoryDialog extends StatefulWidget {
   const CreateStoryDialog({super.key});
@@ -13,17 +12,16 @@ class CreateStoryDialog extends StatefulWidget {
 }
 
 class _CreateStoryDialogState extends State<CreateStoryDialog> {
-  PlatformFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageExtension;
   bool _isUploading = false;
   late NetworkService _networkService;
-  late UploadService _uploadService;
   int _duration = 24;
 
   @override
   void initState() {
     super.initState();
     _networkService = NetworkService(Supabase.instance.client);
-    _uploadService = UploadService();
   }
 
   Future<void> _pickImage() async {
@@ -40,24 +38,31 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
         
         if (size > 10 * 1024 * 1024) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('L\'image ne doit pas dépasser 10MB')),
+            const SnackBar(
+              content: Text('L\'image ne doit pas dépasser 10MB'),
+              backgroundColor: Colors.red,
+            ),
           );
           return;
         }
         
         setState(() {
-          _selectedImage = file;
+          _selectedImageBytes = file.bytes;
+          _selectedImageExtension = file.extension ?? 'jpg';
         });
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
+      debugPrint('Erreur sélection image: $e');
     }
   }
 
   Future<void> _createStory() async {
-    if (_selectedImage == null) {
+    if (_selectedImageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner une image')),
+        const SnackBar(
+          content: Text('Veuillez sélectionner une image'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -65,20 +70,40 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
     setState(() => _isUploading = true);
 
     try {
-      final imageUrl = await _uploadService.uploadStoryImage(_selectedImage!);
-      await _networkService.createStory(imageUrl, duration: _duration);
+      // 1. Upload de l'image vers Supabase Storage (bucket 'stories')
+      final imageUrl = await _networkService.uploadImageBytes(
+        _selectedImageBytes!,
+        fileExtension: _selectedImageExtension!,
+        bucket: 'stories', // Assurez-vous que ce bucket existe
+      );
+
+      if (imageUrl == null) {
+        throw Exception('Échec de l\'upload de l\'image');
+      }
+
+      // 2. Création de la story
+      await _networkService.createStory(
+        imageUrl,
+        duration: _duration,
+      );
       
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Story publiée !'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Story publiée ! 🎉'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
-      debugPrint('Error creating story: $e');
+      debugPrint('Erreur création story: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -88,30 +113,52 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
 
   void _removeImage() {
     setState(() {
-      _selectedImage = null;
+      _selectedImageBytes = null;
+      _selectedImageExtension = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = _selectedImageBytes != null;
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        constraints: const BoxConstraints(maxWidth: 400),
-        padding: const EdgeInsets.all(20),
+        width: MediaQuery.of(context).size.width * 0.92,
+        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 600),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Ajouter une story',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4AF37),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Ajouter une story',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1A2E),
+                      ),
+                    ),
+                  ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close, color: Color(0xFF1A1A2E)),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -119,58 +166,132 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: double.infinity,
-                height: 300,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(16),
-                  image: (_selectedImage?.bytes != null)
-                      ? DecorationImage(image: MemoryImage(_selectedImage!.bytes!), fit: BoxFit.cover)
-                      : null,
-                ),
-                child: _selectedImage == null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tapez pour sélectionner',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        ],
-                      )
-                    : Stack(
-                        children: [
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: GestureDetector(
-                              onTap: _removeImage,
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
+
+            // Zone de sélection / prévisualisation
+            Expanded(
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: hasImage ? Colors.transparent : Colors.grey.shade300,
+                      width: 2,
+                    ),
+                    image: hasImage
+                        ? DecorationImage(
+                            image: MemoryImage(_selectedImageBytes!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: hasImage
+                      ? Stack(
+                          children: [
+                            // Bouton supprimer
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: GestureDetector(
+                                onTap: _removeImage,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                child: const Icon(Icons.close, size: 24, color: Colors.white),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            // Indicateur "Story"
+                            Positioned(
+                              bottom: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFD4AF37).withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '📸 Story',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD4AF37).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add_photo_alternate,
+                                size: 48,
+                                color: Color(0xFFD4AF37),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Tapez pour sélectionner une image',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'JPG, PNG, GIF - max 10MB',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
+
+            // Sélecteur de durée
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
-                  const Icon(Icons.timer, size: 20, color: Color(0xFFD4AF37)),
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 20,
+                    color: Color(0xFFD4AF37),
+                  ),
                   const SizedBox(width: 12),
-                  const Text('Durée de la story:'),
+                  const Text(
+                    'Durée de la story :',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Slider(
@@ -178,28 +299,36 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
                       min: 6,
                       max: 48,
                       divisions: 42,
-                      label: '$_duration heures',
                       activeColor: const Color(0xFFD4AF37),
+                      inactiveColor: Colors.grey.shade300,
                       onChanged: (value) {
                         setState(() => _duration = value.toInt());
                       },
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFD4AF37).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '$_duration h',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4AF37),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            // Bouton Publier
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -209,18 +338,38 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
                   backgroundColor: const Color(0xFFD4AF37),
                   foregroundColor: const Color(0xFF0B1B3D),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(30),
                   ),
+                  elevation: 2,
                 ),
                 child: _isUploading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Color(0xFF0B1B3D),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Upload en cours...',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       )
                     : const Text(
                         'PUBLIER LA STORY',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
               ),
             ),

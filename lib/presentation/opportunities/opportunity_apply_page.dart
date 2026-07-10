@@ -82,7 +82,7 @@ class _OpportunityApplyPageState extends State<OpportunityApplyPage> {
         return;
       }
 
-      // Return to details once the link is opened.
+      // Retourner vers les détails après ouverture du lien.
       context.go('/opportunities/${widget.opportunityId}?applied=1');
     } catch (e) {
       debugPrint('OpportunityApplyPage.submit failed err=$e');
@@ -117,7 +117,7 @@ class _OpportunityApplyPageState extends State<OpportunityApplyPage> {
                     const Spacer(),
                     Text('Opportunité introuvable.', style: context.textStyles.titleMedium?.copyWith(color: context.theme.colorScheme.onSurface)),
                     const SizedBox(height: AppSpacing.lg),
-                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => context.popOrGo('/opportunities/${widget.opportunityId}'), child: const Text('Retour'))),
+                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => context.go('/opportunities/${widget.opportunityId}'), child: const Text('Retour'))),
                     const Spacer(),
                   ],
                 ),
@@ -207,7 +207,10 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(onPressed: () => context.popOrGo('/opportunities/$opportunityId'), icon: const Icon(Icons.arrow_back_ios_new_rounded)),
+        IconButton(
+          onPressed: () => context.go('/opportunities/$opportunityId'),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
         Expanded(child: Text('THIX Apply', style: context.textStyles.titleLarge?.copyWith(color: context.theme.colorScheme.onSurface, fontWeight: FontWeight.w900))),
       ],
     );

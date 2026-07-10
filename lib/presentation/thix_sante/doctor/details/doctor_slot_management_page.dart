@@ -110,7 +110,7 @@ class _DoctorSlotManagementPageState extends State<DoctorSlotManagementPage> {
         title: const Text('Gestion des créneaux'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.popOrGo('/sante/doctor/agenda'),
+          onPressed: () => context.go('/sante/doctor/agenda'),
         ),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(

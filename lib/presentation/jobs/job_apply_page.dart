@@ -109,12 +109,10 @@ class _JobApplyPageState extends State<JobApplyPage> {
   Future<String?> _tryUpload({required String uid, required fp.PlatformFile? file, required String kind}) async {
     if (file == null) return null;
     try {
-      // Expected bucket: thix-job-applications (private or public).
       const bucket = 'thix-job-applications';
       final safeName = file.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
       final path = 'users/$uid/jobs/${widget.jobId}/$kind/${DateTime.now().millisecondsSinceEpoch}_$safeName';
       final uploadedPath = await _docService.uploadPickedFileToBucket(bucketName: bucket, uid: uid, objectPath: path, file: file);
-      // Prefer signed URLs; fall back to public.
       try {
         return await _docService.createDownloadUrl(bucketName: bucket, storagePath: uploadedPath);
       } catch (_) {
@@ -123,7 +121,6 @@ class _JobApplyPageState extends State<JobApplyPage> {
     } on StorageException catch (e) {
       debugPrint('JobApplyPage._tryUpload storage err=${e.message}');
       if (DocumentService.isBucketNotFound(e)) {
-        // Graceful fallback: do not block application.
         return null;
       }
       return null;
@@ -178,7 +175,7 @@ class _JobApplyPageState extends State<JobApplyPage> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: () => context.popOrGo(AppRoutes.jobs),
+                        onPressed: () => context.go(AppRoutes.jobs),
                         child: const Text('Retour'),
                       ),
                     ),
@@ -325,11 +322,17 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          onPressed: () => context.popOrGo('/jobs/$jobId'),
+          onPressed: () => context.go('/jobs/$jobId'),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: LearningCyberColors.text),
         ),
         Expanded(
-          child: Text('THIX Apply', style: context.textStyles.titleLarge?.copyWith(color: LearningCyberColors.text, fontWeight: FontWeight.w900)),
+          child: Text(
+            'THIX Apply',
+            style: context.textStyles.titleLarge?.copyWith(
+              color: LearningCyberColors.text,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ),
       ],
     );
@@ -356,7 +359,17 @@ class _AttachmentRow extends StatelessWidget {
         children: [
           Icon(icon, color: LearningCyberColors.neonCyan),
           const SizedBox(width: 10),
-          Expanded(child: Text(label, style: context.textStyles.bodyMedium?.copyWith(color: LearningCyberColors.text, fontWeight: FontWeight.w800), maxLines: 2, overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: Text(
+              label,
+              style: context.textStyles.bodyMedium?.copyWith(
+                color: LearningCyberColors.text,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           const SizedBox(width: 10),
           TextButton(
             onPressed: onPick,

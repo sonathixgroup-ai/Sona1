@@ -5,17 +5,10 @@ import 'package:thix_id/models/app_user.dart';
 
 class AuthController extends ChangeNotifier {
   static AuthController? _instance;
-
-  /// Global singleton accessor used by some legacy pages (ex: THIX Santé).
-  ///
-  /// In Dreamflow, the app also injects an AuthController via Provider.
-  /// We keep both worlds consistent by assigning the first constructed
-  /// instance (usually the bootstrap instance) to this singleton.
   static AuthController get instance => _instance ??= AuthController();
 
   final AuthManager _auth;
 
-  /// Defaults to SupabaseAuthManager to enforce Supabase-only backend.
   AuthController({AuthManager? auth}) : _auth = auth ?? SupabaseAuthManager() {
     _instance ??= this;
     _auth.currentUserListenable.addListener(notifyListeners);
@@ -39,16 +32,20 @@ class AuthController extends ChangeNotifier {
     required bool rememberMe,
     Map<String, dynamic>? profileDraft,
   }) async {
-    final u = await _auth.registerWithEmail(
-      email: email,
-      password: password,
-      displayName: displayName,
-      accountType: AccountType.personal,
-      rememberMe: rememberMe,
-      profileDraft: profileDraft,
-    );
-    notifyListeners();
-    return u;
+    try {
+      final u = await _auth.registerWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
+        accountType: AccountType.personal,
+        rememberMe: rememberMe,
+        profileDraft: profileDraft,
+      );
+      notifyListeners();
+      return u;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<AppUser> registerEnterprise({
@@ -58,16 +55,20 @@ class AuthController extends ChangeNotifier {
     required bool rememberMe,
     Map<String, dynamic>? profileDraft,
   }) async {
-    final u = await _auth.registerWithEmail(
-      email: email,
-      password: password,
-      displayName: displayName,
-      accountType: AccountType.enterprise,
-      rememberMe: rememberMe,
-      profileDraft: profileDraft,
-    );
-    notifyListeners();
-    return u;
+    try {
+      final u = await _auth.registerWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
+        accountType: AccountType.enterprise,
+        rememberMe: rememberMe,
+        profileDraft: profileDraft,
+      );
+      notifyListeners();
+      return u;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) => _auth.startPhoneAuth(phoneNumber: phoneNumber);
@@ -78,7 +79,12 @@ class AuthController extends ChangeNotifier {
     String? displayName,
     AccountType accountType = AccountType.personal,
   }) async {
-    final u = await _auth.confirmPhoneCode(session: session, smsCode: smsCode, displayName: displayName, accountType: accountType);
+    final u = await _auth.confirmPhoneCode(
+      session: session,
+      smsCode: smsCode,
+      displayName: displayName,
+      accountType: accountType,
+    );
     notifyListeners();
     return u;
   }
@@ -91,5 +97,15 @@ class AuthController extends ChangeNotifier {
   Future<void> updateCurrentUser(AppUser user) async {
     await _auth.updateCurrentUser(user);
     notifyListeners();
+  }
+
+  // OTP
+  Future<void> verifyOTP({required String email, required String token}) async {
+    await _auth.verifyOTP(email: email, token: token);
+    notifyListeners();
+  }
+
+  Future<void> resendOTP({required String email}) async {
+    await _auth.resendOTP(email: email);
   }
 }

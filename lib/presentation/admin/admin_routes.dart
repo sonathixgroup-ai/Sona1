@@ -1,68 +1,34 @@
-enum AdminModule {
-  overview,
-  accessRequests,
-  users,
-  verification,
-  events,
-  trainings,
-  uid,
-  jobs,
-  news,
-  chat,
-  sos,
-  institutions,
-  analytics,
-  cybersecurity,
-  api,
-  settings,
-  audit,
-}
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:thix_id/presentation/admin/admin_page.dart'; // ✅ Import unique de AdminModule
 
-extension AdminModuleX on AdminModule {
-  String get slug {
-    switch (this) {
-      case AdminModule.overview:
-        return 'overview';
-      case AdminModule.accessRequests:
-        return 'access-requests';
-      case AdminModule.users:
-        return 'users';
-      case AdminModule.verification:
-        return 'verification';
-      case AdminModule.events:
-        return 'events';
-      case AdminModule.trainings:
-        return 'trainings';
-      case AdminModule.uid:
-        return 'uid';
-      case AdminModule.jobs:
-        return 'jobs';
-      case AdminModule.news:
-        return 'news';
-      case AdminModule.chat:
-        return 'chat';
-      case AdminModule.sos:
-        return 'sos';
-      case AdminModule.institutions:
-        return 'institutions';
-      case AdminModule.analytics:
-        return 'analytics';
-      case AdminModule.cybersecurity:
-        return 'cybersecurity';
-      case AdminModule.api:
-        return 'api';
-      case AdminModule.settings:
-        return 'settings';
-      case AdminModule.audit:
-        return 'audit';
-    }
+class AdminRoutes {
+  static const String base = '/admin';
+  
+  // Génère le chemin complet pour un module
+  static String modulePath(AdminModule module) {
+    return '$base/${module.slug}';
   }
-
-  static AdminModule fromSlug(String? slug) {
-    final s = (slug ?? '').trim().toLowerCase();
-    for (final m in AdminModule.values) {
-      if (m.slug == s) return m;
-    }
-    return AdminModule.overview;
+  
+  // Génère le chemin à partir d'un slug
+  static String modulePathFromSlug(String slug) {
+    return '$base/$slug';
+  }
+  
+  // Vérifie si une route est dans l'admin
+  static bool isAdminRoute(String location) {
+    return location.startsWith(base);
+  }
+  
+  // Extrait le module depuis une route
+  static AdminModule? extractModule(String location) {
+    if (!location.startsWith(base)) return null;
+    final parts = location.split('/');
+    if (parts.length < 2) return null;
+    final slug = parts[2];
+    return AdminModuleX.fromSlug(slug);
   }
 }
+
+// ⚠️ NE PAS définir AdminModule ou AdminModuleX ici !
+// Ils sont déjà définis dans admin_page.dart

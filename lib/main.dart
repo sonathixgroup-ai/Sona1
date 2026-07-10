@@ -2,18 +2,55 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/auth/supabase_auth_manager.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
-import 'package:thix_id/nav.dart';
-import 'package:thix_id/services/profile_service.dart';        // ✅ Supabase uniquement
-import 'package:thix_id/services/user_service.dart';           // ✅ Nouveau service Supabase
+import 'package:thix_id/nav.dart' show AppRoutes;
+import 'package:thix_id/app_router.dart';
+import 'package:thix_id/services/profile_service.dart';
+import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/services/news_service.dart';
 import 'package:thix_id/providers/feed_provider.dart';
+import 'package:thix_id/providers/news_provider.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
+
+// ─── THIX MARKET ───
+import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/live_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/market_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/message_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/product_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/search_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
+import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
+
+// ─── EDUCATION ───
+import 'package:thix_id/presentation/education/providers/education_provider.dart';
+import 'package:thix_id/presentation/education/providers/progress_provider.dart';
+import 'package:thix_id/presentation/education/providers/certificate_provider.dart';
+import 'package:thix_id/presentation/education/providers/forum_provider.dart';
+import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
+import 'package:thix_id/presentation/education/services/education_service.dart';
+
+// ─── MODERATEUR ───
+import 'package:thix_id/providers/auth_provider.dart';
+import 'package:thix_id/providers/moderator_provider.dart';
+
+// ─── THIX ÉVÉNEMENT ───
+import 'package:thix_id/providers/event_provider.dart';
+import 'package:thix_id/services/event_service.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════════════════
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +60,7 @@ Future<void> main() async {
     debugPrint('FlutterError: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
   };
+
   ErrorWidget.builder = (FlutterErrorDetails details) {
     debugPrint('ErrorWidget: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
@@ -56,32 +94,34 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
-    try {
-      await SupabaseConfig.initialize();
-    } catch (e, st) {
-      debugPrint('Bootstrap: SupabaseConfig.initialize failed err=$e');
-      debugPrint(st.toString());
-    }
+    // 1. Initialisation de la configuration de base de Supabase
+    await SupabaseConfig.initialize();
 
-    // 🔥 Services Supabase
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
 
-    // AuthController utilise SupabaseAuthManager (qui a besoin de ProfileService)
     final auth = AuthController(
       auth: SupabaseAuthManager(profiles: profiles),
     );
 
+    // 2. Sécurisation de l'authentification
     try {
       await auth.init();
-    } catch (e, st) {
-      debugPrint('Bootstrap: auth.init failed err=$e');
-      debugPrint(st.toString());
+    } catch (e) {
+      debugPrint("⚠️ Échec initialisation de l'authentification : $e");
     }
 
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
-    feed.initRealtime();
+
+    // 3. Sécurisation du flux Realtime
+    try {
+      feed.initRealtime();
+    } catch (e) {
+      debugPrint("⚠️ Échec de l'initialisation Realtime : $e");
+    }
+
+    final eventService = EventService(SupabaseConfig.client);
 
     return _BootstrapResult(
       auth: auth,
@@ -89,6 +129,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
       userService: userService,
       network: network,
       feed: feed,
+      eventService: eventService,
     );
   }
 
@@ -97,6 +138,62 @@ class _BootstrapAppState extends State<BootstrapApp> {
     return FutureBuilder<_BootstrapResult>(
       future: _future,
       builder: (context, snap) {
+        if (snap.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.system,
+            home: Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.cloud_off_rounded,
+                        size: 72,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Connexion impossible',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          runApp(const ProviderScope(child: BootstrapApp()));
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Réessayer'),
+                      ),
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Erreur : ${snap.error}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.red,
+                                fontFamily: 'monospace',
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         final child = snap.hasData
             ? MyApp(
                 auth: snap.data!.auth,
@@ -104,6 +201,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 userService: snap.data!.userService,
                 network: snap.data!.network,
                 feed: snap.data!.feed,
+                eventService: snap.data!.eventService,
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -127,12 +225,15 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 }
 
+// ─── Résultat du bootstrap ────────────────────────────────────────────────
+
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
-  final UserService userService;        // 👈 nouveau service
+  final UserService userService;
   final NetworkService network;
   final FeedProvider feed;
+  final EventService eventService;
 
   const _BootstrapResult({
     required this.auth,
@@ -140,10 +241,11 @@ class _BootstrapResult {
     required this.userService,
     required this.network,
     required this.feed,
+    required this.eventService,
   });
 }
 
-// ─── Écran de chargement (inchangé) ───────────────────────────────────────
+// ─── Écran de chargement ──────────────────────────────────────────────────
 
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
@@ -194,14 +296,15 @@ class _StartupLoadingPage extends StatelessWidget {
   }
 }
 
-// ─── Application principale ─────────────────────────────────────────────────
+// ─── Application principale ──────────────────────────────────────────────
 
 class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
-  final UserService userService;      // 👈 nouveau
+  final UserService userService;
   final NetworkService network;
   final FeedProvider feed;
+  final EventService eventService;
 
   const MyApp({
     super.key,
@@ -210,6 +313,7 @@ class MyApp extends StatefulWidget {
     required this.userService,
     required this.network,
     required this.feed,
+    required this.eventService,
   });
 
   @override
@@ -228,15 +332,73 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ─── AUTH & LANGUE ───
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
+
+        // ─── SERVICES ───
         Provider<ProfileService>.value(value: widget.profiles),
-        Provider<UserService>.value(value: widget.userService),   // 👈 fourni
+        Provider<UserService>.value(value: widget.userService),
         Provider<NetworkService>.value(value: widget.network),
+
+        // ─── FEED ───
         ChangeNotifierProvider.value(value: widget.feed),
+
+        // ─── ÉVÉNEMENTS ───
+        ChangeNotifierProvider<EventProvider>(
+          create: (_) => EventProvider(widget.eventService),
+        ),
+
+        // ─── THIX INFO ───
+        ChangeNotifierProvider<NewsProvider>(
+          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)),
+        ),
+
+        // ─── THIX MARKET ───
+        ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
+        ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
+        ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
+        ChangeNotifierProvider<ShopProvider>(create: (_) => ShopProvider()),
+        ChangeNotifierProvider<MessageProvider>(create: (_) => MessageProvider()),
+        ChangeNotifierProvider<LiveProvider>(create: (_) => LiveProvider()),
+        ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
+        ChangeNotifierProvider<ActivityProvider>(create: (_) => ActivityProvider()),
+        ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
+        ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
+        ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
+
+        // ─── EDUCATION ───
+        ChangeNotifierProvider<EducationProvider>(
+          create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider<ProgressProvider>(
+          create: (_) => ProgressProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider<CertificateProvider>(
+          create: (_) => CertificateProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider<ForumProvider>(
+          create: (_) => ForumProvider(EducationService(SupabaseConfig.client)),
+        ),
+        ChangeNotifierProvider<RecommendationProvider>(
+          create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
+        ),
+
+        // ─── MODERATEUR ───
+        ChangeNotifierProvider<AuthProvider>(
+          create: (_) => AuthProvider(SupabaseConfig.client),
+        ),
+        ChangeNotifierProvider<ModeratorProvider>(
+          create: (_) => ModeratorProvider(widget.eventService),
+        ),
       ],
       child: Builder(
         builder: (context) {

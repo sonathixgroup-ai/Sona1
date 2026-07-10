@@ -10,12 +10,31 @@ class ThixMoneyPage extends StatefulWidget {
 
 class _ThixMoneyPageState extends State<ThixMoneyPage> {
   int currentIndex = 2;
+  bool _balanceVisible = true;
+
+  // ============================================================
+  // CHARTE THIX MONEY
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color background = Color(0xFFF7FAFF);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color border = Color(0xFFE7EEFC);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color green = Color(0xFF059669);
+  static const Color red = Color(0xFFE5484D);
+  static const Color purple = Color(0xFF7C4DFF);
+  static const Color orange = Color(0xFFF59E0B);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: background,
       bottomNavigationBar: _bottomNavigation(),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -28,8 +47,24 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
                 // ========== EN-TÊTE ==========
                 Row(
                   children: [
-                    const Icon(Icons.menu_rounded, size: 28, color: Color(0xFF111827)),
-                    const SizedBox(width: 14),
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(color: pureWhite, borderRadius: BorderRadius.circular(12), border: Border.all(color: border)),
+                      child: const Icon(Icons.menu_rounded, size: 20, color: navy),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [navyDeep, primaryBlue]),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Text('T', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,241 +74,296 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
                               children: [
                                 TextSpan(
                                   text: 'THIX ',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF111827),
-                                  ),
+                                  style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: darkText),
                                 ),
                                 TextSpan(
                                   text: 'MONEY',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF2563FF),
-                                  ),
+                                  style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: primaryBlue),
                                 ),
                               ],
                             ),
                           ),
                           const Text(
-                            'Gérez, épargnez, investissez sereinement.',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            'Votre argent, votre liberté',
+                            style: TextStyle(fontSize: 10.5, color: mutedText),
                           ),
                         ],
                       ),
                     ),
                     _iconWithBadge(Icons.notifications_none_rounded, badgeCount: 3),
                     const SizedBox(width: 10),
-                    const CircleAvatar(
-                      radius: 22,
-                      backgroundImage: NetworkImage('https://i.pravatar.cc/300'),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: border, width: 1.5),
+                        image: const DecorationImage(
+                          image: NetworkImage('https://i.pravatar.cc/300'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
-                // ========== SOLDE TOTAL ==========
+                // ========== SOLDE DISPONIBLE ==========
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF020B56), Color(0xFF001B8D)],
+                      colors: [navyDeep, navy],
                     ),
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(26),
                     boxShadow: [
-                      BoxShadow(color: Colors.blue.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 8)),
+                      BoxShadow(color: navyDeep.withOpacity(0.30), blurRadius: 22, offset: const Offset(0, 12)),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Stack(
                     children: [
-                      const Text(
-                        'Bonjour, Michel',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Solde total',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '1.250.000 FC',
-                        style: GoogleFonts.poppins(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      // Watermark T
+                      Positioned(
+                        right: -10,
+                        top: -10,
+                        child: Opacity(
+                          opacity: 0.06,
+                          child: Text(
+                            'T',
+                            style: GoogleFonts.poppins(fontSize: 140, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '= 1.902,45 €',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _actionButton('Envoyer', Icons.north_east, const Color(0xFF2563FF)),
-                          const SizedBox(width: 12),
-                          _actionButton('Recevoir', Icons.add, const Color(0xFF16A34A)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Solde disponible',
+                                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _balanceVisible = !_balanceVisible),
+                                    child: Icon(
+                                      _balanceVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                                      size: 16,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Icon(Icons.wifi_rounded, color: Colors.white54, size: 20),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                _balanceVisible ? '12 500 000' : '••• ••• •••',
+                                style: GoogleFonts.poppins(fontSize: 30, fontWeight: FontWeight.w800, color: Colors.white),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('FCFA', style: TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _balanceVisible ? '≈ 20 500 USD' : '≈ •••• USD',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.10),
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(color: Colors.white.withOpacity(0.22)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.history_rounded, size: 15, color: Colors.white),
+                                    SizedBox(width: 6),
+                                    Text('Historique', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.22),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: gold.withOpacity(0.5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('VISA', style: GoogleFonts.poppins(color: gold, fontSize: 12.5, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                                    const SizedBox(width: 10),
+                                    Text('THIX ID', style: GoogleFonts.poppins(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // ========== MES COMPTES (grille 2x2) ==========
-                const Text(
-                  'Mes comptes',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                // ========== ACTIONS RAPIDES ==========
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: pureWhite,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: border),
+                    boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 6))],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _quickAction(Icons.send_rounded, 'Envoyer'),
+                      _quickAction(Icons.add_rounded, 'Recharger'),
+                      _quickAction(Icons.qr_code_scanner_rounded, 'Scanner'),
+                      _quickAction(Icons.savings_rounded, 'Retrait'),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.2,
-                  children: const [
-                    _AccountCard(title: 'Compte principal', amount: '1.250.000 FC', note: 'Disponible'),
-                    _AccountCard(title: 'Épargne', amount: '750.000 FC', note: 'Disponible'),
-                    _AccountCard(title: 'Dollars (USD)', amount: '320.000 USD', note: '192.000 FC'),
-                    _AccountCard(title: 'Carte prépayée', amount: '85.000 FC', note: 'Disponible'),
-                  ],
+                const SizedBox(height: 16),
+
+                // ========== STATISTIQUES ==========
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: pureWhite,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: border),
+                    boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 6))],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: _statItem(Icons.account_balance_wallet_rounded, green, 'Épargne', '2 500 000', 'FCFA', true)),
+                      _statDivider(),
+                      Expanded(child: _statItem(Icons.show_chart_rounded, purple, 'Investissements', '750 000', 'FCFA', true)),
+                      _statDivider(),
+                      Expanded(child: _statItem(Icons.attach_money_rounded, orange, 'Crédits', '1 200 000', 'FCFA', true)),
+                      _statDivider(),
+                      Expanded(child: _statItem(Icons.groups_rounded, primaryBlue, 'Tontines', '5', 'actives', false)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 26),
 
                 // ========== SERVICES FINANCIERS ==========
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      'Services financiers',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                    ),
-                    Text(
-                      'Voir tout >',
-                      style: TextStyle(color: Colors.blue, fontSize: 12),
+                  children: [
+                    const Text('Services financiers', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: darkText)),
+                    Row(
+                      children: const [
+                        Text('Voir tout', style: TextStyle(color: primaryBlue, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                        SizedBox(width: 2),
+                        Icon(Icons.chevron_right_rounded, size: 14, color: primaryBlue),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 2.2,
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 0.82,
                   children: const [
-                    _ServiceTile(icon: Icons.flash_on, title: 'Crédit instantané', subtitle: 'Obtenez un crédit rapidement'),
-                    _ServiceTile(icon: Icons.shield, title: 'Assurance', subtitle: 'Protégez-vous et vos biens'),
-                    _ServiceTile(icon: Icons.trending_up, title: 'Épargne planifiée', subtitle: 'Atteignez vos objectifs'),
-                    _ServiceTile(icon: Icons.currency_exchange, title: 'Change', subtitle: 'Achetez et vendez des devises'),
-                    _ServiceTile(icon: Icons.store, title: 'Marchand', subtitle: 'Gérez vos encaissements'),
-                    _ServiceTile(icon: Icons.favorite, title: 'Don & Contributions', subtitle: 'Soutenez des causes'),
-                    _ServiceTile(icon: Icons.group, title: 'Ma Tontine', subtitle: 'Épargnez et recevez à votre tour'),
-                    _ServiceTile(icon: Icons.school, title: 'Éducation', subtitle: 'Financez les études facilement'),
-                    _ServiceTile(icon: Icons.public, title: 'Virement international', subtitle: 'Envoyez et recevez partout'),
-                    _ServiceTile(icon: Icons.account_balance, title: 'Microfinance', subtitle: 'Financements adaptés'),
-                    _ServiceTile(icon: Icons.analytics, title: 'Planification financière', subtitle: 'Planifiez votre avenir'),
-                    _ServiceTile(icon: Icons.show_chart, title: 'Investissement', subtitle: 'Faites fructifier votre argent'),
-                    _ServiceTile(icon: Icons.group_add, title: 'Épargne groupe', subtitle: 'Épargnez en groupe'),
+                    _ServiceIcon(icon: Icons.flash_on_rounded, label: 'Crédit instantané', color: green),
+                    _ServiceIcon(icon: Icons.shield_rounded, label: 'Assurance', color: primaryBlue),
+                    _ServiceIcon(icon: Icons.track_changes_rounded, label: 'Épargne planifiée', color: red),
+                    _ServiceIcon(icon: Icons.currency_exchange_rounded, label: 'Change', color: green),
+                    _ServiceIcon(icon: Icons.storefront_rounded, label: 'Marchand', color: purple),
+                    _ServiceIcon(icon: Icons.volunteer_activism_rounded, label: 'Don & Contributions', color: red),
+                    _ServiceIcon(icon: Icons.groups_rounded, label: 'Ma Tontine', color: primaryBlue),
+                    _ServiceIcon(icon: Icons.school_rounded, label: 'Éducation', color: purple),
+                    _ServiceIcon(icon: Icons.public_rounded, label: 'Virement international', color: primaryBlue),
+                    _ServiceIcon(icon: Icons.account_balance_rounded, label: 'Microfinance', color: green),
+                    _ServiceIcon(icon: Icons.trending_up_rounded, label: 'Investissement', color: orange),
+                    _ServiceIcon(icon: Icons.assignment_rounded, label: 'Planification financière', color: purple),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
 
-                // ========== TRANSACTIONS RÉCENTES ==========
+                // ========== BANNIÈRES PROMO — ligne 1 ==========
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      'Transactions récentes',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  children: [
+                    Expanded(
+                      child: _CreditBanner(),
                     ),
-                    Text(
-                      'Voir tout >',
-                      style: TextStyle(color: Colors.blue, fontSize: 12),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _AiBanner(),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const _TransactionItem(
-                  title: 'Transfert à Paul N.',
-                  amount: '-50.000 FC',
-                  date: "Aujourd'hui, 09:35",
-                  status: 'Réussi',
-                  statusColor: Colors.green,
-                ),
-                const _TransactionItem(
-                  title: 'Dépôt via MoMo',
-                  amount: '+100.000 FC',
-                  date: "Aujourd'hui, 08:20",
-                  status: 'Réussi',
-                  statusColor: Colors.green,
-                ),
-                const _TransactionItem(
-                  title: 'Paiement factures SENELEC',
-                  amount: '-25.000 FC',
-                  date: 'Hier, 19:15',
-                  status: 'Réussi',
-                  statusColor: Colors.green,
-                ),
-                const _TransactionItem(
-                  title: 'Achat chez Super U',
-                  amount: '-15.500 FC',
-                  date: 'Hier, 16:42',
-                  status: 'Réussi',
-                  statusColor: Colors.green,
-                ),
-                const SizedBox(height: 24),
 
-                // ========== BANNIÈRE ÉPARGNE AUTOMATIQUE ==========
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.savings, color: Colors.blue, size: 32),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Épargnez automatiquement',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Mettez de l\'argent de côté sans y penser et atteignez vos objectifs plus vite.',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        child: const Text('Commencez >'),
-                      ),
+                // ========== BANNIÈRES PROMO — ligne 2 ==========
+                Row(
+                  children: [
+                    Expanded(child: _CashbackBanner()),
+                    const SizedBox(width: 12),
+                    Expanded(child: _TransferBanner()),
+                  ],
+                ),
+                const SizedBox(height: 26),
+
+                // ========== MES TONTINES ==========
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Mes tontines', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: darkText)),
+                    Row(
+                      children: const [
+                        Text('Voir tout', style: TextStyle(color: primaryBlue, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                        SizedBox(width: 2),
+                        Icon(Icons.chevron_right_rounded, size: 14, color: primaryBlue),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 128,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: const [
+                      _TontineCard(icon: Icons.groups_rounded, iconColor: green, title: 'Tontine Business', percent: 0.78, members: '7/10 membres'),
+                      SizedBox(width: 12),
+                      _TontineCard(icon: Icons.family_restroom_rounded, iconColor: orange, title: 'Tontine Famille', percent: 0.52, members: '5/10 membres'),
+                      SizedBox(width: 12),
+                      _TontineCard(icon: Icons.home_rounded, iconColor: purple, title: 'Projet Maison', percent: 0.33, members: '4/10 membres'),
+                      SizedBox(width: 12),
+                      _TontineCard(icon: Icons.savings_rounded, iconColor: gold, title: 'Épargne École', percent: 0.48, members: '4/10 membres'),
                     ],
                   ),
                 ),
-                const SizedBox(height: 80),
+                const SizedBox(height: 90),
               ],
             ),
           ),
@@ -281,6 +371,10 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
       ),
     );
   }
+
+  // ============================================================
+  // WIDGETS PRIVÉS
+  // ============================================================
 
   Widget _iconWithBadge(IconData icon, {int badgeCount = 0}) {
     return Stack(
@@ -290,24 +384,25 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: pureWhite,
             shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
+            border: Border.all(color: border),
+            boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 8)],
           ),
-          child: Icon(icon, size: 22, color: const Color(0xFF1E293B)),
+          child: Icon(icon, size: 20, color: navy),
         ),
         if (badgeCount > 0)
           Positioned(
-            right: 2,
-            top: 2,
+            right: 1,
+            top: 1,
             child: Container(
-              width: 16,
-              height: 16,
-              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              width: 17,
+              height: 17,
+              decoration: BoxDecoration(color: red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
               child: Center(
                 child: Text(
                   badgeCount.toString(),
-                  style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800),
                 ),
               ),
             ),
@@ -316,26 +411,54 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
     );
   }
 
-  Widget _actionButton(String label, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(20),
+  Widget _quickAction(IconData icon, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [navyDeep, primaryBlue]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: primaryBlue.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 5))],
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: darkText)),
+      ],
+    );
+  }
+
+  Widget _statDivider() => Container(width: 1, height: 40, color: border);
+
+  Widget _statItem(IconData icon, Color color, String label, String value, String unit, bool showTrend) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(label, style: const TextStyle(fontSize: 10.5, color: mutedText, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: darkText)),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Text(unit, style: const TextStyle(fontSize: 9.5, color: mutedText)),
+            if (showTrend) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.trending_up_rounded, size: 12, color: color),
+            ],
+          ],
+        ),
+      ],
     );
   }
 
@@ -343,34 +466,34 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
     return Container(
       height: 72,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: pureWhite,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, -4))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _navItem(Icons.home_rounded, 'Accueil', 0),
-          _navItem(Icons.sync_alt_rounded, 'Transactions', 1),
+          _navItem(Icons.description_rounded, 'Transactions', 1),
           Container(
             width: 64,
             height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [Color(0xFF2563FF), Color(0xFF0047FF)]),
-              boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.35), blurRadius: 18)],
+              gradient: const LinearGradient(colors: [navyDeep, primaryBlue]),
+              boxShadow: [BoxShadow(color: primaryBlue.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 8))],
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(Icons.qr_code_scanner, color: Colors.white, size: 26),
+                Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 24),
                 SizedBox(height: 2),
-                Text('Scanner QR', style: TextStyle(fontSize: 9, color: Colors.white)),
+                Text('Scanner', style: TextStyle(fontSize: 8.5, color: Colors.white)),
               ],
             ),
           ),
-          _navItem(Icons.credit_card_outlined, 'Cartes', 3),
-          _navItem(Icons.person_outline, 'Profil', 4),
+          _navItem(Icons.apps_rounded, 'Services', 3),
+          _navItem(Icons.person_outline_rounded, 'Profil', 4),
         ],
       ),
     );
@@ -383,11 +506,11 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 22, color: active ? const Color(0xFF2563FF) : Colors.grey),
+          Icon(icon, size: 21, color: active ? primaryBlue : mutedText),
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 10, color: active ? const Color(0xFF2563FF) : Colors.grey),
+            style: TextStyle(fontSize: 9.5, color: active ? primaryBlue : mutedText, fontWeight: active ? FontWeight.w700 : FontWeight.w500),
           ),
         ],
       ),
@@ -395,122 +518,280 @@ class _ThixMoneyPageState extends State<ThixMoneyPage> {
   }
 }
 
-// ========== COMPOSANTS UI ==========
+// ========== ICÔNE DE SERVICE ==========
+class _ServiceIcon extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _ServiceIcon({required this.icon, required this.label, required this.color});
 
-class _AccountCard extends StatelessWidget {
-  final String title;
-  final String amount;
-  final String note;
-  const _AccountCard({required this.title, required this.amount, required this.note});
+  static const Color darkText = Color(0xFF10192E);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(18)),
+          child: Icon(icon, size: 24, color: color),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: darkText, height: 1.15),
+        ),
+      ],
+    );
+  }
+}
+
+// ========== BANNIÈRE CRÉDIT INSTANTANÉ ==========
+class _CreditBanner extends StatelessWidget {
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color gold = Color(0xFFE3B23C);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      height: 152,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(colors: [navyDeep, navy], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF0F172A))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(6)),
+            child: const Text('CRÉDIT INSTANTANÉ', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
+          ),
           const Spacer(),
-          Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
-          const SizedBox(height: 4),
-          Text(note, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          const Text('Besoin d\'argent ?', style: TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          const Text('Jusqu\'à 5 000 000 FCFA', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
+          const SizedBox(height: 10),
+          Row(
+            children: const [
+              Text('Demander', style: TextStyle(color: gold, fontSize: 11.5, fontWeight: FontWeight.w800)),
+              SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 14, color: gold),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _ServiceTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  const _ServiceTile({required this.icon, required this.title, required this.subtitle});
+// ========== BANNIÈRE THIX AI ==========
+class _AiBanner extends StatelessWidget {
+  static const Color darkText = Color(0xFF10192E);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color green = Color(0xFF059669);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      height: 152,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 4)],
+        gradient: LinearGradient(colors: [green.withOpacity(0.12), green.withOpacity(0.05)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: green.withOpacity(0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, size: 16, color: Colors.blue),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF0F172A))),
-                Text(subtitle, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, size: 14, color: Colors.grey),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionItem extends StatelessWidget {
-  final String title;
-  final String amount;
-  final String date;
-  final String status;
-  final Color statusColor;
-  const _TransactionItem({required this.title, required this.amount, required this.date, required this.status, required this.statusColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 4)],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.swap_horiz, color: Colors.blue, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF0F172A))),
-                const SizedBox(height: 4),
-                Text(date, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text(amount, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: amount.startsWith('+') ? Colors.green : Colors.redAccent)),
-              const SizedBox(height: 4),
-              Text(status, style: TextStyle(fontSize: 10, color: statusColor)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: green.withOpacity(0.16), borderRadius: BorderRadius.circular(6)),
+                child: Text('THIX AI', style: TextStyle(color: green, fontSize: 8, fontWeight: FontWeight.w800)),
+              ),
+              const Spacer(),
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(color: green, shape: BoxShape.circle),
+                child: const Icon(Icons.smart_toy_rounded, size: 14, color: Colors.white),
+              ),
+            ],
+          ),
+          const Spacer(),
+          const Text('Vous pouvez épargner', style: TextStyle(color: darkText, fontSize: 12.5, fontWeight: FontWeight.w800, height: 1.2)),
+          const Text('150 000 FCFA ce mois.', style: TextStyle(color: darkText, fontSize: 12.5, fontWeight: FontWeight.w800, height: 1.2)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text('Voir plus', style: TextStyle(color: green, fontSize: 11.5, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 14, color: green),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ========== BANNIÈRE CASHBACK ==========
+class _CashbackBanner extends StatelessWidget {
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color purple = Color(0xFF7C4DFF);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 122,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [purple.withOpacity(0.12), purple.withOpacity(0.05)]),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: purple.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Cashback 10%', style: TextStyle(color: darkText, fontSize: 13.5, fontWeight: FontWeight.w800)),
+              ),
+              Icon(Icons.card_giftcard_rounded, color: purple, size: 22),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text('Paiement chez partenaires', style: TextStyle(color: mutedText, fontSize: 10)),
+          const Spacer(),
+          Row(
+            children: [
+              Text('Utiliser', style: TextStyle(color: purple, fontSize: 11.5, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 14, color: purple),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ========== BANNIÈRE VIREMENT INTERNATIONAL ==========
+class _TransferBanner extends StatelessWidget {
+  static const Color darkText = Color(0xFF10192E);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color gold = Color(0xFFE3B23C);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 122,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [gold.withOpacity(0.16), gold.withOpacity(0.06)]),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: gold.withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Envoyez de l\'argent\npartout dans le monde', style: TextStyle(color: darkText, fontSize: 11.5, fontWeight: FontWeight.w800, height: 1.2)),
+              ),
+              Icon(Icons.public_rounded, color: primaryBlue, size: 24),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Text('Envoyer', style: TextStyle(color: primaryBlue, fontSize: 11.5, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 14, color: primaryBlue),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ========== CARTE TONTINE ==========
+class _TontineCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final double percent;
+  final String members;
+
+  const _TontineCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.percent,
+    required this.members,
+  });
+
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color border = Color(0xFFE7EEFC);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color darkText = Color(0xFF10192E);
+  static const Color mutedText = Color(0xFF7386A8);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 168,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: iconColor.withOpacity(0.14), borderRadius: BorderRadius.circular(9)),
+                child: Icon(icon, size: 15, color: iconColor),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: darkText), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('${(percent * 100).round()}%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: darkText)),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LinearProgressIndicator(value: percent, backgroundColor: border, color: iconColor, minHeight: 6),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(members, style: const TextStyle(fontSize: 9.5, color: mutedText)),
+              Text('Voir', style: TextStyle(fontSize: 9.5, color: primaryBlue, fontWeight: FontWeight.w700)),
             ],
           ),
         ],

@@ -257,11 +257,23 @@ class _UrgencyScale {
   }
 }
 
+/// FIX: `paint()` reçoit un `PaintingContext` (canvas de rendu), pas un `BuildContext`.
+/// On ne peut donc pas appeler `Theme.of(context)` dedans. On injecte la couleur de
+/// secours via le constructeur, calculée en amont dans `build()` où le vrai
+/// `BuildContext` est disponible.
 class _UrgencyTrackShape extends SliderTrackShape {
-  const _UrgencyTrackShape();
+  final Color highlightFallbackColor;
+
+  const _UrgencyTrackShape({required this.highlightFallbackColor});
 
   @override
-  Rect getPreferredRect({required RenderBox parentBox, Offset offset = Offset.zero, required SliderThemeData sliderTheme, bool isEnabled = false, bool isDiscrete = false}) {
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
     final trackHeight = sliderTheme.trackHeight ?? 6;
     final left = offset.dx + (sliderTheme.overlayShape?.getPreferredSize(isEnabled, isDiscrete).width ?? 0) / 2;
     final top = offset.dy + (parentBox.size.height - trackHeight) / 2;
@@ -270,7 +282,18 @@ class _UrgencyTrackShape extends SliderTrackShape {
   }
 
   @override
-  void paint(PaintingContext context, Offset offset, {required RenderBox parentBox, required SliderThemeData sliderTheme, required Animation<double> enableAnimation, required Offset thumbCenter, Offset? secondaryOffset, bool isEnabled = false, bool isDiscrete = false, required TextDirection textDirection}) {
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    required TextDirection textDirection,
+  }) {
     final canvas = context.canvas;
     final rect = getPreferredRect(parentBox: parentBox, offset: offset, sliderTheme: sliderTheme, isEnabled: isEnabled, isDiscrete: isDiscrete);
     final r = Radius.circular(rect.height / 2);
@@ -280,11 +303,11 @@ class _UrgencyTrackShape extends SliderTrackShape {
     paint.color = EmergencyMedicalSheetColors.stroke;
     canvas.drawRRect(full, paint);
 
-    final segs = [
-      const _Seg(0.0, 0.40, EmergencyUrgencyScaleColors.stable),
-      const _Seg(0.40, 0.65, EmergencyUrgencyScaleColors.moderate),
-      const _Seg(0.65, 0.85, EmergencyUrgencyScaleColors.urgent),
-      const _Seg(0.85, 1.0, EmergencyUrgencyScaleColors.critical),
+    const segs = [
+      _Seg(0.0, 0.40, EmergencyUrgencyScaleColors.stable),
+      _Seg(0.40, 0.65, EmergencyUrgencyScaleColors.moderate),
+      _Seg(0.65, 0.85, EmergencyUrgencyScaleColors.urgent),
+      _Seg(0.85, 1.0, EmergencyUrgencyScaleColors.critical),
     ];
     for (final s in segs) {
       final l = rect.left + rect.width * s.a;
@@ -307,7 +330,7 @@ class _UrgencyTrackShape extends SliderTrackShape {
 
     final leftToThumb = Rect.fromLTRB(rect.left, rect.top, thumbCenter.dx, rect.bottom);
     final highlight = RRect.fromRectAndRadius(leftToThumb, r);
-    paint.color = sliderTheme.activeTrackColor ?? EmergencyMedicalSheetColors.medicalBlue;
+    paint.color = sliderTheme.activeTrackColor ?? highlightFallbackColor;
     canvas.drawRRect(highlight, paint..color = paint.color.withValues(alpha: 0.22));
   }
 }
@@ -333,7 +356,7 @@ class _SheetHeader extends StatelessWidget {
     final gold = isDark ? DarkModeColors.metalGold : LightModeColors.metalGold;
     final goldSoft = isDark ? DarkModeColors.metalGoldSoft : LightModeColors.metalGoldSoft;
     final a = isDark ? gold : (accent ?? gold);
-    final aSoft = isDark ? goldSoft : (accent == null ? goldSoft : EmergencyMedicalSheetColors.medicalBlueSoft);
+    final aSoft = isDark ? goldSoft : (accent == null ? goldSoft : Theme.of(context).colorScheme.primary.withValues(alpha: 0.16));
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
@@ -361,7 +384,7 @@ class _SheetHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: context.textStyles.titleLarge?.semiBold),
+                Text(title, style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(subtitle, style: context.textStyles.bodySmall?.copyWith(color: theme.hintColor)),
               ],
@@ -449,7 +472,7 @@ class _BloodSheetState extends State<_BloodSheet> {
     const groups = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final medical = isDark ? theme.colorScheme.tertiary : EmergencyMedicalSheetColors.medicalBlue;
+    final medical = isDark ? theme.colorScheme.tertiary : theme.colorScheme.primary;
     final isRequest = _intent == 'request';
 
     final qty = int.tryParse(_quantity.text.trim());
@@ -463,6 +486,8 @@ class _BloodSheetState extends State<_BloodSheet> {
     final requestQtyOk = !isRequest || (qty != null && qty > 0);
     final canSubmit = _group.trim().isNotEmpty && requestQtyOk && requestIdentityOk;
 
+    final trackShape = _UrgencyTrackShape(highlightFallbackColor: theme.colorScheme.primary);
+
     final maxH = MediaQuery.of(context).size.height * 0.88;
     return _SheetFrame(
       medical: !isDark,
@@ -470,7 +495,7 @@ class _BloodSheetState extends State<_BloodSheet> {
         constraints: BoxConstraints(maxHeight: maxH),
         child: Column(
           children: [
-            _SheetHeader(icon: Icons.bloodtype_rounded, title: 'Sang', subtitle: 'Donner ou demander — matching rapide', accent: EmergencyMedicalSheetColors.medicalBlue),
+            _SheetHeader(icon: Icons.bloodtype_rounded, title: 'Sang', subtitle: 'Donner ou demander — matching rapide', accent: theme.colorScheme.primary),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
@@ -479,10 +504,10 @@ class _BloodSheetState extends State<_BloodSheet> {
                     SegmentedButton<String>(
                       style: SegmentedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: EmergencyMedicalSheetColors.text,
+                        foregroundColor: Theme.of(context).colorScheme.onSurface,
                         selectedForegroundColor: Colors.white,
-                        selectedBackgroundColor: EmergencyMedicalSheetColors.medicalBlue,
-                        side: BorderSide(color: EmergencyMedicalSheetColors.stroke),
+                        selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).dividerColor),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       segments: const [
@@ -519,7 +544,7 @@ class _BloodSheetState extends State<_BloodSheet> {
                         alignment: Alignment.centerLeft,
                         child: Row(
                           children: [
-                            Text('Degré d\'urgence', style: context.textStyles.titleSmall?.semiBold),
+                            Text('Degré d\'urgence', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                             const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -528,7 +553,13 @@ class _BloodSheetState extends State<_BloodSheet> {
                                 color: _UrgencyScale.color(_urgency01).withValues(alpha: 0.12),
                                 border: Border.all(color: _UrgencyScale.color(_urgency01).withValues(alpha: 0.25)),
                               ),
-                              child: Text(_urgencyLabel(_urgency01), style: context.textStyles.labelMedium?.copyWith(color: _UrgencyScale.color(_urgency01)).semiBold),
+                              child: Text(
+                                _urgencyLabel(_urgency01),
+                                style: context.textStyles.labelMedium?.copyWith(
+                                  color: _UrgencyScale.color(_urgency01),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -536,7 +567,7 @@ class _BloodSheetState extends State<_BloodSheet> {
                       SliderTheme(
                         data: theme.sliderTheme.copyWith(
                           trackHeight: 7,
-                          trackShape: const _UrgencyTrackShape(),
+                          trackShape: trackShape,
                           activeTrackColor: _UrgencyScale.color(_urgency01),
                           inactiveTrackColor: Colors.transparent,
                           thumbColor: _UrgencyScale.color(_urgency01),
@@ -824,7 +855,7 @@ class _TrustedContactsSheetState extends State<_TrustedContactsSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(c.name, style: context.textStyles.titleMedium?.semiBold),
+                                Text(c.name, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
                                 Text(c.phone, style: context.textStyles.bodySmall?.copyWith(color: theme.hintColor)),
                               ],

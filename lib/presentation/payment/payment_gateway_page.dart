@@ -240,7 +240,7 @@ class _PaymentGatewayPageState
                 children: [
                   IconButton(
                     onPressed: () {
-                      context.popOrGo(
+                      context.go(
                         AppRoutes.home,
                       );
                     },

@@ -9,7 +9,6 @@ import 'package:thix_id/services/access_request_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/profile_service.dart';
-import 'package:thix_id/presentation/common/alert_info_sheet.dart';
 import 'package:thix_id/theme.dart';
 
 class NotificationsSheet {
@@ -197,7 +196,20 @@ class _ReceptionPanel extends StatelessWidget {
                           await counters.markSectionSeen(uid: meId, section: ThixSection.info);
                           if (context.mounted) {
                             context.pop();
-                            AlertInfoSheet.show(context);
+                            // ✅ Remplacement de AlertInfoSheet.show(context) par un AlertDialog
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Informations'),
+                                content: const Text('Voici les dernières informations importantes.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
                           }
                         },
                       ),
@@ -557,7 +569,20 @@ class _ReceptionPanel extends StatelessWidget {
           return;
         case ThixSection.info:
           context.pop();
-          AlertInfoSheet.show(context);
+          // ✅ Remplacement de AlertInfoSheet.show(context) par un AlertDialog
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Informations'),
+              content: const Text('Voici les dernières informations importantes.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
           return;
         case ThixSection.events:
           context.push(AppRoutes.thixEvent);

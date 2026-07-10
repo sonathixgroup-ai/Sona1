@@ -10,7 +10,6 @@ import 'package:thix_id/services/opportunity_service.dart';
 import 'package:thix_id/services/supabase_safe_write.dart';
 import 'package:thix_id/theme.dart';
 
-
 class AdminJobsOpportunitiesPage extends StatefulWidget {
   const AdminJobsOpportunitiesPage({super.key});
 
@@ -23,7 +22,7 @@ class _AdminJobsOpportunitiesPageState extends State<AdminJobsOpportunitiesPage>
   String? _error;
   List<Map<String, dynamic>> _offers = const [];
   List<Map<String, dynamic>> _opps = const [];
-  int _tab = 0; // 0=jobs, 1=opportunities
+  int _tab = 0;
   bool _loggedFabDebug = false;
 
   bool get _forceFabForSona {
@@ -177,7 +176,7 @@ class _Header extends StatelessWidget {
         ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            side: BorderSide(color: AdminCyberColors.stroke.withOpacity(0.9)),
+            side: BorderSide(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
             foregroundColor: AdminCyberColors.text,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -209,8 +208,8 @@ class _Tabs extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            color: selected ? AdminCyberColors.neonCyan.withOpacity(0.16) : AdminCyberColors.black.withOpacity(0.18),
-            border: Border.all(color: selected ? AdminCyberColors.neonCyan.withOpacity(0.55) : AdminCyberColors.stroke.withOpacity(0.6)),
+            color: selected ? AdminCyberColors.neonCyan.withValues(alpha: 0.16) : AdminCyberColors.black.withValues(alpha: 0.18),
+            border: Border.all(color: selected ? AdminCyberColors.neonCyan.withValues(alpha: 0.55) : AdminCyberColors.stroke.withValues(alpha: 0.6)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -269,8 +268,8 @@ class _OpportunityTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        color: AdminCyberColors.panel.withOpacity(0.78),
-        border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
+        color: AdminCyberColors.panel.withValues(alpha: 0.78),
+        border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
       ),
       child: Row(
         children: [
@@ -280,7 +279,7 @@ class _OpportunityTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               gradient: AdminCyberGradients.glowBlue(),
-              boxShadow: [BoxShadow(color: AdminCyberColors.neonCyan.withOpacity(0.14), blurRadius: 18, spreadRadius: 2)],
+              boxShadow: [BoxShadow(color: AdminCyberColors.neonCyan.withValues(alpha: 0.14), blurRadius: 18, spreadRadius: 2)],
             ),
             child: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
           ),
@@ -324,6 +323,10 @@ class _OpportunityTile extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// FEUILLES DE CRÉATION/MODIFICATION – CORRECTION FilePicker
+// ============================================================================
+
 class _CreateOpportunitySheet extends StatefulWidget {
   const _CreateOpportunitySheet();
 
@@ -363,6 +366,7 @@ class _CreateOpportunitySheetState extends State<_CreateOpportunitySheet> {
   Future<void> _pickAndUploadImage() async {
     setState(() => _error = null);
     try {
+      // ✅ Correction : utiliser FilePicker.platform.pickFiles
       final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true, allowMultiple: false);
       if (res == null || res.files.isEmpty) return;
       final file = res.files.single;
@@ -446,8 +450,8 @@ class _CreateOpportunitySheetState extends State<_CreateOpportunitySheet> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
-          color: AdminCyberColors.panel.withOpacity(0.92),
+          border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
+          color: AdminCyberColors.panel.withValues(alpha: 0.92),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -670,8 +674,8 @@ class _EditOpportunitySheetState extends State<_EditOpportunitySheet> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
-          color: AdminCyberColors.panel.withOpacity(0.92),
+          border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
+          color: AdminCyberColors.panel.withValues(alpha: 0.92),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -790,8 +794,8 @@ class _OfferTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        color: AdminCyberColors.panel.withOpacity(0.78),
-        border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
+        color: AdminCyberColors.panel.withValues(alpha: 0.78),
+        border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
       ),
       child: Row(
         children: [
@@ -801,7 +805,7 @@ class _OfferTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               gradient: AdminCyberGradients.glowViolet(),
-              boxShadow: [BoxShadow(color: AdminCyberColors.neonViolet.withOpacity(0.14), blurRadius: 18, spreadRadius: 2)],
+              boxShadow: [BoxShadow(color: AdminCyberColors.neonViolet.withValues(alpha: 0.14), blurRadius: 18, spreadRadius: 2)],
             ),
             child: const Icon(Icons.work_rounded, color: Colors.white),
           ),
@@ -826,8 +830,8 @@ class _OfferTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: AdminCyberColors.neonCyan.withOpacity(0.9)),
-                          color: AdminCyberColors.neonCyan.withOpacity(0.12),
+                          border: Border.all(color: AdminCyberColors.neonCyan.withValues(alpha: 0.9)),
+                          color: AdminCyberColors.neonCyan.withValues(alpha: 0.12),
                         ),
                         child: Text('Featured', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AdminCyberColors.text, fontWeight: FontWeight.w900)),
                       ),
@@ -837,8 +841,8 @@ class _OfferTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: AdminCyberColors.neonViolet.withOpacity(0.9)),
-                          color: AdminCyberColors.neonViolet.withOpacity(0.12),
+                          border: Border.all(color: AdminCyberColors.neonViolet.withValues(alpha: 0.9)),
+                          color: AdminCyberColors.neonViolet.withValues(alpha: 0.12),
                         ),
                         child: Text('Suggestion', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AdminCyberColors.text, fontWeight: FontWeight.w900)),
                       ),
@@ -898,8 +902,8 @@ class _Meta extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: AdminCyberColors.black.withOpacity(0.22),
-        border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.7)),
+        color: AdminCyberColors.black.withValues(alpha: 0.22),
+        border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.7)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -933,9 +937,8 @@ class _StatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withOpacity(0.9)),
-        color: c.withOpacity(0.12),
-      ),
+        border: Border.all(color: c.withValues(alpha: 0.9)),
+        color: c.withValues(alpha: 0.12)),
       child: Text(status, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AdminCyberColors.text)),
     );
   }
@@ -1265,8 +1268,8 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
-          color: AdminCyberColors.panel.withOpacity(0.92),
+          border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
+          color: AdminCyberColors.panel.withValues(alpha: 0.92),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1315,10 +1318,10 @@ class _CreateOfferSheetState extends State<_CreateOfferSheet> {
                   icon: const Icon(Icons.calendar_month_rounded, color: AdminCyberColors.textDim),
                 ),
                 filled: true,
-                fillColor: AdminCyberColors.black.withOpacity(0.22),
+                fillColor: AdminCyberColors.black.withValues(alpha: 0.22),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: AdminCyberColors.stroke.withOpacity(0.9)),
+                  borderSide: BorderSide(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -1551,8 +1554,8 @@ class _EditOfferSheetState extends State<_EditOfferSheet> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
-          color: AdminCyberColors.panel.withOpacity(0.92),
+          border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
+          color: AdminCyberColors.panel.withValues(alpha: 0.92),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1601,10 +1604,10 @@ class _EditOfferSheetState extends State<_EditOfferSheet> {
                   icon: const Icon(Icons.calendar_month_rounded, color: AdminCyberColors.textDim),
                 ),
                 filled: true,
-                fillColor: AdminCyberColors.black.withOpacity(0.22),
+                fillColor: AdminCyberColors.black.withValues(alpha: 0.22),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: AdminCyberColors.stroke.withOpacity(0.9)),
+                  borderSide: BorderSide(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -1669,10 +1672,10 @@ class _Field extends StatelessWidget {
         labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: AdminCyberColors.textDim),
         prefixIcon: Icon(icon, color: AdminCyberColors.neonCyan),
         filled: true,
-        fillColor: AdminCyberColors.black.withOpacity(0.22),
+        fillColor: AdminCyberColors.black.withValues(alpha: 0.22),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AdminCyberColors.stroke.withOpacity(0.9)),
+          borderSide: BorderSide(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -1717,8 +1720,8 @@ class _ImageUploadCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: AdminCyberColors.black.withOpacity(0.22),
-        border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
+        color: AdminCyberColors.black.withValues(alpha: 0.22),
+        border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
       ),
       child: Row(
         children: [
@@ -1748,7 +1751,7 @@ class _ImageUploadCard extends StatelessWidget {
             ),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              side: BorderSide(color: AdminCyberColors.stroke.withOpacity(0.9)),
+              side: BorderSide(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
               foregroundColor: AdminCyberColors.text,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1774,8 +1777,8 @@ class _StatusPicker extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: AdminCyberColors.black.withOpacity(0.22),
-        border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
+        color: AdminCyberColors.black.withValues(alpha: 0.22),
+        border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
       ),
       child: Row(
         children: [
@@ -1815,8 +1818,8 @@ class _SuggestionToggle extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: AdminCyberColors.black.withOpacity(0.22),
-        border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
+        color: AdminCyberColors.black.withValues(alpha: 0.22),
+        border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
       ),
       child: Row(
         children: [
@@ -1860,8 +1863,8 @@ class _ErrorState extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: AdminCyberColors.stroke.withOpacity(0.9)),
-            color: AdminCyberColors.panel.withOpacity(0.78),
+            border: Border.all(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
+            color: AdminCyberColors.panel.withValues(alpha: 0.78),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1873,7 +1876,7 @@ class _ErrorState extends StatelessWidget {
               const SizedBox(height: 14),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AdminCyberColors.stroke.withOpacity(0.9)),
+                  side: BorderSide(color: AdminCyberColors.stroke.withValues(alpha: 0.9)),
                   foregroundColor: AdminCyberColors.text,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

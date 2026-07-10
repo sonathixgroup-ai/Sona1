@@ -1,32 +1,56 @@
-// lib/presentation/network/widgets/post_card.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:provider/provider.dart';
 
+// ─── COULEURS (inchangées) ───
+class _PostColors {
+  static const Color background = Color(0xFFF6F9FF);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color primary = Color(0xFF2D6CDF);
+  static const Color primaryDeep = Color(0xFF123B7A);
+  static const Color softBlue = Color(0xFFEAF1FF);
+  static const Color gold = Color(0xFFD9A63C);
+  static const Color textDark = Color(0xFF10192E);
+  static const Color textSecondary = Color(0xFF7386A8);
+  static const Color border = Color(0xFFE7EEFC);
+  static const Color red = Color(0xFFE5484D);
+  static const Color green = Color(0xFF059669);
+  static const Color shadow = Color(0x142D6CDF);
+}
+
 class PostCard extends StatefulWidget {
   final NetworkPost post;
-  final VoidCallback onLike;
-  final VoidCallback onComment;
-  final VoidCallback onTap;
-  final VoidCallback onShare;
+  final String currentProfileId;
+  final VoidCallback? onLike;
+  final VoidCallback? onComment;
+  final VoidCallback? onTap;
+  final VoidCallback? onShare;
   final VoidCallback? onRefresh;
   final VoidCallback? onPin;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onSave;
 
   const PostCard({
     super.key,
     required this.post,
-    required this.onLike,
-    required this.onComment,
-    required this.onTap,
-    required this.onShare,
+    required this.currentProfileId,
+    this.onLike,
+    this.onComment,
+    this.onTap,
+    this.onShare,
     this.onRefresh,
     this.onPin,
+    this.onEdit,
+    this.onDelete,
+    this.onSave,
   });
 
   @override
@@ -38,22 +62,52 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   late NetworkPost _post;
   late AnimationController _likeAnimationController;
   bool _isPressed = false;
-  bool _isSaved = false;
-  bool _isReposted = false;
+  bool _isSaving = false;
+  bool _isReposting = false;
+
   final TextEditingController _quoteController = TextEditingController();
+
+  // ─── PARSING RICHE (regex combinée) ───
+  static final RegExp _richContentRegex = RegExp(
+    r'\{c:(#[0-9A-Fa-f]{6,8})\}([\s\S]*?)\{c\}'
+    r'|\*\*([\s\S]+?)\*\*'
+    r'|\*([\s\S]+?)\*'
+    r'|@(\w+)'
+    r'|#(\w+)',
+  );
+
+  // Cache du contenu parsé pour éviter de re‑parser à chaque build
+  List<InlineSpan>? _cachedSpans;
+  String? _lastContent; // pour invalider le cache
 
   @override
   void initState() {
     super.initState();
     _networkService = NetworkService(Supabase.instance.client);
     _post = widget.post;
-    // ⭐ CORRIGÉ - Récupération dynamique de isSavedByCurrentUser
-    final dynamicPost = _post as dynamic;
-    _isSaved = dynamicPost.isSavedByCurrentUser ?? false;
-    _isReposted = false;
     _likeAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
+    );
+    _cacheParsedContent();
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.content != widget.post.content) {
+      _cacheParsedContent();
+    }
+    if (oldWidget.post != widget.post) {
+      _post = widget.post;
+    }
+  }
+
+  void _cacheParsedContent() {
+    _lastContent = widget.post.content;
+    _cachedSpans = _parseContent(
+      widget.post.content,
+      const TextStyle(fontSize: 14, height: 1.45, color: _PostColors.textDark),
     );
   }
 
@@ -64,121 +118,80 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
+  // ─── FORMATAGE DATE ───
   String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-    
-    if (difference.inDays > 7) {
-      return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
-    } else if (difference.inDays >= 1) {
-      return 'il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}';
-    } else if (difference.inHours >= 1) {
-      return 'il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}';
-    } else if (difference.inMinutes >= 1) {
-      return 'il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
-    } else {
-      return 'à l\'instant';
-    }
+    return timeago.format(dateTime, locale: 'fr');
   }
 
-  List<TextSpan> _parseContent(String content) {
-    final RegExp mentionRegex = RegExp(r'@(\w+)');
-    final RegExp hashtagRegex = RegExp(r'#(\w+)');
-    final List<TextSpan> spans = [];
+  // ─── PARSING (inchangé) ───
+  List<InlineSpan> _parseContent(String content, TextStyle baseStyle) {
+    final List<InlineSpan> spans = [];
     int lastIndex = 0;
-    
-    final allMatches = <RegExpMatch>[
-      ...mentionRegex.allMatches(content),
-      ...hashtagRegex.allMatches(content),
-    ]..sort((a, b) => a.start.compareTo(b.start));
-    
-    for (final match in allMatches) {
+
+    for (final match in _richContentRegex.allMatches(content)) {
       if (match.start > lastIndex) {
-        spans.add(TextSpan(text: content.substring(lastIndex, match.start)));
+        spans.add(TextSpan(text: content.substring(lastIndex, match.start), style: baseStyle));
       }
-      
-      final isMention = match.pattern == mentionRegex;
-      final text = match.group(0)!;
-      final value = match.group(1)!;
-      
-      spans.add(TextSpan(
-        text: text,
-        style: TextStyle(
-          color: isMention ? Colors.blue : const Color(0xFFD4AF37),
-          fontWeight: FontWeight.w500,
-        ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            if (isMention) {
-              _navigateToUser(value);
-            } else {
-              _navigateToHashtag(value);
-            }
-          },
-      ));
+
+      if (match.group(1) != null) {
+        final hex = match.group(1)!.replaceFirst('#', '');
+        final inner = match.group(2) ?? '';
+        Color color;
+        try {
+          final argb = hex.length == 8 ? hex : 'FF$hex';
+          color = Color(int.parse(argb, radix: 16));
+        } catch (_) {
+          color = baseStyle.color ?? _PostColors.textDark;
+        }
+        spans.add(TextSpan(children: _parseContent(inner, baseStyle.copyWith(color: color))));
+      } else if (match.group(3) != null) {
+        final inner = match.group(3)!;
+        spans.add(TextSpan(children: _parseContent(inner, baseStyle.copyWith(fontWeight: FontWeight.w800))));
+      } else if (match.group(4) != null) {
+        final inner = match.group(4)!;
+        spans.add(TextSpan(children: _parseContent(inner, baseStyle.copyWith(fontStyle: FontStyle.italic))));
+      } else if (match.group(5) != null) {
+        final value = match.group(5)!;
+        spans.add(
+          TextSpan(
+            text: '@$value',
+            style: baseStyle.merge(const TextStyle(color: _PostColors.primary, fontWeight: FontWeight.w700)),
+            recognizer: TapGestureRecognizer()..onTap = () => _navigateToUser(value),
+          ),
+        );
+      } else if (match.group(6) != null) {
+        final value = match.group(6)!;
+        spans.add(
+          TextSpan(
+            text: '#$value',
+            style: baseStyle.merge(const TextStyle(color: _PostColors.gold, fontWeight: FontWeight.w700)),
+            recognizer: TapGestureRecognizer()..onTap = () => _navigateToHashtag(value),
+          ),
+        );
+      }
       lastIndex = match.end;
     }
-    
+
     if (lastIndex < content.length) {
-      spans.add(TextSpan(text: content.substring(lastIndex)));
+      spans.add(TextSpan(text: content.substring(lastIndex), style: baseStyle));
     }
-    
     return spans;
   }
 
+  // ─── NAVIGATION ───
   void _navigateToUser(String username) {
     try {
-      Navigator.pushNamed(context, '/profile/$username').catchError((error) {
-        print('❌ Erreur navigation profil: $error');
-        _showNavigationError('profil de $username');
-      });
+      Navigator.pushNamed(context, '/profile/$username');
     } catch (e) {
-      print('❌ Exception navigation: $e');
       _showNavigationError('profil de $username');
     }
   }
 
   void _navigateToHashtag(String hashtag) {
     try {
-      Navigator.pushNamed(context, '/hashtag/$hashtag').catchError((error) {
-        print('❌ Erreur navigation hashtag: $error');
-        _showNavigationError('hashtag #$hashtag');
-      });
+      Navigator.pushNamed(context, '/hashtag/$hashtag');
     } catch (e) {
-      print('❌ Exception navigation: $e');
       _showNavigationError('hashtag #$hashtag');
-    }
-  }
-
-  // ✅ CORRECTION: Nouvelle fonction pour Thix Inf
-  void _navigateToThixInf() {
-    try {
-      print('📘 Navigation vers Thix Inf...');
-      Navigator.pushNamed(context, '/thix-inf').then((result) {
-        print('✅ Thix Inf fermé avec résultat: $result');
-      }).catchError((error) {
-        print('❌ Erreur navigation Thix Inf: $error');
-        _showNavigationError('Thix Inf');
-      });
-    } catch (e) {
-      print('❌ Exception Thix Inf: $e');
-      _showNavigationError('Thix Inf');
-    }
-  }
-
-  // ✅ CORRECTION: Nouvelle fonction pour Thix Événement
-  void _navigateToThixEvenement() {
-    try {
-      print('📅 Navigation vers Thix Événement...');
-      Navigator.pushNamed(context, '/thix-evenement').then((result) {
-        print('✅ Thix Événement fermé avec résultat: $result');
-      }).catchError((error) {
-        print('❌ Erreur navigation Thix Événement: $error');
-        _showNavigationError('Thix Événement');
-      });
-    } catch (e) {
-      print('❌ Exception Thix Événement: $e');
-      _showNavigationError('Thix Événement');
     }
   }
 
@@ -187,68 +200,225 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('⚠️ Impossible d\'accéder à $page'),
-          backgroundColor: Colors.red,
+          backgroundColor: _PostColors.red,
           duration: const Duration(seconds: 2),
         ),
       );
     }
   }
 
-  Future<void> _toggleSave() async {
-    setState(() => _isSaved = !_isSaved);
-    
-    if (_isSaved) {
-      await _networkService.savePost(_post.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post sauvegardé'), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
+  // ─── GRILLE D’IMAGES (améliorée avec gestion d’erreur) ───
+  Widget _buildImageGrid(List<String> imageUrls) {
+    if (imageUrls.isEmpty) return const SizedBox.shrink();
+
+    // Si une seule image : affichage plein largeur
+    if (imageUrls.length == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: _buildNetworkImage(imageUrls.first, height: 250, width: double.infinity),
+      );
+    }
+
+    // Grille 2 colonnes (max 4 affichées)
+    final int displayCount = imageUrls.length > 4 ? 4 : imageUrls.length;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: displayCount,
+      itemBuilder: (context, index) {
+        // Si c'est le 4ème élément et qu'il y a plus de 4 images, afficher le compteur
+        if (index == 3 && imageUrls.length > 4) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildNetworkImage(imageUrls[index], fit: BoxFit.cover),
+              Container(
+                color: Colors.black45,
+                child: Center(
+                  child: Text(
+                    '+${imageUrls.length - 4}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: _buildNetworkImage(imageUrls[index], fit: BoxFit.cover),
         );
+      },
+    );
+  }
+
+  // Widget d'image avec gestion de chargement et erreur
+  Widget _buildNetworkImage(String url, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+    return Image.network(
+      url,
+      height: height,
+      width: width,
+      fit: fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height ?? 200,
+          width: width,
+          color: _PostColors.softBlue,
+          child: Center(
+            child: CircularProgressIndicator(
+              color: _PostColors.primary,
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: height ?? 200,
+        width: width,
+        color: _PostColors.softBlue,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image_rounded, size: 44, color: _PostColors.primary.withOpacity(0.4)),
+            const SizedBox(height: 8),
+            const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── ACTIONS (inchangées) ───
+  Future<void> _toggleLike() async {
+    _likeAnimationController.forward(from: 0.0);
+    final newIsLiked = !_post.isLiked;
+    final newCount = _post.likesCount + (newIsLiked ? 1 : -1);
+    setState(() {
+      _post = _post.copyWith(isLiked: newIsLiked, likesCount: newCount);
+    });
+
+    try {
+      if (newIsLiked) {
+        await _networkService.likePost(_post.id);
+      } else {
+        await _networkService.unlikePost(_post.id);
       }
-    } else {
-      await _networkService.unsavePost(_post.id);
+      widget.onRefresh?.call();
+      widget.onLike?.call();
+    } catch (e) {
+      setState(() {
+        _post = _post.copyWith(
+          isLiked: !newIsLiked,
+          likesCount: _post.likesCount + (newIsLiked ? -1 : 1),
+        );
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post retiré des sauvegardes'), backgroundColor: Colors.orange, duration: Duration(seconds: 1)),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
         );
       }
     }
   }
 
+  Future<void> _toggleSave() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
+    final newSaved = !_post.isSaved;
+    setState(() {
+      _post = _post.copyWith(isSaved: newSaved);
+    });
+
+    try {
+      if (newSaved) {
+        await _networkService.savePost(_post.id);
+      } else {
+        await _networkService.unsavePost(_post.id);
+      }
+      widget.onRefresh?.call();
+      widget.onSave?.call();
+    } catch (e) {
+      setState(() {
+        _post = _post.copyWith(isSaved: !newSaved);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Future<void> _repost() async {
+    if (_isReposting) return;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Reposter'),
         content: TextField(
           controller: _quoteController,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Ajouter un commentaire (optionnel)',
-            border: OutlineInputBorder(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
           ),
           maxLines: 3,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _PostColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
             child: const Text('Reposter'),
           ),
         ],
       ),
     );
-    
+
     if (result == true) {
-      await _networkService.repost(_post.id, _quoteController.text);
-      setState(() => _isReposted = true);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post reposté'), backgroundColor: Colors.green),
-        );
-        widget.onRefresh?.call();
+      setState(() => _isReposting = true);
+      try {
+        await _networkService.repost(_post.id, _quoteController.text);
+        setState(() {
+          _post = _post.copyWith(repostsCount: _post.repostsCount + 1, isReposted: true);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post reposté'), backgroundColor: _PostColors.green),
+          );
+          widget.onRefresh?.call();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isReposting = false);
+        _quoteController.clear();
       }
     }
-    _quoteController.clear();
   }
 
   Future<void> _pinPost() async {
@@ -256,14 +426,15 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       await _networkService.pinPost(_post.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post épinglé sur votre profil'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Post épinglé sur votre profil'), backgroundColor: _PostColors.green),
         );
         widget.onRefresh?.call();
+        widget.onPin?.call();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
         );
       }
     }
@@ -273,33 +444,95 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Supprimer la publication'),
-        content: const Text('Voulez-vous vraiment supprimer cette publication ? Cette action est irréversible.'),
+        content: const Text(
+          'Voulez-vous vraiment supprimer cette publication ? Cette action est irréversible.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: _PostColors.red),
             child: const Text('Supprimer'),
           ),
         ],
       ),
     );
-    
+
     if (confirm == true) {
       try {
         await _networkService.deletePost(_post.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication supprimée'), backgroundColor: Colors.green),
+            const SnackBar(content: Text('Publication supprimée'), backgroundColor: _PostColors.green),
           );
           widget.onRefresh?.call();
-          widget.onLike();
+          widget.onDelete?.call();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _editPost() async {
+    final controller = TextEditingController(text: _post.content);
+    final newContent = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Modifier la publication'),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          decoration: InputDecoration(
+            hintText: 'Modifiez votre publication...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _PostColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+
+    if (newContent != null && newContent != _post.content) {
+      try {
+        await _networkService.updatePost(_post.id, newContent);
+        setState(() {
+          _post = _post.copyWith(content: newContent);
+          _cacheParsedContent(); // rafraîchir le cache
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Publication modifiée'), backgroundColor: _PostColors.green),
+          );
+          widget.onRefresh?.call();
+          widget.onEdit?.call();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
           );
         }
       }
@@ -318,7 +551,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
         );
       }
     }
@@ -328,6 +561,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     final reason = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Signaler la publication'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -338,7 +572,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
               onTap: () => Navigator.pop(context, 'Spam'),
             ),
             ListTile(
-              leading: const Icon(Icons.block, color: Colors.red),
+              leading: const Icon(Icons.block, color: _PostColors.red),
               title: const Text('Contenu inapproprié'),
               onTap: () => Navigator.pop(context, 'Contenu inapproprié'),
             ),
@@ -348,7 +582,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
               onTap: () => Navigator.pop(context, 'Harcèlement'),
             ),
             ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.blue),
+              leading: const Icon(Icons.info_outline, color: _PostColors.primary),
               title: const Text('Fausse information'),
               onTap: () => Navigator.pop(context, 'Fausse information'),
             ),
@@ -356,7 +590,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         ),
       ),
     );
-    
+
     if (reason != null) {
       try {
         await _networkService.reportPost(_post.id, reason);
@@ -368,138 +602,119 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red),
           );
         }
       }
     }
   }
 
-  Future<void> _editPost() async {
-    final controller = TextEditingController(text: _post.content);
-    final newContent = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Modifier la publication'),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'Modifiez votre publication...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
-    );
-    
-    if (newContent != null && newContent != _post.content) {
-      try {
-        await _networkService.updatePost(_post.id, newContent);
-        setState(() {
-          _post = _post.copyWith(content: newContent);
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication modifiée'), backgroundColor: Colors.green),
-          );
-          widget.onRefresh?.call();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-          );
-        }
-      }
+  // ─── FORMATAGE NOMBRES ───
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
     }
+    return count.toString();
   }
 
+  // ─── BUILD ───
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthController>(context);
     final isOwner = auth.currentUser?.id == _post.userId;
-    final hasUserTitle = _post.authorTitle != null && _post.authorTitle!.isNotEmpty;
-    final dynamicPost = _post as dynamic;
-    
-    // ⭐ CORRIGÉ - Récupération dynamique des propriétés manquantes
-    final mediaUrl = dynamicPost.mediaUrl;
-    final hasImage = mediaUrl != null && mediaUrl.toString().isNotEmpty;
-    final hasContent = _post.content != null && _post.content!.isNotEmpty;
-    final isLiked = dynamicPost.isLikedByCurrentUser ?? false;
-    
+
+    final hasImage = _post.imageUrls.isNotEmpty;
+    final hasContent = _post.content.isNotEmpty;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       transform: Matrix4.identity()..scale(_isPressed ? 0.98 : 1.0),
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        elevation: _isPressed ? 0 : 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: _PostColors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _PostColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: _PostColors.shadow,
+              blurRadius: _isPressed ? 6 : 16,
+              offset: Offset(0, _isPressed ? 2 : 8),
+            ),
+          ],
+        ),
         child: InkWell(
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
-          onTap: () {
-            print('🔍 Clic sur le post ID: ${_post.id}');
-            widget.onTap();
-          },
-          borderRadius: BorderRadius.circular(20),
+          onTap: widget.onTap ?? () {},
+          borderRadius: BorderRadius.circular(22),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
+                // ─── HEADER ───
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
-                          ? NetworkImage(_post.authorAvatar!)
-                          : null,
-                      child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
-                          ? const Icon(Icons.person, size: 20)
-                          : null,
+                    Semantics(
+                      label: 'Avatar de ${_post.authorName}',
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary]),
+                        ),
+                        child: CircleAvatar(
+                          radius: 19,
+                          backgroundColor: _PostColors.softBlue,
+                          backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
+                              ? NetworkImage(_post.authorAvatar!)
+                              : null,
+                          child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
+                              ? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep)
+                              : null,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                _post.authorName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                          Text(
+                            _post.authorName,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          if (hasUserTitle)
+                          if (_post.authorTitle != null && _post.authorTitle!.isNotEmpty)
                             Text(
                               _post.authorTitle!,
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                          Row(
+                            children: [
+                              Text(
+                                _getTimeAgo(_post.createdAt),
+                                style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    Text(
-                      _getTimeAgo(_post.createdAt),
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                    const SizedBox(width: 8),
+                    // Menu (plus)
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, size: 18),
+                      icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.textSecondary),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       onSelected: (value) {
                         switch (value) {
                           case 'edit':
@@ -518,7 +733,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             _reportPost();
                             break;
                           case 'share':
-                            widget.onShare();
+                            widget.onShare?.call();
                             break;
                           case 'save':
                             _toggleSave();
@@ -526,11 +741,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           case 'repost':
                             _repost();
                             break;
-                          case 'thix-inf':
-                            _navigateToThixInf();
-                            break;
-                          case 'thix-evenement':
-                            _navigateToThixEvenement();
+                          default:
                             break;
                         }
                       },
@@ -540,7 +751,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit, size: 18),
+                                Icon(Icons.edit_rounded, size: 18, color: _PostColors.primary),
                                 SizedBox(width: 8),
                                 Text('Modifier'),
                               ],
@@ -550,7 +761,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             value: 'pin',
                             child: Row(
                               children: [
-                                Icon(Icons.push_pin, size: 18, color: Color(0xFFD4AF37)),
+                                Icon(Icons.push_pin_rounded, size: 18, color: _PostColors.gold),
                                 SizedBox(width: 8),
                                 Text('Épingler sur le profil'),
                               ],
@@ -560,9 +771,9 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                Icon(Icons.delete_rounded, size: 18, color: _PostColors.red),
                                 SizedBox(width: 8),
-                                Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                Text('Supprimer', style: TextStyle(color: _PostColors.red)),
                               ],
                             ),
                           ),
@@ -571,7 +782,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           value: 'save',
                           child: Row(
                             children: [
-                              Icon(Icons.bookmark_border, size: 18),
+                              Icon(Icons.bookmark_border_rounded, size: 18, color: _PostColors.primaryDeep),
                               SizedBox(width: 8),
                               Text('Sauvegarder'),
                             ],
@@ -581,30 +792,9 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           value: 'repost',
                           child: Row(
                             children: [
-                              Icon(Icons.repeat, size: 18),
+                              Icon(Icons.repeat_rounded, size: 18, color: _PostColors.primaryDeep),
                               SizedBox(width: 8),
                               Text('Reposter'),
-                            ],
-                          ),
-                        ),
-                        // ✅ CORRECTION: Ajout des boutons Thix Inf et Thix Événement
-                        const PopupMenuItem<String>(
-                          value: 'thix-inf',
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, size: 18, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text('📘 Thix Inf'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'thix-evenement',
-                          child: Row(
-                            children: [
-                              Icon(Icons.event, size: 18, color: Colors.purple),
-                              SizedBox(width: 8),
-                              Text('📅 Thix Événement'),
                             ],
                           ),
                         ),
@@ -612,7 +802,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           value: 'hide',
                           child: Row(
                             children: [
-                              Icon(Icons.visibility_off, size: 18),
+                              Icon(Icons.visibility_off_rounded, size: 18, color: _PostColors.textSecondary),
                               SizedBox(width: 8),
                               Text('Masquer'),
                             ],
@@ -622,7 +812,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           value: 'report',
                           child: Row(
                             children: [
-                              Icon(Icons.flag, size: 18),
+                              Icon(Icons.flag_rounded, size: 18, color: Colors.orange),
                               SizedBox(width: 8),
                               Text('Signaler'),
                             ],
@@ -632,7 +822,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                           value: 'share',
                           child: Row(
                             children: [
-                              Icon(Icons.share, size: 18),
+                              Icon(Icons.share_rounded, size: 18, color: _PostColors.primaryDeep),
                               SizedBox(width: 8),
                               Text('Partager'),
                             ],
@@ -644,127 +834,120 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                 ),
                 const SizedBox(height: 12),
 
-                // Contenu avec mentions et hashtags
+                // ─── CONTENU (avec cache) ───
                 if (hasContent)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: RichText(
                       text: TextSpan(
-                        style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
-                        children: _parseContent(_post.content!),
-                      ),
-                    ),
-                  ),
-                
-                // Image (CORRIGÉ)
-                if (hasImage)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      mediaUrl.toString(),
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 200,
-                          color: Colors.grey.shade200,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 200,
-                        color: Colors.grey.shade200,
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text('Image non disponible', style: TextStyle(color: Colors.grey)),
-                          ],
+                        children: _cachedSpans ?? _parseContent(
+                          _post.content,
+                          const TextStyle(fontSize: 14, height: 1.45, color: _PostColors.textDark),
                         ),
                       ),
                     ),
                   ),
-                
-                if (hasImage) const SizedBox(height: 12),
 
-                // Actions (CORRIGÉ)
+                // ─── GRILLE D’IMAGES (NOUVEAU) ───
+                if (hasImage) ...[
+                  _buildImageGrid(_post.imageUrls),
+                  const SizedBox(height: 12),
+                ],
+
+                // ─── ACTIONS ───
                 Row(
                   children: [
                     // Like
-                    InkWell(
-                      onTap: () {
-                        _likeAnimationController.forward(from: 0.0);
-                        widget.onLike();
-                        setState(() {
-                          if (isLiked) {
-                            _post = _post.copyWith(
-                              likesCount: _post.likesCount - 1,
-                            );
-                          } else {
-                            _post = _post.copyWith(
-                              likesCount: _post.likesCount + 1,
-                            );
-                          }
-                        });
-                      },
-                      child: Row(
-                        children: [
-                          ScaleTransition(
-                            scale: _likeAnimationController,
-                            child: Icon(
-                              isLiked ? Icons.favorite : Icons.favorite_border,
-                              color: isLiked ? Colors.red : Colors.grey,
-                              size: 20,
-                            ),
+                    Semantics(
+                      label: _post.isLiked ? 'Retirer le like' : 'Aimer',
+                      child: InkWell(
+                        onTap: _toggleLike,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              ScaleTransition(
+                                scale: _likeAnimationController,
+                                child: Icon(
+                                  _post.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  color: _post.isLiked ? _PostColors.red : _PostColors.textSecondary,
+                                  size: 19,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                _formatCount(_post.likesCount),
+                                style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(_formatCount(_post.likesCount), style: const TextStyle(fontSize: 12)),
-                        ],
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    
+                    const SizedBox(width: 18),
+
                     // Comment
-                    InkWell(
-                      onTap: widget.onComment,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(_formatCount(_post.commentsCount), style: const TextStyle(fontSize: 12)),
-                        ],
+                    Semantics(
+                      label: 'Commenter',
+                      child: InkWell(
+                        onTap: widget.onComment ?? () {},
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary),
+                              const SizedBox(width: 5),
+                              Text(
+                                _formatCount(_post.commentsCount),
+                                style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    
+                    const SizedBox(width: 18),
+
                     // Share
-                    InkWell(
-                      onTap: widget.onShare,
-                      child: const Row(
-                        children: [
-                          Icon(Icons.share, size: 20, color: Colors.grey),
-                          SizedBox(width: 4),
-                          Text('Partager', style: TextStyle(fontSize: 12)),
-                        ],
+                    Semantics(
+                      label: 'Partager',
+                      child: InkWell(
+                        onTap: widget.onShare ?? () {},
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary),
+                              SizedBox(width: 5),
+                              Text('Partager', style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const Spacer(),
-                    
+
                     // Save
-                    InkWell(
-                      onTap: _toggleSave,
-                      child: Icon(
-                        _isSaved ? Icons.bookmark : Icons.bookmark_border,
-                        size: 20,
-                        color: _isSaved ? const Color(0xFFD4AF37) : Colors.grey,
+                    Semantics(
+                      label: _post.isSaved ? 'Retirer des favoris' : 'Sauvegarder',
+                      child: InkWell(
+                        onTap: _toggleSave,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _post.isSaved ? _PostColors.softBlue : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            _post.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            size: 19,
+                            color: _post.isSaved ? _PostColors.gold : _PostColors.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -775,14 +958,5 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
         ),
       ),
     );
-  }
-
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}k';
-    }
-    return count.toString();
   }
 }

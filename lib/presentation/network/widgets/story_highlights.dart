@@ -76,7 +76,7 @@ class StoryHighlights extends StatelessWidget {
               ),
               child: const CircleAvatar(
                 radius: 22,
-                backgroundColor: ThixHomeColors.white,
+                backgroundColor: Colors.white,
                 child: Icon(Icons.add, size: 22, color: ThixHomeColors.primaryBlue),
               ),
             ),
@@ -110,7 +110,7 @@ class StoryHighlights extends StatelessWidget {
                         ? NetworkImage(highlight.coverImage!)
                         : null,
                     child: highlight.coverImage == null
-                        ? const Icon(Icons.star, size: 22, color: ThixHomeColors.white)
+                        ? const Icon(Icons.star, size: 22, color: Colors.white)
                         : null,
                   ),
                 ),

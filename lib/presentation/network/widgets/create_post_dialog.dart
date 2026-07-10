@@ -1,50 +1,88 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
 
+// ─── COULEURS THIX PRO — identiques à NetworkProHome pour cohérence ───
+class _DialogColors {
+  static const Color background = Color(0xFFF6F9FF);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color primary = Color(0xFF2D6CDF);
+  static const Color primaryDeep = Color(0xFF123B7A);
+  static const Color softBlue = Color(0xFFEAF1FF);
+  static const Color gold = Color(0xFFD9A63C);
+  static const Color textDark = Color(0xFF10192E);
+  static const Color textSecondary = Color(0xFF7386A8);
+  static const Color border = Color(0xFFE7EEFC);
+  static const Color shadow = Color(0x142D6CDF);
+}
+
 class CreatePostDialog extends StatefulWidget {
   final String? communityId;
   final VoidCallback? onPostCreated;
-  
+
   const CreatePostDialog({super.key, this.communityId, this.onPostCreated});
 
   @override
   State<CreatePostDialog> createState() => _CreatePostDialogState();
 }
 
-class _CreatePostDialogState extends State<CreatePostDialog> {
+class _CreatePostDialogState extends State<CreatePostDialog>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _contentController = TextEditingController();
+  final FocusNode _contentFocusNode = FocusNode();
   final List<PlatformFile> _selectedImages = [];
   final List<PlatformFile> _selectedVideos = [];
-  final List<String> _uploadingFiles = [];
   bool _isUploading = false;
   String? _errorMessage;
   int _selectedPostType = 0;
   bool _showPreview = false;
   String _selectedStatus = 'public';
-  
+
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
   String _currentMentionQuery = '';
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  // ✅ Petite palette de couleurs pour le texte (insertion via marqueurs {c:#HEX}...{c})
+  final List<Color> _textColors = const [
+    _DialogColors.textDark,
+    _DialogColors.primary,
+    _DialogColors.gold,
+    Color(0xFFE5484D),
+    Color(0xFF059669),
+  ];
 
   @override
   void initState() {
     super.initState();
     _contentController.addListener(_onContentChanged);
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _contentController.dispose();
+    _contentFocusNode.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   void _onContentChanged() {
     final text = _contentController.text;
     final lastAtIndex = text.lastIndexOf('@');
-    
+
     if (lastAtIndex != -1 && lastAtIndex == text.length - 1) {
       setState(() {
         _showMentions = true;
@@ -90,6 +128,44 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     setState(() => _showMentions = false);
   }
 
+  // ✅ Insère un marqueur de formatage autour de la sélection actuelle
+  // (ou aux positions du curseur si rien n'est sélectionné)
+  void _wrapSelection(String prefix, String suffix) {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+
+    if (!selection.isValid) {
+      final cursor = text.length;
+      final newText = '$text$prefix$suffix';
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: cursor + prefix.length),
+      );
+      _contentFocusNode.requestFocus();
+      return;
+    }
+
+    final start = selection.start;
+    final end = selection.end;
+    final selectedText = text.substring(start, end);
+    final newText = text.replaceRange(start, end, '$prefix$selectedText$suffix');
+
+    _contentController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: start + prefix.length + selectedText.length + suffix.length,
+      ),
+    );
+    _contentFocusNode.requestFocus();
+  }
+
+  void _applyBold() => _wrapSelection('**', '**');
+  void _applyItalic() => _wrapSelection('*', '*');
+  void _applyColor(Color color) {
+    final hex = '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+    _wrapSelection('{c:$hex}', '{c}');
+  }
+
   Future<void> _pickImages() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -97,7 +173,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         allowMultiple: true,
         withData: true,
       );
-      
+
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
           _selectedImages.addAll(result.files.where((f) => f.bytes != null));
@@ -112,6 +188,28 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     }
   }
 
+  Future<void> _pickVideos() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: true,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty && mounted) {
+        setState(() {
+          _selectedVideos.addAll(result.files.where((f) => f.bytes != null));
+          _selectedPostType = 2;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking videos: $e');
+      if (mounted) {
+        setState(() => _errorMessage = 'Erreur lors de la sélection des vidéos');
+      }
+    }
+  }
+
   Future<void> _pickCamera() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -119,7 +217,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         allowMultiple: false,
         withData: true,
       );
-      
+
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
           final f = result.files.first;
@@ -131,13 +229,21 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     }
   }
 
-  void _removeImage(int index) {
-    setState(() => _selectedImages.removeAt(index));
+  void _removeMedia(int index, bool isVideo) {
+    setState(() {
+      if (isVideo) {
+        _selectedVideos.removeAt(index);
+      } else {
+        _selectedImages.removeAt(index);
+      }
+    });
   }
 
   Future<void> _publishPost() async {
-    if (_contentController.text.trim().isEmpty && _selectedImages.isEmpty) {
-      setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des images');
+    if (_contentController.text.trim().isEmpty &&
+        _selectedImages.isEmpty &&
+        _selectedVideos.isEmpty) {
+      setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
       return;
     }
 
@@ -147,56 +253,58 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
       final networkService = Provider.of<NetworkService>(context, listen: false);
       final feedProvider = Provider.of<FeedProvider>(context, listen: false);
 
-      // Upload images and get URLs
+      // Upload images
       final imageUrls = <String>[];
       for (final image in _selectedImages) {
         final bytes = image.bytes;
         if (bytes == null) continue;
-        final ext = (image.extension?.trim().isNotEmpty == true) ? image.extension!.toLowerCase() : 'jpg';
-        final url = await networkService.uploadImageBytes(bytes, extension: ext);
-        if (url != null && url.isNotEmpty) {
-          imageUrls.add(url);
-        }
+        final ext = (image.extension?.trim().isNotEmpty == true)
+            ? image.extension!.toLowerCase()
+            : 'jpg';
+        final url = await networkService.uploadImageBytes(bytes, fileExtension: ext);
+        if (url != null && url.isNotEmpty) imageUrls.add(url);
       }
 
-      // Create post
+      // Upload videos
+      final videoUrls = <String>[];
+      for (final video in _selectedVideos) {
+        final bytes = video.bytes;
+        if (bytes == null) continue;
+        final ext = (video.extension?.trim().isNotEmpty == true)
+            ? video.extension!.toLowerCase()
+            : 'mp4';
+        final url = await networkService.uploadImageBytes(bytes, fileExtension: ext);
+        if (url != null && url.isNotEmpty) videoUrls.add(url);
+      }
+
+      // Combine all media
+      final allMedia = [...imageUrls, ...videoUrls];
+
       final postId = await networkService.createPost(
         _contentController.text.trim(),
-        imageUrls,
+        allMedia,
       );
 
       if (postId.isNotEmpty) {
-        debugPrint('✅ Post published successfully: $postId');
-        
-        // ✅ Petit délai pour laisser Supabase propager l'enregistrement
         await Future.delayed(const Duration(milliseconds: 500));
-        
-        // ✅ Forcer le rechargement du feed
         try {
           await feedProvider.loadFeed(force: true);
-          debugPrint('✅ Feed rechargé avec succès');
         } catch (e) {
-          debugPrint('❌ Erreur lors du rechargement du feed: $e');
-          // Ne pas bloquer la navigation si le rechargement échoue
+          debugPrint('Feed reload error: $e');
         }
-        
-        // Call callback if provided
         widget.onPostCreated?.call();
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Publication réussie!'),
               duration: Duration(seconds: 2),
-              backgroundColor: Colors.green,
+              backgroundColor: _DialogColors.primary,
             ),
           );
           Navigator.pop(context, true);
         }
       } else {
-        if (mounted) {
-          setState(() => _errorMessage = 'Erreur lors de la publication');
-        }
+        if (mounted) setState(() => _errorMessage = 'Erreur lors de la publication');
       }
     } catch (e) {
       debugPrint('Error publishing post: $e');
@@ -204,387 +312,365 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         setState(() => _errorMessage = 'Erreur: ${e.toString()}');
       }
     } finally {
-        if (mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
+  // ========== BUILD COMPLET ==========
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: _DialogColors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.94,
+          constraints: const BoxConstraints(maxHeight: 720),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Header ──
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Créer une publication',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [_DialogColors.primaryDeep, _DialogColors.primary],
+                    ).createShader(bounds),
+                    child: const Text(
+                      'Créer une publication',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context, false),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(color: _DialogColors.softBlue, shape: BoxShape.circle),
+                      child: const Icon(Icons.close_rounded, size: 18, color: _DialogColors.textDark),
+                    ),
                   ),
                 ],
               ),
-            ),
-            // Content
-            Flexible(
-              child: _showPreview ? _buildPreview() : _buildEditor(),
-            ),
-            // Footer
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                children: [
-                  if (!_showPreview)
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploading ? null : () => setState(() => _showPreview = true),
-                        icon: const Icon(Icons.preview),
-                        label: const Text('Aperçu'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+              const SizedBox(height: 14),
+
+              if (_errorMessage != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEAEA),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFE5484D)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: Color(0xFFE5484D))),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ── Corps scrollable ──
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Barre de formatage : Gras / Italique / Couleur ──
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _DialogColors.softBlue,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploading ? null : () => setState(() => _showPreview = false),
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Modifier'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isUploading ? null : _publishPost,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD4AF37),
-                      ),
-                      child: _isUploading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(Colors.white),
-                              ),
-                            )
-                          : const Text(
-                              'Publier',
-                              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                        child: Row(
+                          children: [
+                            _formatButton(
+                              child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                              onTap: _applyBold,
+                              tooltip: 'Gras',
                             ),
-                    ),
+                            const SizedBox(width: 6),
+                            _formatButton(
+                              child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800, fontSize: 14)),
+                              onTap: _applyItalic,
+                              tooltip: 'Italique',
+                            ),
+                            Container(width: 1, height: 20, color: _DialogColors.border, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                            ..._textColors.map((color) => Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: GestureDetector(
+                                    onTap: () => _applyColor(color),
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2),
+                                        boxShadow: [BoxShadow(color: color.withOpacity(0.35), blurRadius: 5, offset: const Offset(0, 2))],
+                                      ),
+                                    ),
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // ── Champ de texte — GRANDE zone d'écriture ──
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _DialogColors.background,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _DialogColors.border),
+                        ),
+                        padding: const EdgeInsets.all(14),
+                        child: TextField(
+                          controller: _contentController,
+                          focusNode: _contentFocusNode,
+                          minLines: 8,
+                          maxLines: 14,
+                          style: const TextStyle(fontSize: 15, color: _DialogColors.textDark, height: 1.4),
+                          decoration: const InputDecoration(
+                            hintText: 'Quoi de neuf dans votre monde pro ?\n\nUtilisez la barre ci-dessus pour mettre en gras, italique ou en couleur.',
+                            hintStyle: TextStyle(color: _DialogColors.textSecondary, fontSize: 13.5, height: 1.4),
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── Mentions ──
+                      if (_showMentions && _mentionSuggestions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _DialogColors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _DialogColors.border),
+                            boxShadow: [BoxShadow(color: _DialogColors.shadow, blurRadius: 10, offset: const Offset(0, 4))],
+                          ),
+                          child: Column(
+                            children: _mentionSuggestions.map((user) {
+                              return ListTile(
+                                dense: true,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                leading: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: _DialogColors.softBlue,
+                                  backgroundImage: user['avatar'] != null ? NetworkImage(user['avatar']) : null,
+                                  child: user['avatar'] == null
+                                      ? Text(user['display_name'][0].toUpperCase(), style: const TextStyle(fontSize: 11, color: _DialogColors.primaryDeep))
+                                      : null,
+                                ),
+                                title: Text(user['display_name'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                onTap: () => _insertMention(user),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+
+                      // ── Images sélectionnées ──
+                      if (_selectedImages.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _selectedImages.map((img) {
+                            return Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.memory(
+                                    img.bytes!,
+                                    width: 84,
+                                    height: 84,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () => _removeMedia(_selectedImages.indexOf(img), false),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close_rounded, size: 13, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+
+                      // ── Vidéos sélectionnées ──
+                      if (_selectedVideos.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selectedVideos.map((vid) {
+                              return Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Image.memory(
+                                      vid.bytes!,
+                                      width: 84,
+                                      height: 84,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removeMedia(_selectedVideos.indexOf(vid), true),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close_rounded, size: 13, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned.fill(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black45,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                    ],
                   ),
+                ),
+              ),
+
+              // ── Footer ──
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _mediaIconButton(Icons.photo_rounded, _pickImages, const Color(0xFF059669)),
+                  _mediaIconButton(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)),
+                  _mediaIconButton(Icons.photo_camera_rounded, _pickCamera, _DialogColors.primary),
+                  const Spacer(),
+                  if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(color: _DialogColors.softBlue, borderRadius: BorderRadius.circular(20)),
+                      child: Text(
+                        '${_selectedImages.length + _selectedVideos.length} média(s)',
+                        style: const TextStyle(fontSize: 11, color: _DialogColors.primaryDeep, fontWeight: FontWeight.w700),
+                      ),
+                    ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // ── Bouton Publier ──
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [_DialogColors.gold, Color(0xFFEFC777)]),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [BoxShadow(color: _DialogColors.gold.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 6))],
+                ),
+                child: ElevatedButton(
+                  onPressed: _isUploading ? null : _publishPost,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: _DialogColors.primaryDeep,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: _isUploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _DialogColors.primaryDeep),
+                        )
+                      : const Text('PUBLIER', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.4)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEditor() {
-    return ListView(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Status selector
-              const Text('Visibilité:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildStatusChip('public', '🌐 Public'),
-                    const SizedBox(width: 8),
-                    _buildStatusChip('private', '🔒 Privé'),
-                    const SizedBox(width: 8),
-                    _buildStatusChip('connections', '👥 Connexions'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Post type
-              const Text('Type de publication:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: SegmentedButton<int>(
-                      segments: const [
-                        ButtonSegment(label: Text('Texte'), value: 0),
-                        ButtonSegment(label: Text('Photo'), value: 1),
-                      ],
-                      selected: <int>{_selectedPostType},
-                      onSelectionChanged: (Set<int> newSelection) {
-                        setState(() => _selectedPostType = newSelection.first);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Text input
-              TextField(
-                controller: _contentController,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  hintText: 'Quoi de neuf?',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-              ),
-            ],
+  Widget _formatButton({required Widget child, required VoidCallback onTap, required String tooltip}) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _DialogColors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: _DialogColors.shadow, blurRadius: 4, offset: const Offset(0, 2))],
           ),
+          child: child,
         ),
-        // Image selector
-        if (_selectedPostType == 1)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Photos:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploading ? null : _pickImages,
-                        icon: const Icon(Icons.image),
-                        label: const Text('Galerie'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploading ? null : _pickCamera,
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Caméra'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        // Selected images preview
-        if (_selectedImages.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Images sélectionnées:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: _selectedImages.length,
-                  itemBuilder: (context, index) => Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _selectedImages[index].bytes != null
-                            ? Image.memory(_selectedImages[index].bytes!, fit: BoxFit.cover)
-                            : Container(color: Colors.grey[200], child: const Icon(Icons.image)),
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: GestureDetector(
-                          onTap: () => _removeImage(index),
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        // Error message
-        if (_errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _errorMessage!,
-                style: TextStyle(color: Colors.red[700]),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
-  Widget _buildPreview() {
-    return ListView(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _getStatusLabel(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Content preview
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Aperçu de votre publication',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _contentController.text.trim().isNotEmpty
-                            ? _contentController.text
-                            : '(Pas de texte)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: _contentController.text.trim().isNotEmpty
-                              ? Colors.black
-                              : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (_selectedImages.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'Images:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _selectedImages.length,
-                  itemBuilder: (context, index) => ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: _selectedImages[index].bytes != null
-                        ? Image.memory(_selectedImages[index].bytes!, fit: BoxFit.cover)
-                        : Container(color: Colors.grey[200], child: const Icon(Icons.image)),
-                  ),
-                ),
-              ],
-            ],
+  Widget _mediaIconButton(IconData icon, VoidCallback onTap, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _DialogColors.softBlue,
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: Icon(icon, size: 18, color: color),
         ),
-      ],
+      ),
     );
-  }
-
-  Widget _buildStatusChip(String value, String label) {
-    final isSelected = _selectedStatus == value;
-    return FilterChip(
-      selected: isSelected,
-      label: Text(label),
-      onSelected: (_) => setState(() => _selectedStatus = value),
-      backgroundColor: isSelected ? const Color(0xFFD4AF37).withOpacity(0.2) : Colors.grey[200],
-      side: isSelected
-          ? const BorderSide(color: Color(0xFFD4AF37), width: 2)
-          : BorderSide(color: Colors.grey[300]!),
-    );
-  }
-
-  Color _getStatusColor() {
-    switch (_selectedStatus) {
-      case 'public':
-        return Colors.blue;
-      case 'private':
-        return Colors.red;
-      case 'connections':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusLabel() {
-    switch (_selectedStatus) {
-      case 'public':
-        return '🌐 Public';
-      case 'private':
-        return '🔒 Privé';
-      case 'connections':
-        return '👥 Connexions';
-      default:
-        return 'Public';
-    }
   }
 }

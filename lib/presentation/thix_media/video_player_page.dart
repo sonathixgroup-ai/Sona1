@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
 class VideoPlayerPage extends StatefulWidget {
@@ -39,7 +37,6 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       });
       _controller.play();
     } catch (e) {
-      debugPrint('VideoPlayerPage init failed err=$e');
       setState(() {
         _isError = true;
       });
@@ -95,7 +92,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(widget.title),
         actions: [
@@ -150,7 +147,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                     onTap: _togglePlayPause,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: Colors.black.withOpacity(0.4),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.play_arrow, size: 64, color: Colors.white),

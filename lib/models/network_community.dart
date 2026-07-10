@@ -5,7 +5,9 @@ class NetworkCommunity {
   final String id;
   final String name;
   final String? description;
+  final String? logoUrl;          // ✅ AJOUT : URL du logo
   final String? bannerUrl;
+  final String privacy;           // ✅ AJOUT : 'public', 'private', 'connections'
   final int membersCount;
   final int postsCount;
   final String? createdBy;
@@ -17,7 +19,9 @@ class NetworkCommunity {
     required this.id,
     required this.name,
     this.description,
+    this.logoUrl,
     this.bannerUrl,
+    this.privacy = 'public',      // ✅ Valeur par défaut
     required this.membersCount,
     required this.postsCount,
     this.createdBy,
@@ -31,7 +35,9 @@ class NetworkCommunity {
       : id = '',
         name = '',
         description = null,
+        logoUrl = null,
         bannerUrl = null,
+        privacy = 'public',
         membersCount = 0,
         postsCount = 0,
         createdBy = null,
@@ -41,6 +47,7 @@ class NetworkCommunity {
 
   // Getters utilitaires
   bool get isValid => name.isNotEmpty && membersCount >= 0;
+  bool get hasLogo => logoUrl != null && logoUrl!.isNotEmpty;
   bool get hasBanner => bannerUrl != null && bannerUrl!.isNotEmpty;
   bool get hasDescription => description != null && description!.isNotEmpty;
   bool get isAdmin => createdBy != null;
@@ -65,6 +72,7 @@ class NetworkCommunity {
   
   String get initials => name.isNotEmpty ? name[0].toUpperCase() : '?';
   
+  String get logoOrDefault => hasLogo ? logoUrl! : '';
   String get bannerOrDefault => hasBanner ? bannerUrl! : '';
 
   factory NetworkCommunity.fromJson(Map<String, dynamic> json) {
@@ -74,7 +82,9 @@ class NetworkCommunity {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString(),
-      bannerUrl: json['banner_url']?.toString(),
+      logoUrl: json['logo_url']?.toString() ?? json['logoUrl']?.toString(),
+      bannerUrl: json['banner_url']?.toString() ?? json['bannerUrl']?.toString(),
+      privacy: json['privacy']?.toString() ?? 'public',
       membersCount: (json['members_count'] as int?) ?? 0,
       postsCount: (json['posts_count'] as int?) ?? 0,
       createdBy: json['created_by']?.toString(),
@@ -90,7 +100,9 @@ class NetworkCommunity {
     'id': id,
     'name': name,
     'description': description,
+    'logo_url': logoUrl,
     'banner_url': bannerUrl,
+    'privacy': privacy,
     'members_count': membersCount,
     'posts_count': postsCount,
     'created_by': createdBy,
@@ -101,10 +113,13 @@ class NetworkCommunity {
     String? id,
     String? name,
     String? description,
+    String? logoUrl,
     String? bannerUrl,
+    String? privacy,
     int? membersCount,
     int? postsCount,
     String? createdBy,
+    String? creatorName,
     DateTime? createdAt,
     bool? isMember,
   }) {
@@ -112,10 +127,13 @@ class NetworkCommunity {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      logoUrl: logoUrl ?? this.logoUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,
+      privacy: privacy ?? this.privacy,
       membersCount: membersCount ?? this.membersCount,
       postsCount: postsCount ?? this.postsCount,
       createdBy: createdBy ?? this.createdBy,
+      creatorName: creatorName ?? this.creatorName,
       createdAt: createdAt ?? this.createdAt,
       isMember: isMember ?? this.isMember,
     );
@@ -125,7 +143,7 @@ class NetworkCommunity {
   String toString() => 'NetworkCommunity(id: $id, name: $name, members: $membersCount)';
 }
 
-// Extension pour les rôles
+// Extension pour les rôles (inchangée)
 extension CommunityRoleExtension on String? {
   bool get isAdmin => this == 'admin';
   bool get isModerator => this == 'moderator' || isAdmin;

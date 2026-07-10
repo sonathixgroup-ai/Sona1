@@ -12,7 +12,7 @@ class DoctorVoiceDictationPage extends StatelessWidget {
         title: const Text('Dictée vocale'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.popOrGo('/sante/doctor/dashboard'),
+          onPressed: () => context.go('/sante/doctor/dashboard'),
         ),
       ),
       body: const Center(

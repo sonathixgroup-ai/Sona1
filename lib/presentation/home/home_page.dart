@@ -13,17 +13,16 @@ import 'package:thix_id/presentation/common/full_screen_message.dart';
 import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
 import 'package:thix_id/presentation/emergency/emergency_overlay.dart';
-import 'package:thix_id/services/profile_service.dart';           // ← remplace firestore_user_service
+import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/thix_id_service.dart';
 
 // ============================================================================
-// CONSTANTES DE DESIGN – STYLE MIXX AMÉLIORÉ (NIVEAU FACEBOOK)
+// CONSTANTES DE DESIGN
 // ============================================================================
 
 class AppColors {
-  // Social/pro bright palette (aligned with global theme).
   static const Color primaryBlue = Color(0xFF1877F2);
   static const Color darkNavy = Color(0xFF111827);
   static const Color white = Color(0xFFFFFFFF);
@@ -37,26 +36,23 @@ class AppColors {
   static const Color shadowLight = Color(0x0F000000);
   static const Color shadowSecondary = Color(0x0A000000);
 
-  // Premium card (more luminous)
-  static const Color premiumSoftStart = Color(0xFFEAF2FF); // light blue tint
-  static const Color premiumSoftEnd = Color(0xFFFFFFFF); // pure white
+  static const Color premiumSoftStart = Color(0xFFEAF2FF);
+  static const Color premiumSoftEnd = Color(0xFFFFFFFF);
   static const Color premiumAccent = Color(0xFF0B3B8F);
 
-  // Domain colors (icons)
-  static const Color domainMedia = Color(0xFF7C3AED); // purple
-  static const Color domainMarket = Color(0xFFF97316); // orange
-  static const Color domainLearning = Color(0xFF2563EB); // blue
-  static const Color domainJobs = Color(0xFF16A34A); // green
-  static const Color domainInfo = Color(0xFF0284C7); // sky
-  static const Color domainOpportunity = Color(0xFFF59E0B); // amber
-  static const Color domainEvents = Color(0xFFEF4444); // red
-  static const Color domainNetwork = Color(0xFF4F46E5); // indigo
-  static const Color domainHealth = Color(0xFFE11D48); // rose
-  static const Color domainMoney = Color(0xFF059669); // emerald
-  static const Color domainGov = Color(0xFF334155); // slate
-  static const Color domainReservation = Color(0xFF0D9488); // teal
+  static const Color domainMedia = Color(0xFF7C3AED);
+  static const Color domainMarket = Color(0xFFF97316);
+  static const Color domainLearning = Color(0xFF2563EB);
+  static const Color domainJobs = Color(0xFF16A34A);
+  static const Color domainInfo = Color(0xFF0284C7);
+  static const Color domainOpportunity = Color(0xFFF59E0B);
+  static const Color domainEvents = Color(0xFFEF4444);
+  static const Color domainNetwork = Color(0xFF4F46E5);
+  static const Color domainHealth = Color(0xFFE11D48);
+  static const Color domainMoney = Color(0xFF059669);
+  static const Color domainGov = Color(0xFF334155);
+  static const Color domainReservation = Color(0xFF0D9488);
 
-  // Bottom bar (match capture)
   static const Color bottomNavBlue = Color(0xFF0B3B8F);
   static const Color bottomNavInactive = Color(0x99FFFFFF);
   static const Color bottomNavActive = goldBadge;
@@ -102,7 +98,7 @@ class AppShadows {
 }
 
 // ============================================================================
-// PAGE PRINCIPALE – HOMEPAGE STYLE FACEBOOK (HEADER BLANC, SERVICES PLATS)
+// PAGE PRINCIPALE – HOMEPAGE STYLE FACEBOOK
 // ============================================================================
 
 class HomePagePremium extends StatefulWidget {
@@ -122,7 +118,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
   final _notifications = NotificationService();
   final _counters = NotificationCountersService();
-  final _profileService = ProfileService();  // ← nouveau service
+  final _profileService = ProfileService();
 
   static final RegExp _uidLikeRegex = RegExp(r'^[A-Za-z0-9_-]{20,}$');
 
@@ -130,8 +126,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
   void initState() {
     super.initState();
 
-    // Performance: keep initState extremely light.
-    // We start animations/timers after the first frame so the initial paint is faster.
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -173,14 +167,14 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
 
     final normalized = ThixIdService.normalize(raw);
-    final isThix = normalized.startsWith('THIX-') && ThixIdService.isValid(normalized);
+    final isThix = normalized.startsWith('THIX-');
     final isUid = _uidLikeRegex.hasMatch(raw);
 
     if (!isThix && !isUid) {
       await FullScreenMessage.showError(
         context,
         title: 'Identifiant invalide',
-        message: 'Format THIX ID incorrect.',
+        message: 'Format THIX ID ou identifiant unique incorrect.',
       );
       return;
     }
@@ -188,7 +182,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
     setState(() => _searching = true);
 
     try {
-      // 🔥 Utilisation de ProfileService au lieu de FirestoreUserService
       ThixProfile? profile;
 
       if (isThix) {
@@ -203,17 +196,16 @@ class _HomePagePremiumState extends State<HomePagePremium>
         await FullScreenMessage.showError(
           context,
           title: 'Profil introuvable',
-          message: "Aucun profil trouvé.",
+          message: "Aucune identité THIX active correspondante trouvée.",
         );
         return;
       }
 
       final thix = profile.thixId.trim().toUpperCase();
 
-      if (thix.isNotEmpty && ThixIdService.isValid(thix)) {
+      if (thix.isNotEmpty) {
         context.push('${AppRoutes.publicProfile}?thixId=$thix');
       } else {
-        // Fallback : afficher la fiche via UID
         await ThixIdentitySheets.showVerifySheet(
           context,
           initialUidOrThixId: profile.userId,
@@ -224,7 +216,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
       await FullScreenMessage.showError(
         context,
         title: 'Erreur',
-        message: "Impossible d'effectuer la vérification.",
+        message: "Impossible d'effectuer la vérification de l'identifiant.",
       );
     } finally {
       if (mounted) {
@@ -236,12 +228,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(
-        t == AccountType.enterprise
-            ? AppRoutes.enterpriseDashboard
-            : AppRoutes.userDashboard,
-      );
+      context.go(AppRoutes.userDashboard);
     } else {
       context.push(AppRoutes.login);
     }
@@ -307,7 +294,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
         ? auth.currentUser!.displayName.trim()
         : (auth.currentUser?.email.trim().isNotEmpty ?? false)
             ? auth.currentUser!.email.trim()
-            : 'Nathan';
+            : 'Bonjour';
     final badgeCountsStream = auth.currentUser == null
         ? Stream.value(SectionBadgeCounts.zero)
         : _counters.streamCounts(auth.currentUser!.id);
@@ -333,7 +320,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-              // Barre de recherche
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -347,7 +333,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-              // Bannière passante (THIX Info / Opportunity)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -361,7 +346,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-              // Actions rapides (4 boutons)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -376,7 +360,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-              // Mes services (encadré + spacing réduit)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 sliver: SliverToBoxAdapter(
@@ -420,7 +403,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                               case 'thixMoney':
                                 context.push(AppRoutes.thixMoney);
                                 break;
-                              case 'servicesGov':
+                              case 'monPays':
+                                context.push(AppRoutes.monPays);
                                 break;
                               case 'reservation':
                                 context.push(AppRoutes.reservation);
@@ -438,7 +422,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-              // Carte Premium (repositionnée)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -448,7 +431,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
-              // Section personnalisée
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -536,7 +518,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 // ============================================================================
-// COMPOSANTS (STYLE FACEBOOK)
+// COMPOSANTS
 // ============================================================================
 
 class _HomeSoftBackground extends StatelessWidget {
@@ -609,7 +591,6 @@ class _SoftBlob extends StatelessWidget {
   }
 }
 
-// ---- HEADER (Facebook-style) ----
 class _PremiumHeader extends StatelessWidget {
   final double safeTop;
   final String displayName;
@@ -746,7 +727,6 @@ class _PremiumHeader extends StatelessWidget {
   }
 }
 
-// ---- BARRE DE RECHERCHE ----
 class _SearchBarOverlay extends StatefulWidget {
   final TextEditingController controller;
   final bool isSearching;
@@ -821,7 +801,6 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   }
 }
 
-// ---- CARTE STATUT PREMIUM ----
 class _PremiumStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -888,7 +867,6 @@ class _PremiumStatusCard extends StatelessWidget {
   }
 }
 
-// ---- ACTIONS RAPIDES ----
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onScanTap;
   final VoidCallback onNfcTap;
@@ -938,7 +916,7 @@ class _QuickActionsRow extends StatelessWidget {
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onChatTap,
+              onTap: onChatTap, // ✅ Correction ici
             ),
           ),
         ),
@@ -1061,7 +1039,6 @@ class _PressableScaleState extends State<_PressableScale> {
   }
 }
 
-// ---- GRILLE DE SERVICES (SANS CONTENEURS) ----
 class _ServicesGrid extends StatelessWidget {
   final SectionBadgeCounts counts;
   final Function(String) onServiceTap;
@@ -1084,7 +1061,7 @@ class _ServicesGrid extends StatelessWidget {
       {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
       {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
       {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
-      {'key': 'servicesGov', 'icon': Icons.account_balance_rounded, 'title': 'Services Gov', 'color': AppColors.domainGov},
+      {'key': 'monPays', 'icon': Icons.flag, 'title': 'Mon Pays', 'color': AppColors.domainGov},
       {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
     ];
 
@@ -1384,7 +1361,6 @@ class _HeadlineCard extends StatelessWidget {
   }
 }
 
-// ---- SECTION PERSONNALISÉE (Facebook-style) ----
 class _PersonalisedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1465,7 +1441,10 @@ class _MiniRoundAction extends StatelessWidget {
   }
 }
 
-// ---- BOTTOM NAVIGATION ----
+// ============================================================================
+// BOTTOM NAVIGATION INTERCONNECTÉE (CORRIGÉE)
+// ============================================================================
+
 class _FloatingBottomNav extends StatelessWidget {
   final VoidCallback onScanTap;
 
@@ -1475,19 +1454,18 @@ class _FloatingBottomNav extends StatelessWidget {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
       context.go(AppRoutes.vault);
-      return;
+    } else {
+      context.push(AppRoutes.login);
     }
-    context.push(AppRoutes.login);
   }
 
   void _openProfile(BuildContext context) {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
-      final t = auth.currentUser?.accountType;
-      context.go(t == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard);
-      return;
+      context.go(AppRoutes.userDashboard);
+    } else {
+      context.push(AppRoutes.login);
     }
-    context.push(AppRoutes.login);
   }
 
   @override

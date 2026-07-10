@@ -1,6 +1,6 @@
 import 'dart:convert';
-
-enum AccountType { personal, enterprise }
+import 'account_type.dart';
+export 'account_type.dart'; // pour rendre AccountType disponible via app_user.dart
 
 class AppUser {
   final String id; // Firebase uid (or local id in demo mode)

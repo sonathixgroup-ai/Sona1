@@ -1,11 +1,10 @@
-// lib/presentation/feed/feed_page.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:thix_id/models/network_post.dart';
-import 'package:thix_id/presentation/feed/post_card.dart';
+import 'package:thix_id/presentation/network/widgets/post_card.dart'; // ✅ Import corrigé
 import 'package:thix_id/presentation/network/widgets/create_post_dialog.dart';
 import 'package:thix_id/services/network_service.dart';
 
@@ -68,7 +67,6 @@ class _FeedPageState extends State<FeedPage> {
     try {
       final svc = context.read<NetworkService>();
 
-      /// ✅ Utilisez `start` au lieu de `offset`
       final items = await svc.getFeedPosts(
         limit: _pageSize,
         start: 0,
@@ -108,7 +106,6 @@ class _FeedPageState extends State<FeedPage> {
     try {
       final svc = context.read<NetworkService>();
 
-      /// ✅ Utilisez `start` au lieu de `offset`
       final items = await svc.getFeedPosts(
         limit: _pageSize,
         start: _page * _pageSize,
@@ -161,7 +158,6 @@ class _FeedPageState extends State<FeedPage> {
           'Fil d\'actualité',
         ),
       ),
-
       floatingActionButton:
           FloatingActionButton(
         onPressed: () {
@@ -177,20 +173,14 @@ class _FeedPageState extends State<FeedPage> {
         },
         child: const Icon(Icons.add),
       ),
-
       body: RefreshIndicator(
         onRefresh: _loadInitial,
-
-        child:
-            NotificationListener<
+        child: NotificationListener<
                 ScrollNotification>(
           onNotification: _onScroll,
-
           child: ListView.builder(
             padding: const EdgeInsets.all(12),
-
             itemCount: _posts.length + 1,
-
             itemBuilder: (
               context,
               index,
@@ -217,8 +207,9 @@ class _FeedPageState extends State<FeedPage> {
 
               return PostCard(
                 post: post,
-                currentProfileId:
-                    widget.profileId,
+                currentProfileId: widget.profileId,
+                // Les autres callbacks sont optionnels
+                // On peut les laisser vides ou les implémenter plus tard
               );
             },
           ),

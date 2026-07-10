@@ -23,7 +23,7 @@ class OpportunitiesPage extends StatelessWidget {
               _Header(
                 title: 'Opportunités',
                 subtitle: 'Bourses, subventions, concours',
-                onBack: () => context.popOrGo(AppRoutes.home),
+                onBack: () => context.go(AppRoutes.home),
               ),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),

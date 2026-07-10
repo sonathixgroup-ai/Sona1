@@ -12,7 +12,7 @@ class DoctorOfflinePatientsPage extends StatelessWidget {
         title: const Text('Patients hors-ligne'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.popOrGo('/sante/doctor/dashboard'),
+          onPressed: () => context.go('/sante/doctor/dashboard'),
         ),
       ),
       body: const Center(

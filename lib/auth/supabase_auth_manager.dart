@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
+import 'package:supabase_flutter/supabase_flutter.dart' as sup show AuthException;
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
@@ -10,10 +11,7 @@ import 'package:thix_id/services/push_notification_service.dart';
 import 'package:thix_id/services/supabase_safe_write.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
-/// Supabase-backed auth + profile persistence.
-///
-/// - Auth: Supabase Auth (email/password)
-/// - Profile row: created/updated in Supabase table `public.profiles`
+/// Implémentation Supabase de AuthManager.
 class SupabaseAuthManager implements AuthManager {
   final SupabaseClient _client;
   final ProfileService _profiles;
@@ -161,8 +159,8 @@ class SupabaseAuthManager implements AuthManager {
 
       final base = AppUser(
         id: uid,
-        thixId: 'THIX-PENDING',
-        thixChat: '',
+        thixId: 'THIX-PENDING-$uid', // Rendu unique
+        thixChat: 'user_$uid',       // Rendu unique pour éviter profiles_thix_chat_unique_idx
         thixScore: null,
         email: email,
         phone: user.phone,
@@ -195,7 +193,7 @@ class SupabaseAuthManager implements AuthManager {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-      await _ensureProfileRow(userId: uid, user: base);
+      await _ensureProfileRow(user: base);
       await _profiles.ensureProfileExists(user: base);
       return base;
     }
@@ -231,8 +229,8 @@ class SupabaseAuthManager implements AuthManager {
 
     return AppUser(
       id: uid,
-      thixId: (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? row['thixUid'] ?? 'THIX-PENDING').toString(),
-      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? '').toString(),
+      thixId: (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? row['thixUid'] ?? 'THIX-PENDING-$uid').toString(),
+      thixChat: (row['thix_chat'] ?? row['thixChat'] ?? 'user_$uid').toString(),
       thixScore: (row['thix_score'] as num?)?.toInt() ?? (row['thixScore'] as num?)?.toInt(),
       email: email,
       phone: phone,
@@ -278,10 +276,10 @@ class SupabaseAuthManager implements AuthManager {
     return null;
   }
 
-  Future<void> _ensureProfileRow({required String userId, required AppUser user}) async {
+  Future<void> _ensureProfileRow({required AppUser user}) async {
     final now = DateTime.now().toUtc().toIso8601String();
     final payload = <String, dynamic>{
-      'id': userId,
+      'id': user.id,
       'thix_id': user.thixId,
       'thix_chat': user.thixChat,
       'bio': user.bio,
@@ -323,12 +321,21 @@ class SupabaseAuthManager implements AuthManager {
         },
       );
     } catch (e) {
-      debugPrint('SupabaseAuthManager: profiles upsert failed uid=$userId err=$e');
+      debugPrint('SupabaseAuthManager: profiles upsert failed uid=${user.id} err=$e');
+      rethrow;
     }
   }
 
+  // ==========================================================================
+  // MÉTHODES PUBLIQUES CORRIGÉES
+  // ==========================================================================
+
   @override
-  Future<AppUser> signInWithEmailOrThixId({required String identifier, required String password, required bool rememberMe}) async {
+  Future<AppUser> signInWithEmailOrThixId({
+    required String identifier,
+    required String password,
+    required bool rememberMe,
+  }) async {
     final id = identifier.trim();
     if (id.isEmpty) throw AuthException('Identifiant requis.');
     if (password.isEmpty) throw AuthException('Mot de passe requis.');
@@ -345,9 +352,12 @@ class SupabaseAuthManager implements AuthManager {
       _currentUser.value = hydrated;
       _bindProfileSync(user.id);
       return hydrated;
+    } on sup.AuthException catch (e) {
+      debugPrint('Supabase Auth error during login: ${e.message}');
+      throw AuthException(e.message);
     } catch (e) {
-      debugPrint('SupabaseAuthManager: signIn failed err=$e');
-      throw AuthException('Connexion impossible.');
+      debugPrint('SupabaseAuthManager: signIn crash/DB err=$e');
+      throw AuthException('Erreur technique (Base de données) : ${e.toString()}');
     }
   }
 
@@ -388,8 +398,8 @@ class SupabaseAuthManager implements AuthManager {
       final now = DateTime.now();
       final appUser = AppUser(
         id: user.id,
-        thixId: 'THIX-PENDING',
-        thixChat: '',
+        thixId: 'THIX-PENDING-${user.id}',
+        thixChat: 'user_${user.id}', // Rendu unique à l'inscription pour éviter la duplication
         thixScore: null,
         email: normalizedEmail,
         phone: user.phone,
@@ -428,24 +438,94 @@ class SupabaseAuthManager implements AuthManager {
         updatedAt: now,
       );
 
-      await _ensureProfileRow(userId: user.id, user: appUser);
+      await _ensureProfileRow(user: appUser);
       await _profiles.ensureProfileExists(user: appUser);
 
       _currentUser.value = appUser;
       return appUser;
+    } on sup.AuthException catch (e) {
+      debugPrint('Supabase Auth error during registration: ${e.message}');
+      throw AuthException(e.message);
     } catch (e) {
-      debugPrint('SupabaseAuthManager: register failed err=$e');
-      throw AuthException('Inscription impossible.');
+      debugPrint('SupabaseAuthManager: register crash/DB err=$e');
+      throw AuthException('Erreur lors de la création du compte/profil : ${e.toString()}');
     }
   }
 
   @override
-  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) async {
+  Future<AppUser> registerPersonal({
+    required String email,
+    required String password,
+    required String displayName,
+    required bool rememberMe,
+    Map<String, dynamic>? profileDraft,
+  }) {
+    return registerWithEmail(
+      email: email,
+      password: password,
+      displayName: displayName,
+      accountType: AccountType.personal,
+      rememberMe: rememberMe,
+      profileDraft: profileDraft,
+    );
+  }
+
+  @override
+  Future<void> verifyOTP({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      await _client.auth.verifyOTP(
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+        type: OtpType.email,
+      );
+      await _refreshCurrentUser();
+    } on sup.AuthException catch (e) {
+      throw AuthException(e.message);
+    } catch (e) {
+      debugPrint('SupabaseAuthManager: verifyOTP failed err=$e');
+      throw AuthException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> resendOTP({required String email}) async {
+    try {
+      await _client.auth.resend(
+        type: OtpType.signup,
+        email: email.trim().toLowerCase(),
+      );
+    } on sup.AuthException catch (e) {
+      throw AuthException(e.message);
+    } catch (e) {
+      debugPrint('SupabaseAuthManager: resendOTP failed err=$e');
+      throw AuthException(e.toString());
+    }
+  }
+
+  Future<void> _refreshCurrentUser() async {
+    final session = _client.auth.currentSession;
+    if (session != null) {
+      final hydrated = await _hydrateUser(session.user);
+      _currentUser.value = hydrated;
+      _bindProfileSync(session.user.id);
+    }
+  }
+
+  @override
+  Future<PhoneAuthSession> startPhoneAuth({required String phoneNumber}) {
     throw AuthException('Connexion téléphone indisponible dans cette version.');
   }
 
   @override
-  Future<AppUser> confirmPhoneCode({required PhoneAuthSession session, required String smsCode, String? displayName, AccountType accountType = AccountType.personal}) async {
+  Future<AppUser> confirmPhoneCode({
+    required PhoneAuthSession session,
+    required String smsCode,
+    String? displayName,
+    AccountType accountType = AccountType.personal,
+  }) {
     throw AuthException('Connexion téléphone indisponible dans cette version.');
   }
 
@@ -491,14 +571,22 @@ class SupabaseAuthManager implements AuthManager {
     if (current.id != user.id) throw AuthException('Utilisateur courant différent.');
 
     try {
-      await _ensureProfileRow(userId: user.id, user: user);
+      await _ensureProfileRow(user: user);
       await _profiles.ensureProfileExists(user: user);
     } catch (e) {
       debugPrint('SupabaseAuthManager: updateCurrentUser failed uid=${user.id} err=$e');
+      rethrow;
     }
     _currentUser.value = user;
     _bindProfileSync(user.id);
   }
 
   bool _isValidEmail(String email) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+}
+
+class AuthException implements Exception {
+  final String message;
+  AuthException(this.message);
+  @override
+  String toString() => 'AuthException: $message';
 }
