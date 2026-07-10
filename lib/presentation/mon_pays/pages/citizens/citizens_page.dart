@@ -3,14 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routes/app_routes.dart';
+import '../../../../nav.dart'; // ✅ IMPORT AJOUTÉ
 import '../../cards/citizen_card.dart';
 import '../../providers/citizens_provider.dart';
 import '../../widgets/app_bar.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
-import '../../utils/mon_pays_colors.dart';
-import '../../utils/mon_pays_text_styles.dart';
+import '../../widgets/empty_widget.dart';
+import '../../widgets/error_widget.dart'; // ✅ Pour MonPaysErrorWidget
 
 class CitizensPage extends ConsumerWidget {
   const CitizensPage({Key? key}) : super(key: key);
@@ -26,13 +25,8 @@ class CitizensPage extends ConsumerWidget {
       body: citizensAsync.when(
         data: (citizens) {
           if (citizens.isEmpty) {
-            return Center(
-              child: Text(
-                'Aucun citoyen exemplaire disponible',
-                style: MonPaysTextStyles.bodyLarge.copyWith(
-                  color: MonPaysColors.textSecondary,
-                ),
-              ),
+            return const Center(
+              child: Text('Aucun citoyen exemplaire disponible'),
             );
           }
           return GridView.builder(
@@ -58,12 +52,10 @@ class CitizensPage extends ConsumerWidget {
           );
         },
         loading: () => const Center(
-          child: LoadingWidget(
-            message: 'Chargement des citoyens exemplaires...',
-          ),
+          child: LoadingWidget(message: 'Chargement des citoyens...'),
         ),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: MonPaysErrorWidget(
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(citizensProvider),
           ),
