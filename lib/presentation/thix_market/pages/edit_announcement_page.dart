@@ -44,7 +44,6 @@ class _EditAnnouncementPageState extends State<EditAnnouncementPage> {
         return;
       }
 
-      // Vérifier que l'utilisateur est le propriétaire
       final userId = Supabase.instance.client.auth.currentUser?.id;
       final shopOwnerId = response['shop']?['owner_id'] as String?;
 
@@ -71,9 +70,15 @@ class _EditAnnouncementPageState extends State<EditAnnouncementPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        appBar: AppBar(title: Text('Modifier l\'annonce')),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Modifier l\'annonce'),
+          backgroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
 
@@ -88,7 +93,7 @@ class _EditAnnouncementPageState extends State<EditAnnouncementPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
@@ -170,7 +175,9 @@ class _EditAnnouncementPageState extends State<EditAnnouncementPage> {
         content: const Text(
           'Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action est irréversible.',
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -194,18 +201,18 @@ class _EditAnnouncementPageState extends State<EditAnnouncementPage> {
           .eq('id', widget.announcementId);
 
       if (mounted) {
-        Navigator.pop(context); // Fermer le dialogue
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Annonce supprimée'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, {'deleted': true}); // Retourner à la page précédente
+        Navigator.pop(context, {'deleted': true});
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Fermer le dialogue
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: ${e.toString()}'),
