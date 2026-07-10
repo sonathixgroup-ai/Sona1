@@ -102,7 +102,7 @@ class CheckoutProvider extends ChangeNotifier {
       if (_userInfo['default_address_id'] != null) {
         _selectedAddress = _savedAddresses.firstWhere(
           (a) => a['id'] == _userInfo['default_address_id'],
-          orElse: () => {},
+          orElse: () => <String, dynamic>{},
         );
       }
     } catch (e) {
@@ -192,16 +192,18 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // 1. Création de la commande mère
       final orderData = {
         'user_id': userId,
         'address_id': _selectedAddress!['id'],
         'shipping_method': _selectedShippingMethod!['id'],
-        'shipping_cost': _selectedShippingMethod!['price'],
+        'shipping_cost': _selectedShippingMethod!['price'] ?? 0.0,
         'total': total,
         'status': 'pending',
         'payment_status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       };
+      
       final orderResponse = await _supabase
           .from('orders')
           .insert(orderData)
@@ -209,43 +211,60 @@ class CheckoutProvider extends ChangeNotifier {
           .single();
       _createdOrder = orderResponse;
 
+      // 2. Insertion des articles de la commande (Items)
       for (var item in items) {
+        // Validation des données pour éviter les erreurs SQL (null values)
+        final productTitle = item['product_name'] ?? item['product']?['title'] ?? 'Produit inconnu';
+        
         await _supabase.from('order_items').insert({
           'order_id': _createdOrder!['id'],
-          'product_id': item['product_id'],
+          'product_id': item['product_id'] ?? item['product']?['id'],
           'quantity': item['quantity'],
-          'price': item['price'],
-          'product_name': item['product_name'],
-          'product_image': item['image_url'],
+          'price': item['price'] ?? item['product']?['price'] ?? 0.0,
+          'product_name': productTitle,
+          'product_image': item['image_url'] ?? item['product']?['image_url'],
+          'title_snapshot': productTitle, // Assure que title_snapshot n'est jamais vide
         });
       }
 
+      // 3. Processus de Paiement
       final paymentResult = await _processPayment(total);
 
       if (paymentResult['success'] == true) {
+        
+        // Logique conditionnelle selon le mode de paiement
+        final isCash = _selectedPaymentMethod!['id'] == 'cash';
+        
         await _supabase
             .from('orders')
             .update({
-              'payment_status': 'paid',
+              // Si c'est du cash, le statut de paiement reste en attente de livraison
+              'payment_status': isCash ? 'pending_delivery' : 'paid',
+              // Le statut global de la commande passe en préparation
               'status': 'processing',
-              'paid_at': DateTime.now().toIso8601String(),
+              // On n'enregistre pas de date de paiement pour le cash (ce sera fait par le livreur)
+              'paid_at': isCash ? null : DateTime.now().toIso8601String(),
             })
             .eq('id', _createdOrder!['id']);
 
+        // 4. Nettoyage du panier après succès
         await cartProvider.clearCart();
 
+        // 5. Récupération de la commande à jour pour l'affichage final
         final updatedOrder = await _supabase
             .from('orders')
             .select()
             .eq('id', _createdOrder!['id'])
             .single();
         _createdOrder = updatedOrder;
+        
         return _createdOrder!;
       } else {
         throw Exception(paymentResult['error'] ?? 'Paiement échoué');
       }
     } catch (e) {
       debugPrint('❌ Checkout error: $e');
+      // Rollback : si une erreur survient (paiement refusé, erreur réseau), on supprime la commande créée pour éviter les commandes fantômes.
       if (_createdOrder != null) {
         try {
           await _supabase
@@ -267,20 +286,25 @@ class CheckoutProvider extends ChangeNotifier {
     final method = _selectedPaymentMethod!['id'];
 
     switch (method) {
+      case 'cash':
+        // Pour le paiement à la livraison, l'action est validée immédiatement côté application.
+        // L'encaissement se fera physiquement plus tard.
+        return {'success': true, 'message': 'Paiement à la livraison enregistré.'};
+
       case 'card':
         try {
           final response = await _supabase.functions.invoke(
             'create-payment-intent',
             body: {
               'amount': amount,
-              'currency': 'XOF',
+              'currency': 'CDF', // Ajusté selon la devise locale
               'order_id': _createdOrder!['id'],
             },
           );
           _paymentIntentId = response.data['payment_intent_id'];
           return {'success': true, 'payment_intent_id': _paymentIntentId};
         } catch (e) {
-          return {'success': false, 'error': e.toString()};
+          return {'success': false, 'error': 'Erreur serveur carte: ${e.toString()}'};
         }
 
       case 'mobile_money':
@@ -296,7 +320,7 @@ class CheckoutProvider extends ChangeNotifier {
           _paymentUrl = response.data['payment_url'];
           return {'success': true, 'payment_url': _paymentUrl};
         } catch (e) {
-          return {'success': false, 'error': e.toString()};
+          return {'success': false, 'error': 'Erreur serveur Mobile Money: ${e.toString()}'};
         }
 
       case 'thix_money':
@@ -311,14 +335,15 @@ class CheckoutProvider extends ChangeNotifier {
           if (result == true) {
             return {'success': true};
           } else {
-            return {'success': false, 'error': 'Solde insuffisant'};
+            return {'success': false, 'error': 'Solde THIX Money insuffisant.'};
           }
         } catch (e) {
-          return {'success': false, 'error': e.toString()};
+          return {'success': false, 'error': 'Erreur THIX Money: ${e.toString()}'};
         }
 
       default:
-        return {'success': false, 'error': 'Méthode de paiement inconnue'};
+        // Sécurité : empêche de valider si un mode non reconnu est passé
+        return {'success': false, 'error': 'Méthode de paiement non supportée.'};
     }
   }
 
