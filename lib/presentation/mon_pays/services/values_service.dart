@@ -9,10 +9,13 @@ class ValuesService {
   ValuesService(this._supabase);
 
   Future<List<Value>> getAll() async {
-    final response = await _supabase
-        .from('values_laws')  // ✅ Correction : utilisation de la table existante
-        .select('*');
-    return (response as List).map((e) => Value.fromJson(e)).toList();
+    try {
+      final response = await _supabase.from('values_laws').select('*');
+      if (response == null || response is! List) return [];
+      return (response as List).map((e) => Value.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<Value> getById(String id) async {
@@ -44,9 +47,6 @@ class ValuesService {
   }
 
   Future<void> delete(String id) async {
-    await _supabase
-        .from('values_laws')
-        .delete()
-        .eq('id', id);
+    await _supabase.from('values_laws').delete().eq('id', id);
   }
 }
