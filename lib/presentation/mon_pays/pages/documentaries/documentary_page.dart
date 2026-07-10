@@ -20,7 +20,7 @@ class DocumentaryPage extends ConsumerStatefulWidget {
 }
 
 class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
-  late YoutubePlayerController _youtubeController;
+  YoutubePlayerController? _youtubeController;
   VideoPlayerController? _localController;
   bool _isYoutube = false;
   bool _isLoading = true;
@@ -71,7 +71,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
 
   @override
   void dispose() {
-    _youtubeController.dispose();
+    _youtubeController?.dispose();
     _localController?.dispose();
     super.dispose();
   }
@@ -121,7 +121,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                           if (documentary.url != null && documentary.url!.isNotEmpty) ...[
                             _isYoutube && _youtubeController != null
                                 ? YoutubePlayer(
-                                    controller: _youtubeController,
+                                    controller: _youtubeController!,
                                     showVideoProgressIndicator: true,
                                   )
                                 : _localController != null &&

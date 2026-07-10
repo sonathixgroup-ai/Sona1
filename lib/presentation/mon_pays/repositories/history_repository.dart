@@ -1,16 +1,16 @@
-// lib/presentation/mon_pays/repositories/government_repository.dart
+// lib/presentation/mon_pays/repositories/history_repository.dart
 
-import '../models/government_model.dart';
-import '../services/government_service.dart';
+import '../models/history_model.dart';
+import '../services/history_service.dart';
 
-class GovernmentRepository {
-  final GovernmentService _service;
+class HistoryRepository {
+  final HistoryService _service;
 
-  GovernmentRepository(this._service);
+  HistoryRepository(this._service);
 
-  Future<List<Government>> getAll() => _service.getAll();
-  Future<Government> getById(String id) => _service.getById(id);
-  Future<Government> create(Government gov) => _service.create(gov);
-  Future<Government> update(Government gov) => _service.update(gov);
+  Future<List<HistoricalFigure>> getAll() => _service.getAll();
+  Future<HistoricalFigure> getById(String id) => _service.getById(id);
+  Future<HistoricalFigure> create(HistoricalFigure figure) => _service.create(figure);
+  Future<HistoricalFigure> update(HistoricalFigure figure) => _service.update(figure);
   Future<void> delete(String id) => _service.delete(id);
 }

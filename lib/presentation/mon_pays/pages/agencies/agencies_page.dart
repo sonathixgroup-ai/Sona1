@@ -63,7 +63,7 @@ class AgenciesPage extends ConsumerWidget {
           ),
         ),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: MonPaysErrorWidget(
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(agenciesProvider),
           ),
