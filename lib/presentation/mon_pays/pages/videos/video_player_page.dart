@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/videos_provider.dart';
 import '../../widgets/error_widget.dart';
@@ -13,7 +12,6 @@ import '../../utils/mon_pays_text_styles.dart';
 
 class VideoPlayerPage extends ConsumerStatefulWidget {
   final String id;
-
   const VideoPlayerPage({Key? key, required this.id}) : super(key: key);
 
   @override
@@ -21,9 +19,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
-  YoutubePlayerController? _youtubeController;
-  VideoPlayerController? _localController;
-  bool _isYoutube = false;
+  VideoPlayerController? _controller;
   bool _isLoading = true;
   String? _error;
 
@@ -36,26 +32,10 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
   Future<void> _loadVideo() async {
     try {
       final video = await ref.read(videoProvider(widget.id).future);
-      if (video.url != null && video.url!.contains('youtube.com')) {
-        final youtubeId = YoutubePlayerController.getYoutubeVideoId(video.url!);
-        if (youtubeId != null) {
-          _youtubeController = YoutubePlayerController(
-            initialVideoId: youtubeId,
-            flags: const YoutubePlayerFlags(
-              autoPlay: true,
-              mute: false,
-              isLive: false,
-            ),
-          );
-          _isYoutube = true;
-        } else {
-          _error = 'Lien YouTube invalide';
-        }
-      } else if (video.url != null && video.url!.startsWith('http')) {
-        _localController = VideoPlayerController.networkUrl(Uri.parse(video.url!));
-        await _localController!.initialize();
-        await _localController!.play();
-        _isYoutube = false;
+      if (video.url != null && video.url!.startsWith('http')) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(video.url!));
+        await _controller!.initialize();
+        await _controller!.play();
       } else {
         _error = 'Aucune source vidéo disponible';
       }
@@ -63,17 +43,14 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
       _error = 'Erreur de chargement de la vidéo';
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   void dispose() {
-    _youtubeController?.dispose();
-    _localController?.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -107,91 +84,59 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
                     },
                   ),
                 )
-              : Column(
-                  children: [
-                    // Lecteur vidéo
-                    Expanded(
-                      flex: 3,
-                      child: _isYoutube && _youtubeController != null
-                          ? YoutubePlayer(
-                              controller: _youtubeController!,
-                              showVideoProgressIndicator: true,
-                            )
-                          : _localController != null &&
-                                  _localController!.value.isInitialized
-                              ? VideoPlayer(_localController!)
-                              : const Center(
-                                  child: Text(
-                                    'Aucun lecteur disponible',
-                                    style: TextStyle(
-                                      color: MonPaysColors.textSecondary,
+              : _controller != null && _controller!.value.isInitialized
+                  ? Column(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: VideoPlayer(_controller!),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: FutureBuilder(
+                            future: ref.read(videoProvider(widget.id).future),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) return const SizedBox.shrink();
+                              final video = snapshot.data!;
+                              return Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      video.title,
+                                      style: MonPaysTextStyles.heading6.copyWith(
+                                        color: MonPaysColors.primaryBlue,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ),
-                    ),
-                    // Informations
-                    Expanded(
-                      flex: 1,
-                      child: FutureBuilder(
-                        future: ref.read(videoProvider(widget.id).future),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-                          final video = snapshot.data!;
-                          return Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  video.title,
-                                  style: MonPaysTextStyles.heading6.copyWith(
-                                    color: MonPaysColors.primaryBlue,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                if (video.description != null)
-                                  Text(
-                                    video.description!,
-                                    style: MonPaysTextStyles.bodySmall.copyWith(
-                                      color: MonPaysColors.textSecondary,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                if (video.duration != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.timer,
-                                          size: 14,
-                                          color: MonPaysColors.textSecondary,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Durée: ${video.duration}',
-                                          style: MonPaysTextStyles.caption.copyWith(
-                                            color: MonPaysColors.textSecondary,
+                                    if (video.duration != null) ...[
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.timer, size: 14, color: MonPaysColors.textSecondary),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Durée: ${video.duration}',
+                                            style: MonPaysTextStyles.caption.copyWith(
+                                              color: MonPaysColors.textSecondary,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Center(child: Text('Aucun lecteur disponible')),
     );
   }
 }
