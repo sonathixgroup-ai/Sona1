@@ -1,4 +1,4 @@
-// models/value_model.dart
+// lib/presentation/mon_pays/models/value_model.dart
 
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
@@ -13,12 +13,30 @@ class Value extends Equatable {
   final String? iconCode;
   final String? category;
 
+  // Champs pour la Constitution (articles)
+  final String? content;
+  final List<Article>? articles;
+
+  // Champs pour les Lois
+  final String? summary;
+
+  // Champs pour les Institutions
+  final String? name;
+
+  // Champs pour la Justice
+  final List<Organization>? organizations;
+
   const Value({
     required this.id,
     required this.title,
     this.description,
     this.iconCode,
     this.category,
+    this.content,
+    this.articles,
+    this.summary,
+    this.name,
+    this.organizations,
   });
 
   Value copyWith({
@@ -27,6 +45,11 @@ class Value extends Equatable {
     String? description,
     String? iconCode,
     String? category,
+    String? content,
+    List<Article>? articles,
+    String? summary,
+    String? name,
+    List<Organization>? organizations,
   }) {
     return Value(
       id: id ?? this.id,
@@ -34,6 +57,11 @@ class Value extends Equatable {
       description: description ?? this.description,
       iconCode: iconCode ?? this.iconCode,
       category: category ?? this.category,
+      content: content ?? this.content,
+      articles: articles ?? this.articles,
+      summary: summary ?? this.summary,
+      name: name ?? this.name,
+      organizations: organizations ?? this.organizations,
     );
   }
 
@@ -41,5 +69,56 @@ class Value extends Equatable {
   Map<String, dynamic> toJson() => _$ValueToJson(this);
 
   @override
-  List<Object?> get props => [id, title, description, iconCode, category];
+  List<Object?> get props => [
+        id,
+        title,
+        description,
+        iconCode,
+        category,
+        content,
+        articles,
+        summary,
+        name,
+        organizations,
+      ];
+}
+
+// Modèle Article (pour la Constitution)
+@JsonSerializable()
+class Article extends Equatable {
+  final String number;
+  final String title;
+  final String content;
+
+  const Article({
+    required this.number,
+    required this.title,
+    required this.content,
+  });
+
+  factory Article.fromJson(Map<String, dynamic> json) => _$ArticleFromJson(json);
+  Map<String, dynamic> toJson() => _$ArticleToJson(this);
+
+  @override
+  List<Object?> get props => [number, title, content];
+}
+
+// Modèle Organization (pour la Justice)
+@JsonSerializable()
+class Organization extends Equatable {
+  final String id;
+  final String name;
+  final String? description;
+
+  const Organization({
+    required this.id,
+    required this.name,
+    this.description,
+  });
+
+  factory Organization.fromJson(Map<String, dynamic> json) => _$OrganizationFromJson(json);
+  Map<String, dynamic> toJson() => _$OrganizationToJson(this);
+
+  @override
+  List<Object?> get props => [id, name, description];
 }
