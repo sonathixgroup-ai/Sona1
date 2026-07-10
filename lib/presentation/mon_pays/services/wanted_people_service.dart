@@ -9,10 +9,13 @@ class WantedPeopleService {
   WantedPeopleService(this._supabase);
 
   Future<List<WantedPerson>> getAll() async {
-    final response = await _supabase
-        .from('wanted_persons')
-        .select('*');
-    return (response as List).map((e) => WantedPerson.fromJson(e)).toList();
+    try {
+      final response = await _supabase.from('wanted_persons').select('*');
+      if (response == null || response is! List) return [];
+      return (response as List).map((e) => WantedPerson.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<WantedPerson> getById(String id) async {
@@ -44,21 +47,14 @@ class WantedPeopleService {
   }
 
   Future<void> delete(String id) async {
-    await _supabase
-        .from('wanted_persons')
-        .delete()
-        .eq('id', id);
+    await _supabase.from('wanted_persons').delete().eq('id', id);
   }
 
-  // Signalement d'une personne
   Future<void> reportPerson(String personId, {required String details, String? location}) async {
-    await _supabase
-        .from('wanted_persons')  // ou une table de signalements
-        .update({
-          'status': 'reported',
-          'details': details,
-          'location': location,
-        })
-        .eq('id', personId);
+    await _supabase.from('wanted_persons').update({
+      'status': 'reported',
+      'details': details,
+      'location': location,
+    }).eq('id', personId);
   }
 }
