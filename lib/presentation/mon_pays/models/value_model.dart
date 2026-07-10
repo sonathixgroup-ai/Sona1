@@ -13,10 +13,10 @@ class Value extends Equatable {
   final String? iconCode;
   final String? category;
   final String? content;
-  final List<Article>? articles;
+  final List<Article>? articles;        // ✅ rendu nullable
   final String? summary;
   final String? name;
-  final List<Organization>? organizations;
+  final List<Organization>? organizations;  // ✅ rendu nullable
 
   const Value({
     required this.id,
@@ -75,7 +75,7 @@ class Value extends Equatable {
       ];
 }
 
-// Modèle Article
+// Modèle Article (pour la Constitution)
 @JsonSerializable()
 class Article extends Equatable {
   final String number;
@@ -95,7 +95,7 @@ class Article extends Equatable {
   List<Object?> get props => [number, title, content];
 }
 
-// Modèle Organization
+// Modèle Organization (pour la Justice)
 @JsonSerializable()
 class Organization extends Equatable {
   final String id;
