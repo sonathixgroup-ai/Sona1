@@ -37,7 +37,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
     try {
       final video = await ref.read(videoProvider(widget.id).future);
       if (video.url != null && video.url!.contains('youtube.com')) {
-        // Vidéo YouTube
         final youtubeId = YoutubePlayerController.getYoutubeVideoId(video.url!);
         if (youtubeId != null) {
           _youtubeController = YoutubePlayerController(
@@ -53,7 +52,6 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
           _error = 'Lien YouTube invalide';
         }
       } else if (video.url != null && video.url!.startsWith('http')) {
-        // Vidéo directe (MP4, etc.)
         _localController = VideoPlayerController.networkUrl(Uri.parse(video.url!));
         await _localController!.initialize();
         await _localController!.play();
@@ -114,15 +112,21 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
                     // Lecteur vidéo
                     Expanded(
                       flex: 3,
-                      child: _isYoutube
+                      child: _isYoutube && _youtubeController != null
                           ? YoutubePlayer(
                               controller: _youtubeController!,
                               showVideoProgressIndicator: true,
                             )
-                          : _localController != null && _localController!.value.isInitialized
+                          : _localController != null &&
+                                  _localController!.value.isInitialized
                               ? VideoPlayer(_localController!)
                               : const Center(
-                                  child: Text('Aucun lecteur disponible'),
+                                  child: Text(
+                                    'Aucun lecteur disponible',
+                                    style: TextStyle(
+                                      color: MonPaysColors.textSecondary,
+                                    ),
+                                  ),
                                 ),
                     ),
                     // Informations
@@ -139,6 +143,7 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
                             padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   video.title,
@@ -149,24 +154,24 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 4),
                                 if (video.description != null)
                                   Text(
                                     video.description!,
-                                    style: MonPaysTextStyles.bodyMedium.copyWith(
+                                    style: MonPaysTextStyles.bodySmall.copyWith(
                                       color: MonPaysColors.textSecondary,
                                     ),
-                                    maxLines: 3,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 if (video.duration != null)
                                   Padding(
-                                    padding: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.only(top: 4),
                                     child: Row(
                                       children: [
                                         const Icon(
                                           Icons.timer,
-                                          size: 16,
+                                          size: 14,
                                           color: MonPaysColors.textSecondary,
                                         ),
                                         const SizedBox(width: 4),
