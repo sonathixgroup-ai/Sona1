@@ -18,20 +18,37 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   bool _isDataLoaded = false;
+  bool _isLoading = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isDataLoaded) {
       _isDataLoaded = true;
-      final provider = context.read<CheckoutProvider>();
+      // Utiliser un microtask pour éviter de modifier l'arbre pendant le build
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        provider.loadCheckoutData().catchError((e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur de chargement : ${e.toString()}')),
-          );
-        });
+        _loadData();
       });
+    }
+  }
+
+  Future<void> _loadData() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final provider = context.read<CheckoutProvider>();
+      await provider.loadCheckoutData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement : ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -54,12 +71,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
         body: Consumer<CheckoutProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading || _isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
 
+            // Gestion d'erreur si le provider n'a pas chargé les données
             try {
-              return _buildStepContent(provider, context);
+              return _buildStepContent(provider);
             } catch (e) {
               return Center(
                 child: Column(
@@ -70,8 +88,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     Text('Erreur : ${e.toString()}'),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => context.pop(),
-                      child: const Text('Retour'),
+                      onPressed: () => _loadData(),
+                      child: const Text('Réessayer'),
                     ),
                   ],
                 ),
@@ -83,7 +101,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildStepContent(CheckoutProvider provider, BuildContext context) {
+  Widget _buildStepContent(CheckoutProvider provider) {
     switch (provider.currentStep) {
       case 'address':
         return _AddressStep(provider: provider);
@@ -99,6 +117,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 }
 
+// Widget pour l'étape Adresse
 class _AddressStep extends StatelessWidget {
   final CheckoutProvider provider;
 
