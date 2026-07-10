@@ -23,27 +23,29 @@ class _MarketHomePageState extends State<MarketHomePage> {
   int _currentBannerIndex = 0;
 
   // ============================================================
-  // CHARTE THIX MARKET — Élite Institutionnel Bleu / Blanc
+  // CHARTE THIX MARKET — Éclat International (Bleu / Orange / Or)
   // ============================================================
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color electricBlue = Color(0xFF4E8CFF);
-  static const Color softBlue = Color(0xFFEFF5FF);
+  static const Color navyDeep = Color(0xFF001233);      // texte fort / header
+  static const Color navy = Color(0xFF0B2E6B);
+  static const Color primaryBlue = Color(0xFF0057FF);   // bleu électrique vif
+  static const Color electricBlue = Color(0xFF3D8BFF);
+  static const Color skyGlow = Color(0xFFE8F1FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10192E);
-  static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color glow = Color(0xFF2D6CDF);
-  static const Color green = Color(0xFF059669);
+  static const Color darkText = Color(0xFF0B1830);
+  static const Color mutedText = Color(0xFF7A8AA8);
+  static const Color orange = Color(0xFFFF6A2B);        // CTA / flash / marketplace vibe
+  static const Color orangeLight = Color(0xFFFF9457);
+  static const Color gold = Color(0xFFFFC02E);           // accent premium
+  static const Color green = Color(0xFF00C853);
+  static const Color coral = Color(0xFFFF3D6E);
 
   // ✅ Supermarchés fictifs — logos générés par initiales + dégradé de couleur
   static const List<Map<String, dynamic>> _supermarkets = [
-    {'name': 'Kin Frais', 'tagline': 'Produits frais & légumes', 'color': Color(0xFF2D6CDF), 'time': '35 min'},
-    {'name': 'AlimentPlus', 'tagline': 'Épicerie complète', 'color': Color(0xFFE3B23C), 'time': '40 min'},
-    {'name': 'ÉpiCash', 'tagline': 'Prix bas garantis', 'color': Color(0xFF059669), 'time': '30 min'},
-    {'name': 'MaxiMarché', 'tagline': 'Supermarché familial', 'color': Color(0xFF7C4DFF), 'time': '45 min'},
-    {'name': 'SuperGo', 'tagline': 'Livraison express', 'color': Color(0xFFE5484D), 'time': '25 min'},
+    {'name': 'Kin Frais', 'tagline': 'Produits frais & légumes', 'color': Color(0xFF0057FF), 'time': '35 min'},
+    {'name': 'AlimentPlus', 'tagline': 'Épicerie complète', 'color': Color(0xFFFFC02E), 'time': '40 min'},
+    {'name': 'ÉpiCash', 'tagline': 'Prix bas garantis', 'color': Color(0xFF00C853), 'time': '30 min'},
+    {'name': 'MaxiMarché', 'tagline': 'Supermarché familial', 'color': Color(0xFF8B5CF6), 'time': '45 min'},
+    {'name': 'SuperGo', 'tagline': 'Livraison express', 'color': Color(0xFFFF6A2B), 'time': '25 min'},
   ];
 
   @override
@@ -70,13 +72,13 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
   Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
     if (url == null || url.trim().isEmpty) {
-      return Container(color: softBlue, alignment: Alignment.center, child: Icon(Icons.image_outlined, color: mutedText));
+      return Container(color: skyGlow, alignment: Alignment.center, child: Icon(Icons.image_outlined, color: mutedText));
     }
     return CachedNetworkImage(
       imageUrl: url,
       fit: fit,
-      placeholder: (_, __) => Container(color: softBlue, child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue))),
-      errorWidget: (_, __, ___) => Container(color: softBlue, child: Icon(Icons.image_not_supported_outlined, color: mutedText)),
+      placeholder: (_, __) => Container(color: skyGlow, child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue))),
+      errorWidget: (_, __, ___) => Container(color: skyGlow, child: Icon(Icons.image_not_supported_outlined, color: mutedText)),
     );
   }
 
@@ -115,7 +117,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     final allProducts = allById.values.toList();
     final banners = marketProvider.promoBanners;
 
-    // Démarrer l'autoplay dès que les bannières sont chargées
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (banners.isNotEmpty) _startBannerAutoplay(banners);
     });
@@ -136,15 +137,12 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 14),
-                    // Bannières rectangulaires, agrandies
                     if (banners.isNotEmpty) ...[
                       _buildBannerCarousel(banners),
                       const SizedBox(height: 18),
                     ],
-                    // ✅ Supermarchés — remplace la grille de catégories
                     _buildSupermarketsSection(),
                     const SizedBox(height: 14),
-                    // ✅ Catégories — conservées, version compacte (chips fines)
                     _buildCategoryChipsSection(),
                     const SizedBox(height: 18),
                     if (marketProvider.flashSales.isNotEmpty) ...[
@@ -173,7 +171,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // APP BAR — « THIX MARKET » au lieu de la localisation
+  // APP BAR — dégradé bleu → orange, très lumineux
   // ============================================================
   Widget _buildAppBar() {
     return SliverAppBar(
@@ -189,14 +187,15 @@ class _MarketHomePageState extends State<MarketHomePage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [navyDeep, navy, primaryBlue],
+            colors: [navyDeep, primaryBlue, orange],
+            stops: [0.0, 0.55, 1.15],
           ),
           borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(26),
             bottomRight: Radius.circular(26),
           ),
           boxShadow: [
-            BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
+            BoxShadow(color: Color(0x552D6CDF), blurRadius: 26, offset: Offset(0, 12)),
           ],
         ),
       ),
@@ -204,7 +203,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         children: [
           Container(
             padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(9)),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(9)),
             child: const Icon(Icons.storefront_rounded, size: 16, color: gold),
           ),
           const SizedBox(width: 7),
@@ -236,9 +235,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
         margin: const EdgeInsets.symmetric(horizontal: 2),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.14),
+          color: Colors.white.withOpacity(0.16),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.18)),
+          border: Border.all(color: Colors.white.withOpacity(0.22)),
         ),
         child: Icon(icon, size: 16, color: Colors.white),
       ),
@@ -246,7 +245,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BANNIÈRE : rectangle, bord droit, plus haute, autoplay 6s
+  // BANNIÈRE
   // ============================================================
   Widget _buildBannerCarousel(List<dynamic> banners) {
     return SizedBox(
@@ -266,9 +265,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(0),
+                borderRadius: BorderRadius.circular(22),
                 boxShadow: [
-                  BoxShadow(color: navyDeep.withOpacity(0.14), blurRadius: 20, offset: const Offset(0, 10)),
+                  BoxShadow(color: primaryBlue.withOpacity(0.22), blurRadius: 22, offset: const Offset(0, 12)),
                 ],
                 image: DecorationImage(
                   image: NetworkImage(banner['image_url'] ?? ''),
@@ -283,7 +282,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // ✅ SUPERMARCHÉS — « Faites vos courses à domicile »
+  // ✅ SUPERMARCHÉS
   // ============================================================
   Widget _buildSupermarketsSection() {
     return Column(
@@ -303,7 +302,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
             TextButton(
               onPressed: () => context.push('/market/search'),
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-              child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
+              child: const Text('Voir tout', style: TextStyle(color: orange, fontWeight: FontWeight.w800, fontSize: 12)),
             ),
           ],
         ),
@@ -332,9 +331,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   decoration: BoxDecoration(
                     color: pureWhite,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: softBlue, width: 1),
+                    border: Border.all(color: skyGlow, width: 1),
                     boxShadow: [
-                      BoxShadow(color: navyDeep.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 6)),
+                      BoxShadow(color: c.withOpacity(0.10), blurRadius: 14, offset: const Offset(0, 6)),
                     ],
                   ),
                   child: Row(
@@ -350,7 +349,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(colors: [c, c.withOpacity(0.72)]),
                               borderRadius: BorderRadius.circular(14),
-                              boxShadow: [BoxShadow(color: c.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+                              boxShadow: [BoxShadow(color: c.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 5))],
                             ),
                             child: Text(
                               initials,
@@ -393,7 +392,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                             const SizedBox(height: 5),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: softBlue, borderRadius: BorderRadius.circular(20)),
+                              decoration: BoxDecoration(color: skyGlow, borderRadius: BorderRadius.circular(20)),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -421,16 +420,16 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // ✅ CATÉGORIES — version compacte (chips), fonctionnalité conservée
+  // ✅ CATÉGORIES — chips colorées vives
   // ============================================================
   Widget _buildCategoryChipsSection() {
     final categories = [
-      {'icon': Icons.checkroom_rounded, 'label': 'Mode', 'id': 'fashion'},
-      {'icon': Icons.phone_android_rounded, 'label': 'Électronique', 'id': 'electronics'},
-      {'icon': Icons.chair_rounded, 'label': 'Maison', 'id': 'home'},
-      {'icon': Icons.build_rounded, 'label': 'Services', 'id': 'services'},
-      {'icon': Icons.directions_car_rounded, 'label': 'Véhicules', 'id': 'vehicles'},
-      {'icon': Icons.house_rounded, 'label': 'Immobilier', 'id': 'realestate'},
+      {'icon': Icons.checkroom_rounded, 'label': 'Mode', 'id': 'fashion', 'color': coral},
+      {'icon': Icons.phone_android_rounded, 'label': 'Électronique', 'id': 'electronics', 'color': primaryBlue},
+      {'icon': Icons.chair_rounded, 'label': 'Maison', 'id': 'home', 'color': gold},
+      {'icon': Icons.build_rounded, 'label': 'Services', 'id': 'services', 'color': green},
+      {'icon': Icons.directions_car_rounded, 'label': 'Véhicules', 'id': 'vehicles', 'color': orange},
+      {'icon': Icons.house_rounded, 'label': 'Immobilier', 'id': 'realestate', 'color': Color(0xFF8B5CF6)},
     ];
 
     return SizedBox(
@@ -440,6 +439,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         itemCount: categories.length,
         itemBuilder: (context, index) {
           final cat = categories[index];
+          final Color c = cat['color'] as Color;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: InkWell(
@@ -448,21 +448,18 @@ class _MarketHomePageState extends State<MarketHomePage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
-                  color: pureWhite,
+                  color: c.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: softBlue, width: 1),
-                  boxShadow: [
-                    BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3)),
-                  ],
+                  border: Border.all(color: c.withOpacity(0.25), width: 1),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(cat['icon'] as IconData, size: 13, color: navy),
+                    Icon(cat['icon'] as IconData, size: 13, color: c),
                     const SizedBox(width: 5),
                     Text(
                       cat['label'] as String,
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: darkText),
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: darkText),
                     ),
                   ],
                 ),
@@ -475,7 +472,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // FLASH SALE
+  // FLASH SALE — badge orange/rouge très vif
   // ============================================================
   Widget _buildFlashSaleSection(List<dynamic> flashSales) {
     return Column(
@@ -484,7 +481,13 @@ class _MarketHomePageState extends State<MarketHomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Offres Flash', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: darkText)),
+            Row(
+              children: const [
+                Icon(Icons.bolt_rounded, color: orange, size: 18),
+                SizedBox(width: 4),
+                Text('Offres Flash', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: darkText)),
+              ],
+            ),
             FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
           ],
         ),
@@ -520,7 +523,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
             TextButton(
               onPressed: () => context.push('/market/buy'),
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-              child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
+              child: const Text('Voir tout', style: TextStyle(color: orange, fontWeight: FontWeight.w800, fontSize: 12)),
             ),
           ],
         ),
@@ -556,7 +559,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         decoration: BoxDecoration(
           color: pureWhite,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: softBlue, width: 1),
+          border: Border.all(color: skyGlow, width: 1),
           boxShadow: [
             BoxShadow(color: navyDeep.withOpacity(0.07), blurRadius: 14, offset: const Offset(0, 7)),
           ],
@@ -578,9 +581,9 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFFFF5B3D), Color(0xFFFF8A3D)]),
+                            gradient: const LinearGradient(colors: [orange, coral]),
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: [BoxShadow(color: const Color(0xFFFF5B3D).withOpacity(0.4), blurRadius: 7, offset: const Offset(0, 3))],
+                            boxShadow: [BoxShadow(color: orange.withOpacity(0.45), blurRadius: 8, offset: const Offset(0, 3))],
                           ),
                           child: const Text('FLASH', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                         ),
@@ -603,7 +606,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                   const SizedBox(height: 2),
                   Text(
                     '$price $symbol',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: navyDeep),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: primaryBlue),
                   ),
                   const SizedBox(height: 2),
                   Row(
@@ -660,7 +663,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         decoration: BoxDecoration(
           color: pureWhite,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: softBlue, width: 1),
+          border: Border.all(color: skyGlow, width: 1),
           boxShadow: [
             BoxShadow(color: navyDeep.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 7)),
           ],
@@ -682,7 +685,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFFFF5B3D), Color(0xFFFF8A3D)]),
+                            gradient: const LinearGradient(colors: [orange, coral]),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -702,7 +705,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                           shape: BoxShape.circle,
                           boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.1), blurRadius: 5)],
                         ),
-                        child: const Icon(Icons.bookmark_border_rounded, size: 13, color: navy),
+                        child: const Icon(Icons.bookmark_border_rounded, size: 13, color: primaryBlue),
                       ),
                     ),
                   ],
@@ -725,7 +728,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
                     children: [
                       Text(
                         '${price.toInt()} $symbol',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: navyDeep),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: primaryBlue),
                       ),
                       if (hasDiscount)
                         Padding(
@@ -789,14 +792,14 @@ class _MarketHomePageState extends State<MarketHomePage> {
           TextButton(
             onPressed: onSeeAll,
             style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-            child: const Text('Voir tout', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.w700, fontSize: 12)),
+            child: const Text('Voir tout', style: TextStyle(color: orange, fontWeight: FontWeight.w800, fontSize: 12)),
           ),
       ],
     );
   }
 
   // ============================================================
-  // BOTTOM NAV BAR
+  // BOTTOM NAV BAR — icônes actives en orange vif
   // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
@@ -805,7 +808,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
         color: pureWhite,
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
-          BoxShadow(color: navyDeep.withOpacity(0.12), blurRadius: 22, offset: const Offset(0, 9)),
+          BoxShadow(color: primaryBlue.withOpacity(0.14), blurRadius: 22, offset: const Offset(0, 9)),
         ],
       ),
       child: SafeArea(
@@ -839,17 +842,17 @@ class _MarketHomePageState extends State<MarketHomePage> {
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: isSelected ? softBlue : Colors.transparent,
+                color: isSelected ? orange.withOpacity(0.12) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: isSelected ? primaryBlue : mutedText, size: 20),
+              child: Icon(icon, color: isSelected ? orange : mutedText, size: 20),
             ),
             const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontSize: 9.5,
-                color: isSelected ? primaryBlue : mutedText,
+                color: isSelected ? orange : mutedText,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
               ),
             ),
