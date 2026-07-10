@@ -1,347 +1,116 @@
-// lib/presentation/thix_market/checkout/checkout_provider.dart
+// lib/presentation/thix_market/checkout/checkout_page.dart
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import 'checkout_provider.dart';
+import 'shipping_method_selector.dart';
+import 'payment_method_selector.dart';
+import 'order_summary_widget.dart';
+import '../cart/cart_provider.dart';
+import '../delivery/delivery_address_selector.dart';
 
-class CheckoutProvider extends ChangeNotifier {
-  final SupabaseClient _supabase = Supabase.instance.client;
+class CheckoutPage extends StatefulWidget {
+  const CheckoutPage({super.key});
 
-  bool _isLoading = false;
-  bool _isProcessing = false;
-  String _currentStep = 'address';
-  List<Map<String, dynamic>> _savedAddresses = [];
-  Map<String, dynamic>? _selectedAddress;
-  Map<String, dynamic>? _selectedShippingMethod;
-  Map<String, dynamic>? _selectedPaymentMethod;
-  Map<String, dynamic> _userInfo = {};
-  Map<String, dynamic>? _createdOrder;
-  String? _paymentIntentId;
-  String? _paymentUrl;
+  @override
+  State<CheckoutPage> createState() => _CheckoutPageState();
+}
 
-  // Getters
-  bool get isLoading => _isLoading;
-  bool get isProcessing => _isProcessing;
-  String get currentStep => _currentStep;
-  List<Map<String, dynamic>> get savedAddresses => _savedAddresses;
-  Map<String, dynamic>? get selectedAddress => _selectedAddress;
-  Map<String, dynamic>? get selectedShippingMethod => _selectedShippingMethod;
-  Map<String, dynamic>? get selectedPaymentMethod => _selectedPaymentMethod;
-  Map<String, dynamic> get userInfo => _userInfo;
-  Map<String, dynamic>? get createdOrder => _createdOrder;
+class _CheckoutPageState extends State<CheckoutPage> {
+  bool _isDataLoaded = false;
 
-  // ─── CHARGEMENT DES DONNÉES ───
-  Future<void> loadCheckoutData() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) {
-      throw Exception('Utilisateur non connecté');
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isDataLoaded) {
+      _isDataLoaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<CheckoutProvider>().loadCheckoutData();
+      });
     }
-
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      await Future.wait([
-        _loadSavedAddresses(userId),
-        _loadUserInfo(userId),
-      ]);
-      if (_selectedAddress == null && _savedAddresses.isNotEmpty) {
-        _selectedAddress = _savedAddresses.first;
-      }
-      _currentStep = 'address';
-    } catch (e) {
-      debugPrint('❌ Erreur chargement checkout: $e');
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _loadUserInfo(String userId) async {
-    try {
-      // ✅ Essayer avec 'full_name' (le plus courant)
-      final response = await _supabase
-          .from('users')
-          .select('id, full_name, email, phone, default_address_id')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (response != null) {
-        _userInfo = response;
-      } else {
-        // Fallback : essayer avec 'name' si 'full_name' n'existe pas
-        try {
-          final fallbackResponse = await _supabase
-              .from('users')
-              .select('id, name, email, phone, default_address_id')
-              .eq('id', userId)
-              .maybeSingle();
-          if (fallbackResponse != null) {
-            _userInfo = fallbackResponse;
-            // Si on a 'name' mais pas 'full_name', on crée un alias
-            if (_userInfo['name'] != null && _userInfo['full_name'] == null) {
-              _userInfo['full_name'] = _userInfo['name'];
-            }
-          }
-        } catch (_) {
-          // Si les deux échouent, on récupère juste l'essentiel
-          final minimalResponse = await _supabase
-              .from('users')
-              .select('id, email, phone, default_address_id')
-              .eq('id', userId)
-              .maybeSingle();
-          if (minimalResponse != null) {
-            _userInfo = minimalResponse;
-            _userInfo['full_name'] = 'Utilisateur';
-          }
-        }
-      }
-
-      if (_userInfo['default_address_id'] != null) {
-        _selectedAddress = _savedAddresses.firstWhere(
-          (a) => a['id'] == _userInfo['default_address_id'],
-          orElse: () => {},
-        );
-      }
-    } catch (e) {
-      debugPrint('⚠️ Erreur chargement user info: $e');
-      // On continue même en cas d'erreur pour ne pas bloquer le checkout
-      _userInfo = {
-        'id': userId,
-        'full_name': 'Utilisateur',
-        'email': '',
-        'phone': '',
-      };
-    }
-  }
-
-  Future<void> _loadSavedAddresses(String userId) async {
-    try {
-      final response = await _supabase
-          .from('addresses')
-          .select()
-          .eq('user_id', userId)
-          .order('is_default', ascending: false);
-      _savedAddresses = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      debugPrint('⚠️ Erreur chargement adresses: $e');
-      _savedAddresses = [];
-    }
-  }
-
-  // ─── SÉLECTION D'ADRESSE ───
-  void selectAddress(Map<String, dynamic> address) {
-    _selectedAddress = address;
-    _currentStep = 'shipping';
-    notifyListeners();
-  }
-
-  // ─── AJOUT D'ADRESSE ───
-  Future<void> addAddress(Map<String, dynamic> newAddress) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final response = await _supabase
-          .from('addresses')
-          .insert({
-            ...newAddress,
-            'user_id': userId,
-            'created_at': DateTime.now().toIso8601String(),
-          })
-          .select()
-          .single();
-      _savedAddresses.insert(0, response);
-      _selectedAddress = response;
-      notifyListeners();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ─── SÉLECTION DU MODE DE LIVRAISON ───
-  void selectShippingMethod(Map<String, dynamic> method) {
-    _selectedShippingMethod = method;
-    _currentStep = 'payment';
-    notifyListeners();
-  }
-
-  // ─── SÉLECTION DU MOYEN DE PAIEMENT ───
-  void selectPaymentMethod(Map<String, dynamic> method) {
-    _selectedPaymentMethod = method;
-    _currentStep = 'confirmation';
-    notifyListeners();
-  }
-
-  // ─── TRAITEMENT DE LA COMMANDE ───
-  Future<Map<String, dynamic>> processOrder({
-    required CartProvider cartProvider,
-    required double total,
-    required List<Map<String, dynamic>> items,
-  }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Non connecté');
-    if (_selectedAddress == null) throw Exception('Adresse requise');
-    if (_selectedShippingMethod == null) throw Exception('Mode de livraison requis');
-    if (_selectedPaymentMethod == null) throw Exception('Moyen de paiement requis');
-
-    _isProcessing = true;
-    notifyListeners();
-
-    try {
-      final orderData = {
-        'user_id': userId,
-        'address_id': _selectedAddress!['id'],
-        'shipping_method': _selectedShippingMethod!['id'],
-        'shipping_cost': _selectedShippingMethod!['price'],
-        'total': total,
-        'status': 'pending',
-        'payment_status': 'pending',
-        'created_at': DateTime.now().toIso8601String(),
-      };
-      final orderResponse = await _supabase
-          .from('orders')
-          .insert(orderData)
-          .select()
-          .single();
-      _createdOrder = orderResponse;
-
-      for (var item in items) {
-        await _supabase.from('order_items').insert({
-          'order_id': _createdOrder!['id'],
-          'product_id': item['product_id'],
-          'quantity': item['quantity'],
-          'price': item['price'],
-          'product_name': item['product_name'],
-          'product_image': item['image_url'],
-        });
-      }
-
-      final paymentResult = await _processPayment(total);
-
-      if (paymentResult['success'] == true) {
-        await _supabase
-            .from('orders')
-            .update({
-              'payment_status': 'paid',
-              'status': 'processing',
-              'paid_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', _createdOrder!['id']);
-
-        await cartProvider.clearCart();
-
-        final updatedOrder = await _supabase
-            .from('orders')
-            .select()
-            .eq('id', _createdOrder!['id'])
-            .single();
-        _createdOrder = updatedOrder;
-        return _createdOrder!;
-      } else {
-        throw Exception(paymentResult['error'] ?? 'Paiement échoué');
-      }
-    } catch (e) {
-      debugPrint('❌ Checkout error: $e');
-      if (_createdOrder != null) {
-        try {
-          await _supabase
-              .from('orders')
-              .delete()
-              .eq('id', _createdOrder!['id']);
-        } catch (_) {}
-        _createdOrder = null;
-      }
-      rethrow;
-    } finally {
-      _isProcessing = false;
-      notifyListeners();
-    }
-  }
-
-  // ─── TRAITEMENT DU PAIEMENT ───
-  Future<Map<String, dynamic>> _processPayment(double amount) async {
-    final method = _selectedPaymentMethod!['id'];
-
-    switch (method) {
-      case 'card':
-        try {
-          final response = await _supabase.functions.invoke(
-            'create-payment-intent',
-            body: {
-              'amount': amount,
-              'currency': 'XOF',
-              'order_id': _createdOrder!['id'],
-            },
-          );
-          _paymentIntentId = response.data['payment_intent_id'];
-          return {'success': true, 'payment_intent_id': _paymentIntentId};
-        } catch (e) {
-          return {'success': false, 'error': e.toString()};
-        }
-
-      case 'mobile_money':
-        try {
-          final response = await _supabase.functions.invoke(
-            'mobile-money-payment',
-            body: {
-              'amount': amount,
-              'phone': _userInfo['phone'] ?? '',
-              'order_id': _createdOrder!['id'],
-            },
-          );
-          _paymentUrl = response.data['payment_url'];
-          return {'success': true, 'payment_url': _paymentUrl};
-        } catch (e) {
-          return {'success': false, 'error': e.toString()};
-        }
-
-      case 'thix_money':
-        try {
-          final result = await _supabase.rpc(
-            'deduct_wallet_balance',
-            params: {
-              'user_id': _supabase.auth.currentUser!.id,
-              'amount': amount,
-            },
-          );
-          if (result == true) {
-            return {'success': true};
-          } else {
-            return {'success': false, 'error': 'Solde insuffisant'};
-          }
-        } catch (e) {
-          return {'success': false, 'error': e.toString()};
-        }
-
-      default:
-        return {'success': false, 'error': 'Méthode de paiement inconnue'};
-    }
-  }
-
-  // ─── RÉINITIALISATION ───
-  void reset() {
-    _currentStep = 'address';
-    _selectedAddress = null;
-    _selectedShippingMethod = null;
-    _selectedPaymentMethod = null;
-    _createdOrder = null;
-    _paymentIntentId = null;
-    _paymentUrl = null;
-    _savedAddresses = [];
-    _userInfo = {};
-    notifyListeners();
-  }
-
-  void setState(VoidCallback fn) {
-    fn();
-    notifyListeners();
   }
 
   @override
-  void dispose() {
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Validation de commande'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: Consumer<CheckoutProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Gestion explicite des erreurs pour éviter le blocage
+          if (provider.errorMessage != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(provider.errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => provider.loadCheckoutData(),
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return _buildStepContent(provider);
+        },
+      ),
+    );
+  }
+
+  Widget _buildStepContent(CheckoutProvider provider) {
+    switch (provider.currentStep) {
+      case 'address': return _AddressStep(provider: provider);
+      case 'shipping': return ShippingMethodSelector(provider: provider);
+      case 'payment': return PaymentMethodSelector(provider: provider);
+      case 'confirmation': return OrderSummaryWidget(provider: provider);
+      default: return const Center(child: Text("Erreur d'étape"));
+    }
+  }
+}
+
+class _AddressStep extends StatelessWidget {
+  final CheckoutProvider provider;
+  const _AddressStep({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(child: DeliveryAddressSelector(onAddressSelected: provider.selectAddress)),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton(
+            onPressed: provider.selectedAddress != null 
+              ? () => provider.selectAddress(provider.selectedAddress!) 
+              : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE5592F),
+              minimumSize: const Size(double.infinity, 48),
+            ),
+            child: const Text('Continuer'),
+          ),
+        ),
+      ],
+    );
   }
 }
