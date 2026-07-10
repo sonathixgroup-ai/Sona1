@@ -40,11 +40,11 @@ import '../mon_pays_state.dart';
 final dioProvider = Provider<Dio>((ref) {
   final supabase = Supabase.instance.client;
 
-  // Récupérer l'URL de base Supabase
-  final baseUrl = supabase.auth.url.replaceAll('/auth/v1', '/rest/v1');
+  // ✅ Utilisation de supabase.supabaseUrl (disponible dans toutes les versions)
+  final baseUrl = supabase.supabaseUrl;
 
   final dio = Dio(BaseOptions(
-    baseUrl: baseUrl,
+    baseUrl: '$baseUrl/rest/v1', // L'URL REST de Supabase
     headers: {
       'apikey': supabase.auth.currentSession?.accessToken ?? '',
       'Authorization': 'Bearer ${supabase.auth.currentSession?.accessToken}',
