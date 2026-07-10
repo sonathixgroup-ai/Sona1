@@ -1,54 +1,35 @@
-// lib/presentation/mon_pays/models/consultation_model.dart
-part 'consultation_model.g.dart';  // 👈 LA LIGNE MANQUANTE
+// lib/presentation/mon_pays/models/citizen_model.dart
 
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
 
-@JsonSerializable()
-class Consultation extends Equatable {
-  final String id;
-  final String title;
-  final String? description;
-  final DateTime? date;
-  final String? status; // exemple: 'pending', 'ongoing', 'completed'
-  final String? createdBy;
-  final List<String>? participants;
+part 'citizen_model.g.dart';
 
-  const Consultation({
+@JsonSerializable()
+class ExemplaryCitizen extends Equatable {
+  final String id;
+  final String name;
+  final String occupation;
+  final String? photoUrl;
+  final String? quote;
+  final String? city;
+  final int? score;
+
+  const ExemplaryCitizen({
     required this.id,
-    required this.title,
-    this.description,
-    this.date,
-    this.status,
-    this.createdBy,
-    this.participants,
+    required this.name,
+    required this.occupation,
+    this.photoUrl,
+    this.quote,
+    this.city,
+    this.score,
   });
 
-  Consultation copyWith({
-    String? id,
-    String? title,
-    String? description,
-    DateTime? date,
-    String? status,
-    String? createdBy,
-    List<String>? participants,
-  }) {
-    return Consultation(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      date: date ?? this.date,
-      status: status ?? this.status,
-      createdBy: createdBy ?? this.createdBy,
-      participants: participants ?? this.participants,
-    );
-  }
+  ExemplaryCitizen copyWith({...}) => ...;
 
-  factory Consultation.fromJson(Map<String, dynamic> json) =>
-      _$ConsultationFromJson(json);  // ✅ Maintenant défini
-
-  Map<String, dynamic> toJson() => _$ConsultationToJson(this);  // ✅ Maintenant défini
+  factory ExemplaryCitizen.fromJson(Map<String, dynamic> json) => _$ExemplaryCitizenFromJson(json);
+  Map<String, dynamic> toJson() => _$ExemplaryCitizenToJson(this);
 
   @override
-  List<Object?> get props => [id, title, description, date, status, createdBy, participants];
+  List<Object?> get props => [id, name, occupation, photoUrl, quote, city, score];
 }
