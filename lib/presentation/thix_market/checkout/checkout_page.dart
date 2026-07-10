@@ -6,7 +6,7 @@ import 'checkout_provider.dart';
 import 'shipping_method_selector.dart';
 import 'payment_method_selector.dart';
 import 'order_summary_widget.dart';
-import '../delivery/delivery_provider.dart';
+import '../cart/cart_provider.dart';
 import '../delivery/delivery_address_selector.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -18,48 +18,15 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   bool _isDataLoaded = false;
-  bool _isLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Initialiser DeliveryProvider au chargement de la page
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
-  }
-
-  Future<void> _loadData() async {
-    if (_isLoading) return;
-    setState(() => _isLoading = true);
-
-    try {
-      // 1. Charger les adresses via DeliveryProvider
-      final deliveryProvider = Provider.of<DeliveryProvider>(context, listen: false);
-      await deliveryProvider.loadAddresses();
-
-      // 2. Si une adresse est sélectionnée, la synchroniser avec CheckoutProvider
-      if (deliveryProvider.selectedAddress != null) {
-        final checkoutProvider = Provider.of<CheckoutProvider>(context, listen: false);
-        checkoutProvider.selectAddress(deliveryProvider.selectedAddress!);
-      }
-
-      // 3. Charger les données du checkout
-      final checkoutProvider = Provider.of<CheckoutProvider>(context, listen: false);
-      await checkoutProvider.loadCheckoutData();
-
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isDataLoaded) {
       _isDataLoaded = true;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de chargement : ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<CheckoutProvider>().loadCheckoutData();
+      });
     }
   }
 
@@ -78,29 +45,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       body: Consumer<CheckoutProvider>(
         builder: (context, provider, _) {
-          if (provider.isLoading || _isLoading) {
+          // Affichage du loader si en cours de chargement
+          if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          try {
-            return _buildStepContent(provider);
-          } catch (e) {
+          // Affichage de l'erreur si elle existe
+          if (provider.errorMessage != null) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Erreur : ${e.toString()}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _loadData(),
-                    child: const Text('Réessayer'),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(provider.errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => provider.loadCheckoutData(),
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
+
+          return _buildStepContent(provider);
         },
       ),
     );
@@ -108,65 +80,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _buildStepContent(CheckoutProvider provider) {
     switch (provider.currentStep) {
-      case 'address':
-        return _AddressStep(
-          onAddressSelected: (address) {
-            provider.selectAddress(address);
-          },
-        );
-      case 'shipping':
-        return ShippingMethodSelector(provider: provider);
-      case 'payment':
-        return PaymentMethodSelector(provider: provider);
-      case 'confirmation':
-        return OrderSummaryWidget(provider: provider);
-      default:
-        return const SizedBox();
+      case 'address': return _AddressStep(provider: provider);
+      case 'shipping': return ShippingMethodSelector(provider: provider);
+      case 'payment': return PaymentMethodSelector(provider: provider);
+      case 'confirmation': return OrderSummaryWidget(provider: provider);
+      default: return const Center(child: Text("Erreur d'étape"));
     }
   }
 }
 
-// ─── ÉTAPE ADRESSE CORRIGÉE ───
 class _AddressStep extends StatelessWidget {
-  final Function(Map<String, dynamic>) onAddressSelected;
-
-  const _AddressStep({required this.onAddressSelected});
+  final CheckoutProvider provider;
+  const _AddressStep({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    final deliveryProvider = context.watch<DeliveryProvider>();
-    final checkoutProvider = context.watch<CheckoutProvider>();
-
     return Column(
       children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: DeliveryAddressSelector(
-              onAddressSelected: (address) {
-                // ✅ Sélectionner l'adresse dans DeliveryProvider ET CheckoutProvider
-                deliveryProvider.selectAddress(address);
-                onAddressSelected(address);
-              },
-            ),
-          ),
-        ),
+        Expanded(child: DeliveryAddressSelector(onAddressSelected: provider.selectAddress)),
         Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
-            onPressed: deliveryProvider.selectedAddress != null
-                ? () {
-                    // ✅ Synchroniser et passer à l'étape suivante
-                    final address = deliveryProvider.selectedAddress!;
-                    checkoutProvider.selectAddress(address);
-                  }
-                : null,
+            onPressed: provider.selectedAddress != null 
+              ? () => provider.selectAddress(provider.selectedAddress!) 
+              : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE5592F),
               minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
             ),
             child: const Text('Continuer'),
           ),
