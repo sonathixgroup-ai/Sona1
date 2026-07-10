@@ -13,7 +13,6 @@ class CheckoutProvider extends ChangeNotifier {
   Map<String, dynamic>? _selectedAddress;
   Map<String, dynamic>? _selectedShippingMethod;
   Map<String, dynamic>? _selectedPaymentMethod;
-  Map<String, dynamic> _userInfo = {};
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -36,18 +35,17 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Chargement en parallèle
-      final results = await Future.wait([
-        _supabase.from('addresses').select().eq('user_id', userId),
-        _supabase.from('users').select('id, name, email, phone').eq('id', userId).maybeSingle()
-      ]);
-
-      _savedAddresses = List<Map<String, dynamic>>.from(results[0]);
-      _userInfo = results[1] ?? {};
+      // Chargement des données avec gestion des erreurs
+      final response = await _supabase
+          .from('addresses')
+          .select()
+          .eq('user_id', userId);
+          
+      _savedAddresses = List<Map<String, dynamic>>.from(response);
       _currentStep = 'address';
     } catch (e) {
       debugPrint('❌ Erreur critique Checkout: $e');
-      _errorMessage = "Impossible de charger les données : ${e.toString()}";
+      _errorMessage = "Erreur de chargement : ${e.toString()}";
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -60,5 +58,15 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
   }
   
-  // ... (Gardez vos autres méthodes processOrder et _processPayment ici)
+  void selectShippingMethod(Map<String, dynamic> method) {
+    _selectedShippingMethod = method;
+    _currentStep = 'payment';
+    notifyListeners();
+  }
+
+  void selectPaymentMethod(Map<String, dynamic> method) {
+    _selectedPaymentMethod = method;
+    _currentStep = 'confirmation';
+    notifyListeners();
+  }
 }
