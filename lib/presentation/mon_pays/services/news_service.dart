@@ -1,41 +1,52 @@
 // lib/presentation/mon_pays/services/news_service.dart
 
-import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/news_model.dart';
-import '../utils/mon_pays_constants.dart';
 
 class NewsService {
-  final Dio _dio;
+  final SupabaseClient _supabase;
 
-  NewsService(this._dio);
+  NewsService(this._supabase);
 
   Future<List<News>> getAll() async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.newsEndpoint}');
-    return (response.data as List).map((e) => News.fromJson(e)).toList();
+    final response = await _supabase
+        .from('news')
+        .select('*');
+    return (response as List).map((e) => News.fromJson(e)).toList();
   }
 
   Future<News> getById(String id) async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.newsEndpoint}/$id');
-    return News.fromJson(response.data);
+    final response = await _supabase
+        .from('news')
+        .select('*')
+        .eq('id', id)
+        .single();
+    return News.fromJson(response);
   }
 
   Future<News> create(News news) async {
-    final response = await _dio.post(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.newsEndpoint}',
-      data: news.toJson(),
-    );
-    return News.fromJson(response.data);
+    final response = await _supabase
+        .from('news')
+        .insert(news.toJson())
+        .select()
+        .single();
+    return News.fromJson(response);
   }
 
   Future<News> update(News news) async {
-    final response = await _dio.put(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.newsEndpoint}/${news.id}',
-      data: news.toJson(),
-    );
-    return News.fromJson(response.data);
+    final response = await _supabase
+        .from('news')
+        .update(news.toJson())
+        .eq('id', news.id)
+        .select()
+        .single();
+    return News.fromJson(response);
   }
 
   Future<void> delete(String id) async {
-    await _dio.delete('${MonPaysConstants.baseUrl}${MonPaysConstants.newsEndpoint}/$id');
+    await _supabase
+        .from('news')
+        .delete()
+        .eq('id', id);
   }
 }
