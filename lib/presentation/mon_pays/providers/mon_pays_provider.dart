@@ -17,7 +17,7 @@ import '../repositories/wanted_people_repository.dart';
 import '../repositories/citizens_repository.dart';
 import '../repositories/consultations_repository.dart';
 import '../repositories/search_repository.dart';
-import '../repositories/values_repository.dart'; // ✅ AJOUT
+import '../repositories/values_repository.dart';
 import '../services/authorities_service.dart';
 import '../services/government_service.dart';
 import '../services/ministry_service.dart';
@@ -31,7 +31,7 @@ import '../services/wanted_people_service.dart';
 import '../services/citizens_service.dart';
 import '../services/consultations_service.dart';
 import '../services/search_service.dart';
-import '../services/values_service.dart'; // ✅ AJOUT
+import '../services/values_service.dart';
 import '../mon_pays_controller.dart';
 import '../mon_pays_state.dart';
 
@@ -40,10 +40,13 @@ import '../mon_pays_state.dart';
 final dioProvider = Provider<Dio>((ref) {
   final supabase = Supabase.instance.client;
 
+  // Récupérer l'URL de base Supabase
+  final baseUrl = supabase.auth.url.replaceAll('/auth/v1', '/rest/v1');
+
   final dio = Dio(BaseOptions(
-    baseUrl: supabase.restUrl,
+    baseUrl: baseUrl,
     headers: {
-      'apikey': supabase.auth.currentSession?.accessToken ?? supabase.auth.supabaseKey,
+      'apikey': supabase.auth.currentSession?.accessToken ?? '',
       'Authorization': 'Bearer ${supabase.auth.currentSession?.accessToken}',
       'Content-Type': 'application/json',
       'Prefer': 'return=representation',
@@ -63,9 +66,6 @@ final dioProvider = Provider<Dio>((ref) {
     },
   ));
 
-  // Optionnel : LogInterceptor pour déboguer
-  // dio.interceptors.add(LogInterceptor(...));
-
   return dio;
 });
 
@@ -78,7 +78,7 @@ final agenciesServiceProvider = Provider<AgenciesService>((ref) => AgenciesServi
 final historyServiceProvider = Provider<HistoryService>((ref) => HistoryService(ref.watch(dioProvider)));
 final newsServiceProvider = Provider<NewsService>((ref) => NewsService(ref.watch(dioProvider)));
 final lawServiceProvider = Provider<LawService>((ref) => LawService(ref.watch(dioProvider)));
-final valuesServiceProvider = Provider<ValuesService>((ref) => ValuesService(ref.watch(dioProvider))); // ✅ AJOUT
+final valuesServiceProvider = Provider<ValuesService>((ref) => ValuesService(ref.watch(dioProvider)));
 final videosServiceProvider = Provider<VideosService>((ref) => VideosService(ref.watch(dioProvider)));
 final documentariesServiceProvider = Provider<DocumentariesService>((ref) => DocumentariesService(ref.watch(dioProvider)));
 final wantedPeopleServiceProvider = Provider<WantedPeopleService>((ref) => WantedPeopleService(ref.watch(dioProvider)));
@@ -95,7 +95,7 @@ final agenciesRepositoryProvider = Provider<AgenciesRepository>((ref) => Agencie
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) => HistoryRepository(ref.watch(historyServiceProvider)));
 final newsRepositoryProvider = Provider<NewsRepository>((ref) => NewsRepository(ref.watch(newsServiceProvider)));
 final lawRepositoryProvider = Provider<LawRepository>((ref) => LawRepository(ref.watch(lawServiceProvider)));
-final valuesRepositoryProvider = Provider<ValuesRepository>((ref) => ValuesRepository(ref.watch(valuesServiceProvider))); // ✅ AJOUT
+final valuesRepositoryProvider = Provider<ValuesRepository>((ref) => ValuesRepository(ref.watch(valuesServiceProvider)));
 final videosRepositoryProvider = Provider<VideosRepository>((ref) => VideosRepository(ref.watch(videosServiceProvider)));
 final documentariesRepositoryProvider = Provider<DocumentariesRepository>((ref) => DocumentariesRepository(ref.watch(documentariesServiceProvider)));
 final wantedPeopleRepositoryProvider = Provider<WantedPeopleRepository>((ref) => WantedPeopleRepository(ref.watch(wantedPeopleServiceProvider)));
@@ -115,7 +115,7 @@ final monPaysRepositoryProvider = Provider<MonPaysRepository>((ref) {
     documentariesRepo: ref.watch(documentariesRepositoryProvider),
     wantedRepo: ref.watch(wantedPeopleRepositoryProvider),
     citizensRepo: ref.watch(citizensRepositoryProvider),
-    valuesRepo: ref.watch(valuesRepositoryProvider), // ✅ Utilisation de valuesRepositoryProvider
+    valuesRepo: ref.watch(valuesRepositoryProvider),
     consultationsRepo: ref.watch(consultationsRepositoryProvider),
     governmentRepo: ref.watch(governmentRepositoryProvider),
     searchRepo: ref.watch(searchRepositoryProvider),
