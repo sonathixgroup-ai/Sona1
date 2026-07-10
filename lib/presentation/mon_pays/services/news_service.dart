@@ -9,10 +9,13 @@ class NewsService {
   NewsService(this._supabase);
 
   Future<List<News>> getAll() async {
-    final response = await _supabase
-        .from('news')
-        .select('*');
-    return (response as List).map((e) => News.fromJson(e)).toList();
+    try {
+      final response = await _supabase.from('news').select('*');
+      if (response == null || response is! List) return [];
+      return (response as List).map((e) => News.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<News> getById(String id) async {
@@ -44,9 +47,6 @@ class NewsService {
   }
 
   Future<void> delete(String id) async {
-    await _supabase
-        .from('news')
-        .delete()
-        .eq('id', id);
+    await _supabase.from('news').delete().eq('id', id);
   }
 }
