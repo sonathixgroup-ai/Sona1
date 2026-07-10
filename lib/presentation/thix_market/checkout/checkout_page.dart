@@ -25,7 +25,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.didChangeDependencies();
     if (!_isDataLoaded) {
       _isDataLoaded = true;
-      // Utiliser un microtask pour éviter de modifier l'arbre pendant le build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadData();
       });
@@ -36,7 +35,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final provider = context.read<CheckoutProvider>();
+      final provider = Provider.of<CheckoutProvider>(context, listen: false);
       await provider.loadCheckoutData();
     } catch (e) {
       if (mounted) {
@@ -54,49 +53,43 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => CheckoutProvider()),
-      ],
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          title: const Text('Validation de commande'),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Validation de commande'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
         ),
-        body: Consumer<CheckoutProvider>(
-          builder: (context, provider, _) {
-            if (provider.isLoading || _isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+      ),
+      body: Consumer<CheckoutProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading || _isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            // Gestion d'erreur si le provider n'a pas chargé les données
-            try {
-              return _buildStepContent(provider);
-            } catch (e) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('Erreur : ${e.toString()}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _loadData(),
-                      child: const Text('Réessayer'),
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
-        ),
+          try {
+            return _buildStepContent(provider);
+          } catch (e) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('Erreur : ${e.toString()}'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _loadData(),
+                    child: const Text('Réessayer'),
+                  ),
+                ],
+              ),
+            );
+          }
+        },
       ),
     );
   }
