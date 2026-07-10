@@ -9,10 +9,13 @@ class VideosService {
   VideosService(this._supabase);
 
   Future<List<Video>> getAll() async {
-    final response = await _supabase
-        .from('videos')
-        .select('*');
-    return (response as List).map((e) => Video.fromJson(e)).toList();
+    try {
+      final response = await _supabase.from('videos').select('*');
+      if (response == null || response is! List) return [];
+      return (response as List).map((e) => Video.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<Video> getById(String id) async {
@@ -44,9 +47,6 @@ class VideosService {
   }
 
   Future<void> delete(String id) async {
-    await _supabase
-        .from('videos')
-        .delete()
-        .eq('id', id);
+    await _supabase.from('videos').delete().eq('id', id);
   }
 }
