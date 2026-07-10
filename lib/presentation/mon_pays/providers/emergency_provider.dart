@@ -3,10 +3,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/emergency_contact_model.dart';
 import '../repositories/emergency_repository.dart';
+import 'mon_pays_provider.dart';
 
-final emergencyRepositoryProvider = Provider<EmergencyRepository>(
-  (_) => EmergencyRepository(),
-);
+final emergencyRepositoryProvider = Provider<EmergencyRepository>((_) => EmergencyRepository());
 
 final emergencyContactsProvider = FutureProvider<List<EmergencyContact>>((ref) async {
   final repo = ref.watch(emergencyRepositoryProvider);
