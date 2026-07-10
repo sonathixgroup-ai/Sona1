@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/values_provider.dart';
-import '../../widgets/app_bar.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/error_widget.dart';
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
 
@@ -15,32 +14,18 @@ class LawsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lawsAsync = ref.watch(lawsProvider);
+    final async = ref.watch(lawsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Codes et Lois',
-          style: MonPaysTextStyles.heading6.copyWith(color: Colors.white),
-        ),
+        title: Text('Codes et Lois', style: MonPaysTextStyles.heading6.copyWith(color: Colors.white)),
         backgroundColor: MonPaysColors.primaryBlue,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.pop(),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
       ),
-      body: lawsAsync.when(
+      body: async.when(
         data: (laws) {
           if (laws.isEmpty) {
-            return Center(
-              child: Text(
-                'Aucune loi disponible',
-                style: MonPaysTextStyles.bodyLarge.copyWith(
-                  color: MonPaysColors.textSecondary,
-                ),
-              ),
-            );
+            return const Center(child: Text('Aucune loi disponible'));
           }
           return ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -49,14 +34,9 @@ class LawsPage extends ConsumerWidget {
               final law = laws[index];
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: Icon(
-                    Icons.book,
-                    color: MonPaysColors.primaryRed,
-                  ),
+                  leading: const Icon(Icons.book, color: MonPaysColors.primaryRed),
                   title: Text(
                     law.title,
                     style: MonPaysTextStyles.bodyMedium.copyWith(
@@ -69,16 +49,10 @@ class LawsPage extends ConsumerWidget {
                           law.summary!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: MonPaysTextStyles.caption.copyWith(
-                            color: MonPaysColors.textSecondary,
-                          ),
+                          style: MonPaysTextStyles.caption.copyWith(color: MonPaysColors.textSecondary),
                         )
                       : null,
-                  trailing: const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: MonPaysColors.primaryRed,
-                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: MonPaysColors.primaryRed),
                   onTap: () {
                     // Navigation vers le détail de la loi
                   },
@@ -88,9 +62,9 @@ class LawsPage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: LoadingWidget()),
-        error: (error, stack) => Center(
+        error: (e, _) => Center(
           child: MonPaysErrorWidget(
-            message: 'Erreur de chargement : $error',
+            message: e.toString(),
             onRetry: () => ref.refresh(lawsProvider),
           ),
         ),
