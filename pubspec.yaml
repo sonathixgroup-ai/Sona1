@@ -118,7 +118,7 @@ dev_dependencies:
   json_serializable: ^6.8.0
   riverpod_generator: ^2.3.10
   hive_generator: ^2.0.0
-
+youtube_player_flutter: ^8.1.0
 flutter_launcher_icons:
   android: true
   ios: true
