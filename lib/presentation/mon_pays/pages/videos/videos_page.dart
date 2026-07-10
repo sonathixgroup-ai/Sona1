@@ -18,26 +18,56 @@ class VideosPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final videosAsync = ref.watch(videosProvider);
+
     return Scaffold(
-      appBar: MonPaysAppBar(title: 'Vidéos Officielles'),
+      appBar: MonPaysAppBar(
+        title: 'Vidéos Officielles',
+      ),
       body: videosAsync.when(
         data: (videos) {
-          if (videos.isEmpty) return const Center(child: Text('Aucune vidéo disponible'));
+          if (videos.isEmpty) {
+            return Center(
+              child: Text(
+                'Aucune vidéo disponible',
+                style: MonPaysTextStyles.bodyLarge.copyWith(
+                  color: MonPaysColors.textSecondary,
+                ),
+              ),
+            );
+          }
           return GridView.builder(
             padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.8, crossAxisSpacing: 12, mainAxisSpacing: 12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
             itemCount: videos.length,
             itemBuilder: (context, index) {
               final video = videos[index];
               return VideoCard(
                 video: video,
-                onTap: () => context.push('${AppRoutes.monPaysVideoDetail}'.replaceFirst(':id', video.id)),
+                onTap: () {
+                  context.push(
+                    '${AppRoutes.monPaysVideoDetail}'.replaceFirst(':id', video.id),
+                  );
+                },
               );
             },
           );
         },
-        loading: () => const Center(child: LoadingWidget(message: 'Chargement des vidéos...')),
-        error: (error, stack) => Center(child: MonPaysErrorWidget(message: 'Erreur: $error', onRetry: () => ref.refresh(videosProvider))),
+        loading: () => const Center(
+          child: LoadingWidget(
+            message: 'Chargement des vidéos...',
+          ),
+        ),
+        error: (error, stack) => Center(
+          child: MonPaysErrorWidget(
+            message: 'Erreur de chargement : $error',
+            onRetry: () => ref.refresh(videosProvider),
+          ),
+        ),
       ),
     );
   }
