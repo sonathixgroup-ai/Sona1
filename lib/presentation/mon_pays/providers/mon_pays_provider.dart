@@ -40,8 +40,9 @@ import '../mon_pays_state.dart';
 final dioProvider = Provider<Dio>((ref) {
   final supabase = Supabase.instance.client;
 
-  // ✅ Utilisation de supabase.supabaseUrl (disponible dans toutes les versions)
-  final baseUrl = supabase.supabaseUrl;
+  // ✅ CORRECTION : L'URL de ton projet Supabase doit être déclarée ici.
+  // Remplace cette adresse par la vraie URL de ton projet.
+  const String baseUrl = 'https://TON_PROJET.supabase.co';
 
   final dio = Dio(BaseOptions(
     baseUrl: '$baseUrl/rest/v1', // L'URL REST de Supabase
