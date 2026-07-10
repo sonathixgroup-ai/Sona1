@@ -20,7 +20,7 @@ import 'sections/documentaries_section.dart';
 import 'sections/wanted_people_section.dart';
 import 'sections/citizens_section.dart';
 import 'sections/consultations_section.dart';
-import 'sections/emergency_section.dart';
+import 'sections/participation_section.dart'; // 👈 Ajout
 import 'sections/banner_section.dart';
 
 class MonPaysPage extends ConsumerStatefulWidget {
@@ -34,7 +34,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
   @override
   void initState() {
     super.initState();
-    // Charger les données au premier affichage
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(monPaysControllerProvider.notifier).loadAllData();
     });
@@ -44,7 +43,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(monPaysControllerProvider);
 
-    // Gestion des états de chargement et d'erreur
     if (state.isLoading) {
       return Scaffold(
         appBar: const MonPaysAppBar(),
@@ -70,7 +68,6 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
       );
     }
 
-    // Page principale avec toutes les sections
     return Scaffold(
       appBar: const MonPaysAppBar(),
       body: CustomScrollView(
@@ -82,59 +79,59 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-          // Autorités
+          // 1. Les Autorités
           const SliverToBoxAdapter(
             child: AuthoritiesSection(),
           ),
 
-          // Figures Historiques
+          // 2. Figures Historiques
           const SliverToBoxAdapter(
             child: HistorySection(),
           ),
 
-          // Actualités
+          // 3. À la Une
           const SliverToBoxAdapter(
             child: NewsSection(),
           ),
 
-          // Valeurs & Lois
+          // 4. Valeurs & Lois (bouton "Explorer")
           const SliverToBoxAdapter(
             child: ValuesSection(),
           ),
 
-          // Agences & Institutions
+          // 5. Agences & Institutions
           const SliverToBoxAdapter(
             child: AgenciesSection(),
           ),
 
-          // Vidéos
+          // 6. Vidéos Officielles
           const SliverToBoxAdapter(
             child: VideosSection(),
           ),
 
-          // Documentaires
+          // 7. Documentaires & Archives
           const SliverToBoxAdapter(
             child: DocumentariesSection(),
           ),
 
-          // Personnes recherchées
+          // 8. Personne Recherchée (carte rouge)
           const SliverToBoxAdapter(
             child: WantedPeopleSection(),
           ),
 
-          // Citoyens exemplaires
+          // 9. Citoyens Exemplaires (première occurrence)
           const SliverToBoxAdapter(
             child: CitizensSection(),
           ),
 
-          // Consultations publiques
+          // 10. Participer & S'exprimer (bouton "Explorer") – remplace urgence
           const SliverToBoxAdapter(
-            child: ConsultationsSection(),
+            child: ParticipationSection(),
           ),
 
-          // Urgence / Sécurité
+          // 11. Consultations Publiques (optionnel, complémentaire)
           const SliverToBoxAdapter(
-            child: EmergencySection(),
+            child: ConsultationsSection(),
           ),
 
           // Espacement pour le bottom nav
