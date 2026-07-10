@@ -20,7 +20,7 @@ class MonPaysColors {
   static const Color textSecondary = Color(0xFF757575);
   static const Color textHint = Color(0xFFBDBDBD);
   static const Color textLight = Color(0xFFFFFFFF);
-
+  static const Color darkText = Color(0xFF1A1A1A);
   // États
   static const Color success = Color(0xFF2E7D32);
   static const Color warning = Color(0xFFFF9800);
