@@ -6,14 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/documentaries_provider.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/error_widget.dart'; // ✅ pour MonPaysErrorWidget
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
 
 class DocumentaryPage extends ConsumerStatefulWidget {
   final String id;
-
   const DocumentaryPage({Key? key, required this.id}) : super(key: key);
 
   @override
@@ -37,7 +36,6 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
     try {
       final documentary = await ref.read(documentaryProvider(widget.id).future);
       if (documentary.url != null && documentary.url!.contains('youtube.com')) {
-        // Vidéo YouTube
         final youtubeId = YoutubePlayerController.getYoutubeVideoId(documentary.url!);
         if (youtubeId != null) {
           _youtubeController = YoutubePlayerController(
@@ -53,13 +51,11 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
           _error = 'Lien YouTube invalide';
         }
       } else if (documentary.url != null && documentary.url!.startsWith('http')) {
-        // Vidéo directe (MP4, etc.)
         _localController = VideoPlayerController.networkUrl(Uri.parse(documentary.url!));
         await _localController!.initialize();
         await _localController!.play();
         _isYoutube = false;
       } else {
-        // Pas de vidéo, on affiche seulement les informations
         _isYoutube = false;
       }
     } catch (e) {
@@ -99,7 +95,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
           ? const Center(child: LoadingWidget())
           : _error != null
               ? Center(
-                  child: ErrorWidget(
+                  child: MonPaysErrorWidget( // ✅ corrigé
                     message: _error!,
                     onRetry: () {
                       setState(() {
@@ -122,7 +118,6 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Lecteur vidéo (si disponible)
                           if (documentary.url != null) ...[
                             _isYoutube && _youtubeController != null
                                 ? YoutubePlayer(
@@ -135,8 +130,6 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                                     : const SizedBox.shrink(),
                             const SizedBox(height: 16),
                           ],
-
-                          // Image miniature si pas de vidéo
                           if (documentary.url == null || documentary.url!.isEmpty)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
@@ -156,10 +149,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                                 ),
                               ),
                             ),
-
                           const SizedBox(height: 16),
-
-                          // Catégorie
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -178,8 +168,6 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-
-                          // Titre
                           Text(
                             documentary.title,
                             style: MonPaysTextStyles.heading5.copyWith(
@@ -188,8 +176,6 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-
-                          // Durée et année
                           Row(
                             children: [
                               const Icon(
@@ -222,8 +208,6 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                             ],
                           ),
                           const Divider(height: 32),
-
-                          // Description
                           if (documentary.description != null) ...[
                             Text(
                               'Résumé',
@@ -240,10 +224,7 @@ class _DocumentaryPageState extends ConsumerState<DocumentaryPage> {
                               ),
                             ),
                           ],
-
                           const SizedBox(height: 20),
-
-                          // Retour
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
