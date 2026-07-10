@@ -1,6 +1,5 @@
 // lib/presentation/mon_pays/services/mon_pays_service.dart
 
-import 'package:dio/dio.dart';
 import 'agencies_service.dart';
 import 'authorities_service.dart';
 import 'citizens_service.dart';
@@ -25,36 +24,48 @@ import '../models/value_model.dart';
 import '../models/video_model.dart';
 import '../models/wanted_person_model.dart';
 
+/// Service agrégateur qui combine tous les services du module Mon Pays.
 class MonPaysService {
-  final Dio _dio;
-  late final AgenciesService _agenciesService;
-  late final AuthoritiesService _authoritiesService;
-  late final CitizensService _citizensService;
-  late final ConsultationsService _consultationsService;
-  late final DocumentariesService _documentariesService;
-  late final GovernmentService _governmentService;
-  late final HistoryService _historyService;
-  late final NewsService _newsService;
-  late final SearchService _searchService;
-  late final ValuesService _valuesService;
-  late final VideosService _videosService;
-  late final WantedPeopleService _wantedPeopleService;
+  final AuthoritiesService _authoritiesService;
+  final HistoryService _historyService;
+  final NewsService _newsService;
+  final AgenciesService _agenciesService;
+  final VideosService _videosService;
+  final DocumentariesService _documentariesService;
+  final WantedPeopleService _wantedPeopleService;
+  final CitizensService _citizensService;
+  final ValuesService _valuesService;
+  final ConsultationsService _consultationsService;
+  final GovernmentService _governmentService;
+  final SearchService _searchService;
 
-  MonPaysService(this._dio) {
-    _agenciesService = AgenciesService(_dio);
-    _authoritiesService = AuthoritiesService(_dio);
-    _citizensService = CitizensService(_dio);
-    _consultationsService = ConsultationsService(_dio);
-    _documentariesService = DocumentariesService(_dio);
-    _governmentService = GovernmentService(_dio);
-    _historyService = HistoryService(_dio);
-    _newsService = NewsService(_dio);
-    _searchService = SearchService(_dio);
-    _valuesService = ValuesService(_dio);
-    _videosService = VideosService(_dio);
-    _wantedPeopleService = WantedPeopleService(_dio);
-  }
+  MonPaysService({
+    required AuthoritiesService authoritiesService,
+    required HistoryService historyService,
+    required NewsService newsService,
+    required AgenciesService agenciesService,
+    required VideosService videosService,
+    required DocumentariesService documentariesService,
+    required WantedPeopleService wantedPeopleService,
+    required CitizensService citizensService,
+    required ValuesService valuesService,
+    required ConsultationsService consultationsService,
+    required GovernmentService governmentService,
+    required SearchService searchService,
+  }) : _authoritiesService = authoritiesService,
+       _historyService = historyService,
+       _newsService = newsService,
+       _agenciesService = agenciesService,
+       _videosService = videosService,
+       _documentariesService = documentariesService,
+       _wantedPeopleService = wantedPeopleService,
+       _citizensService = citizensService,
+       _valuesService = valuesService,
+       _consultationsService = consultationsService,
+       _governmentService = governmentService,
+       _searchService = searchService;
 
+  /// Récupère toutes les données en parallèle.
   Future<Map<String, dynamic>> getAllData() async {
     final results = await Future.wait([
       _authoritiesService.getAll(),
@@ -87,15 +98,15 @@ class MonPaysService {
 
   // Getters pour les services individuels (si nécessaire)
   AuthoritiesService get authorities => _authoritiesService;
-  AgenciesService get agencies => _agenciesService;
-  CitizensService get citizens => _citizensService;
-  ConsultationsService get consultations => _consultationsService;
-  DocumentariesService get documentaries => _documentariesService;
-  GovernmentService get government => _governmentService;
   HistoryService get history => _historyService;
   NewsService get news => _newsService;
-  SearchService get search => _searchService;
-  ValuesService get values => _valuesService;
+  AgenciesService get agencies => _agenciesService;
   VideosService get videos => _videosService;
+  DocumentariesService get documentaries => _documentariesService;
   WantedPeopleService get wantedPeople => _wantedPeopleService;
+  CitizensService get citizens => _citizensService;
+  ValuesService get values => _valuesService;
+  ConsultationsService get consultations => _consultationsService;
+  GovernmentService get government => _governmentService;
+  SearchService get search => _searchService;
 }
