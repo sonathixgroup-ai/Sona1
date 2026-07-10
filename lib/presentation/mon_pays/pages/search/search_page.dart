@@ -11,7 +11,7 @@ import '../../widgets/empty_widget.dart';
 import '../../cards/action_button_card.dart';
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
-
+import '../../widgets/error_widget.dart';
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
 
