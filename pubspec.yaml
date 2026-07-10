@@ -28,9 +28,8 @@ dependencies:
   flutter_riverpod: ^2.5.1
   flutter_bloc: ^8.1.6
 
-  # Backend & Models
+  # Backend
   supabase_flutter: ^2.15.4
-  json_annotation: ^4.8.1
 
   # Utils & Storage
   intl: ^0.20.2
@@ -107,8 +106,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
-  build_runner: ^2.4.9
-  json_serializable: ^6.8.0
+  
   
 flutter_launcher_icons:
   android: true
