@@ -1,7 +1,6 @@
 // lib/presentation/mon_pays/providers/mon_pays_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../repositories/mon_pays_repository.dart';
 import '../repositories/authorities_repository.dart';
@@ -35,57 +34,28 @@ import '../services/values_service.dart';
 import '../mon_pays_controller.dart';
 import '../mon_pays_state.dart';
 
-// ─── Fournisseur Dio avec Supabase ──────────────────────────────
+// ─── Fournisseur Supabase Client ────────────────────────────────
 
-final dioProvider = Provider<Dio>((ref) {
-  final supabase = Supabase.instance.client;
-
-  // ✅ CORRECTION : L'URL de ton projet Supabase doit être déclarée ici.
-  // Remplace cette adresse par la vraie URL de ton projet.
-  const String baseUrl = 'https://TON_PROJET.supabase.co';
-
-  final dio = Dio(BaseOptions(
-    baseUrl: '$baseUrl/rest/v1', // L'URL REST de Supabase
-    headers: {
-      'apikey': supabase.auth.currentSession?.accessToken ?? '',
-      'Authorization': 'Bearer ${supabase.auth.currentSession?.accessToken}',
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-    },
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
-
-  dio.interceptors.add(InterceptorsWrapper(
-    onRequest: (options, handler) {
-      final session = supabase.auth.currentSession;
-      if (session != null) {
-        options.headers['Authorization'] = 'Bearer ${session.accessToken}';
-        options.headers['apikey'] = session.accessToken;
-      }
-      return handler.next(options);
-    },
-  ));
-
-  return dio;
+final supabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return Supabase.instance.client;
 });
 
-// ─── Services ────────────────────────────────────────────────────
+// ─── Services (utilisant Supabase) ──────────────────────────────
 
-final authoritiesServiceProvider = Provider<AuthoritiesService>((ref) => AuthoritiesService(ref.watch(dioProvider)));
-final governmentServiceProvider = Provider<GovernmentService>((ref) => GovernmentService(ref.watch(dioProvider)));
-final ministryServiceProvider = Provider<MinistryService>((ref) => MinistryService(ref.watch(dioProvider)));
-final agenciesServiceProvider = Provider<AgenciesService>((ref) => AgenciesService(ref.watch(dioProvider)));
-final historyServiceProvider = Provider<HistoryService>((ref) => HistoryService(ref.watch(dioProvider)));
-final newsServiceProvider = Provider<NewsService>((ref) => NewsService(ref.watch(dioProvider)));
-final lawServiceProvider = Provider<LawService>((ref) => LawService(ref.watch(dioProvider)));
-final valuesServiceProvider = Provider<ValuesService>((ref) => ValuesService(ref.watch(dioProvider)));
-final videosServiceProvider = Provider<VideosService>((ref) => VideosService(ref.watch(dioProvider)));
-final documentariesServiceProvider = Provider<DocumentariesService>((ref) => DocumentariesService(ref.watch(dioProvider)));
-final wantedPeopleServiceProvider = Provider<WantedPeopleService>((ref) => WantedPeopleService(ref.watch(dioProvider)));
-final citizensServiceProvider = Provider<CitizensService>((ref) => CitizensService(ref.watch(dioProvider)));
-final consultationsServiceProvider = Provider<ConsultationsService>((ref) => ConsultationsService(ref.watch(dioProvider)));
-final searchServiceProvider = Provider<SearchService>((ref) => SearchService(ref.watch(dioProvider)));
+final authoritiesServiceProvider = Provider<AuthoritiesService>((ref) => AuthoritiesService(ref.watch(supabaseClientProvider)));
+final governmentServiceProvider = Provider<GovernmentService>((ref) => GovernmentService(ref.watch(supabaseClientProvider)));
+final ministryServiceProvider = Provider<MinistryService>((ref) => MinistryService(ref.watch(supabaseClientProvider)));
+final agenciesServiceProvider = Provider<AgenciesService>((ref) => AgenciesService(ref.watch(supabaseClientProvider)));
+final historyServiceProvider = Provider<HistoryService>((ref) => HistoryService(ref.watch(supabaseClientProvider)));
+final newsServiceProvider = Provider<NewsService>((ref) => NewsService(ref.watch(supabaseClientProvider)));
+final lawServiceProvider = Provider<LawService>((ref) => LawService(ref.watch(supabaseClientProvider)));
+final valuesServiceProvider = Provider<ValuesService>((ref) => ValuesService(ref.watch(supabaseClientProvider)));
+final videosServiceProvider = Provider<VideosService>((ref) => VideosService(ref.watch(supabaseClientProvider)));
+final documentariesServiceProvider = Provider<DocumentariesService>((ref) => DocumentariesService(ref.watch(supabaseClientProvider)));
+final wantedPeopleServiceProvider = Provider<WantedPeopleService>((ref) => WantedPeopleService(ref.watch(supabaseClientProvider)));
+final citizensServiceProvider = Provider<CitizensService>((ref) => CitizensService(ref.watch(supabaseClientProvider)));
+final consultationsServiceProvider = Provider<ConsultationsService>((ref) => ConsultationsService(ref.watch(supabaseClientProvider)));
+final searchServiceProvider = Provider<SearchService>((ref) => SearchService(ref.watch(supabaseClientProvider)));
 
 // ─── Repositories ────────────────────────────────────────────────
 
