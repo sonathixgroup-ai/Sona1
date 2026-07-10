@@ -1,41 +1,52 @@
 // lib/presentation/mon_pays/services/values_service.dart
 
-import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/value_model.dart';
-import '../utils/mon_pays_constants.dart';
 
 class ValuesService {
-  final Dio _dio;
+  final SupabaseClient _supabase;
 
-  ValuesService(this._dio);
+  ValuesService(this._supabase);
 
   Future<List<Value>> getAll() async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.valuesEndpoint}');
-    return (response.data as List).map((e) => Value.fromJson(e)).toList();
+    final response = await _supabase
+        .from('values')
+        .select('*');
+    return (response as List).map((e) => Value.fromJson(e)).toList();
   }
 
   Future<Value> getById(String id) async {
-    final response = await _dio.get('${MonPaysConstants.baseUrl}${MonPaysConstants.valuesEndpoint}/$id');
-    return Value.fromJson(response.data);
+    final response = await _supabase
+        .from('values')
+        .select('*')
+        .eq('id', id)
+        .single();
+    return Value.fromJson(response);
   }
 
   Future<Value> create(Value value) async {
-    final response = await _dio.post(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.valuesEndpoint}',
-      data: value.toJson(),
-    );
-    return Value.fromJson(response.data);
+    final response = await _supabase
+        .from('values')
+        .insert(value.toJson())
+        .select()
+        .single();
+    return Value.fromJson(response);
   }
 
   Future<Value> update(Value value) async {
-    final response = await _dio.put(
-      '${MonPaysConstants.baseUrl}${MonPaysConstants.valuesEndpoint}/${value.id}',
-      data: value.toJson(),
-    );
-    return Value.fromJson(response.data);
+    final response = await _supabase
+        .from('values')
+        .update(value.toJson())
+        .eq('id', value.id)
+        .select()
+        .single();
+    return Value.fromJson(response);
   }
 
   Future<void> delete(String id) async {
-    await _dio.delete('${MonPaysConstants.baseUrl}${MonPaysConstants.valuesEndpoint}/$id');
+    await _supabase
+        .from('values')
+        .delete()
+        .eq('id', id);
   }
 }
