@@ -1,116 +1,64 @@
-// lib/presentation/thix_market/checkout/checkout_page.dart
+// lib/presentation/thix_market/checkout/checkout_provider.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
-import 'checkout_provider.dart';
-import 'shipping_method_selector.dart';
-import 'payment_method_selector.dart';
-import 'order_summary_widget.dart';
-import '../cart/cart_provider.dart';
-import '../delivery/delivery_address_selector.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key});
+class CheckoutProvider extends ChangeNotifier {
+  final SupabaseClient _supabase = Supabase.instance.client;
 
-  @override
-  State<CheckoutPage> createState() => _CheckoutPageState();
-}
+  bool _isLoading = false;
+  String? _errorMessage;
+  String _currentStep = 'address';
+  
+  List<Map<String, dynamic>> _savedAddresses = [];
+  Map<String, dynamic>? _selectedAddress;
+  Map<String, dynamic>? _selectedShippingMethod;
+  Map<String, dynamic>? _selectedPaymentMethod;
+  Map<String, dynamic> _userInfo = {};
 
-class _CheckoutPageState extends State<CheckoutPage> {
-  bool _isDataLoaded = false;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  String get currentStep => _currentStep;
+  List<Map<String, dynamic>> get savedAddresses => _savedAddresses;
+  Map<String, dynamic>? get selectedAddress => _selectedAddress;
+  Map<String, dynamic>? get selectedShippingMethod => _selectedShippingMethod;
+  Map<String, dynamic>? get selectedPaymentMethod => _selectedPaymentMethod;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isDataLoaded) {
-      _isDataLoaded = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<CheckoutProvider>().loadCheckoutData();
-      });
+  Future<void> loadCheckoutData() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      _errorMessage = "Utilisateur non connecté.";
+      notifyListeners();
+      return;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      // Chargement en parallèle
+      final results = await Future.wait([
+        _supabase.from('addresses').select().eq('user_id', userId),
+        _supabase.from('users').select('id, name, email, phone').eq('id', userId).maybeSingle()
+      ]);
+
+      _savedAddresses = List<Map<String, dynamic>>.from(results[0]);
+      _userInfo = results[1] ?? {};
+      _currentStep = 'address';
+    } catch (e) {
+      debugPrint('❌ Erreur critique Checkout: $e');
+      _errorMessage = "Impossible de charger les données : ${e.toString()}";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Validation de commande'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: Consumer<CheckoutProvider>(
-        builder: (context, provider, _) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // Gestion explicite des erreurs pour éviter le blocage
-          if (provider.errorMessage != null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(provider.errorMessage!, textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => provider.loadCheckoutData(),
-                      child: const Text('Réessayer'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return _buildStepContent(provider);
-        },
-      ),
-    );
+  void selectAddress(Map<String, dynamic> address) {
+    _selectedAddress = address;
+    _currentStep = 'shipping';
+    notifyListeners();
   }
-
-  Widget _buildStepContent(CheckoutProvider provider) {
-    switch (provider.currentStep) {
-      case 'address': return _AddressStep(provider: provider);
-      case 'shipping': return ShippingMethodSelector(provider: provider);
-      case 'payment': return PaymentMethodSelector(provider: provider);
-      case 'confirmation': return OrderSummaryWidget(provider: provider);
-      default: return const Center(child: Text("Erreur d'étape"));
-    }
-  }
-}
-
-class _AddressStep extends StatelessWidget {
-  final CheckoutProvider provider;
-  const _AddressStep({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(child: DeliveryAddressSelector(onAddressSelected: provider.selectAddress)),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: provider.selectedAddress != null 
-              ? () => provider.selectAddress(provider.selectedAddress!) 
-              : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            child: const Text('Continuer'),
-          ),
-        ),
-      ],
-    );
-  }
+  
+  // ... (Gardez vos autres méthodes processOrder et _processPayment ici)
 }
