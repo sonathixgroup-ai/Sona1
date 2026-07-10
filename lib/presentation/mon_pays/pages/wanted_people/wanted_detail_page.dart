@@ -3,17 +3,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routes/app_routes.dart';
 import '../../providers/wanted_people_provider.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/error_widget.dart';
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
 import '../../enums/wanted_status.dart';
 
 class WantedDetailPage extends ConsumerWidget {
   final String id;
-
   const WantedDetailPage({Key? key, required this.id}) : super(key: key);
 
   @override
@@ -35,13 +33,13 @@ class WantedDetailPage extends ConsumerWidget {
       ),
       body: personAsync.when(
         data: (person) {
-          final isDangerous = person.status == WantedStatus.dangerous;
+          final isDangerous = person.status == WantedStatus.dangereuse; // ✅ corrigé
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // En-tête avec photo
+                // En-tête
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -115,7 +113,7 @@ class WantedDetailPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Informations générales
+                // Informations
                 Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -144,7 +142,7 @@ class WantedDetailPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Description détaillée
+                // Description
                 if (person.description != null) ...[
                   Card(
                     elevation: 2,
@@ -177,14 +175,12 @@ class WantedDetailPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
 
-                // Boutons d'action
+                // Boutons
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          // Ouvrir le dialogue de signalement
-                        },
+                        onPressed: () {},
                         icon: const Icon(Icons.report),
                         label: const Text('Signaler'),
                         style: ElevatedButton.styleFrom(
@@ -222,7 +218,7 @@ class WantedDetailPage extends ConsumerWidget {
         },
         loading: () => const Center(child: LoadingWidget()),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: MonPaysErrorWidget( // ✅ corrigé
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(wantedPersonProvider(id)),
           ),
