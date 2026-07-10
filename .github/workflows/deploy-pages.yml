@@ -29,6 +29,10 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      # 👉 LA SOLUTION EST ICI : Génération des modèles JSON avant la compilation
+      - name: Generate data models
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Build web
         # Flutter web requires --base-href values to start and end with "/".
         # This repository is deployed as a project page at "/Sona1/".
