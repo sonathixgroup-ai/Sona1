@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/consultations_provider.dart';
-import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/empty_widget.dart';
+import '../../widgets/error_widget.dart' as custom;
 import '../../utils/mon_pays_colors.dart';
 import '../../utils/mon_pays_text_styles.dart';
 
 class ConsultationDetailPage extends ConsumerWidget {
   final String id;
-
   const ConsultationDetailPage({Key? key, required this.id}) : super(key: key);
 
   @override
@@ -38,7 +38,7 @@ class ConsultationDetailPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // En-tête avec statut
+                // En-tête
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -94,7 +94,7 @@ class ConsultationDetailPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Informations
+                // Description
                 Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -128,7 +128,7 @@ class ConsultationDetailPage extends ConsumerWidget {
                           const SizedBox(height: 12),
                           GestureDetector(
                             onTap: () {
-                              // Ouvrir le lien si disponible
+                              // Ouvrir le lien
                             },
                             child: Text(
                               '🔗 ${consultation.link}',
@@ -145,7 +145,7 @@ class ConsultationDetailPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Bouton de participation (si active)
+                // Bouton de participation
                 if (consultation.isActive)
                   SizedBox(
                     width: double.infinity,
@@ -153,7 +153,7 @@ class ConsultationDetailPage extends ConsumerWidget {
                       onPressed: () {
                         // Navigation vers la participation
                       },
-                      icon: const Icon(Icons.participation),
+                      icon: const Icon(Icons.how_to_vote), // ✅ CORRIGÉ
                       label: const Text('Participer à cette consultation'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: MonPaysColors.primaryRed,
@@ -190,7 +190,7 @@ class ConsultationDetailPage extends ConsumerWidget {
         },
         loading: () => const Center(child: LoadingWidget()),
         error: (error, stack) => Center(
-          child: ErrorWidget(
+          child: custom.MonPaysErrorWidget(
             message: 'Erreur de chargement : $error',
             onRetry: () => ref.refresh(consultationProvider(id)),
           ),
