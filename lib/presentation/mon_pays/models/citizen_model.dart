@@ -25,11 +25,39 @@ class ExemplaryCitizen extends Equatable {
     this.score,
   });
 
-  ExemplaryCitizen copyWith({...}) => ...;
+  ExemplaryCitizen copyWith({
+    String? id,
+    String? name,
+    String? occupation,
+    String? photoUrl,
+    String? quote,
+    String? city,
+    int? score,
+  }) {
+    return ExemplaryCitizen(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      occupation: occupation ?? this.occupation,
+      photoUrl: photoUrl ?? this.photoUrl,
+      quote: quote ?? this.quote,
+      city: city ?? this.city,
+      score: score ?? this.score,
+    );
+  }
 
-  factory ExemplaryCitizen.fromJson(Map<String, dynamic> json) => _$ExemplaryCitizenFromJson(json);
+  factory ExemplaryCitizen.fromJson(Map<String, dynamic> json) =>
+      _$ExemplaryCitizenFromJson(json);
+
   Map<String, dynamic> toJson() => _$ExemplaryCitizenToJson(this);
 
   @override
-  List<Object?> get props => [id, name, occupation, photoUrl, quote, city, score];
+  List<Object?> get props => [
+        id,
+        name,
+        occupation,
+        photoUrl,
+        quote,
+        city,
+        score,
+      ];
 }
