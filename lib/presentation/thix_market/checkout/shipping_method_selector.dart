@@ -14,31 +14,36 @@ class ShippingMethodSelector extends StatefulWidget {
 class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
   late final List<Map<String, dynamic>> _methods;
 
-  // ─── Palette Élite ──────────────────────────────────────────────
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
+  // ─── Palette THIX ID ────────────────────────────────────────────
+  static const Color thixOrange = Color(0xFFE5592F);
   static const Color softBlue = Color(0xFFEFF5FF);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color darkText = Color(0xFF10192E);
   static const Color mutedText = Color(0xFF7386A8);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color danger = Color(0xFFFF5B3D);
 
   @override
   void initState() {
     super.initState();
     _methods = const [
-      {'id': 'express', 'name': 'Express', 'price': 5000, 'days': '24h'},
-      {'id': 'standard', 'name': 'Standard', 'price': 2500, 'days': '2 à 3 jours'},
-      {'id': 'pickup', 'name': 'Point relais', 'price': 0, 'days': 'Le jour même'},
+      {
+        'id': 'home_delivery', 
+        'name': 'Livraison à domicile', 
+        'price': 0, 
+        'price_label': 'Fixé par le livreur', 
+        'days': 'Le livreur vous contactera'
+      },
+      {
+        'id': 'pickup', 
+        'name': 'Point relais THIX', 
+        'price': 0, 
+        'price_label': 'Gratuit', 
+        'days': 'Retrait en boutique'
+      },
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    // La devise de livraison est toujours en FC (CDF)
-    const shippingSymbol = 'FC';
-
     return Column(
       children: [
         Expanded(
@@ -48,13 +53,14 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
             itemBuilder: (context, index) {
               final method = _methods[index];
               final isSelected = widget.provider.selectedShippingMethod?['id'] == method['id'];
+              
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: isSelected ? primaryBlue : Colors.grey[200]!,
+                    color: isSelected ? thixOrange : Colors.grey[200]!,
                     width: isSelected ? 2 : 1,
                   ),
                 ),
@@ -62,30 +68,30 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
                   value: method,
                   groupValue: widget.provider.selectedShippingMethod,
                   onChanged: (value) => widget.provider.selectShippingMethod(value!),
-                  activeColor: primaryBlue,
+                  activeColor: thixOrange,
                   title: Text(
                     method['name'],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: darkText,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: darkText),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      method['days'],
+                      style: TextStyle(color: mutedText, fontSize: 13),
                     ),
                   ),
-                  subtitle: Text(
-                    '${method['days']} · ${method['price']} $shippingSymbol',
-                    style: TextStyle(color: mutedText),
-                  ),
                   secondary: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected ? primaryBlue.withOpacity(0.1) : softBlue,
+                      color: isSelected ? thixOrange.withOpacity(0.1) : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      method['price'] == 0 ? 'GRATUIT' : '${method['price']} $shippingSymbol',
+                      method['price_label'],
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                        color: isSelected ? primaryBlue : mutedText,
+                        fontSize: 11,
+                        color: isSelected ? thixOrange : Colors.grey[600],
                       ),
                     ),
                   ),
@@ -101,12 +107,10 @@ class _ShippingMethodSelectorState extends State<ShippingMethodSelector> {
                 ? null
                 : () => widget.provider.selectShippingMethod(widget.provider.selectedShippingMethod!),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryBlue,
+              backgroundColor: thixOrange,
               foregroundColor: pureWhite,
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
             child: const Text(
