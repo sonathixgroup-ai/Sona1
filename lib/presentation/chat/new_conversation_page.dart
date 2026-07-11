@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/chat_service.dart';
 import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
+import 'chat_message.dart';
 
 class NewConversationPage extends StatefulWidget {
   const NewConversationPage({super.key});
