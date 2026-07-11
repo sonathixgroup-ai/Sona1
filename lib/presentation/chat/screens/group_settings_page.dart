@@ -71,7 +71,7 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
           .from('conversation_participants')
           .select('role')
           .eq('conversation_id', widget.groupId)
-          .eq('user_id', _currentUserId)
+          .eq('user_id', _currentUserId ?? '')
           .maybeSingle();
       _isAdmin = participants != null && participants['role'] == 'admin';
 
