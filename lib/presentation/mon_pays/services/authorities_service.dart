@@ -1,5 +1,5 @@
 // lib/presentation/mon_pays/services/authorities_service.dart
-// Service CRUD complet pour les autorités (Supabase)
+// lib/presentation/mon_pays/services/authorities_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/authority.dart';
@@ -15,14 +15,14 @@ class AuthoritiesService {
       if (category != null && category != 'Tous') {
         query = query.eq('title', category);
       }
-      query = query.order('name');
-      final response = await query;
+      // ✅ Correction : utiliser .order() directement sur le résultat de select
+      // ou utiliser .order() avant le .eq() selon la version de supabase
+      final response = await query.order('name');
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erreur lors du chargement des autorités: $e');
     }
   }
-
   Future<Authority> getAuthorityById(String id) async {
     try {
       final response = await _client
