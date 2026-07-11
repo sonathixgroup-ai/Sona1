@@ -224,7 +224,12 @@ import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'presentation/chat/chat_list_page.dart';
 import 'presentation/chat/chat_screen.dart' as ThixChat;
 import 'presentation/chat/new_conversation_page.dart';
-
+import 'package:thix_id/presentation/chat/screens/chat_list_page.dart';
+import 'package:thix_id/presentation/chat/screens/chat_screen.dart';
+import 'package:thix_id/presentation/chat/screens/new_conversation_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_info_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_settings_page.dart';
 // ---- Mon Pays (Pages) ----
 import 'package:thix_id/presentation/mon_pays/mon_pays_page.dart';
 import 'package:thix_id/presentation/mon_pays/admin/admin_dashboard_page.dart';
@@ -597,6 +602,54 @@ GoRoute(
   },
 ),
         // ---- THIX Chat (simplifié) ----
+        GoRoute(
+      path: AppRoutes.chat,
+      name: 'chat',
+      builder: (context, state) => const ChatListPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.chatNew,
+      name: 'chat_new',
+      builder: (context, state) => const NewConversationPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.chatConversation,
+      name: 'chat_conversation',
+      builder: (context, state) {
+        final conversationId = state.pathParameters['conversationId']!;
+        // Récupérer la conversation depuis ChatService ou passer null
+        // (à adapter selon votre logique)
+        return ChatScreen(
+          conversationId: conversationId,
+          conversation: state.extra as ChatConversation? ?? 
+              // Fallback si la conversation n'est pas passée en extra
+              ChatConversation(id: conversationId, isGroup: false, participantIds: [], updatedAt: DateTime.now()),
+        );
+      },
+    ),
+
+    // ─── Groupes ───
+    GoRoute(
+      path: AppRoutes.groupCreate,
+      name: 'group_create',
+      builder: (context, state) => const GroupCreatePage(),
+    ),
+    GoRoute(
+      path: AppRoutes.groupInfo,
+      name: 'group_info',
+      builder: (context, state) {
+        final groupId = state.pathParameters['groupId']!;
+        return GroupInfoPage(groupId: groupId);
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.groupSettings,
+      name: 'group_settings',
+      builder: (context, state) {
+        final groupId = state.pathParameters['groupId']!;
+        return GroupSettingsPage(groupId: groupId);
+      },
+    ),
         GoRoute(
           path: AppRoutes.chat,
           name: 'chat',
