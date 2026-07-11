@@ -285,7 +285,8 @@ class AppRouter {
         if (isPortal) return null;
         return null;
       },
-      
+
+      routes: [
         // ---- Générales ----
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => NoTransitionPage(child: ThixIdStartPage())),
         GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => NoTransitionPage(child: HomePagePremium())),
