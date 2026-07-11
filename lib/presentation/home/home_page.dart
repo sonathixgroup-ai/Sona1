@@ -243,6 +243,15 @@ class _HomePagePremiumState extends State<HomePagePremium>
     context.push(AppRoutes.login);
   }
 
+  Future<void> _openThixChat() async {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.push(AppRoutes.chat);
+    } else {
+      context.push(AppRoutes.login);
+    }
+  }
+
   Future<void> _openEmergency() async {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
@@ -352,7 +361,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   child: _QuickActionsRow(
                     onScanTap: _openThixAi,
                     onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
-                    onChatTap: () => context.go(AppRoutes.chat),
+                    onChatTap: _openThixChat, // ✅ Connecté correctement ici
                     onSecurityTap: _openEmergency,
                   ),
                 ),
@@ -916,7 +925,7 @@ class _QuickActionsRow extends StatelessWidget {
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onChatTap, // ✅ Correction ici
+              onTap: onChatTap, // ✅ Correctement appelé ici
             ),
           ),
         ),
