@@ -1,17 +1,29 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 
-// Utilisation de chemins absolus pour éviter les erreurs
+// Services
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
+import 'package:thix_id/services/chat/audio_service.dart';
+import 'package:thix_id/services/chat/group_service.dart';
+
+// Modèles
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/user_status.dart';
+import 'package:thix_id/models/chat/group_info.dart';
 
-import 'widgets/chat_message_bubble.dart';
-import 'widgets/chat_input_bar.dart';
+// Widgets
+import '../widgets/chat_message_bubble.dart';
+import '../widgets/chat_input_bar.dart';
+import '../widgets/audio/audio_recorder.dart';
+import '../widgets/audio/audio_player.dart';
+import '../widgets/group/group_info_panel.dart';
+import '../utils/encryption_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -28,8 +40,13 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+  // Services
   late ChatService _chatService;
   late PresenceService _presenceService;
+  late AudioService _audioService;
+  late GroupService _groupService;
+
+  // Messages
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -38,24 +55,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _page = 0;
   static const int _pageSize = 30;
 
+  // Contrôleurs
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
+  // Participants
   UserStatus? _otherParticipant;
+  List<GroupMember> _groupMembers = [];
 
+  // État du message
   String _replyToId = '';
   bool _isEphemeral = false;
   int? _ephemeralDuration;
   bool _isTyping = false;
   Timer? _typingTimer;
 
+  // Streams
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
   Stream<UserStatus?>? _presenceStream;
 
-  // ============================================================
-  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
-  // ============================================================
+  // Couleurs THIX ID
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color primaryBlue = Color(0xFF2D6CDF);
@@ -68,11 +88,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   static const Color danger = Color(0xFFD64545);
   static const Color hairline = Color(0xFFE7EAF3);
 
+  // ============================================================
+  // CYCLE DE VIE
+  // ============================================================
+
   @override
   void initState() {
     super.initState();
-    _chatService = ChatService(Supabase.instance.client);
-    _presenceService = PresenceService(Supabase.instance.client);
+    final client = Supabase.instance.client;
+    _chatService = ChatService(client);
+    _presenceService = PresenceService(client);
+    _audioService = AudioService(client);
+    _groupService = GroupService(client);
+
     WidgetsBinding.instance.addObserver(this);
 
     _loadMessages();
@@ -80,9 +108,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _markAsRead();
     _setupScrollListener();
     _subscribeToPresence();
-
-    // Écoute en temps réel pour synchroniser les suppressions des deux côtés
     _subscribeToRealtimeMessages();
+    _loadGroupMembersIfGroup();
   }
 
   @override
@@ -93,41 +120,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _inputFocus.dispose();
     _typingTimer?.cancel();
     _messageSubscription?.cancel();
+    _audioService.dispose();
     super.dispose();
   }
 
-  // ---- GESTION DE LA PRÉSENCE ----
-  void _subscribeToPresence() {
-    if (widget.conversation.isGroup) return;
-    final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != _chatService.currentUserId,
-      orElse: () => '',
-    );
-    if (otherId.isNotEmpty) {
-      _presenceStream = _chatService.subscribeToPresence([otherId]).map(
-        (list) => list.isNotEmpty ? list.first : null
-      );
-      _presenceStream?.listen((status) {
-        if (mounted) {
-          setState(() => _otherParticipant = status);
-        }
-      });
-    }
-  }
+  // ============================================================
+  // CHARGEMENT DES DONNÉES
+  // ============================================================
 
-  Future<void> _getParticipantInfo() async {
-    if (widget.conversation.isGroup) return;
-    final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != _chatService.currentUserId,
-      orElse: () => '',
-    );
-    if (otherId.isNotEmpty) {
-      final participant = await _chatService.getUserPresence(otherId);
-      if (mounted) setState(() => _otherParticipant = participant);
-    }
-  }
-
-  // ---- CHARGEMENT DES MESSAGES ----
   Future<void> _loadMessages({bool loadMore = false}) async {
     if (loadMore) {
       if (_isLoadingMore || !_hasMoreMessages) return;
@@ -156,14 +156,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _isLoadingMore = false;
       });
 
-      if (!loadMore) {
-        _scrollToBottom();
-      }
+      if (!loadMore) _scrollToBottom();
     } catch (e) {
       setState(() {
         _isLoading = false;
         _isLoadingMore = false;
       });
+    }
+  }
+
+  Future<void> _loadGroupMembersIfGroup() async {
+    if (!widget.conversation.isGroup) return;
+    try {
+      final members = await _chatService.getGroupMembers(widget.conversationId);
+      setState(() => _groupMembers = members);
+    } catch (e) {
+      debugPrint('❌ Erreur chargement membres: $e');
     }
   }
 
@@ -193,9 +201,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // Synchronisation en temps réel (Suppression double côté)
+  // ============================================================
+  // PRÉSENCE
+  // ============================================================
+
+  void _subscribeToPresence() {
+    if (widget.conversation.isGroup) return;
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id != _chatService.currentUserId,
+      orElse: () => '',
+    );
+    if (otherId.isNotEmpty) {
+      _presenceStream = _chatService.subscribeToPresence([otherId]).map(
+        (list) => list.isNotEmpty ? list.first : null,
+      );
+      _presenceStream?.listen((status) {
+        if (mounted) setState(() => _otherParticipant = status);
+      });
+    }
+  }
+
+  Future<void> _getParticipantInfo() async {
+    if (widget.conversation.isGroup) return;
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id != _chatService.currentUserId,
+      orElse: () => '',
+    );
+    if (otherId.isNotEmpty) {
+      final participant = await _chatService.getUserPresence(otherId);
+      if (mounted) setState(() => _otherParticipant = participant);
+    }
+  }
+
+  // ============================================================
+  // REALTIME
+  // ============================================================
+
   void _subscribeToRealtimeMessages() {
-    _messageSubscription = _chatService.subscribeToMessages(widget.conversationId).listen((updatedMsgs) {
+    _messageSubscription = _chatService
+        .subscribeToMessages(widget.conversationId)
+        .listen((updatedMsgs) {
       if (!mounted) return;
       setState(() {
         for (var msg in updatedMsgs) {
@@ -214,7 +259,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  // ---- ENVOI DE MESSAGE ----
+  // ============================================================
+  // ENVOI DE MESSAGES
+  // ============================================================
+
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending) return;
@@ -242,36 +290,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _scrollToBottom();
     } catch (e) {
       setState(() => _isSending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
+      _showSnackBar('Erreur: $e', danger);
+    }
+  }
+
+  Future<void> _sendAudioMessage(String filePath, int duration) async {
+    try {
+      final file = await File(filePath).readAsBytes();
+      final msg = await _chatService.sendAudioMessage(
+        conversationId: widget.conversationId,
+        audioData: Uint8List.fromList(file),
+        duration: duration,
+        isEphemeral: _isEphemeral,
+        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        replyToId: _replyToId.isEmpty ? null : _replyToId,
       );
+      setState(() {
+        _messages.insert(0, msg);
+        _replyToId = '';
+      });
+      _scrollToBottom();
+    } catch (e) {
+      _showSnackBar('Erreur envoi audio: $e', danger);
     }
   }
 
-  // ---- INDICATEUR DE SAISIE ----
-  void _onTypingChanged(String text) {
-    if (text.isNotEmpty && !_isTyping) {
-      _isTyping = true;
-      _sendTypingStatus(true);
-    } else if (text.isEmpty && _isTyping) {
-      _isTyping = false;
-      _sendTypingStatus(false);
-    }
+  // ============================================================
+  // AUDIO (RECORDING)
+  // ============================================================
 
-    _typingTimer?.cancel();
-    _typingTimer = Timer(const Duration(seconds: 2), () {
-      if (_isTyping) {
-        _isTyping = false;
-        _sendTypingStatus(false);
-      }
-    });
+  void _startAudioRecording() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: AudioRecorderWidget(
+          audioService: _audioService,
+          onRecordingComplete: (filePath, duration) {
+            Navigator.pop(ctx);
+            _sendAudioMessage(filePath, duration);
+          },
+          onRecordingCanceled: () => Navigator.pop(ctx),
+          maxDuration: 120,
+        ),
+      ),
+    );
   }
 
-  void _sendTypingStatus(bool typing) {
-    // Logique WebSocket à venir
-  }
+  // ============================================================
+  // CHIFFREMENT
+  // ============================================================
 
-  // ---- DIALOGUE DE PROTECTION PAR MOT DE PASSE (AJOUTÉ) ----
   void _showPasswordProtectDialog() {
     final TextEditingController msgController = TextEditingController();
     final TextEditingController passController = TextEditingController();
@@ -284,7 +362,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           children: const [
             Icon(Icons.lock_rounded, color: gold),
             SizedBox(width: 8),
-            Text("Message chiffré", style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
+            Text('Message chiffré',
+                style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -293,7 +372,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             TextField(
               controller: msgController,
               decoration: const InputDecoration(
-                labelText: "Votre message",
+                labelText: 'Votre message',
                 labelStyle: TextStyle(color: mutedText),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: navy),
@@ -305,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               controller: passController,
               obscureText: true,
               decoration: const InputDecoration(
-                labelText: "Mot de passe de sécurité",
+                labelText: 'Mot de passe de sécurité',
                 labelStyle: TextStyle(color: mutedText),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: navy),
@@ -317,42 +396,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Annuler", style: TextStyle(color: mutedText)),
+            child: const Text('Annuler', style: TextStyle(color: mutedText)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: navyDeep,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
-              if (msgController.text.isNotEmpty && passController.text.isNotEmpty) {
-                // Ici, vous appliquez le chiffrement (ex: EncryptionService)
-                // final encrypted = EncryptionService.encrypt(msgController.text, passController.text);
-                // Pour l'exemple, on envoie le message en clair avec un indicateur
-                final content = "🔒 Message protégé par mot de passe";
-                
-                await _chatService.sendMessage(
-                  conversationId: widget.conversationId,
-                  content: content,
-                  replyToId: _replyToId.isEmpty ? null : _replyToId,
-                  isEphemeral: _isEphemeral,
-                  ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-                );
-                Navigator.pop(ctx);
+              if (msgController.text.isNotEmpty &&
+                  passController.text.isNotEmpty) {
+                try {
+                  final encrypted = EncryptionService.encrypt(
+                    msgController.text,
+                    passController.text,
+                  );
+                  await _chatService.sendMessage(
+                    conversationId: widget.conversationId,
+                    content: encrypted,
+                    replyToId: _replyToId.isEmpty ? null : _replyToId,
+                    isEphemeral: _isEphemeral,
+                    ephemeralDuration:
+                        _isEphemeral ? _ephemeralDuration : null,
+                  );
+                  Navigator.pop(ctx);
+                } catch (e) {
+                  _showSnackBar('Erreur chiffrement: $e', danger);
+                }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Veuillez remplir les deux champs"), backgroundColor: danger),
-                );
+                _showSnackBar('Veuillez remplir les deux champs', danger);
               }
             },
-            child: const Text("Envoyer", style: TextStyle(color: Colors.white)),
+            child: const Text('Envoyer', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  // ---- MENU ÉPHÉMÈRE ----
+  // ============================================================
+  // MÉNU ÉPHÉMÈRE
+  // ============================================================
+
   void _showEphemeralTimerDialog() {
     showModalBottomSheet(
       context: context,
@@ -372,7 +459,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     width: 40,
                     height: 4,
                     margin: const EdgeInsets.only(top: 12, bottom: 4),
-                    decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(
+                        color: hairline, borderRadius: BorderRadius.circular(4)),
                   ),
                 ),
                 Padding(
@@ -381,20 +469,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     children: [
                       Container(
                         padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.timer_rounded, size: 16, color: gold),
+                        decoration: BoxDecoration(
+                            color: navyDeep, borderRadius: BorderRadius.circular(10)),
+                        child:
+                            const Icon(Icons.timer_rounded, size: 16, color: gold),
                       ),
                       const SizedBox(width: 10),
                       const Text(
                         "Délai d'autodestruction",
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: darkText),
                       ),
                     ],
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.timer_off_rounded, color: mutedText),
-                  title: const Text("Désactiver l'autodestruction", style: TextStyle(color: mutedText, fontWeight: FontWeight.w600)),
+                  leading:
+                      const Icon(Icons.timer_off_rounded, color: mutedText),
+                  title: const Text(
+                    "Désactiver l'autodestruction",
+                    style: TextStyle(color: mutedText, fontWeight: FontWeight.w600),
+                  ),
                   onTap: () {
                     setState(() {
                       _isEphemeral = false;
@@ -403,12 +500,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Navigator.pop(ctx);
                   },
                 ),
-                Container(height: 1, color: hairline, margin: const EdgeInsets.symmetric(horizontal: 16)),
-                _buildTimeOption(ctx, 10, "10 secondes"),
-                _buildTimeOption(ctx, 30, "30 secondes"),
-                _buildTimeOption(ctx, 60, "1 minute"),
-                _buildTimeOption(ctx, 300, "5 minutes"),
-                _buildTimeOption(ctx, 3600, "1 heure"),
+                Container(
+                    height: 1,
+                    color: hairline,
+                    margin: const EdgeInsets.symmetric(horizontal: 16)),
+                _buildTimeOption(ctx, 10, '10 secondes'),
+                _buildTimeOption(ctx, 30, '30 secondes'),
+                _buildTimeOption(ctx, 60, '1 minute'),
+                _buildTimeOption(ctx, 300, '5 minutes'),
+                _buildTimeOption(ctx, 3600, '1 heure'),
               ],
             ),
           ),
@@ -431,7 +531,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           color: isSelected ? navy : darkText,
         ),
       ),
-      trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: gold) : null,
+      trailing: isSelected
+          ? const Icon(Icons.check_circle_rounded, color: gold)
+          : null,
       onTap: () {
         setState(() {
           _isEphemeral = true;
@@ -442,55 +544,221 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ============================================================
+  // TYPING INDICATOR
+  // ============================================================
+
+  void _onTypingChanged(String text) {
+    if (text.isNotEmpty && !_isTyping) {
+      _isTyping = true;
+      _sendTypingStatus(true);
+    } else if (text.isEmpty && _isTyping) {
+      _isTyping = false;
+      _sendTypingStatus(false);
+    }
+
+    _typingTimer?.cancel();
+    _typingTimer = Timer(const Duration(seconds: 2), () {
+      if (_isTyping) {
+        _isTyping = false;
+        _sendTypingStatus(false);
+      }
+    });
+  }
+
+  void _sendTypingStatus(bool typing) {
+    // À implémenter avec WebSocket
+  }
+
+  // ============================================================
+  // RÉPONSE
+  // ============================================================
+
   void _cancelReply() => setState(() => _replyToId = '');
 
-  // ---- GESTION DES MÉDIAS (remplacée par le chiffrement) ----
-  // L'ancienne méthode _pickAudio est désormais remplacée par _showPasswordProtectDialog
+  // ============================================================
+  // GESTION DES MÉDIAS (Attachement)
+  // ============================================================
 
-  // ---- WIDGETS ----
+  Future<void> _pickImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final bytes = await file.readAsBytes();
+        // Upload vers Supabase
+        final url = await _chatService.uploadFileWithUniqueName(
+          'images',
+          'messages/${widget.conversationId}',
+          Uint8List.fromList(bytes),
+          file.extension ?? 'jpg',
+        );
+        if (url != null) {
+          await _chatService.sendMessage(
+            conversationId: widget.conversationId,
+            content: '🖼️ Image',
+            mediaUrl: url,
+            mediaType: 'image',
+            isEphemeral: _isEphemeral,
+            ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+          );
+        }
+      }
+    } catch (e) {
+      _showSnackBar('Erreur pièce jointe: $e', danger);
+    }
+  }
+
+  // ============================================================
+  // GROUPES
+  // ============================================================
+
+  void _navigateToGroupInfo() {
+    Navigator.pushNamed(
+      context,
+      '/group/info',
+      arguments: widget.conversationId,
+    );
+  }
+
+  void _navigateToGroupSettings() {
+    Navigator.pushNamed(
+      context,
+      '/group/settings',
+      arguments: widget.conversationId,
+    );
+  }
+
+  Future<void> _leaveGroup() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quitter le groupe'),
+        content: const Text('Êtes-vous sûr de vouloir quitter ce groupe ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: danger),
+            child: const Text('Quitter'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _groupService.leaveGroup(widget.conversationId);
+        Navigator.pop(context);
+        _showSnackBar('Vous avez quitté le groupe', success);
+      } catch (e) {
+        _showSnackBar('Erreur: $e', danger);
+      }
+    }
+  }
+
+  Future<void> _deleteGroup() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer le groupe'),
+        content: const Text(
+            'Cette action est irréversible. Tous les messages seront perdus.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: danger),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _groupService.deleteGroup(widget.conversationId);
+        Navigator.pop(context);
+        _showSnackBar('Groupe supprimé', success);
+      } catch (e) {
+        _showSnackBar('Erreur: $e', danger);
+      }
+    }
+  }
+
+  // ============================================================
+  // UTILITAIRES
+  // ============================================================
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ivory,
       appBar: _buildAppBar(),
-      body: Container(
-        decoration: const BoxDecoration(color: ivory),
-        child: Column(
-          children: [
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: primaryBlue))
-                  : Stack(
-                      children: [
-                        ListView.builder(
-                          controller: _scrollController,
-                          reverse: true,
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                          itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
-                          itemBuilder: (ctx, index) {
-                            if (index == _messages.length && _isLoadingMore) {
-                              return const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: navy)),
-                              );
-                            }
-                            final msg = _messages[index];
-                            final isOwn = msg.senderId == _chatService.currentUserId;
+      body: Column(
+        children: [
+          // Panneau d'info du groupe (si groupe)
+          if (widget.conversation.isGroup)
+            GroupInfoPanel(
+              conversation: widget.conversation,
+              members: _groupMembers,
+              onViewAllMembers: _navigateToGroupInfo,
+              onEditGroup: _navigateToGroupSettings,
+              onLeaveGroup: _leaveGroup,
+              onDeleteGroup: _deleteGroup,
+            ),
+          // Liste des messages
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+                : Stack(
+                    children: [
+                      ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
+                        itemBuilder: (ctx, index) {
+                          if (index == _messages.length && _isLoadingMore) {
+                            return const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Center(
+                                child: CircularProgressIndicator(strokeWidth: 2, color: navy),
+                              ),
+                            );
+                          }
+                          final msg = _messages[index];
+                          final isOwn = msg.senderId == _chatService.currentUserId;
 
+                          // Messages audio
+                          if (msg.mediaType == 'audio' && msg.mediaUrl != null) {
                             return ChatMessageBubble(
                               message: msg,
                               isOwn: isOwn,
                               onReply: () => setState(() => _replyToId = msg.id),
                               onDelete: () async {
-                                setState(() {
-                                  _messages.removeWhere((m) => m.id == msg.id);
-                                });
+                                setState(() => _messages.removeWhere((m) => m.id == msg.id));
                                 if (isOwn) {
                                   try {
                                     await _chatService.deleteMessage(msg.id);
-                                  } catch (e) {
-                                    debugPrint('Erreur suppression DB: $e');
-                                  }
+                                  } catch (_) {}
                                 }
                               },
                               onReaction: (r) => _chatService.toggleReaction(msg.id, r),
@@ -501,37 +769,61 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     )
                                   : null,
                               isEphemeralActive: msg.isEphemeral,
+                              // Widget audio intégré dans ChatMessageBubble (à modifier)
                             );
-                          },
-                        ),
-                        if (_isTyping) _buildTypingIndicator(),
-                      ],
-                    ),
-            ),
-            if (_replyToId.isNotEmpty) _buildReplyIndicator(),
-            ChatInputBar(
-              controller: _inputController,
-              focusNode: _inputFocus,
-              onSend: _sendMessage,
-              isSending: _isSending,
-              onAttach: () {
-                // Implémentez la sélection d'image
-              },
-              // 👇 Le bouton "code" devient le bouton "cadenas" pour message protégé
-              onCode: _showPasswordProtectDialog,
-              onEphemeralToggle: _showEphemeralTimerDialog,
-              isEphemeral: _isEphemeral,
-              onTyping: _onTypingChanged,
-            ),
-          ],
-        ),
+                          }
+
+                          return ChatMessageBubble(
+                            message: msg,
+                            isOwn: isOwn,
+                            onReply: () => setState(() => _replyToId = msg.id),
+                            onDelete: () async {
+                              setState(() => _messages.removeWhere((m) => m.id == msg.id));
+                              if (isOwn) {
+                                try {
+                                  await _chatService.deleteMessage(msg.id);
+                                } catch (_) {}
+                              }
+                            },
+                            onReaction: (r) => _chatService.toggleReaction(msg.id, r),
+                            replyToMessage: msg.replyToId != null
+                                ? _messages.firstWhere(
+                                    (m) => m.id == msg.replyToId,
+                                    orElse: () => msg,
+                                  )
+                                : null,
+                            isEphemeralActive: msg.isEphemeral,
+                          );
+                        },
+                      ),
+                      if (_isTyping) _buildTypingIndicator(),
+                    ],
+                  ),
+          ),
+          // Indicateur de réponse
+          if (_replyToId.isNotEmpty) _buildReplyIndicator(),
+          // Barre d'input
+          ChatInputBar(
+            controller: _inputController,
+            focusNode: _inputFocus,
+            onSend: _sendMessage,
+            isSending: _isSending,
+            onAttach: _pickImage,
+            onAudio: _startAudioRecording,
+            onSecureMessage: _showPasswordProtectDialog,
+            onEphemeralToggle: _showEphemeralTimerDialog,
+            isEphemeral: _isEphemeral,
+            onTyping: _onTypingChanged,
+          ),
+        ],
       ),
     );
   }
 
   // ============================================================
-  // APP BAR — dégradé navy institutionnel
+  // APP BAR
   // ============================================================
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: navyDeep,
@@ -563,7 +855,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               backgroundImage: widget.conversation.isGroup
                   ? null
                   : const NetworkImage('https://i.pravatar.cc/150?img=11'),
-              child: widget.conversation.isGroup ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18) : null,
+              child: widget.conversation.isGroup
+                  ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18)
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
@@ -585,7 +879,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: (_otherParticipant!.status == 'online') ? success : Colors.white38,
+                          color: (_otherParticipant!.status == 'online')
+                              ? success
+                              : Colors.white38,
                         ),
                       ),
                       const SizedBox(width: 5),
@@ -604,13 +900,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       actions: [
         _appBarIconButton(Icons.videocam_rounded, () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appel vidéo non disponible')));
+          _showSnackBar('Appel vidéo non disponible', mutedText);
         }),
         _appBarIconButton(Icons.call_rounded, () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appel vocal non disponible')));
+          _showSnackBar('Appel vocal non disponible', mutedText);
         }),
+        if (widget.conversation.isGroup)
+          _appBarIconButton(Icons.info_outline_rounded, _navigateToGroupInfo),
         _appBarIconButton(Icons.more_vert_rounded, () {
-          // Menu options (supprimer, voir participants, etc.)
+          // Menu options
         }),
         const SizedBox(width: 4),
       ],
@@ -637,8 +935,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // INDICATEUR DE RÉPONSE — accent or
+  // INDICATEUR DE RÉPONSE
   // ============================================================
+
   Widget _buildReplyIndicator() {
     final reply = _messages.firstWhere(
       (m) => m.id == _replyToId,
@@ -666,12 +965,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  reply.senderId == _chatService.currentUserId ? 'Vous' : reply.senderName,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: navy,
-                  ),
+                  reply.senderId == _chatService.currentUserId
+                      ? 'Vous'
+                      : reply.senderName,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: navy),
                 ),
                 Text(
                   reply.content,
@@ -697,8 +994,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // INDICATEUR DE SAISIE — bulle navy/or
+  // INDICATEUR DE SAISIE
   // ============================================================
+
   Widget _buildTypingIndicator() {
     return Positioned(
       bottom: 8,
@@ -719,7 +1017,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Text("En train d'écrire", style: TextStyle(fontSize: 11.5, color: Colors.white70, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
+            Text(
+              "En train d'écrire",
+              style: TextStyle(fontSize: 11.5, color: Colors.white70, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+            ),
             SizedBox(width: 8),
             _TypingDots(),
           ],
@@ -748,7 +1049,8 @@ class _TypingDots extends StatefulWidget {
   State<_TypingDots> createState() => _TypingDotsState();
 }
 
-class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
