@@ -1,3 +1,6 @@
+import 'chat_message.dart';
+
+
 class ChatConversation {
   final String id;
   final bool isGroup;
