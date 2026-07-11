@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -8,6 +7,7 @@ import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http; // AJOUTÉ pour récupérer le blob sur Web
 
 /// Service pour l'enregistrement, la lecture et l'upload de messages audio.
 class AudioService {
@@ -19,49 +19,66 @@ class AudioService {
   Timer? _recordingTimer;
   int _recordingDuration = 0;
 
-  /// Stream de la durée d'enregistrement (en secondes)
   final StreamController<int> _recordingDurationController = StreamController<int>.broadcast();
   Stream<int> get recordingDurationStream => _recordingDurationController.stream;
 
-  /// Stream de l'état d'enregistrement
   final StreamController<bool> _isRecordingController = StreamController<bool>.broadcast();
   Stream<bool> get isRecordingStream => _isRecordingController.stream;
 
   AudioService(this._supabase) {
-    _player.onPlayerStateChanged.listen((state) {
-      // Gérer les changements d'état si nécessaire
-    });
+    _player.onPlayerStateChanged.listen((state) {});
   }
 
-  /// Vérifie si l'enregistrement est disponible
+  // ✅ Vérification des permissions adaptée au Web
   Future<bool> hasPermission() async {
+    if (kIsWeb) {
+      try {
+        final stream = await navigator.mediaDevices?.getUserMedia({'audio': true});
+        if (stream != null) {
+          stream.getTracks().forEach((track) => track.stop());
+          return true;
+        }
+        return false;
+      } catch (_) {
+        return false;
+      }
+    }
     return await _recorder.hasPermission();
   }
 
-  /// Démarre l'enregistrement audio
+  // ✅ Démarrage adapté au Web
   Future<void> startRecording() async {
     if (_isRecording) return;
-
     try {
-      final hasPermission = await _recorder.hasPermission();
-      if (!hasPermission) {
-        throw Exception('Permission microphone refusée');
+      final hasPerm = await hasPermission();
+      if (!hasPerm) throw Exception('Permission microphone refusée');
+
+      String filePath;
+      if (kIsWeb) {
+        // Sur Web, on n'utilise pas de chemin local, on laisse recorder choisir
+        filePath = ''; // sera assigné par le recorder
+        await _recorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.opus,
+            sampleRate: 48000,
+          ),
+        );
+        // Le chemin n'est pas disponible immédiatement, on le récupérera après stop
+      } else {
+        final directory = await getTemporaryDirectory();
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        filePath = path.join(directory.path, 'audio_$timestamp.m4a');
+        await _recorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
+          path: filePath,
+        );
+        _currentRecordingPath = filePath;
       }
 
-      final directory = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filePath = path.join(directory.path, 'audio_$timestamp.m4a');
-
-      await _recorder.start(
-        RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
-        ),
-        path: filePath,
-      );
-
-      _currentRecordingPath = filePath;
       _isRecording = true;
       _recordingDuration = 0;
       _isRecordingController.add(true);
@@ -76,10 +93,9 @@ class AudioService {
     }
   }
 
-  /// Arrête l'enregistrement et retourne le chemin du fichier
+  // ✅ Arrêt et récupération du chemin
   Future<String?> stopRecording() async {
     if (!_isRecording) return null;
-
     try {
       _recordingTimer?.cancel();
       _recordingTimer = null;
@@ -88,7 +104,12 @@ class AudioService {
       _recordingDurationController.add(0);
 
       final path = await _recorder.stop();
-      _currentRecordingPath = path;
+      if (kIsWeb) {
+        // Sur Web, le chemin est une URL blob
+        _currentRecordingPath = path; // on le stocke pour upload
+      } else {
+        _currentRecordingPath = path;
+      }
       return path;
     } catch (e) {
       debugPrint('❌ Erreur stopRecording: $e');
@@ -96,50 +117,39 @@ class AudioService {
     }
   }
 
-  /// Annule l'enregistrement (supprime le fichier)
-  Future<void> cancelRecording() async {
-    if (_currentRecordingPath != null) {
-      try {
-        final file = File(_currentRecordingPath!);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      } catch (e) {
-        debugPrint('❌ Erreur cancelRecording: $e');
-      }
-    }
-    _recordingTimer?.cancel();
-    _recordingTimer = null;
-    _isRecording = false;
-    _isRecordingController.add(false);
-    _recordingDurationController.add(0);
-    _currentRecordingPath = null;
-  }
-
-  /// Upload un fichier audio vers Supabase Storage
+  // ✅ Upload adapté au Web
   Future<String?> uploadAudio({
     required String filePath,
     required String conversationId,
     String bucket = 'audio',
   }) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw Exception('Fichier audio introuvable');
+      Uint8List bytes;
+      if (kIsWeb) {
+        // filePath est une URL blob:http://...
+        final uri = Uri.parse(filePath);
+        final response = await http.get(uri);
+        bytes = Uint8List.fromList(response.bodyBytes);
+      } else {
+        final file = File(filePath);
+        if (!await file.exists()) throw Exception('Fichier audio introuvable');
+        bytes = Uint8List.fromList(await file.readAsBytes());
       }
 
-      final bytes = await file.readAsBytes();
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$conversationId.m4a';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$conversationId.${kIsWeb ? 'webm' : 'm4a'}';
       final storagePath = 'messages/$conversationId/$fileName';
 
       await _supabase.storage.from(bucket).uploadBinary(storagePath, bytes);
 
       final publicUrl = _supabase.storage.from(bucket).getPublicUrl(storagePath);
 
-      // Nettoyer le fichier local
-      try {
-        await file.delete();
-      } catch (_) {}
+      // Nettoyage (sur Web, on ne peut pas supprimer le blob)
+      if (!kIsWeb) {
+        try {
+          final file = File(filePath);
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+      }
 
       return publicUrl;
     } catch (e) {
@@ -148,11 +158,15 @@ class AudioService {
     }
   }
 
-  /// Récupère la durée d'un fichier audio (en secondes)
+  // ... le reste des méthodes (play, pause, stop, etc.) reste inchangé
   Future<int> getAudioDuration(String filePath) async {
     try {
       final player = AudioPlayer();
-      await player.setSourceDeviceFile(filePath);
+      if (kIsWeb) {
+        await player.setSourceUrl(filePath); // URL blob ou publique
+      } else {
+        await player.setSourceDeviceFile(filePath);
+      }
       final duration = await player.getDuration();
       await player.dispose();
       return duration?.inSeconds ?? 0;
@@ -162,7 +176,6 @@ class AudioService {
     }
   }
 
-  /// Jouer un audio à partir d'une URL
   Future<void> play(String url) async {
     try {
       await _player.stop();
@@ -173,7 +186,6 @@ class AudioService {
     }
   }
 
-  /// Pause la lecture
   Future<void> pause() async {
     try {
       await _player.pause();
@@ -182,7 +194,6 @@ class AudioService {
     }
   }
 
-  /// Reprend la lecture (si en pause)
   Future<void> resume() async {
     try {
       await _player.resume();
@@ -191,7 +202,6 @@ class AudioService {
     }
   }
 
-  /// Arrête la lecture
   Future<void> stop() async {
     try {
       await _player.stop();
@@ -200,7 +210,6 @@ class AudioService {
     }
   }
 
-  /// Seek à une position (en pourcentage 0.0 - 1.0)
   Future<void> seek(double progress) async {
     try {
       final duration = await _player.getDuration();
@@ -213,11 +222,9 @@ class AudioService {
     }
   }
 
-  /// Stream de progression de la lecture
   Stream<Duration> get positionStream => _player.onPositionChanged;
   Stream<Duration> get durationStream => _player.onDurationChanged;
 
-  /// Libère les ressources
   void dispose() {
     _recordingTimer?.cancel();
     _player.dispose();
@@ -226,9 +233,6 @@ class AudioService {
     _isRecordingController.close();
   }
 
-  /// Durée actuelle d'enregistrement (en secondes)
   int get currentRecordingDuration => _recordingDuration;
-
-  /// Indique si un enregistrement est en cours
   bool get isRecording => _isRecording;
 }
