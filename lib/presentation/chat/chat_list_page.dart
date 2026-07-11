@@ -8,6 +8,7 @@ import '../../models/chat/chat_message.dart';
 import '../../models/chat/user_status.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
+import 'group_create_page.dart'; // 👈 Nouveau pour créer un groupe
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
@@ -25,9 +26,7 @@ class _ChatListPageState extends State<ChatListPage> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedIndex = 0; // 0: Accueil, 1: Chats, 2: Espaces, 3: Paramètres
 
-  // ============================================================
-  // CHARTE THIX ID — Design Institutionnel Élite (Navy / Bleu / Or)
-  // ============================================================
+  // Couleurs THIX ID
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color primaryBlue = Color(0xFF2D6CDF);
@@ -86,15 +85,15 @@ class _ChatListPageState extends State<ChatListPage> {
     });
   }
 
-  // Récupérer les contacts rapides (les 5 conversations les plus récentes)
   List<ChatConversation> get _quickContacts {
     final list = _conversations.where((c) => !c.isGroup).toList();
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return list.take(5).toList();
   }
 
-  // Statistiques calculées dynamiquement à partir des conversations
+  // Statistiques : Statut = contacts individuels, Groupes = groupes, Alertes = notifications
   int get _onlineCount => _conversations.where((c) => !c.isGroup).length;
+  int get _groupCount => _conversations.where((c) => c.isGroup).length;
   int get _totalUnread => _conversations.fold(0, (sum, c) => sum + c.unreadCount);
 
   @override
@@ -108,25 +107,25 @@ class _ChatListPageState extends State<ChatListPage> {
               onRefresh: _loadConversations,
               child: CustomScrollView(
                 slivers: [
-                  _buildInstitutionalHeader(),
+                  _buildInstitutionalHeader(), // Header réduit
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildStatsBar(),
-                          const SizedBox(height: 22),
+                          _buildStatsBar(), // Stats avec "Groupes"
+                          const SizedBox(height: 16),
                           if (_quickContacts.isNotEmpty) ...[
                             _buildSectionTitle('Contacts rapides', onSeeAll: () {}),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             _buildQuickContacts(),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: 16),
                           ],
                           _buildSectionTitle('Conversations récentes', onSeeAll: () {}),
                           const SizedBox(height: 6),
                           _buildRecentConversations(),
-                          const SizedBox(height: 110),
+                          const SizedBox(height: 100),
                         ],
                       ),
                     ),
@@ -141,14 +140,13 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // HEADER INSTITUTIONNEL ÉLITE — titre soigné + bande recherche
-  // compacte avec photo de profil juste à côté (badge notif inclus)
+  // HEADER RÉDUIT (hauteur réduite, texte plus petit)
   // ============================================================
   Widget _buildInstitutionalHeader() {
     return SliverAppBar(
       pinned: true,
       elevation: 0,
-      expandedHeight: 148,
+      expandedHeight: 120, // Réduit de 148 à 120
       backgroundColor: navyDeep,
       surfaceTintColor: navyDeep,
       automaticallyImplyLeading: false,
@@ -161,25 +159,25 @@ class _ChatListPageState extends State<ChatListPage> {
               colors: [navyDeep, navy, primaryBlue],
             ),
             borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(28),
-              bottomRight: Radius.circular(28),
+              bottomLeft: Radius.circular(22),
+              bottomRight: Radius.circular(22),
             ),
           ),
           child: Stack(
             children: [
-              // Halo doré décoratif — touche "élite"
+              // Halo doré plus petit
               Positioned(
-                top: -36,
-                right: -24,
+                top: -28,
+                right: -16,
                 child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withOpacity(0.07)),
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withOpacity(0.06)),
                 ),
               ),
               SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -187,60 +185,60 @@ class _ChatListPageState extends State<ChatListPage> {
                       Row(
                         children: [
                           Container(
-                            width: 4,
-                            height: 26,
+                            width: 3,
+                            height: 20,
                             decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(3)),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'THIX CHAT',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
-                                  letterSpacing: 0.8,
+                                  letterSpacing: 0.6,
                                 ),
                               ),
                               Text(
                                 'Connectez-vous. Échangez. Avancez.',
-                                style: TextStyle(fontSize: 9.5, color: Colors.white60, fontWeight: FontWeight.w500),
+                                style: TextStyle(fontSize: 8.5, color: Colors.white60, fontWeight: FontWeight.w500),
                               ),
                             ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                      // ── Bande recherche compacte + photo de profil ──
+                      // ── Bande recherche compacte ──
                       Row(
                         children: [
                           Expanded(
                             child: GestureDetector(
                               onTap: () {},
                               child: Container(
-                                height: 38,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                height: 32, // Réduit de 38 à 32
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(20), // Cylindrique
                                   boxShadow: [
-                                    BoxShadow(color: navyDeep.withOpacity(0.20), blurRadius: 12, offset: const Offset(0, 5)),
+                                    BoxShadow(color: navyDeep.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3)),
                                   ],
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.search_rounded, size: 16, color: primaryBlue),
-                                    const SizedBox(width: 7),
+                                    const Icon(Icons.search_rounded, size: 14, color: primaryBlue),
+                                    const SizedBox(width: 5),
                                     Expanded(
                                       child: TextField(
                                         controller: _searchController,
-                                        style: const TextStyle(fontSize: 11.5, color: darkText, fontWeight: FontWeight.w500),
+                                        style: const TextStyle(fontSize: 10.5, color: darkText, fontWeight: FontWeight.w500),
                                         decoration: const InputDecoration(
                                           hintText: 'Rechercher un chat, contact…',
-                                          hintStyle: TextStyle(color: mutedText, fontSize: 11.5, fontWeight: FontWeight.w500),
+                                          hintStyle: TextStyle(color: mutedText, fontSize: 10.5, fontWeight: FontWeight.w500),
                                           border: InputBorder.none,
                                           isDense: true,
                                         ),
@@ -253,53 +251,53 @@ class _ChatListPageState extends State<ChatListPage> {
                                           _searchController.clear();
                                           _onSearchChanged('');
                                         },
-                                        child: const Icon(Icons.clear_rounded, size: 14, color: mutedText),
+                                        child: const Icon(Icons.clear_rounded, size: 12, color: mutedText),
                                       ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          // Photo de profil — badge notif intégré, pas d'icône séparée
+                          const SizedBox(width: 8),
+                          // Photo de profil réduite
                           InkWell(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             onTap: () {},
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
                                 Container(
-                                  width: 38,
-                                  height: 38,
+                                  width: 32,
+                                  height: 32,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: gold, width: 1.6),
+                                    border: Border.all(color: gold, width: 1.2),
                                   ),
                                   child: const CircleAvatar(
                                     backgroundColor: navy,
-                                    child: Icon(Icons.person_rounded, size: 17, color: Colors.white),
+                                    child: Icon(Icons.person_rounded, size: 14, color: Colors.white),
                                   ),
                                 ),
                                 Positioned(
-                                  bottom: -1,
-                                  right: -1,
+                                  bottom: -2,
+                                  right: -2,
                                   child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(color: success, shape: BoxShape.circle, border: Border.all(color: navyDeep, width: 1.6)),
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(color: success, shape: BoxShape.circle, border: Border.all(color: navyDeep, width: 1.2)),
                                   ),
                                 ),
                                 Positioned(
-                                  top: -3,
-                                  right: -3,
+                                  top: -4,
+                                  right: -4,
                                   child: Container(
-                                    padding: const EdgeInsets.all(3),
+                                    padding: const EdgeInsets.all(2),
                                     decoration: const BoxDecoration(color: gold, shape: BoxShape.circle),
-                                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                                    constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
                                     child: const Text(
                                       '3',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: navyDeep),
+                                      style: TextStyle(fontSize: 7, fontWeight: FontWeight.w800, color: navyDeep),
                                     ),
                                   ),
                                 ),
@@ -320,40 +318,40 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // BARRE STATS — "En ligne" renommé en "Statut"
+  // BARRE STATS — "Messages" devient "Groupes"
   // ============================================================
   Widget _buildStatsBar() {
     final stats = [
       {'icon': Icons.people_alt_rounded, 'value': '$_onlineCount', 'label': 'Statut', 'color': success},
-      {'icon': Icons.mark_chat_unread_rounded, 'value': '$_totalUnread', 'label': 'Messages', 'color': primaryBlue},
-      {'icon': Icons.notifications_active_rounded, 'value': '7', 'label': 'Alertes', 'color': gold},
+      {'icon': Icons.group_rounded, 'value': '$_groupCount', 'label': 'Groupes', 'color': primaryBlue}, // 👈 MODIFIÉ
+      {'icon': Icons.notifications_active_rounded, 'value': '$_totalUnread', 'label': 'Alertes', 'color': gold},
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(30), // Cylindrique
         border: Border.all(color: hairline),
-        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Row(
         children: [
           ...stats.map((s) => Expanded(
                 child: Column(
                   children: [
-                    Icon(s['icon'] as IconData, size: 19, color: s['color'] as Color),
-                    const SizedBox(height: 5),
-                    Text(s['value'] as String, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: darkText)),
+                    Icon(s['icon'] as IconData, size: 16, color: s['color'] as Color),
+                    const SizedBox(height: 3),
+                    Text(s['value'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: darkText)),
                     const SizedBox(height: 1),
-                    Text(s['label'] as String, style: const TextStyle(fontSize: 9, color: mutedText, fontWeight: FontWeight.w600)),
+                    Text(s['label'] as String, style: const TextStyle(fontSize: 8, color: mutedText, fontWeight: FontWeight.w600)),
                   ],
                 ),
               )),
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
-            child: const Icon(Icons.chevron_right_rounded, size: 15, color: navy),
+            child: const Icon(Icons.chevron_right_rounded, size: 12, color: navy),
           ),
         ],
       ),
@@ -364,35 +362,35 @@ class _ChatListPageState extends State<ChatListPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: darkText)),
+        Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: darkText)),
         if (onSeeAll != null)
           InkWell(
             onTap: onSeeAll,
-            child: const Text('Voir tout', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: navy)),
+            child: const Text('Voir tout', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: navy)),
           ),
       ],
     );
   }
 
   // ============================================================
-  // CONTACTS RAPIDES — avatars cerclés or, statut vert
+  // CONTACTS RAPIDES (réduits)
   // ============================================================
   Widget _buildQuickContacts() {
     return SizedBox(
-      height: 82,
+      height: 70,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           _quickContactSlot(
             child: Container(
-              width: 52,
-              height: 52,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: ivory,
                 shape: BoxShape.circle,
-                border: Border.all(color: navy.withOpacity(0.4), width: 1.2),
+                border: Border.all(color: navy.withOpacity(0.4), width: 1),
               ),
-              child: const Icon(Icons.add_rounded, color: navy, size: 20),
+              child: const Icon(Icons.add_rounded, color: navy, size: 18),
             ),
             label: 'Nouveau',
             onTap: () {
@@ -407,28 +405,28 @@ class _ChatListPageState extends State<ChatListPage> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: gold.withOpacity(0.7), width: 1.4),
+                      border: Border.all(color: gold.withOpacity(0.7), width: 1.2),
                     ),
                     child: CircleAvatar(
-                      radius: 25,
+                      radius: 21,
                       backgroundColor: navy,
                       backgroundImage: avatar != null ? NetworkImage(avatar) : null,
                       child: avatar == null
-                          ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 17, color: Colors.white, fontWeight: FontWeight.w700))
+                          ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w700))
                           : null,
                     ),
                   ),
                   Positioned(
-                    bottom: 0,
-                    right: 2,
+                    bottom: -1,
+                    right: -1,
                     child: Container(
-                      width: 11,
-                      height: 11,
-                      decoration: BoxDecoration(color: success, shape: BoxShape.circle, border: Border.all(color: pureWhite, width: 1.8)),
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(color: success, shape: BoxShape.circle, border: Border.all(color: pureWhite, width: 1.4)),
                     ),
                   ),
                 ],
@@ -449,22 +447,22 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Widget _quickContactSlot({required Widget child, required String label, required VoidCallback onTap}) {
     return Padding(
-      padding: const EdgeInsets.only(right: 14),
+      padding: const EdgeInsets.only(right: 10),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
         child: SizedBox(
-          width: 58,
+          width: 50,
           child: Column(
             children: [
               child,
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 9.5, color: darkText, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 8.5, color: darkText, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -474,25 +472,25 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // CONVERSATIONS RÉCENTES — liste compacte, badges or
+  // CONVERSATIONS RÉCENTES — conteneurs cylindriques
   // ============================================================
   Widget _buildRecentConversations() {
     final list = _searchController.text.isEmpty ? _conversations : _filteredConversations;
 
     if (list.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
+        padding: const EdgeInsets.symmetric(vertical: 32),
         child: Center(
           child: Column(
             children: [
               Container(
-                width: 70,
-                height: 70,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
-                child: const Icon(Icons.forum_outlined, size: 30, color: mutedText),
+                child: const Icon(Icons.forum_outlined, size: 24, color: mutedText),
               ),
-              const SizedBox(height: 12),
-              const Text('Aucune conversation trouvée', style: TextStyle(color: mutedText, fontSize: 12.5, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              const Text('Aucune conversation trouvée', style: TextStyle(color: mutedText, fontSize: 11, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -503,7 +501,7 @@ class _ChatListPageState extends State<ChatListPage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => const SizedBox(height: 6),
       itemBuilder: (context, index) {
         final conv = list[index];
         final isGroup = conv.isGroup;
@@ -514,7 +512,7 @@ class _ChatListPageState extends State<ChatListPage> {
         final unread = conv.unreadCount;
 
         return InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(40), // Cylindrique
           onTap: () {
             Navigator.push(
               context,
@@ -522,30 +520,31 @@ class _ChatListPageState extends State<ChatListPage> {
             );
           },
           child: Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(40), // Cylindrique
               border: Border.all(color: hairline),
+              boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
             child: Row(
               children: [
                 isGroup
                     ? Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(13)),
-                        child: const Icon(Icons.groups_rounded, color: gold, size: 20),
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.groups_rounded, color: gold, size: 16),
                       )
                     : CircleAvatar(
-                        radius: 23,
+                        radius: 19,
                         backgroundColor: navy,
                         backgroundImage: avatar != null ? NetworkImage(avatar) : null,
                         child: avatar == null
-                            ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w700))
+                            ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w700))
                             : null,
                       ),
-                const SizedBox(width: 11),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,33 +553,33 @@ class _ChatListPageState extends State<ChatListPage> {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: darkText),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5, color: darkText),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         isGroup && lastMsg != null
                             ? '${lastMsg.senderName}: ${lastMsg.content}'
                             : (lastMsg?.content ?? 'Aucun message'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11, color: lastMsg == null ? mutedText : mutedText, fontWeight: FontWeight.w500),
+                        style: TextStyle(fontSize: 10, color: lastMsg == null ? mutedText : mutedText, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(_formatTime(time), style: const TextStyle(fontSize: 9.5, color: mutedText, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 5),
+                    Text(_formatTime(time), style: const TextStyle(fontSize: 9, color: mutedText, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
                     if (unread > 0)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(20)),
                         child: Text(
                           '$unread',
-                          style: const TextStyle(color: navyDeep, fontSize: 9.5, fontWeight: FontWeight.w800),
+                          style: const TextStyle(color: navyDeep, fontSize: 8.5, fontWeight: FontWeight.w800),
                         ),
                       ),
                   ],
@@ -594,18 +593,49 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // FAB — nouvelle discussion, navy/or
+  // FAB — nouvelle discussion/groupe
   // ============================================================
   Widget _buildFab() {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(colors: [navyDeep, navy]),
-        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.35), blurRadius: 16, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.30), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: FloatingActionButton(
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()));
+          showModalBottomSheet(
+            context: context,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (ctx) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.chat_rounded, color: navy),
+                      title: const Text('Nouvelle discussion'),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()));
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.group_add_rounded, color: navy),
+                      title: const Text('Nouveau groupe'),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()));
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
         },
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -615,22 +645,22 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // BOTTOM NAV — "Profil" remplacé par "Paramètres"
+  // BOTTOM NAV
   // ============================================================
   Widget _buildBottomNavigationBar() {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
       color: pureWhite,
-      elevation: 10,
+      elevation: 8,
       child: SizedBox(
-        height: 60,
+        height: 54,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _navItem(Icons.home_rounded, 'Accueil', 0),
             _navItem(Icons.chat_bubble_rounded, 'Chats', 1),
-            const SizedBox(width: 40), // espace pour le FAB
+            const SizedBox(width: 40),
             _navItem(Icons.explore_rounded, 'Espaces', 2),
             _navItem(Icons.settings_rounded, 'Paramètres', 3),
           ],
@@ -656,15 +686,15 @@ class _ChatListPageState extends State<ChatListPage> {
         }
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 19, color: isSelected ? navy : mutedText),
+            Icon(icon, size: 17, color: isSelected ? navy : mutedText),
             const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(fontSize: 8.5, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500, color: isSelected ? navy : mutedText),
+              style: TextStyle(fontSize: 8, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500, color: isSelected ? navy : mutedText),
             ),
           ],
         ),
