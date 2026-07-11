@@ -6,7 +6,7 @@ import '../../models/chat/group_info.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/chat_participant.dart';
 
-/// Service pour la gestion avancée des groupes (création, membres, rôles, etc.)
+/// Service pour la gestion avancée des groupes.
 class GroupService {
   final SupabaseClient _supabase;
   final String _currentUserId;
@@ -18,7 +18,6 @@ class GroupService {
   // CRÉATION DE GROUPE
   // ============================================================
 
-  /// Crée un nouveau groupe avec une liste de membres (incluant le créateur)
   Future<ChatConversation> createGroup({
     required String name,
     String? description,
@@ -31,7 +30,6 @@ class GroupService {
     final allMemberIds = {...memberIds, _currentUserId}.toList();
     final conversationId = const Uuid().v4();
 
-    // 1. Créer la conversation
     await _supabase.from('conversations').insert({
       'id': conversationId,
       'is_group': true,
@@ -41,7 +39,6 @@ class GroupService {
       'is_pinned': false,
     });
 
-    // 2. Créer les participants
     for (var uid in allMemberIds) {
       await _supabase.from('conversation_participants').insert({
         'conversation_id': conversationId,
@@ -51,7 +48,6 @@ class GroupService {
       });
     }
 
-    // 3. Métadonnées du groupe
     await _supabase.from('group_info').upsert({
       'group_id': conversationId,
       'name': name,
@@ -66,20 +62,17 @@ class GroupService {
   }
 
   // ============================================================
-  // LECTURE DES INFORMATIONS DU GROUPE
+  // LECTURE DES INFORMATIONS DU GROUPE (CORRIGÉ)
   // ============================================================
 
-  /// Récupère les informations complètes d'un groupe
   Future<ChatConversation> getGroupInfo(String groupId) async {
     try {
-      // 1. Récupérer la conversation
       final convData = await _supabase
           .from('conversations')
           .select('*')
           .eq('id', groupId)
           .single();
 
-      // 2. Récupérer les participants avec leurs profils
       final participantsData = await _supabase
           .from('conversation_participants')
           .select('''
@@ -96,19 +89,13 @@ class GroupService {
 
       final members = <GroupMember>[];
       final adminIds = <String>[];
-      
-      // Typage strict pour éviter les erreurs de syntaxe du compilateur
-      final List<dynamic> participantsList = participantsData as List<dynamic>;
 
-      for (var p in participantsList) {
-        final participantMap = p as Map<String, dynamic>;
-        final profile = participantMap['profiles'] as Map<String, dynamic>?;
-        final userId = participantMap['user_id'] as String;
-        final role = participantMap['role'] as String? ?? 'member';
-        
+      for (var p in participantsData as List) {
+        final profile = p['profiles'] as Map<String, dynamic>?;
+        final userId = p['user_id'] as String;
+        final role = p['role'] as String? ?? 'member';
         if (role == 'admin') adminIds.add(userId);
 
-        // Récupérer le statut en ligne
         final presence = await _supabase
             .from('user_presence')
             .select('status')
@@ -122,20 +109,26 @@ class GroupService {
           avatarUrl: profile?['avatar_url'],
           role: role,
           isOnline: isOnline,
-          joinedAt: DateTime.parse(participantMap['last_read_at'] ?? DateTime.now().toIso8601String()),
+          joinedAt: DateTime.parse(p['last_read_at'] ?? DateTime.now().toIso8601String()),
         ));
       }
 
-      // 3. Récupérer les métadonnées du groupe
       final groupInfoData = await _supabase
           .from('group_info')
           .select('*')
           .eq('group_id', groupId)
           .maybeSingle();
 
-      final displayName = convData['is_group'] == true
-          ? convData['group_name'] ?? groupInfoData?['name'] ?? 'Groupe'
-          : '';
+      // ✅ LIGNE 138 CORRIGÉE – évite les ? imbriqués dans le ternaire
+      bool isGroup = convData['is_group'] == true;
+      String displayName = '';
+
+      if (isGroup) {
+        displayName = convData['group_name'] as String? ?? 'Groupe';
+        if (groupInfoData != null && groupInfoData['name'] != null) {
+          displayName = groupInfoData['name'] as String;
+        }
+      }
 
       return ChatConversation(
         id: groupId,
