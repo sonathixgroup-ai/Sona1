@@ -14,13 +14,15 @@ class AuthoritiesService {
   /// Récupère toutes les autorités, avec filtre optionnel par catégorie
   Future<List<Authority>> getAuthorities({String? category}) async {
     try {
+      // ✅ Construction de la requête de base
       var query = _client.from('authorities').select('*');
       
+      // ✅ Appliquer le filtre si une catégorie est spécifiée
       if (category != null && category != 'Tous' && category != 'Toutes') {
         query = query.eq('title', category);
       }
       
-      // ✅ Correction : .order() directement sur la requête
+      // ✅ .order() est disponible sur PostgrestFilterBuilder
       final response = await query.order('name');
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
@@ -93,7 +95,7 @@ class AuthoritiesService {
     }
   }
 
-  /// Récupère les autorités avec pagination
+  /// ✅ CORRECTION : Pagination simplifiée
   Future<List<Authority>> getAuthoritiesPaginated({
     int page = 0,
     int limit = 20,
@@ -119,10 +121,10 @@ class AuthoritiesService {
     }
   }
 
-  /// Compte le nombre total d'autorités
+  /// ✅ CORRECTION : Comptage simplifié
   Future<int> countAuthorities({String? category}) async {
     try {
-      var query = _client.from('authorities').select('*', count: CountOption.exact);
+      var query = _client.from('authorities').select('*');
       
       if (category != null && category != 'Tous' && category != 'Toutes') {
         query = query.eq('title', category);
@@ -217,7 +219,9 @@ class AuthoritiesService {
   /// Supprime plusieurs autorités
   Future<void> deleteAuthorities(List<String> ids) async {
     try {
-      await _client.from('authorities').delete().inFilter('id', ids);
+      for (final id in ids) {
+        await _client.from('authorities').delete().eq('id', id);
+      }
     } catch (e) {
       throw Exception('Erreur lors de la suppression multiple: $e');
     }
@@ -230,30 +234,14 @@ class AuthoritiesService {
   /// Met à jour le statut de plusieurs autorités
   Future<void> updateAuthoritiesStatus(List<String> ids, String status) async {
     try {
-      await _client
-          .from('authorities')
-          .update({'status': status})
-          .inFilter('id', ids);
+      for (final id in ids) {
+        await _client
+            .from('authorities')
+            .update({'status': status})
+            .eq('id', id);
+      }
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du statut: $e');
-    }
-  }
-
-  // ============================================================
-  // ADMIN - UPLOAD IMAGE
-  // ============================================================
-
-  /// Upload une image pour une autorité (à implémenter avec Supabase Storage)
-  Future<String?> uploadImage(String authorityId, String filePath) async {
-    try {
-      // TODO: Implémenter avec Supabase Storage
-      // final storage = _client.storage.from('authorities');
-      // final response = await storage.upload('$authorityId/profile.jpg', filePath);
-      // final publicUrl = storage.getPublicUrl('$authorityId/profile.jpg');
-      // return publicUrl;
-      return null;
-    } catch (e) {
-      throw Exception('Erreur lors de l\'upload de l\'image: $e');
     }
   }
 }
