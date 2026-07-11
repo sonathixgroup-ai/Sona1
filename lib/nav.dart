@@ -35,7 +35,7 @@ class AppRoutes {
   static const String admin = '/admin';
   static const String thixMarket = '/market';
 
-  // Éducationinstructor/dashboard
+  // Éducation
   static const String education = '/education';
   static const String trainingHome = '/education';
   static const String trainingDetailsBasePath = '/education';
@@ -64,11 +64,35 @@ class AppRoutes {
   static const String thixInfoCreate = '/thix-info/admin/create';
   static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
 
-  // THIX Chat
+  // ═══════════════════════════════════════════════════════════════════════
+  // ─── THIX CHAT (Routes complètes) ───
+  // ═══════════════════════════════════════════════════════════════════════
   static const String chat = '/chat';
   static const String chatNew = '/chat/new';
   static const String chatConversation = '/chat/:conversationId';
   static String chatDetail(String conversationId) => '/chat/$conversationId';
+
+  // ─── Groupes ───
+  static const String groupCreate = '/chat/group/create';
+  static const String groupInfo = '/chat/group/:groupId/info';
+  static const String groupSettings = '/chat/group/:groupId/settings';
+  static const String groupMembers = '/chat/group/:groupId/members';
+  static const String groupAddMembers = '/chat/group/:groupId/add-members';
+
+  // Helpers pour les routes dynamiques (Groupes)
+  static String groupInfoPath(String groupId) => '/chat/group/$groupId/info';
+  static String groupSettingsPath(String groupId) => '/chat/group/$groupId/settings';
+  static String groupMembersPath(String groupId) => '/chat/group/$groupId/members';
+  static String groupAddMembersPath(String groupId) => '/chat/group/$groupId/add-members';
+
+  // ─── Nouveauté : Messages protégés ───
+  // Pas de route spécifique, géré dans ChatScreen via dialog
+
+  // ─── Nouveauté : Appels audio/vidéo (à venir) ───
+  static const String call = '/call';
+  static const String callIncoming = '/call/incoming';
+  static const String callOutgoing = '/call/outgoing';
+  static String callWithUser(String userId) => '/call/$userId';
 
   // THIX Événement
   static const String thixEvent = '/thix-event';
@@ -90,11 +114,8 @@ class AppRoutes {
   // ========================================================================
   // MON PAYS - Toutes les routes du module
   // ========================================================================
-  // Page principale
   static const String monPays = '/mon-pays';
   static const String monPaysAdmin = '/mon-pays/admin';
-
-  // Pages "Voir tout" (listes complètes)
   static const String monPaysAuthorities = '/mon-pays/authorities';
   static const String monPaysGovernment = '/mon-pays/government';
   static const String monPaysMinistries = '/mon-pays/ministries';
@@ -110,7 +131,6 @@ class AppRoutes {
   static const String monPaysEmergency = '/mon-pays/emergency';
   static const String monPaysSearch = '/mon-pays/search';
 
-  // Pages de détail (avec paramètre :id)
   static const String monPaysAuthorityDetail = '/mon-pays/authority/:id';
   static const String monPaysGovernmentDetail = '/mon-pays/government/:id';
   static const String monPaysMinistryDetail = '/mon-pays/ministry/:id';
@@ -125,7 +145,6 @@ class AppRoutes {
   static const String monPaysCitizenDetail = '/mon-pays/citizen/:id';
   static const String monPaysConsultationDetail = '/mon-pays/consultation/:id';
 
-  // Pages spécifiques des valeurs
   static const String monPaysConstitution = '/mon-pays/constitution';
   static const String monPaysLaws = '/mon-pays/laws';
   static const String monPaysInstitutions = '/mon-pays/institutions';
@@ -133,10 +152,9 @@ class AppRoutes {
   static const String monPaysDuties = '/mon-pays/duties';
   static const String monPaysJustice = '/mon-pays/justice';
 
-  // Résultat de recherche (avec paramètre)
   static const String monPaysSearchResult = '/mon-pays/search/result';
 
-  // Helpers pour générer des routes dynamiques (Mon Pays)
+  // Helpers Mon Pays
   static String monPaysAuthorityDetailPath(String id) => '/mon-pays/authority/$id';
   static String monPaysGovernmentDetailPath(String id) => '/mon-pays/government/$id';
   static String monPaysMinistryDetailPath(String id) => '/mon-pays/ministry/$id';
