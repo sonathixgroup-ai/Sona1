@@ -96,10 +96,16 @@ class GroupService {
 
       final members = <GroupMember>[];
       final adminIds = <String>[];
-      for (var p in participantsData as List) {
-        final profile = p['profiles'] as Map<String, dynamic>?;
-        final userId = p['user_id'] as String;
-        final role = p['role'] as String? ?? 'member';
+      
+      // Typage strict pour éviter les erreurs de syntaxe du compilateur
+      final List<dynamic> participantsList = participantsData as List<dynamic>;
+
+      for (var p in participantsList) {
+        final participantMap = p as Map<String, dynamic>;
+        final profile = participantMap['profiles'] as Map<String, dynamic>?;
+        final userId = participantMap['user_id'] as String;
+        final role = participantMap['role'] as String? ?? 'member';
+        
         if (role == 'admin') adminIds.add(userId);
 
         // Récupérer le statut en ligne
@@ -116,7 +122,7 @@ class GroupService {
           avatarUrl: profile?['avatar_url'],
           role: role,
           isOnline: isOnline,
-          joinedAt: DateTime.parse(p['last_read_at'] ?? DateTime.now().toIso8601String()),
+          joinedAt: DateTime.parse(participantMap['last_read_at'] ?? DateTime.now().toIso8601String()),
         ));
       }
 
