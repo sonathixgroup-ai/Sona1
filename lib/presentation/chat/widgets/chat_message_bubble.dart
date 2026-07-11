@@ -105,7 +105,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
 
     if (result != null && result.isNotEmpty) {
       try {
-        final decrypted = EncryptionService.decrypt(widget.message.content, result);
+        final decrypted = EncryptionService.decryptMessage(widget.message.content, result);
         setState(() {
           _decryptedContent = decrypted;
           _isDecrypted = true;
