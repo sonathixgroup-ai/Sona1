@@ -1,5 +1,5 @@
 // lib/presentation/chat/chat_screen.dart
-import 'dart:async'; // 👈 AJOUTÉ POUR RÉSOUDRE L'ERREUR 'Timer'
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -40,7 +40,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
-  // 👈 CORRECTION : Utilisation de UserStatus au lieu de ChatParticipant
+  // Utilisation de UserStatus au lieu de ChatParticipant
   UserStatus? _otherParticipant; 
   
   String _replyToId = '';
@@ -84,7 +84,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
-      _presenceStream = _presenceService.getUserStatusStream(otherId);
+      // ✅ CORRECTION : Utilisation de _chatService au lieu de _presenceService
+      _presenceStream = _chatService.subscribeToPresence([otherId]).map(
+        (list) => list.isNotEmpty ? list.first : null
+      );
       _presenceStream?.listen((status) {
         if (mounted) {
           setState(() => _otherParticipant = status);
@@ -100,7 +103,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
-      final participant = await _presenceService.getUserStatus(otherId);
+      // ✅ CORRECTION : Utilisation de _chatService au lieu de _presenceService
+      final participant = await _chatService.getUserPresence(otherId);
       if (mounted) setState(() => _otherParticipant = participant);
     }
   }
@@ -331,7 +335,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    // Utilisation sécurisée des propriétés isOnline et lastSeenAt
                     color: (_otherParticipant!.status == 'online') 
                         ? Colors.green
                         : Colors.grey,
