@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:thix_id/models/chat/chat_message.dart';   // ✅ IMPORT CORRECT
+import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/user_status.dart';
 import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
@@ -52,7 +52,12 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               decoration: BoxDecoration(
                 color: isOwn ? Colors.white.withOpacity(0.5) : Colors.grey[300]!.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),
-                border: Border(left: BorderSide(color: isOwn ? const Color(0xFFD4AF37) : Colors.grey, width: 3)),
+                border: Border(
+                  left: BorderSide(
+                    color: isOwn ? const Color(0xFFD4AF37) : Colors.grey,
+                    width: 3,
+                  ),
+                ),
               ),
               child: Row(
                 children: [
@@ -159,13 +164,27 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                     ],
                   ),
 
-                  // Réactions
+                  // 👇 CORRECTION ICI : Réactions avec typage explicite
                   if (msg.reactions.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Wrap(
                         spacing: 4,
-                        children: msg.reactions.map((r) => Text(r.reaction)).toList(),
+                        runSpacing: 2,
+                        children: msg.reactions.map((reaction) {
+                          // Typage explicite pour éviter l'erreur
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              reaction.reaction,  // 👈 Utilisation correcte
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                 ],
