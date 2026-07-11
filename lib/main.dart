@@ -31,7 +31,7 @@ import 'package:thix_id/presentation/thix_market/providers/shop_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/support_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/settings_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/sell_provider.dart';
-import 'package:thix_id/presentation/thix_market/checkout/checkout_provider.dart'; // ✅ AJOUT
+import 'package:thix_id/presentation/thix_market/checkout/checkout_provider.dart';
 
 // ─── EDUCATION ───
 import 'package:thix_id/presentation/education/providers/education_provider.dart';
@@ -48,6 +48,14 @@ import 'package:thix_id/providers/moderator_provider.dart';
 // ─── THIX ÉVÉNEMENT ───
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// THIX CHAT — Nouveaux imports
+// ═══════════════════════════════════════════════════════════════════════
+import 'package:thix_id/services/chat/chat_service.dart';
+import 'package:thix_id/services/chat/presence_service.dart';
+import 'package:thix_id/services/chat/audio_service.dart';
+import 'package:thix_id/services/chat/group_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN
@@ -124,6 +132,12 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
     final eventService = EventService(SupabaseConfig.client);
 
+    // ─── THIX CHAT : Initialisation des services ───
+    final chatService = ChatService(SupabaseConfig.client);
+    final presenceService = PresenceService(SupabaseConfig.client);
+    final audioService = AudioService(SupabaseConfig.client);
+    final groupService = GroupService(SupabaseConfig.client);
+
     return _BootstrapResult(
       auth: auth,
       profiles: profiles,
@@ -131,6 +145,10 @@ class _BootstrapAppState extends State<BootstrapApp> {
       network: network,
       feed: feed,
       eventService: eventService,
+      chatService: chatService,
+      presenceService: presenceService,
+      audioService: audioService,
+      groupService: groupService,
     );
   }
 
@@ -203,6 +221,10 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 network: snap.data!.network,
                 feed: snap.data!.feed,
                 eventService: snap.data!.eventService,
+                chatService: snap.data!.chatService,
+                presenceService: snap.data!.presenceService,
+                audioService: snap.data!.audioService,
+                groupService: snap.data!.groupService,
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -235,6 +257,11 @@ class _BootstrapResult {
   final NetworkService network;
   final FeedProvider feed;
   final EventService eventService;
+  // ─── THIX CHAT ───
+  final ChatService chatService;
+  final PresenceService presenceService;
+  final AudioService audioService;
+  final GroupService groupService;
 
   const _BootstrapResult({
     required this.auth,
@@ -243,6 +270,10 @@ class _BootstrapResult {
     required this.network,
     required this.feed,
     required this.eventService,
+    required this.chatService,
+    required this.presenceService,
+    required this.audioService,
+    required this.groupService,
   });
 }
 
@@ -306,6 +337,11 @@ class MyApp extends StatefulWidget {
   final NetworkService network;
   final FeedProvider feed;
   final EventService eventService;
+  // ─── THIX CHAT ───
+  final ChatService chatService;
+  final PresenceService presenceService;
+  final AudioService audioService;
+  final GroupService groupService;
 
   const MyApp({
     super.key,
@@ -315,6 +351,10 @@ class MyApp extends StatefulWidget {
     required this.network,
     required this.feed,
     required this.eventService,
+    required this.chatService,
+    required this.presenceService,
+    required this.audioService,
+    required this.groupService,
   });
 
   @override
@@ -371,7 +411,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<MessageProvider>(create: (_) => MessageProvider()),
         ChangeNotifierProvider<LiveProvider>(create: (_) => LiveProvider()),
         ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
-        ChangeNotifierProvider<CheckoutProvider>(create: (_) => CheckoutProvider()), // ✅ AJOUTÉ
+        ChangeNotifierProvider<CheckoutProvider>(create: (_) => CheckoutProvider()),
         ChangeNotifierProvider<ActivityProvider>(create: (_) => ActivityProvider()),
         ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
         ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
@@ -401,6 +441,14 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<ModeratorProvider>(
           create: (_) => ModeratorProvider(widget.eventService),
         ),
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ─── THIX CHAT ───
+        // ═══════════════════════════════════════════════════════════════════
+        Provider<ChatService>.value(value: widget.chatService),
+        Provider<PresenceService>.value(value: widget.presenceService),
+        Provider<AudioService>.value(value: widget.audioService),
+        Provider<GroupService>.value(value: widget.groupService),
       ],
       child: Builder(
         builder: (context) {
