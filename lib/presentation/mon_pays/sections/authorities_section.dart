@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // ⬅️ Ajouter cet import
 import '../providers/authorities_provider.dart';
 import '../cards/authority_card.dart';
 import '../pages/authorities/authority_profile_page.dart';
@@ -37,7 +38,7 @@ class AuthoritiesSection extends ConsumerWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -53,25 +54,14 @@ class AuthoritiesSection extends ConsumerWidget {
             child: Center(
               child: Column(
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 40,
-                  ),
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
                   const SizedBox(height: 8),
-                  Text(
-                    'Erreur: ${error.toString()}',
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text('Erreur: ${error.toString()}'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () {
                       ref.invalidate(authoritiesProvider(null));
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A5276),
-                    ),
                     child: const Text('Réessayer'),
                   ),
                 ],
@@ -83,28 +73,17 @@ class AuthoritiesSection extends ConsumerWidget {
               return const Padding(
                 padding: EdgeInsets.all(20),
                 child: Center(
-                  child: Text(
-                    'Aucune autorité à afficher',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                  child: Text('Aucune autorité à afficher'),
                 ),
               );
             }
-            // Affiche les 3 premières autorités
             final displayList = authorities.take(3).toList();
             return Column(
               children: displayList.map((authority) {
                 return AuthorityCard(
                   authority: authority,
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AuthorityProfilePage(
-                          authorityId: authority.id,
-                        ),
-                      ),
-                    );
+                    context.go('/mon-pays/authority/${authority.id}'); // ⬅️ GoRouter
                   },
                 );
               }).toList(),
