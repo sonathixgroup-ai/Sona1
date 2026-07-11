@@ -432,11 +432,21 @@ class ChatService {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      return (response as List)
-          .map((e) => ChatMessage.fromJson(e))
-          .toList()
-          .reversed
-          .toList();
+      // ✅ Convertir les messages avec les noms des expéditeurs
+      final messages = (response as List).map((e) {
+        final profile = e['profiles'] as Map<String, dynamic>?;
+        if (profile != null) {
+          e['sender_name'] = profile['full_name'] ?? profile['username'] ?? 'Utilisateur inconnu';
+          e['sender_avatar'] = profile['avatar_url'];
+        } else {
+          e['sender_name'] = 'Utilisateur inconnu';
+          e['sender_avatar'] = null;
+        }
+        return ChatMessage.fromJson(e);
+      }).toList();
+
+      // ✅ Ordre : du plus ancien au plus récent (pour l'affichage avec reverse: true)
+      return messages.reversed.toList();
     } catch (e) {
       debugPrint('❌ getMessages: $e');
       return [];
@@ -488,6 +498,13 @@ class ChatService {
         avatar_url
       )
     ''').single();
+
+    // Ajouter le nom de l'expéditeur
+    final profile = response['profiles'] as Map<String, dynamic>?;
+    if (profile != null) {
+      response['sender_name'] = profile['full_name'] ?? profile['username'] ?? 'Utilisateur inconnu';
+      response['sender_avatar'] = profile['avatar_url'];
+    }
 
     await _supabase
         .from('conversations')
