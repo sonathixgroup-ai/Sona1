@@ -164,7 +164,8 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
             child: IconButton(
               icon: const Icon(Icons.add, color: Color(0xFF1A5276)),
               onPressed: () {
-                context.go('/mon-pays/admin/form');
+                // ✅ Correction : utiliser goNamed avec le nom de la route
+                context.goNamed('monPaysAdminForm');
               },
               tooltip: 'Ajouter',
             ),
@@ -531,8 +532,9 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
               onPressed: () {
-                context.go(
-                  '/mon-pays/admin/form',
+                // ✅ Correction : utiliser goNamed avec extra
+                context.goNamed(
+                  'monPaysAdminForm',
                   extra: authority,
                 );
               },
@@ -608,7 +610,9 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
   Widget _buildFloatingActionButton() {
     return FloatingActionButton(
       onPressed: () {
-        context.go('/mon-pays/admin/form');
+        // ✅ Correction : utiliser goNamed pour la navigation
+        print('🛠️ Clic sur le bouton + (admin)');
+        context.goNamed('monPaysAdminForm');
       },
       backgroundColor: Colors.red.shade700,
       foregroundColor: Colors.white,
