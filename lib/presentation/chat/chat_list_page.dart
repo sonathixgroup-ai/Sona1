@@ -8,7 +8,7 @@ import '../../models/chat/chat_message.dart';
 import '../../models/chat/user_status.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
-import 'group_create_page.dart'; // 👈 Nouveau pour créer un groupe
+import 'group_create_page.dart';
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
@@ -323,7 +323,7 @@ class _ChatListPageState extends State<ChatListPage> {
   Widget _buildStatsBar() {
     final stats = [
       {'icon': Icons.people_alt_rounded, 'value': '$_onlineCount', 'label': 'Statut', 'color': success},
-      {'icon': Icons.group_rounded, 'value': '$_groupCount', 'label': 'Groupes', 'color': primaryBlue}, // 👈 MODIFIÉ
+      {'icon': Icons.group_rounded, 'value': '$_groupCount', 'label': 'Groupes', 'color': primaryBlue}, 
       {'icon': Icons.notifications_active_rounded, 'value': '$_totalUnread', 'label': 'Alertes', 'color': gold},
     ];
 
@@ -350,7 +350,7 @@ class _ChatListPageState extends State<ChatListPage> {
               )),
           Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: ivory, shape: BoxShape.circle),
             child: const Icon(Icons.chevron_right_rounded, size: 12, color: navy),
           ),
         ],
@@ -394,7 +394,8 @@ class _ChatListPageState extends State<ChatListPage> {
             ),
             label: 'Nouveau',
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()));
+              // CORRECTION: const retiré ici
+              Navigator.push(context, MaterialPageRoute(builder: (_) => NewConversationPage()));
             },
           ),
           ..._quickContacts.map((conv) {
@@ -486,7 +487,7 @@ class _ChatListPageState extends State<ChatListPage> {
               Container(
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+                decoration: const BoxDecoration(color: ivory, shape: BoxShape.circle),
                 child: const Icon(Icons.forum_outlined, size: 24, color: mutedText),
               ),
               const SizedBox(height: 8),
@@ -620,7 +621,8 @@ class _ChatListPageState extends State<ChatListPage> {
                       title: const Text('Nouvelle discussion'),
                       onTap: () {
                         Navigator.pop(ctx);
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()));
+                        // CORRECTION: const retiré ici
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => NewConversationPage()));
                       },
                     ),
                     ListTile(
@@ -628,7 +630,8 @@ class _ChatListPageState extends State<ChatListPage> {
                       title: const Text('Nouveau groupe'),
                       onTap: () {
                         Navigator.pop(ctx);
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()));
+                        // CORRECTION: const retiré ici
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => GroupCreatePage()));
                       },
                     ),
                   ],
