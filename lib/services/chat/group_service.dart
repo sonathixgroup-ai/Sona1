@@ -28,10 +28,7 @@ class GroupService {
   }) async {
     if (_currentUserId.isEmpty) throw Exception('Non connecté');
 
-    // S'assurer que le créateur est dans la liste
     final allMemberIds = {...memberIds, _currentUserId}.toList();
-
-    // Générer l'ID de la conversation (groupe)
     final conversationId = const Uuid().v4();
 
     // 1. Créer la conversation
@@ -54,8 +51,7 @@ class GroupService {
       });
     }
 
-    // 3. (Optionnel) Stocker les métadonnées du groupe dans une table dédiée
-    // Si vous avez une table group_info, vous pouvez l'utiliser pour stocker description, invite_code, etc.
+    // 3. Métadonnées du groupe
     await _supabase.from('group_info').upsert({
       'group_id': conversationId,
       'name': name,
@@ -66,7 +62,6 @@ class GroupService {
       'created_at': DateTime.now().toIso8601String(),
     });
 
-    // Récupérer les infos du groupe pour le retour
     return await getGroupInfo(conversationId);
   }
 
@@ -99,7 +94,6 @@ class GroupService {
           ''')
           .eq('conversation_id', groupId);
 
-      // Construire la liste des membres
       final members = <GroupMember>[];
       final adminIds = <String>[];
       for (var p in participantsData as List) {
@@ -108,7 +102,7 @@ class GroupService {
         final role = p['role'] as String? ?? 'member';
         if (role == 'admin') adminIds.add(userId);
 
-        // Récupérer le statut en ligne (depuis user_presence)
+        // Récupérer le statut en ligne
         final presence = await _supabase
             .from('user_presence')
             .select('status')
@@ -126,7 +120,7 @@ class GroupService {
         ));
       }
 
-      // 3. Récupérer les métadonnées du groupe (description, etc.)
+      // 3. Récupérer les métadonnées du groupe
       final groupInfoData = await _supabase
           .from('group_info')
           .select('*')
@@ -145,7 +139,7 @@ class GroupService {
         participantIds: members.map((m) => m.userId).toList(),
         otherParticipantName: null,
         otherParticipantAvatar: null,
-        lastMessage: null, // À remplir si besoin
+        lastMessage: null,
         unreadCount: 0,
         updatedAt: DateTime.parse(convData['updated_at']),
         isPinned: convData['is_pinned'] ?? false,
@@ -160,7 +154,6 @@ class GroupService {
   // GESTION DES MEMBRES
   // ============================================================
 
-  /// Ajoute un membre au groupe
   Future<void> addMember(String groupId, String userId) async {
     await _supabase.from('conversation_participants').insert({
       'conversation_id': groupId,
@@ -170,7 +163,6 @@ class GroupService {
     });
   }
 
-  /// Retire un membre du groupe
   Future<void> removeMember(String groupId, String userId) async {
     await _supabase
         .from('conversation_participants')
@@ -179,7 +171,6 @@ class GroupService {
         .eq('user_id', userId);
   }
 
-  /// Promouvoir un membre en admin
   Future<void> promoteToAdmin(String groupId, String userId) async {
     await _supabase
         .from('conversation_participants')
@@ -188,7 +179,6 @@ class GroupService {
         .eq('user_id', userId);
   }
 
-  /// Rétrograder un admin en membre
   Future<void> demoteFromAdmin(String groupId, String userId) async {
     await _supabase
         .from('conversation_participants')
@@ -201,7 +191,6 @@ class GroupService {
   // PARAMÈTRES DU GROUPE
   // ============================================================
 
-  /// Mettre à jour les informations du groupe (nom, description, avatar, etc.)
   Future<void> updateGroupInfo({
     required String groupId,
     String? name,
@@ -222,7 +211,6 @@ class GroupService {
           .eq('group_id', groupId);
     }
 
-    // Mettre à jour le nom dans la table conversations aussi
     if (name != null) {
       await _supabase
           .from('conversations')
@@ -231,7 +219,10 @@ class GroupService {
     }
   }
 
-  /// Générer un code d'invitation
+  // ============================================================
+  // CODE D'INVITATION
+  // ============================================================
+
   String _generateInviteCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = DateTime.now().millisecondsSinceEpoch;
@@ -240,7 +231,6 @@ class GroupService {
     );
   }
 
-  /// Régénérer un code d'invitation
   Future<String> regenerateInviteCode(String groupId) async {
     final newCode = _generateInviteCode();
     await _supabase
@@ -250,9 +240,7 @@ class GroupService {
     return newCode;
   }
 
-  /// Rejoindre un groupe via un code d'invitation
   Future<void> joinGroupByInviteCode(String inviteCode) async {
-    // Trouver le groupe correspondant au code
     final groupInfo = await _supabase
         .from('group_info')
         .select('group_id')
@@ -267,9 +255,11 @@ class GroupService {
     await addMember(groupId, _currentUserId);
   }
 
-  /// Quitter un groupe
+  // ============================================================
+  // QUITTER / SUPPRIMER UN GROUPE
+  // ============================================================
+
   Future<void> leaveGroup(String groupId) async {
-    // Vérifier si l'utilisateur est admin
     final participant = await _supabase
         .from('conversation_participants')
         .select('role')
@@ -278,16 +268,13 @@ class GroupService {
         .maybeSingle();
 
     if (participant != null && participant['role'] == 'admin') {
-      // Si l'utilisateur est admin, il doit d'abord nommer un autre admin ou supprimer le groupe
       throw Exception('Les admins doivent nommer un remplaçant avant de quitter');
     }
 
     await removeMember(groupId, _currentUserId);
   }
 
-  /// Supprimer un groupe (seulement pour l'admin)
   Future<void> deleteGroup(String groupId) async {
-    // Vérifier que l'utilisateur est admin
     final participant = await _supabase
         .from('conversation_participants')
         .select('role')
@@ -299,23 +286,14 @@ class GroupService {
       throw Exception('Seul un admin peut supprimer le groupe');
     }
 
-    // Supprimer le groupe et les dépendances (cascade)
-    await _supabase
-        .from('conversations')
-        .delete()
-        .eq('id', groupId);
-
-    await _supabase
-        .from('group_info')
-        .delete()
-        .eq('group_id', groupId);
+    await _supabase.from('conversations').delete().eq('id', groupId);
+    await _supabase.from('group_info').delete().eq('group_id', groupId);
   }
 
   // ============================================================
   // LISTE DES GROUPES DE L'UTILISATEUR
   // ============================================================
 
-  /// Récupère les IDs des groupes dont l'utilisateur fait partie
   Future<List<String>> getUserGroupIds() async {
     final response = await _supabase
         .from('conversation_participants')
@@ -325,7 +303,6 @@ class GroupService {
     final List<dynamic> data = response as List;
     final ids = data.map((e) => e['conversation_id'] as String).toList();
 
-    // Filtrer uniquement les groupes
     final List<String> groupIds = [];
     for (var id in ids) {
       final conv = await _supabase
@@ -340,7 +317,6 @@ class GroupService {
     return groupIds;
   }
 
-  /// Récupère la liste complète des groupes avec leurs infos
   Future<List<ChatConversation>> getUserGroups() async {
     final ids = await getUserGroupIds();
     final groups = <ChatConversation>[];
