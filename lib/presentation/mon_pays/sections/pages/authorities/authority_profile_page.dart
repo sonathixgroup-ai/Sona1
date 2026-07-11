@@ -171,3 +171,116 @@ class AuthorityProfilePage extends ConsumerWidget {
                 if (authority.speeches.isNotEmpty) ...[
                   const Text(
                     'Discours',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...authority.speeches.map((speech) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.play_circle_outline,
+                            color: Color(0xFF1A5276),
+                          ),
+                          title: Text(speech),
+                          trailing: const Icon(Icons.arrow_forward, size: 16),
+                          onTap: () {
+                            // TODO: Ouvrir le discours
+                          },
+                        ),
+                      )),
+                  const SizedBox(height: 16),
+                ],
+
+                // Vidéos
+                if (authority.videos.isNotEmpty) ...[
+                  const Text(
+                    'Vidéos',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...authority.videos.map((video) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.video_library,
+                            color: Color(0xFF1A5276),
+                          ),
+                          title: Text(video),
+                          trailing: const Icon(Icons.play_arrow, color: Colors.red),
+                          onTap: () {
+                            // TODO: Lire la vidéo
+                          },
+                        ),
+                      )),
+                  const SizedBox(height: 16),
+                ],
+
+                // Agenda
+                if (authority.agenda.isNotEmpty) ...[
+                  const Text(
+                    'Agenda',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...authority.agenda.map((item) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.event,
+                            color: Color(0xFF1A5276),
+                          ),
+                          title: Text(item['event'] ?? ''),
+                          subtitle: Text(item['date'] ?? ''),
+                          trailing: const Icon(Icons.calendar_today, size: 16),
+                        ),
+                      )),
+                  const SizedBox(height: 16),
+                ],
+
+                // Réseaux sociaux
+                if (authority.socialNetworks.isNotEmpty) ...[
+                  const Text(
+                    'Réseaux officiels',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...authority.socialNetworks.entries.map((entry) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: Icon(
+                            entry.key == 'Twitter'
+                                ? Icons.chat
+                                : entry.key == 'Facebook'
+                                    ? Icons.facebook
+                                    : Icons.link,
+                            color: const Color(0xFF1A5276),
+                          ),
+                          title: Text(entry.key),
+                          subtitle: Text(entry.value),
+                          trailing: const Icon(Icons.open_in_new, size: 16),
+                          onTap: () {
+                            // TODO: Ouvrir le lien
+                          },
+                        ),
+                      )),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
