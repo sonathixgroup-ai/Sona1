@@ -23,7 +23,7 @@ class _ChatListPageState extends State<ChatListPage> {
   List<ChatConversation> _filteredConversations = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  int _selectedIndex = 0; // 0: Accueil, 1: Chats, 2: Espaces, 3: Profil
+  int _selectedIndex = 0; // 0: Accueil, 1: Chats, 2: Espaces, 3: Paramètres
 
   // ============================================================
   // CHARTE THIX ID — Design Institutionnel Élite (Navy / Bleu / Or)
@@ -116,17 +116,13 @@ class _ChatListPageState extends State<ChatListPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildStatsBar(),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 22),
                           if (_quickContacts.isNotEmpty) ...[
                             _buildSectionTitle('Contacts rapides', onSeeAll: () {}),
                             const SizedBox(height: 10),
                             _buildQuickContacts(),
                             const SizedBox(height: 22),
                           ],
-                          _buildSectionTitle('Accès rapides'),
-                          const SizedBox(height: 10),
-                          _buildQuickAccessGrid(),
-                          const SizedBox(height: 22),
                           _buildSectionTitle('Conversations récentes', onSeeAll: () {}),
                           const SizedBox(height: 6),
                           _buildRecentConversations(),
@@ -145,13 +141,14 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // HEADER INSTITUTIONNEL — dégradé navy, recherche intégrée
+  // HEADER INSTITUTIONNEL ÉLITE — titre soigné + bande recherche
+  // compacte avec photo de profil juste à côté (badge notif inclus)
   // ============================================================
   Widget _buildInstitutionalHeader() {
     return SliverAppBar(
       pinned: true,
       elevation: 0,
-      expandedHeight: 168,
+      expandedHeight: 148,
       backgroundColor: navyDeep,
       surfaceTintColor: navyDeep,
       automaticallyImplyLeading: false,
@@ -168,153 +165,166 @@ class _ChatListPageState extends State<ChatListPage> {
               bottomRight: Radius.circular(28),
             ),
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          child: Stack(
+            children: [
+              // Halo doré décoratif — touche "élite"
+              Positioned(
+                top: -36,
+                right: -24,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withOpacity(0.07)),
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _headerIconButton(Icons.menu_rounded, () {}),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'THIX CHAT',
-                              style: TextStyle(
-                                fontSize: 16.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            Text(
-                              'Connectez-vous. Échangez. Avancez.',
-                              style: TextStyle(fontSize: 9.5, color: Colors.white60, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _headerIconButton(Icons.search_rounded, () {}),
-                      const SizedBox(width: 8),
-                      Stack(
-                        clipBehavior: Clip.none,
+                      // ── Titre élite avec liseré or ──
+                      Row(
                         children: [
-                          _headerIconButton(Icons.notifications_none_rounded, () {}),
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(color: gold, shape: BoxShape.circle),
-                              constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
-                              child: const Text('3', textAlign: TextAlign.center, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: navyDeep)),
-                            ),
+                          Container(
+                            width: 4,
+                            height: 26,
+                            decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(3)),
+                          ),
+                          const SizedBox(width: 10),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'THIX CHAT',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              Text(
+                                'Connectez-vous. Échangez. Avancez.',
+                                style: TextStyle(fontSize: 9.5, color: Colors.white60, fontWeight: FontWeight.w500),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(width: 8),
-                      Stack(
-                        clipBehavior: Clip.none,
+                      const SizedBox(height: 16),
+
+                      // ── Bande recherche compacte + photo de profil ──
+                      Row(
                         children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: gold, width: 1.4),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: Container(
+                                height: 38,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(color: navyDeep.withOpacity(0.20), blurRadius: 12, offset: const Offset(0, 5)),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.search_rounded, size: 16, color: primaryBlue),
+                                    const SizedBox(width: 7),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _searchController,
+                                        style: const TextStyle(fontSize: 11.5, color: darkText, fontWeight: FontWeight.w500),
+                                        decoration: const InputDecoration(
+                                          hintText: 'Rechercher un chat, contact…',
+                                          hintStyle: TextStyle(color: mutedText, fontSize: 11.5, fontWeight: FontWeight.w500),
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                        ),
+                                        onChanged: _onSearchChanged,
+                                      ),
+                                    ),
+                                    if (_searchController.text.isNotEmpty)
+                                      InkWell(
+                                        onTap: () {
+                                          _searchController.clear();
+                                          _onSearchChanged('');
+                                        },
+                                        child: const Icon(Icons.clear_rounded, size: 14, color: mutedText),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            child: const CircleAvatar(backgroundColor: navy, child: Icon(Icons.person_rounded, size: 15, color: Colors.white)),
                           ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(color: success, shape: BoxShape.circle, border: Border.all(color: navyDeep, width: 1.4)),
+                          const SizedBox(width: 10),
+                          // Photo de profil — badge notif intégré, pas d'icône séparée
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () {},
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: gold, width: 1.6),
+                                  ),
+                                  child: const CircleAvatar(
+                                    backgroundColor: navy,
+                                    child: Icon(Icons.person_rounded, size: 17, color: Colors.white),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: -1,
+                                  right: -1,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(color: success, shape: BoxShape.circle, border: Border.all(color: navyDeep, width: 1.6)),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: -3,
+                                  right: -3,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(color: gold, shape: BoxShape.circle),
+                                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                                    child: const Text(
+                                      '3',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: navyDeep),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      height: 42,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.22), blurRadius: 14, offset: const Offset(0, 6))],
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search_rounded, size: 17, color: primaryBlue),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              style: const TextStyle(fontSize: 12, color: darkText, fontWeight: FontWeight.w500),
-                              decoration: const InputDecoration(
-                                hintText: 'Rechercher un chat, contact, groupe…',
-                                hintStyle: TextStyle(color: mutedText, fontSize: 12, fontWeight: FontWeight.w500),
-                                border: InputBorder.none,
-                                isDense: true,
-                              ),
-                              onChanged: _onSearchChanged,
-                            ),
-                          ),
-                          if (_searchController.text.isNotEmpty)
-                            InkWell(
-                              onTap: () {
-                                _searchController.clear();
-                                _onSearchChanged('');
-                              },
-                              child: const Icon(Icons.clear_rounded, size: 15, color: mutedText),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _headerIconButton(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.16)),
-        ),
-        child: Icon(icon, size: 15, color: Colors.white),
-      ),
-    );
-  }
-
   // ============================================================
-  // BARRE STATS — 3 indicateurs + flèche (Réunions retiré)
+  // BARRE STATS — "En ligne" renommé en "Statut"
   // ============================================================
   Widget _buildStatsBar() {
     final stats = [
-      {'icon': Icons.people_alt_rounded, 'value': '$_onlineCount', 'label': 'En ligne', 'color': success},
+      {'icon': Icons.people_alt_rounded, 'value': '$_onlineCount', 'label': 'Statut', 'color': success},
       {'icon': Icons.mark_chat_unread_rounded, 'value': '$_totalUnread', 'label': 'Messages', 'color': primaryBlue},
       {'icon': Icons.notifications_active_rounded, 'value': '7', 'label': 'Alertes', 'color': gold},
     ];
@@ -464,49 +474,6 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // ACCÈS RAPIDES — icônes discrètes façon Facebook
-  // ============================================================
-  Widget _buildQuickAccessGrid() {
-    final items = [
-      {'icon': Icons.chat_bubble_rounded, 'label': 'Chats', 'active': true},
-      {'icon': Icons.group_rounded, 'label': 'Équipes', 'active': false},
-      {'icon': Icons.call_rounded, 'label': 'Appels', 'active': false},
-      {'icon': Icons.star_rounded, 'label': 'Favoris', 'active': false},
-    ];
-
-    return Row(
-      children: items.map((item) {
-        final active = item['active'] as bool;
-        return Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () {},
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              decoration: BoxDecoration(
-                color: active ? navyDeep : pureWhite,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: active ? navyDeep : hairline),
-              ),
-              child: Column(
-                children: [
-                  Icon(item['icon'] as IconData, size: 17, color: active ? gold : navy),
-                  const SizedBox(height: 5),
-                  Text(
-                    item['label'] as String,
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: active ? Colors.white : darkText),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  // ============================================================
   // CONVERSATIONS RÉCENTES — liste compacte, badges or
   // ============================================================
   Widget _buildRecentConversations() {
@@ -648,7 +615,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // BOTTOM NAV — icônes fines, indicateur or (sans raccourci central)
+  // BOTTOM NAV — "Profil" remplacé par "Paramètres"
   // ============================================================
   Widget _buildBottomNavigationBar() {
     return BottomAppBar(
@@ -665,7 +632,7 @@ class _ChatListPageState extends State<ChatListPage> {
             _navItem(Icons.chat_bubble_rounded, 'Chats', 1),
             const SizedBox(width: 40), // espace pour le FAB
             _navItem(Icons.explore_rounded, 'Espaces', 2),
-            _navItem(Icons.person_rounded, 'Profil', 3),
+            _navItem(Icons.settings_rounded, 'Paramètres', 3),
           ],
         ),
       ),
@@ -684,7 +651,7 @@ class _ChatListPageState extends State<ChatListPage> {
           );
         } else if (index == 3) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Page Profil en développement')),
+            const SnackBar(content: Text('Page Paramètres en développement')),
           );
         }
       },
