@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
-import '../../models/chat/chat_participant.dart';
 import '../../models/chat/user_status.dart';
 
 class ChatService {
@@ -63,7 +62,7 @@ class ChatService {
             .map((p) => p['user_id'] as String)
             .toList();
 
-        // Trouver l'autre participant (pour les conversations individuelles)
+        // Trouver l'autre participant
         String? otherParticipantName;
         String? otherParticipantAvatar;
 
@@ -147,7 +146,6 @@ class ChatService {
       participantIds = [...participantIds, uid];
     }
 
-    // Vérifier l'existant pour une conversation individuelle
     if (!isGroup && participantIds.length == 2) {
       final otherId = participantIds.firstWhere((id) => id != uid);
       final existing = await _supabase
@@ -189,10 +187,8 @@ class ChatService {
       }
     }
 
-    // Générer l'ID de la conversation
     final String conversationId = const Uuid().v4();
 
-    // Insérer la conversation
     await _supabase.from('conversations').insert({
       'id': conversationId,
       'is_group': isGroup,
@@ -202,7 +198,6 @@ class ChatService {
       'is_pinned': false,
     });
 
-    // Insérer les participants
     for (var pid in participantIds) {
       await _supabase.from('conversation_participants').insert({
         'conversation_id': conversationId,
@@ -212,7 +207,6 @@ class ChatService {
       });
     }
 
-    // Récupérer les infos de l'autre participant (pour une conversation individuelle)
     String? otherName;
     String? otherAvatar;
     if (!isGroup && participantIds.length == 2) {
@@ -241,7 +235,6 @@ class ChatService {
     });
   }
 
-  /// Ajoute un participant à une conversation de groupe
   Future<void> addParticipant(String conversationId, String userId) async {
     await _supabase.from('conversation_participants').insert({
       'conversation_id': conversationId,
@@ -251,7 +244,6 @@ class ChatService {
     });
   }
 
-  /// Retire un participant d'une conversation de groupe
   Future<void> removeParticipant(String conversationId, String userId) async {
     await _supabase
         .from('conversation_participants')
@@ -260,7 +252,6 @@ class ChatService {
         .eq('user_id', userId);
   }
 
-  /// Épingle ou désépingle une conversation
   Future<void> togglePinned(String conversationId) async {
     final conv = await _supabase
         .from('conversations')
@@ -273,7 +264,6 @@ class ChatService {
         .eq('id', conversationId);
   }
 
-  /// Récupère une conversation par son ID
   Future<ChatConversation?> getConversation(String conversationId) async {
     try {
       final uid = currentUserId;
@@ -335,7 +325,6 @@ class ChatService {
   // MESSAGES
   // ============================================================
 
-  /// Récupère les messages d'une conversation avec les profils
   Future<List<ChatMessage>> getMessages(
     String conversationId, {
     int limit = 50,
@@ -360,7 +349,6 @@ class ChatService {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      // Reversed pour avoir l'ordre chronologique
       return (response as List)
           .map((e) => ChatMessage.fromJson(e))
           .toList()
@@ -372,7 +360,6 @@ class ChatService {
     }
   }
 
-  /// Envoie un message dans une conversation
   Future<ChatMessage> sendMessage({
     required String conversationId,
     required String content,
@@ -393,7 +380,6 @@ class ChatService {
         ? now.add(Duration(seconds: ephemeralDuration))
         : null;
 
-    // Insérer le message
     final response = await _supabase.from('messages').insert({
       'conversation_id': conversationId,
       'sender_id': uid,
@@ -420,7 +406,6 @@ class ChatService {
         )
     ''').single();
 
-    // Mettre à jour le timestamp de la conversation
     await _supabase
         .from('conversations')
         .update({'updated_at': now.toIso8601String()})
@@ -429,7 +414,6 @@ class ChatService {
     return ChatMessage.fromJson(response);
   }
 
-  /// Marque tous les messages d'une conversation comme lus
   Future<void> markAsRead(String conversationId) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
@@ -448,7 +432,6 @@ class ChatService {
         .eq('user_id', uid);
   }
 
-  /// Supprime un message (soft delete)
   Future<void> deleteMessage(String messageId) async {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Not logged in');
@@ -469,7 +452,6 @@ class ChatService {
         .eq('id', messageId);
   }
 
-  /// Ajoute ou retire une réaction à un message
   Future<void> toggleReaction(String messageId, String reaction) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
@@ -482,14 +464,12 @@ class ChatService {
         .maybeSingle();
 
     if (existing != null) {
-      // Retirer la réaction
       await _supabase
           .from('message_reactions')
           .delete()
           .eq('message_id', messageId)
           .eq('user_id', uid);
     } else {
-      // Ajouter la réaction
       await _supabase.from('message_reactions').insert({
         'message_id': messageId,
         'user_id': uid,
@@ -499,7 +479,6 @@ class ChatService {
     }
   }
 
-  /// Récupère un message par son ID
   Future<ChatMessage?> getMessageById(String messageId) async {
     try {
       final response = await _supabase
@@ -523,11 +502,6 @@ class ChatService {
     }
   }
 
-  // ============================================================
-  // MESSAGES ÉPHÉMÈRES
-  // ============================================================
-
-  /// Nettoie les messages éphémères expirés
   Future<void> cleanupEphemeralMessages() async {
     try {
       await _supabase
@@ -544,7 +518,6 @@ class ChatService {
   // PRÉSENCE / STATUT
   // ============================================================
 
-  /// Met à jour le statut de présence de l'utilisateur
   Future<void> updatePresence(String status, {String? customStatus}) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
@@ -558,7 +531,6 @@ class ChatService {
     });
   }
 
-  /// Récupère le statut de présence d'un utilisateur
   Future<UserStatus?> getUserPresence(String userId) async {
     try {
       final response = await _supabase
@@ -581,7 +553,6 @@ class ChatService {
     }
   }
 
-  /// Récupère les statuts de présence de plusieurs utilisateurs
   Future<List<UserStatus>> getUsersPresence(List<String> userIds) async {
     try {
       if (userIds.isEmpty) return [];
@@ -610,53 +581,61 @@ class ChatService {
   // REALTIME / STREAMS (CORRIGÉ POUR SUPABASE ^2.0)
   // ============================================================
 
-  /// Stream des nouveaux messages (utiliser avec listen)
+  /// 👈 CORRECTION : Utilisation de StreamController au lieu de asStream()
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
-    return _supabase
-        .channel('messages:$conversationId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'conversation_id',
-            value: conversationId,
-          ),
-          callback: (payload) {
-             // Traitement optionnel du payload si nécessaire
-          },
-        )
-        .subscribe()
-        .asStream()
-        .map((_) => <ChatMessage>[]);
+    final controller = StreamController<List<ChatMessage>>();
+    final channel = _supabase.channel('messages:$conversationId');
+    
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'conversation_id',
+        value: conversationId,
+      ),
+      callback: (payload) async {
+        final msgs = await getMessages(conversationId);
+        controller.add(msgs);
+      },
+    ).subscribe();
+
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return controller.stream;
   }
 
-  /// Stream des changements de statut de présence
+  /// 👈 CORRECTION : Utilisation de StreamController au lieu de asStream()
   Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
-    return _supabase
-        .channel('presence:all')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'user_presence',
-          callback: (payload) {
-              // Traitement optionnel du payload si nécessaire
-          },
-        )
-        .subscribe()
-        .asStream()
-        .map((_) async {
-          return await getUsersPresence(userIds);
-        })
-        .asyncMap((future) => future);
+    final controller = StreamController<List<UserStatus>>();
+    final channel = _supabase.channel('presence:all');
+
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'user_presence',
+      callback: (payload) async {
+        final statuses = await getUsersPresence(userIds);
+        controller.add(statuses);
+      },
+    ).subscribe();
+
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return controller.stream;
   }
 
   // ============================================================
   // UPLOAD DE FICHIERS
   // ============================================================
 
-  /// Upload un fichier vers Supabase Storage
   Future<String?> uploadFile(String bucket, String path, Uint8List fileData) async {
     try {
       await _supabase.storage.from(bucket).uploadBinary(path, fileData);
@@ -668,7 +647,6 @@ class ChatService {
     }
   }
 
-  /// Supprime un fichier de Supabase Storage
   Future<void> deleteFile(String bucket, String path) async {
     try {
       await _supabase.storage.from(bucket).remove([path]);
@@ -677,7 +655,6 @@ class ChatService {
     }
   }
 
-  /// Upload un fichier avec un nom unique généré automatiquement
   Future<String?> uploadFileWithUniqueName(
     String bucket,
     String folder,
@@ -699,18 +676,14 @@ class ChatService {
   // UTILITAIRES
   // ============================================================
 
-  /// Vérifie si l'utilisateur est connecté
   bool get isAuthenticated => currentUserId.isNotEmpty;
 
-  /// Se déconnecter
   Future<void> signOut() async {
     await _supabase.auth.signOut();
   }
 
-  /// Récupère l'utilisateur actuel
   User? get currentUser => _supabase.auth.currentUser;
 
-  /// Récupère le profil de l'utilisateur actuel
   Future<Map<String, dynamic>?> getCurrentUserProfile() async {
     try {
       final uid = currentUserId;
