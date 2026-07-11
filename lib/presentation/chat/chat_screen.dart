@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -298,7 +299,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _sendAudioMessage(String filePath, int duration) async {
     try {
-      final file = await File(filePath).readAsBytes();
+      final bytes = await File(filePath).readAsBytes();
       final msg = await _chatService.sendAudioMessage(
         conversationId: widget.conversationId,
         audioData: Uint8List.fromList(file),
@@ -411,9 +412,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               if (msgController.text.isNotEmpty &&
                   passController.text.isNotEmpty) {
                 try {
-                  final encrypted = EncryptionService.encrypt(
-                    msgController.text,
-                    passController.text,
+                  final encrypted = EncryptionService.encryptMessage(msgController.text, passController.text);
                   );
                   await _chatService.sendMessage(
                     conversationId: widget.conversationId,
@@ -590,7 +589,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        final bytes = await file.readAsBytes();
+        final bytes = file.bytes ?? await File(file.path!).readAsBytes();
         // Upload vers Supabase
         final url = await _chatService.uploadFileWithUniqueName(
           'images',
