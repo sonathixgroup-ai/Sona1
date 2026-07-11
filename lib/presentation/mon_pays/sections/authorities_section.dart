@@ -1,15 +1,12 @@
 // lib/presentation/mon_pays/sections/authorities_section.dart
-// Section des autorités sur la page d'accueil avec :
-// - Affichage des 5 premières autorités
-// - Navigation vers la liste complète
-// - États de chargement et d'erreur
-// - Bouton "Voir tout"
+// Section des autorités sur la page d'accueil
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/authorities_provider.dart';
 import '../providers/favorites_provider.dart';
+import '../models/authority.dart';
 import '../cards/authority_card.dart';
 import '../pages/authorities/authority_profile_page.dart';
 
@@ -30,10 +27,8 @@ class _AuthoritiesSectionState extends ConsumerState<AuthoritiesSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // En-tête de la section
         _buildSectionHeader(context),
         const SizedBox(height: 8),
-        // Contenu
         authoritiesAsync.when(
           loading: () => _buildLoadingState(),
           error: (error, stack) => _buildErrorState(error),
