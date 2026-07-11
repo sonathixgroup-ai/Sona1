@@ -19,14 +19,12 @@ import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/models/chat/group_info.dart';
 
 // Widgets
-// Imports des widgets
 import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
 import 'package:thix_id/presentation/chat/widgets/chat_input_bar.dart';
 import 'package:thix_id/presentation/chat/widgets/audio_recorder.dart';
 import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
 import 'package:thix_id/presentation/chat/group/group_info_panel.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
-
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -302,7 +300,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final bytes = await File(filePath).readAsBytes();
       final msg = await _chatService.sendAudioMessage(
         conversationId: widget.conversationId,
-        audioData: Uint8List.fromList(file),
+        audioData: Uint8List.fromList(bytes),
         duration: duration,
         isEphemeral: _isEphemeral,
         ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
@@ -412,8 +410,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               if (msgController.text.isNotEmpty &&
                   passController.text.isNotEmpty) {
                 try {
-                  final encrypted = EncryptionService.encryptMessage(msgController.text, passController.text);
-                  );
+                  // CORRECTION : Le try catch est maintenant bien formaté
+                  final encrypted = EncryptionService.encryptMessage(
+                      msgController.text, passController.text);
+                  
                   await _chatService.sendMessage(
                     conversationId: widget.conversationId,
                     content: encrypted,
@@ -422,7 +422,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ephemeralDuration:
                         _isEphemeral ? _ephemeralDuration : null,
                   );
-                  Navigator.pop(ctx);
+                  if (context.mounted) Navigator.pop(ctx);
                 } catch (e) {
                   _showSnackBar('Erreur chiffrement: $e', danger);
                 }
@@ -655,7 +655,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (confirm == true) {
       try {
         await _groupService.leaveGroup(widget.conversationId);
-        Navigator.pop(context);
+        if (context.mounted) Navigator.pop(context);
         _showSnackBar('Vous avez quitté le groupe', success);
       } catch (e) {
         _showSnackBar('Erreur: $e', danger);
@@ -686,7 +686,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (confirm == true) {
       try {
         await _groupService.deleteGroup(widget.conversationId);
-        Navigator.pop(context);
+        if (context.mounted) Navigator.pop(context);
         _showSnackBar('Groupe supprimé', success);
       } catch (e) {
         _showSnackBar('Erreur: $e', danger);
@@ -699,9 +699,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ============================================================
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: color),
+      );
+    }
   }
 
   // ============================================================
@@ -770,7 +772,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     )
                                   : null,
                               isEphemeralActive: msg.isEphemeral,
-                              // Widget audio intégré dans ChatMessageBubble (à modifier)
                             );
                           }
 
