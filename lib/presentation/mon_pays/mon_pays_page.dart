@@ -1,13 +1,13 @@
 // lib/presentation/mon_pays/mon_pays_page.dart
-// Page d'accueil du module Mon Pays avec les cartes et le bouton Admin
+// Page d'accueil du module Mon Pays
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // ⬅️ Ajouter cet import
 import 'sections/authorities_section.dart';
 import 'sections/header_section.dart';
 import 'admin/admin_authorities_page.dart';
 import 'pages/authorities/authorities_page.dart';
-import 'utils/constants.dart';
 
 class MonPaysPage extends ConsumerWidget {
   const MonPaysPage({super.key});
@@ -24,23 +24,18 @@ class MonPaysPage extends ConsumerWidget {
           ],
         ),
         actions: [
-          // Bouton Admin pour charger/gérer les données
+          // Bouton Admin
           IconButton(
             icon: const Icon(Icons.admin_panel_settings),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AdminAuthoritiesPage(),
-                ),
-              );
+              context.go('/mon-pays/admin'); // ⬅️ Route GoRouter
             },
-            tooltip: 'Administration des autorités',
+            tooltip: 'Administration',
           ),
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // TODO: ouvrir la recherche globale (Phase 4)
+              // TODO: ouvrir la recherche globale
             },
           ),
         ],
@@ -50,23 +45,15 @@ class MonPaysPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Bannière d'accueil
             const HeaderSection(),
             const SizedBox(height: 24),
-
-            // Section Autorités
             const AuthoritiesSection(),
             const SizedBox(height: 16),
 
-            // Ligne "Voir toutes les autorités"
+            // Voir toutes les autorités
             GestureDetector(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AuthoritiesPage(),
-                  ),
-                );
+                context.go('/mon-pays/authorities'); // ⬅️ Route GoRouter
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -93,14 +80,14 @@ class MonPaysPage extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Grille des modules (Phase 2+)
-            _buildModulesGrid(),
+            _buildModulesGrid(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildModulesGrid() {
+  Widget _buildModulesGrid(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -122,7 +109,7 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Autorités',
               color: const Color(0xFF1A5276),
               onTap: () {
-                // Déjà disponible
+                context.go('/mon-pays/authorities'); // ⬅️ Route GoRouter
               },
             ),
             _moduleCard(
@@ -131,6 +118,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFFE67E22),
               onTap: () {
                 // Phase 2
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -139,6 +129,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFF27AE60),
               onTap: () {
                 // Phase 2
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -147,6 +140,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFF8E44AD),
               onTap: () {
                 // Phase 2
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -155,6 +151,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFFE74C3C),
               onTap: () {
                 // Phase 3
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -163,6 +162,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFF2980B9),
               onTap: () {
                 // Phase 3
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -171,6 +173,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFF1ABC9C),
               onTap: () {
                 // Phase 3
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -179,6 +184,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFF2C3E50),
               onTap: () {
                 // Phase 4
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -187,6 +195,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFFF39C12),
               onTap: () {
                 // Phase 4
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -195,6 +206,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFFE74C3C),
               onTap: () {
                 // Phase 4
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
             _moduleCard(
@@ -203,14 +217,9 @@ class MonPaysPage extends ConsumerWidget {
               color: const Color(0xFF7F8C8D),
               onTap: () {
                 // Phase 4
-              },
-            ),
-            _moduleCard(
-              icon: Icons.star,
-              label: 'Citoyens ★',
-              color: const Color(0xFFF1C40F),
-              onTap: () {
-                // Phase 3
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bientôt disponible')),
+                );
               },
             ),
           ],
