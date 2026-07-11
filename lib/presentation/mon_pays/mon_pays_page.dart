@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'sections/authorities_section.dart';
 import 'sections/header_section.dart';
-import 'admin/admin_authorities_page.dart';
-import 'pages/authorities/authorities_page.dart';
 
 class MonPaysPage extends ConsumerWidget {
   const MonPaysPage({super.key});
@@ -28,8 +26,8 @@ class MonPaysPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.admin_panel_settings),
             onPressed: () {
-              // Redirection avec le nom exact de la route
-              context.goNamed('monPaysAdmin'); 
+              // Utilisation de pushNamed pour éviter le blocage d'URL sur le Web
+              context.pushNamed('monPaysAdmin'); 
             },
             tooltip: 'Administration',
           ),
@@ -51,31 +49,44 @@ class MonPaysPage extends ConsumerWidget {
             const AuthoritiesSection(),
             const SizedBox(height: 16),
 
-            // Voir toutes les autorités
-            GestureDetector(
-              onTap: () {
-                // Redirection avec le nom exact de la route
-                context.goNamed('monPaysAuthorities'); 
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+            // Voir toutes les autorités (Restructuré pour le Web)
+            Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Material(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () {
+                    // Utilisation de pushNamed
+                    context.pushNamed('monPaysAuthorities'); 
+                  },
                   borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Voir toutes les autorités',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A5276),
-                      ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Voir toutes les autorités',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A5276),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, color: Color(0xFF1A5276)),
+                      ],
                     ),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward, color: Color(0xFF1A5276)),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -111,8 +122,8 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Autorités',
               color: const Color(0xFF1A5276),
               onTap: () {
-                // Redirection avec le nom exact de la route
-                context.goNamed('monPaysAuthorities'); 
+                // Utilisation de pushNamed
+                context.pushNamed('monPaysAuthorities'); 
               },
             ),
             _moduleCard(
@@ -120,7 +131,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Figures Historiques',
               color: const Color(0xFFE67E22),
               onTap: () {
-                // Phase 2
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -131,7 +141,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'À la Une',
               color: const Color(0xFF27AE60),
               onTap: () {
-                // Phase 2
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -142,7 +151,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Agences & Institutions',
               color: const Color(0xFF8E44AD),
               onTap: () {
-                // Phase 2
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -153,7 +161,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Vidéos Officielles',
               color: const Color(0xFFE74C3C),
               onTap: () {
-                // Phase 3
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -164,7 +171,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Documentaires',
               color: const Color(0xFF2980B9),
               onTap: () {
-                // Phase 3
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -175,7 +181,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Citoyens Exemplaires',
               color: const Color(0xFF1ABC9C),
               onTap: () {
-                // Phase 3
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -186,7 +191,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Valeurs & Lois',
               color: const Color(0xFF2C3E50),
               onTap: () {
-                // Phase 4
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -197,7 +201,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Participer',
               color: const Color(0xFFF39C12),
               onTap: () {
-                // Phase 4
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -208,7 +211,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Personnes recherchées',
               color: const Color(0xFFE74C3C),
               onTap: () {
-                // Phase 4
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -219,7 +221,6 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Recherche globale',
               color: const Color(0xFF7F8C8D),
               onTap: () {
-                // Phase 4
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Bientôt disponible')),
                 );
@@ -231,54 +232,58 @@ class MonPaysPage extends ConsumerWidget {
     );
   }
 
+  // Restructuration de la carte pour garantir que le clic marche sur Flutter Web
   Widget _moduleCard({
     required IconData icon,
     required String label,
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 32),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                child: Icon(icon, color: color, size: 32),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
