@@ -1,3 +1,4 @@
+// lib/services/chat/chat_service.dart
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -606,40 +607,42 @@ class ChatService {
   }
 
   // ============================================================
-  // REALTIME / STREAMS
+  // REALTIME / STREAMS (CORRIGÉ POUR SUPABASE ^2.0)
   // ============================================================
 
   /// Stream des nouveaux messages (utiliser avec listen)
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
     return _supabase
         .channel('messages:$conversationId')
-        .on(
-          RealtimeListenTypes.postgresChanges,
-          ChannelFilter(
-            event: '*',
-            schema: 'public',
-            table: 'messages',
-            filter: 'conversation_id=eq.$conversationId',
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
           ),
-          (payload) {},
+          callback: (payload) {
+             // Traitement optionnel du payload si nécessaire
+          },
         )
         .subscribe()
         .asStream()
-        .map((_) => []);
+        .map((_) => <ChatMessage>[]);
   }
 
   /// Stream des changements de statut de présence
   Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
     return _supabase
         .channel('presence:all')
-        .on(
-          RealtimeListenTypes.postgresChanges,
-          ChannelFilter(
-            event: '*',
-            schema: 'public',
-            table: 'user_presence',
-          ),
-          (payload) {},
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'user_presence',
+          callback: (payload) {
+              // Traitement optionnel du payload si nécessaire
+          },
         )
         .subscribe()
         .asStream()
