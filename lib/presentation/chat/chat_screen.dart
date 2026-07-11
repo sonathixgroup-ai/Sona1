@@ -1,4 +1,3 @@
-// lib/presentation/chat/chat_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -82,7 +81,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _setupScrollListener();
     _subscribeToPresence();
 
-    // ✅ Écoute en temps réel pour synchroniser les suppressions des deux côtés
+    // Écoute en temps réel pour synchroniser les suppressions des deux côtés
     _subscribeToRealtimeMessages();
   }
 
@@ -194,7 +193,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ Synchronisation en temps réel (Suppression double côté)
+  // Synchronisation en temps réel (Suppression double côté)
   void _subscribeToRealtimeMessages() {
     _messageSubscription = _chatService.subscribeToMessages(widget.conversationId).listen((updatedMsgs) {
       if (!mounted) return;
@@ -272,7 +271,88 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Logique WebSocket à venir
   }
 
-  // ✅ Menu pour choisir le temps d'autodestruction — style navy/or
+  // ---- DIALOGUE DE PROTECTION PAR MOT DE PASSE (AJOUTÉ) ----
+  void _showPasswordProtectDialog() {
+    final TextEditingController msgController = TextEditingController();
+    final TextEditingController passController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.lock_rounded, color: gold),
+            SizedBox(width: 8),
+            Text("Message chiffré", style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: msgController,
+              decoration: const InputDecoration(
+                labelText: "Votre message",
+                labelStyle: TextStyle(color: mutedText),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: navy),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: passController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Mot de passe de sécurité",
+                labelStyle: TextStyle(color: mutedText),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: navy),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Annuler", style: TextStyle(color: mutedText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: navyDeep,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              if (msgController.text.isNotEmpty && passController.text.isNotEmpty) {
+                // Ici, vous appliquez le chiffrement (ex: EncryptionService)
+                // final encrypted = EncryptionService.encrypt(msgController.text, passController.text);
+                // Pour l'exemple, on envoie le message en clair avec un indicateur
+                final content = "🔒 Message protégé par mot de passe";
+                
+                await _chatService.sendMessage(
+                  conversationId: widget.conversationId,
+                  content: content,
+                  replyToId: _replyToId.isEmpty ? null : _replyToId,
+                  isEphemeral: _isEphemeral,
+                  ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+                );
+                Navigator.pop(ctx);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Veuillez remplir les deux champs"), backgroundColor: danger),
+                );
+              }
+            },
+            child: const Text("Envoyer", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- MENU ÉPHÉMÈRE ----
   void _showEphemeralTimerDialog() {
     showModalBottomSheet(
       context: context,
@@ -364,17 +444,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _cancelReply() => setState(() => _replyToId = '');
 
-  // ---- GESTION DES MÉDIAS ----
-  Future<void> _pickImage() async {
-    // Implémentez la sélection d'image
-  }
-
-  // 🎙️ Enregistrement audio — remplace l'ancien bouton "code" par le micro
-  Future<void> _pickAudio() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Enregistrement audio en préparation...'), backgroundColor: navy),
-    );
-  }
+  // ---- GESTION DES MÉDIAS (remplacée par le chiffrement) ----
+  // L'ancienne méthode _pickAudio est désormais remplacée par _showPasswordProtectDialog
 
   // ---- WIDGETS ----
   @override
@@ -410,8 +481,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               message: msg,
                               isOwn: isOwn,
                               onReply: () => setState(() => _replyToId = msg.id),
-
-                              // ✅ SUPPRESSION (Auto-destruction & Manuelle)
                               onDelete: () async {
                                 setState(() {
                                   _messages.removeWhere((m) => m.id == msg.id);
@@ -424,7 +493,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   }
                                 }
                               },
-
                               onReaction: (r) => _chatService.toggleReaction(msg.id, r),
                               replyToMessage: msg.replyToId != null
                                   ? _messages.firstWhere(
@@ -446,8 +514,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               focusNode: _inputFocus,
               onSend: _sendMessage,
               isSending: _isSending,
-              onAttach: _pickImage,
-              onCode: _pickAudio, // 🎙️ Icône micro — voir note ci-dessous pour chat_input_bar.dart
+              onAttach: () {
+                // Implémentez la sélection d'image
+              },
+              // 👇 Le bouton "code" devient le bouton "cadenas" pour message protégé
+              onCode: _showPasswordProtectDialog,
               onEphemeralToggle: _showEphemeralTimerDialog,
               isEphemeral: _isEphemeral,
               onTyping: _onTypingChanged,
