@@ -28,7 +28,8 @@ import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
 import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
 import 'package:thix_id/presentation/network/messages/conversations_list.dart';
-import 'package:thix_id/presentation/network/messages/chat_screen.dart' as network_chat;
+// ✅ ALIAS AJOUTÉ POUR LE CHAT NETWORK
+import 'package:thix_id/presentation/network/messages/chat_screen.dart' as network_chat; 
 import 'package:thix_id/presentation/network/connections_list_page.dart';
 import 'package:thix_id/presentation/network/community_detail_page.dart';
 import 'package:thix_id/presentation/network/communities_list_page.dart';
@@ -221,12 +222,13 @@ import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
 // ---- THIX Chat ----
 import 'package:thix_id/models/chat/chat_conversation.dart';
-import 'presentation/chat/chat_list_page.dart';
-import 'presentation/chat/chat_screen.dart' as ThixChat;
-import 'presentation/chat/new_conversation_page.dart';
+import 'package:thix_id/presentation/chat/chat_list_page.dart';
+import 'package:thix_id/presentation/chat/chat_screen.dart' as ThixChat; // ✅ ALIAS THIX CHAT
+import 'package:thix_id/presentation/chat/new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_info_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_settings_page.dart';
+
 // ---- Mon Pays (Pages) ----
 import 'package:thix_id/presentation/mon_pays/mon_pays_page.dart';
 import 'package:thix_id/presentation/mon_pays/admin/admin_dashboard_page.dart';
@@ -359,302 +361,296 @@ class AppRouter {
         ]),
 
         // ---- Mon Pays ----
-GoRoute(
-  path: AppRoutes.monPays,
-  name: 'monPays',
-  pageBuilder: (_, __) => NoTransitionPage(child: const MonPaysPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysAdmin,
-  name: 'monPaysAdmin',
-  pageBuilder: (_, __) => NoTransitionPage(child: const AdminDashboardPage()),
-  redirect: (context, state) {
-    final auth = context.read<AuthController>();
-    if (!auth.isAuthenticated) return AppRoutes.login;
-    final user = auth.currentUser;
-    if (user == null || (user.role != 'admin' && user.role != 'moderateur')) {
-      return AppRoutes.monPays;
-    }
-    return null;
-  },
-),
+        GoRoute(
+          path: AppRoutes.monPays,
+          name: 'monPays',
+          pageBuilder: (_, __) => NoTransitionPage(child: const MonPaysPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysAdmin,
+          name: 'monPaysAdmin',
+          pageBuilder: (_, __) => NoTransitionPage(child: const AdminDashboardPage()),
+          redirect: (context, state) {
+            final auth = context.read<AuthController>();
+            if (!auth.isAuthenticated) return AppRoutes.login;
+            final user = auth.currentUser;
+            if (user == null || (user.role != 'admin' && user.role != 'moderateur')) {
+              return AppRoutes.monPays;
+            }
+            return null;
+          },
+        ),
 
-// ========== LISTES COMPLÈTES ==========
-GoRoute(
-  path: AppRoutes.monPaysAuthorities,
-  name: 'monPaysAuthorities',
-  pageBuilder: (_, __) => NoTransitionPage(child: const AuthoritiesPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysGovernment,
-  name: 'monPaysGovernment',
-  pageBuilder: (_, __) => NoTransitionPage(child: const GovernmentPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysMinistries,
-  name: 'monPaysMinistries',
-  pageBuilder: (_, __) => NoTransitionPage(child: const MinistryPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysAgencies,
-  name: 'monPaysAgencies',
-  pageBuilder: (_, __) => NoTransitionPage(child: const AgenciesPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysHistory,
-  name: 'monPaysHistory',
-  pageBuilder: (_, __) => NoTransitionPage(child: const HistoryPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysNews,
-  name: 'monPaysNews',
-  pageBuilder: (_, __) => NoTransitionPage(child: const NewsPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysValues,
-  name: 'monPaysValues',
-  pageBuilder: (_, __) => NoTransitionPage(child: const ValuesPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysVideos,
-  name: 'monPaysVideos',
-  pageBuilder: (_, __) => NoTransitionPage(child: VideosPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysDocumentaries,
-  name: 'monPaysDocumentaries',
-  pageBuilder: (_, __) => NoTransitionPage(child: const DocumentariesPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysWanted,
-  name: 'monPaysWanted',
-  pageBuilder: (_, __) => NoTransitionPage(child: const WantedPeoplePage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysCitizens,
-  name: 'monPaysCitizens',
-  pageBuilder: (_, __) => NoTransitionPage(child: const CitizensPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysConsultations,
-  name: 'monPaysConsultations',
-  pageBuilder: (_, __) => NoTransitionPage(child: const ConsultationsPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysEmergency,
-  name: 'monPaysEmergency',
-  pageBuilder: (_, __) => NoTransitionPage(child: const EmergencyPage()), // à créer
-),
-GoRoute(
-  path: AppRoutes.monPaysSearch,
-  name: 'monPaysSearch',
-  pageBuilder: (_, __) => NoTransitionPage(child: const SearchPage()),
-),
+        // ========== LISTES COMPLÈTES ==========
+        GoRoute(
+          path: AppRoutes.monPaysAuthorities,
+          name: 'monPaysAuthorities',
+          pageBuilder: (_, __) => NoTransitionPage(child: const AuthoritiesPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysGovernment,
+          name: 'monPaysGovernment',
+          pageBuilder: (_, __) => NoTransitionPage(child: const GovernmentPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysMinistries,
+          name: 'monPaysMinistries',
+          pageBuilder: (_, __) => NoTransitionPage(child: const MinistryPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysAgencies,
+          name: 'monPaysAgencies',
+          pageBuilder: (_, __) => NoTransitionPage(child: const AgenciesPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysHistory,
+          name: 'monPaysHistory',
+          pageBuilder: (_, __) => NoTransitionPage(child: const HistoryPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysNews,
+          name: 'monPaysNews',
+          pageBuilder: (_, __) => NoTransitionPage(child: const NewsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysValues,
+          name: 'monPaysValues',
+          pageBuilder: (_, __) => NoTransitionPage(child: const ValuesPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysVideos,
+          name: 'monPaysVideos',
+          pageBuilder: (_, __) => NoTransitionPage(child: VideosPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysDocumentaries,
+          name: 'monPaysDocumentaries',
+          pageBuilder: (_, __) => NoTransitionPage(child: const DocumentariesPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysWanted,
+          name: 'monPaysWanted',
+          pageBuilder: (_, __) => NoTransitionPage(child: const WantedPeoplePage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysCitizens,
+          name: 'monPaysCitizens',
+          pageBuilder: (_, __) => NoTransitionPage(child: const CitizensPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysConsultations,
+          name: 'monPaysConsultations',
+          pageBuilder: (_, __) => NoTransitionPage(child: const ConsultationsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysEmergency,
+          name: 'monPaysEmergency',
+          pageBuilder: (_, __) => NoTransitionPage(child: const EmergencyPage()), // à créer
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysSearch,
+          name: 'monPaysSearch',
+          pageBuilder: (_, __) => NoTransitionPage(child: const SearchPage()),
+        ),
 
-// ========== DÉTAILS (avec paramètre :id) ==========
-GoRoute(
-  path: AppRoutes.monPaysAuthorityDetail,
-  name: 'monPaysAuthorityDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: AuthorityDetailPage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysGovernmentDetail,
-  name: 'monPaysGovernmentDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: GovernmentDetailPage(id: id)); // à créer
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysMinistryDetail,
-  name: 'monPaysMinistryDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: MinistryDetailPage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysAgencyDetail,
-  name: 'monPaysAgencyDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: AgencyDetailPage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysAgencyServices,
-  name: 'monPaysAgencyServices',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: AgencyServicesPage(agencyId: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysHistoryDetail,
-  name: 'monPaysHistoryDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: HistoricalFigurePage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysNewsDetail,
-  name: 'monPaysNewsDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: ArticlePage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysValueDetail,
-  name: 'monPaysValueDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: ValueDetailPage(id: id)); // à créer
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysVideoDetail,
-  name: 'monPaysVideoDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: monPaysVideo.VideoPlayerPage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysDocumentaryDetail,
-  name: 'monPaysDocumentaryDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: DocumentaryPage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysWantedDetail,
-  name: 'monPaysWantedDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: WantedDetailPage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysCitizenDetail,
-  name: 'monPaysCitizenDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: CitizenProfilePage(id: id));
-  },
-),
-GoRoute(
-  path: AppRoutes.monPaysConsultationDetail,
-  name: 'monPaysConsultationDetail',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id']!;
-    return NoTransitionPage(child: ConsultationDetailPage(id: id));
-  },
-),
+        // ========== DÉTAILS (avec paramètre :id) ==========
+        GoRoute(
+          path: AppRoutes.monPaysAuthorityDetail,
+          name: 'monPaysAuthorityDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: AuthorityDetailPage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysGovernmentDetail,
+          name: 'monPaysGovernmentDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: GovernmentDetailPage(id: id)); // à créer
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysMinistryDetail,
+          name: 'monPaysMinistryDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: MinistryDetailPage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysAgencyDetail,
+          name: 'monPaysAgencyDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: AgencyDetailPage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysAgencyServices,
+          name: 'monPaysAgencyServices',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: AgencyServicesPage(agencyId: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysHistoryDetail,
+          name: 'monPaysHistoryDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: HistoricalFigurePage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysNewsDetail,
+          name: 'monPaysNewsDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: ArticlePage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysValueDetail,
+          name: 'monPaysValueDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: ValueDetailPage(id: id)); // à créer
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysVideoDetail,
+          name: 'monPaysVideoDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: monPaysVideo.VideoPlayerPage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysDocumentaryDetail,
+          name: 'monPaysDocumentaryDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: DocumentaryPage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysWantedDetail,
+          name: 'monPaysWantedDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: WantedDetailPage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysCitizenDetail,
+          name: 'monPaysCitizenDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: CitizenProfilePage(id: id));
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysConsultationDetail,
+          name: 'monPaysConsultationDetail',
+          pageBuilder: (_, state) {
+            final id = state.pathParameters['id']!;
+            return NoTransitionPage(child: ConsultationDetailPage(id: id));
+          },
+        ),
 
-// ========== PAGES SPÉCIFIQUES DES VALEURS ==========
-GoRoute(
-  path: AppRoutes.monPaysConstitution,
-  name: 'monPaysConstitution',
-  pageBuilder: (_, __) => NoTransitionPage(child: const ConstitutionPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysLaws,
-  name: 'monPaysLaws',
-  pageBuilder: (_, __) => NoTransitionPage(child: const LawsPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysInstitutions,
-  name: 'monPaysInstitutions',
-  pageBuilder: (_, __) => NoTransitionPage(child: const InstitutionsPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysRights,
-  name: 'monPaysRights',
-  pageBuilder: (_, __) => NoTransitionPage(child: const RightsPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysDuties,
-  name: 'monPaysDuties',
-  pageBuilder: (_, __) => NoTransitionPage(child: const DutiesPage()),
-),
-GoRoute(
-  path: AppRoutes.monPaysJustice,
-  name: 'monPaysJustice',
-  pageBuilder: (_, __) => NoTransitionPage(child: const JusticePage()),
-),
+        // ========== PAGES SPÉCIFIQUES DES VALEURS ==========
+        GoRoute(
+          path: AppRoutes.monPaysConstitution,
+          name: 'monPaysConstitution',
+          pageBuilder: (_, __) => NoTransitionPage(child: const ConstitutionPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysLaws,
+          name: 'monPaysLaws',
+          pageBuilder: (_, __) => NoTransitionPage(child: const LawsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysInstitutions,
+          name: 'monPaysInstitutions',
+          pageBuilder: (_, __) => NoTransitionPage(child: const InstitutionsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysRights,
+          name: 'monPaysRights',
+          pageBuilder: (_, __) => NoTransitionPage(child: const RightsPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysDuties,
+          name: 'monPaysDuties',
+          pageBuilder: (_, __) => NoTransitionPage(child: const DutiesPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.monPaysJustice,
+          name: 'monPaysJustice',
+          pageBuilder: (_, __) => NoTransitionPage(child: const JusticePage()),
+        ),
 
-// ========== RECHERCHE ==========
-GoRoute(
-  path: AppRoutes.monPaysSearchResult,
-  name: 'monPaysSearchResult',
-  pageBuilder: (_, state) {
-    final query = state.uri.queryParameters['q'] ?? '';
-    return NoTransitionPage(child: SearchResultPage(query: query));
-  },
-),
-            // ---- THIX Chat ----
-    
-    GoRoute(
-      path: AppRoutes.chat,
-      name: 'chat',
-      pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage()),
-    ),
-    
-    // Assurez-vous que AppRoutes.chatNew correspond bien à '${AppRoutes.chat}/new'
-    GoRoute(
-      path: AppRoutes.chatNew, 
-      name: 'chat_new',
-      pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage()),
-    ),
-    
-    // Assurez-vous que AppRoutes.chatConversation correspond bien à '${AppRoutes.chat}/:conversationId'
-    GoRoute(
-      path: AppRoutes.chatConversation,
-      name: 'chat_conversation',
-      pageBuilder: (_, state) {
-        final convId = state.pathParameters['conversationId']!;
-        final conv = state.extra as ChatConversation? ??
-            ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
-            
-        // ✅ Utilisation parfaite de l'alias ThixChat.ChatScreen ici !
-        return NoTransitionPage(
-          child: ThixChat.ChatScreen(
-            conversationId: convId, 
-            conversation: conv
-          ),
-        );
-      },
-    ),
+        // ========== RECHERCHE ==========
+        GoRoute(
+          path: AppRoutes.monPaysSearchResult,
+          name: 'monPaysSearchResult',
+          pageBuilder: (_, state) {
+            final query = state.uri.queryParameters['q'] ?? '';
+            return NoTransitionPage(child: SearchResultPage(query: query));
+          },
+        ),
+        
+        // ---- THIX Chat ----
+        GoRoute(
+          path: AppRoutes.chat,
+          name: 'chat',
+          pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.chatNew, 
+          name: 'chat_new',
+          pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage()),
+        ),
+        GoRoute(
+          path: AppRoutes.chatConversation,
+          name: 'chat_conversation',
+          pageBuilder: (_, state) {
+            final convId = state.pathParameters['conversationId']!;
+            final conv = state.extra as ChatConversation? ??
+                ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
+                
+            return NoTransitionPage(
+              child: ThixChat.ChatScreen(
+                conversationId: convId, 
+                conversation: conv
+              ),
+            );
+          },
+        ),
 
-    // ─── Groupes ───
-    GoRoute(
-      path: AppRoutes.groupCreate,
-      name: 'group_create',
-      builder: (context, state) => const GroupCreatePage(),
-    ),
-    GoRoute(
-      path: AppRoutes.groupInfo,
-      name: 'group_info',
-      builder: (context, state) {
-        final groupId = state.pathParameters['groupId']!;
-        return GroupInfoPage(groupId: groupId);
-      },
-    ),
-    GoRoute(
-      path: AppRoutes.groupSettings,
-      name: 'group_settings',
-      builder: (context, state) {
-        final groupId = state.pathParameters['groupId']!;
-        return GroupSettingsPage(groupId: groupId);
-      },
-    ),
-
+        // ─── Groupes ───
+        GoRoute(
+          path: AppRoutes.groupCreate,
+          name: 'group_create',
+          builder: (context, state) => const GroupCreatePage(),
+        ),
+        GoRoute(
+          path: AppRoutes.groupInfo,
+          name: 'group_info',
+          builder: (context, state) {
+            final groupId = state.pathParameters['groupId']!;
+            return GroupInfoPage(groupId: groupId);
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.groupSettings,
+          name: 'group_settings',
+          builder: (context, state) {
+            final groupId = state.pathParameters['groupId']!;
+            return GroupSettingsPage(groupId: groupId);
+          },
+        ),
 
         // ---- Vault & Settings ----
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => NoTransitionPage(child: DocumentVaultPage())),
@@ -665,6 +661,8 @@ GoRoute(
         GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => NoTransitionPage(child: SearchNetworkPage())),
         GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => NoTransitionPage(child: NotificationsPage())),
         GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => NoTransitionPage(child: ConversationsList())),
+        
+        // ✅ CORRECTION APPLIQUÉE ICI : Utilisation de network_chat.ChatScreen
         GoRoute(path: '${AppRoutes.networkChatBasePath}/:userId', name: 'networkChat', pageBuilder: (_, state) {
           final uid = state.pathParameters['userId']!;
           final extra = state.extra;
@@ -675,8 +673,9 @@ GoRoute(
             name = extra['userName'] as String? ?? name;
             avatar = extra['userAvatar'] as String?;
           }
-          return NoTransitionPage(child: ChatScreen(userId: uid, userName: name, userAvatar: avatar));
+          return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
         }),
+
         GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => NoTransitionPage(child: ConnectionsListPage())),
         GoRoute(path: AppRoutes.networkProfileSettings, name: 'networkProfileSettings', pageBuilder: (_, __) => NoTransitionPage(child: ProfileSettingsPage())),
         GoRoute(path: AppRoutes.networkBlockedUsers, name: 'networkBlockedUsers', pageBuilder: (_, __) => NoTransitionPage(child: BlockedUsersPage())),
