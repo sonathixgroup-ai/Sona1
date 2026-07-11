@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart'; 
+import 'package:go_router/go_router.dart';
 import 'sections/authorities_section.dart';
 import 'sections/header_section.dart';
 import 'admin/admin_authorities_page.dart';
@@ -28,7 +28,7 @@ class MonPaysPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.admin_panel_settings),
             onPressed: () {
-              // ⬇️ CORRECTION : goNamed au lieu de go
+              // Redirection avec le nom exact de la route
               context.goNamed('monPaysAdmin'); 
             },
             tooltip: 'Administration',
@@ -54,7 +54,7 @@ class MonPaysPage extends ConsumerWidget {
             // Voir toutes les autorités
             GestureDetector(
               onTap: () {
-                // ⬇️ CORRECTION : goNamed au lieu de go
+                // Redirection avec le nom exact de la route
                 context.goNamed('monPaysAuthorities'); 
               },
               child: Container(
@@ -111,7 +111,7 @@ class MonPaysPage extends ConsumerWidget {
               label: 'Autorités',
               color: const Color(0xFF1A5276),
               onTap: () {
-                // ⬇️ CORRECTION : goNamed au lieu de go
+                // Redirection avec le nom exact de la route
                 context.goNamed('monPaysAuthorities'); 
               },
             ),
