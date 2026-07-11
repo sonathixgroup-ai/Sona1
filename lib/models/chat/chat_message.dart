@@ -1,3 +1,27 @@
+// lib/models/chat/chat_message.dart
+
+// Déclaration de la classe MessageReaction qui manquait
+class MessageReaction {
+  final String reaction;
+  final String userId;
+
+  MessageReaction({required this.reaction, required this.userId});
+
+  factory MessageReaction.fromJson(Map<String, dynamic> json) {
+    return MessageReaction(
+      reaction: json['reaction'] ?? '',
+      userId: json['user_id'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'reaction': reaction,
+      'user_id': userId,
+    };
+  }
+}
+
 class ChatMessage {
   final String id;
   final String conversationId;
@@ -77,7 +101,7 @@ class ChatMessage {
       codeLanguage: json['code_language'],
       codeContent: json['code_content'],
       reactions: (json['reactions'] as List?)
-              ?.map((r) => MessageReaction.fromJson(r))
+              ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
               .toList() ??
           [],
     );
