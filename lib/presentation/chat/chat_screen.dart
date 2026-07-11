@@ -18,12 +18,14 @@ import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/models/chat/group_info.dart';
 
 // Widgets
-import '../widgets/chat_message_bubble.dart';
-import '../widgets/chat_input_bar.dart';
-import '../widgets/audio/audio_recorder.dart';
-import '../widgets/audio/audio_player.dart';
-import '../widgets/group/group_info_panel.dart';
-import '../utils/encryption_service.dart';
+// Imports des widgets
+import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
+import 'package:thix_id/presentation/chat/widgets/chat_input_bar.dart';
+import 'package:thix_id/presentation/chat/widgets/audio_recorder.dart';
+import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
+import 'package:thix_id/presentation/chat/group/group_info_panel.dart';
+import 'package:thix_id/presentation/chat/encryption_service.dart';
+
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
