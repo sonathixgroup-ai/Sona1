@@ -28,8 +28,7 @@ import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
 import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
 import 'package:thix_id/presentation/network/messages/conversations_list.dart';
-// ✅ ALIAS AJOUTÉ POUR LE CHAT NETWORK
-import 'package:thix_id/presentation/network/messages/chat_screen.dart' as network_chat; 
+import 'package:thix_id/presentation/network/messages/chat_screen.dart' as network_chat;
 import 'package:thix_id/presentation/network/connections_list_page.dart';
 import 'package:thix_id/presentation/network/community_detail_page.dart';
 import 'package:thix_id/presentation/network/communities_list_page.dart';
@@ -223,51 +222,19 @@ import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 // ---- THIX Chat ----
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/presentation/chat/chat_list_page.dart';
-import 'package:thix_id/presentation/chat/chat_screen.dart' as ThixChat; // ✅ ALIAS THIX CHAT
+import 'package:thix_id/presentation/chat/chat_screen.dart' as ThixChat;
 import 'package:thix_id/presentation/chat/new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_info_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_settings_page.dart';
 
-// ---- Mon Pays (Pages) ----
-import 'package:thix_id/presentation/mon_pays/mon_pays_page.dart';
-import 'package:thix_id/presentation/mon_pays/admin/admin_dashboard_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/authorities/authorities_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/authorities/authority_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/government/government_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/government/government_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/government/ministry_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/government/ministry_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/agencies/agencies_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/agencies/agency_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/agencies/agency_services_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/history/history_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/history/historical_figure_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/news/news_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/news/article_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/values_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/value_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/constitution_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/laws_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/institutions_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/rights_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/duties_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/values/justice_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/emergency/emergency_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/videos/videos_page.dart'; 
-import 'package:thix_id/presentation/mon_pays/pages/videos/video_player_page.dart' as monPaysVideo;
-import 'package:thix_id/presentation/mon_pays/pages/documentaries/documentaries_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/documentaries/documentary_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/wanted_people/wanted_people_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/wanted_people/dangerous_people_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/wanted_people/missing_people_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/wanted_people/wanted_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/citizens/citizens_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/citizens/citizen_profile_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/consultations/consultations_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/consultations/consultation_detail_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/search/search_page.dart';
-import 'package:thix_id/presentation/mon_pays/pages/search/search_result_page.dart';
+// ===== MON PAYS =====
+import 'presentation/mon_pays/mon_pays_page.dart';
+import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
+import 'presentation/mon_pays/pages/authorities/authority_profile_page.dart';
+import 'presentation/mon_pays/admin/admin_authorities_page.dart';
+import 'presentation/mon_pays/admin/admin_authority_form_page.dart';
+
 
 // ==================== TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
@@ -360,247 +327,6 @@ class AppRouter {
           }),
         ]),
 
-        // ---- Mon Pays ----
-        GoRoute(
-          path: AppRoutes.monPays,
-          name: 'monPays',
-          pageBuilder: (_, __) => NoTransitionPage(child: const MonPaysPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysAdmin,
-          name: 'monPaysAdmin',
-          pageBuilder: (_, __) => NoTransitionPage(child: const AdminDashboardPage()),
-          redirect: (context, state) {
-            final auth = context.read<AuthController>();
-            if (!auth.isAuthenticated) return AppRoutes.login;
-            final user = auth.currentUser;
-            if (user == null || (user.role != 'admin' && user.role != 'moderateur')) {
-              return AppRoutes.monPays;
-            }
-            return null;
-          },
-        ),
-
-        // ========== LISTES COMPLÈTES ==========
-        GoRoute(
-          path: AppRoutes.monPaysAuthorities,
-          name: 'monPaysAuthorities',
-          pageBuilder: (_, __) => NoTransitionPage(child: const AuthoritiesPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysGovernment,
-          name: 'monPaysGovernment',
-          pageBuilder: (_, __) => NoTransitionPage(child: const GovernmentPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysMinistries,
-          name: 'monPaysMinistries',
-          pageBuilder: (_, __) => NoTransitionPage(child: const MinistryPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysAgencies,
-          name: 'monPaysAgencies',
-          pageBuilder: (_, __) => NoTransitionPage(child: const AgenciesPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysHistory,
-          name: 'monPaysHistory',
-          pageBuilder: (_, __) => NoTransitionPage(child: const HistoryPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysNews,
-          name: 'monPaysNews',
-          pageBuilder: (_, __) => NoTransitionPage(child: const NewsPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysValues,
-          name: 'monPaysValues',
-          pageBuilder: (_, __) => NoTransitionPage(child: const ValuesPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysVideos,
-          name: 'monPaysVideos',
-          pageBuilder: (_, __) => NoTransitionPage(child: VideosPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysDocumentaries,
-          name: 'monPaysDocumentaries',
-          pageBuilder: (_, __) => NoTransitionPage(child: const DocumentariesPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysWanted,
-          name: 'monPaysWanted',
-          pageBuilder: (_, __) => NoTransitionPage(child: const WantedPeoplePage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysCitizens,
-          name: 'monPaysCitizens',
-          pageBuilder: (_, __) => NoTransitionPage(child: const CitizensPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysConsultations,
-          name: 'monPaysConsultations',
-          pageBuilder: (_, __) => NoTransitionPage(child: const ConsultationsPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysEmergency,
-          name: 'monPaysEmergency',
-          pageBuilder: (_, __) => NoTransitionPage(child: const EmergencyPage()), // à créer
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysSearch,
-          name: 'monPaysSearch',
-          pageBuilder: (_, __) => NoTransitionPage(child: const SearchPage()),
-        ),
-
-        // ========== DÉTAILS (avec paramètre :id) ==========
-        GoRoute(
-          path: AppRoutes.monPaysAuthorityDetail,
-          name: 'monPaysAuthorityDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: AuthorityDetailPage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysGovernmentDetail,
-          name: 'monPaysGovernmentDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: GovernmentDetailPage(id: id)); // à créer
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysMinistryDetail,
-          name: 'monPaysMinistryDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: MinistryDetailPage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysAgencyDetail,
-          name: 'monPaysAgencyDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: AgencyDetailPage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysAgencyServices,
-          name: 'monPaysAgencyServices',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: AgencyServicesPage(agencyId: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysHistoryDetail,
-          name: 'monPaysHistoryDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: HistoricalFigurePage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysNewsDetail,
-          name: 'monPaysNewsDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: ArticlePage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysValueDetail,
-          name: 'monPaysValueDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: ValueDetailPage(id: id)); // à créer
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysVideoDetail,
-          name: 'monPaysVideoDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: monPaysVideo.VideoPlayerPage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysDocumentaryDetail,
-          name: 'monPaysDocumentaryDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: DocumentaryPage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysWantedDetail,
-          name: 'monPaysWantedDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: WantedDetailPage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysCitizenDetail,
-          name: 'monPaysCitizenDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: CitizenProfilePage(id: id));
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysConsultationDetail,
-          name: 'monPaysConsultationDetail',
-          pageBuilder: (_, state) {
-            final id = state.pathParameters['id']!;
-            return NoTransitionPage(child: ConsultationDetailPage(id: id));
-          },
-        ),
-
-        // ========== PAGES SPÉCIFIQUES DES VALEURS ==========
-        GoRoute(
-          path: AppRoutes.monPaysConstitution,
-          name: 'monPaysConstitution',
-          pageBuilder: (_, __) => NoTransitionPage(child: const ConstitutionPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysLaws,
-          name: 'monPaysLaws',
-          pageBuilder: (_, __) => NoTransitionPage(child: const LawsPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysInstitutions,
-          name: 'monPaysInstitutions',
-          pageBuilder: (_, __) => NoTransitionPage(child: const InstitutionsPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysRights,
-          name: 'monPaysRights',
-          pageBuilder: (_, __) => NoTransitionPage(child: const RightsPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysDuties,
-          name: 'monPaysDuties',
-          pageBuilder: (_, __) => NoTransitionPage(child: const DutiesPage()),
-        ),
-        GoRoute(
-          path: AppRoutes.monPaysJustice,
-          name: 'monPaysJustice',
-          pageBuilder: (_, __) => NoTransitionPage(child: const JusticePage()),
-        ),
-
-        // ========== RECHERCHE ==========
-        GoRoute(
-          path: AppRoutes.monPaysSearchResult,
-          name: 'monPaysSearchResult',
-          pageBuilder: (_, state) {
-            final query = state.uri.queryParameters['q'] ?? '';
-            return NoTransitionPage(child: SearchResultPage(query: query));
-          },
-        ),
-        
         // ---- THIX Chat ----
         GoRoute(
           path: AppRoutes.chat,
@@ -661,8 +387,6 @@ class AppRouter {
         GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => NoTransitionPage(child: SearchNetworkPage())),
         GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => NoTransitionPage(child: NotificationsPage())),
         GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => NoTransitionPage(child: ConversationsList())),
-        
-        // ✅ CORRECTION APPLIQUÉE ICI : Utilisation de network_chat.ChatScreen
         GoRoute(path: '${AppRoutes.networkChatBasePath}/:userId', name: 'networkChat', pageBuilder: (_, state) {
           final uid = state.pathParameters['userId']!;
           final extra = state.extra;
@@ -675,7 +399,6 @@ class AppRouter {
           }
           return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
         }),
-
         GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => NoTransitionPage(child: ConnectionsListPage())),
         GoRoute(path: AppRoutes.networkProfileSettings, name: 'networkProfileSettings', pageBuilder: (_, __) => NoTransitionPage(child: ProfileSettingsPage())),
         GoRoute(path: AppRoutes.networkBlockedUsers, name: 'networkBlockedUsers', pageBuilder: (_, __) => NoTransitionPage(child: BlockedUsersPage())),
@@ -1054,7 +777,7 @@ class AppRouter {
         GoRoute(
           path: '/moderator',
           name: 'moderatorHome',
-          builder: (context, state) { // ✅ contexte corrigé
+          builder: (context, state) {
             final authProvider = context.read<AuthProvider>();
             if (!authProvider.isModerator) return const ThixEventHome();
             return const ModeratorHome();
@@ -1063,6 +786,47 @@ class AppRouter {
             GoRoute(path: 'events', name: 'moderatorEvents', builder: (context, state) => const ModeratorEventList()),
             GoRoute(path: 'event/create', name: 'moderatorEventCreate', builder: (context, state) => const ModeratorEventForm()),
             GoRoute(path: 'event/edit/:id', name: 'moderatorEventEdit', builder: (context, state) => ModeratorEventForm(eventId: state.pathParameters['id']!)),
+          ],
+        ),
+
+        // ===== MON PAYS =====
+        GoRoute(
+          path: AppRoutes.monPays,
+          name: 'monPays',
+          pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
+          routes: [
+            // Autorités - Liste
+            GoRoute(
+              path: 'authorities',
+              name: 'monPaysAuthorities',
+              pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
+            ),
+            // Autorités - Détail
+            GoRoute(
+              path: 'authority/:id',
+              name: 'monPaysAuthorityProfile',
+              pageBuilder: (_, state) {
+                final id = state.pathParameters['id']!;
+                return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
+              },
+            ),
+            // Admin - Liste
+            GoRoute(
+              path: 'admin',
+              name: 'monPaysAdmin',
+              pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
+            ),
+            // Admin - Formulaire (création/modification)
+            GoRoute(
+              path: 'admin/form',
+              name: 'monPaysAdminForm',
+              pageBuilder: (_, state) {
+                final authority = state.extra;
+                return NoTransitionPage(
+                  child: AdminAuthorityFormPage(authority: authority as dynamic),
+                );
+              },
+            ),
           ],
         ),
 
