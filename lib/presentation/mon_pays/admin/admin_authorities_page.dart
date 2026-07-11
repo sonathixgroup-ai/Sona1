@@ -164,8 +164,12 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
             child: IconButton(
               icon: const Icon(Icons.add, color: Color(0xFF1A5276)),
               onPressed: () {
-                // ✅ Correction : utiliser goNamed avec le nom de la route
-                context.goNamed('monPaysAdminForm');
+                print('🛠️ Clic sur le + de la barre de recherche');
+                // 🔧 Correction : utilisation de Navigator.push
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminAuthorityFormPage()),
+                );
               },
               tooltip: 'Ajouter',
             ),
@@ -532,10 +536,13 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
               onPressed: () {
-                // ✅ Correction : utiliser goNamed avec extra
-                context.goNamed(
-                  'monPaysAdminForm',
-                  extra: authority,
+                print('🛠️ Clic sur Modifier pour ${authority.name}');
+                // 🔧 Correction : utilisation de Navigator.push avec extra
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AdminAuthorityFormPage(authority: authority),
+                  ),
                 );
               },
               tooltip: 'Modifier',
@@ -610,9 +617,12 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
   Widget _buildFloatingActionButton() {
     return FloatingActionButton(
       onPressed: () {
-        // ✅ Correction : utiliser goNamed pour la navigation
-        print('🛠️ Clic sur le bouton + (admin)');
-        context.goNamed('monPaysAdminForm');
+        print('🛠️ Clic sur le FAB +');
+        // 🔧 Correction : utilisation de Navigator.push
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminAuthorityFormPage()),
+        );
       },
       backgroundColor: Colors.red.shade700,
       foregroundColor: Colors.white,
