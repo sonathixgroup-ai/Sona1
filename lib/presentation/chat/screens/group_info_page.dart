@@ -35,6 +35,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
   static const darkText = Color(0xFF10182B);
   static const mutedText = Color(0xFF6B7690);
   static const danger = Color(0xFFD64545);
+  static const success = Color(0xFF1FA971);
 
   @override
   void initState() {
@@ -72,7 +73,6 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
   }
 
   Future<List<GroupMember>> _getMembers(String groupId) async {
-    // Récupérer les participants depuis conversation_participants + profiles
     final supabase = Supabase.instance.client;
     final data = await supabase
         .from('conversation_participants')
@@ -89,13 +89,14 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       final profile = p['profiles'] as Map<String, dynamic>?;
       final userId = p['user_id'] as String;
       final role = p['role'] as String? ?? 'member';
-      // Statut en ligne
+      
       final presence = await supabase
           .from('user_presence')
           .select('status')
           .eq('user_id', userId)
           .maybeSingle();
       final isOnline = presence != null && presence['status'] == 'online';
+      
       members.add(GroupMember(
         userId: userId,
         displayName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur',
@@ -202,13 +203,48 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
             const Divider(),
             const SizedBox(height: 16),
 
-            // Description (si disponible)
+            // Description
             if (conv.groupName != null && conv.groupName != conv.displayName) ...[
               const Text('Description', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText)),
               const SizedBox(height: 6),
               Text(
                 conv.groupName!,
                 style: const TextStyle(fontSize: 14, color: mutedText),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+            ],
+
+            // Code d'invitation
+            if (_groupInfo?.inviteCode != null) ...[
+              const Text('Code d\'invitation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: darkText)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _groupInfo!.inviteCode!,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, fontFeatures: [FontFeature.tabularFigures()]),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, color: navy, size: 18),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Code copié !'), backgroundColor: success),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               const Divider(),
@@ -228,8 +264,8 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                     onPressed: () {
                       // Naviguer vers la page d'ajout de membres
                     },
-                    icon: const Icon(Icons.add_circle_rounded, size: 18),
-                    label: const Text('Ajouter'),
+                    icon: const Icon(Icons.add_circle_rounded, size: 18, color: navy),
+                    label: const Text('Ajouter', style: TextStyle(color: navy)),
                   ),
               ],
             ),
@@ -243,7 +279,6 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
               },
               onMemberLongPress: isAdmin
                   ? (userId) {
-                      // Ouvrir un dialogue pour promouvoir/rétrograder/supprimer
                       _showMemberActions(userId);
                     }
                   : null,
@@ -308,14 +343,18 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
               Navigator.pop(ctx);
               try {
                 await _groupService.leaveGroup(widget.groupId);
-                Navigator.pop(context); // Retour à l'écran précédent
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Vous avez quitté le groupe')),
-                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vous avez quitté le groupe'), backgroundColor: success),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
+                  );
+                }
               }
             },
             style: TextButton.styleFrom(foregroundColor: danger),
@@ -339,14 +378,18 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
               Navigator.pop(ctx);
               try {
                 await _groupService.deleteGroup(widget.groupId);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Groupe supprimé')),
-                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Groupe supprimé'), backgroundColor: success),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
+                  );
+                }
               }
             },
             style: TextButton.styleFrom(foregroundColor: danger),
@@ -365,14 +408,37 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text('Membre: ${member.displayName}'),
-              subtitle: Text(isAdmin ? 'Admin' : 'Membre'),
+              leading: CircleAvatar(
+                radius: 18,
+                backgroundColor: navy.withOpacity(0.1),
+                backgroundImage: member.avatarUrl != null ? NetworkImage(member.avatarUrl!) : null,
+                child: member.avatarUrl == null
+                    ? Text(member.displayName[0].toUpperCase(), style: const TextStyle(color: navy))
+                    : null,
+              ),
+              title: Text(member.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(isAdmin ? 'Admin' : 'Membre', style: TextStyle(color: isAdmin ? gold : mutedText)),
             ),
             const Divider(),
             if (!isAdmin && !isSelf)
@@ -385,7 +451,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                     await _groupService.promoteToAdmin(widget.groupId, userId);
                     await _loadData();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Membre promu admin')),
+                      const SnackBar(content: Text('Membre promu admin'), backgroundColor: success),
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -404,7 +470,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                     await _groupService.demoteFromAdmin(widget.groupId, userId);
                     await _loadData();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Admin rétrogradé')),
+                      const SnackBar(content: Text('Admin rétrogradé'), backgroundColor: success),
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -417,7 +483,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
               ListTile(
                 leading: const Icon(Icons.remove_circle_outline, color: danger),
                 title: const Text('Retirer du groupe', style: TextStyle(color: danger)),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(ctx);
                   _confirmRemoveMember(userId);
                 },
@@ -427,6 +493,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
               title: const Text('Fermer'),
               onTap: () => Navigator.pop(ctx),
             ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -448,7 +515,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                 await _groupService.removeMember(widget.groupId, userId);
                 await _loadData();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Membre retiré')),
+                  const SnackBar(content: Text('Membre retiré'), backgroundColor: success),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
