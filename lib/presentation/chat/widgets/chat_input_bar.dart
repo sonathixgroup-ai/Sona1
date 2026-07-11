@@ -1,4 +1,3 @@
-// lib/presentation/chat/widgets/chat_input_bar.dart
 import 'package:flutter/material.dart';
 
 class ChatInputBar extends StatefulWidget {
@@ -6,10 +5,11 @@ class ChatInputBar extends StatefulWidget {
   final FocusNode focusNode;
   final VoidCallback onSend;
   final bool isSending;
-  final VoidCallback? onAttach;
-  final VoidCallback? onCode;
-  final VoidCallback? onEphemeralToggle;
+  final VoidCallback onAttach;
+  final VoidCallback onCode;
+  final VoidCallback onEphemeralToggle;
   final bool isEphemeral;
+  final ValueChanged<String>? onTyping; // 👈 Ajouté
 
   const ChatInputBar({
     super.key,
@@ -17,10 +17,11 @@ class ChatInputBar extends StatefulWidget {
     required this.focusNode,
     required this.onSend,
     required this.isSending,
-    this.onAttach,
-    this.onCode,
-    this.onEphemeralToggle,
-    this.isEphemeral = false,
+    required this.onAttach,
+    required this.onCode,
+    required this.onEphemeralToggle,
+    required this.isEphemeral,
+    this.onTyping, // 👈 Ajouté
   });
 
   @override
@@ -31,24 +32,19 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // Pièce jointe
-          IconButton(
-            icon: const Icon(Icons.attach_file, color: Colors.grey),
-            onPressed: widget.onAttach,
-          ),
-          // Code snippet
-          IconButton(
-            icon: const Icon(Icons.code, color: Colors.grey),
-            onPressed: widget.onCode,
-          ),
-          // Éphémère
           IconButton(
             icon: Icon(
               widget.isEphemeral ? Icons.timer : Icons.timer_outlined,
@@ -56,11 +52,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
             ),
             onPressed: widget.onEphemeralToggle,
           ),
-          // Champ de saisie
+          IconButton(
+            icon: const Icon(Icons.attach_file, color: Colors.grey),
+            onPressed: widget.onAttach,
+          ),
           Expanded(
             child: TextField(
               controller: widget.controller,
               focusNode: widget.focusNode,
+              onChanged: widget.onTyping, // 👈 Appel du callback
               decoration: InputDecoration(
                 hintText: 'Écrire un message...',
                 border: OutlineInputBorder(
@@ -71,12 +71,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 fillColor: Colors.grey[100],
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
-              maxLines: null,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => widget.onSend(),
             ),
           ),
-          // Bouton d'envoi
+          IconButton(
+            icon: const Icon(Icons.code, color: Colors.grey),
+            onPressed: widget.onCode,
+          ),
           IconButton(
             icon: widget.isSending
                 ? const SizedBox(
@@ -84,7 +84,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.send_rounded, color: Color(0xFFD4AF37)),
+                : const Icon(Icons.send, color: Colors.blue),
             onPressed: widget.isSending ? null : widget.onSend,
           ),
         ],
