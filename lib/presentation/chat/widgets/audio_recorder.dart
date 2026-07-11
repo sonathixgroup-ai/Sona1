@@ -1,27 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../services/chat/audio_service.dart';
 
-/// Widget d'enregistrement audio avec appui long et timer.
-/// Utilise [AudioService] pour l'enregistrement.
+/// Widget d'enregistrement audio avec appui long, timer et annulation par glissement.
+/// Nécessite une instance de [AudioService] passée en paramètre.
 class AudioRecorderWidget extends StatefulWidget {
-  /// Callback appelé lorsque l'enregistrement est terminé avec le chemin du fichier
+  final AudioService audioService;
   final void Function(String filePath, int durationSeconds)? onRecordingComplete;
-
-  /// Callback appelé lorsque l'enregistrement est annulé
   final VoidCallback? onRecordingCanceled;
-
-  /// Callback pour l'état d'enregistrement (true = en cours)
   final void Function(bool isRecording)? onRecordingStateChanged;
-
-  /// Durée maximale d'enregistrement en secondes (défaut: 120s = 2min)
-  final int maxDuration;
-
-  /// Taille du bouton d'enregistrement
+  final int maxDuration; // en secondes
   final double buttonSize;
 
   const AudioRecorderWidget({
     super.key,
+    required this.audioService,
     this.onRecordingComplete,
     this.onRecordingCanceled,
     this.onRecordingStateChanged,
@@ -41,17 +35,8 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
   Timer? _timer;
   double _slideOffset = 0.0;
   bool _isCanceling = false;
-
-  // Animation du pulse
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
-
-  // Animation du timer
-  late AnimationController _timerController;
-  late Animation<double> _timerAnimation;
-
-  // Référence aux services (passés via le parent ou créés ici)
-  // Pour cet exemple, on utilise un callback pour les actions
 
   @override
   void initState() {
@@ -60,17 +45,8 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
-
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _timerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    )..forward();
-    _timerAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _timerController, curve: Curves.easeOut),
     );
   }
 
@@ -78,35 +54,32 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
-    _timerController.dispose();
     super.dispose();
   }
 
-  /// Démarre l'enregistrement (appelé par le parent)
-  void startRecording() {
+  void _startRecording() async {
     if (_isRecording) return;
-    setState(() {
-      _isRecording = true;
-      _currentDuration = 0;
-      _slideOffset = 0.0;
-      _isCanceling = false;
-    });
-    widget.onRecordingStateChanged?.call(true);
-
-    // Démarrer le timer
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    try {
+      await widget.audioService.startRecording();
       setState(() {
-        _currentDuration++;
+        _isRecording = true;
+        _currentDuration = 0;
+        _slideOffset = 0.0;
+        _isCanceling = false;
       });
-      if (_currentDuration >= widget.maxDuration) {
-        _completeRecording();
-      }
-    });
+      widget.onRecordingStateChanged?.call(true);
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() => _currentDuration++);
+        if (_currentDuration >= widget.maxDuration) {
+          _completeRecording();
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ Erreur startRecording: $e');
+    }
   }
 
-  /// Arrête et envoie l'enregistrement
-  void _completeRecording() {
+  void _completeRecording() async {
     if (!_isRecording) return;
     _timer?.cancel();
     _timer = null;
@@ -116,13 +89,17 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
     });
     widget.onRecordingStateChanged?.call(false);
 
-    // Le parent doit fournir le chemin du fichier via un callback
-    // Pour l'exemple, on simule un fichier
-    // Dans la pratique, le parent appelle stopRecording() du service
+    final filePath = await widget.audioService.stopRecording();
+    if (filePath != null) {
+      final duration = widget.audioService.currentRecordingDuration;
+      widget.onRecordingComplete?.call(filePath, duration);
+    } else {
+      setState(() => _isUploading = false);
+      widget.onRecordingCanceled?.call();
+    }
   }
 
-  /// Annule l'enregistrement
-  void _cancelRecording() {
+  void _cancelRecording() async {
     _timer?.cancel();
     _timer = null;
     setState(() {
@@ -130,40 +107,32 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
       _isCanceling = true;
     });
     widget.onRecordingStateChanged?.call(false);
+    await widget.audioService.cancelRecording();
     widget.onRecordingCanceled?.call();
-
-    // Revenir à l'état initial après un court délai
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() => _isCanceling = false);
-      }
+      if (mounted) setState(() => _isCanceling = false);
     });
   }
 
-  /// Formate la durée en mm:ss
   String _formatDuration(int seconds) {
     final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+    final remaining = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remaining.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    // Couleurs THIX ID
     const gold = Color(0xFFE3B23C);
     const navyDeep = Color(0xFF0A1F44);
     const danger = Color(0xFFD64545);
 
-    if (_isCanceling) {
-      return const SizedBox.shrink();
-    }
+    if (_isCanceling) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Timer d'enregistrement
           if (_isRecording || _isUploading)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -173,26 +142,23 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
               ),
               child: Row(
                 children: [
-                  // Point rouge clignotant
                   AnimatedBuilder(
                     animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: danger,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: danger.withOpacity(0.5 * _pulseAnimation.value),
-                              blurRadius: 8,
-                              spreadRadius: 4,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    builder: (context, child) => Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: danger,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: danger.withOpacity(0.5 * _pulseAnimation.value),
+                            blurRadius: 8,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -208,30 +174,19 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                   if (_isRecording)
                     GestureDetector(
                       onTap: _cancelRecording,
-                      child: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white70,
-                        size: 18,
-                      ),
+                      child: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
                     ),
                 ],
               ),
             ),
-
-          // Bouton d'enregistrement
           if (!_isUploading)
             GestureDetector(
-              onLongPress: startRecording,
+              onLongPress: _startRecording,
               onLongPressUp: _completeRecording,
               onPanUpdate: (details) {
                 if (_isRecording) {
-                  // Glisser vers la gauche pour annuler (seuil de -80px)
-                  setState(() {
-                    _slideOffset = details.delta.dx.clamp(-100.0, 0.0);
-                  });
-                  if (_slideOffset <= -80) {
-                    _cancelRecording();
-                  }
+                  setState(() => _slideOffset = (details.delta.dx + _slideOffset).clamp(-100.0, 0.0));
+                  if (_slideOffset <= -80) _cancelRecording();
                 }
               },
               child: AnimatedBuilder(
@@ -240,7 +195,6 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                   final isActive = _isRecording;
                   final scale = isActive ? _pulseAnimation.value : 1.0;
                   final color = isActive ? danger : gold;
-
                   return Transform.scale(
                     scale: scale,
                     child: Container(
@@ -248,11 +202,8 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                       height: widget.buttonSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isActive ? danger.withOpacity(0.15) : color.withOpacity(0.15),
-                        border: Border.all(
-                          color: color,
-                          width: 3,
-                        ),
+                        color: (isActive ? danger : gold).withOpacity(0.15),
+                        border: Border.all(color: color, width: 3),
                       ),
                       child: Icon(
                         _isRecording ? Icons.mic : Icons.mic_none,
@@ -264,8 +215,6 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                 },
               ),
             ),
-
-          // Indicateur d'upload
           if (_isUploading)
             const Padding(
               padding: EdgeInsets.all(8.0),
@@ -281,12 +230,5 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
         ],
       ),
     );
-  }
-
-  /// Méthode pour définir l'état d'upload (à appeler par le parent)
-  void setUploading(bool uploading) {
-    if (mounted) {
-      setState(() => _isUploading = uploading);
-    }
   }
 }
