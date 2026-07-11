@@ -8,7 +8,7 @@ import '../../models/chat/chat_message.dart';
 import '../../models/chat/user_status.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
-import 'group_create_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
