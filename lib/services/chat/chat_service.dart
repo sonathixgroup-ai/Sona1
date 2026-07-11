@@ -6,7 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/user_status.dart';
-import '../../models/chat/group_info.dart'; // ← Import du modèle GroupInfo
+import '../../models/chat/group_info.dart';
 
 class ChatService {
   final SupabaseClient _supabase;
@@ -24,6 +24,7 @@ class ChatService {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
+      // 1. Récupérer les IDs des conversations
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -35,18 +36,20 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
+      // 2. Récupérer les conversations avec les participants et leurs profils
       final response = await _supabase
           .from('conversations')
           .select('''
-              *,
-              conversation_participants!inner (
-                  user_id,
-                  profiles!user_id (
-                      username,
-                      full_name,
-                      avatar_url
-                  )
+            *,
+            conversation_participants!inner (
+              user_id,
+              role,
+              profiles!user_id (
+                username,
+                full_name,
+                avatar_url
               )
+            )
           ''')
           .inFilter('id', conversationIds)
           .order('updated_at', ascending: false);
@@ -62,6 +65,7 @@ class ChatService {
         String? otherParticipantName;
         String? otherParticipantAvatar;
 
+        // Pour les conversations individuelles (non-groupes)
         if (!(conv['is_group'] ?? false) && participants.length == 2) {
           final other = participants.firstWhere(
             (p) => p['user_id'] != uid,
@@ -69,22 +73,28 @@ class ChatService {
           );
           if (other != null) {
             final profile = other['profiles'] as Map<String, dynamic>?;
-            otherParticipantName = profile?['full_name'] ??
-                profile?['username'] ??
-                'Utilisateur inconnu';
-            otherParticipantAvatar = profile?['avatar_url'];
+            if (profile != null) {
+              otherParticipantName = profile['full_name'] as String?;
+              if (otherParticipantName == null || otherParticipantName.isEmpty) {
+                otherParticipantName = profile['username'] as String? ?? 'Utilisateur inconnu';
+              }
+              otherParticipantAvatar = profile['avatar_url'] as String?;
+            } else {
+              otherParticipantName = 'Utilisateur inconnu';
+            }
           }
         }
 
+        // 3. Dernier message avec le nom de l'expéditeur
         final lastMsg = await _supabase
             .from('messages')
             .select('''
-                *,
-                profiles!sender_id (
-                    username,
-                    full_name,
-                    avatar_url
-                )
+              *,
+              profiles!sender_id (
+                username,
+                full_name,
+                avatar_url
+              )
             ''')
             .eq('conversation_id', conv['id'])
             .eq('is_deleted', false)
@@ -97,6 +107,7 @@ class ChatService {
           lastMessage = ChatMessage.fromJson(lastMsg);
         }
 
+        // 4. Messages non lus
         final unread = await _supabase
             .from('messages')
             .select('id')
@@ -110,7 +121,7 @@ class ChatService {
           groupName: conv['group_name'],
           groupAvatar: conv['group_avatar'],
           participantIds: participantIds,
-          otherParticipantName: otherParticipantName,
+          otherParticipantName: otherParticipantName ?? 'Utilisateur inconnu',
           otherParticipantAvatar: otherParticipantAvatar,
           lastMessage: lastMessage,
           unreadCount: (unread as List).length,
@@ -200,7 +211,6 @@ class ChatService {
       });
     }
 
-    // Si groupe, stocker des métadonnées supplémentaires (facultatif)
     if (isGroup) {
       await _supabase.from('group_info').upsert({
         'group_id': conversationId,
@@ -275,15 +285,15 @@ class ChatService {
       final response = await _supabase
           .from('conversations')
           .select('''
-              *,
-              conversation_participants!inner (
-                  user_id,
-                  profiles!user_id (
-                      username,
-                      full_name,
-                      avatar_url
-                  )
+            *,
+            conversation_participants!inner (
+              user_id,
+              profiles!user_id (
+                username,
+                full_name,
+                avatar_url
               )
+            )
           ''')
           .eq('id', conversationId)
           .maybeSingle();
@@ -305,17 +315,22 @@ class ChatService {
         );
         if (other != null) {
           final profile = other['profiles'] as Map<String, dynamic>?;
-          otherParticipantName = profile?['full_name'] ??
-              profile?['username'] ??
-              'Utilisateur inconnu';
-          otherParticipantAvatar = profile?['avatar_url'];
+          if (profile != null) {
+            otherParticipantName = profile['full_name'] as String?;
+            if (otherParticipantName == null || otherParticipantName.isEmpty) {
+              otherParticipantName = profile['username'] as String? ?? 'Utilisateur inconnu';
+            }
+            otherParticipantAvatar = profile['avatar_url'] as String?;
+          } else {
+            otherParticipantName = 'Utilisateur inconnu';
+          }
         }
       }
 
       return ChatConversation.fromJson({
         ...response,
         'participant_ids': participantIds,
-        'other_participant_name': otherParticipantName,
+        'other_participant_name': otherParticipantName ?? 'Utilisateur inconnu',
         'other_participant_avatar': otherParticipantAvatar,
       });
     } catch (e) {
@@ -325,16 +340,14 @@ class ChatService {
   }
 
   // ============================================================
-  // GROUPES (NOUVEAUTÉS)
+  // GROUPES
   // ============================================================
 
-  /// Récupère la liste des membres d'un groupe avec leurs rôles et statut en ligne.
   Future<List<GroupMember>> getGroupMembers(String conversationId) async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
-      // 1. Récupérer les participants avec leurs profils
       final data = await _supabase
           .from('conversation_participants')
           .select('''
@@ -355,7 +368,6 @@ class ChatService {
         final userId = p['user_id'] as String;
         final role = p['role'] as String? ?? 'member';
 
-        // 2. Récupérer le statut en ligne (depuis user_presence)
         final presence = await _supabase
             .from('user_presence')
             .select('status')
@@ -379,7 +391,6 @@ class ChatService {
     }
   }
 
-  /// Récupère les informations détaillées d'un groupe (description, code d'invitation, etc.)
   Future<Map<String, dynamic>?> getGroupInfoDetails(String groupId) async {
     try {
       return await _supabase
@@ -409,12 +420,12 @@ class ChatService {
       final response = await _supabase
           .from('messages')
           .select('''
-              *,
-              profiles!sender_id (
-                  username,
-                  full_name,
-                  avatar_url
-              )
+            *,
+            profiles!sender_id (
+              username,
+              full_name,
+              avatar_url
+            )
           ''')
           .eq('conversation_id', conversationId)
           .eq('is_deleted', false)
@@ -470,12 +481,12 @@ class ChatService {
       'code_language': codeLanguage,
       'code_content': codeContent,
     }).select('''
-        *,
-        profiles!sender_id (
-            username,
-            full_name,
-            avatar_url
-        )
+      *,
+      profiles!sender_id (
+        username,
+        full_name,
+        avatar_url
+      )
     ''').single();
 
     await _supabase
@@ -486,7 +497,6 @@ class ChatService {
     return ChatMessage.fromJson(response);
   }
 
-  /// Envoie un message audio : upload du fichier puis envoi du message.
   Future<ChatMessage> sendAudioMessage({
     required String conversationId,
     required Uint8List audioData,
@@ -499,7 +509,6 @@ class ChatService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Not logged in');
 
-    // 1. Upload du fichier audio vers Supabase Storage
     final bucket = 'audio';
     final extension = fileName?.split('.').last ?? 'm4a';
     final uniqueName = '${const Uuid().v4()}.$extension';
@@ -514,7 +523,6 @@ class ChatService {
 
     final audioUrl = _supabase.storage.from(bucket).getPublicUrl(path);
 
-    // 2. Envoyer le message avec media_type = 'audio'
     return sendMessage(
       conversationId: conversationId,
       content: '🎤 Message audio (${duration}s)',
@@ -596,12 +604,12 @@ class ChatService {
       final response = await _supabase
           .from('messages')
           .select('''
-              *,
-              profiles!sender_id (
-                  username,
-                  full_name,
-                  avatar_url
-              )
+            *,
+            profiles!sender_id (
+              username,
+              full_name,
+              avatar_url
+            )
           ''')
           .eq('id', messageId)
           .eq('is_deleted', false)
@@ -648,12 +656,12 @@ class ChatService {
       final response = await _supabase
           .from('user_presence')
           .select('''
-              *,
-              profiles!user_id (
-                  username,
-                  full_name,
-                  avatar_url
-              )
+            *,
+            profiles!user_id (
+              username,
+              full_name,
+              avatar_url
+            )
           ''')
           .eq('user_id', userId)
           .maybeSingle();
@@ -671,12 +679,12 @@ class ChatService {
       final response = await _supabase
           .from('user_presence')
           .select('''
-              *,
-              profiles!user_id (
-                  username,
-                  full_name,
-                  avatar_url
-              )
+            *,
+            profiles!user_id (
+              username,
+              full_name,
+              avatar_url
+            )
           ''')
           .inFilter('user_id', userIds);
 
@@ -690,7 +698,7 @@ class ChatService {
   }
 
   // ============================================================
-  // REALTIME / STREAMS (CORRIGÉ POUR SUPABASE ^2.0)
+  // REALTIME / STREAMS
   // ============================================================
 
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
