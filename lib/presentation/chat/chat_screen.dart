@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // 👈 AJOUTÉ pour kIsWeb
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
@@ -111,6 +112,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _subscribeToPresence();
     _subscribeToRealtimeMessages();
     _loadGroupMembersIfGroup();
+
+    // ✅ Vérifier la permission microphone au démarrage
+    _checkMicrophonePermission();
+  }
+
+  // ✅ NOUVELLE MÉTHODE : Vérifier la permission microphone
+  Future<void> _checkMicrophonePermission() async {
+    try {
+      final hasPermission = await _audioService.hasPermission();
+      if (!hasPermission) {
+        // Ne pas afficher de snackbar immédiatement, l'utilisateur le verra quand il essaiera d'enregistrer
+        debugPrint('⚠️ Permission microphone non accordée');
+      } else {
+        debugPrint('✅ Permission microphone accordée');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur vérification permission: $e');
+    }
   }
 
   @override
@@ -317,10 +336,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // AUDIO (RECORDING)
+  // AUDIO (RECORDING) AVEC PERMISSION
   // ============================================================
 
-  void _startAudioRecording() {
+  void _startAudioRecording() async {
+    // ✅ Vérifier la permission avant d'ouvrir le bottom sheet
+    final hasPermission = await _audioService.hasPermission();
+    if (!hasPermission) {
+      _showSnackBar(
+        '❌ Permission microphone refusée. Veuillez autoriser dans les paramètres.',
+        danger,
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -410,7 +439,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               if (msgController.text.isNotEmpty &&
                   passController.text.isNotEmpty) {
                 try {
-                  // CORRECTION : Le try catch est maintenant bien formaté
                   final encrypted = EncryptionService.encryptMessage(
                       msgController.text, passController.text);
                   
@@ -590,7 +618,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         final bytes = file.bytes ?? await File(file.path!).readAsBytes();
-        // Upload vers Supabase
         final url = await _chatService.uploadFileWithUniqueName(
           'images',
           'messages/${widget.conversationId}',
@@ -717,7 +744,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       appBar: _buildAppBar(),
       body: Column(
         children: [
-          // Panneau d'info du groupe (si groupe)
           if (widget.conversation.isGroup)
             GroupInfoPanel(
               conversation: widget.conversation,
@@ -727,7 +753,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               onLeaveGroup: _leaveGroup,
               onDeleteGroup: _deleteGroup,
             ),
-          // Liste des messages
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: primaryBlue))
@@ -749,31 +774,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           }
                           final msg = _messages[index];
                           final isOwn = msg.senderId == _chatService.currentUserId;
-
-                          // Messages audio
-                          if (msg.mediaType == 'audio' && msg.mediaUrl != null) {
-                            return ChatMessageBubble(
-                              message: msg,
-                              isOwn: isOwn,
-                              onReply: () => setState(() => _replyToId = msg.id),
-                              onDelete: () async {
-                                setState(() => _messages.removeWhere((m) => m.id == msg.id));
-                                if (isOwn) {
-                                  try {
-                                    await _chatService.deleteMessage(msg.id);
-                                  } catch (_) {}
-                                }
-                              },
-                              onReaction: (r) => _chatService.toggleReaction(msg.id, r),
-                              replyToMessage: msg.replyToId != null
-                                  ? _messages.firstWhere(
-                                      (m) => m.id == msg.replyToId,
-                                      orElse: () => msg,
-                                    )
-                                  : null,
-                              isEphemeralActive: msg.isEphemeral,
-                            );
-                          }
 
                           return ChatMessageBubble(
                             message: msg,
@@ -802,9 +802,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ],
                   ),
           ),
-          // Indicateur de réponse
           if (_replyToId.isNotEmpty) _buildReplyIndicator(),
-          // Barre d'input
           ChatInputBar(
             controller: _inputController,
             focusNode: _inputFocus,
