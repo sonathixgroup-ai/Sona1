@@ -1,3 +1,5 @@
+// lib/presentation/chat/chat_screen.dart
+import 'dart:async'; // 👈 AJOUTÉ POUR RÉSOUDRE L'ERREUR 'Timer'
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,7 +8,6 @@ import '../../services/chat/presence_service.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/user_status.dart';
-import '../../models/chat/chat_participant.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_input_bar.dart';
 
@@ -39,7 +40,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
-  ChatParticipant? _otherParticipant;
+  // 👈 CORRECTION : Utilisation de UserStatus au lieu de ChatParticipant
+  UserStatus? _otherParticipant; 
+  
   String _replyToId = '';
   bool _isEphemeral = false;
   int? _ephemeralDuration;
@@ -223,7 +226,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _sendTypingStatus(bool typing) {
     // Implémentez ici l'envoi du statut via WebSocket ou autre
-    // Par exemple via PresenceService ou un événement en temps réel
   }
 
   // ---- MESSAGES ÉPHÉMÈRES ----
@@ -239,7 +241,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ---- GESTION DES MÉDIAS ----
   Future<void> _pickImage() async {
     // Implémentez la sélection d'image
-    // puis upload via ChatService.uploadFile()
   }
 
   Future<void> _pickAudio() async {
@@ -330,16 +331,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _otherParticipant!.isOnline
+                    // Utilisation sécurisée des propriétés isOnline et lastSeenAt
+                    color: (_otherParticipant!.status == 'online') 
                         ? Colors.green
                         : Colors.grey,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _otherParticipant!.isOnline
+                  (_otherParticipant!.status == 'online')
                       ? 'En ligne'
-                      : 'Dernière connexion ${_formatLastSeen(_otherParticipant!.lastSeenAt)}',
+                      : 'Dernière connexion ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
