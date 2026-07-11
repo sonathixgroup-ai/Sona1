@@ -1,9 +1,5 @@
 // lib/presentation/mon_pays/pages/authorities/authority_profile_page.dart
-// Détail complet d'une autorité avec toutes les sections :
-// - Photo, biographie, mandat, parti
-// - Discours, vidéos, publications
-// - Agenda, réseaux sociaux
-// - Favoris, partage, signalement
+// Détail complet d'une autorité avec toutes les sections
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/authorities_provider.dart';
 import '../../providers/favorites_provider.dart';
+import '../../models/authority.dart';
 import '../../utils/helpers.dart';
 import '../../utils/constants.dart';
 
@@ -29,7 +26,6 @@ class AuthorityProfilePage extends ConsumerStatefulWidget {
 
 class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
   final ScrollController _scrollController = ScrollController();
-  bool _isExpanded = false;
 
   @override
   void dispose() {
@@ -54,21 +50,19 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
   // ==================== LOADING STATE ====================
 
   Widget _buildLoadingState() {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5276)),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Chargement du profil...',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5276)),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Chargement du profil...',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -153,7 +147,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                 if (authority.biography.isNotEmpty) ...[
                   _buildSectionTitle('📝 Biographie'),
                   const SizedBox(height: 8),
-                  _buildBiography(authority.biography),
+                  _buildBiography(authority),
                   const SizedBox(height: 16),
                 ],
                 // Informations supplémentaires
@@ -194,7 +188,6 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                   ..._buildSocialList(authority.socialNetworks),
                   const SizedBox(height: 16),
                 ],
-                // Footer
                 const SizedBox(height: 80),
               ],
             ),
@@ -225,21 +218,14 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
           ),
           onPressed: () {
             ref.read(favoritesProvider.notifier).toggleFavorite(authority.id);
-            if (isFavorite) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Retiré des favoris'),
-                  duration: Duration(seconds: 1),
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  isFavorite ? 'Retiré des favoris' : 'Ajouté aux favoris ⭐',
                 ),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Ajouté aux favoris ⭐'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            }
+                duration: const Duration(seconds: 1),
+              ),
+            );
           },
         ),
         // Bouton partage
@@ -266,7 +252,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Image de fond (photo officielle ou placeholder)
+            // Image de fond
             authority.imageUrl != null && authority.imageUrl!.isNotEmpty
                 ? Image.network(
                     authority.imageUrl!,
@@ -274,7 +260,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                     errorBuilder: (_, __, ___) => _buildCoverPlaceholder(authority),
                   )
                 : _buildCoverPlaceholder(authority),
-            // Dégradé pour la lisibilité
+            // Dégradé
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -287,13 +273,13 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                 ),
               ),
             ),
-            // Photo de profil en bas
+            // Photo de profil
             Positioned(
               bottom: 20,
               left: 20,
               child: _buildProfileAvatar(authority),
             ),
-            // Infos en bas à droite
+            // Infos
             Positioned(
               bottom: 20,
               right: 20,
@@ -424,7 +410,6 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
           label: 'Lien',
           color: Colors.green,
           onTap: () {
-            // Copier le lien
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Lien copié dans le presse-papier'),
@@ -492,7 +477,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
 
   // ==================== BIOGRAPHY ====================
 
-  Widget _buildBiography(String biography) {
+  Widget _buildBiography(Authority authority) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -504,7 +489,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              biography,
+              authority.biography,
               style: TextStyle(
                 height: 1.8,
                 color: Colors.grey.shade800,
@@ -632,7 +617,6 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
             color: Color(0xFF1A5276),
           ),
           onTap: () {
-            // TODO: Ouvrir le discours
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Lecture du discours: ${speech.length > 30 ? speech.substring(0, 30) + '...' : speech}'),
@@ -688,7 +672,6 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
             color: Colors.grey,
           ),
           onTap: () {
-            // TODO: Ouvrir le lecteur vidéo
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Lecture de la vidéo: ${video.length > 30 ? video.substring(0, 30) + '...' : video}'),
