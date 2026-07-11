@@ -36,8 +36,11 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
   static const navy = Color(0xFF123B7A);
   static const gold = Color(0xFFE3B23C);
   static const ivory = Color(0xFFF3F5FA);
+  static const pureWhite = Color(0xFFFFFFFF);
   static const darkText = Color(0xFF10182B);
   static const mutedText = Color(0xFF6B7690);
+  static const success = Color(0xFF1FA971);
+  static const danger = Color(0xFFD64545);
   static const hairline = Color(0xFFE7EAF3);
 
   @override
@@ -49,44 +52,52 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: pureWhite,
         border: Border(
-          bottom: BorderSide(
-            color: hairline,
-            width: 1,
-          ),
+          bottom: BorderSide(color: hairline, width: 1),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: navyDeep.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // En-tête du groupe (réductible)
           InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
+            splashColor: navy.withOpacity(0.05),
+            highlightColor: navy.withOpacity(0.03),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   // Avatar du groupe
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: navy.withOpacity(0.1),
-                    backgroundImage: avatarUrl != null
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: avatarUrl == null
-                        ? Text(
-                            displayName.isNotEmpty
-                                ? displayName[0].toUpperCase()
-                                : 'G',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: navy,
-                            ),
-                          )
-                        : null,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: gold.withOpacity(0.5), width: 1.2),
+                    ),
+                    child: CircleAvatar(
+                      radius: 26,
+                      backgroundColor: navy.withOpacity(0.08),
+                      backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              displayName.isNotEmpty ? displayName[0].toUpperCase() : 'G',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: navy,
+                              ),
+                            )
+                          : null,
+                    ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   // Infos principales
                   Expanded(
                     child: Column(
@@ -95,48 +106,57 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
                         Text(
                           displayName,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: darkText,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
+                            // Nombre de membres
+                            Icon(
+                              Icons.people_alt_rounded,
+                              size: 12,
+                              color: mutedText,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
-                              '$memberCount membres',
+                              '$memberCount',
                               style: const TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                                 color: mutedText,
                               ),
                             ),
                             const SizedBox(width: 8),
+                            // Séparateur
                             Container(
-                              width: 4,
-                              height: 4,
+                              width: 3,
+                              height: 3,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: mutedText,
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Indicateur de présence
+                            // Indicateur de présence en ligne
                             Container(
-                              width: 8,
-                              height: 8,
+                              width: 7,
+                              height: 7,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: onlineCount > 0 ? const Color(0xFF1FA971) : Colors.grey,
+                                color: onlineCount > 0 ? success : Colors.grey,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 5),
                             Text(
-                              '$onlineCount en ligne',
+                              onlineCount > 0 ? '$onlineCount en ligne' : 'Aucun en ligne',
                               style: TextStyle(
-                                fontSize: 13,
-                                color: onlineCount > 0 ? const Color(0xFF1FA971) : mutedText,
+                                fontSize: 11.5,
+                                color: onlineCount > 0 ? success : mutedText,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -146,18 +166,23 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
                     ),
                   ),
                   // Bouton expansion
-                  Icon(
-                    _isExpanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
-                    color: mutedText,
-                    size: 28,
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: ivory,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      color: mutedText,
+                      size: 22,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          // Contenu expansé
+          // Contenu expansé avec animation
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: _buildExpandedContent(),
@@ -183,17 +208,18 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
           // Description du groupe (si disponible)
           if (widget.conversation.groupName != null)
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: ivory,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: hairline),
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.info_outline_rounded,
-                    size: 18,
+                    size: 16,
                     color: mutedText,
                   ),
                   const SizedBox(width: 8),
@@ -201,8 +227,9 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
                     child: Text(
                       widget.conversation.groupName!,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         color: darkText,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -211,23 +238,38 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
             ),
 
           // Liste des membres (aperçu)
-          const Text(
-            'Membres',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: darkText,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Membres',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: darkText,
+                ),
+              ),
+              Text(
+                '${widget.members.length}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: mutedText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          ...membersToShow.map((member) {
+          ...membersToShow.asMap().entries.map((entry) {
+            final member = entry.value;
+            final isLast = entry.key == membersToShow.length - 1;
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 4),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 16,
-                    backgroundColor: navy.withOpacity(0.1),
+                    radius: 15,
+                    backgroundColor: navy.withOpacity(0.08),
                     backgroundImage: member.avatarUrl != null
                         ? NetworkImage(member.avatarUrl!)
                         : null,
@@ -237,7 +279,7 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
                                 ? member.displayName[0].toUpperCase()
                                 : '?',
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: navy,
                             ),
@@ -246,27 +288,37 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      member.displayName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: darkText,
-                      ),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            member.displayName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: darkText,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        if (member.isAdmin)
+                          GroupBadge(
+                            role: 'admin',
+                            isCompact: true,
+                            fontSize: 8,
+                          ),
+                      ],
                     ),
                   ),
-                  if (member.isAdmin)
-                    GroupBadge(
-                      role: 'admin',
-                      isCompact: true,
-                    ),
                   if (member.isOnline)
                     Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(left: 8),
+                      width: 7,
+                      height: 7,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF1FA971),
+                        color: success,
                       ),
                     ),
                 ],
@@ -279,22 +331,35 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
               padding: const EdgeInsets.only(top: 8),
               child: TextButton(
                 onPressed: widget.onViewAllMembers,
-                child: const Text(
-                  'Voir tous les membres',
-                  style: TextStyle(
-                    color: navy,
-                    fontWeight: FontWeight.w600,
-                  ),
+                style: TextButton.styleFrom(
+                  foregroundColor: navy,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Voir tous les membres',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 14),
+                  ],
                 ),
               ),
             ),
 
-          const Divider(height: 24),
+          const Divider(height: 20, color: hairline),
 
           // Actions du groupe
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               if (widget.onEditGroup != null)
                 _buildActionButton(
@@ -314,7 +379,7 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
                 _buildActionButton(
                   icon: Icons.delete_rounded,
                   label: 'Supprimer',
-                  color: const Color(0xFFD64545),
+                  color: danger,
                   onTap: widget.onDeleteGroup!,
                 ),
             ],
@@ -332,17 +397,19 @@ class _GroupInfoPanelState extends State<GroupInfoPanel> {
   }) {
     return OutlinedButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 18, color: color),
+      icon: Icon(icon, size: 16, color: color),
       label: Text(
         label,
-        style: TextStyle(color: color),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
       ),
       style: OutlinedButton.styleFrom(
         side: BorderSide(color: color.withOpacity(0.3)),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }
