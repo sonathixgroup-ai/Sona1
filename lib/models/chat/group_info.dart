@@ -117,6 +117,41 @@ class GroupInfo {
     'updated_at': updatedAt?.toIso8601String(),
   };
 
+  // ============================================================
+  // ✅ COPYWITH AJOUTÉ
+  // ============================================================
+
+  /// Crée une copie de ce [GroupInfo] avec les champs modifiés.
+  GroupInfo copyWith({
+    String? groupId,
+    String? name,
+    String? avatarUrl,
+    String? description,
+    List<GroupMember>? members,
+    List<String>? adminIds,
+    bool? isPublic,
+    String? inviteCode,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return GroupInfo(
+      groupId: groupId ?? this.groupId,
+      name: name ?? this.name,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      description: description ?? this.description,
+      members: members ?? this.members,
+      adminIds: adminIds ?? this.adminIds,
+      isPublic: isPublic ?? this.isPublic,
+      inviteCode: inviteCode ?? this.inviteCode,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  // ============================================================
+  // GETTERS
+  // ============================================================
+
   /// Nombre total de membres.
   int get memberCount => members.length;
 
