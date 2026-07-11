@@ -7,7 +7,10 @@ import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path/path.dart' as path;
-import 'package:http/http.dart' as http; // AJOUTÉ pour récupérer le blob sur Web
+import 'package:http/http.dart' as http;
+
+// Import conditionnel pour le Web
+import 'dart:html' if (dart.library.html) 'dart:html' as html;
 
 /// Service pour l'enregistrement, la lecture et l'upload de messages audio.
 class AudioService {
@@ -29,14 +32,17 @@ class AudioService {
     _player.onPlayerStateChanged.listen((state) {});
   }
 
-  // ✅ Vérification des permissions adaptée au Web
+  /// Vérification des permissions (adaptée au Web)
   Future<bool> hasPermission() async {
     if (kIsWeb) {
       try {
-        final stream = await navigator.mediaDevices?.getUserMedia({'audio': true});
-        if (stream != null) {
-          stream.getTracks().forEach((track) => track.stop());
-          return true;
+        final mediaDevices = html.window.navigator.mediaDevices;
+        if (mediaDevices != null) {
+          final stream = await mediaDevices.getUserMedia({'audio': true});
+          if (stream != null) {
+            stream.getTracks().forEach((track) => track.stop());
+            return true;
+          }
         }
         return false;
       } catch (_) {
@@ -46,28 +52,26 @@ class AudioService {
     return await _recorder.hasPermission();
   }
 
-  // ✅ Démarrage adapté au Web
+  /// Démarrage de l'enregistrement (adapté au Web)
   Future<void> startRecording() async {
     if (_isRecording) return;
     try {
       final hasPerm = await hasPermission();
       if (!hasPerm) throw Exception('Permission microphone refusée');
 
-      String filePath;
       if (kIsWeb) {
-        // Sur Web, on n'utilise pas de chemin local, on laisse recorder choisir
-        filePath = ''; // sera assigné par le recorder
+        // Sur Web, pas de chemin local, on passe null
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.opus,
             sampleRate: 48000,
           ),
+          path: null, // ✅ Web : pas de chemin
         );
-        // Le chemin n'est pas disponible immédiatement, on le récupérera après stop
       } else {
         final directory = await getTemporaryDirectory();
         final timestamp = DateTime.now().millisecondsSinceEpoch;
-        filePath = path.join(directory.path, 'audio_$timestamp.m4a');
+        final filePath = path.join(directory.path, 'audio_$timestamp.m4a');
         await _recorder.start(
           const RecordConfig(
             encoder: AudioEncoder.aacLc,
@@ -93,7 +97,7 @@ class AudioService {
     }
   }
 
-  // ✅ Arrêt et récupération du chemin
+  /// Arrêt de l'enregistrement
   Future<String?> stopRecording() async {
     if (!_isRecording) return null;
     try {
@@ -103,21 +107,41 @@ class AudioService {
       _isRecordingController.add(false);
       _recordingDurationController.add(0);
 
-      final path = await _recorder.stop();
+      final recordPath = await _recorder.stop();
       if (kIsWeb) {
-        // Sur Web, le chemin est une URL blob
-        _currentRecordingPath = path; // on le stocke pour upload
+        // recordPath est une URL blob:http://...
+        _currentRecordingPath = recordPath;
       } else {
-        _currentRecordingPath = path;
+        _currentRecordingPath = recordPath;
       }
-      return path;
+      return recordPath;
     } catch (e) {
       debugPrint('❌ Erreur stopRecording: $e');
       return null;
     }
   }
 
-  // ✅ Upload adapté au Web
+  /// Annulation de l'enregistrement (supprime le fichier local)
+  Future<void> cancelRecording() async {
+    if (_currentRecordingPath != null && !kIsWeb) {
+      try {
+        final file = File(_currentRecordingPath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        debugPrint('❌ Erreur cancelRecording: $e');
+      }
+    }
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    _isRecording = false;
+    _isRecordingController.add(false);
+    _recordingDurationController.add(0);
+    _currentRecordingPath = null;
+  }
+
+  /// Upload du fichier audio vers Supabase (adapté au Web)
   Future<String?> uploadAudio({
     required String filePath,
     required String conversationId,
@@ -126,7 +150,7 @@ class AudioService {
     try {
       Uint8List bytes;
       if (kIsWeb) {
-        // filePath est une URL blob:http://...
+        // filePath est une URL blob
         final uri = Uri.parse(filePath);
         final response = await http.get(uri);
         bytes = Uint8List.fromList(response.bodyBytes);
@@ -143,7 +167,7 @@ class AudioService {
 
       final publicUrl = _supabase.storage.from(bucket).getPublicUrl(storagePath);
 
-      // Nettoyage (sur Web, on ne peut pas supprimer le blob)
+      // Nettoyage (sur Web, on ne supprime pas)
       if (!kIsWeb) {
         try {
           final file = File(filePath);
@@ -158,7 +182,7 @@ class AudioService {
     }
   }
 
-  // ... le reste des méthodes (play, pause, stop, etc.) reste inchangé
+  /// Récupère la durée d'un fichier audio (en secondes)
   Future<int> getAudioDuration(String filePath) async {
     try {
       final player = AudioPlayer();
@@ -176,6 +200,7 @@ class AudioService {
     }
   }
 
+  // ----- Lecture audio -----
   Future<void> play(String url) async {
     try {
       await _player.stop();
@@ -202,11 +227,11 @@ class AudioService {
     }
   }
 
-  Future<void> stop() async {
+  Future<void> stopPlayer() async {
     try {
       await _player.stop();
     } catch (e) {
-      debugPrint('❌ Erreur stop: $e');
+      debugPrint('❌ Erreur stopPlayer: $e');
     }
   }
 
@@ -225,6 +250,7 @@ class AudioService {
   Stream<Duration> get positionStream => _player.onPositionChanged;
   Stream<Duration> get durationStream => _player.onDurationChanged;
 
+  // Libération des ressources
   void dispose() {
     _recordingTimer?.cancel();
     _player.dispose();
@@ -233,6 +259,7 @@ class AudioService {
     _isRecordingController.close();
   }
 
+  // Getters
   int get currentRecordingDuration => _recordingDuration;
   bool get isRecording => _isRecording;
 }
