@@ -250,22 +250,28 @@ class NoTransitionPage<T> extends Page<T> {
       );
 }
 
-// ==================== ROUTER ====================
+/// ==================== ROUTER ====================
 class AppRouter {
   static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
     final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
       refreshListenable: refresh,
+      
+      // ⬇️ LE NOUVEAU REDIRECT SE PLACE ICI, JUSTE AVANT "routes: [" ⬇️
       redirect: (context, state) {
         final loc = state.matchedLocation;
         final logged = auth.isAuthenticated;
         final isAuth = loc == AppRoutes.login || loc == AppRoutes.personalReg || loc == AppRoutes.enterpriseReg;
         final isAdmin = loc == AppRoutes.admin || loc.startsWith('${AppRoutes.admin}/');
         final isPortal = loc.startsWith('${AppRoutes.enterprisePortalBasePath}/') || loc == AppRoutes.enterprisePortalBasePath;
+        
+        // C'EST ICI QUE ÇA CHANGE : Ajout de loc.startsWith(AppRoutes.monPays)
         final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
             loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
-            loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/');
+            loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') || 
+            loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/'); 
+
         if (!logged && !isPublic && !isAuth) return AppRoutes.login;
         if (isAdmin && !logged) return AppRoutes.login;
         if (logged) {
@@ -279,7 +285,7 @@ class AppRouter {
         if (isPortal) return null;
         return null;
       },
-      routes: [
+      
         // ---- Générales ----
         GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => NoTransitionPage(child: ThixIdStartPage())),
         GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => NoTransitionPage(child: HomePagePremium())),
