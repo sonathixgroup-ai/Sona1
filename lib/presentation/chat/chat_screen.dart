@@ -43,8 +43,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
-  UserStatus? _otherParticipant; 
-  
+  UserStatus? _otherParticipant;
+
   String _replyToId = '';
   bool _isEphemeral = false;
   int? _ephemeralDuration;
@@ -53,6 +53,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
   Stream<UserStatus?>? _presenceStream;
+
+  // ============================================================
+  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF3F5FA);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color success = Color(0xFF1FA971);
+  static const Color danger = Color(0xFFD64545);
+  static const Color hairline = Color(0xFFE7EAF3);
 
   @override
   void initState() {
@@ -66,8 +81,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _markAsRead();
     _setupScrollListener();
     _subscribeToPresence();
-    
-    // ✅ NOUVEAU : Écoute en temps réel pour synchroniser les suppressions des deux côtés
+
+    // ✅ Écoute en temps réel pour synchroniser les suppressions des deux côtés
     _subscribeToRealtimeMessages();
   }
 
@@ -78,7 +93,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _inputController.dispose();
     _inputFocus.dispose();
     _typingTimer?.cancel();
-    _messageSubscription?.cancel(); // Ne pas oublier de fermer le flux
+    _messageSubscription?.cancel();
     super.dispose();
   }
 
@@ -179,7 +194,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ NOUVEAU : Synchronisation en temps réel (Suppression double côté)
+  // ✅ Synchronisation en temps réel (Suppression double côté)
   void _subscribeToRealtimeMessages() {
     _messageSubscription = _chatService.subscribeToMessages(widget.conversationId).listen((updatedMsgs) {
       if (!mounted) return;
@@ -188,8 +203,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final index = _messages.indexWhere((m) => m.id == msg.id);
           if (index != -1) {
             if (msg.isDeleted) {
-              // Si le message est marqué supprimé dans Supabase, on le retire de l'écran !
-              _messages.removeAt(index); 
+              _messages.removeAt(index);
             } else {
               _messages[index] = msg;
             }
@@ -208,7 +222,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _sendTypingStatus(false);
     setState(() => _isSending = true);
-    
+
     try {
       final msg = await _chatService.sendMessage(
         conversationId: widget.conversationId,
@@ -219,9 +233,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
       setState(() {
-        // Le message sera aussi ajouté par le Realtime, on vérifie s'il y est déjà pour éviter les doublons
         if (!_messages.any((m) => m.id == msg.id)) {
-           _messages.insert(0, msg);
+          _messages.insert(0, msg);
         }
         _inputController.clear();
         _replyToId = '';
@@ -231,7 +244,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
       );
     }
   }
@@ -259,13 +272,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Logique WebSocket à venir
   }
 
-  // ✅ NOUVEAU : Menu pour choisir le temps d'autodestruction
+  // ✅ Menu pour choisir le temps d'autodestruction — style navy/or
   void _showEphemeralTimerDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) {
         return SafeArea(
@@ -274,16 +287,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    "Délai d'autodestruction",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.timer_rounded, size: 16, color: gold),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Délai d'autodestruction",
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText),
+                      ),
+                    ],
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.timer_off_rounded, color: Colors.grey),
-                  title: const Text("Désactiver l'autodestruction", style: TextStyle(color: Colors.grey)),
+                  leading: const Icon(Icons.timer_off_rounded, color: mutedText),
+                  title: const Text("Désactiver l'autodestruction", style: TextStyle(color: mutedText, fontWeight: FontWeight.w600)),
                   onTap: () {
                     setState(() {
                       _isEphemeral = false;
@@ -292,7 +323,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Navigator.pop(ctx);
                   },
                 ),
-                const Divider(height: 1),
+                Container(height: 1, color: hairline, margin: const EdgeInsets.symmetric(horizontal: 16)),
                 _buildTimeOption(ctx, 10, "10 secondes"),
                 _buildTimeOption(ctx, 30, "30 secondes"),
                 _buildTimeOption(ctx, 60, "1 minute"),
@@ -306,22 +337,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // Sous-composant pour le menu d'autodestruction
   Widget _buildTimeOption(BuildContext ctx, int seconds, String label) {
     final isSelected = _isEphemeral && _ephemeralDuration == seconds;
     return ListTile(
       leading: Icon(
-        Icons.timer_rounded, 
-        color: isSelected ? const Color(0xFF1877F2) : Colors.black87
+        Icons.timer_rounded,
+        color: isSelected ? navy : darkText,
       ),
       title: Text(
         label,
         style: TextStyle(
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? const Color(0xFF1877F2) : Colors.black87,
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+          color: isSelected ? navy : darkText,
         ),
       ),
-      trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: Color(0xFF1877F2)) : null,
+      trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: gold) : null,
       onTap: () {
         setState(() {
           _isEphemeral = true;
@@ -339,10 +369,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Implémentez la sélection d'image
   }
 
+  // 🎙️ Enregistrement audio — remplace l'ancien bouton "code" par le micro
   Future<void> _pickAudio() async {
-    // Logique d'enregistrement audio (Remplacement du bouton code)
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enregistrement audio en préparation...')),
+      const SnackBar(content: Text('Enregistrement audio en préparation...'), backgroundColor: navy),
     );
   }
 
@@ -350,47 +380,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE5DDD5), // Fond classique messagerie
+      backgroundColor: ivory,
       appBar: _buildAppBar(),
       body: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFE5DDD5), 
-        ),
+        decoration: const BoxDecoration(color: ivory),
         child: Column(
           children: [
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                   : Stack(
                       children: [
                         ListView.builder(
                           controller: _scrollController,
                           reverse: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                           itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
                           itemBuilder: (ctx, index) {
                             if (index == _messages.length && _isLoadingMore) {
                               return const Padding(
                                 padding: EdgeInsets.all(8.0),
-                                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: navy)),
                               );
                             }
                             final msg = _messages[index];
                             final isOwn = msg.senderId == _chatService.currentUserId;
-                            
+
                             return ChatMessageBubble(
                               message: msg,
                               isOwn: isOwn,
                               onReply: () => setState(() => _replyToId = msg.id),
-                              
-                              // ✅ LOGIQUE DE SUPPRESSION PARFAITE (Auto-destruction & Manuelle)
+
+                              // ✅ SUPPRESSION (Auto-destruction & Manuelle)
                               onDelete: () async {
-                                // 1. On l'efface instantanément de l'écran de l'utilisateur actuel
                                 setState(() {
                                   _messages.removeWhere((m) => m.id == msg.id);
                                 });
-                                // 2. Si on est l'expéditeur, on l'efface dans Supabase.
-                                // Le Realtime (_subscribeToRealtimeMessages) va capter ce changement 
-                                // et l'effacer instantanément sur le téléphone de l'autre personne !
                                 if (isOwn) {
                                   try {
                                     await _chatService.deleteMessage(msg.id);
@@ -399,7 +424,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   }
                                 }
                               },
-                              
+
                               onReaction: (r) => _chatService.toggleReaction(msg.id, r),
                               replyToMessage: msg.replyToId != null
                                   ? _messages.firstWhere(
@@ -422,9 +447,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               onSend: _sendMessage,
               isSending: _isSending,
               onAttach: _pickImage,
-              onCode: _pickAudio, 
-              
-              // ✅ NOUVEAU : Appel du Menu pour régler le temps au lieu du simple On/Off
+              onCode: _pickAudio, // 🎙️ Icône micro — voir note ci-dessous pour chat_input_bar.dart
               onEphemeralToggle: _showEphemeralTimerDialog,
               isEphemeral: _isEphemeral,
               onTyping: _onTypingChanged,
@@ -435,21 +458,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ============================================================
+  // APP BAR — dégradé navy institutionnel
+  // ============================================================
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.2),
+      backgroundColor: navyDeep,
+      elevation: 0,
       titleSpacing: 0,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [navyDeep, navy],
+          ),
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: Row(
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.grey.shade300,
-            backgroundImage: widget.conversation.isGroup 
-                ? null 
-                : const NetworkImage('https://i.pravatar.cc/150?img=11'),
-            child: widget.conversation.isGroup ? const Icon(Icons.group, color: Colors.white) : null,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: gold, width: 1.6),
+            ),
+            child: CircleAvatar(
+              radius: 19,
+              backgroundColor: navy,
+              backgroundImage: widget.conversation.isGroup
+                  ? null
+                  : const NetworkImage('https://i.pravatar.cc/150?img=11'),
+              child: widget.conversation.isGroup ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18) : null,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -458,7 +502,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               children: [
                 Text(
                   widget.conversation.displayName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -466,21 +510,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   Row(
                     children: [
                       Container(
-                        width: 8,
-                        height: 8,
+                        width: 7,
+                        height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: (_otherParticipant!.status == 'online') 
-                              ? Colors.green
-                              : Colors.grey.shade400,
+                          color: (_otherParticipant!.status == 'online') ? success : Colors.white38,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Text(
                         (_otherParticipant!.status == 'online')
                             ? 'En ligne'
                             : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -490,28 +532,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.videocam_rounded, color: Color(0xFF1877F2)),
-          onPressed: () {
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appel vidéo non disponible')));
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.call_rounded, color: Color(0xFF1877F2)),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appel vocal non disponible')));
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.more_vert_rounded, color: Colors.black54),
-          onPressed: () {
-            // Menu options (supprimer, voir participants, etc.)
-          },
-        ),
+        _appBarIconButton(Icons.videocam_rounded, () {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appel vidéo non disponible')));
+        }),
+        _appBarIconButton(Icons.call_rounded, () {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appel vocal non disponible')));
+        }),
+        _appBarIconButton(Icons.more_vert_rounded, () {
+          // Menu options (supprimer, voir participants, etc.)
+        }),
+        const SizedBox(width: 4),
       ],
     );
   }
 
+  Widget _appBarIconButton(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withOpacity(0.16)),
+        ),
+        child: Icon(icon, size: 16, color: gold),
+      ),
+    );
+  }
+
+  // ============================================================
+  // INDICATEUR DE RÉPONSE — accent or
+  // ============================================================
   Widget _buildReplyIndicator() {
     final reply = _messages.firstWhere(
       (m) => m.id == _replyToId,
@@ -520,8 +576,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade300, width: 1)),
+        color: pureWhite,
+        border: Border(top: BorderSide(color: hairline, width: 1)),
       ),
       child: Row(
         children: [
@@ -529,11 +585,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             width: 4,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF1877F2),
+              color: gold,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,52 +597,58 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 Text(
                   reply.senderId == _chatService.currentUserId ? 'Vous' : reply.senderName,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1877F2),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: navy,
                   ),
                 ),
                 Text(
                   reply.content,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: const TextStyle(fontSize: 12.5, color: darkText),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: _cancelReply,
-            icon: const Icon(Icons.close_rounded, size: 20, color: Colors.grey),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _cancelReply,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+              child: const Icon(Icons.close_rounded, size: 15, color: mutedText),
+            ),
           ),
         ],
       ),
     );
   }
 
+  // ============================================================
+  // INDICATEUR DE SAISIE — bulle navy/or
+  // ============================================================
   Widget _buildTypingIndicator() {
     return Positioned(
       bottom: 8,
       left: 16,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: navyDeep,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: navyDeep.withOpacity(0.20),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             )
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Text('En train d\'écrire', style: TextStyle(fontSize: 12, color: Colors.black54, fontStyle: FontStyle.italic)),
+            Text("En train d'écrire", style: TextStyle(fontSize: 11.5, color: Colors.white70, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
             SizedBox(width: 8),
             _TypingDots(),
           ],
@@ -651,7 +713,7 @@ class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderState
                 width: 5,
                 height: 5,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1877F2),
+                  color: Color(0xFFE3B23C),
                   shape: BoxShape.circle,
                 ),
               ),
