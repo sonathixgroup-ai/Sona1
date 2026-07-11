@@ -6,7 +6,8 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback onSend;
   final bool isSending;
   final VoidCallback onAttach;
-  final VoidCallback onCode; // 🎙️ Désormais utilisé pour l'Audio
+  final VoidCallback onAudio; // 🎙️ Enregistrement audio (micro)
+  final VoidCallback onSecureMessage; // 🔒 Message protégé par mot de passe
   final VoidCallback onEphemeralToggle;
   final bool isEphemeral;
   final ValueChanged<String>? onTyping;
@@ -18,7 +19,8 @@ class ChatInputBar extends StatefulWidget {
     required this.onSend,
     required this.isSending,
     required this.onAttach,
-    required this.onCode,
+    required this.onAudio,
+    required this.onSecureMessage,
     required this.onEphemeralToggle,
     required this.isEphemeral,
     this.onTyping,
@@ -29,9 +31,10 @@ class ChatInputBar extends StatefulWidget {
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
-  // Couleurs de la charte Thix
+  // Couleurs de la charte THIX ID
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color gold = Color(0xFFE3B23C);
+  static const Color navy = Color(0xFF123B7A);
 
   @override
   Widget build(BuildContext context) {
@@ -51,22 +54,24 @@ class _ChatInputBarState extends State<ChatInputBar> {
       child: SafeArea(
         child: Row(
           children: [
-            // Bouton Sécurité (Timer / Protection)
+            // 1. Bouton Timer (message éphémère)
             IconButton(
               icon: Icon(
                 widget.isEphemeral ? Icons.timer_rounded : Icons.timer_outlined,
                 color: widget.isEphemeral ? gold : Colors.grey.shade600,
               ),
               onPressed: widget.onEphemeralToggle,
+              tooltip: 'Message éphémère',
             ),
-            
-            // Bouton Attachement
+
+            // 2. Bouton Attachement (pièce jointe)
             IconButton(
               icon: Icon(Icons.add_circle_outline_rounded, color: Colors.grey.shade600),
               onPressed: widget.onAttach,
+              tooltip: 'Pièce jointe',
             ),
-            
-            // Champ de saisie
+
+            // 3. Champ de saisie
             Expanded(
               child: TextField(
                 controller: widget.controller,
@@ -85,14 +90,22 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 ),
               ),
             ),
-            
-            // Bouton Audio (Anciennement Code)
+
+            // 4. Bouton Cadenas (message protégé par mot de passe)
+            IconButton(
+              icon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
+              onPressed: widget.onSecureMessage,
+              tooltip: 'Message protégé par mot de passe',
+            ),
+
+            // 5. Bouton Micro (enregistrement audio)
             IconButton(
               icon: const Icon(Icons.mic_none_rounded, color: Colors.grey),
-              onPressed: widget.onCode,
+              onPressed: widget.onAudio,
+              tooltip: 'Message vocal',
             ),
-            
-            // Bouton Envoi
+
+            // 6. Bouton Envoi
             IconButton(
               icon: widget.isSending
                   ? const SizedBox(
@@ -102,6 +115,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     )
                   : const Icon(Icons.send_rounded, color: navyDeep),
               onPressed: widget.isSending ? null : widget.onSend,
+              tooltip: 'Envoyer',
             ),
           ],
         ),
