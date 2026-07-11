@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
-import 'package:thix_id/presentation/chat/utils/encryption_service.dart';
+import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
 
