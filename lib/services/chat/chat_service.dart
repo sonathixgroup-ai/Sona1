@@ -1,4 +1,3 @@
-// lib/services/chat/chat_service.dart
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/user_status.dart';
+import '../../models/chat/group_info.dart'; // ← Import du modèle GroupInfo
 
 class ChatService {
   final SupabaseClient _supabase;
@@ -19,13 +19,11 @@ class ChatService {
   // CONVERSATIONS
   // ============================================================
 
-  /// Récupère toutes les conversations de l'utilisateur connecté
   Future<List<ChatConversation>> getConversations() async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
-      // 1. Récupérer les IDs des conversations du participant
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -37,7 +35,6 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
-      // 2. Récupérer les conversations avec les participants
       final response = await _supabase
           .from('conversations')
           .select('''
@@ -62,7 +59,6 @@ class ChatService {
             .map((p) => p['user_id'] as String)
             .toList();
 
-        // Trouver l'autre participant
         String? otherParticipantName;
         String? otherParticipantAvatar;
 
@@ -80,7 +76,6 @@ class ChatService {
           }
         }
 
-        // 3. Récupérer le dernier message
         final lastMsg = await _supabase
             .from('messages')
             .select('''
@@ -102,7 +97,6 @@ class ChatService {
           lastMessage = ChatMessage.fromJson(lastMsg);
         }
 
-        // 4. Compter les messages non lus
         final unread = await _supabase
             .from('messages')
             .select('id')
@@ -132,7 +126,6 @@ class ChatService {
     }
   }
 
-  /// Crée une nouvelle conversation
   Future<ChatConversation> createConversation({
     required List<String> participantIds,
     bool isGroup = false,
@@ -204,6 +197,16 @@ class ChatService {
         'user_id': pid,
         'role': pid == uid ? 'admin' : 'member',
         'last_read_at': DateTime.now().toIso8601String(),
+      });
+    }
+
+    // Si groupe, stocker des métadonnées supplémentaires (facultatif)
+    if (isGroup) {
+      await _supabase.from('group_info').upsert({
+        'group_id': conversationId,
+        'name': groupName ?? 'Groupe',
+        'is_public': false,
+        'created_at': DateTime.now().toIso8601String(),
       });
     }
 
@@ -322,6 +325,75 @@ class ChatService {
   }
 
   // ============================================================
+  // GROUPES (NOUVEAUTÉS)
+  // ============================================================
+
+  /// Récupère la liste des membres d'un groupe avec leurs rôles et statut en ligne.
+  Future<List<GroupMember>> getGroupMembers(String conversationId) async {
+    try {
+      final uid = currentUserId;
+      if (uid.isEmpty) return [];
+
+      // 1. Récupérer les participants avec leurs profils
+      final data = await _supabase
+          .from('conversation_participants')
+          .select('''
+            user_id,
+            role,
+            last_read_at,
+            profiles!user_id (
+              username,
+              full_name,
+              avatar_url
+            )
+          ''')
+          .eq('conversation_id', conversationId);
+
+      final members = <GroupMember>[];
+      for (var p in data as List) {
+        final profile = p['profiles'] as Map<String, dynamic>?;
+        final userId = p['user_id'] as String;
+        final role = p['role'] as String? ?? 'member';
+
+        // 2. Récupérer le statut en ligne (depuis user_presence)
+        final presence = await _supabase
+            .from('user_presence')
+            .select('status')
+            .eq('user_id', userId)
+            .maybeSingle();
+        final isOnline = presence != null && presence['status'] == 'online';
+
+        members.add(GroupMember(
+          userId: userId,
+          displayName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur',
+          avatarUrl: profile?['avatar_url'],
+          role: role,
+          isOnline: isOnline,
+          joinedAt: DateTime.parse(p['last_read_at'] ?? DateTime.now().toIso8601String()),
+        ));
+      }
+      return members;
+    } catch (e) {
+      debugPrint('❌ getGroupMembers: $e');
+      return [];
+    }
+  }
+
+  /// Récupère les informations détaillées d'un groupe (description, code d'invitation, etc.)
+  Future<Map<String, dynamic>?> getGroupInfoDetails(String groupId) async {
+    try {
+      return await _supabase
+          .from('group_info')
+          .select('*')
+          .eq('group_id', groupId)
+          .maybeSingle() as Map<String, dynamic>?;
+    } catch (e) {
+      debugPrint('❌ getGroupInfoDetails: $e');
+      return null;
+    }
+  }
+
+  // ============================================================
   // MESSAGES
   // ============================================================
 
@@ -412,6 +484,46 @@ class ChatService {
         .eq('id', conversationId);
 
     return ChatMessage.fromJson(response);
+  }
+
+  /// Envoie un message audio : upload du fichier puis envoi du message.
+  Future<ChatMessage> sendAudioMessage({
+    required String conversationId,
+    required Uint8List audioData,
+    required int duration,
+    String? fileName,
+    bool isEphemeral = false,
+    int? ephemeralDuration,
+    String? replyToId,
+  }) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) throw Exception('Not logged in');
+
+    // 1. Upload du fichier audio vers Supabase Storage
+    final bucket = 'audio';
+    final extension = fileName?.split('.').last ?? 'm4a';
+    final uniqueName = '${const Uuid().v4()}.$extension';
+    final path = 'messages/$conversationId/$uniqueName';
+
+    try {
+      await _supabase.storage.from(bucket).uploadBinary(path, audioData);
+    } catch (e) {
+      debugPrint('❌ Upload audio échoué: $e');
+      throw Exception('Échec de l\'upload audio');
+    }
+
+    final audioUrl = _supabase.storage.from(bucket).getPublicUrl(path);
+
+    // 2. Envoyer le message avec media_type = 'audio'
+    return sendMessage(
+      conversationId: conversationId,
+      content: '🎤 Message audio (${duration}s)',
+      mediaUrl: audioUrl,
+      mediaType: 'audio',
+      replyToId: replyToId,
+      isEphemeral: isEphemeral,
+      ephemeralDuration: ephemeralDuration,
+    );
   }
 
   Future<void> markAsRead(String conversationId) async {
@@ -581,7 +693,6 @@ class ChatService {
   // REALTIME / STREAMS (CORRIGÉ POUR SUPABASE ^2.0)
   // ============================================================
 
-  /// 👈 CORRECTION : Utilisation de StreamController au lieu de asStream()
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
     final controller = StreamController<List<ChatMessage>>();
     final channel = _supabase.channel('messages:$conversationId');
@@ -609,7 +720,6 @@ class ChatService {
     return controller.stream;
   }
 
-  /// 👈 CORRECTION : Utilisation de StreamController au lieu de asStream()
   Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
     final controller = StreamController<List<UserStatus>>();
     final channel = _supabase.channel('presence:all');
