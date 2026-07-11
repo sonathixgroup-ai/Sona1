@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // 👈 AJOUTÉ pour kIsWeb
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
@@ -112,17 +112,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _subscribeToPresence();
     _subscribeToRealtimeMessages();
     _loadGroupMembersIfGroup();
-
-    // ✅ Vérifier la permission microphone au démarrage
     _checkMicrophonePermission();
   }
 
-  // ✅ NOUVELLE MÉTHODE : Vérifier la permission microphone
   Future<void> _checkMicrophonePermission() async {
     try {
       final hasPermission = await _audioService.hasPermission();
       if (!hasPermission) {
-        // Ne pas afficher de snackbar immédiatement, l'utilisateur le verra quand il essaiera d'enregistrer
         debugPrint('⚠️ Permission microphone non accordée');
       } else {
         debugPrint('✅ Permission microphone accordée');
@@ -166,9 +162,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         if (loadMore) {
-          _messages = [...msgs, ..._messages];
+          // ✅ Anciens messages au début, nouveaux à la fin
+          _messages = [...msgs.reversed, ..._messages];
           _hasMoreMessages = msgs.length >= _pageSize;
         } else {
+          // ✅ Ordre normal : du plus ancien au plus récent
           _messages = msgs;
           _hasMoreMessages = msgs.length >= _pageSize;
         }
@@ -272,10 +270,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _messages[index] = msg;
             }
           } else if (!msg.isDeleted) {
-            _messages.insert(0, msg);
+            // ✅ Nouveau message ajouté à la fin (pas au début)
+            _messages.add(msg);
           }
         }
       });
+      _scrollToBottom(); // ✅ Scroll vers le bas
     });
   }
 
@@ -301,7 +301,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         if (!_messages.any((m) => m.id == msg.id)) {
-          _messages.insert(0, msg);
+          _messages.add(msg); // ✅ Ajout à la fin
         }
         _inputController.clear();
         _replyToId = '';
@@ -326,7 +326,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         replyToId: _replyToId.isEmpty ? null : _replyToId,
       );
       setState(() {
-        _messages.insert(0, msg);
+        _messages.add(msg); // ✅ Ajout à la fin
         _replyToId = '';
       });
       _scrollToBottom();
@@ -336,11 +336,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // AUDIO (RECORDING) AVEC PERMISSION
+  // AUDIO (RECORDING)
   // ============================================================
 
   void _startAudioRecording() async {
-    // ✅ Vérifier la permission avant d'ouvrir le bottom sheet
     final hasPermission = await _audioService.hasPermission();
     if (!hasPermission) {
       _showSnackBar(
@@ -760,7 +759,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     children: [
                       ListView.builder(
                         controller: _scrollController,
-                        reverse: true,
+                        reverse: true, // ✅ Les derniers en bas
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                         itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
                         itemBuilder: (ctx, index) {
@@ -772,7 +771,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               ),
                             );
                           }
-                          final msg = _messages[index];
+                          // ✅ Du plus récent au plus ancien
+                          final msg = _messages[_messages.length - 1 - index];
                           final isOwn = msg.senderId == _chatService.currentUserId;
 
                           return ChatMessageBubble(
@@ -803,6 +803,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
           ),
           if (_replyToId.isNotEmpty) _buildReplyIndicator(),
+          // ✅ Barre d'input agrandissable (via ChatInputBar)
           ChatInputBar(
             controller: _inputController,
             focusNode: _inputFocus,
