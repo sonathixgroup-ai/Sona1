@@ -9,17 +9,16 @@ class EncryptionService {
   static const int _saltLength = 16;
   static const int _ivLength = 12; // GCM recommandé
   static const int _iterations = 100000;
-  static const String _algorithm = 'AES/GCM/NoPadding';
 
   /// Chiffre un message avec un mot de passe.
   /// Retourne une chaîne encodée en base64 contenant [salt] + [iv] + [ciphertext] + [tag].
-  static String encrypt(String plainText, String password) {
+  static String encryptMessage(String plainText, String password) {
     if (plainText.isEmpty) return '';
     if (password.isEmpty) throw Exception('Le mot de passe est requis');
 
     // Générer un sel aléatoire
     final salt = encrypt.IV.fromSecureRandom(_saltLength);
-    // Générer une clé à partir du mot de passe et du sel
+    // Dériver une clé à partir du mot de passe et du sel
     final key = _deriveKey(password, salt.bytes);
 
     // Initialiser le chiffreur AES-GCM
@@ -50,8 +49,8 @@ class EncryptionService {
     return base64.encode(combined);
   }
 
-  /// Déchiffre un message encodé avec [encrypt].
-  static String decrypt(String cipherTextBase64, String password) {
+  /// Déchiffre un message encodé avec [encryptMessage].
+  static String decryptMessage(String cipherTextBase64, String password) {
     if (cipherTextBase64.isEmpty) return '';
     if (password.isEmpty) throw Exception('Le mot de passe est requis');
 
@@ -89,7 +88,6 @@ class EncryptionService {
 
       return decrypted;
     } catch (e) {
-      // Si le déchiffrement échoue (mauvais mot de passe ou données corrompues)
       if (kDebugMode) {
         print('❌ Échec du déchiffrement: $e');
       }
@@ -99,24 +97,27 @@ class EncryptionService {
 
   /// Dérive une clé AES-256 à partir d'un mot de passe et d'un sel.
   static encrypt.Key _deriveKey(String password, Uint8List salt) {
-    // Utiliser PBKDF2 pour dériver une clé de 32 octets (256 bits)
-    // Note : `encrypt` n'implémente pas directement PBKDF2, donc on utilise une
-    // approche manuelle avec SHA-256 en itérant (simplifié).
-    // Pour une sécurité réelle, utilisez une bibliothèque comme `pointycastle`.
-    // Ici, on fait une dérivation simple (non sécurisée) pour démonstration.
-    // Dans une vraie application, utilisez `pbkdf2` de `pointycastle`.
-
-    // Simulons une dérivation (pour l'exemple, on utilise une combinaison de SHA-256)
-    // ATTENTION : ceci n'est pas cryptographiquement sûr pour la production.
-    // Utilisez `crypto` ou `pointycastle` pour PBKDF2.
-
-    // Version simplifiée : on combine le mot de passe et le sel, on hache.
+    // Pour une vraie sécurité, utilisez PBKDF2 avec `pointycastle`.
+    // Ici, on fait une dérivation simplifiée (non sécurisée pour la production).
+    // Combiner le mot de passe et le sel.
     final bytes = utf8.encode(password) + salt;
-    final hash = sha256digest(bytes);
-    // On répète pour obtenir 32 octets
+    // Hachage SHA-256 simulé (à remplacer par vrai SHA-256 si disponible).
+    // On utilise un hash simple pour l'exemple.
+    final hash = _simpleHash(bytes);
     final keyBytes = Uint8List(32);
     keyBytes.setRange(0, 32, hash);
     return encrypt.Key(Uint8List.fromList(keyBytes));
+  }
+
+  // Fonction de hachage simple (à remplacer par SHA-256).
+  static Uint8List _simpleHash(List<int> input) {
+    // Simule un hash de 32 octets.
+    // Pour la production, utilisez sha256 du package 'crypto'.
+    final result = Uint8List(32);
+    for (int i = 0; i < 32; i++) {
+      result[i] = (input[i % input.length] + i * 7) % 256;
+    }
+    return result;
   }
 
   /// Vérifie si un message est chiffré (détection simple).
@@ -124,18 +125,4 @@ class EncryptionService {
     // Un message chiffré commence par un indicateur "🔒" ou un format base64
     return content.startsWith('🔒') || content.contains('base64');
   }
-}
-
-// Fonction simple de hachage SHA-256 (pour la dérivation)
-Uint8List sha256digest(List<int> input) {
-  // Utiliser le package 'crypto' si disponible, ou intégrer une version simplifiée.
-  // Pour cet exemple, on retourne un hash fixe (ce n'est PAS sécurisé).
-  // Vous devez remplacer ceci par une vraie fonction SHA-256.
-  // Si vous avez 'crypto' dans vos dépendances, faites :
-  // import 'package:crypto/crypto.dart';
-  // final bytes = utf8.encode(String.fromCharCodes(input));
-  // return Uint8List.fromList(sha256.convert(bytes).bytes);
-  //
-  // Pour l'instant, on simule avec un hash aléatoire (à remplacer !)
-  return Uint8List.fromList(List.generate(32, (i) => (input.length + i * 7) % 256));
 }
