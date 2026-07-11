@@ -28,7 +28,7 @@ import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
 import 'package:thix_id/presentation/network/notifications/notifications_page.dart';
 import 'package:thix_id/presentation/network/messages/conversations_list.dart';
-import 'package:thix_id/presentation/network/messages/chat_screen.dart';
+import 'package:thix_id/presentation/network/messages/chat_screen.dart' as network_chat;
 import 'package:thix_id/presentation/network/connections_list_page.dart';
 import 'package:thix_id/presentation/network/community_detail_page.dart';
 import 'package:thix_id/presentation/network/communities_list_page.dart';
@@ -598,29 +598,36 @@ GoRoute(
     return NoTransitionPage(child: SearchResultPage(query: query));
   },
 ),
-        // ---- THIX Chat (simplifié) ----
-        GoRoute(
+            // ---- THIX Chat ----
+    
+    GoRoute(
       path: AppRoutes.chat,
       name: 'chat',
-      builder: (context, state) => const ChatListPage(),
+      pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage()),
     ),
+    
+    // Assurez-vous que AppRoutes.chatNew correspond bien à '${AppRoutes.chat}/new'
     GoRoute(
-      path: AppRoutes.chatNew,
+      path: AppRoutes.chatNew, 
       name: 'chat_new',
-      builder: (context, state) => const NewConversationPage(),
+      pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage()),
     ),
+    
+    // Assurez-vous que AppRoutes.chatConversation correspond bien à '${AppRoutes.chat}/:conversationId'
     GoRoute(
       path: AppRoutes.chatConversation,
       name: 'chat_conversation',
-      builder: (context, state) {
-        final conversationId = state.pathParameters['conversationId']!;
-        // Récupérer la conversation depuis ChatService ou passer null
-        // (à adapter selon votre logique)
-        return ChatScreen(
-          conversationId: conversationId,
-          conversation: state.extra as ChatConversation? ?? 
-              // Fallback si la conversation n'est pas passée en extra
-              ChatConversation(id: conversationId, isGroup: false, participantIds: [], updatedAt: DateTime.now()),
+      pageBuilder: (_, state) {
+        final convId = state.pathParameters['conversationId']!;
+        final conv = state.extra as ChatConversation? ??
+            ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
+            
+        // ✅ Utilisation parfaite de l'alias ThixChat.ChatScreen ici !
+        return NoTransitionPage(
+          child: ThixChat.ChatScreen(
+            conversationId: convId, 
+            conversation: conv
+          ),
         );
       },
     ),
@@ -647,26 +654,7 @@ GoRoute(
         return GroupSettingsPage(groupId: groupId);
       },
     ),
-        GoRoute(
-          path: AppRoutes.chat,
-          name: 'chat',
-          pageBuilder: (_, __) => NoTransitionPage(child: const ChatListPage()),
-        ),
-        GoRoute(
-          path: '${AppRoutes.chat}/new',
-          name: 'chatNew',
-          pageBuilder: (_, __) => NoTransitionPage(child: const NewConversationPage()),
-        ),
-        GoRoute(
-          path: '${AppRoutes.chat}/:conversationId',
-          name: 'chatConversation',
-          pageBuilder: (_, state) {
-            final convId = state.pathParameters['conversationId']!;
-            final conv = state.extra as ChatConversation? ??
-                ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
-            return NoTransitionPage(child: ThixChat.ChatScreen(conversationId: convId, conversation: conv));
-          },
-        ),
+
 
         // ---- Vault & Settings ----
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => NoTransitionPage(child: DocumentVaultPage())),
