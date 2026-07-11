@@ -1,12 +1,15 @@
 // lib/presentation/mon_pays/pages/authorities/authorities_page.dart
 // Liste complète des autorités avec filtres, recherche, favoris et pagination
 
+// lib/presentation/mon_pays/pages/authorities/authorities_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/constants.dart';
 import '../../providers/authorities_provider.dart';
 import '../../providers/favorites_provider.dart';
+import '../../models/authority.dart'; // ✅ IMPORT AJOUTÉ
 import '../../cards/authority_card.dart';
 import 'authority_profile_page.dart';
 
