@@ -133,223 +133,350 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     final isOwn = widget.isOwn;
     final msg = widget.message;
 
-    return Column(
-      crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        // Message cité (réponse)
-        if (widget.replyToMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4, left: 16, right: 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: isOwn ? Colors.white.withOpacity(0.5) : Colors.grey[300]!.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
-                border: Border(
-                  left: BorderSide(
-                    color: isOwn ? gold : Colors.grey,
-                    width: 3,
-                  ),
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Column(
+        crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          // Nom de l'expéditeur (pour les messages reçus)
+          if (!isOwn)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, bottom: 2),
               child: Row(
                 children: [
-                  const Icon(Icons.reply, size: 14, color: Colors.grey),
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: navy.withOpacity(0.1),
+                    backgroundImage: msg.senderAvatar != null
+                        ? NetworkImage(msg.senderAvatar!)
+                        : null,
+                    child: msg.senderAvatar == null
+                        ? Text(
+                            msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: navy),
+                          )
+                        : null,
+                  ),
                   const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.replyToMessage!.senderId == widget.message.senderId
-                              ? 'Vous'
-                              : 'Réponse',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          widget.replyToMessage!.content,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                        ),
-                      ],
+                  Text(
+                    msg.senderName,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: mutedText,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
 
-        // Bulle principale
-        GestureDetector(
-          onTap: () {
-            if (_isEncrypted && !_isDecrypted) {
-              _decryptMessage();
-            }
-          },
-          onLongPress: () {
-            setState(() => _showReactions = !_showReactions);
-          },
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _isHovering = true),
-            onExit: (_) => setState(() => _isHovering = false),
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              padding: const EdgeInsets.all(12),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
+          // Message cité (réponse)
+          if (widget.replyToMessage != null)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: 4,
+                left: isOwn ? 40 : 12,
+                right: isOwn ? 12 : 40,
               ),
-              decoration: BoxDecoration(
-                color: isOwn ? navy : pureWhite,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOwn ? gold.withOpacity(0.15) : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border(
+                    left: BorderSide(
+                      color: isOwn ? gold : Colors.grey,
+                      width: 3,
+                    ),
                   ),
-                ],
-                border: _isEncrypted && !_isDecrypted
-                    ? Border.all(color: gold, width: 1.5)
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Icône cadenas si chiffré
-                  if (_isEncrypted)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.reply, size: 14, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            _isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded,
-                            size: 14,
-                            color: gold,
-                          ),
-                          const SizedBox(width: 4),
                           Text(
-                            _isDecrypted ? 'Déchiffré' : 'Chiffré',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: gold,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            widget.replyToMessage!.senderId == widget.message.senderId
+                                ? 'Vous'
+                                : widget.replyToMessage!.senderName,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            widget.replyToMessage!.content,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
 
-                  // Contenu du message
-                  if (msg.isCodeSnippet && msg.codeContent != null)
-                    ChatCodeSnippet(
-                      code: msg.codeContent!,
-                      language: msg.codeLanguage ?? 'text',
-                    )
-                  else if (msg.mediaType == 'audio' && msg.mediaUrl != null)
-                    AudioPlayerWidget(
-                      audioUrl: msg.mediaUrl!,
-                      totalDuration: msg.ephemeralDuration,
-                      primaryColor: isOwn ? pureWhite : navy,
-                      accentColor: gold,
-                    )
-                  else if (msg.mediaUrl != null)
-                    _buildMediaContent()
-                  else
-                    Text(
-                      _displayContent,
-                      style: TextStyle(
-                        color: isOwn ? Colors.white : darkText,
-                        fontSize: 14,
-                      ),
+          // Bulle de message avec nom de l'expéditeur pour les messages reçus
+          Row(
+            mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!isOwn) const SizedBox(width: 4),
+
+              // Bulle principale
+              GestureDetector(
+                onTap: () {
+                  if (_isEncrypted && !_isDecrypted) {
+                    _decryptMessage();
+                  }
+                },
+                onLongPress: () {
+                  setState(() => _showReactions = !_showReactions);
+                },
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _isHovering = true),
+                  onExit: (_) => setState(() => _isHovering = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.72,
                     ),
-
-                  const SizedBox(height: 4),
-
-                  // Date + accusés
-                  Row(
-                    mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-                    children: [
-                      if (widget.isEphemeralActive)
-                        ChatEphemeralTimer(
-                          duration: widget.message.ephemeralDuration ?? 60,
-                          onExpired: () {
-                            if (widget.onDelete != null) widget.onDelete!();
-                          },
-                        ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('HH:mm').format(msg.createdAt),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isOwn ? Colors.white.withOpacity(0.8) : mutedText,
-                        ),
+                    decoration: BoxDecoration(
+                      color: isOwn ? navy : pureWhite,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: isOwn ? const Radius.circular(16) : const Radius.circular(4),
+                        bottomRight: isOwn ? const Radius.circular(4) : const Radius.circular(16),
                       ),
-                      if (isOwn) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          msg.isRead ? Icons.done_all : Icons.done,
-                          size: 14,
-                          color: msg.isRead ? success : Colors.white.withOpacity(0.6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
                         ),
                       ],
-                    ],
-                  ),
+                      border: _isEncrypted && !_isDecrypted
+                          ? Border.all(color: gold, width: 1.5)
+                          : null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      children: [
+                        // Badge : Chiffré / Éphémère / Document
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: [
+                            // Badge chiffré
+                            if (_isEncrypted)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: gold.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: gold.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded,
+                                      size: 12,
+                                      color: gold,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      _isDecrypted ? 'Déchiffré' : 'Chiffré',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: gold,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
 
-                  // Réactions
-                  if (msg.reactions.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        children: msg.reactions.map((reaction) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(12),
+                            // Badge éphémère
+                            if (widget.isEphemeralActive)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.timer_rounded, size: 12, color: Colors.orange),
+                                    SizedBox(width: 2),
+                                    Text(
+                                      'Éphémère',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // Badge document
+                            if (msg.mediaType != null && msg.mediaType != 'audio')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      msg.mediaType == 'image' ? Icons.image_rounded :
+                                      msg.mediaType == 'video' ? Icons.videocam_rounded :
+                                      Icons.insert_drive_file_rounded,
+                                      size: 12,
+                                      color: Colors.blue,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      msg.mediaType ?? 'Fichier',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        // Contenu du message
+                        if (msg.isCodeSnippet && msg.codeContent != null)
+                          ChatCodeSnippet(
+                            code: msg.codeContent!,
+                            language: msg.codeLanguage ?? 'text',
+                          )
+                        else if (msg.mediaType == 'audio' && msg.mediaUrl != null)
+                          AudioPlayerWidget(
+                            audioUrl: msg.mediaUrl!,
+                            totalDuration: msg.ephemeralDuration,
+                            primaryColor: isOwn ? pureWhite : navy,
+                            accentColor: gold,
+                          )
+                        else if (msg.mediaUrl != null)
+                          _buildMediaContent()
+                        else
+                          Text(
+                            _displayContent,
+                            style: TextStyle(
+                              color: isOwn ? Colors.white : darkText,
+                              fontSize: 14,
+                              height: 1.4,
                             ),
-                            child: Text(
-                              reaction.reaction,
-                              style: const TextStyle(fontSize: 14),
+                          ),
+
+                        const SizedBox(height: 6),
+
+                        // Date + accusés
+                        Row(
+                          mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
+                          children: [
+                            if (widget.isEphemeralActive)
+                              ChatEphemeralTimer(
+                                duration: widget.message.ephemeralDuration ?? 60,
+                                onExpired: () {
+                                  if (widget.onDelete != null) widget.onDelete!();
+                                },
+                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              DateFormat('HH:mm').format(msg.createdAt),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isOwn ? Colors.white.withOpacity(0.7) : mutedText,
+                              ),
                             ),
-                          );
-                        }).toList(),
-                      ),
+                            if (isOwn) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                msg.isRead ? Icons.done_all : Icons.done,
+                                size: 14,
+                                color: msg.isRead ? success : Colors.white.withOpacity(0.5),
+                              ),
+                            ],
+                          ],
+                        ),
+
+                        // Réactions
+                        if (msg.reactions.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: msg.reactions.map((reaction) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    reaction.reaction,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Barre d'actions (hover ou long press)
+          if (_isHovering || _showReactions)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Row(
+                mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
+                children: [
+                  if (_showReactions)
+                    ..._emojiReactions.map((emoji) => _buildReactionButton(emoji)),
+                  IconButton(
+                    icon: const Icon(Icons.reply, size: 16, color: mutedText),
+                    onPressed: widget.onReply,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                  if (isOwn)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 16, color: danger),
+                      onPressed: widget.onDelete,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
                     ),
                 ],
               ),
             ),
-          ),
-        ),
-
-        // Barre d'actions (hover ou long press)
-        if (_isHovering || _showReactions)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Row(
-              mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-              children: [
-                if (_showReactions)
-                  ..._emojiReactions.map((emoji) => _buildReactionButton(emoji)),
-                IconButton(
-                  icon: const Icon(Icons.reply, size: 16, color: mutedText),
-                  onPressed: widget.onReply,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-                if (isOwn)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 16, color: danger),
-                    onPressed: widget.onDelete,
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-              ],
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
