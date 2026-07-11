@@ -53,6 +53,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       ),
       child: SafeArea(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end, // ✅ Aligné en bas
           children: [
             // 1. Bouton Timer (message éphémère)
             IconButton(
@@ -62,6 +63,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ),
               onPressed: widget.onEphemeralToggle,
               tooltip: 'Message éphémère',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
 
             // 2. Bouton Attachement (pièce jointe)
@@ -69,24 +72,39 @@ class _ChatInputBarState extends State<ChatInputBar> {
               icon: Icon(Icons.add_circle_outline_rounded, color: Colors.grey.shade600),
               onPressed: widget.onAttach,
               tooltip: 'Pièce jointe',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
 
-            // 3. Champ de saisie
+            // 3. Champ de saisie agrandissable ✅
             Expanded(
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                onChanged: widget.onTyping,
-                decoration: InputDecoration(
-                  hintText: 'Écrire un message...',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 36,
+                  maxHeight: 120, // Hauteur maximale avant scroll
+                ),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    onChanged: widget.onTyping,
+                    maxLines: null, // ✅ Permet plusieurs lignes
+                    minLines: 1,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      hintText: 'Écrire un message...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
                   ),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
               ),
             ),
@@ -96,6 +114,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
               icon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
               onPressed: widget.onSecureMessage,
               tooltip: 'Message protégé par mot de passe',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
 
             // 5. Bouton Micro (enregistrement audio)
@@ -103,6 +123,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
               icon: const Icon(Icons.mic_none_rounded, color: Colors.grey),
               onPressed: widget.onAudio,
               tooltip: 'Message vocal',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
 
             // 6. Bouton Envoi
@@ -116,6 +138,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   : const Icon(Icons.send_rounded, color: navyDeep),
               onPressed: widget.isSending ? null : widget.onSend,
               tooltip: 'Envoyer',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
           ],
         ),
