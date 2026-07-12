@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/articles_provider.dart';
 import '../models/article.dart';
-import 'package:thix_id/presentation/mon_pays/admin/admin_article_form_page.dart';
 
-
+// Import de la page du formulaire (doit être dans le même dossier)
+import 'admin_article_form_page.dart';
 
 class AdminArticlesPage extends ConsumerStatefulWidget {
   const AdminArticlesPage({super.key});
