@@ -1,172 +1,147 @@
-// lib/presentation/mon_pays/admin/admin_article_form_page.dart
+// lib/presentation/mon_pays/models/article.dart
+// Entité Article (unique pour Constitution, Codes, Lois, etc.)
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/article.dart';
-import '../providers/articles_provider.dart';
+enum ArticleType {
+  constitution,
+  codePenal,
+  codeCivil,
+  codeTravail,
+  codeFiscal,
+  codeMinier,
+  codeForestier,
+  codeElectoral,
+  loiOrganique,
+  ordonnance,
+  decret,
+  autre;
 
-class AdminArticleFormPage extends ConsumerStatefulWidget {
-  final Article? article;
+  String get label {
+    switch (this) {
+      case ArticleType.constitution:
+        return 'Constitution';
+      case ArticleType.codePenal:
+        return 'Code Pénal';
+      case ArticleType.codeCivil:
+        return 'Code Civil';
+      case ArticleType.codeTravail:
+        return 'Code du Travail';
+      case ArticleType.codeFiscal:
+        return 'Code Fiscal';
+      case ArticleType.codeMinier:
+        return 'Code Minier';
+      case ArticleType.codeForestier:
+        return 'Code Forestier';
+      case ArticleType.codeElectoral:
+        return 'Code Electoral';
+      case ArticleType.loiOrganique:
+        return 'Loi Organique';
+      case ArticleType.ordonnance:
+        return 'Ordonnance';
+      case ArticleType.decret:
+        return 'Décret';
+      case ArticleType.autre:
+        return 'Autre';
+    }
+  }
 
-  const AdminArticleFormPage({super.key, this.article});
+  static ArticleType fromString(String value) {
+    return ArticleType.values.firstWhere(
+      (e) => e.toString().split('.').last == value,
+      orElse: () => ArticleType.autre,
+    );
+  }
 
-  @override
-  ConsumerState<AdminArticleFormPage> createState() => _AdminArticleFormPageState();
+  static List<ArticleType> get allTypes => ArticleType.values;
 }
 
-class _AdminArticleFormPageState extends ConsumerState<AdminArticleFormPage> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
-  late TextEditingController _typeController;
-  late TextEditingController _chapterController;
-  late TextEditingController _articleNumberController;
-  late TextEditingController _contentController;
-  late TextEditingController _explanationController;
-  late bool _isPublished;
+class Article {
+  final String id;
+  final ArticleType type;
+  final String title;
+  final String? chapter;
+  final String? articleNumber; // ex: "3", "14-1"
+  final String content;
+  final String? explanation;
+  final bool isPublished;
+  final DateTime? publishedAt;
+  final DateTime? updatedAt;
 
-  @override
-  void initState() {
-    super.initState();
-    final a = widget.article;
-    _titleController = TextEditingController(text: a?.title ?? '');
-    _typeController = TextEditingController(text: a?.type.label ?? '');
-    _chapterController = TextEditingController(text: a?.chapter ?? '');
-    _articleNumberController = TextEditingController(text: a?.articleNumber ?? '');
-    _contentController = TextEditingController(text: a?.content ?? '');
-    _explanationController = TextEditingController(text: a?.explanation ?? '');
-    _isPublished = a?.isPublished ?? false;
-  }
+  Article({
+    required this.id,
+    required this.type,
+    required this.title,
+    this.chapter,
+    this.articleNumber,
+    required this.content,
+    this.explanation,
+    this.isPublished = false,
+    this.publishedAt,
+    this.updatedAt,
+  });
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _typeController.dispose();
-    _chapterController.dispose();
-    _articleNumberController.dispose();
-    _contentController.dispose();
-    _explanationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEditing = widget.article != null;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Modifier l\'article' : 'Nouvel article'),
-        backgroundColor: Colors.red.shade700,
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Type
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Type *'),
-                  value: _typeController.text.isNotEmpty
-                      ? ArticleType.fromString(_typeController.text).toString().split('.').last
-                      : null,
-                  items: ArticleType.values.map((type) {
-                    return DropdownMenuItem(
-                      value: type.toString().split('.').last,
-                      child: Text(type.label),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    _typeController.text = value!;
-                  },
-                  validator: (v) => v == null ? 'Champ requis' : null,
-                ),
-                // Titre
-                TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(labelText: 'Titre *'),
-                  validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-                ),
-                // Chapitre
-                TextFormField(
-                  controller: _chapterController,
-                  decoration: const InputDecoration(labelText: 'Chapitre (optionnel)'),
-                ),
-                // Numéro d'article
-                TextFormField(
-                  controller: _articleNumberController,
-                  decoration: const InputDecoration(labelText: 'Numéro d\'article (ex: 3, 14-1)'),
-                ),
-                // Contenu
-                TextFormField(
-                  controller: _contentController,
-                  decoration: const InputDecoration(labelText: 'Contenu *'),
-                  maxLines: 10,
-                  validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-                ),
-                // Explication
-                TextFormField(
-                  controller: _explanationController,
-                  decoration: const InputDecoration(labelText: 'Explication (optionnelle)'),
-                  maxLines: 5,
-                ),
-                // Statut de publication
-                SwitchListTile(
-                  title: const Text('Publié'),
-                  value: _isPublished,
-                  onChanged: (value) => setState(() => _isPublished = value),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _save,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: Colors.red.shade700,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(isEditing ? 'Modifier' : 'Créer'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  factory Article.fromJson(Map<String, dynamic> json) {
+    return Article(
+      id: json['id'] as String,
+      type: ArticleType.fromString(json['type'] as String),
+      title: json['title'] as String,
+      chapter: json['chapter'] as String?,
+      articleNumber: json['article_number'] as String?,
+      content: json['content'] as String,
+      explanation: json['explanation'] as String?,
+      isPublished: json['is_published'] as bool? ?? false,
+      publishedAt: json['published_at'] != null
+          ? DateTime.parse(json['published_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
     );
   }
 
-  void _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    final type = ArticleType.fromString(_typeController.text);
-    
-    // ✅ CORRECTION : Si création, ne pas envoyer d'ID
-    final article = Article(
-      id: widget.article?.id ?? '', // On garde pour l'édition, mais le service ignorera l'ID vide
-      type: type,
-      title: _titleController.text.trim(),
-      chapter: _chapterController.text.trim().isEmpty ? null : _chapterController.text.trim(),
-      articleNumber: _articleNumberController.text.trim().isEmpty ? null : _articleNumberController.text.trim(),
-      content: _contentController.text.trim(),
-      explanation: _explanationController.text.trim().isEmpty ? null : _explanationController.text.trim(),
-      isPublished: _isPublished,
-    );
-    
-    final notifier = ref.read(adminArticlesProvider.notifier);
-    try {
-      if (widget.article != null) {
-        await notifier.updateArticle(article);
-      } else {
-        await notifier.createArticle(article);
-      }
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{
+      'type': type.toString().split('.').last,
+      'title': title,
+      'chapter': chapter,
+      'article_number': articleNumber,
+      'content': content,
+      'explanation': explanation,
+      'is_published': isPublished,
+      'published_at': publishedAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+
+    // CORRECTION : On n'ajoute l'ID au JSON que s'il n'est pas vide
+    if (id.isNotEmpty) {
+      map['id'] = id;
     }
+
+    return map;
+  }
+
+  Article copyWith({
+    String? id,
+    ArticleType? type,
+    String? title,
+    String? chapter,
+    String? articleNumber,
+    String? content,
+    String? explanation,
+    bool? isPublished,
+    DateTime? publishedAt,
+    DateTime? updatedAt,
+  }) {
+    return Article(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      chapter: chapter ?? this.chapter,
+      articleNumber: articleNumber ?? this.articleNumber,
+      content: content ?? this.content,
+      explanation: explanation ?? this.explanation,
+      isPublished: isPublished ?? this.isPublished,
+      publishedAt: publishedAt ?? this.publishedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }
