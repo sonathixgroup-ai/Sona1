@@ -127,7 +127,37 @@ class AppRoutes {
   
   // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
+ // ============================================================
+// MON PAYS – PROVINCES (Phase 2B)
+// ============================================================
 
+// Routes publiques
+static const String monPaysProvinces = '/mon-pays/provinces';
+static const String monPaysProvinceDetail = '/mon-pays/provinces/:id';
+
+// Routes admin
+static const String monPaysAdminProvinces = '/mon-pays/admin/provinces';
+static const String monPaysAdminProvinceForm = '/mon-pays/admin/provinces/form';
+static const String monPaysAdminGovernmentForm = '/mon-pays/admin/provinces/government/:provinceId';
+static const String monPaysAdminEconomicForm = '/mon-pays/admin/provinces/economic/:provinceId';
+static const String monPaysAdminBudgetForm = '/mon-pays/admin/provinces/budget/:provinceId';
+static const String monPaysAdminTourismForm = '/mon-pays/admin/provinces/tourism/:provinceId';
+static const String monPaysAdminEmergencyForm = '/mon-pays/admin/provinces/emergency/:provinceId';
+static const String monPaysAdminAdministrativeForm = '/mon-pays/admin/provinces/administrative/:provinceId';
+static const String monPaysAdminAchievementForm = '/mon-pays/admin/provinces/achievement/:provinceId';
+static const String monPaysAdminMediaForm = '/mon-pays/admin/provinces/media/:provinceId';
+
+// Helpers pour routes dynamiques
+static String monPaysProvinceDetailPath(String id) => '/mon-pays/provinces/$id';
+static String monPaysAdminProvinceFormPath({dynamic province}) => '/mon-pays/admin/provinces/form';
+static String monPaysAdminGovernmentFormPath(String provinceId) => '/mon-pays/admin/provinces/government/$provinceId';
+static String monPaysAdminEconomicFormPath(String provinceId) => '/mon-pays/admin/provinces/economic/$provinceId';
+static String monPaysAdminBudgetFormPath(String provinceId) => '/mon-pays/admin/provinces/budget/$provinceId';
+static String monPaysAdminTourismFormPath(String provinceId) => '/mon-pays/admin/provinces/tourism/$provinceId';
+static String monPaysAdminEmergencyFormPath(String provinceId) => '/mon-pays/admin/provinces/emergency/$provinceId';
+static String monPaysAdminAdministrativeFormPath(String provinceId) => '/mon-pays/admin/provinces/administrative/$provinceId';
+static String monPaysAdminAchievementFormPath(String provinceId) => '/mon-pays/admin/provinces/achievement/$provinceId';
+static String monPaysAdminMediaFormPath(String provinceId) => '/mon-pays/admin/provinces/media/$provinceId';
   // === Valeurs & Lois ===
   static const String monPaysLaws = '/mon-pays/laws';
   static const String monPaysArticleType = '/mon-pays/laws/:type';
