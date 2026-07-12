@@ -4,9 +4,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+// ═══════════════════════════════════════════════════════════════
+// IMPORTS CORRECTS POUR SUPABASE
+// ═══════════════════════════════════════════════════════════════
 import '../../providers/authorities_provider.dart';
 import '../../providers/news_provider.dart';
-import '../../providers/favorites_provider.dart';
 import '../../models/authority.dart';
 import '../../models/news.dart';
 import '../../utils/helpers.dart';
@@ -31,7 +34,7 @@ class MonPaysPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ Correction : utiliser les providers correctement
+    // ✅ Utilisation des providers avec le bon chemin
     final authoritiesAsync = ref.watch(authoritiesProvider(null));
     final newsAsync = ref.watch(newsProvider);
 
@@ -47,22 +50,16 @@ class MonPaysPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
-                  // ─── 1. Bannière "Espace Citoyen" + À la Une ──
                   _buildHeroBannerWithNews(context, ref, newsAsync),
                   const SizedBox(height: 20),
-                  // ─── 2. Autorités (grand format horizontal) ──
                   _buildAuthoritiesSection(context, ref, authoritiesAsync),
                   const SizedBox(height: 24),
-                  // ─── 3. Agences & Institutions ────────────────
                   _buildAgenciesSection(context),
                   const SizedBox(height: 24),
-                  // ─── 4. Ligne d'accès rapide ────────────────
                   _buildQuickAccessRow(context),
                   const SizedBox(height: 20),
-                  // ─── 5. Citoyens Exemplaires (bannière) ─────
                   _buildCitizensBanner(context),
                   const SizedBox(height: 20),
-                  // ─── 6. Figures Historiques ────────────────────
                   _buildHistoricalFiguresFull(context),
                   const SizedBox(height: 30),
                 ],
@@ -109,9 +106,7 @@ class MonPaysPage extends ConsumerWidget {
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white, height: 1.25, letterSpacing: 0.3),
             ),
           ),
-          _headerIconButton(Icons.search_rounded, () {
-            // TODO: ouvrir la recherche
-          }),
+          _headerIconButton(Icons.search_rounded, () {}),
           const SizedBox(width: 8),
           Stack(
             clipBehavior: Clip.none,
@@ -184,7 +179,6 @@ class MonPaysPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Titre et slogan
           const Row(
             children: [
               Icon(Icons.star_rounded, color: gold, size: 18),
@@ -207,7 +201,6 @@ class MonPaysPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Carrousel À la Une
           newsAsync.when(
             loading: () => const SizedBox(
               height: 100,
@@ -289,7 +282,6 @@ class MonPaysPage extends ConsumerWidget {
               );
             },
           ),
-          // Lien "Voir toutes"
           Align(
             alignment: Alignment.centerRight,
             child: InkWell(
@@ -309,7 +301,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 2. AUTORITÉS (grand format horizontal)
+  // 2. AUTORITÉS
   // ============================================================
   Widget _buildAuthoritiesSection(BuildContext context, WidgetRef ref, AsyncValue<List<Authority>> authoritiesAsync) {
     return Column(
@@ -550,7 +542,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 5. CITOYENS EXEMPLAIRES (bannière)
+  // 5. CITOYENS EXEMPLAIRES
   // ============================================================
   Widget _buildCitizensBanner(BuildContext context) {
     return Container(
@@ -594,7 +586,6 @@ class MonPaysPage extends ConsumerWidget {
   // 6. FIGURES HISTORIQUES
   // ============================================================
   Widget _buildHistoricalFiguresFull(BuildContext context) {
-    // Données statiques en attendant le provider
     final List<Map<String, String>> figures = [
       {'name': 'Patrice Lumumba', 'role': 'Héros de l\'indépendance', 'date': '1925-1961'},
       {'name': 'Joseph Kasa-Vubu', 'role': '1er Président', 'date': '1910-1969'},
@@ -708,9 +699,7 @@ class MonPaysPage extends ConsumerWidget {
   Widget _navItem(IconData icon, String label, bool isSelected) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        // Navigation vers les autres pages
-      },
+      onTap: () {},
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
