@@ -1,4 +1,5 @@
 // lib/presentation/mon_pays/mon_pays_page.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -242,8 +243,31 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
             error: (e, s) => const Text('Erreur chargement autorités'),
             data: (authorities) {
               if (authorities.isEmpty) return const AuthoritiesSection();
-              final president = authorities.first;
-              final others = authorities.length > 1 ? authorities.sublist(1) : [];
+              
+              // ==========================================
+              // LOGIQUE DE TRI INTELLIGENT (Système de priorité)
+              // ==========================================
+              int getPriority(String? title) {
+                if (title == null) return 99; // Priorité la plus basse
+                final t = title.toLowerCase();
+                if (t.contains('président de la république') || t.contains('president de la republique')) return 1;
+                if (t.contains('premier ministre')) return 2;
+                if (t.contains('sénat') || t.contains('senat')) return 3;
+                if (t.contains('assemblée') || t.contains('assemblee')) return 4;
+                return 99; // Les autres ministres iront après
+              }
+
+              // On clone la liste et on la trie selon la fonction ci-dessus
+              final sortedList = authorities.toList()
+                ..sort((a, b) => getPriority(a.title).compareTo(getPriority(b.title)));
+
+              // Le premier devient automatiquement le président (ou l'autorité la plus haute disponible)
+              final president = sortedList.first;
+              
+              // On prend les 3 suivants maximum pour l'affichage de la grille
+              final others = sortedList.length > 1 ? sortedList.sublist(1).take(3).toList() : [];
+              // ==========================================
+
               return Column(
                 children: [
                   Container(
@@ -269,24 +293,25 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 0.85, crossAxisSpacing: 10, mainAxisSpacing: 10),
-                    itemCount: others.take(6).length,
-                    itemBuilder: (context, i) {
-                      final a = others[i];
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(padding: const EdgeInsets.all(2.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold, width: 1.5)), child: CircleAvatar(radius: 34, backgroundImage: NetworkImage(a.imageUrl ?? 'https://i.pravatar.cc/100?u=$i'))),
-                          const SizedBox(height: 6),
-                          Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
-                          Text(a.title ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: mutedText)),
-                        ]
-                      );
-                    },
-                  ),
+                  if (others.isNotEmpty)
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 0.85, crossAxisSpacing: 10, mainAxisSpacing: 10),
+                      itemCount: others.length,
+                      itemBuilder: (context, i) {
+                        final a = others[i];
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(padding: const EdgeInsets.all(2.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold, width: 1.5)), child: CircleAvatar(radius: 34, backgroundImage: NetworkImage(a.imageUrl ?? 'https://i.pravatar.cc/100?u=$i'))),
+                            const SizedBox(height: 6),
+                            Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
+                            Text(a.title ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: mutedText)),
+                          ]
+                        );
+                      },
+                    ),
                 ]
               );
             },
@@ -446,17 +471,27 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
         scrollDirection: Axis.horizontal, 
         itemCount: items.length, 
         separatorBuilder: (_, __) => const SizedBox(width: 10), 
-        itemBuilder: (c, i) => Container(
-          width: 80, 
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: cardBorder)), 
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, 
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(items[i]['icon'] as IconData, color: primaryBlue), 
-              const SizedBox(height: 6), 
-              Text(items[i]['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))
-            ]
+        itemBuilder: (c, i) => InkWell( // <--- AJOUT DU BOUTON CLIQUABLE ICI
+          onTap: () {
+            if (items[i]['route'] != null) {
+              context.push(items[i]['route'] as String);
+            } else {
+              _showComingSoon();
+            }
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 80, 
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: cardBorder)), 
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, 
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(items[i]['icon'] as IconData, color: primaryBlue), 
+                const SizedBox(height: 6), 
+                Text(items[i]['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))
+              ]
+            )
           )
         )
       )
@@ -554,7 +589,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
   Widget _nav(IconData i, String l, String? r) => InkWell(
     onTap: () => r != null ? context.go(r) : _showComingSoon(), 
     child: Column(
-      mainAxisSize: MainAxisSize.min, // <--- LA MAGIE EST ICI
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(i, color: l == 'Mon Pays' ? primaryBlue : mutedText, size: 22), 
         Text(l, style: TextStyle(fontSize: 10, color: l == 'Mon Pays' ? primaryBlue : mutedText))
