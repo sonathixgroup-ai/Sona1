@@ -1,6 +1,6 @@
 // lib/presentation/mon_pays/services/authorities_service.dart
-// Service CRUD pour les autorités (Supabase) - VERSION SIMPLIFIÉE
 
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/authority.dart';
 
@@ -8,21 +8,43 @@ class AuthoritiesService {
   final SupabaseClient _client = Supabase.instance.client;
 
   // ============================================================
+  // STORAGE (UPLOAD FICHIERS)
+  // ============================================================
+
+  /// Télécharge un fichier (photo ou vidéo) vers Supabase Storage
+  /// Retourne l'URL publique du fichier
+  Future<String> uploadMedia(String fileName, Uint8List fileBytes, {bool isVideo = false}) async {
+    try {
+      final folder = isVideo ? 'videos' : 'photos';
+      final path = 'authorities/$folder/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      
+      // Envoi du fichier dans le bucket "media"
+      await _client.storage.from('media').uploadBinary(
+        path, 
+        fileBytes,
+        fileOptions: FileOptions(
+          upsert: true,
+          contentType: isVideo ? 'video/mp4' : 'image/jpeg',
+        ),
+      );
+      
+      // Récupérer le lien public
+      return _client.storage.from('media').getPublicUrl(path);
+    } catch (e) {
+      throw Exception('Erreur lors du téléchargement du média: $e');
+    }
+  }
+
+  // ============================================================
   // READ
   // ============================================================
 
-  /// Récupère toutes les autorités, avec filtre optionnel par catégorie
   Future<List<Authority>> getAuthorities({String? category}) async {
     try {
-      // ✅ Construction de la requête de base
       var query = _client.from('authorities').select('*');
-      
-      // ✅ Appliquer le filtre si une catégorie est spécifiée
       if (category != null && category != 'Tous' && category != 'Toutes') {
         query = query.eq('title', category);
       }
-      
-      // ✅ .order() directement sur le résultat filtré
       final response = await query.order('name');
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
@@ -30,26 +52,18 @@ class AuthoritiesService {
     }
   }
 
-  /// Récupère une autorité par son ID
   Future<Authority> getAuthorityById(String id) async {
     try {
-      final response = await _client
-          .from('authorities')
-          .select('*')
-          .eq('id', id)
-          .single();
+      final response = await _client.from('authorities').select('*').eq('id', id).single();
       return Authority.fromJson(response);
     } catch (e) {
       throw Exception('Erreur lors du chargement de l\'autorité: $e');
     }
   }
 
-  /// Recherche des autorités par nom ou titre
   Future<List<Authority>> searchAuthorities(String query) async {
     try {
-      if (query.trim().isEmpty) {
-        return [];
-      }
+      if (query.trim().isEmpty) return [];
       final response = await _client
           .from('authorities')
           .select('*')
@@ -61,17 +75,10 @@ class AuthoritiesService {
     }
   }
 
-  /// Récupère les autorités d'un parti politique
   Future<List<Authority>> getAuthoritiesByParty(String party) async {
     try {
-      if (party.trim().isEmpty) {
-        return [];
-      }
-      final response = await _client
-          .from('authorities')
-          .select('*')
-          .eq('party', party)
-          .order('name');
+      if (party.trim().isEmpty) return [];
+      final response = await _client.from('authorities').select('*').eq('party', party).order('name');
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erreur lors du chargement par parti: $e');
@@ -82,12 +89,16 @@ class AuthoritiesService {
   // CREATE
   // ============================================================
 
-  /// Crée une nouvelle autorité
   Future<Authority> createAuthority(Authority authority) async {
     try {
+      final authData = authority.toJson();
+      if (authData['id'] == null || authData['id'] == '') {
+        authData.remove('id');
+      }
+
       final response = await _client
           .from('authorities')
-          .insert(authority.toJson())
+          .insert(authData)
           .select()
           .single();
       return Authority.fromJson(response);
@@ -100,7 +111,6 @@ class AuthoritiesService {
   // UPDATE
   // ============================================================
 
-  /// Met à jour une autorité existante
   Future<Authority> updateAuthority(Authority authority) async {
     try {
       final response = await _client
@@ -119,7 +129,6 @@ class AuthoritiesService {
   // DELETE
   // ============================================================
 
-  /// Supprime une autorité
   Future<void> deleteAuthority(String id) async {
     try {
       await _client.from('authorities').delete().eq('id', id);
