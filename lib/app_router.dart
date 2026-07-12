@@ -244,16 +244,21 @@ import 'presentation/mon_pays/pages/laws/laws_page.dart';
 import 'presentation/mon_pays/pages/laws/article_type_page.dart';
 import 'presentation/mon_pays/pages/laws/article_detail_page.dart' as monPaysArticle;
 import 'presentation/mon_pays/models/article.dart';
-// ===== IMPORTS POUR LES AUTRES MODULES (à venir) =====
-// import 'presentation/mon_pays/pages/history/history_page.dart';
-// import 'presentation/mon_pays/pages/news/news_page.dart';
-// import 'presentation/mon_pays/pages/agencies/agencies_page.dart';
-// import 'presentation/mon_pays/pages/videos/videos_page.dart';
-// import 'presentation/mon_pays/pages/documentaries/documentaries_page.dart';
-// import 'presentation/mon_pays/pages/citizens/citizens_page.dart';
-// import 'presentation/mon_pays/pages/participate/participate_page.dart';
-// import 'presentation/mon_pays/pages/wanted/wanted_page.dart';
-// import 'presentation/mon_pays/pages/search/search_page.dart';
+// ===== PROVINCES (Phase 2B) =====
+// Pages publiques
+import 'presentation/mon_pays/pages/provinces/provinces_page.dart';
+import 'presentation/mon_pays/pages/provinces/province_detail_page.dart';
+// Administration
+import 'presentation/mon_pays/admin/admin_provinces_page.dart';
+import 'presentation/mon_pays/admin/admin_province_form_page.dart';
+import 'presentation/mon_pays/admin/admin_government_form_page.dart';
+import 'presentation/mon_pays/admin/admin_economic_form_page.dart';
+import 'presentation/mon_pays/admin/admin_budget_form_page.dart';
+import 'presentation/mon_pays/admin/admin_tourism_form_page.dart';
+import 'presentation/mon_pays/admin/admin_emergency_form_page.dart';
+import 'presentation/mon_pays/admin/admin_administrative_form_page.dart';
+import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
+import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 
 // ==================== TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
@@ -918,6 +923,120 @@ class AppRouter {
             return NoTransitionPage(child: AdminPage(module: module));
           },
         ),
+        // ===== MON PAYS =====
+// À ajouter dans la section `routes:` du GoRoute principal de mon-pays
+
+// -------- Provinces --------
+GoRoute(
+  path: 'provinces',
+  name: 'monPaysProvinces',
+  pageBuilder: (_, __) => const NoTransitionPage(child: ProvincesPage()),
+),
+GoRoute(
+  path: 'provinces/:id',
+  name: 'monPaysProvinceDetail',
+  pageBuilder: (_, state) {
+    final id = state.pathParameters['id']!;
+    return NoTransitionPage(child: ProvinceDetailPage(provinceId: id));
+  },
+),
+// Admin Provinces
+GoRoute(
+  path: 'admin/provinces',
+  name: 'monPaysAdminProvinces',
+  pageBuilder: (_, __) => const NoTransitionPage(child: AdminProvincesPage()),
+),
+GoRoute(
+  path: 'admin/provinces/form',
+  name: 'monPaysAdminProvinceForm',
+  pageBuilder: (_, state) {
+    final province = state.extra as Province?;
+    return NoTransitionPage(
+      child: AdminProvinceFormPage(province: province),
+    );
+  },
+),
+// Admin Sous-ressources (formulaires avec provinceId en paramètre)
+GoRoute(
+  path: 'admin/provinces/government/:provinceId',
+  name: 'monPaysAdminGovernmentForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminGovernmentFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/economic/:provinceId',
+  name: 'monPaysAdminEconomicForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminEconomicFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/budget/:provinceId',
+  name: 'monPaysAdminBudgetForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminBudgetFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/tourism/:provinceId',
+  name: 'monPaysAdminTourismForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminTourismFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/emergency/:provinceId',
+  name: 'monPaysAdminEmergencyForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminEmergencyFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/administrative/:provinceId',
+  name: 'monPaysAdminAdministrativeForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminAdministrativeFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/achievement/:provinceId',
+  name: 'monPaysAdminAchievementForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminAchievementFormPage(provinceId: provinceId),
+    );
+  },
+),
+GoRoute(
+  path: 'admin/provinces/media/:provinceId',
+  name: 'monPaysAdminMediaForm',
+  pageBuilder: (_, state) {
+    final provinceId = state.pathParameters['provinceId']!;
+    return NoTransitionPage(
+      child: AdminMediaFormPage(provinceId: provinceId),
+    );
+  },
+),
         GoRoute(
           path: AppRoutes.admin,
           name: 'adminRoot',
