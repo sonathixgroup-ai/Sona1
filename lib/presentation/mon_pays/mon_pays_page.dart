@@ -1,11 +1,12 @@
 // lib/presentation/mon_pays/mon_pays_page.dart
-// Espace Citoyen — Page d'accueil du module Mon Pays (version finale)
+// Espace Citoyen — Page d'accueil du module Mon Pays
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/authorities_provider.dart';
 import '../../providers/news_provider.dart';
+import '../../providers/favorites_provider.dart';
 import '../../models/authority.dart';
 import '../../models/news.dart';
 import '../../utils/helpers.dart';
@@ -30,6 +31,7 @@ class MonPaysPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ✅ Correction : utiliser les providers correctement
     final authoritiesAsync = ref.watch(authoritiesProvider(null));
     final newsAsync = ref.watch(newsProvider);
 
@@ -51,17 +53,17 @@ class MonPaysPage extends ConsumerWidget {
                   // ─── 2. Autorités (grand format horizontal) ──
                   _buildAuthoritiesSection(context, ref, authoritiesAsync),
                   const SizedBox(height: 24),
-                  // ─── 3. Agences & Institutions (avec FARDC, PNC...) ──
+                  // ─── 3. Agences & Institutions ────────────────
                   _buildAgenciesSection(context),
                   const SizedBox(height: 24),
                   // ─── 4. Ligne d'accès rapide ────────────────
                   _buildQuickAccessRow(context),
                   const SizedBox(height: 20),
                   // ─── 5. Citoyens Exemplaires (bannière) ─────
-                  _buildCitizensBanner(),
+                  _buildCitizensBanner(context),
                   const SizedBox(height: 20),
-                  // ─── 6. Figures Historiques (remplace la grille modules) ──
-                  _buildHistoricalFiguresFull(),
+                  // ─── 6. Figures Historiques ────────────────────
+                  _buildHistoricalFiguresFull(context),
                   const SizedBox(height: 30),
                 ],
               ),
@@ -107,7 +109,9 @@ class MonPaysPage extends ConsumerWidget {
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white, height: 1.25, letterSpacing: 0.3),
             ),
           ),
-          _headerIconButton(Icons.search_rounded, () {}),
+          _headerIconButton(Icons.search_rounded, () {
+            // TODO: ouvrir la recherche
+          }),
           const SizedBox(width: 8),
           Stack(
             clipBehavior: Clip.none,
@@ -376,7 +380,7 @@ class MonPaysPage extends ConsumerWidget {
                             child: a.imageUrl == null || a.imageUrl!.isEmpty
                                 ? Center(
                                     child: Text(
-                                      MonPaysHelpers.getInitials(a.name),
+                                      Helpers.getInitials(a.name),
                                       style: const TextStyle(color: navy, fontWeight: FontWeight.bold, fontSize: 22),
                                     ),
                                   )
@@ -412,7 +416,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 3. AGENCES & INSTITUTIONS (avec FARDC, PNC, etc.)
+  // 3. AGENCES & INSTITUTIONS
   // ============================================================
   Widget _buildAgenciesSection(BuildContext context) {
     final List<Map<String, dynamic>> agencies = [
@@ -459,7 +463,6 @@ class MonPaysPage extends ConsumerWidget {
             return InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
-                // Navigation vers la page de l'agence (à créer)
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('${ag['label']} - Bientôt disponible')),
                 );
@@ -549,7 +552,7 @@ class MonPaysPage extends ConsumerWidget {
   // ============================================================
   // 5. CITOYENS EXEMPLAIRES (bannière)
   // ============================================================
-  Widget _buildCitizensBanner() {
+  Widget _buildCitizensBanner(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -574,10 +577,13 @@ class MonPaysPage extends ConsumerWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(20)),
-            child: const Text('Découvrir', style: TextStyle(color: navyDeep, fontWeight: FontWeight.w800, fontSize: 10)),
+          InkWell(
+            onTap: () => context.pushNamed('monPaysCitizens'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(20)),
+              child: const Text('Découvrir', style: TextStyle(color: navyDeep, fontWeight: FontWeight.w800, fontSize: 10)),
+            ),
           ),
         ],
       ),
@@ -585,9 +591,10 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 6. FIGURES HISTORIQUES (remplace la grille des modules)
+  // 6. FIGURES HISTORIQUES
   // ============================================================
-  Widget _buildHistoricalFiguresFull() {
+  Widget _buildHistoricalFiguresFull(BuildContext context) {
+    // Données statiques en attendant le provider
     final List<Map<String, String>> figures = [
       {'name': 'Patrice Lumumba', 'role': 'Héros de l\'indépendance', 'date': '1925-1961'},
       {'name': 'Joseph Kasa-Vubu', 'role': '1er Président', 'date': '1910-1969'},
@@ -701,7 +708,9 @@ class MonPaysPage extends ConsumerWidget {
   Widget _navItem(IconData icon, String label, bool isSelected) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () {},
+      onTap: () {
+        // Navigation vers les autres pages
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
