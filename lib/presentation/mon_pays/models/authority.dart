@@ -2,7 +2,7 @@
 
 class Authority {
   final String id;
-  final String category; // NOUVEAU CHAMP
+  final String category; // Ajout de la catégorie
   final String name;
   final String title;
   final String? imageUrl;
@@ -52,7 +52,9 @@ class Authority {
       videos: List<String>.from(json['videos'] ?? []),
       publications: List<String>.from(json['publications'] ?? []),
       socialNetworks: Map<String, String>.from(json['social_networks'] ?? {}),
-      agenda: (json['agenda'] as List?)?.map((e) => Map<String, String>.from(e)).toList() ?? [],
+      agenda: (json['agenda'] as List?)
+          ?.map((e) => Map<String, String>.from(e))
+          .toList() ?? [],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
@@ -74,7 +76,12 @@ class Authority {
       'social_networks': socialNetworks,
       'agenda': agenda,
     };
-    if (id.isNotEmpty) map['id'] = id;
+
+    // On n'ajoute l'ID au JSON que s'il n'est pas vide (pour la création)
+    if (id.isNotEmpty) {
+      map['id'] = id;
+    }
+
     return map;
   }
 
@@ -109,6 +116,8 @@ class Authority {
       publications: publications ?? this.publications,
       socialNetworks: socialNetworks ?? this.socialNetworks,
       agenda: agenda ?? this.agenda,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }
