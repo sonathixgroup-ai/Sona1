@@ -92,7 +92,7 @@ import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page
 
 // THIX Info
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
-import 'package:thix_id/presentation/thix_info/article_detail_page.dart';
+import 'package:thix_id/presentation/thix_info/article_detail_page.dart'as infoSearch; 
 import 'package:thix_id/presentation/thix_info/search_page.dart' as infoSearch;
 import 'package:thix_id/presentation/thix_info/category_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/saved_articles_page.dart';
@@ -233,7 +233,7 @@ import 'presentation/mon_pays/admin/admin_article_form_page.dart';
 // Module Lois (Valeurs & Lois)
 import 'presentation/mon_pays/pages/laws/laws_page.dart';
 import 'presentation/mon_pays/pages/laws/article_type_page.dart';
-import 'presentation/mon_pays/pages/laws/article_detail_page.dart';
+import 'presentation/mon_pays/pages/laws/article_detail_page.dart' as monPaysArticle;
 import 'presentation/mon_pays/models/article.dart';
 // ===== IMPORTS POUR LES AUTRES MODULES (à venir) =====
 // import 'presentation/mon_pays/pages/history/history_page.dart';
