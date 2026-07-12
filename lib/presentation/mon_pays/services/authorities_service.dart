@@ -11,14 +11,11 @@ class AuthoritiesService {
   // STORAGE (UPLOAD FICHIERS)
   // ============================================================
 
-  /// Télécharge un fichier (photo ou vidéo) vers Supabase Storage
-  /// Retourne l'URL publique du fichier
   Future<String> uploadMedia(String fileName, Uint8List fileBytes, {bool isVideo = false}) async {
     try {
       final folder = isVideo ? 'videos' : 'photos';
       final path = 'authorities/$folder/${DateTime.now().millisecondsSinceEpoch}_$fileName';
       
-      // Envoi du fichier dans le bucket "media"
       await _client.storage.from('media').uploadBinary(
         path, 
         fileBytes,
@@ -28,7 +25,6 @@ class AuthoritiesService {
         ),
       );
       
-      // Récupérer le lien public
       return _client.storage.from('media').getPublicUrl(path);
     } catch (e) {
       throw Exception('Erreur lors du téléchargement du média: $e');
@@ -42,9 +38,12 @@ class AuthoritiesService {
   Future<List<Authority>> getAuthorities({String? category}) async {
     try {
       var query = _client.from('authorities').select('*');
+      
+      // CORRECTION : On filtre bien sur la colonne 'category'
       if (category != null && category != 'Tous' && category != 'Toutes') {
-        query = query.eq('title', category);
+        query = query.eq('category', category);
       }
+      
       final response = await query.order('name');
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
@@ -86,7 +85,7 @@ class AuthoritiesService {
   }
 
   // ============================================================
-  // CREATE
+  // CREATE & UPDATE & DELETE
   // ============================================================
 
   Future<Authority> createAuthority(Authority authority) async {
@@ -107,10 +106,6 @@ class AuthoritiesService {
     }
   }
 
-  // ============================================================
-  // UPDATE
-  // ============================================================
-
   Future<Authority> updateAuthority(Authority authority) async {
     try {
       final response = await _client
@@ -124,10 +119,6 @@ class AuthoritiesService {
       throw Exception('Erreur lors de la mise à jour: $e');
     }
   }
-
-  // ============================================================
-  // DELETE
-  // ============================================================
 
   Future<void> deleteAuthority(String id) async {
     try {
