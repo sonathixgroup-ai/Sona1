@@ -42,4 +42,4 @@ class ProvinceGovernment {
     'vice_governor_id': viceGovernorId,
     'ministers': ministers.map((e) => e.toJson()).toList(),
   };
-}
+} // <--- C'est ici que le fichier doit se terminer !
