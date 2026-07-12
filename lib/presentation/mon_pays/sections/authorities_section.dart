@@ -20,7 +20,7 @@ class AuthoritiesSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On charge toutes les autorités pour les filtrer localement
+    // On charge toutes les autorités
     final authoritiesAsync = ref.watch(authoritiesProvider('Tous'));
 
     return Column(
@@ -32,11 +32,7 @@ class AuthoritiesSection extends ConsumerWidget {
             const SizedBox(width: 8),
             const Text(
               'Hautes Autorités',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: darkText,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText),
             ),
           ],
         ),
@@ -52,13 +48,13 @@ class AuthoritiesSection extends ConsumerWidget {
           error: (err, stack) => Center(child: Text('Erreur : $err', style: const TextStyle(color: Colors.red))),
           data: (authorities) {
             
-            // 1. On cherche les 4 VIP spécifiques
-            final president = _findVip(authorities, 'Président de la République', null);
-            final pm = _findVip(authorities, 'Gouvernement', ['premier', 'première']);
-            final assemblee = _findVip(authorities, 'Assemblée Nationale', ['président']);
-            final senat = _findVip(authorities, 'Sénat', ['président']);
+            // 1. Recherche Intelligente (Tolérante aux erreurs de frappe/catégorie)
+            final president = _findPresident(authorities);
+            final pm = _findPM(authorities);
+            final assemblee = _findAssemblee(authorities);
+            final senat = _findSenat(authorities);
 
-            // 2. On prépare les données pour la grille
+            // 2. Préparation des données pour la grille
             final vips = [
               {'role': 'Président de la République', 'data': president},
               {'role': 'Première Ministre', 'data': pm},
@@ -69,12 +65,12 @@ class AuthoritiesSection extends ConsumerWidget {
             // 3. Affichage en grille 2x2
             return GridView.builder(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(), // Désactive le scroll interne
+              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 0.85, // Ajuste la hauteur des cartes
+                childAspectRatio: 0.85,
               ),
               itemCount: 4,
               itemBuilder: (context, index) {
@@ -91,26 +87,49 @@ class AuthoritiesSection extends ConsumerWidget {
     );
   }
 
-  /// Fonction intelligente pour trouver une autorité selon sa catégorie et un mot-clé dans son titre
-  Authority? _findVip(List<Authority> authorities, String category, List<String>? keywords) {
+  // --- FONCTIONS DE RECHERCHE INTELLIGENTE ---
+
+  Authority? _findPresident(List<Authority> auths) {
     try {
-      return authorities.firstWhere((a) {
-        bool matchCategory = a.category == category;
-        bool matchKeyword = true;
-        
-        if (keywords != null && keywords.isNotEmpty) {
-          final titleLower = a.title.toLowerCase();
-          matchKeyword = keywords.any((kw) => titleLower.contains(kw));
-        }
-        
-        return matchCategory && matchKeyword;
+      return auths.firstWhere((a) {
+        final cat = a.category.toLowerCase();
+        final tit = a.title.toLowerCase();
+        return cat.contains('président de la r') || tit.contains('président') || tit.contains('president');
       });
-    } catch (e) {
-      return null; // Retourne null si la personne n'a pas encore été créée
-    }
+    } catch (_) { return null; }
   }
 
-  /// Design de la carte (Photo + Nom + Titre)
+  Authority? _findPM(List<Authority> auths) {
+    try {
+      return auths.firstWhere((a) {
+        final tit = a.title.toLowerCase();
+        return tit.contains('premier') || tit.contains('première') || tit.contains('premiere');
+      });
+    } catch (_) { return null; }
+  }
+
+  Authority? _findAssemblee(List<Authority> auths) {
+    try {
+      return auths.firstWhere((a) {
+        final cat = a.category.toLowerCase();
+        final tit = a.title.toLowerCase();
+        return cat.contains('assemblée') || tit.contains('assemblée') || tit.contains('assemblee');
+      });
+    } catch (_) { return null; }
+  }
+
+  Authority? _findSenat(List<Authority> auths) {
+    try {
+      return auths.firstWhere((a) {
+        final cat = a.category.toLowerCase();
+        final tit = a.title.toLowerCase();
+        return cat.contains('sénat') || cat.contains('senat') || tit.contains('sénat') || tit.contains('senat');
+      });
+    } catch (_) { return null; }
+  }
+
+  // --- DESIGN DE LA CARTE ---
+
   Widget _buildVipCard(BuildContext context, Authority? authority, String defaultRole) {
     final hasData = authority != null;
     final name = hasData ? authority.name : 'Non assigné';
@@ -126,17 +145,12 @@ class AuthoritiesSection extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: hairline),
           boxShadow: [
-            BoxShadow(
-              color: navyDeep.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
+            BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Avatar avec bordure dorée
             Container(
               width: 68,
               height: 68,
@@ -153,8 +167,6 @@ class AuthoritiesSection extends ConsumerWidget {
                   : null,
             ),
             const SizedBox(height: 10),
-            
-            // Nom
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
@@ -162,16 +174,10 @@ class AuthoritiesSection extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: hasData ? darkText : mutedText,
-                ),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: hasData ? darkText : mutedText),
               ),
             ),
             const SizedBox(height: 4),
-            
-            // Titre (Fonction)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
@@ -179,12 +185,7 @@ class AuthoritiesSection extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: hasData ? navy : mutedText,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
+                style: TextStyle(fontSize: 10, color: hasData ? navy : mutedText, fontWeight: FontWeight.w700, height: 1.2),
               ),
             ),
           ],
