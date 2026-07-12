@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../providers/event_provider.dart';
-import '../../providers/auth_provider.dart';        // ← AJOUTÉ pour le rôle
+import '../../providers/auth_provider.dart';
 import '../../models/event_model.dart';
 import 'widgets/event_card.dart';
 import 'widgets/category_chip.dart';
@@ -19,19 +19,18 @@ import 'event_search_page.dart';
 import 'event_detail_page.dart';
 
 // ============================================================
-// CHARTE THIX ÉVÉNEMENT — Élite Institutionnel Bleu / Blanc
+// CHARTE GRAPHIQUE UNIFIÉE — Style "Mon Pays"
 // ============================================================
 class _EventColors {
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color softBlue = Color(0xFFEFF5FF);
-  static const Color background = Color(0xFFF7FAFF);
+  static const Color primaryBlue = Color(0xFF0B3D91);
+  static const Color lightBg = Color(0xFFF6F8FB);
+  static const Color gold = Color(0xFFF7C948);
+  static const Color rdcRed = Color(0xFFCE1126);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color cardBorder = Color(0xFFEEF1F7);
+  static const Color darkText = Color(0xFF10182B);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10192E);
-  static const Color mutedText = Color(0xFF7386A8);
-  static const Color border = Color(0xFFE7EEFC);
-  static const Color gold = Color(0xFFE3B23C);
+  static const Color softBlue = Color(0xFFEEF1F7);
 }
 
 // ============================================================
@@ -122,7 +121,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   }
 
   void _goToEventDetail(String eventId) {
-    context.push('/thix-event/event/${eventId}');
+    context.push('/thix-event/event/$eventId');
   }
 
   // ============================================================
@@ -138,10 +137,13 @@ class _ThixEventHomeState extends State<ThixEventHome> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Plus tard', style: TextStyle(fontSize: 12))),
           ElevatedButton(
-            onPressed: _requestNotificationPermission,
+            onPressed: () {
+              Navigator.pop(context);
+              _requestNotificationPermission();
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: _EventColors.gold,
-              foregroundColor: _EventColors.navyDeep,
+              foregroundColor: _EventColors.primaryBlue,
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
@@ -174,7 +176,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
 
     if (!_isInitialized && isLoading) {
       return const Scaffold(
-        backgroundColor: _EventColors.background,
+        backgroundColor: _EventColors.lightBg,
         body: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(_EventColors.primaryBlue),
@@ -185,7 +187,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
 
     if (hasError && events.isEmpty) {
       return Scaffold(
-        backgroundColor: _EventColors.background,
+        backgroundColor: _EventColors.lightBg,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -194,7 +196,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                 width: 84,
                 height: 84,
                 decoration: const BoxDecoration(color: _EventColors.softBlue, shape: BoxShape.circle),
-                child: Icon(Icons.error_outline_rounded, size: 38, color: _EventColors.navy.withOpacity(0.5)),
+                child: Icon(Icons.error_outline_rounded, size: 38, color: _EventColors.primaryBlue.withOpacity(0.5)),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -215,7 +217,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                   eventProvider.fetchFeaturedEvents();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _EventColors.navyDeep,
+                  backgroundColor: _EventColors.primaryBlue,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -230,73 +232,82 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     }
 
     return Scaffold(
-      backgroundColor: _EventColors.background,
+      backgroundColor: _EventColors.lightBg,
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverToBoxAdapter(child: _buildHeader()),
-          SliverToBoxAdapter(child: _buildSearchBar()),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          _buildTopBar(),
           
-          if (featuredEvent != null)
-            SliverToBoxAdapter(child: FeaturedEventWidget(event: featuredEvent)),
-          
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildDateFilters()),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          SliverToBoxAdapter(child: _buildCategorySection()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildSectionHeader('Événements recommandés', '/thix-event/recommended')),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          
-          if (isLoading && recommendedEvents.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(_EventColors.primaryBlue),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                _buildSearchBar(),
+                const SizedBox(height: 16),
+                
+                if (featuredEvent != null)
+                  FeaturedEventWidget(event: featuredEvent),
+                
+                const SizedBox(height: 20),
+                _buildDateFilters(),
+                const SizedBox(height: 20),
+                _buildCategorySection(),
+                const SizedBox(height: 20),
+                
+                // Section Événements recommandés
+                _buildSectionHeader('Événements recommandés', '/thix-event/recommended'),
+                const SizedBox(height: 12),
+                
+                if (isLoading && recommendedEvents.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(_EventColors.primaryBlue),
+                      ),
+                    ),
+                  )
+                else if (recommendedEvents.isEmpty && !isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Text(
+                        'Aucun événement disponible',
+                        style: TextStyle(color: _EventColors.mutedText),
+                      ),
+                    ),
+                  )
+                else
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.75,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: recommendedEvents.length,
+                    itemBuilder: (context, index) => EventCard(
+                      event: recommendedEvents[index],
+                      onTap: () => _goToEventDetail(recommendedEvents[index].id),
+                    ),
                   ),
+                
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildNotificationBanner(),
                 ),
-              ),
-            )
-          else if (recommendedEvents.isEmpty && !isLoading)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: Text(
-                    'Aucun événement disponible',
-                    style: TextStyle(color: _EventColors.mutedText),
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverToBoxAdapter(
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: recommendedEvents.length,
-                itemBuilder: (context, index) => EventCard(
-                  event: recommendedEvents[index],
-                  onTap: () => _goToEventDetail(recommendedEvents[index].id),
-                ),
-              ),
+                const SizedBox(height: 20),
+                
+                // Section Prochains Événements
+                _buildSectionHeader('Prochains événements', '/thix-event/upcoming'),
+                const SizedBox(height: 12),
+              ],
             ),
-          
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildNotificationBanner()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildSectionHeader('Prochains événements', '/thix-event/upcoming')),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          ),
           
           if (isLoading && upcomingEvents.isEmpty)
             const SliverToBoxAdapter(
@@ -322,17 +333,20 @@ class _ThixEventHomeState extends State<ThixEventHome> {
               ),
             )
           else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => UpcomingEventItem(
-                  event: upcomingEvents[index],
-                  onTap: () => _goToEventDetail(upcomingEvents[index].id),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => UpcomingEventItem(
+                    event: upcomingEvents[index],
+                    onTap: () => _goToEventDetail(upcomingEvents[index].id),
+                  ),
+                  childCount: upcomingEvents.length,
                 ),
-                childCount: upcomingEvents.length,
               ),
             ),
           
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          const SliverToBoxAdapter(child: SizedBox(height: 110)), // Espace pour la barre de navigation
         ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
@@ -340,97 +354,70 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   }
 
   // ============================================================
-  // HEADER — dégradé incurvé bleu institutionnel
+  // HEADER — Style "Mon Pays" (AppBar blanche avec badges)
   // ============================================================
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 48, 16, 18),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_EventColors.navyDeep, _EventColors.navy, _EventColors.primaryBlue],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(26),
-          bottomRight: Radius.circular(26),
-        ),
-        boxShadow: [
-          BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildTopBar() {
+    return SliverAppBar(
+      pinned: true,
+      floating: true,
+      elevation: 0,
+      backgroundColor: Colors.white,
+      toolbarHeight: 64,
+      automaticallyImplyLeading: false,
+      title: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const Icon(Icons.menu, color: _EventColors.primaryBlue, size: 28),
+          const SizedBox(width: 12),
+          Container(
+            width: 32, 
+            height: 22, 
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(3), color: _EventColors.primaryBlue), 
+            child: const Center(
+              child: Icon(Icons.event_rounded, color: Colors.white, size: 14)
+            )
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('THIX ÉVÉNEMENT\nRÉPUBLIQUE DÉMOCRATIQUE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _EventColors.primaryBlue, height: 1.1))
+          ),
+          
+          _circleIcon(Icons.admin_panel_settings_rounded, () => context.push('/moderator')),
+          const SizedBox(width: 8),
+          
+          Stack(
+            clipBehavior: Clip.none, 
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(9)),
-                        child: const Icon(Icons.event_rounded, size: 15, color: _EventColors.gold),
-                      ),
-                      const SizedBox(width: 7),
-                      const Text('THIX ÉVÉNEMENT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15.5, letterSpacing: 0.4)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('Découvrez, réservez, vivez l\'exceptionnel.', style: TextStyle(color: Colors.white70, fontSize: 10)),
-                ],
+              _circleIcon(Icons.notifications_none_rounded, _showNotificationSettings),
+              Positioned(
+                top: -4, 
+                right: -4, 
+                child: Container(
+                  padding: const EdgeInsets.all(4), 
+                  decoration: const BoxDecoration(color: _EventColors.gold, shape: BoxShape.circle), 
+                  child: const Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _EventColors.primaryBlue))
+                )
               ),
-              Row(
-                children: [
-                  _headerIconButton(Icons.search_rounded, () => context.push('/thix-event/search')),
-                  _headerIconButton(Icons.notifications_none_rounded, _showNotificationSettings),
-
-                  // 👇 BOUTON MODÉRATEUR TOUJOURS VISIBLE (test)
-                  _headerIconButton(
-                    Icons.admin_panel_settings_rounded,
-                    () => context.push('/moderator'),
-                  ),
-
-                  GestureDetector(
-                    onTap: () => context.push('/profile'),
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      margin: const EdgeInsets.only(left: 2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.14),
-                        border: Border.all(color: Colors.white.withOpacity(0.2)),
-                      ),
-                      child: const Icon(Icons.person_rounded, size: 15, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ]
+          ),
+          const SizedBox(width: 8),
+          
+          InkWell(
+            onTap: () => context.push('/profile'), 
+            child: const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100'))
           ),
         ],
       ),
     );
   }
 
-  Widget _headerIconButton(IconData icon, VoidCallback onTap) {
+  Widget _circleIcon(IconData icon, VoidCallback onTap) {
     return InkWell(
-      borderRadius: BorderRadius.circular(11),
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: 34,
-        height: 34,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.14),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: Colors.white, size: 17),
+        padding: const EdgeInsets.all(8), 
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _EventColors.cardBorder), color: Colors.white), 
+        child: Icon(icon, size: 20, color: _EventColors.primaryBlue)
       ),
     );
   }
@@ -440,21 +427,21 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   // ============================================================
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GestureDetector(
         onTap: () => context.push('/thix-event/search'),
         child: Container(
-          height: 42,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: _EventColors.pureWhite,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _EventColors.border),
-            boxShadow: [BoxShadow(color: _EventColors.navyDeep.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+            border: Border.all(color: _EventColors.cardBorder),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: const Row(
             children: [
-              Icon(Icons.search_rounded, size: 17, color: _EventColors.mutedText),
+              Icon(Icons.search_rounded, size: 18, color: _EventColors.mutedText),
               SizedBox(width: 9),
               Text('Rechercher un événement, lieu...', style: TextStyle(fontSize: 12.5, color: _EventColors.mutedText)),
             ],
@@ -470,7 +457,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   Widget _buildDateFilters() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: _dateFilters.map((filter) {
           final isSelected = _selectedDateFilter == filter['value'];
@@ -484,12 +471,11 @@ class _ThixEventHomeState extends State<ThixEventHome> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  gradient: isSelected ? const LinearGradient(colors: [_EventColors.navyDeep, _EventColors.primaryBlue]) : null,
-                  color: isSelected ? null : _EventColors.pureWhite,
+                  color: isSelected ? _EventColors.primaryBlue : _EventColors.pureWhite,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: isSelected ? Colors.transparent : _EventColors.border),
+                  border: Border.all(color: isSelected ? Colors.transparent : _EventColors.cardBorder),
                   boxShadow: isSelected
                       ? [BoxShadow(color: _EventColors.primaryBlue.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))]
                       : null,
@@ -522,21 +508,21 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Catégories populaires', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _EventColors.darkText)),
+              const Text('Catégories populaires', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _EventColors.primaryBlue)),
               GestureDetector(
                 onTap: () => context.push('/thix-event/categories'),
                 child: const Row(
                   children: [
-                    Text('Voir tout', style: TextStyle(fontSize: 11.5, color: _EventColors.primaryBlue, fontWeight: FontWeight.w700)),
+                    Text('Voir tout', style: TextStyle(fontSize: 12, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
                     SizedBox(width: 2),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 10, color: _EventColors.primaryBlue),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF5B8DEF)),
                   ],
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         const CategoryChipsList(),
       ],
     );
@@ -551,14 +537,14 @@ class _ThixEventHomeState extends State<ThixEventHome> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _EventColors.darkText)),
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _EventColors.primaryBlue)),
           GestureDetector(
             onTap: () => context.push(route),
             child: const Row(
               children: [
-                Text('Voir tout', style: TextStyle(fontSize: 11.5, color: _EventColors.primaryBlue, fontWeight: FontWeight.w700)),
+                Text('Voir tout', style: TextStyle(fontSize: 12, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
                 SizedBox(width: 2),
-                Icon(Icons.arrow_forward_ios_rounded, size: 10, color: _EventColors.primaryBlue),
+                Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF5B8DEF)),
               ],
             ),
           ),
@@ -572,45 +558,39 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   // ============================================================
   Widget _buildNotificationBanner() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_EventColors.navyDeep, _EventColors.navy, _EventColors.primaryBlue],
-        ),
-        borderRadius: BorderRadius.circular(22),
+        color: _EventColors.primaryBlue,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: _EventColors.navyDeep.withOpacity(0.18), blurRadius: 16, offset: const Offset(0, 8)),
+          BoxShadow(color: _EventColors.primaryBlue.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 8)),
         ],
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.notifications_active_rounded, color: _EventColors.gold, size: 21),
-          ),
+          const Icon(Icons.star, color: _EventColors.gold, size: 28),
           const SizedBox(width: 12),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Ne manquez aucun événement !', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text('Activez les notifications pour être informé des nouveaux événements près de vous.', style: TextStyle(color: Colors.white.withOpacity(0.72), fontSize: 9.5, height: 1.3)),
+                Text('Alerte Événements', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                SizedBox(height: 2),
+                Text('Activez les alertes pour ne rien rater.', style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3)),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _requestNotificationPermission,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-              decoration: BoxDecoration(color: _EventColors.gold, borderRadius: BorderRadius.circular(20)),
-              child: const Text('Activer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _EventColors.navyDeep)),
+          ElevatedButton(
+            onPressed: _requestNotificationPermission,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _EventColors.gold,
+              foregroundColor: _EventColors.primaryBlue,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
+            child: const Text('Activer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
           ),
         ],
       ),
@@ -618,67 +598,44 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   }
 
   // ============================================================
-  // BARRE DE NAVIGATION BOTTOM — flottante, incurvée
+  // BARRE DE NAVIGATION BOTTOM — flottante, style Mon Pays
   // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16), 
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
       decoration: BoxDecoration(
-        color: _EventColors.pureWhite,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(color: _EventColors.navyDeep.withOpacity(0.12), blurRadius: 22, offset: const Offset(0, 9)),
-        ],
-      ),
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(30), 
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20)]
+      ), 
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(Icons.home_rounded, 'Accueil', 0),
-              _navItem(Icons.search_rounded, 'Rechercher', 1),
-              _navItem(Icons.confirmation_number_rounded, 'Mes billets', 2),
-              _navItem(Icons.favorite_border_rounded, 'Favoris', 3),
-              _navItem(Icons.person_outline_rounded, 'Profil', 4),
-            ],
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround, 
+          children: [
+            _navItem(Icons.home_rounded, 'Accueil', 0), 
+            _navItem(Icons.search_rounded, 'Recherche', 1), 
+            _navItem(Icons.confirmation_number_rounded, 'Billets', 2), 
+            _navItem(Icons.favorite_border_rounded, 'Favoris', 3), 
+            _navItem(Icons.person_outline_rounded, 'Profil', 4),
+          ]
         ),
-      ),
+      )
     );
   }
 
   Widget _navItem(IconData icon, String label, int index) {
     final isSelected = _selectedNavIndex == index;
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => _onNavTap(index),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: isSelected ? _EventColors.softBlue : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: isSelected ? _EventColors.primaryBlue : _EventColors.mutedText, size: 20),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9.5,
-                color: isSelected ? _EventColors.primaryBlue : _EventColors.mutedText,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
+      onTap: () => _onNavTap(index), 
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: isSelected ? _EventColors.primaryBlue : _EventColors.mutedText, size: 22), 
+          Text(label, style: TextStyle(fontSize: 10, color: isSelected ? _EventColors.primaryBlue : _EventColors.mutedText, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal))
+        ]
+      )
     );
   }
 }
