@@ -259,7 +259,7 @@ import 'presentation/mon_pays/admin/admin_emergency_form_page.dart';
 import 'presentation/mon_pays/admin/admin_administrative_form_page.dart';
 import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
-
+import 'package:thix_id/presentation/mon_pays/models/province.dart';
 // ==================== TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
