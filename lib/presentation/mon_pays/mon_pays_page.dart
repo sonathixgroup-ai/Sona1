@@ -1,456 +1,338 @@
 // lib/presentation/mon_pays/mon_pays_page.dart
-// Refonte UI "Espace Citoyen" — Design maquette blanche - garde toutes les fonctionnalités
+// NOUVELLE DISPOSITION V2 - Full width + Président mis en avant
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'sections/authorities_section.dart';
 import 'providers/provinces_provider.dart';
+import 'providers/authorities_provider.dart'; // ton provider existant
+import 'sections/authorities_section.dart';
 
-class MonPaysPage extends ConsumerWidget {
+class MonPaysPage extends ConsumerStatefulWidget {
   const MonPaysPage({super.key});
+  @override
+  ConsumerState<MonPaysPage> createState() => _MonPaysPageState();
+}
 
-  // ─── Nouvelle Charte (maquette) ──────────────────────────
+class _MonPaysPageState extends ConsumerState<MonPaysPage> {
   static const Color primaryBlue = Color(0xFF0B3D91);
   static const Color lightBg = Color(0xFFF6F8FB);
   static const Color gold = Color(0xFFF7C948);
   static const Color rdcRed = Color(0xFFCE1126);
-  static const Color darkText = Color(0xFF10182B);
   static const Color mutedText = Color(0xFF6B7690);
   static const Color cardBorder = Color(0xFFEEF1F7);
+  static const Color darkText = Color(0xFF10182B);
+
+  final PageController _patrioticCtrl = PageController(viewportFraction: 0.92);
+  Timer? _timer;
+  int _currentPatriotic = 0;
+
+  final List<Map<String,String>> patrioticPosters = [
+    {'title': 'Unité Nationale', 'subtitle': 'Bendele ya Congo', 'img': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4'},
+    {'title': 'Devoir Civique', 'subtitle': 'S\'engager pour la Patrie', 'img': 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac'},
+    {'title': 'Mémoire Collective', 'subtitle': 'Honorer nos Héros', 'img': 'https://images.unsplash.com/photo-1497895121-66bdc4d7d3b2'},
+    {'title': 'Travail & Progrès', 'subtitle': 'Bâtir la RDC', 'img': 'https://images.unsplash.com/photo-1516026672322-bc52d61a55e5'},
+    {'title': 'Éducation pour Tous', 'subtitle': 'L\'avenir de la Nation', 'img': 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b'},
+    {'title': 'Paix & Sécurité', 'subtitle': 'Fondement du Développement', 'img': 'https://images.unsplash.com/photo-1447069387593-a5de0862481e'},
+    {'title': 'Culture & Identité', 'subtitle': 'Notre Richesse', 'img': 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3'},
+    {'title': 'Jeunesse d\'Avenir', 'subtitle': 'Espoir de la République', 'img': 'https://images.unsplash.com/photo-1529390079861-591de354faf5'},
+  ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 4), (t) {
+      if (_patrioticCtrl.hasClients) {
+        _currentPatriotic = (_currentPatriotic + 1) % patrioticPosters.length;
+        _patrioticCtrl.animateToPage(_currentPatriotic, duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _patrioticCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: lightBg,
       body: CustomScrollView(
         slivers: [
-          _buildTopBar(context),
+          _buildTopBar(),
           SliverToBoxAdapter(
             child: Column(
               children: [
                 const SizedBox(height: 12),
-                _buildHeroBanner(),
-                const SizedBox(height: 16),
+                _buildPatrioticCarousel(), // NOUVEAU : Espace Citoyen = affiches patriotiques qui défilent
+                const SizedBox(height: 20),
 
-                // LIGNE 1 : Autorités + Figures Historiques
+                // 1. LES AUTORITÉS EN PLEINE LARGEUR - PRÉSIDENT EN GRAND
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _SectionContainer(
-                          number: '1.',
-                          title: 'Les Autorités',
-                          actionLabel: 'Voir tout',
-                          onAction: () => context.push('/mon-pays/authorities'),
-                          child: const AuthoritiesSection(), // TA LOGIQUE CONSERVÉE
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _SectionContainer(
-                          number: '2.',
-                          title: 'Figures Historiques',
-                          actionLabel: 'Explorer',
-                          onAction: () => _showComingSoon(context),
-                          child: _buildFiguresContent(context),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _buildAutoritesFullWidth(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // LIGNE 2 : À la Une + Agences
+                // 2. AGENCES & INSTITUTIONS (juste en bas des autorités)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildALaUne()),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildAgences(context)),
-                    ],
-                  ),
+                  child: _buildAgencesFull(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // ACCÈS RAPIDES (5 icônes)
-                _buildQuickAccess(context),
-                const SizedBox(height: 16),
-
-                // LIGNE 3 : Alertes
+                // 3. À LA UNE / ANNONCES
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildAlertCard(icon: Icons.warning_amber_rounded, iconBg: const Color(0xFFFFF0F0), title: 'Personne Recherchée', subtitle: 'Signaler ou rechercher une personne dangereuse.', onTap: () => _showComingSoon(context))),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildAlertCard(icon: Icons.search_rounded, iconBg: const Color(0xFFF0F5FF), title: 'Recherche Personnalisée', subtitle: 'Rechercher des informations ciblées et officielles.', isTwoLines: true, onTap: () => _showComingSoon(context))),
-                    ],
-                  ),
+                  child: _buildALaUneFull(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // PROVINCES - TA FONCTIONNALITÉ CONSERVÉE
+                // 4. PROVINCES (ta logique conservée)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildProvincesSection(context, ref),
+                  child: _buildProvincesSection(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // CITOYENS EXEMPLAIRES BANNER
+                // 5. QUICK ACCESS + ALERTES
+                _buildQuickAccess(),
+                const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildCitoyensBanner(context),
+                  child: _buildAlertRow(),
+                ),
+                const SizedBox(height: 20),
+
+                // 6. FIGURES HISTORIQUES EN BAS - EN GRAND CARTES
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildFiguresHistoriquesBig(),
                 ),
 
-                const SizedBox(height: 100),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildCitoyensBanner(),
+                ),
+                const SizedBox(height: 110),
               ],
             ),
-          ),
+          )
         ],
       ),
-      bottomNavigationBar: _buildBottomNav(context),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // ============================================================
-  // TOP BAR BLANC (Maquette)
-  // ============================================================
-  Widget _buildTopBar(BuildContext context) {
+  // ================= TOP BAR =================
+  Widget _buildTopBar() {
     return SliverAppBar(
-      pinned: true,
-      floating: true,
-      elevation: 0,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      toolbarHeight: 64,
-      automaticallyImplyLeading: false,
-      title: Row(
-        children: [
-          InkWell(onTap: () {}, child: const Icon(Icons.menu, color: primaryBlue, size: 28)),
-          const SizedBox(width: 12),
-          // Drapeau + Armoiries simulés
-          Container(width: 32, height: 22, decoration: BoxDecoration(borderRadius: BorderRadius.circular(3), color: primaryBlue), child: const Center(child: Text('🇨🇩', style: TextStyle(fontSize: 16)))),
-          const SizedBox(width: 6),
-          const Icon(Icons.shield, size: 20, color: Color(0xFFD4AF37)),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text('RÉPUBLIQUE DÉMOCRATIQUE\nDU CONGO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: primaryBlue, height: 1.1)),
-          ),
-          _circleIcon(Icons.search, () => _showComingSoon(context)),
-          const SizedBox(width: 8),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              _circleIcon(Icons.notifications_none_rounded, () {}),
-              Positioned(top: -4, right: -4, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: gold, shape: BoxShape.circle), child: const Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)))),
-            ],
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: () => context.push('/mon-pays/admin'),
-            child: const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100')),
-          ),
-        ],
-      ),
+      pinned: true, floating: true, backgroundColor: Colors.white, elevation: 0,
+      toolbarHeight: 64, automaticallyImplyLeading: false,
+      title: Row(children: [
+        const Icon(Icons.menu, color: primaryBlue, size: 28), const SizedBox(width: 12),
+        Container(width: 32, height: 22, decoration: BoxDecoration(borderRadius: BorderRadius.circular(3), color: primaryBlue), child: const Center(child: Text('🇨🇩')))),
+        const SizedBox(width: 8), const Expanded(child: Text('RÉPUBLIQUE DÉMOCRATIQUE\nDU CONGO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: primaryBlue, height: 1.1))),
+        _circleIcon(Icons.search, () => _showComingSoon()), const SizedBox(width: 8),
+        Stack(clipBehavior: Clip.none, children: [_circleIcon(Icons.notifications_none_rounded, () {}), Positioned(top: -4, right: -4, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: gold, shape: BoxShape.circle), child: const Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))))]),
+        const SizedBox(width: 8), InkWell(onTap: () => context.push('/mon-pays/admin'), child: const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100'))),
+      ]),
     );
   }
+  Widget _circleIcon(IconData i, VoidCallback t) => InkWell(onTap: t, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: cardBorder), color: Colors.white), child: Icon(i, size: 20, color: primaryBlue)));
 
-  Widget _circleIcon(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10)], border: Border.all(color: cardBorder)),
-        child: Icon(icon, size: 20, color: primaryBlue),
-      ),
-    );
-  }
-
-  // ============================================================
-  // HERO BANNER BLEU (Maquette)
-  // ============================================================
-  Widget _buildHeroBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 150,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: primaryBlue,
-        image: const DecorationImage(image: NetworkImage('https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?q=80&w=800'), fit: BoxFit.cover, alignment: Alignment.centerRight),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(colors: [primaryBlue, primaryBlue.withOpacity(0.85), Colors.transparent], stops: const [0.0, 0.6, 1.0]),
-        ),
-        padding: const EdgeInsets.all(20),
-        alignment: Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text('Espace Citoyen', style: TextStyle(fontFamily: 'Serif', fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
-            SizedBox(height: 6),
-            Text('S\'informer • Comprendre • Participer • Construire', style: TextStyle(color: gold, fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // FIGURES HISTORIQUES - SANS MOCK, AVEC VRAI WIDGET
-  // ============================================================
-  Widget _buildFiguresContent(BuildContext context) {
+  // ================= 0. CARROUSEL PATRIOTIQUE (Espace Citoyen) =================
+  Widget _buildPatrioticCarousel() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: List.generate(5, (i) => Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 2), height: 52, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), image: DecorationImage(image: NetworkImage('https://i.pravatar.cc/100?img=${20+i}'), fit: BoxFit.cover, colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation)))))),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: const [Text('Espace Citoyen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)), SizedBox(width: 8), Expanded(child: Text("S'informer • Comprendre • Participer", style: TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.w600)))]),
         ),
-        const SizedBox(height: 14),
-        // Slider design maquette
-        Stack(children: [Container(height: 2, color: const Color(0xFFE5EAF3)), Positioned(left: 0, child: Container(width: 18, height: 8, margin: const EdgeInsets.only(top: -3), decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(10))))]),
-        const SizedBox(height: 12),
-        Row(children: const [Expanded(child: Text('Découvrez ceux qui ont marqué notre histoire.', style: TextStyle(fontSize: 11, color: mutedText))), Icon(Icons.chevron_right, size: 18, color: primaryBlue)]),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 160,
+          child: PageView.builder(
+            controller: _patrioticCtrl, itemCount: patrioticPosters.length,
+            onPageChanged: (v) => setState(() => _currentPatriotic = v),
+            itemBuilder: (context, index) {
+              final p = patrioticPosters[index];
+              return Container(
+                margin: const EdgeInsets.only(right: 12, left: 4),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), image: DecorationImage(image: NetworkImage(p['img']!), fit: BoxFit.cover)),
+                child: Container(
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [primaryBlue.withOpacity(0.95), Colors.transparent])),
+                  padding: const EdgeInsets.all(18),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(20)), child: Text(p['title']!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                    const SizedBox(height: 8), Text(p['subtitle']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
+                  ]),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(patrioticPosters.length, (i) => Container(width: i == _currentPatriotic? 18 : 6, height: 6, margin: const EdgeInsets.symmetric(horizontal: 3), decoration: BoxDecoration(color: i == _currentPatriotic? primaryBlue : Colors.grey.shade300, borderRadius: BorderRadius.circular(10))))),
       ],
     );
   }
 
-  // ============================================================
-  // À LA UNE - DESIGN MAQUETTE
-  // ============================================================
-  Widget _buildALaUne() {
-    return _SectionContainer(
-      number: '3.',
-      title: 'À la Une',
-      actionLabel: 'Voir toutes',
-      onAction: () {},
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _newsItem('OFFICIEL', '27 Mai 2025', 'Inauguration du Pont Maréchal à Kinshasa', 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df'),
-          const SizedBox(width: 8),
-          _newsItem('COMMUNIQUÉ', '25 Mai 2025', 'Conseil des Ministres : Principales décisions', 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85'),
-          const SizedBox(width: 8),
-          _newsItem('NATIONAL', '23 Mai 2025', 'Réforme de l\'éducation : cap sur la qualité', 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b'),
-        ],
-      ),
-    );
-  }
-
-  Widget _newsItem(String tag, String date, String title, String img) {
-    return Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Stack(children: [ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(img, height: 80, width: double.infinity, fit: BoxFit.cover)), Positioned(top: 5, left: 5, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20)), child: Text(tag, style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold))))]),
-        const SizedBox(height: 5),
-        Text(date, style: const TextStyle(fontSize: 8, color: mutedText)),
-        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: darkText)),
-      ]),
-    );
-  }
-
-  // ============================================================
-  // AGENCES & INSTITUTIONS - DESIGN MAQUETTE
-  // ============================================================
-  Widget _buildAgences(BuildContext context) {
-    return _SectionContainer(
-      number: '4.',
-      title: 'Agences & Institutions',
-      actionLabel: 'Explorer',
-      onAction: () => _showComingSoon(context),
-      child: Column(
-        children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_agencyIcon(Icons.account_balance, 'Présidence', context), _agencyIcon(Icons.flag_rounded, 'Gouvernement', context), _agencyIcon(Icons.account_balance_outlined, 'Parlement', context)]),
-          const SizedBox(height: 16),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_agencyIcon(Icons.work_rounded, 'Ministères', context), _agencyIcon(Icons.location_on_rounded, 'Provinces', context, route: '/mon-pays/provinces'), _agencyIcon(Icons.apartment_rounded, 'Entreprises\nPubliques', context)]),
-          const Align(alignment: Alignment.centerRight, child: Icon(Icons.chevron_right, color: primaryBlue, size: 20)),
-        ],
-      ),
-    );
-  }
-
-  Widget _agencyIcon(IconData icon, String label, BuildContext context, {String? route}) {
-    return InkWell(
-      onTap: () => route!= null? context.push(route) : _showComingSoon(context),
-      child: Column(children: [
-        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: lightBg, shape: BoxShape.circle, border: Border.all(color: cardBorder)), child: Icon(icon, color: primaryBlue, size: 22)),
-        const SizedBox(height: 6),
-        Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, height: 1.1)),
-      ]),
-    );
-  }
-
-  // ============================================================
-  // PROVINCES - TA LOGIQUE 100% CONSERVÉE, JUSTE UI REFAIT
-  // ============================================================
-  Widget _buildProvincesSection(BuildContext context, WidgetRef ref) {
-    final provincesAsync = ref.watch(provincesProvider(null));
-    return _SectionContainer(
-      number: '🗺️',
-      title: 'Provinces',
-      actionLabel: 'Voir toutes',
-      onAction: () => context.push('/mon-pays/provinces'),
-      child: provincesAsync.when(
-        loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-        error: (_, __) => const Text('Impossible de charger', style: TextStyle(color: rdcRed, fontSize: 12)),
-        data: (provinces) {
-          if (provinces.isEmpty) return const Text('Aucune province', style: TextStyle(color: mutedText, fontSize: 12));
-          return SizedBox(
-            height: 110,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: provinces.take(6).length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final p = provinces[index];
-                return InkWell(
-                  onTap: () => context.push('/mon-pays/provinces/${p.id}'),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    width: 130,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: lightBg, borderRadius: BorderRadius.circular(14), border: Border.all(color: cardBorder)),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      CircleAvatar(radius: 18, backgroundColor: Colors.white, backgroundImage: p.coatOfArmsUrl!= null? NetworkImage(p.coatOfArmsUrl!) : null, child: p.coatOfArmsUrl == null? Text(p.code.substring(0, 2).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)) : null),
-                      const Spacer(),
-                      Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                      Text(p.capital, style: const TextStyle(fontSize: 10, color: mutedText)),
-                    ]),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  //... autres widgets UI identiques
-  Widget _buildQuickAccess(BuildContext context) {
-    final items = [
-      {'icon': Icons.videocam_rounded, 'label': 'Vidéos\nOfficielles', 'color': rdcRed, 'route': null},
-      {'icon': Icons.folder_rounded, 'label': 'Documentaires\n& Archives', 'color': primaryBlue, 'route': null},
-      {'icon': Icons.emoji_events_rounded, 'label': 'Citoyens\nExemplaires', 'color': const Color(0xFFD4A017), 'route': null},
-      {'icon': Icons.balance_rounded, 'label': 'Valeurs\n& Lois', 'color': primaryBlue, 'route': '/mon-pays/laws'},
-      {'icon': Icons.campaign_rounded, 'label': 'Participer\n& S\'exprimer', 'color': const Color(0xFF1FA971), 'route': null},
-    ];
-    return SizedBox(
-      height: 100,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final it = items[i];
-          return InkWell(
-            onTap: () => it['route']!= null? context.push(it['route'] as String) : _showComingSoon(context),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: 86,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: cardBorder)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(it['icon'] as IconData, color: it['color'] as Color, size: 28),
-                const SizedBox(height: 8),
-                Text(it['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, height: 1.2)),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildAlertCard({required IconData icon, required Color iconBg, required String title, required String subtitle, required VoidCallback onTap, bool isTwoLines = false}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: cardBorder)),
-        child: Row(children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: title.contains('Recherchée')? rdcRed : primaryBlue)),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(fontWeight: FontWeight.w800, fontSize: isTwoLines? 12 : 12, color: title.contains('Recherchée')? rdcRed : primaryBlue)), Text(subtitle, style: const TextStyle(fontSize: 10, color: mutedText), maxLines: 2)])),
-          const Icon(Icons.chevron_right, size: 18, color: mutedText),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildCitoyensBanner(BuildContext context) {
+  // ================= 1. AUTORITÉS - PRÉSIDENT EN GRAND =================
+  Widget _buildAutoritesFullWidth() {
+    final authAsync = ref.watch(authoritiesProvider);
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: primaryBlue.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 6))]),
-      child: Row(children: [
-        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle), child: const Icon(Icons.star_rounded, color: gold, size: 24)),
-        const SizedBox(width: 12),
-        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Citoyens Exemplaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)), SizedBox(height: 2), Text('Ils bâtissent la RDC chaque jour par leurs actions inspirantes.', style: TextStyle(color: Colors.white70, fontSize: 11))])),
-        const SizedBox(width: 10),
-        ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: gold, foregroundColor: primaryBlue, shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)), onPressed: () => _showComingSoon(context), child: const Text('Découvrir', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-      ]),
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20)]),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _navItem(context, Icons.home_rounded, 'Accueil', true, '/'),
-        _navItem(context, Icons.flag_rounded, 'Mon Pays', true, '/mon-pays'),
-        Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: primaryBlue, shape: BoxShape.circle), child: const Icon(Icons.shield, color: gold, size: 20)),
-        _navItem(context, Icons.grid_view_rounded, 'Services', false, null),
-        _navItem(context, Icons.person_rounded, 'Mon Compte', false, null),
-      ]),
-    );
-  }
-
-  Widget _navItem(BuildContext context, IconData icon, String label, bool active, String? route) {
-    return InkWell(
-      onTap: () => route!= null? context.go(route) : _showComingSoon(context),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 22, color: active? primaryBlue : mutedText), Text(label, style: TextStyle(fontSize: 10, fontWeight: active? FontWeight.w700 : FontWeight.w500, color: active? primaryBlue : mutedText))]),
-    );
-  }
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🚧 Module en cours de développement'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
-  }
-}
-
-// Widget générique pour les cards de la maquette
-class _SectionContainer extends StatelessWidget {
-  final String number;
-  final String title;
-  final String actionLabel;
-  final VoidCallback onAction;
-  final Widget child;
-  const _SectionContainer({required this.number, required this.title, required this.actionLabel, required this.onAction, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: MonPaysPage.cardBorder), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(number, style: const TextStyle(fontWeight: FontWeight.w900, color: MonPaysPage.primaryBlue, fontSize: 16)),
-          const SizedBox(width: 4),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: MonPaysPage.primaryBlue))),
-          InkWell(onTap: onAction, child: Row(children: [Text(actionLabel, style: const TextStyle(fontSize: 11, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w600)), const Icon(Icons.chevron_right, size: 16, color: Color(0xFF5B8DEF))])),
-        ]),
+        Row(children: [const Text('1. Les Autorités', style: TextStyle(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 18)), const Spacer(), InkWell(onTap: () => context.push('/mon-pays/authorities'), child: const Row(children: [Text('Voir tout', style: TextStyle(color: Color(0xFF5B8DEF), fontSize: 13)), Icon(Icons.chevron_right, size: 18, color: Color(0xFF5B8DEF))])))]),
         const SizedBox(height: 14),
-        child,
+        const Row(children: [Icon(Icons.account_balance, size: 18, color: primaryBlue), SizedBox(width: 6), Text('Hautes Autorités', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14))]),
+        const SizedBox(height: 14),
+        authAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e,s) => const Text('Erreur chargement autorités'),
+          data: (authorities) {
+            if (authorities.isEmpty) return const AuthoritiesSection(); // fallback ton widget
+            final president = authorities.first;
+            final others = authorities.length > 1? authorities.sublist(1) : [];
+            return Column(children: [
+              // PRÉSIDENT EN GRAND
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: lightBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: gold.withOpacity(0.6), width: 1.2)),
+                child: Row(children: [
+                  Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(shape: BoxShape.circle, color: gold), child: CircleAvatar(radius: 42, backgroundImage: NetworkImage(president.photoUrl?? 'https://i.pravatar.cc/200?u=president'))),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20)), child: const Text('PRÉSIDENT DE LA RÉPUBLIQUE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
+                    const SizedBox(height: 6), Text(president.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: darkText)),
+                    Text(president.title?? 'Président de la République', style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6), const Row(children: [Icon(Icons.verified, size: 14, color: primaryBlue), SizedBox(width: 4), Text('Mandat en cours', style: TextStyle(fontSize: 11, color: primaryBlue, fontWeight: FontWeight.w600))]),
+                  ])),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              GridView.builder(
+                shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 0.85, crossAxisSpacing: 10, mainAxisSpacing: 10),
+                itemCount: others.take(6).length,
+                itemBuilder: (context, i) {
+                  final a = others[i];
+                  return Column(children: [
+                    Container(padding: const EdgeInsets.all(2.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold, width: 1.5)), child: CircleAvatar(radius: 34, backgroundImage: NetworkImage(a.photoUrl?? 'https://i.pravatar.cc/100?u=$i'))),
+                    const SizedBox(height: 6), Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), Text(a.title?? '', maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: mutedText)),
+                  ]);
+                },
+              ),
+            ]);
+          },
+        ),
       ]),
     );
   }
+
+  // ================= 2. AGENCES =================
+  Widget _buildAgencesFull() {
+    final items = [
+      {'icon': Icons.account_balance, 'label': 'Présidence'},
+      {'icon': Icons.flag, 'label': 'Gouvernement'},
+      {'icon': Icons.gavel, 'label': 'Parlement'},
+      {'icon': Icons.work, 'label': 'Ministères'},
+      {'icon': Icons.map, 'label': 'Provinces', 'route': '/mon-pays/provinces'},
+      {'icon': Icons.business, 'label': 'Entreprises Publiques'},
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
+      child: Column(children: [
+        Row(children: [const Text('4. Agences & Institutions', style: TextStyle(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 16)), const Spacer(), InkWell(onTap: () => _showComingSoon(), child: const Text('Explorer >', style: TextStyle(color: Color(0xFF5B8DEF), fontSize: 13)))]),
+        const SizedBox(height: 16),
+        GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.2, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: items.length, itemBuilder: (context, i) => InkWell(onTap: () => items[i]['route']!= null? context.push(items[i]['route'] as String) : _showComingSoon(), child: Column(children: [Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: lightBg, shape: BoxShape.circle), child: Icon(items[i]['icon'] as IconData, color: primaryBlue)), const SizedBox(height: 6), Text(items[i]['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))]))),
+      ]),
+    );
+  }
+
+  // ================= 3. À LA UNE =================
+  Widget _buildALaUneFull() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
+      child: Column(children: [
+        Row(children: [const Text('3. À la Une', style: TextStyle(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 16)), const Spacer(), InkWell(onTap: () => _showComingSoon(), child: const Text('Voir toutes >', style: TextStyle(color: Color(0xFF5B8DEF), fontSize: 13)))]),
+        const SizedBox(height: 12),
+        SizedBox(height: 165, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: 5, separatorBuilder: (_,__)=> const SizedBox(width: 10), itemBuilder: (context,i){
+          return Container(width: 140, decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: lightBg), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(14)), child: Image.network('https://picsum.photos/200/120?random=$i', height: 90, width: 140, fit: BoxFit.cover)),
+            Padding(padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Text('27 Mai 2025', style: TextStyle(fontSize: 9, color: mutedText)), SizedBox(height: 2), Text('Inauguration du Pont Maréchal...', maxLines: 2, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700))]))
+          ]));
+        }))
+      ]),
+    );
+  }
+
+  Widget _buildProvincesSection() {
+    final prov = ref.watch(provincesProvider(null));
+    return prov.when(loading: ()=> const SizedBox(), error: (_,__)=> const SizedBox(), data: (list){
+      if(list.isEmpty) return const SizedBox();
+      return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)), child: Column(children: [
+        Row(children: [const Text('🗺️ Provinces', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const Spacer(), InkWell(onTap: ()=> context.push('/mon-pays/provinces'), child: const Text('Voir toutes →', style: TextStyle(color: primaryBlue)))]),
+        const SizedBox(height: 10),
+        SizedBox(height: 90, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: list.take(8).length, separatorBuilder: (_,__)=> const SizedBox(width: 10), itemBuilder: (c,i){ final p=list[i]; return InkWell(onTap: ()=> context.push('/mon-pays/provinces/${p.id}'), child: Container(width: 120, padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: lightBg, borderRadius: BorderRadius.circular(14)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [CircleAvatar(radius: 16, child: Text(p.code.substring(0,2))), const Spacer(), Text(p.name, maxLines: 1, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text(p.capital, style: const TextStyle(fontSize: 9, color: mutedText))])));}))
+      ]));
+    });
+  }
+
+  Widget _buildQuickAccess() {
+    final items = [
+      {'icon': Icons.videocam_rounded, 'label': 'Vidéos Officielles'},
+      {'icon': Icons.folder_rounded, 'label': 'Documentaires'},
+      {'icon': Icons.emoji_events_rounded, 'label': 'Citoyens'},
+      {'icon': Icons.balance_rounded, 'label': 'Valeurs & Lois', 'route': '/mon-pays/laws'},
+      {'icon': Icons.campaign_rounded, 'label': 'Participer'},
+    ];
+    return SizedBox(height: 90, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: items.length, separatorBuilder: (_,__)=> const SizedBox(width: 10), itemBuilder: (c,i)=> Container(width: 80, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: cardBorder)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(items[i]['icon'] as IconData, color: primaryBlue), const SizedBox(height: 6), Text(items[i]['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))]))));
+  }
+
+  Widget _buildAlertRow() => Row(children: [Expanded(child: _alertCard(rdcRed, 'Personne Recherchée', Icons.warning_amber_rounded)), const SizedBox(width: 12), Expanded(child: _alertCard(primaryBlue, 'Recherche Personnalisée', Icons.search_rounded))]);
+  Widget _alertCard(Color c, String t, IconData ic) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: cardBorder)), child: Row(children: [Icon(ic, color: c), const SizedBox(width: 8), Expanded(child: Text(t, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: c)))]));
+
+  // ================= FIGURES HISTORIQUES EN BAS EN GRAND =================
+  Widget _buildFiguresHistoriquesBig() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [const Text('2. Figures Historiques', style: TextStyle(fontWeight: FontWeight.w900, color: primaryBlue, fontSize: 18)), const Spacer(), InkWell(onTap: () => _showComingSoon(), child: const Text('Explorer >', style: TextStyle(color: Color(0xFF5B8DEF))))]),
+        const SizedBox(height: 6), const Text('Découvrez ceux qui ont marqué notre histoire.', style: TextStyle(color: mutedText, fontSize: 12)),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 180,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal, itemCount: 6,
+            separatorBuilder: (_,__)=> const SizedBox(width: 12),
+            itemBuilder: (context,i){
+              return Container(width: 140, decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: lightBg, border: Border.all(color: cardBorder)), child: Column(children: [
+                ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: Image.network('https://i.pravatar.cc/200?img=${30+i}', height: 110, width: 140, fit: BoxFit.cover)),
+                const SizedBox(height: 8), const Text('Patrice Emery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), const Text('1960 - Héros National', style: TextStyle(fontSize: 10, color: mutedText)),
+              ]));
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildCitoyensBanner() => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20)), child: Row(children: [const Icon(Icons.star, color: gold, size: 28), const SizedBox(width: 10), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Citoyens Exemplaires', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text('Ils bâtissent la RDC chaque jour', style: TextStyle(color: Colors.white70, fontSize: 11))])), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: gold, foregroundColor: primaryBlue), onPressed: () => _showComingSoon(), child: const Text('Découvrir'))]));
+  Widget _buildBottomNav() => Container(margin: const EdgeInsets.fromLTRB(16,0,16,16), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20)]), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_nav(Icons.home_rounded,'Accueil','/'), _nav(Icons.flag_rounded,'Mon Pays','/mon-pays'), Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: primaryBlue, shape: BoxShape.circle), child: const Icon(Icons.shield, color: gold)), _nav(Icons.grid_view_rounded,'Services',null), _nav(Icons.person_rounded,'Mon Compte',null)]));
+  Widget _nav(IconData i,String l,String? r)=> InkWell(onTap: ()=> r!=null? context.go(r): _showComingSoon(), child: Column(children: [Icon(i,color: l=='Mon Pays'? primaryBlue: mutedText, size: 22), Text(l, style: TextStyle(fontSize: 10, color: l=='Mon Pays'? primaryBlue: mutedText))]));
+  void _showComingSoon(){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🚧 Module en cours'), backgroundColor: Colors.orange, duration: Duration(seconds: 1))); }
 }
