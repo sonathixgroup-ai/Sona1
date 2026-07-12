@@ -522,7 +522,7 @@ class AppRouter {
         // ---- THIX Info ----
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) {
-          return NoTransitionPage(child: ArticleDetailPage(articleId: state.pathParameters['articleId']!));
+          return NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!));
         }),
         GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => NoTransitionPage(child: const infoSearch.SearchPage())),
         GoRoute(path: AppRoutes.thixInfoCategory, name: 'thixInfoCategory', pageBuilder: (_, state) {
@@ -833,7 +833,7 @@ GoRoute(
       name: 'monPaysArticleDetail',
       pageBuilder: (_, state) {
         final id = state.pathParameters['id']!;
-        return NoTransitionPage(child: ArticleDetailPage(articleId: id));
+        return NoTransitionPage(child: monPaysArticle.ArticleDetailPage(articleId: id));
       },
     ),
     // -------- Administration --------
