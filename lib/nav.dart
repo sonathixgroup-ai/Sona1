@@ -54,14 +54,13 @@ class AppRoutes {
   static const String thixInfoCreate = '/thix-info/admin/create';
   static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════
   // ─── THIX CHAT (Routes complètes) ───
   // ═══════════════════════════════════════════════════════════════════════
   static const String chat = '/chat';
   static const String chatNew = '/chat/new';
   static const String chatConversation = '/chat/:conversationId';
   
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String chatDetail(String conversationId) => '/chat/$conversationId';
 
   // ─── Groupes ───
@@ -71,21 +70,15 @@ class AppRoutes {
   static const String groupMembers = '/chat/group/:groupId/members';
   static const String groupAddMembers = '/chat/group/:groupId/add-members';
 
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String groupInfoPath(String groupId) => '/chat/group/$groupId/info';
   static String groupSettingsPath(String groupId) => '/chat/group/$groupId/settings';
   static String groupMembersPath(String groupId) => '/chat/group/$groupId/members';
   static String groupAddMembersPath(String groupId) => '/chat/group/$groupId/add-members';
 
-  // ─── Nouveauté : Messages protégés ───
-  // Pas de route spécifique, géré dans ChatScreen via dialog
-
-  // ─── Nouveauté : Appels audio/vidéo (à venir) ───
   static const String call = '/call';
   static const String callIncoming = '/call/incoming';
   static const String callOutgoing = '/call/outgoing';
   
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String callWithUser(String userId) => '/call/$userId';
 
   // THIX Événement
@@ -108,70 +101,102 @@ class AppRoutes {
   // ═══════════════════════════════════════════════════════════════════════
   // ─── MON PAYS ───
   // ═══════════════════════════════════════════════════════════════════════
-  // === Routes principales ===
   static const String monPays = '/mon-pays';
-  
-  // === Autorités ===
   static const String monPaysAuthorities = '/mon-pays/authorities';
   static const String monPaysAuthorityProfile = '/mon-pays/authority/:id';
-  
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
- // ============================================================
-// MON PAYS – PROVINCES (Phase 2B)
-// ============================================================
 
-// Routes publiques
-static const String monPaysProvinces = '/mon-pays/provinces';
-static const String monPaysProvinceDetail = '/mon-pays/provinces/:id';
+  static const String monPaysProvinces = '/mon-pays/provinces';
+  static const String monPaysProvinceDetail = '/mon-pays/provinces/:id';
+  static const String monPaysAdminProvinces = '/mon-pays/admin/provinces';
+  static const String monPaysAdminProvinceForm = '/mon-pays/admin/provinces/form';
+  static const String monPaysAdminGovernmentForm = '/mon-pays/admin/provinces/government/:provinceId';
+  static const String monPaysAdminEconomicForm = '/mon-pays/admin/provinces/economic/:provinceId';
+  static const String monPaysAdminBudgetForm = '/mon-pays/admin/provinces/budget/:provinceId';
+  static const String monPaysAdminTourismForm = '/mon-pays/admin/provinces/tourism/:provinceId';
+  static const String monPaysAdminEmergencyForm = '/mon-pays/admin/provinces/emergency/:provinceId';
+  static const String monPaysAdminAdministrativeForm = '/mon-pays/admin/provinces/administrative/:provinceId';
+  static const String monPaysAdminAchievementForm = '/mon-pays/admin/provinces/achievement/:provinceId';
+  static const String monPaysAdminMediaForm = '/mon-pays/admin/provinces/media/:provinceId';
 
-// Routes admin
-static const String monPaysAdminProvinces = '/mon-pays/admin/provinces';
-static const String monPaysAdminProvinceForm = '/mon-pays/admin/provinces/form';
-static const String monPaysAdminGovernmentForm = '/mon-pays/admin/provinces/government/:provinceId';
-static const String monPaysAdminEconomicForm = '/mon-pays/admin/provinces/economic/:provinceId';
-static const String monPaysAdminBudgetForm = '/mon-pays/admin/provinces/budget/:provinceId';
-static const String monPaysAdminTourismForm = '/mon-pays/admin/provinces/tourism/:provinceId';
-static const String monPaysAdminEmergencyForm = '/mon-pays/admin/provinces/emergency/:provinceId';
-static const String monPaysAdminAdministrativeForm = '/mon-pays/admin/provinces/administrative/:provinceId';
-static const String monPaysAdminAchievementForm = '/mon-pays/admin/provinces/achievement/:provinceId';
-static const String monPaysAdminMediaForm = '/mon-pays/admin/provinces/media/:provinceId';
+  static String monPaysProvinceDetailPath(String id) => '/mon-pays/provinces/$id';
+  static String monPaysAdminProvinceFormPath({dynamic province}) => '/mon-pays/admin/provinces/form';
+  static String monPaysAdminGovernmentFormPath(String provinceId) => '/mon-pays/admin/provinces/government/$provinceId';
+  static String monPaysAdminEconomicFormPath(String provinceId) => '/mon-pays/admin/provinces/economic/$provinceId';
+  static String monPaysAdminBudgetFormPath(String provinceId) => '/mon-pays/admin/provinces/budget/$provinceId';
+  static String monPaysAdminTourismFormPath(String provinceId) => '/mon-pays/admin/provinces/tourism/$provinceId';
+  static String monPaysAdminEmergencyFormPath(String provinceId) => '/mon-pays/admin/provinces/emergency/$provinceId';
+  static String monPaysAdminAdministrativeFormPath(String provinceId) => '/mon-pays/admin/provinces/administrative/$provinceId';
+  static String monPaysAdminAchievementFormPath(String provinceId) => '/mon-pays/admin/provinces/achievement/$provinceId';
+  static String monPaysAdminMediaFormPath(String provinceId) => '/mon-pays/admin/provinces/media/$provinceId';
 
-// Helpers pour routes dynamiques
-static String monPaysProvinceDetailPath(String id) => '/mon-pays/provinces/$id';
-static String monPaysAdminProvinceFormPath({dynamic province}) => '/mon-pays/admin/provinces/form';
-static String monPaysAdminGovernmentFormPath(String provinceId) => '/mon-pays/admin/provinces/government/$provinceId';
-static String monPaysAdminEconomicFormPath(String provinceId) => '/mon-pays/admin/provinces/economic/$provinceId';
-static String monPaysAdminBudgetFormPath(String provinceId) => '/mon-pays/admin/provinces/budget/$provinceId';
-static String monPaysAdminTourismFormPath(String provinceId) => '/mon-pays/admin/provinces/tourism/$provinceId';
-static String monPaysAdminEmergencyFormPath(String provinceId) => '/mon-pays/admin/provinces/emergency/$provinceId';
-static String monPaysAdminAdministrativeFormPath(String provinceId) => '/mon-pays/admin/provinces/administrative/$provinceId';
-static String monPaysAdminAchievementFormPath(String provinceId) => '/mon-pays/admin/provinces/achievement/$provinceId';
-static String monPaysAdminMediaFormPath(String provinceId) => '/mon-pays/admin/provinces/media/$provinceId';
-  // === Valeurs & Lois ===
   static const String monPaysLaws = '/mon-pays/laws';
   static const String monPaysArticleType = '/mon-pays/laws/:type';
   static const String monPaysArticleDetail = '/mon-pays/laws/article/:id';
-  
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String monPaysArticleTypePath(String type) => '/mon-pays/laws/$type';
   static String monPaysArticleDetailPath(String id) => '/mon-pays/laws/article/$id';
 
-  // === Administration ===
   static const String monPaysAdmin = '/mon-pays/admin';
   static const String monPaysAdminAuthorities = '/mon-pays/admin/authorities';
   static const String monPaysAdminForm = '/mon-pays/admin/form';
   static const String monPaysAdminArticles = '/mon-pays/admin/articles';
   static const String monPaysAdminArticleForm = '/mon-pays/admin/articles/form';
-  
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
   static String monPaysAdminArticleFormPath({dynamic article}) => '/mon-pays/admin/articles/form';
 
   // ========================================================================
+  // ─── THIX SANTÉ - 31 Routes Complètes (20 Rapides + 11 Santé) ───
+  // Source réelle Supabase RLS - THIX ID UID - Sans mock
+  // ========================================================================
+
+  // Base
+  static const String thixSante = '/thix-sante';
+  static const String thixSanteDashboard = '/thix-sante/dashboard';
+
+  // ─── Services Rapides 20/20 (capture exacte, Don d'organes supprimé) ───
+  static const String santeConsulterMedecin = '/thix-sante/consulter-medecin';
+  static const String santeDossierMedical = '/thix-sante/dossier-medical';
+  static const String santeResultatsExamens = '/thix-sante/resultats-examens';
+  static const String santeOrdonnances = '/thix-sante/ordonnances';
+  static const String santeTrouverHopital = '/thix-sante/trouver-hopital';
+  static const String santeTrouverMedicament = '/thix-sante/trouver-medicament';
+  static const String santePharmaciesProches = '/thix-sante/pharmacies-proches';
+  static const String santeUrgencesProches = '/thix-sante/urgences-proches';
+  static const String santePrendreRdv = '/thix-sante/prendre-rdv';
+  static const String santeTeleconsultation = '/thix-sante/teleconsultation';
+  static const String santeAssistantIA = '/thix-sante/assistant-ia';
+  static const String santeDossierPartage = '/thix-sante/dossier-partage';
+  static const String santeEpidemies = '/thix-sante/epidemies';
+  static const String santeDonSang = '/thix-sante/don-sang';
+  static const String santeMonMedecinTraitant = '/thix-sante/mon-medecin-traitant'; // NEW - health_links
+  static const String santeDossierFamille = '/thix-sante/dossier-famille'; // NEW - family_links
+  static const String santeSecondAvis = '/thix-sante/second-avis'; // NEW - second_opinion_requests
+  static const String santeRappelsVaccin = '/thix-sante/rappels-vaccin';
+  static const String santeCertificatMedical = '/thix-sante/certificat-medical';
+  static const String santeAssurance = '/thix-sante/assurance';
+
+  // ─── Services Santé 11/11 (sans mock, Supabase réel) ───
+  static const String santeEnfants = '/thix-sante/sante-enfants'; // family_links relation=enfant
+  static const String santeCarnetVaccination = '/thix-sante/carnet-vaccination'; // health_records type=vaccin + QR
+  static const String santeSuiviGrossesse = '/thix-sante/suivi-grossesse'; // health_records ilike %grossesse% + calcul SA
+  static const String santeAnalysePredictive = '/thix-sante/analyse-predictive'; // health_records+prescriptions+links -> score
+  static const String santeBienEtreMental = '/thix-sante/bien-etre-mental'; // mood_entries
+  static const String santeNutrition = '/thix-sante/nutrition'; // nutrition_logs + IMC réel
+  static const String santeActivitePhysique = '/thix-sante/activite-physique'; // activity_logs
+  static const String santeGestionStress = '/thix-sante/gestion-stress'; // stress_logs + timer
+  static const String santeAssuranceSanteDetail = '/thix-sante/assurance-sante'; // insurance_claims + Storage invoices
+  static const String santePlusServices = '/thix-sante/plus-services'; // service_catalog + user_favorites
+
+  // ─── Helpers dynamiques THIX Santé ───
+  static String santeOrdonnanceDetail(String id) => '/thix-sante/ordonnances/$id';
+  static String santeDossierDetail(String recordId) => '/thix-sante/dossier-medical/$recordId';
+  static String santeTeleconsultationRoom(String roomId) => '/thix-sante/teleconsultation/$roomId';
+  static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
+  static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
+
+  // ========================================================================
   // HELPERS GÉNÉRIQUES
   // ========================================================================
-  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
