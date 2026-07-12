@@ -1,5 +1,4 @@
 // lib/presentation/mon_pays/models/article.dart
-// Entité Article (unique pour Constitution, Codes, Lois, etc.)
 
 enum ArticleType {
   constitution,
@@ -59,7 +58,7 @@ class Article {
   final ArticleType type;
   final String title;
   final String? chapter;
-  final String? articleNumber; // ex: "3", "14-1"
+  final String? articleNumber;
   final String content;
   final String? explanation;
   final bool isPublished;
@@ -98,18 +97,26 @@ class Article {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'type': type.toString().split('.').last,
-    'title': title,
-    'chapter': chapter,
-    'article_number': articleNumber,
-    'content': content,
-    'explanation': explanation,
-    'is_published': isPublished,
-    'published_at': publishedAt?.toIso8601String(),
-    'updated_at': updatedAt?.toIso8601String(),
-  };
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{
+      'type': type.toString().split('.').last,
+      'title': title,
+      'chapter': chapter,
+      'article_number': articleNumber,
+      'content': content,
+      'explanation': explanation,
+      'is_published': isPublished,
+      'published_at': publishedAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+
+    // On n'ajoute l'ID au JSON que s'il n'est pas vide (pour la création)
+    if (id.isNotEmpty) {
+      map['id'] = id;
+    }
+
+    return map;
+  }
 
   Article copyWith({
     String? id,
