@@ -70,6 +70,8 @@ class AppRoutes {
   static const String chat = '/chat';
   static const String chatNew = '/chat/new';
   static const String chatConversation = '/chat/:conversationId';
+  
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String chatDetail(String conversationId) => '/chat/$conversationId';
 
   // ─── Groupes ───
@@ -79,7 +81,7 @@ class AppRoutes {
   static const String groupMembers = '/chat/group/:groupId/members';
   static const String groupAddMembers = '/chat/group/:groupId/add-members';
 
-  // Helpers pour les routes dynamiques (Groupes)
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String groupInfoPath(String groupId) => '/chat/group/$groupId/info';
   static String groupSettingsPath(String groupId) => '/chat/group/$groupId/settings';
   static String groupMembersPath(String groupId) => '/chat/group/$groupId/members';
@@ -92,6 +94,8 @@ class AppRoutes {
   static const String call = '/call';
   static const String callIncoming = '/call/incoming';
   static const String callOutgoing = '/call/outgoing';
+  
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String callWithUser(String userId) => '/call/$userId';
 
   // THIX Événement
@@ -120,31 +124,34 @@ class AppRoutes {
   // === Autorités ===
   static const String monPaysAuthorities = '/mon-pays/authorities';
   static const String monPaysAuthorityProfile = '/mon-pays/authority/:id';
-  static const String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
+  
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
+  static String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
 
   // === Valeurs & Lois ===
   static const String monPaysLaws = '/mon-pays/laws';
   static const String monPaysArticleType = '/mon-pays/laws/:type';
-  static const String monPaysArticleTypePath(String type) => '/mon-pays/laws/$type';
   static const String monPaysArticleDetail = '/mon-pays/laws/article/:id';
-  static const String monPaysArticleDetailPath(String id) => '/mon-pays/laws/article/$id';
+  
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
+  static String monPaysArticleTypePath(String type) => '/mon-pays/laws/$type';
+  static String monPaysArticleDetailPath(String id) => '/mon-pays/laws/article/$id';
 
   // === Administration ===
   static const String monPaysAdmin = '/mon-pays/admin';
   static const String monPaysAdminAuthorities = '/mon-pays/admin/authorities';
   static const String monPaysAdminForm = '/mon-pays/admin/form';
-  static const String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
   static const String monPaysAdminArticles = '/mon-pays/admin/articles';
   static const String monPaysAdminArticleForm = '/mon-pays/admin/articles/form';
-  static const String monPaysAdminArticleFormPath({dynamic article}) => '/mon-pays/admin/articles/form';
-
-  // === Helpers pour les routes dynamiques ===
-  static String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
+  
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
+  static String monPaysAdminArticleFormPath({dynamic article}) => '/mon-pays/admin/articles/form';
 
   // ========================================================================
   // HELPERS GÉNÉRIQUES
   // ========================================================================
+  // ✅ CORRECTION : Supprimer 'const' des méthodes statiques
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
