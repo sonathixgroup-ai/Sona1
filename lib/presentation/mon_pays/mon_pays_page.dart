@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'sections/authorities_section.dart';
 import 'sections/header_section.dart';
 import 'admin/admin_authorities_page.dart';
+// === IMPORTS POUR PROVINCES ===
+import 'providers/provinces_provider.dart';
 
 class MonPaysPage extends ConsumerWidget {
   const MonPaysPage({super.key});
@@ -51,6 +53,9 @@ class MonPaysPage extends ConsumerWidget {
                   _buildNewsSection(context),
                   const SizedBox(height: 24),
                   _buildAgenciesSection(context),
+                  const SizedBox(height: 24),
+                  // === NOUVEAU : SECTION PROVINCES ===
+                  _buildProvincesSection(context, ref),
                   const SizedBox(height: 24),
                   _buildQuickAccessRow(context),
                   const SizedBox(height: 20),
@@ -407,7 +412,120 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 5. ACCÈS RAPIDES
+  // 5. PROVINCES (NOUVEAU)
+  // ============================================================
+  Widget _buildProvincesSection(BuildContext context, WidgetRef ref) {
+    final provincesAsync = ref.watch(provincesProvider(null));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('🗺️ Provinces', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
+            InkWell(
+              onTap: () => context.push('/mon-pays/provinces'),
+              child: const Text('Voir toutes →', style: TextStyle(color: navy, fontWeight: FontWeight.w600, fontSize: 12)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        provincesAsync.when(
+          loading: () => const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, __) => const SizedBox(
+            height: 120,
+            child: Center(child: Text('Impossible de charger les provinces', style: TextStyle(color: danger, fontSize: 12))),
+          ),
+          data: (provinces) {
+            if (provinces.isEmpty) {
+              return const SizedBox(
+                height: 120,
+                child: Center(child: Text('Aucune province enregistrée', style: TextStyle(color: mutedText, fontSize: 12))),
+              );
+            }
+            final display = provinces.take(4).toList();
+            return SizedBox(
+              height: 130,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: display.length,
+                itemBuilder: (context, index) {
+                  final province = display[index];
+                  return Container(
+                    width: 140,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: pureWhite,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: hairline),
+                      boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => context.push('/mon-pays/provinces/${province.id}'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Blason ou placeholder
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                image: province.coatOfArmsUrl != null
+                                    ? DecorationImage(image: NetworkImage(province.coatOfArmsUrl!), fit: BoxFit.contain)
+                                    : null,
+                                color: Colors.grey.shade200,
+                              ),
+                              child: province.coatOfArmsUrl == null
+                                  ? Center(
+                                      child: Text(
+                                        province.code.substring(0, 2).toUpperCase(),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              province.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              province.capital,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 10, color: mutedText),
+                            ),
+                            if (province.population != null)
+                              Text(
+                                '${province.population!} hab.',
+                                style: TextStyle(fontSize: 9, color: mutedText),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // 6. ACCÈS RAPIDES
   // ============================================================
   Widget _buildQuickAccessRow(BuildContext context) {
     final items = [
@@ -463,7 +581,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 6. CITOYENS EXEMPLAIRES
+  // 7. CITOYENS EXEMPLAIRES
   // ============================================================
   Widget _buildCitizensBanner(BuildContext context) {
     return Container(
@@ -506,7 +624,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 7. ALERTES
+  // 8. ALERTES
   // ============================================================
   Widget _buildAlertRow(BuildContext context) {
     return Row(
@@ -569,7 +687,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 8. TOUS LES MODULES (grille complète)
+  // 9. TOUS LES MODULES (grille complète)
   // ============================================================
   Widget _buildModulesGrid(BuildContext context) {
     final modules = [
@@ -577,6 +695,7 @@ class MonPaysPage extends ConsumerWidget {
       {'icon': Icons.history_edu_rounded, 'label': 'Figures Historiques', 'active': false},
       {'icon': Icons.newspaper_rounded, 'label': 'À la Une', 'active': false},
       {'icon': Icons.business_rounded, 'label': 'Agences & Institutions', 'active': false},
+      {'icon': Icons.map_rounded, 'label': 'Provinces', 'active': true}, // <-- AJOUT
       {'icon': Icons.video_library_rounded, 'label': 'Vidéos Officielles', 'active': false},
       {'icon': Icons.library_books_rounded, 'label': 'Documentaires', 'active': false},
       {'icon': Icons.people_alt_rounded, 'label': 'Citoyens Exemplaires', 'active': false},
@@ -609,6 +728,8 @@ class MonPaysPage extends ConsumerWidget {
                         context.push('/mon-pays/authorities');
                       } else if (label == 'Valeurs & Lois') {
                         context.push('/mon-pays/laws');
+                      } else if (label == 'Provinces') {
+                        context.push('/mon-pays/provinces');
                       } else {
                         _showComingSoon(context);
                       }
