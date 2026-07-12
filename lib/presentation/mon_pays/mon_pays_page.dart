@@ -245,7 +245,8 @@ class MonPaysPage extends ConsumerWidget {
                             height: 150,
                             width: double.infinity,
                             fit: BoxFit.cover,
-                            colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+                            color: Colors.grey,
+                            colorBlendMode: BlendMode.saturation,
                           ),
                         ),
                         Padding(
@@ -572,17 +573,4 @@ class _SectionContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: MonPaysPage.cardBorder), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(number, style: const TextStyle(fontWeight: FontWeight.w900, color: MonPaysPage.primaryBlue, fontSize: 16)),
-          const SizedBox(width: 4),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: MonPaysPage.primaryBlue))),
-          InkWell(onTap: onAction, child: Row(children: [Text(actionLabel, style: const TextStyle(fontSize: 11, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w600)), const Icon(Icons.chevron_right, size: 16, color: Color(0xFF5B8DEF))])),
-        ]),
-        const SizedBox(height: 14),
-        child,
-      ]),
-    );
-  }
-}
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: MonPaysPage.cardBorder), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius:
