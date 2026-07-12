@@ -1,271 +1,190 @@
 // lib/presentation/mon_pays/sections/authorities_section.dart
-// Section des autorités sur la page d'accueil
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/authorities_provider.dart';
-import '../providers/favorites_provider.dart';
 import '../models/authority.dart';
-import '../cards/authority_card.dart';
-import '../pages/authorities/authority_profile_page.dart';
 
-class AuthoritiesSection extends ConsumerStatefulWidget {
+class AuthoritiesSection extends ConsumerWidget {
   const AuthoritiesSection({super.key});
 
-  @override
-  ConsumerState<AuthoritiesSection> createState() => _AuthoritiesSectionState();
-}
+  // Charte THIX ID
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color hairline = Color(0xFFE7EAF3);
 
-class _AuthoritiesSectionState extends ConsumerState<AuthoritiesSection> {
-  final int _maxDisplay = 5;
-
   @override
-  Widget build(BuildContext context) {
-    final authoritiesAsync = ref.watch(authoritiesProvider(null));
+  Widget build(BuildContext context, WidgetRef ref) {
+    // On charge toutes les autorités pour les filtrer localement
+    final authoritiesAsync = ref.watch(authoritiesProvider('Tous'));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(context),
-        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(Icons.account_balance_rounded, color: navyDeep, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Hautes Autorités',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: darkText,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
         authoritiesAsync.when(
-          loading: () => _buildLoadingState(),
-          error: (error, stack) => _buildErrorState(error),
-          data: (authorities) => _buildDataState(authorities, context),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(color: navy),
+            ),
+          ),
+          error: (err, stack) => Center(child: Text('Erreur : $err', style: const TextStyle(color: Colors.red))),
+          data: (authorities) {
+            
+            // 1. On cherche les 4 VIP spécifiques
+            final president = _findVip(authorities, 'Président de la République', null);
+            final pm = _findVip(authorities, 'Gouvernement', ['premier', 'première']);
+            final assemblee = _findVip(authorities, 'Assemblée Nationale', ['président']);
+            final senat = _findVip(authorities, 'Sénat', ['président']);
+
+            // 2. On prépare les données pour la grille
+            final vips = [
+              {'role': 'Président de la République', 'data': president},
+              {'role': 'Première Ministre', 'data': pm},
+              {'role': 'Assemblée Nationale', 'data': assemblee},
+              {'role': 'Sénat', 'data': senat},
+            ];
+
+            // 3. Affichage en grille 2x2
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(), // Désactive le scroll interne
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.85, // Ajuste la hauteur des cartes
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                final vip = vips[index];
+                final authority = vip['data'] as Authority?;
+                final defaultRole = vip['role'] as String;
+
+                return _buildVipCard(context, authority, defaultRole);
+              },
+            );
+          },
         ),
       ],
     );
   }
 
-  // ==================== SECTION HEADER ====================
-
-  Widget _buildSectionHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A5276).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.account_balance,
-                  color: Color(0xFF1A5276),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Autorités',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          InkWell(
-            onTap: () {
-              context.go('/mon-pays/authorities');
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A5276).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Color(0xFF1A5276),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: Color(0xFF1A5276),
-                    size: 12,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== LOADING STATE ====================
-
-  Widget _buildLoadingState() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 20),
-      child: Center(
-        child: Column(
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5276)),
-              strokeWidth: 2,
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Chargement des autorités...',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== ERROR STATE ====================
-
-  Widget _buildErrorState(Object error) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Center(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline,
-                color: Colors.red.shade400,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Impossible de charger les autorités',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () {
-                ref.invalidate(authoritiesProvider(null));
-              },
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Réessayer'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1A5276),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== DATA STATE ====================
-
-  Widget _buildDataState(List<Authority> authorities, BuildContext context) {
-    if (authorities.isEmpty) {
-      return _buildEmptyState();
+  /// Fonction intelligente pour trouver une autorité selon sa catégorie et un mot-clé dans son titre
+  Authority? _findVip(List<Authority> authorities, String category, List<String>? keywords) {
+    try {
+      return authorities.firstWhere((a) {
+        bool matchCategory = a.category == category;
+        bool matchKeyword = true;
+        
+        if (keywords != null && keywords.isNotEmpty) {
+          final titleLower = a.title.toLowerCase();
+          matchKeyword = keywords.any((kw) => titleLower.contains(kw));
+        }
+        
+        return matchCategory && matchKeyword;
+      });
+    } catch (e) {
+      return null; // Retourne null si la personne n'a pas encore été créée
     }
-
-    final displayList = authorities.take(_maxDisplay).toList();
-    final remainingCount = authorities.length - _maxDisplay;
-
-    return Column(
-      children: [
-        // Liste des autorités
-        ...displayList.map((authority) {
-          return AuthorityCard(
-            authority: authority,
-            onTap: () {
-              context.go('/mon-pays/authority/${authority.id}');
-            },
-          );
-        }).toList(),
-        // Message "et X autres"
-        if (remainingCount > 0) ...[
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: InkWell(
-              onTap: () {
-                context.go('/mon-pays/authorities');
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFF1A5276).withOpacity(0.2),
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    'Et $remainingCount autre${remainingCount > 1 ? 's' : ''} →',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-        // Ligne de séparation
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Divider(height: 1),
-        ),
-      ],
-    );
   }
 
-  // ==================== EMPTY STATE ====================
+  /// Design de la carte (Photo + Nom + Titre)
+  Widget _buildVipCard(BuildContext context, Authority? authority, String defaultRole) {
+    final hasData = authority != null;
+    final name = hasData ? authority.name : 'Non assigné';
+    final title = hasData ? authority.title : defaultRole;
+    final imageUrl = hasData ? authority.imageUrl : null;
 
-  Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-      child: const Center(
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: hasData ? () => context.push('/mon-pays/authority/${authority.id}') : null,
+      child: Container(
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: hairline),
+          boxShadow: [
+            BoxShadow(
+              color: navyDeep.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.people_outline,
-              size: 48,
-              color: Colors.grey,
+            // Avatar avec bordure dorée
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF6F7FB),
+                border: Border.all(color: gold, width: 2),
+                image: imageUrl != null && imageUrl.isNotEmpty
+                    ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                    : null,
+              ),
+              child: imageUrl == null || imageUrl.isEmpty
+                  ? const Icon(Icons.person_rounded, color: mutedText, size: 32)
+                  : null,
             ),
-            SizedBox(height: 12),
-            Text(
-              'Aucune autorité enregistrée',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+            const SizedBox(height: 10),
+            
+            // Nom
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: hasData ? darkText : mutedText,
+                ),
               ),
             ),
-            SizedBox(height: 4),
-            Text(
-              'Les autorités seront bientôt disponibles',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
+            const SizedBox(height: 4),
+            
+            // Titre (Fonction)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: hasData ? navy : mutedText,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
               ),
             ),
           ],
