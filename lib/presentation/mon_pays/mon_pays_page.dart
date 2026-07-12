@@ -750,7 +750,20 @@ class MonPaysPage extends ConsumerWidget {
   Widget _navItem(IconData icon, String label, bool isSelected) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () {},
+      onTap: () {
+        // Navigation vers les pages correspondantes
+        if (label == 'Accueil') {
+          context.push('/');
+        } else if (label == 'Mon Pays') {
+          context.push('/mon-pays');
+        } else if (label == 'Services') {
+          // TODO: Navigation vers Services
+          _showComingSoon(context);
+        } else if (label == 'Mon Compte') {
+          // TODO: Navigation vers Mon Compte
+          _showComingSoon(context);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
