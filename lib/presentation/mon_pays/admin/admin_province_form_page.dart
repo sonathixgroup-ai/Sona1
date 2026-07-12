@@ -1,14 +1,16 @@
+// ============================================================
+// FICHIER 21 : admin/admin_province_form_page.dart
+// ============================================================
 // lib/presentation/mon_pays/admin/admin_province_form_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../models/province.dart';
 import '../providers/provinces_provider.dart';
 
 class AdminProvinceFormPage extends ConsumerStatefulWidget {
-  final Province? province;
-  const AdminProvinceFormPage({super.key, this.province});
+  const AdminProvinceFormPage({super.key});
 
   @override
   ConsumerState<AdminProvinceFormPage> createState() => _AdminProvinceFormPageState();
@@ -16,102 +18,194 @@ class AdminProvinceFormPage extends ConsumerStatefulWidget {
 
 class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Contrôleurs de base
-  late TextEditingController _nameCtrl, _codeCtrl, _capitalCtrl, _descCtrl, _popCtrl, _areaCtrl, _coverCtrl, _blasonCtrl;
-  
-  // Listes dynamiques (Ministres, Villes, Contacts)
-  List<Map<String, TextEditingController>> _ministers = [];
-  List<Map<String, TextEditingController>> _cities = [];
-
-  bool _isUploading = false;
+  late TextEditingController _nameController;
+  late TextEditingController _codeController;
+  late TextEditingController _capitalController;
+  late TextEditingController _regionController;
+  late TextEditingController _areaController;
+  late TextEditingController _populationController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _coverImageUrlController;
+  late TextEditingController _coatOfArmsUrlController;
+  late TextEditingController _mapUrlController;
+  late TextEditingController _websiteController;
+  bool _isEditing = false;
+  String? _provinceId;
 
   @override
   void initState() {
     super.initState();
-    final p = widget.province;
-    _nameCtrl = TextEditingController(text: p?.name ?? '');
-    _codeCtrl = TextEditingController(text: p?.code ?? '');
-    _capitalCtrl = TextEditingController(text: p?.capital ?? '');
-    _descCtrl = TextEditingController(text: p?.description ?? '');
-    _popCtrl = TextEditingController(text: p?.population ?? '');
-    _areaCtrl = TextEditingController(text: p?.surfaceArea ?? '');
-    _coverCtrl = TextEditingController(text: p?.coverUrl ?? '');
-    _blasonCtrl = TextEditingController(text: p?.coatOfArmsUrl ?? '');
-
-    // Initialisation des listes dynamiques depuis le modèle
-    _ministers = p?.provincialMinisters.map((m) => {
-      'name': TextEditingController(text: m['name']),
-      'role': TextEditingController(text: m['role'])
-    }).toList() ?? [];
+    final extra = ModalRoute.of(context)?.settings.arguments;
+    Province? province;
+    if (extra is Province) {
+      province = extra;
+      _isEditing = true;
+      _provinceId = province.id;
+    }
+    _nameController = TextEditingController(text: province?.name ?? '');
+    _codeController = TextEditingController(text: province?.code ?? '');
+    _capitalController = TextEditingController(text: province?.capital ?? '');
+    _regionController = TextEditingController(text: province?.region ?? '');
+    _areaController = TextEditingController(text: province?.area?.toString() ?? '');
+    _populationController = TextEditingController(text: province?.population?.toString() ?? '');
+    _descriptionController = TextEditingController(text: province?.description ?? '');
+    _coverImageUrlController = TextEditingController(text: province?.coverImageUrl ?? '');
+    _coatOfArmsUrlController = TextEditingController(text: province?.coatOfArmsUrl ?? '');
+    _mapUrlController = TextEditingController(text: province?.mapUrl ?? '');
+    _websiteController = TextEditingController(text: province?.website ?? '');
   }
 
-  // --- LOGIQUE D'UPLOAD ---
-  Future<void> _uploadImage(bool isCover) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
-    if (result != null && result.files.first.bytes != null) {
-      setState(() => _isUploading = true);
-      final url = await ref.read(provincesServiceProvider).uploadProvinceMedia(
-        result.files.first.name, result.files.first.bytes!, isCover ? 'covers' : 'blasons'
-      );
-      setState(() {
-        if (isCover) _coverCtrl.text = url; else _blasonCtrl.text = url;
-        _isUploading = false;
-      });
-    }
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _codeController.dispose();
+    _capitalController.dispose();
+    _regionController.dispose();
+    _areaController.dispose();
+    _populationController.dispose();
+    _descriptionController.dispose();
+    _coverImageUrlController.dispose();
+    _coatOfArmsUrlController.dispose();
+    _mapUrlController.dispose();
+    _websiteController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.province == null ? 'Nouvelle Province' : 'Modifier')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildSectionTitle('Identité'),
-            TextFormField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Nom de la province')),
-            TextFormField(controller: _codeCtrl, decoration: const InputDecoration(labelText: 'Code (ex: KN)')),
-            TextFormField(controller: _capitalCtrl, decoration: const InputDecoration(labelText: 'Capitale')),
-            
-            _buildSectionTitle('Gouvernement Provincial'),
-            ..._ministers.asMap().entries.map((e) => Row(children: [
-              Expanded(child: TextFormField(controller: e.value['name'], decoration: const InputDecoration(labelText: 'Nom du Ministre'))),
-              Expanded(child: TextFormField(controller: e.value['role'], decoration: const InputDecoration(labelText: 'Portefeuille'))),
-              IconButton(icon: const Icon(Icons.delete), onPressed: () => setState(() => _ministers.removeAt(e.key)))
-            ])),
-            TextButton.icon(
-              onPressed: () => setState(() => _ministers.add({'name': TextEditingController(), 'role': TextEditingController()})),
-              icon: const Icon(Icons.add), label: const Text('Ajouter un ministre')
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Modifier la province' : 'Nouvelle province'),
+        backgroundColor: Colors.red.shade700,
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Nom *'),
+                  validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _codeController,
+                  decoration: const InputDecoration(labelText: 'Code (ex: KIN) *'),
+                  validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _capitalController,
+                  decoration: const InputDecoration(labelText: 'Capitale *'),
+                  validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _regionController.text.isNotEmpty ? _regionController.text : null,
+                  decoration: const InputDecoration(labelText: 'Région *'),
+                  items: const [
+                    DropdownMenuItem(value: 'Centre', child: Text('Centre')),
+                    DropdownMenuItem(value: 'Est', child: Text('Est')),
+                    DropdownMenuItem(value: 'Ouest', child: Text('Ouest')),
+                    DropdownMenuItem(value: 'Nord', child: Text('Nord')),
+                    DropdownMenuItem(value: 'Sud', child: Text('Sud')),
+                  ],
+                  onChanged: (value) => _regionController.text = value!,
+                  validator: (v) => v == null ? 'Champ requis' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _areaController,
+                  decoration: const InputDecoration(labelText: 'Superficie (km²)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _populationController,
+                  decoration: const InputDecoration(labelText: 'Population'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _coverImageUrlController,
+                  decoration: const InputDecoration(labelText: 'URL de la couverture'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _coatOfArmsUrlController,
+                  decoration: const InputDecoration(labelText: 'URL du blason'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _mapUrlController,
+                  decoration: const InputDecoration(labelText: 'URL de la carte'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _websiteController,
+                  decoration: const InputDecoration(labelText: 'Site web'),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: Colors.red.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(_isEditing ? 'Modifier' : 'Créer'),
+                ),
+              ],
             ),
-
-            const SizedBox(height: 30),
-            ElevatedButton(onPressed: _save, child: const Text('Enregistrer la Province'))
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _save() async {
+  void _save() async {
     if (!_formKey.currentState!.validate()) return;
-    
     final province = Province(
-      id: widget.province?.id ?? '',
-      name: _nameCtrl.text,
-      code: _codeCtrl.text,
-      capital: _capitalCtrl.text,
-      description: _descCtrl.text,
-      coverUrl: _coverCtrl.text,
-      coatOfArmsUrl: _blasonCtrl.text,
-      provincialMinisters: _ministers.map((m) => {
-        'name': m['name']!.text,
-        'role': m['role']!.text
-      }).toList(),
+      id: _provinceId ?? '',
+      name: _nameController.text.trim(),
+      code: _codeController.text.trim().toUpperCase(),
+      capital: _capitalController.text.trim(),
+      region: _regionController.text.trim(),
+      area: int.tryParse(_areaController.text.trim()),
+      population: int.tryParse(_populationController.text.trim()),
+      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+      coverImageUrl: _coverImageUrlController.text.trim().isEmpty ? null : _coverImageUrlController.text.trim(),
+      coatOfArmsUrl: _coatOfArmsUrlController.text.trim().isEmpty ? null : _coatOfArmsUrlController.text.trim(),
+      mapUrl: _mapUrlController.text.trim().isEmpty ? null : _mapUrlController.text.trim(),
+      website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
     );
-
-    await ref.read(provincesServiceProvider).saveProvince(province);
-    if (mounted) Navigator.pop(context);
+    final notifier = ref.read(adminProvincesProvider.notifier);
+    try {
+      if (_isEditing) {
+        await notifier.updateProvince(province);
+      } else {
+        await notifier.createProvince(province);
+      }
+      if (mounted) context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
