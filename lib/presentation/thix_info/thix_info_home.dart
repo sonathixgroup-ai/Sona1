@@ -14,6 +14,7 @@ import '../../models/news_article.dart';
 class _InfoColors {
   static const Color primaryBlue = Color(0xFF0B3D91);
   static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A); // <-- LA COULEUR MANQUANTE EST ICI
   static const Color lightBg = Color(0xFFF6F8FB);
   static const Color gold = Color(0xFFF7C948);
   static const Color mutedText = Color(0xFF6B7690);
