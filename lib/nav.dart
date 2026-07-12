@@ -42,17 +42,7 @@ class AppRoutes {
   static const String instructorDashboard = '/';
   static const String instructorCourses = '/instructor/courses';
 
-  // Santé
-  static const String thixSante = '/sante';
-  static const String thixSantePatient = '/sante/patient';
-  static const String thixSanteDoctor = '/sante/medecin';
-  static const String thixSantePharmacy = '/sante/pharmacie';
-  static const String reservation = '/reservation';
-  static const String thixMoney = '/thix-money';
-  static const String thixMedia = '/thix-media';
-  static const String thixMediaVideo = '/thix-media/video';
-  static const String adminMedia = '/admin/media';
-
+  
   // THIX INFO
   static const String thixInfo = '/thix-info';
   static const String thixInfoArticle = '/thix-info/article/:articleId';
