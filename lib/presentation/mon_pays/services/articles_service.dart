@@ -49,9 +49,18 @@ class ArticlesService {
 
   Future<Article> createArticle(Article article) async {
     try {
+      // 1. On récupère les données
+      final articleData = article.toJson();
+      
+      // 2. CORRECTION : On supprime l'ID s'il est vide pour laisser Supabase le générer
+      if (articleData['id'] == null || articleData['id'] == '') {
+        articleData.remove('id');
+      }
+
+      // 3. On insère les données nettoyées
       final response = await _client
           .from('articles')
-          .insert(article.toJson())
+          .insert(articleData)
           .select()
           .single();
       return Article.fromJson(response);
