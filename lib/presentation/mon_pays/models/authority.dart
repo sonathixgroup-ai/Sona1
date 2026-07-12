@@ -1,5 +1,4 @@
 // lib/presentation/mon_pays/models/authority.dart
-// Entité Autorité avec fromJson/toJson
 
 class Authority {
   final String id;
@@ -7,6 +6,7 @@ class Authority {
   final String title;
   final String? imageUrl;
   final String biography;
+  final String? explanation; // NOUVEAU CHAMP
   final String mandate;
   final String party;
   final List<String> speeches;
@@ -23,6 +23,7 @@ class Authority {
     required this.title,
     this.imageUrl,
     required this.biography,
+    this.explanation,
     required this.mandate,
     required this.party,
     this.speeches = const [],
@@ -41,6 +42,7 @@ class Authority {
       title: json['title'] as String,
       imageUrl: json['image_url'] as String?,
       biography: json['biography'] as String? ?? '',
+      explanation: json['explanation'] as String?, // LECTURE DU NOUVEAU CHAMP
       mandate: json['mandate'] as String? ?? '',
       party: json['party'] as String? ?? '',
       speeches: List<String>.from(json['speeches'] ?? []),
@@ -55,20 +57,29 @@ class Authority {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'title': title,
-    'image_url': imageUrl,
-    'biography': biography,
-    'mandate': mandate,
-    'party': party,
-    'speeches': speeches,
-    'videos': videos,
-    'publications': publications,
-    'social_networks': socialNetworks,
-    'agenda': agenda,
-  };
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{
+      'name': name,
+      'title': title,
+      'image_url': imageUrl,
+      'biography': biography,
+      'explanation': explanation, // SAUVEGARDE DU NOUVEAU CHAMP
+      'mandate': mandate,
+      'party': party,
+      'speeches': speeches,
+      'videos': videos,
+      'publications': publications,
+      'social_networks': socialNetworks,
+      'agenda': agenda,
+    };
+
+    // PROTECTION : On n'envoie l'ID que s'il n'est pas vide (création propre)
+    if (id.isNotEmpty) {
+      map['id'] = id;
+    }
+
+    return map;
+  }
 
   Authority copyWith({
     String? id,
@@ -76,6 +87,7 @@ class Authority {
     String? title,
     String? imageUrl,
     String? biography,
+    String? explanation,
     String? mandate,
     String? party,
     List<String>? speeches,
@@ -90,6 +102,7 @@ class Authority {
       title: title ?? this.title,
       imageUrl: imageUrl ?? this.imageUrl,
       biography: biography ?? this.biography,
+      explanation: explanation ?? this.explanation,
       mandate: mandate ?? this.mandate,
       party: party ?? this.party,
       speeches: speeches ?? this.speeches,
