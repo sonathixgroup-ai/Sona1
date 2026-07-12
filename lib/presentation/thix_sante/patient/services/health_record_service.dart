@@ -5,7 +5,7 @@ import '../models/health_record_model.dart';
 
 class HealthRecordService {
   HealthRecordService({SupabaseClient? client})
-      : _db = client?? Supabase.instance.client;
+      : _db = client ?? Supabase.instance.client;
 
   final SupabaseClient _db;
   static const String _bucket = 'health_docs';
@@ -18,7 +18,7 @@ class HealthRecordService {
         _db.from(_table).select().eq('patient_uid', uid);
 
     final List<dynamic> data;
-    if (filterType!= null) {
+    if (filterType != null) {
       data = await base.eq('type', filterType.name).order('created_at', ascending: false);
     } else {
       data = await base.order('created_at', ascending: false);
@@ -30,7 +30,7 @@ class HealthRecordService {
     final String uid = _db.auth.currentUser!.id;
     return _db.from(_table).stream(primaryKey: ['id']).eq('patient_uid', uid).map((rows) {
       final List<Map<String, dynamic>> filtered = rows.map((e) => e as Map<String, dynamic>).toList()
-       ..sort((a, b) => (b['created_at'] as String).compareTo(a['created_at'] as String));
+        ..sort((a, b) => (b['created_at'] as String).compareTo(a['created_at'] as String));
       return filtered.map(HealthRecordModel.fromJson).toList();
     });
   }
@@ -56,7 +56,7 @@ class HealthRecordService {
 
     String? fileUrl;
     int? fileSize;
-    if (fileBytes!= null && fileName!= null && mimeType!= null) {
+    if (fileBytes != null && fileName != null && mimeType != null) {
       fileUrl = await uploadMedicalFile(fileName: fileName, bytes: fileBytes, mimeType: mimeType);
       fileSize = fileBytes.length;
     }
@@ -82,14 +82,25 @@ class HealthRecordService {
     return await _db.storage.from(_bucket).createSignedUrl(filePath, 3600);
   }
 
-  Future<void> deleteRecord(HealthRecordModel record) async {
-    if (record.fileUrl!= null) {
+  Future<void> deleteRecord(String id) async {
+    final String uid = _db.auth.currentUser!.id;
+    
+    // 1. Récupération de l'enregistrement pour identifier s'il y a un fichier associé dans le Storage
+    final data = await _db.from(_table).select('file_url').eq('id', id).eq('patient_uid', uid).maybeSingle();
+
+    // 2. Suppression du fichier dans le Storage (s'il existe)
+    if (data != null && data['file_url'] != null) {
       try {
-        final String path = record.fileUrl!.split('$_bucket/').last.replaceFirst('/', '');
+        final String fileUrl = data['file_url'] as String;
+        final String path = fileUrl.split('$_bucket/').last.replaceFirst('/', '');
         await _db.storage.from(_bucket).remove([path]);
-      } catch (_) {}
+      } catch (_) {
+        // Silencieux : on ignore si la suppression du fichier échoue
+      }
     }
-    await _db.from(_table).delete().eq('id', record.id).eq('patient_uid', _db.auth.currentUser!.id);
+    
+    // 3. Suppression de la ligne correspondante dans la base de données
+    await _db.from(_table).delete().eq('id', id).eq('patient_uid', uid);
   }
 
   Future<Map<RecordType, int>> getStats() async {
@@ -98,7 +109,7 @@ class HealthRecordService {
     final Map<RecordType, int> counts = {};
     for (final row in data) {
       final t = RecordType.fromString(row['type'] as String?);
-      counts[t] = (counts[t]?? 0) + 1;
+      counts[t] = (counts[t] ?? 0) + 1;
     }
     return counts;
   }
