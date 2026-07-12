@@ -1,7 +1,7 @@
 // lib/presentation/mon_pays/services/cities_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/city.dart';
+import '../models/city.dart'; // ✅ IMPORT AJOUTÉ
 
 class CitiesService {
   final SupabaseClient _client = Supabase.instance.client;
