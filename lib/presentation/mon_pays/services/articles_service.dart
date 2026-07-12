@@ -1,121 +1,139 @@
-// lib/presentation/mon_pays/services/articles_service.dart
+// lib/presentation/mon_pays/services/authorities_service.dart
 
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/article.dart';
+import '../models/authority.dart';
 
-class ArticlesService {
+class AuthoritiesService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  // Récupérer les articles (publics ou admin)
-  Future<List<Article>> getArticles({
-    ArticleType? type,
-    bool? publishedOnly = true,
-    String? search,
-  }) async {
+  // ============================================================
+  // STORAGE (UPLOAD FICHIERS)
+  // ============================================================
+
+  /// Télécharge un fichier (photo ou vidéo) vers Supabase Storage
+  /// Retourne l'URL publique du fichier
+  Future<String> uploadMedia(String fileName, Uint8List fileBytes, {bool isVideo = false}) async {
     try {
-      var query = _client.from('articles').select('*');
+      final folder = isVideo ? 'videos' : 'photos';
+      final path = 'authorities/$folder/${DateTime.now().millisecondsSinceEpoch}_$fileName';
       
-      if (publishedOnly == true) {
-        query = query.eq('is_published', true);
-      }
+      // Envoi du fichier dans le bucket "media"
+      await _client.storage.from('media').uploadBinary(
+        path, 
+        fileBytes,
+        fileOptions: FileOptions(
+          upsert: true,
+          contentType: isVideo ? 'video/mp4' : 'image/jpeg',
+        ),
+      );
       
-      if (type != null) {
-        query = query.eq('type', type.toString().split('.').last);
-      }
-      
-      if (search != null && search.trim().isNotEmpty) {
-        query = query.or('title.ilike.%$search%,content.ilike.%$search%');
-      }
-      
-      final response = await query.order('type').order('article_number', ascending: true);
-      return response.map((json) => Article.fromJson(json)).toList();
+      // Récupérer le lien public
+      return _client.storage.from('media').getPublicUrl(path);
     } catch (e) {
-      throw Exception('Erreur lors du chargement des articles: $e');
+      throw Exception('Erreur lors du téléchargement du média: $e');
     }
   }
 
-  Future<Article> getArticleById(String id) async {
+  // ============================================================
+  // READ
+  // ============================================================
+
+  Future<List<Authority>> getAuthorities({String? category}) async {
     try {
+      var query = _client.from('authorities').select('*');
+      if (category != null && category != 'Tous' && category != 'Toutes') {
+        query = query.eq('title', category);
+      }
+      final response = await query.order('name');
+      return response.map((json) => Authority.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erreur lors du chargement des autorités: $e');
+    }
+  }
+
+  Future<Authority> getAuthorityById(String id) async {
+    try {
+      final response = await _client.from('authorities').select('*').eq('id', id).single();
+      return Authority.fromJson(response);
+    } catch (e) {
+      throw Exception('Erreur lors du chargement de l\'autorité: $e');
+    }
+  }
+
+  Future<List<Authority>> searchAuthorities(String query) async {
+    try {
+      if (query.trim().isEmpty) return [];
       final response = await _client
-          .from('articles')
+          .from('authorities')
           .select('*')
-          .eq('id', id)
-          .single();
-      return Article.fromJson(response);
+          .ilike('name', '%$query%')
+          .order('name');
+      return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
-      throw Exception('Erreur lors du chargement de l\'article: $e');
+      throw Exception('Erreur lors de la recherche: $e');
     }
   }
 
-  Future<Article> createArticle(Article article) async {
+  Future<List<Authority>> getAuthoritiesByParty(String party) async {
     try {
-      // 1. On récupère les données
-      final articleData = article.toJson();
-      
-      // 2. CORRECTION : On supprime l'ID s'il est vide pour laisser Supabase le générer
-      if (articleData['id'] == null || articleData['id'] == '') {
-        articleData.remove('id');
+      if (party.trim().isEmpty) return [];
+      final response = await _client.from('authorities').select('*').eq('party', party).order('name');
+      return response.map((json) => Authority.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erreur lors du chargement par parti: $e');
+    }
+  }
+
+  // ============================================================
+  // CREATE
+  // ============================================================
+
+  Future<Authority> createAuthority(Authority authority) async {
+    try {
+      final authData = authority.toJson();
+      if (authData['id'] == null || authData['id'] == '') {
+        authData.remove('id');
       }
 
-      // 3. On insère les données nettoyées
       final response = await _client
-          .from('articles')
-          .insert(articleData)
+          .from('authorities')
+          .insert(authData)
           .select()
           .single();
-      return Article.fromJson(response);
+      return Authority.fromJson(response);
     } catch (e) {
       throw Exception('Erreur lors de la création: $e');
     }
   }
 
-  Future<Article> updateArticle(Article article) async {
+  // ============================================================
+  // UPDATE
+  // ============================================================
+
+  Future<Authority> updateAuthority(Authority authority) async {
     try {
       final response = await _client
-          .from('articles')
-          .update(article.toJson())
-          .eq('id', article.id)
+          .from('authorities')
+          .update(authority.toJson())
+          .eq('id', authority.id)
           .select()
           .single();
-      return Article.fromJson(response);
+      return Authority.fromJson(response);
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour: $e');
     }
   }
 
-  Future<void> deleteArticle(String id) async {
+  // ============================================================
+  // DELETE
+  // ============================================================
+
+  Future<void> deleteAuthority(String id) async {
     try {
-      await _client.from('articles').delete().eq('id', id);
+      await _client.from('authorities').delete().eq('id', id);
     } catch (e) {
       throw Exception('Erreur lors de la suppression: $e');
-    }
-  }
-
-  Future<void> publishArticle(String id) async {
-    try {
-      await _client
-          .from('articles')
-          .update({
-            'is_published': true,
-            'published_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', id);
-    } catch (e) {
-      throw Exception('Erreur lors de la publication: $e');
-    }
-  }
-
-  Future<void> unpublishArticle(String id) async {
-    try {
-      await _client
-          .from('articles')
-          .update({
-            'is_published': false,
-            'published_at': null,
-          })
-          .eq('id', id);
-    } catch (e) {
-      throw Exception('Erreur lors du dépublication: $e');
     }
   }
 }
