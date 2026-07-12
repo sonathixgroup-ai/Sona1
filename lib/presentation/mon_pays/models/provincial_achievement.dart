@@ -1,6 +1,6 @@
-// lib/presentation/mon_pays/models/province_achievement.dart
+// lib/presentation/mon_pays/models/provincial_achievement.dart
 
-class ProvinceAchievement {
+class ProvincialAchievement {
   final String id;
   final String provinceId;
   final String title;
@@ -11,7 +11,7 @@ class ProvinceAchievement {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  ProvinceAchievement({
+  ProvincialAchievement({
     required this.id,
     required this.provinceId,
     required this.title,
@@ -23,8 +23,8 @@ class ProvinceAchievement {
     this.updatedAt,
   });
 
-  factory ProvinceAchievement.fromJson(Map<String, dynamic> json) {
-    return ProvinceAchievement(
+  factory ProvincialAchievement.fromJson(Map<String, dynamic> json) {
+    return ProvincialAchievement(
       id: json['id'] as String,
       provinceId: json['province_id'] as String,
       title: json['title'] as String,
