@@ -13,7 +13,7 @@ import '../../providers/achievements_provider.dart';
 import '../../providers/media_provider.dart';
 import '../../models/province.dart';
 import '../../models/city.dart';
-import '../../models/province_achievement.dart';
+import '../../models/provincial_achievement.dart';
 import '../../models/province_media.dart';
 import '../../models/province_emergency.dart';
 import '../../models/province_tourism.dart';
