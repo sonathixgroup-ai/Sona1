@@ -1,17 +1,14 @@
-// ============================================================
-// FICHIER 28 : admin/admin_achievement_form_page.dart
-// ============================================================
 // lib/presentation/mon_pays/admin/admin_achievement_form_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../models/provincial_achievement.dart';
+import '../models/provincial_achievement.dart'; // Import correct
 import '../providers/achievements_provider.dart';
 
 class AdminAchievementFormPage extends ConsumerStatefulWidget {
   final String provinceId;
-  final ProvinceAchievement? achievement;
+  final ProvincialAchievement? achievement; // <--- Changé
   const AdminAchievementFormPage({required this.provinceId, this.achievement, super.key});
 
   @override
@@ -136,7 +133,8 @@ class _AdminAchievementFormPageState extends ConsumerState<AdminAchievementFormP
       }
     } catch (_) {}
 
-    final achievement = ProvinceAchievement(
+    // Remplacement ici aussi
+    final achievement = ProvincialAchievement(
       id: _achievementId ?? '',
       provinceId: widget.provinceId,
       title: _titleController.text.trim(),
@@ -145,6 +143,7 @@ class _AdminAchievementFormPageState extends ConsumerState<AdminAchievementFormP
       date: date,
       coverImageUrl: _coverImageUrlController.text.trim().isEmpty ? null : _coverImageUrlController.text.trim(),
     );
+    
     final notifier = ref.read(adminAchievementsProvider.notifier);
     try {
       if (_isEditing) {
