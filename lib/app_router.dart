@@ -219,22 +219,32 @@ import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
-// ---- THIX Chat ----
-import 'package:thix_id/models/chat/chat_conversation.dart';
-import 'package:thix_id/presentation/chat/chat_list_page.dart';
-import 'package:thix_id/presentation/chat/chat_screen.dart' as ThixChat;
-import 'package:thix_id/presentation/chat/new_conversation_page.dart';
-import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
-import 'package:thix_id/presentation/chat/screens/group_info_page.dart';
-import 'package:thix_id/presentation/chat/screens/group_settings_page.dart';
-
-// ===== MON PAYS =====
+// ===== MODULE MON PAYS =====
+// Pages principales
 import 'presentation/mon_pays/mon_pays_page.dart';
 import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
 import 'presentation/mon_pays/pages/authorities/authority_profile_page.dart';
+// Admin
+import 'presentation/mon_pays/admin/admin_dashboard_page.dart';
 import 'presentation/mon_pays/admin/admin_authorities_page.dart';
 import 'presentation/mon_pays/admin/admin_authority_form_page.dart';
-
+import 'presentation/mon_pays/admin/admin_articles_page.dart';
+import 'presentation/mon_pays/admin/admin_article_form_page.dart';
+// Module Lois (Valeurs & Lois)
+import 'presentation/mon_pays/pages/laws/laws_page.dart';
+import 'presentation/mon_pays/pages/laws/article_type_page.dart';
+import 'presentation/mon_pays/pages/laws/article_detail_page.dart';
+import 'presentation/mon_pays/models/article.dart';
+// ===== IMPORTS POUR LES AUTRES MODULES (à venir) =====
+// import 'presentation/mon_pays/pages/history/history_page.dart';
+// import 'presentation/mon_pays/pages/news/news_page.dart';
+// import 'presentation/mon_pays/pages/agencies/agencies_page.dart';
+// import 'presentation/mon_pays/pages/videos/videos_page.dart';
+// import 'presentation/mon_pays/pages/documentaries/documentaries_page.dart';
+// import 'presentation/mon_pays/pages/citizens/citizens_page.dart';
+// import 'presentation/mon_pays/pages/participate/participate_page.dart';
+// import 'presentation/mon_pays/pages/wanted/wanted_page.dart';
+// import 'presentation/mon_pays/pages/search/search_page.dart';
 
 // ==================== TRANSITION SANS ANIMATION ====================
 class NoTransitionPage<T> extends Page<T> {
@@ -780,62 +790,269 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
 
-        // ---- Modérateur ----
-        GoRoute(
-          path: '/moderator',
-          name: 'moderatorHome',
-          builder: (context, state) {
-            final authProvider = context.read<AuthProvider>();
-            if (!authProvider.isModerator) return const ThixEventHome();
-            return const ModeratorHome();
-          },
-          routes: [
-            GoRoute(path: 'events', name: 'moderatorEvents', builder: (context, state) => const ModeratorEventList()),
-            GoRoute(path: 'event/create', name: 'moderatorEventCreate', builder: (context, state) => const ModeratorEventForm()),
-            GoRoute(path: 'event/edit/:id', name: 'moderatorEventEdit', builder: (context, state) => ModeratorEventForm(eventId: state.pathParameters['id']!)),
-          ],
-        ),
-
         // ===== MON PAYS =====
-        GoRoute(
-          path: AppRoutes.monPays,
-          name: 'monPays',
-          pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
-          routes: [
-            // Autorités - Liste
-            GoRoute(
-              path: 'authorities',
-              name: 'monPaysAuthorities',
-              pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
-            ),
-            // Autorités - Détail
-            GoRoute(
-              path: 'authority/:id',
-              name: 'monPaysAuthorityProfile',
-              pageBuilder: (_, state) {
-                final id = state.pathParameters['id']!;
-                return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
-              },
-            ),
-            // Admin - Liste
-            GoRoute(
-              path: 'admin',
-              name: 'monPaysAdmin',
-              pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
-            ),
-            // Admin - Formulaire (création/modification)
-            GoRoute(
-              path: 'admin/form',
-              name: 'monPaysAdminForm',
-              pageBuilder: (_, state) {
-                final authority = state.extra;
-                return NoTransitionPage(
-                  child: AdminAuthorityFormPage(authority: authority as dynamic),
-                );
-              },
-            ),
-          ],
-        ),
+GoRoute(
+  path: AppRoutes.monPays,
+  name: 'monPays',
+  pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
+  routes: [
+    // ============================================================
+    // 1. AUTORITÉS
+    // ============================================================
+    // Liste des autorités
+    GoRoute(
+      path: 'authorities',
+      name: 'monPaysAuthorities',
+      pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
+    ),
+    // Détail d'une autorité
+    GoRoute(
+      path: 'authority/:id',
+      name: 'monPaysAuthorityProfile',
+      pageBuilder: (_, state) {
+        final id = state.pathParameters['id']!;
+        return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
+      },
+    ),
+
+    // ============================================================
+    // 2. VALEURS & LOIS
+    // ============================================================
+    // Menu principal des lois
+    GoRoute(
+      path: 'laws',
+      name: 'monPaysLaws',
+      pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage()),
+    ),
+    // Liste par type (Constitution, Code Pénal, etc.)
+    GoRoute(
+      path: 'laws/:type',
+      name: 'monPaysArticleType',
+      pageBuilder: (_, state) {
+        final typeStr = state.pathParameters['type']!;
+        final type = ArticleType.fromString(typeStr);
+        return NoTransitionPage(
+          child: ArticleTypePage(type: type, title: type.label),
+        );
+      },
+    ),
+    // Détail d'un article
+    GoRoute(
+      path: 'laws/article/:id',
+      name: 'monPaysArticleDetail',
+      pageBuilder: (_, state) {
+        final id = state.pathParameters['id']!;
+        return NoTransitionPage(child: ArticleDetailPage(articleId: id));
+      },
+    ),
+
+    // ============================================================
+    // 3. ADMINISTRATION
+    // ============================================================
+    // Tableau de bord admin
+    GoRoute(
+      path: 'admin',
+      name: 'monPaysAdmin',
+      pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboardPage()),
+    ),
+    // Admin - Autorités (liste)
+    GoRoute(
+      path: 'admin/authorities',
+      name: 'monPaysAdminAuthorities',
+      pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
+    ),
+    // Admin - Formulaire autorité (création/modification)
+    GoRoute(
+      path: 'admin/form',
+      name: 'monPaysAdminForm',
+      pageBuilder: (_, state) {
+        final authority = state.extra;
+        return NoTransitionPage(
+          child: AdminAuthorityFormPage(authority: authority as dynamic),
+        );
+      },
+    ),
+    // Admin - Articles (Lois)
+    GoRoute(
+      path: 'admin/articles',
+      name: 'monPaysAdminArticles',
+      pageBuilder: (_, __) => const NoTransitionPage(child: AdminArticlesPage()),
+    ),
+    // Admin - Formulaire article (création/modification)
+    GoRoute(
+      path: 'admin/articles/form',
+      name: 'monPaysAdminArticleForm',
+      pageBuilder: (_, state) {
+        final article = state.extra;
+        return NoTransitionPage(
+          child: AdminArticleFormPage(article: article as Article?),
+        );
+      },
+    ),
+
+    // ============================================================
+    // 4. FIGURES HISTORIQUES (à venir - Phase 2B)
+    // ============================================================
+    // GoRoute(
+    //   path: 'history',
+    //   name: 'monPaysHistory',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: HistoryPage()),
+    // ),
+    // GoRoute(
+    //   path: 'history/:id',
+    //   name: 'monPaysHistoricalFigure',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: HistoricalFigurePage(figureId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 5. PROVINCES (à venir - Phase 2C)
+    // ============================================================
+    // GoRoute(
+    //   path: 'provinces',
+    //   name: 'monPaysProvinces',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: ProvincesPage()),
+    // ),
+    // GoRoute(
+    //   path: 'provinces/:id',
+    //   name: 'monPaysProvinceDetail',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: ProvinceDetailPage(provinceId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 6. ACTUALITÉS (à venir - Phase 3)
+    // ============================================================
+    // GoRoute(
+    //   path: 'news',
+    //   name: 'monPaysNews',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: NewsPage()),
+    // ),
+    // GoRoute(
+    //   path: 'news/:id',
+    //   name: 'monPaysNewsDetail',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: NewsDetailPage(newsId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 7. AGENCES & INSTITUTIONS (à venir - Phase 3)
+    // ============================================================
+    // GoRoute(
+    //   path: 'agencies',
+    //   name: 'monPaysAgencies',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: AgenciesPage()),
+    // ),
+    // GoRoute(
+    //   path: 'agencies/:id',
+    //   name: 'monPaysAgencyDetail',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: AgencyDetailPage(agencyId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 8. VIDÉOS (à venir - Phase 3)
+    // ============================================================
+    // GoRoute(
+    //   path: 'videos',
+    //   name: 'monPaysVideos',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: VideosPage()),
+    // ),
+    // GoRoute(
+    //   path: 'videos/:id',
+    //   name: 'monPaysVideoPlayer',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: VideoPlayerPage(videoId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 9. DOCUMENTAIRES (à venir - Phase 3)
+    // ============================================================
+    // GoRoute(
+    //   path: 'documentaries',
+    //   name: 'monPaysDocumentaries',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: DocumentariesPage()),
+    // ),
+    // GoRoute(
+    //   path: 'documentaries/:id',
+    //   name: 'monPaysDocumentaryDetail',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: DocumentaryDetailPage(documentaryId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 10. CITOYENS EXEMPLAIRES (à venir - Phase 3)
+    // ============================================================
+    // GoRoute(
+    //   path: 'citizens',
+    //   name: 'monPaysCitizens',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: CitizensPage()),
+    // ),
+    // GoRoute(
+    //   path: 'citizens/:id',
+    //   name: 'monPaysCitizenProfile',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: CitizenProfilePage(citizenId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 11. PARTICIPER (à venir - Phase 4)
+    // ============================================================
+    // GoRoute(
+    //   path: 'participate',
+    //   name: 'monPaysParticipate',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: ParticipatePage()),
+    // ),
+
+    // ============================================================
+    // 12. PERSONNES RECHERCHÉES (à venir - Phase 4)
+    // ============================================================
+    // GoRoute(
+    //   path: 'wanted',
+    //   name: 'monPaysWanted',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: WantedPage()),
+    // ),
+    // GoRoute(
+    //   path: 'wanted/:id',
+    //   name: 'monPaysWantedDetail',
+    //   pageBuilder: (_, state) {
+    //     final id = state.pathParameters['id']!;
+    //     return NoTransitionPage(child: WantedDetailPage(wantedId: id));
+    //   },
+    // ),
+
+    // ============================================================
+    // 13. RECHERCHE GLOBALE (à venir - Phase 4)
+    // ============================================================
+    // GoRoute(
+    //   path: 'search',
+    //   name: 'monPaysSearch',
+    //   pageBuilder: (_, __) => const NoTransitionPage(child: SearchPage()),
+    // ),
+    // GoRoute(
+    //   path: 'search/results',
+    //   name: 'monPaysSearchResults',
+    //   pageBuilder: (_, state) {
+    //     final query = state.uri.queryParameters['q'] ?? '';
+    //     return NoTransitionPage(child: SearchResultsPage(query: query));
+    //   },
+    // ),
+  ],
+),
 
         // ---- Admin ----
         GoRoute(
