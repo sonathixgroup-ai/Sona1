@@ -84,10 +84,11 @@ class _ArticleTypePageState extends ConsumerState<ArticleTypePage> {
                       : null,
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
+                    // ✅ CORRECTION : passer articleId au lieu de article
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ArticleDetailPage(article: article),
+                        builder: (_) => ArticleDetailPage(articleId: article.id),
                       ),
                     );
                   },
