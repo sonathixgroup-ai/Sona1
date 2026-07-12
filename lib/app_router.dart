@@ -837,14 +837,14 @@ GoRoute(
       },
     ),
     // Détail d'un article
-    GoRoute(
-      path: 'laws/article/:id',
-      name: 'monPaysArticleDetail',
-      pageBuilder: (_, state) {
-        final id = state.pathParameters['id']!;
-        return NoTransitionPage(child: ArticleDetailPage(articleId: id));
-      },
+    onTap: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ArticleDetailPage(articleId: article.id),
     ),
+  );
+}
 
     // ============================================================
     // 3. ADMINISTRATION
