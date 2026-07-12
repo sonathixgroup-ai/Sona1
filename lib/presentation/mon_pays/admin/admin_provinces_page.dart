@@ -1,6 +1,3 @@
-// ============================================================
-// FICHIER 20 : admin/admin_provinces_page.dart
-// ============================================================
 // lib/presentation/mon_pays/admin/admin_provinces_page.dart
 
 import 'package:flutter/material.dart';
@@ -8,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/provinces_provider.dart';
 import '../models/province.dart';
-import 'admin_province_form_page.dart';
 import 'widgets/admin_confirmation_dialog.dart';
 
 class AdminProvincesPage extends ConsumerStatefulWidget {
@@ -43,7 +39,8 @@ class _AdminProvincesPageState extends ConsumerState<AdminProvincesPage> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              context.push('/mon-pays/admin/provinces/form');
+              // NAVIGATION CORRIGÉE ICI (Ajout)
+              context.pushNamed('monPaysAdminProvinceForm');
             },
           ),
         ],
@@ -140,8 +137,9 @@ class _AdminProvincesPageState extends ConsumerState<AdminProvincesPage> {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         onPressed: () {
-                          context.push(
-                            '/mon-pays/admin/provinces/form',
+                          // NAVIGATION CORRIGÉE ICI (Modification)
+                          context.pushNamed(
+                            'monPaysAdminProvinceForm',
                             extra: province,
                           );
                         },
