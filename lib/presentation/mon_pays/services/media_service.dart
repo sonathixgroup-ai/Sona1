@@ -1,7 +1,7 @@
 // lib/presentation/mon_pays/services/media_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/province_media.dart';
+import '../models/province_media.dart'; // ✅ IMPORT AJOUTÉ
 
 class MediaService {
   final SupabaseClient _client = Supabase.instance.client;
