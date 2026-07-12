@@ -1,5 +1,5 @@
 // lib/presentation/mon_pays/admin/admin_dashboard_page.dart
-// Nouvelle page d'accueil de l'admin avec des cartes
+// Page d'accueil de l'administration
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +13,7 @@ class AdminDashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Administration'),
+        title: const Text('Administration - Mon Pays'),
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
       ),
@@ -45,7 +45,7 @@ class AdminDashboardPage extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const AdminArticlesPage()),
               ),
             ),
-            // Ajouter d'autres cartes au fur et à mesure
+            // Ajouter d'autres cartes au fur et à mesure des modules
           ],
         ),
       ),
@@ -88,6 +88,7 @@ class AdminDashboardPage extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
