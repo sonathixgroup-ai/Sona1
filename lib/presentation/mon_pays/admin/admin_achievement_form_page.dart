@@ -6,7 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../models/province_achievement.dart';
+import '../models/provincial_achievement.dart';
 import '../providers/achievements_provider.dart';
 
 class AdminAchievementFormPage extends ConsumerStatefulWidget {
