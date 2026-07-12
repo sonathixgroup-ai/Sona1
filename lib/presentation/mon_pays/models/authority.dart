@@ -2,11 +2,12 @@
 
 class Authority {
   final String id;
+  final String category; // NOUVEAU CHAMP
   final String name;
   final String title;
   final String? imageUrl;
   final String biography;
-  final String? explanation; // NOUVEAU CHAMP
+  final String? explanation;
   final String mandate;
   final String party;
   final List<String> speeches;
@@ -19,6 +20,7 @@ class Authority {
 
   Authority({
     required this.id,
+    this.category = 'Autres',
     required this.name,
     required this.title,
     this.imageUrl,
@@ -38,20 +40,19 @@ class Authority {
   factory Authority.fromJson(Map<String, dynamic> json) {
     return Authority(
       id: json['id'] as String,
+      category: json['category'] as String? ?? 'Autres',
       name: json['name'] as String,
       title: json['title'] as String,
       imageUrl: json['image_url'] as String?,
       biography: json['biography'] as String? ?? '',
-      explanation: json['explanation'] as String?, // LECTURE DU NOUVEAU CHAMP
+      explanation: json['explanation'] as String?,
       mandate: json['mandate'] as String? ?? '',
       party: json['party'] as String? ?? '',
       speeches: List<String>.from(json['speeches'] ?? []),
       videos: List<String>.from(json['videos'] ?? []),
       publications: List<String>.from(json['publications'] ?? []),
       socialNetworks: Map<String, String>.from(json['social_networks'] ?? {}),
-      agenda: (json['agenda'] as List?)
-          ?.map((e) => Map<String, String>.from(e))
-          .toList() ?? [],
+      agenda: (json['agenda'] as List?)?.map((e) => Map<String, String>.from(e)).toList() ?? [],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
@@ -59,11 +60,12 @@ class Authority {
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{
+      'category': category,
       'name': name,
       'title': title,
       'image_url': imageUrl,
       'biography': biography,
-      'explanation': explanation, // SAUVEGARDE DU NOUVEAU CHAMP
+      'explanation': explanation,
       'mandate': mandate,
       'party': party,
       'speeches': speeches,
@@ -72,17 +74,13 @@ class Authority {
       'social_networks': socialNetworks,
       'agenda': agenda,
     };
-
-    // PROTECTION : On n'envoie l'ID que s'il n'est pas vide (création propre)
-    if (id.isNotEmpty) {
-      map['id'] = id;
-    }
-
+    if (id.isNotEmpty) map['id'] = id;
     return map;
   }
 
   Authority copyWith({
     String? id,
+    String? category,
     String? name,
     String? title,
     String? imageUrl,
@@ -98,6 +96,7 @@ class Authority {
   }) {
     return Authority(
       id: id ?? this.id,
+      category: category ?? this.category,
       name: name ?? this.name,
       title: title ?? this.title,
       imageUrl: imageUrl ?? this.imageUrl,
@@ -110,8 +109,6 @@ class Authority {
       publications: publications ?? this.publications,
       socialNetworks: socialNetworks ?? this.socialNetworks,
       agenda: agenda ?? this.agenda,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
     );
   }
 }
