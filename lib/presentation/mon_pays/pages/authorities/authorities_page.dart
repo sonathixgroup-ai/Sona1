@@ -1,15 +1,13 @@
 // lib/presentation/mon_pays/pages/authorities/authorities_page.dart
 // Liste complète des autorités avec filtres, recherche, favoris et pagination
 
-// lib/presentation/mon_pays/pages/authorities/authorities_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/constants.dart';
 import '../../providers/authorities_provider.dart';
 import '../../providers/favorites_provider.dart';
-import '../../models/authority.dart'; // ✅ IMPORT AJOUTÉ
+import '../../models/authority.dart';
 import '../../cards/authority_card.dart';
 import 'authority_profile_page.dart';
 
@@ -34,6 +32,20 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
   List<Authority> _allAuthorities = [];
   bool _hasMore = true;
   bool _isLoadingMore = false;
+
+  // ============================================================
+  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
+  // ============================================================
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF6F7FB);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color danger = Color(0xFFD64545);
+  static const Color hairline = Color(0xFFE7EAF3);
 
   @override
   void initState() {
@@ -88,7 +100,6 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     final searchText = _searchController.text.trim();
     final isSearching = searchText.isNotEmpty;
 
-    // Provider pour la recherche ou la liste
     final authoritiesAsync = ref.watch(
       isSearching
           ? searchAuthoritiesProvider(searchText)
@@ -96,12 +107,12 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     );
 
     return Scaffold(
+      backgroundColor: ivory,
       appBar: _buildAppBar(),
       body: Column(
         children: [
           _buildSearchBar(),
           _buildCategoryFilters(),
-          const Divider(height: 1),
           Expanded(
             child: authoritiesAsync.when(
               loading: () => _buildLoadingState(),
@@ -114,36 +125,58 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     );
   }
 
-  // ==================== APP BAR ====================
-
+  // ============================================================
+  // APP BAR — dégradé navy, compteur favoris en pilule or
+  // ============================================================
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      backgroundColor: navyDeep,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [navyDeep, navy],
+          ),
+        ),
+      ),
       title: Row(
         children: [
-          const Icon(Icons.account_balance, color: Colors.white, size: 22),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: gold.withOpacity(0.5)),
+            ),
+            child: const Icon(Icons.account_balance_rounded, color: gold, size: 16),
+          ),
           const SizedBox(width: 10),
           const Text(
             'Autorités',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
           ),
           const Spacer(),
-          // Compteur
           Consumer(
             builder: (context, ref, child) {
               final favorites = ref.watch(favoritesProvider);
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  color: gold,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  '⭐ ${favorites.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded, size: 12, color: navyDeep),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${favorites.length}',
+                      style: const TextStyle(color: navyDeep, fontSize: 11.5, fontWeight: FontWeight.w800),
+                    ),
+                  ],
                 ),
               );
             },
@@ -151,164 +184,160 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
         ],
       ),
       actions: [
-        // Bouton favoris
-        IconButton(
-          icon: const Icon(Icons.favorite),
-          onPressed: () => _showFavorites(context),
-          tooltip: 'Mes favoris',
-        ),
-        // Bouton filtre
-        IconButton(
-          icon: const Icon(Icons.filter_list),
-          onPressed: () => _showFilterDialog(context),
-          tooltip: 'Filtres avancés',
-        ),
-        // Bouton rafraîchir
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () {
-            setState(() {
-              _currentPage = 0;
-              _allAuthorities = [];
-              _hasMore = true;
-            });
-            ref.invalidate(authoritiesProvider(_selectedCategory));
-          },
-          tooltip: 'Rafraîchir',
-        ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(4),
-        child: Container(
-          height: 3,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.3),
-                Colors.white.withOpacity(0.1),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ==================== SEARCH BAR ====================
-
-  Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Rechercher une autorité, un titre...',
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 20),
-                  onPressed: () {
-                    setState(() {
-                      _searchController.clear();
-                      _currentPage = 0;
-                      _allAuthorities = [];
-                      _hasMore = true;
-                    });
-                  },
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-        ),
-        onChanged: (value) {
+        _appBarIconButton(Icons.favorite_rounded, () => _showFavorites(context), tooltip: 'Mes favoris'),
+        _appBarIconButton(Icons.filter_list_rounded, () => _showFilterDialog(context), tooltip: 'Filtres avancés'),
+        _appBarIconButton(Icons.refresh_rounded, () {
           setState(() {
-            _isSearching = value.isNotEmpty;
             _currentPage = 0;
             _allAuthorities = [];
             _hasMore = true;
           });
-        },
+          ref.invalidate(authoritiesProvider(_selectedCategory));
+        }, tooltip: 'Rafraîchir'),
+        const SizedBox(width: 6),
+      ],
+    );
+  }
+
+  Widget _appBarIconButton(IconData icon, VoidCallback onTap, {String? tooltip}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip ?? '',
+          child: Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withOpacity(0.16)),
+            ),
+            child: Icon(icon, size: 16, color: Colors.white),
+          ),
+        ),
       ),
     );
   }
 
-  // ==================== CATEGORY FILTERS ====================
+  // ============================================================
+  // BARRE DE RECHERCHE — carte blanche, coins arrondis
+  // ============================================================
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      color: ivory,
+      child: Container(
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: hairline),
+          boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(fontSize: 13, color: darkText, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            hintText: 'Rechercher une autorité, un titre…',
+            hintStyle: const TextStyle(color: mutedText, fontSize: 12.5, fontWeight: FontWeight.w500),
+            prefixIcon: const Icon(Icons.search_rounded, color: navy, size: 20),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 18, color: mutedText),
+                    onPressed: () {
+                      setState(() {
+                        _searchController.clear();
+                        _currentPage = 0;
+                        _allAuthorities = [];
+                        _hasMore = true;
+                      });
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          onChanged: (value) {
+            setState(() {
+              _isSearching = value.isNotEmpty;
+              _currentPage = 0;
+              _allAuthorities = [];
+              _hasMore = true;
+            });
+          },
+        ),
+      ),
+    );
+  }
 
+  // ============================================================
+  // FILTRES CATÉGORIES — chips navy plein quand actif
+  // ============================================================
   Widget _buildCategoryFilters() {
-    return SizedBox(
-      height: 50,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        itemCount: MonPaysConstants.authorityCategories.length,
-        itemBuilder: (context, index) {
-          final category = MonPaysConstants.authorityCategories[index];
-          final isSelected = category == _selectedCategory;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: FilterChip(
-              label: Text(
-                category,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+    return Container(
+      color: ivory,
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 42,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          itemCount: MonPaysConstants.authorityCategories.length,
+          itemBuilder: (context, index) {
+            final category = MonPaysConstants.authorityCategories[index];
+            final isSelected = category == _selectedCategory;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  setState(() {
+                    _selectedCategory = category;
+                    _searchController.clear();
+                    _currentPage = 0;
+                    _allAuthorities = [];
+                    _hasMore = true;
+                  });
+                  ref.invalidate(authoritiesProvider(category));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: isSelected ? navyDeep : pureWhite,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isSelected ? navyDeep : hairline),
+                  ),
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected ? gold : darkText,
+                    ),
+                  ),
                 ),
               ),
-              selected: isSelected,
-              onSelected: (_) {
-                setState(() {
-                  _selectedCategory = category;
-                  _searchController.clear();
-                  _currentPage = 0;
-                  _allAuthorities = [];
-                  _hasMore = true;
-                });
-                ref.invalidate(authoritiesProvider(category));
-              },
-              backgroundColor: Colors.grey.shade100,
-              selectedColor: const Color(0xFF1A5276).withOpacity(0.12),
-              checkmarkColor: const Color(0xFF1A5276),
-              side: isSelected
-                  ? const BorderSide(color: Color(0xFF1A5276), width: 1.5)
-                  : BorderSide(color: Colors.grey.shade300, width: 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              elevation: isSelected ? 2 : 0,
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
-  // ==================== AUTHORITY LIST ====================
-
+  // ============================================================
+  // LISTE DES AUTORITÉS
+  // ============================================================
   Widget _buildAuthorityList(List<Authority> authorities, bool isSearching) {
     if (authorities.isEmpty) {
       return _buildEmptyState(isSearching);
     }
 
-    // Si c'est une recherche, afficher tous les résultats
     if (isSearching) {
       return ListView.builder(
-        padding: const EdgeInsets.only(top: 8, bottom: 16),
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
         itemCount: authorities.length,
         itemBuilder: (context, index) {
           final authority = authorities[index];
@@ -322,10 +351,9 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
       );
     }
 
-    // Sinon, afficher avec pagination
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
       itemCount: _allAuthorities.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _allAuthorities.length && _hasMore) {
@@ -345,20 +373,19 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     );
   }
 
-  // ==================== LOADING STATES ====================
-
+  // ============================================================
+  // ÉTATS DE CHARGEMENT
+  // ============================================================
   Widget _buildLoadingState() {
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5276)),
-          ),
+          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryBlue)),
           SizedBox(height: 16),
           Text(
-            'Chargement des autorités...',
-            style: TextStyle(color: Colors.grey),
+            'Chargement des autorités…',
+            style: TextStyle(color: mutedText, fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -367,22 +394,20 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
 
   Widget _buildLoadingMoreIndicator() {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 16),
+      padding: EdgeInsets.symmetric(vertical: 18),
       child: Center(
         child: SizedBox(
-          height: 24,
-          width: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5276)),
-          ),
+          height: 22,
+          width: 22,
+          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(navy)),
         ),
       ),
     );
   }
 
-  // ==================== ERROR STATE ====================
-
+  // ============================================================
+  // ÉTAT D'ERREUR
+  // ============================================================
   Widget _buildErrorState(Object error) {
     return Center(
       child: Column(
@@ -390,15 +415,8 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.error_outline,
-              color: Colors.red.shade400,
-              size: 48,
-            ),
+            decoration: BoxDecoration(color: danger.withOpacity(0.08), shape: BoxShape.circle),
+            child: const Icon(Icons.error_outline_rounded, color: danger, size: 42),
           ),
           const SizedBox(height: 16),
           Padding(
@@ -406,12 +424,13 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
             child: Text(
               error.toString(),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700),
+              style: const TextStyle(color: mutedText, fontSize: 12.5, fontWeight: FontWeight.w500),
             ),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () {
+          const SizedBox(height: 18),
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
               setState(() {
                 _currentPage = 0;
                 _allAuthorities = [];
@@ -419,14 +438,19 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
               });
               ref.invalidate(authoritiesProvider(_selectedCategory));
             },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A5276),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [navyDeep, navy]),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh_rounded, size: 16, color: gold),
+                  SizedBox(width: 8),
+                  Text('Réessayer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                ],
               ),
             ),
           ),
@@ -435,41 +459,41 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     );
   }
 
-  // ==================== EMPTY STATE ====================
-
+  // ============================================================
+  // ÉTAT VIDE
+  // ============================================================
   Widget _buildEmptyState(bool isSearching) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            isSearching ? Icons.search_off : Icons.people_outline,
-            size: 64,
-            color: Colors.grey.shade400,
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+            child: Icon(
+              isSearching ? Icons.search_off_rounded : Icons.people_outline_rounded,
+              size: 36,
+              color: mutedText,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             isSearching ? 'Aucun résultat trouvé' : 'Aucune autorité enregistrée',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
-            ),
+            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: darkText),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             isSearching
                 ? 'Essayez de modifier votre recherche'
                 : 'Les autorités seront bientôt disponibles',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade400,
-            ),
+            style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w500),
           ),
           if (isSearching) ...[
             const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: () {
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
                 setState(() {
                   _searchController.clear();
                   _currentPage = 0;
@@ -477,8 +501,22 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
                   _hasMore = true;
                 });
               },
-              icon: const Icon(Icons.clear),
-              label: const Text('Effacer la recherche'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(
+                  color: ivory,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: hairline),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.clear_rounded, size: 15, color: navy),
+                    SizedBox(width: 6),
+                    Text('Effacer la recherche', style: TextStyle(color: navy, fontWeight: FontWeight.w700, fontSize: 12)),
+                  ],
+                ),
+              ),
             ),
           ],
         ],
@@ -486,83 +524,85 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     );
   }
 
-  // ==================== FILTER DIALOG ====================
-
+  // ============================================================
+  // DIALOGUE FILTRES AVANCÉS
+  // ============================================================
   void _showFilterDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Filtres avancés'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Filtre par parti politique
-            const Text(
-              'Parti politique',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                'Tous',
-                'UDPS',
-                'UNC',
-                'PPRD',
-                'AFDC',
-                'AA',
-              ].map((party) {
-                return ChoiceChip(
-                  label: Text(party),
-                  selected: false,
-                  onSelected: (_) {
-                    // TODO: Implémenter le filtre par parti
-                    Navigator.pop(ctx);
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            // Filtre par province
-            const Text(
-              'Province',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                'Tous',
-                'Kinshasa',
-                'Lubumbashi',
-                'Goma',
-                'Bukavu',
-                'Kisangani',
-              ].map((province) {
-                return ChoiceChip(
-                  label: Text(province),
-                  selected: false,
-                  onSelected: (_) {
-                    // TODO: Implémenter le filtre par province
-                    Navigator.pop(ctx);
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Fermer'),
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.filter_list_rounded, size: 16, color: gold),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text('Filtres avancés', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text('Parti politique', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: darkText)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ['Tous', 'UDPS', 'UNC', 'PPRD', 'AFDC', 'AA'].map((party) {
+                  return _filterChip(party, () => Navigator.pop(ctx));
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+              const Text('Province', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: darkText)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ['Tous', 'Kinshasa', 'Lubumbashi', 'Goma', 'Bukavu', 'Kisangani'].map((province) {
+                  return _filterChip(province, () => Navigator.pop(ctx));
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Fermer', style: TextStyle(color: mutedText, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // ==================== FAVORITES BOTTOM SHEET ====================
+  Widget _filterChip(String label, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: ivory,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: hairline),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: darkText)),
+      ),
+    );
+  }
 
+  // ============================================================
+  // BOTTOM SHEET FAVORIS
+  // ============================================================
   void _showFavorites(BuildContext context) {
     final favorites = ref.read(favoritesProvider);
     showModalBottomSheet(
@@ -570,7 +610,7 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.6,
@@ -580,8 +620,8 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
         builder: (_, scrollController) {
           return Container(
             decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              color: pureWhite,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
             ),
             child: FutureBuilder(
               future: ref.read(authoritiesServiceProvider).getAuthorities(),
@@ -590,7 +630,7 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(20),
-                      child: CircularProgressIndicator(),
+                      child: CircularProgressIndicator(color: primaryBlue),
                     ),
                   );
                 }
@@ -601,78 +641,73 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
 
                 return Column(
                   children: [
-                    // Handle
                     Container(
                       margin: const EdgeInsets.only(top: 12),
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                      decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
                     ),
-                    const SizedBox(height: 8),
-                    // Header
+                    const SizedBox(height: 10),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '⭐ Mes favoris (${favAuthorities.length})',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.star_rounded, size: 18, color: gold),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Mes favoris (${favAuthorities.length})',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText),
+                              ),
+                            ],
                           ),
                           if (favAuthorities.isNotEmpty)
-                            TextButton(
-                              onPressed: () {
+                            InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () {
                                 ref.read(favoritesProvider.notifier).clearFavorites();
                                 setState(() {});
                               },
                               child: const Text(
                                 'Tout supprimer',
-                                style: TextStyle(color: Colors.red),
+                                style: TextStyle(color: danger, fontWeight: FontWeight.w700, fontSize: 12),
                               ),
                             ),
                         ],
                       ),
                     ),
-                    const Divider(),
-                    // Liste
+                    const SizedBox(height: 8),
+                    Container(height: 1, color: hairline, margin: const EdgeInsets.symmetric(horizontal: 18)),
                     Expanded(
                       child: favAuthorities.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.favorite_border,
-                                    size: 48,
-                                    color: Colors.grey,
+                                  Container(
+                                    width: 70,
+                                    height: 70,
+                                    decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+                                    child: const Icon(Icons.favorite_border_rounded, size: 30, color: mutedText),
                                   ),
-                                  SizedBox(height: 12),
-                                  Text(
+                                  const SizedBox(height: 12),
+                                  const Text(
                                     'Aucun favori',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                    ),
+                                    style: TextStyle(fontSize: 14.5, color: darkText, fontWeight: FontWeight.w700),
                                   ),
-                                  SizedBox(height: 8),
-                                  Text(
+                                  const SizedBox(height: 4),
+                                  const Text(
                                     'Ajoutez vos autorités préférées',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
+                                    style: TextStyle(fontSize: 11.5, color: mutedText, fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
                             )
                           : ListView.builder(
                               controller: scrollController,
+                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
                               itemCount: favAuthorities.length,
                               itemBuilder: (_, i) => AuthorityCard(
                                 authority: favAuthorities[i],
