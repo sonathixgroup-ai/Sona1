@@ -176,6 +176,64 @@ class ProvincesService {
     }
   }
 
+// Ajouter ces méthodes à la fin de la classe ProvincesService
+
+// Update methods for sub-resources
+Future<void> updateEconomicResource(ProvinceEconomicResource resource) async {
+  try {
+    await _client
+        .from('province_economic_resources')
+        .update(resource.toJson())
+        .eq('id', resource.id);
+  } catch (e) {
+    throw Exception('Erreur mise à jour ressource économique: $e');
+  }
+}
+
+Future<void> updateBudgetPriority(ProvinceBudgetPriority budget) async {
+  try {
+    await _client
+        .from('province_budget_priorities')
+        .update(budget.toJson())
+        .eq('id', budget.id);
+  } catch (e) {
+    throw Exception('Erreur mise à jour priorité budgétaire: $e');
+  }
+}
+
+Future<void> updateTourismSite(ProvinceTourism site) async {
+  try {
+    await _client
+        .from('province_tourism')
+        .update(site.toJson())
+        .eq('id', site.id);
+  } catch (e) {
+    throw Exception('Erreur mise à jour site touristique: $e');
+  }
+}
+
+Future<void> updateEmergencyContact(ProvinceEmergencyContact contact) async {
+  try {
+    await _client
+        .from('province_emergency_contacts')
+        .update(contact.toJson())
+        .eq('id', contact.id);
+  } catch (e) {
+    throw Exception('Erreur mise à jour contact d\'urgence: $e');
+  }
+}
+
+Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision division) async {
+  try {
+    await _client
+        .from('province_administrative_divisions')
+        .update(division.toJson())
+        .eq('id', division.id);
+  } catch (e) {
+    throw Exception('Erreur mise à jour division administrative: $e');
+  }
+}
+  
   // ============================================================
   // GOUVERNEMENT
   // ============================================================
