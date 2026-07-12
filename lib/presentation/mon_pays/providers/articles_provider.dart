@@ -15,7 +15,8 @@ final articlesProvider = FutureProvider.family<List<Article>, ArticleType?>((ref
 // Recherche publique
 final searchArticlesProvider = FutureProvider.family<List<Article>, String>((ref, query) async {
   final service = ref.watch(articlesServiceProvider);
-  return service.searchArticles(query);
+  // CORRECTION ICI : Utilisation de getArticles avec le paramètre search
+  return service.getArticles(search: query);
 });
 
 // Détail d'un article
