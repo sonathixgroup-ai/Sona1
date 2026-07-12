@@ -194,7 +194,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: lightBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: gold.withOpacity(0.6), width: 1.2)),
                 child: Row(children: [
-                  Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(shape: BoxShape.circle, color: gold), child: CircleAvatar(radius: 42, backgroundImage: NetworkImage(president.photoUrl?? 'https://i.pravatar.cc/200?u=president'))),
+                  Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(shape: BoxShape.circle, color: gold), child: CircleAvatar(radius: 42, backgroundImage: NetworkImage(president.imageUrl ?? 'https://i.pravatar.cc/200?u=president'))),
                   const SizedBox(width: 14),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20)), child: const Text('PRESIDENT DE LA REPUBLIQUE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
@@ -213,7 +213,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                 itemBuilder: (context, i) {
                   final a = others[i];
                   return Column(children: [
-                    Container(padding: const EdgeInsets.all(2.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold, width: 1.5)), child: CircleAvatar(radius: 34, backgroundImage: NetworkImage(a.photoUrl?? 'https://i.pravatar.cc/100?u=$i'))),
+                    Container(padding: const EdgeInsets.all(2.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold, width: 1.5)), child: CircleAvatar(radius: 34, backgroundImage: NetworkImage(a.imageUrl ?? 'https://i.pravatar.cc/100?u=$i'))),
                     const SizedBox(height: 6),
                     Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
                     Text(a.title?? '', maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: mutedText)),
