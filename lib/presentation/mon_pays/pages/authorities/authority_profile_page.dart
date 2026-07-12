@@ -17,13 +17,14 @@ class AuthorityProfilePage extends ConsumerStatefulWidget {
 }
 
 class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
-  // Charte THIX ID
+  // Charte THIX ID (Couleurs)
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color gold = Color(0xFFE3B23C);
   static const Color ivory = Color(0xFFF6F7FB);
   static const Color darkText = Color(0xFF10182B);
   static const Color mutedText = Color(0xFF6B7690);
+  static const Color hairline = Color(0xFFE7EAF3); // <- LA LIGNE QUI MANQUAIT
 
   @override
   Widget build(BuildContext context) {
