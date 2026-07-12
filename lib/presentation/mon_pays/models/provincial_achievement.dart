@@ -1,45 +1,49 @@
-// lib/presentation/mon_pays/models/provincial_achievement.dart
+// lib/presentation/mon_pays/models/province_achievement.dart
 
-class ProvincialAchievement {
+class ProvinceAchievement {
   final String id;
   final String provinceId;
   final String title;
-  final String description;
+  final String? description;
   final String category;
-  final DateTime achievementDate;
-  final String? imageUrl;
+  final DateTime? date;
+  final String? coverImageUrl;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
-  ProvincialAchievement({
+  ProvinceAchievement({
     required this.id,
     required this.provinceId,
     required this.title,
-    required this.description,
+    this.description,
     required this.category,
-    required this.achievementDate,
-    this.imageUrl,
+    this.date,
+    this.coverImageUrl,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  factory ProvincialAchievement.fromJson(Map<String, dynamic> json) {
-    return ProvincialAchievement(
+  factory ProvinceAchievement.fromJson(Map<String, dynamic> json) {
+    return ProvinceAchievement(
       id: json['id'] as String,
       provinceId: json['province_id'] as String,
       title: json['title'] as String,
-      description: json['description'] as String,
+      description: json['description'] as String?,
       category: json['category'] as String,
-      achievementDate: DateTime.parse(json['achievement_date'] as String),
-      imageUrl: json['image_url'] as String?,
+      date: json['date'] != null ? DateTime.parse(json['date']) : null,
+      coverImageUrl: json['cover_image_url'] as String?,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      if (id.isNotEmpty) 'id': id,
-      'province_id': provinceId,
-      'title': title,
-      'description': description,
-      'category': category,
-      'achievement_date': achievementDate.toIso8601String().split('T')[0],
-      'image_url': imageUrl,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'province_id': provinceId,
+    'title': title,
+    'description': description,
+    'category': category,
+    'date': date?.toIso8601String(),
+    'cover_image_url': coverImageUrl,
+  };
 }
