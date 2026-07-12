@@ -790,19 +790,19 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
 
-// ===== MON PAYS =====
+   // ============================================================
+    // ===== MON PAYS =====
 GoRoute(
   path: AppRoutes.monPays,
   name: 'monPays',
   pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
   routes: [
-    // Autorités - Liste
+    // -------- Autorités --------
     GoRoute(
       path: 'authorities',
       name: 'monPaysAuthorities',
       pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
     ),
-    // Autorités - Détail
     GoRoute(
       path: 'authority/:id',
       name: 'monPaysAuthorityProfile',
@@ -811,13 +811,12 @@ GoRoute(
         return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
       },
     ),
-    // Valeurs & Lois - Menu
+    // -------- Valeurs & Lois --------
     GoRoute(
       path: 'laws',
       name: 'monPaysLaws',
       pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage()),
     ),
-    // Valeurs & Lois - Liste par type
     GoRoute(
       path: 'laws/:type',
       name: 'monPaysArticleType',
@@ -829,7 +828,6 @@ GoRoute(
         );
       },
     ),
-    // Valeurs & Lois - Détail d'un article
     GoRoute(
       path: 'laws/article/:id',
       name: 'monPaysArticleDetail',
@@ -838,19 +836,17 @@ GoRoute(
         return NoTransitionPage(child: ArticleDetailPage(articleId: id));
       },
     ),
-    // Admin - Dashboard
+    // -------- Administration --------
     GoRoute(
       path: 'admin',
       name: 'monPaysAdmin',
       pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboardPage()),
     ),
-    // Admin - Autorités
     GoRoute(
       path: 'admin/authorities',
       name: 'monPaysAdminAuthorities',
       pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
     ),
-    // Admin - Formulaire autorité
     GoRoute(
       path: 'admin/form',
       name: 'monPaysAdminForm',
@@ -861,13 +857,11 @@ GoRoute(
         );
       },
     ),
-    // Admin - Articles
     GoRoute(
       path: 'admin/articles',
       name: 'monPaysAdminArticles',
       pageBuilder: (_, __) => const NoTransitionPage(child: AdminArticlesPage()),
     ),
-    // Admin - Formulaire article
     GoRoute(
       path: 'admin/articles/form',
       name: 'monPaysAdminArticleForm',
@@ -878,168 +872,19 @@ GoRoute(
         );
       },
     ),
-    // ⚠️ TOUTES LES AUTRES ROUTES (PROVINCES, HISTOIRE, ETC.) VIENDRONT ICI PLUS TARD
-    // ============================================================
-    // 4. FIGURES HISTORIQUES (à venir - Phase 2B)
-    // ============================================================
+    // -------- Futures routes (à décommenter plus tard) --------
     // GoRoute(
     //   path: 'history',
     //   name: 'monPaysHistory',
     //   pageBuilder: (_, __) => const NoTransitionPage(child: HistoryPage()),
     // ),
     // GoRoute(
-    //   path: 'history/:id',
-    //   name: 'monPaysHistoricalFigure',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: HistoricalFigurePage(figureId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 5. PROVINCES (à venir - Phase 2C)
-    // ============================================================
-    // GoRoute(
     //   path: 'provinces',
     //   name: 'monPaysProvinces',
     //   pageBuilder: (_, __) => const NoTransitionPage(child: ProvincesPage()),
     // ),
-    // GoRoute(
-    //   path: 'provinces/:id',
-    //   name: 'monPaysProvinceDetail',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: ProvinceDetailPage(provinceId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 6. ACTUALITÉS (à venir - Phase 3)
-    // ============================================================
-    // GoRoute(
-    //   path: 'news',
-    //   name: 'monPaysNews',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: NewsPage()),
-    // ),
-    // GoRoute(
-    //   path: 'news/:id',
-    //   name: 'monPaysNewsDetail',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: NewsDetailPage(newsId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 7. AGENCES & INSTITUTIONS (à venir - Phase 3)
-    // ============================================================
-    // GoRoute(
-    //   path: 'agencies',
-    //   name: 'monPaysAgencies',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: AgenciesPage()),
-    // ),
-    // GoRoute(
-    //   path: 'agencies/:id',
-    //   name: 'monPaysAgencyDetail',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: AgencyDetailPage(agencyId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 8. VIDÉOS (à venir - Phase 3)
-    // ============================================================
-    // GoRoute(
-    //   path: 'videos',
-    //   name: 'monPaysVideos',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: VideosPage()),
-    // ),
-    // GoRoute(
-    //   path: 'videos/:id',
-    //   name: 'monPaysVideoPlayer',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: VideoPlayerPage(videoId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 9. DOCUMENTAIRES (à venir - Phase 3)
-    // ============================================================
-    // GoRoute(
-    //   path: 'documentaries',
-    //   name: 'monPaysDocumentaries',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: DocumentariesPage()),
-    // ),
-    // GoRoute(
-    //   path: 'documentaries/:id',
-    //   name: 'monPaysDocumentaryDetail',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: DocumentaryDetailPage(documentaryId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 10. CITOYENS EXEMPLAIRES (à venir - Phase 3)
-    // ============================================================
-    // GoRoute(
-    //   path: 'citizens',
-    //   name: 'monPaysCitizens',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: CitizensPage()),
-    // ),
-    // GoRoute(
-    //   path: 'citizens/:id',
-    //   name: 'monPaysCitizenProfile',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: CitizenProfilePage(citizenId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 11. PARTICIPER (à venir - Phase 4)
-    // ============================================================
-    // GoRoute(
-    //   path: 'participate',
-    //   name: 'monPaysParticipate',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: ParticipatePage()),
-    // ),
-
-    // ============================================================
-    // 12. PERSONNES RECHERCHÉES (à venir - Phase 4)
-    // ============================================================
-    // GoRoute(
-    //   path: 'wanted',
-    //   name: 'monPaysWanted',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: WantedPage()),
-    // ),
-    // GoRoute(
-    //   path: 'wanted/:id',
-    //   name: 'monPaysWantedDetail',
-    //   pageBuilder: (_, state) {
-    //     final id = state.pathParameters['id']!;
-    //     return NoTransitionPage(child: WantedDetailPage(wantedId: id));
-    //   },
-    // ),
-
-    // ============================================================
-    // 13. RECHERCHE GLOBALE (à venir - Phase 4)
-    // ============================================================
-    // GoRoute(
-    //   path: 'search',
-    //   name: 'monPaysSearch',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: SearchPage()),
-    // ),
-    // GoRoute(
-    //   path: 'search/results',
-    //   name: 'monPaysSearchResults',
-    //   pageBuilder: (_, state) {
-    //     final query = state.uri.queryParameters['q'] ?? '';
-    //     return NoTransitionPage(child: SearchResultsPage(query: query));
-    //   },
-    // ),
+  ], // <-- FERMETURE DU TABLEAU routes
+), // <-- FERMETURE DE GoRoute
 
         // ---- Admin ----
         GoRoute(
