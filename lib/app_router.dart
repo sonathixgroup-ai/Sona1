@@ -92,7 +92,7 @@ import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page
 
 // THIX Info
 import 'package:thix_id/presentation/thix_info/thix_info_home.dart';
-import 'package:thix_id/presentation/thix_info/article_detail_page.dart'as infoSearch; 
+import 'package:thix_id/presentation/thix_info/article_detail_page.dart' as thixInfoArticle;
 import 'package:thix_id/presentation/thix_info/search_page.dart' as infoSearch;
 import 'package:thix_id/presentation/thix_info/category_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/saved_articles_page.dart';
@@ -219,6 +219,15 @@ import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
+// ---- THIX Chat ----
+import 'package:thix_id/models/chat/chat_conversation.dart';
+import 'package:thix_id/presentation/chat/chat_list_page.dart';
+import 'package:thix_id/presentation/chat/chat_screen.dart' as ThixChat;
+import 'package:thix_id/presentation/chat/new_conversation_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_info_page.dart';
+import 'package:thix_id/presentation/chat/screens/group_settings_page.dart';
+
 // ===== MODULE MON PAYS =====
 // Pages principales
 import 'presentation/mon_pays/mon_pays_page.dart';
@@ -268,7 +277,6 @@ class AppRouter {
       initialLocation: AppRoutes.home,
       refreshListenable: refresh,
       
-      // ⬇️ LE NOUVEAU REDIRECT SE PLACE ICI, JUSTE AVANT "routes: [" ⬇️
       redirect: (context, state) {
         final loc = state.matchedLocation;
         final logged = auth.isAuthenticated;
@@ -276,7 +284,6 @@ class AppRouter {
         final isAdmin = loc == AppRoutes.admin || loc.startsWith('${AppRoutes.admin}/');
         final isPortal = loc.startsWith('${AppRoutes.enterprisePortalBasePath}/') || loc == AppRoutes.enterprisePortalBasePath;
         
-        // C'EST ICI QUE ÇA CHANGE : Ajout de loc.startsWith(AppRoutes.monPays)
         final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
             loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
             loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') || 
@@ -376,22 +383,22 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.groupCreate,
           name: 'group_create',
-          builder: (context, state) => const GroupCreatePage(),
+          pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage()),
         ),
         GoRoute(
           path: AppRoutes.groupInfo,
           name: 'group_info',
-          builder: (context, state) {
+          pageBuilder: (_, state) {
             final groupId = state.pathParameters['groupId']!;
-            return GroupInfoPage(groupId: groupId);
+            return NoTransitionPage(child: GroupInfoPage(groupId: groupId));
           },
         ),
         GoRoute(
           path: AppRoutes.groupSettings,
           name: 'group_settings',
-          builder: (context, state) {
+          pageBuilder: (_, state) {
             final groupId = state.pathParameters['groupId']!;
-            return GroupSettingsPage(groupId: groupId);
+            return NoTransitionPage(child: GroupSettingsPage(groupId: groupId));
           },
         ),
 
@@ -790,101 +797,117 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
 
-   // ============================================================
-    // ===== MON PAYS =====
-GoRoute(
-  path: AppRoutes.monPays,
-  name: 'monPays',
-  pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
-  routes: [
-    // -------- Autorités --------
-    GoRoute(
-      path: 'authorities',
-      name: 'monPaysAuthorities',
-      pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
-    ),
-    GoRoute(
-      path: 'authority/:id',
-      name: 'monPaysAuthorityProfile',
-      pageBuilder: (_, state) {
-        final id = state.pathParameters['id']!;
-        return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
-      },
-    ),
-    // -------- Valeurs & Lois --------
-    GoRoute(
-      path: 'laws',
-      name: 'monPaysLaws',
-      pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage()),
-    ),
-    GoRoute(
-      path: 'laws/:type',
-      name: 'monPaysArticleType',
-      pageBuilder: (_, state) {
-        final typeStr = state.pathParameters['type']!;
-        final type = ArticleType.fromString(typeStr);
-        return NoTransitionPage(
-          child: ArticleTypePage(type: type, title: type.label),
-        );
-      },
-    ),
-    GoRoute(
-      path: 'laws/article/:id',
-      name: 'monPaysArticleDetail',
-      pageBuilder: (_, state) {
-        final id = state.pathParameters['id']!;
-        return NoTransitionPage(child: monPaysArticle.ArticleDetailPage(articleId: id));
-      },
-    ),
-    // -------- Administration --------
-    GoRoute(
-      path: 'admin',
-      name: 'monPaysAdmin',
-      pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboardPage()),
-    ),
-    GoRoute(
-      path: 'admin/authorities',
-      name: 'monPaysAdminAuthorities',
-      pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
-    ),
-    GoRoute(
-      path: 'admin/form',
-      name: 'monPaysAdminForm',
-      pageBuilder: (_, state) {
-        final authority = state.extra;
-        return NoTransitionPage(
-          child: AdminAuthorityFormPage(authority: authority as dynamic),
-        );
-      },
-    ),
-    GoRoute(
-      path: 'admin/articles',
-      name: 'monPaysAdminArticles',
-      pageBuilder: (_, __) => const NoTransitionPage(child: AdminArticlesPage()),
-    ),
-    GoRoute(
-      path: 'admin/articles/form',
-      name: 'monPaysAdminArticleForm',
-      pageBuilder: (_, state) {
-        final article = state.extra;
-        return NoTransitionPage(
-          child: AdminArticleFormPage(article: article as Article?),
-        );
-      },
-    ),
-    // -------- Futures routes (à décommenter plus tard) --------
-    // GoRoute(
-    //   path: 'history',
-    //   name: 'monPaysHistory',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: HistoryPage()),
-    // ),
-    // GoRoute(
-    //   path: 'provinces',
-    //   name: 'monPaysProvinces',
-    //   pageBuilder: (_, __) => const NoTransitionPage(child: ProvincesPage()),
-    // ),
-  ], // <-- FERMETURE DU TABLEAU routes
-), // <-- FERMETURE DE GoRoute
+        // ---- Modérateur ----
+        GoRoute(
+          path: '/moderator',
+          name: 'moderatorHome',
+          builder: (context, state) {
+            final authProvider = context.read<AuthProvider>();
+            if (!authProvider.isModerator) return const ThixEventHome();
+            return const ModeratorHome();
+          },
+          routes: [
+            GoRoute(path: 'events', name: 'moderatorEvents', builder: (context, state) => const ModeratorEventList()),
+            GoRoute(path: 'event/create', name: 'moderatorEventCreate', builder: (context, state) => const ModeratorEventForm()),
+            GoRoute(path: 'event/edit/:id', name: 'moderatorEventEdit', builder: (context, state) => ModeratorEventForm(eventId: state.pathParameters['id']!)),
+          ],
+        ),
+
+        // ============================================================
+        // ===== MON PAYS =====
+        GoRoute(
+          path: AppRoutes.monPays,
+          name: 'monPays',
+          pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
+          routes: [
+            // -------- Autorités --------
+            GoRoute(
+              path: 'authorities',
+              name: 'monPaysAuthorities',
+              pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
+            ),
+            GoRoute(
+              path: 'authority/:id',
+              name: 'monPaysAuthorityProfile',
+              pageBuilder: (_, state) {
+                final id = state.pathParameters['id']!;
+                return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
+              },
+            ),
+            // -------- Valeurs & Lois --------
+            GoRoute(
+              path: 'laws',
+              name: 'monPaysLaws',
+              pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage()),
+            ),
+            GoRoute(
+              path: 'laws/:type',
+              name: 'monPaysArticleType',
+              pageBuilder: (_, state) {
+                final typeStr = state.pathParameters['type']!;
+                final type = ArticleType.fromString(typeStr);
+                return NoTransitionPage(
+                  child: ArticleTypePage(type: type, title: type.label),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'laws/article/:id',
+              name: 'monPaysArticleDetail',
+              pageBuilder: (_, state) {
+                final id = state.pathParameters['id']!;
+                return NoTransitionPage(child: monPaysArticle.ArticleDetailPage(articleId: id));
+              },
+            ),
+            // -------- Administration --------
+            GoRoute(
+              path: 'admin',
+              name: 'monPaysAdmin',
+              pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboardPage()),
+            ),
+            GoRoute(
+              path: 'admin/authorities',
+              name: 'monPaysAdminAuthorities',
+              pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
+            ),
+            GoRoute(
+              path: 'admin/form',
+              name: 'monPaysAdminForm',
+              pageBuilder: (_, state) {
+                final authority = state.extra;
+                return NoTransitionPage(
+                  child: AdminAuthorityFormPage(authority: authority as dynamic),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'admin/articles',
+              name: 'monPaysAdminArticles',
+              pageBuilder: (_, __) => const NoTransitionPage(child: AdminArticlesPage()),
+            ),
+            GoRoute(
+              path: 'admin/articles/form',
+              name: 'monPaysAdminArticleForm',
+              pageBuilder: (_, state) {
+                final article = state.extra;
+                return NoTransitionPage(
+                  child: AdminArticleFormPage(article: article as Article?),
+                );
+              },
+            ),
+            // -------- Futures routes (à décommenter plus tard) --------
+            // GoRoute(
+            //   path: 'history',
+            //   name: 'monPaysHistory',
+            //   pageBuilder: (_, __) => const NoTransitionPage(child: HistoryPage()),
+            // ),
+            // GoRoute(
+            //   path: 'provinces',
+            //   name: 'monPaysProvinces',
+            //   pageBuilder: (_, __) => const NoTransitionPage(child: ProvincesPage()),
+            // ),
+          ],
+        ),
 
         // ---- Admin ----
         GoRoute(
