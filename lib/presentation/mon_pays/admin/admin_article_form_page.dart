@@ -137,8 +137,10 @@ class _AdminArticleFormPageState extends ConsumerState<AdminArticleFormPage> {
   void _save() async {
     if (!_formKey.currentState!.validate()) return;
     final type = ArticleType.fromString(_typeController.text);
+    
+    // ✅ CORRECTION : Si création, ne pas envoyer d'ID
     final article = Article(
-      id: widget.article?.id ?? '',
+      id: widget.article?.id ?? '', // On garde pour l'édition, mais le service ignorera l'ID vide
       type: type,
       title: _titleController.text.trim(),
       chapter: _chapterController.text.trim().isEmpty ? null : _chapterController.text.trim(),
@@ -147,12 +149,24 @@ class _AdminArticleFormPageState extends ConsumerState<AdminArticleFormPage> {
       explanation: _explanationController.text.trim().isEmpty ? null : _explanationController.text.trim(),
       isPublished: _isPublished,
     );
+    
     final notifier = ref.read(adminArticlesProvider.notifier);
-    if (widget.article != null) {
-      await notifier.updateArticle(article);
-    } else {
-      await notifier.createArticle(article);
+    try {
+      if (widget.article != null) {
+        await notifier.updateArticle(article);
+      } else {
+        await notifier.createArticle(article);
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    if (mounted) Navigator.pop(context);
   }
 }
