@@ -16,12 +16,14 @@ class _OppColors {
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color lightBg = Color(0xFFF6F8FB);
   static const Color gold = Color(0xFFF7C948);
+  static const Color rdcRed = Color(0xFFCE1126); // <-- LA COULEUR MANQUANTE EST ICI
   static const Color mutedText = Color(0xFF6B7690);
   static const Color cardBorder = Color(0xFFEEF1F7);
   static const Color darkText = Color(0xFF10182B);
   static const Color pureWhite = Color(0xFFFFFFFF);
   static const Color softBlue = Color(0xFFEEF1F7);
 }
+
 
 class OpportunitiesPage extends StatefulWidget {
   const OpportunitiesPage({super.key});
