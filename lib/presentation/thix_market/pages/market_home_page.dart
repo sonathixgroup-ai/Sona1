@@ -5,13 +5,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/market_provider.dart';
 import '../providers/shop_provider.dart';
-import '../widgets/market/category_grid.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../vendor/vendor_dashboard.dart';
 
 class MarketHomePage extends StatefulWidget {
   const MarketHomePage({super.key});
-
   @override
   State<MarketHomePage> createState() => _MarketHomePageState();
 }
@@ -20,37 +17,35 @@ class _MarketHomePageState extends State<MarketHomePage> {
   final ScrollController _scrollController = ScrollController();
   final PageController _bannerController = PageController();
   Timer? _bannerTimer;
-  int _currentBannerIndex = 0;
+  int _currentBanner = 0;
 
   // ============================================================
-  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
+  // CHARTE GRAPHITE - International Standard
   // ============================================================
-  static const Color navyDeep = Color(0xFF0A1F44);   // fond header / texte fort
-  static const Color navy = Color(0xFF123B7A);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color gold = Color(0xFFE3B23C);        // accent premium unique
-  static const Color goldSoft = Color(0xFFF3DFA6);
-  static const Color ivory = Color(0xFFF6F7FB);       // fond général
-  static const Color cardWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color success = Color(0xFF1FA971);
-  static const Color danger = Color(0xFFD64545);
-  static const Color hairline = Color(0xFFE7EAF3);
+  static const Color graphite900 = Color(0xFF0E0E10);
+  static const Color graphite800 = Color(0xFF18181B);
+  static const Color graphite700 = Color(0xFF27272A);
+  static const Color graphite600 = Color(0xFF3F3F46);
+  static const Color graphite500 = Color(0xFF71717A);
+  static const Color graphite300 = Color(0xFFD4D4D8);
+  static const Color graphite100 = Color(0xFFF4F4F5);
+  static const Color graphite50 = Color(0xFFFAFAFA);
+  static const Color accent = Color(0xFFFFFFFF); // CTA principal
+  static const Color accent2 = Color(0xFFE9FF70); // lime international
+  static const Color success = Color(0xFF22C55E);
+  static const Color danger = Color(0xFFEF4444);
 
-  // ✅ Supermarchés fictifs — logos générés par initiales + dégradé de couleur
   static const List<Map<String, dynamic>> _supermarkets = [
-    {'name': 'Kin Frais', 'tagline': 'Produits frais & légumes', 'time': '35 min'},
-    {'name': 'AlimentPlus', 'tagline': 'Épicerie complète', 'time': '40 min'},
-    {'name': 'ÉpiCash', 'tagline': 'Prix bas garantis', 'time': '30 min'},
-    {'name': 'MaxiMarché', 'tagline': 'Supermarché familial', 'time': '45 min'},
-    {'name': 'SuperGo', 'tagline': 'Livraison express', 'time': '25 min'},
+    {'name': 'Kin Frais', 'tagline': 'Frais • 35 min', 'initial': 'KF', 'color': Color(0xFF18181B)},
+    {'name': 'AlimentPlus', 'tagline': 'Épicerie • 40 min', 'initial': 'AP', 'color': Color(0xFF27272A)},
+    {'name': 'ÉpiCash', 'tagline': 'Prix bas • 30 min', 'initial': 'EC', 'color': Color(0xFF3F3F46)},
+    {'name': 'MaxiMarché', 'tagline': 'Familial • 45 min', 'initial': 'MM', 'color': Color(0xFF18181B)},
+    {'name': 'SuperGo', 'tagline': 'Express • 25 min', 'initial': 'SG', 'color': Color(0xFF27272A)},
   ];
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MarketProvider>().loadHomeData();
       context.read<ShopProvider>().loadMyShops();
@@ -65,958 +60,368 @@ class _MarketHomePageState extends State<MarketHomePage> {
     super.dispose();
   }
 
+  void _startAutoplay(int count) {
+    _bannerTimer?.cancel();
+    if (count <= 1) return;
+    _bannerTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!_bannerController.hasClients) return;
+      _currentBanner = (_currentBanner + 1) % count;
+      _bannerController.animateToPage(_currentBanner, duration: const Duration(milliseconds: 650), curve: Curves.easeInOutCubicEmphasized);
+      setState(() {});
+    });
+  }
+
   void _goToVendor() => context.push('/market/vendor/dashboard');
   void _goToCart() => context.push('/market/cart');
   void _goToWishlist() => context.push('/market/buy');
-  void _goToSearch() => context.push('/market/search');
-  void _goToNotifications() => context.push('/market/notifications');
-  void _goToMessages() => context.push('/market/messages');
-  void _goToProfile() => context.push('/market/activity');
-  void _goToFlashSales() => context.push('/market/flash-sales');
 
-  Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
-    if (url == null || url.trim().isEmpty) {
-      return Container(
-        color: ivory,
-        alignment: Alignment.center,
-        child: const Icon(Icons.image_outlined, color: mutedText),
-      );
-    }
+  Widget _netImg(String? url) {
+    if (url == null || url.isEmpty) return Container(color: graphite700, child: const Icon(Icons.image, color: graphite500));
     return CachedNetworkImage(
-      imageUrl: url,
-      fit: fit,
-      placeholder: (_, __) => Container(
-        color: ivory,
-        child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue),
-        ),
-      ),
-      errorWidget: (_, __, ___) => Container(
-        color: ivory,
-        child: const Icon(Icons.image_not_supported_outlined, color: mutedText),
-      ),
+      imageUrl: url, fit: BoxFit.cover,
+      placeholder: (_, __) => Container(color: graphite700),
+      errorWidget: (_, __, ___) => Container(color: graphite700, child: const Icon(Icons.broken_image_outlined, color: graphite500)),
     );
-  }
-
-  // ============================================================
-  // BANNIÈRE : autoplay toutes les 6 secondes
-  // ============================================================
-  void _startBannerAutoplay(List<dynamic> banners) {
-    if (banners.isEmpty) return;
-    _bannerTimer?.cancel();
-    _bannerTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
-      if (_bannerController.hasClients && banners.isNotEmpty) {
-        final nextPage = (_currentBannerIndex + 1) % banners.length;
-        _bannerController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOutCubic,
-        );
-        setState(() => _currentBannerIndex = nextPage);
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final marketProvider = context.watch<MarketProvider>();
-    context.watch<ShopProvider>();
+    final market = context.watch<MarketProvider>();
+    final banners = market.promoBanners;
 
-    final Map<String, dynamic> allById = {};
-    for (final p in [
-      ...marketProvider.flashSales,
-      ...marketProvider.recommendedProducts,
-      ...marketProvider.forYouProducts,
-    ]) {
+    if (banners.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoplay(banners.length));
+    }
+
+    final allById = <String, dynamic>{};
+    for (final p in [...market.flashSales,...market.recommendedProducts,...market.forYouProducts]) {
       allById[p['id'].toString()] = p;
     }
     final allProducts = allById.values.toList();
-    final banners = marketProvider.promoBanners;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (banners.isNotEmpty) _startBannerAutoplay(banners);
-    });
 
     return Scaffold(
-      backgroundColor: ivory,
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            color: primaryBlue,
-            onRefresh: () => marketProvider.refresh(),
-            child: CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                _buildInstitutionalHeader(),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildQuickAccessRow(),
-                        const SizedBox(height: 22),
-                        if (banners.isNotEmpty) ...[
-                          _buildBannerCarousel(banners),
-                          const SizedBox(height: 24),
-                        ],
-                        _buildSupermarketsSection(),
-                        const SizedBox(height: 24),
-                        _buildCategorySection(),
-                        const SizedBox(height: 24),
-                        if (marketProvider.flashSales.isNotEmpty) ...[
-                          _buildFlashSaleSection(marketProvider.flashSales),
-                          const SizedBox(height: 24),
-                        ],
-                        if (marketProvider.recommendedProducts.isNotEmpty) ...[
-                          _buildRecommendedSection(marketProvider.recommendedProducts),
-                          const SizedBox(height: 24),
-                        ],
-                        if (allProducts.isNotEmpty) ...[
-                          _sectionHeader('Tous les produits', onSeeAll: () => context.push('/market/buy')),
-                          const SizedBox(height: 12),
-                          _productGrid(allProducts),
-                        ],
-                        const SizedBox(height: 110),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+      backgroundColor: graphite50,
+      body: RefreshIndicator(
+        color: graphite900,
+        onRefresh: () => market.refresh(),
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            _buildGraphiteAppBar(),
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSearchBar(),
+                  const SizedBox(height: 14),
+                  if (banners.isNotEmpty) _buildBannerInternational(banners),
+                  const SizedBox(height: 20),
+                  _buildSupermarketsInternational(),
+                  const SizedBox(height: 20),
+                  _buildCategoriesInternational(),
+                  const SizedBox(height: 20),
+                  if (market.flashSales.isNotEmpty) _buildFlashInternational(market.flashSales),
+                  if (market.recommendedProducts.isNotEmpty) _buildSectionHorizontal('Recommandé pour vous', market.recommendedProducts, onSeeAll: () => context.push('/market/buy')),
+                  if (allProducts.isNotEmpty)...[
+                    Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10), child: _sectionHeader('Marketplace • Tous les produits', action: 'Voir tout', onTap: () => context.push('/market/buy'))),
+                    _productGridInternational(allProducts),
+                  ],
+                  const SizedBox(height: 110),
+                ],
+              ),
             ),
-          ),
-          Positioned(left: 0, right: 0, bottom: 0, child: _buildFloatingNavBar()),
-        ],
+          ],
+        ),
       ),
+      bottomNavigationBar: _buildBottomNavGraphite(),
     );
   }
 
   // ============================================================
-  // HEADER INSTITUTIONNEL — dégradé navy profond, courbe généreuse, barre de recherche intégrée
+  // APP BAR GRAPHITE
   // ============================================================
-  Widget _buildInstitutionalHeader() {
+  Widget _buildGraphiteAppBar() {
     return SliverAppBar(
-      pinned: true,
-      elevation: 0,
-      expandedHeight: 178,
-      backgroundColor: navyDeep,
-      surfaceTintColor: navyDeep,
-      automaticallyImplyLeading: false,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [navyDeep, navy, primaryBlue],
-            ),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(32),
-              bottomRight: Radius.circular(32),
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -40,
-                right: -30,
-                child: Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: gold.withOpacity(0.08),
-                  ),
-                ),
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: gold.withOpacity(0.55), width: 1),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.storefront_rounded, size: 17, color: gold),
-                          ),
-                          const SizedBox(width: 10),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'THIX MARKET',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                              Text(
-                                'Marketplace institutionnel',
-                                style: TextStyle(fontSize: 9.5, color: Colors.white70, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          _headerIconButton(Icons.notifications_none_rounded, _goToNotifications),
-                          const SizedBox(width: 8),
-                          _headerIconButton(Icons.storefront_outlined, _goToVendor),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: _goToSearch,
-                        child: Container(
-                          height: 46,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(color: navyDeep.withOpacity(0.25), blurRadius: 18, offset: const Offset(0, 8)),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.search_rounded, size: 19, color: primaryBlue),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Rechercher un produit, une boutique…',
-                                style: TextStyle(fontSize: 12.5, color: mutedText, fontWeight: FontWeight.w500),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: goldSoft.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.tune_rounded, size: 14, color: navy),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      pinned: true, floating: true, elevation: 0, backgroundColor: graphite900, toolbarHeight: 64,
+      title: Row(children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: graphite800, borderRadius: BorderRadius.circular(10), border: Border.all(color: graphite700)), child: const Icon(Icons.storefront_rounded, size: 18, color: Colors.white)),
+        const SizedBox(width: 10),
+        const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('THIX MARKET', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.6)),
+          Text('Livraison • Kinshasa', style: TextStyle(fontSize: 10, color: graphite500, fontWeight: FontWeight.w500)),
+        ]),
+        const Spacer(),
+        _appBarIcon(Icons.notifications_none_rounded, () => context.push('/market/notifications'), hasDot: true),
+        const SizedBox(width: 8),
+        _appBarIcon(Icons.store_rounded, _goToVendor),
+      ]),
     );
   }
 
-  Widget _headerIconButton(IconData icon, VoidCallback onTap) {
+  Widget _appBarIcon(IconData icon, VoidCallback tap, {bool hasDot = false}) {
     return InkWell(
-      borderRadius: BorderRadius.circular(11),
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: Colors.white.withOpacity(0.18)),
+      onTap: tap, borderRadius: BorderRadius.circular(10),
+      child: Stack(clipBehavior: Clip.none, children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: graphite800, borderRadius: BorderRadius.circular(10), border: Border.all(color: graphite700)), child: Icon(icon, size: 18, color: Colors.white)),
+        if (hasDot) Positioned(top: -2, right: -2, child: Container(width: 9, height: 9, decoration: BoxDecoration(color: accent2, shape: BoxShape.circle, border: Border.all(color: graphite900, width: 1.5)))),
+      ]),
+    );
+  }
+
+  // ============================================================
+  // SEARCH - INTERNATIONAL STANDARD
+  // ============================================================
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: InkWell(
+        onTap: () => context.push('/market/search'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: graphite300)),
+          child: Row(children: [
+            const Icon(Icons.search_rounded, color: graphite500, size: 20),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('Rechercher produits, marques, boutiques', style: TextStyle(color: graphite500, fontSize: 13.5))),
+            Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: graphite900, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 14, color: Colors.white)),
+          ]),
         ),
-        child: Icon(icon, size: 16, color: Colors.white),
       ),
     );
   }
 
   // ============================================================
-  // RACCOURCIS RAPIDES — remplace les anciens boutons d'appbar
+  // BANNER INTERNATIONAL - Rectangulaire, full bleed, 6s autoplay
   // ============================================================
-  Widget _buildQuickAccessRow() {
-    final items = [
-      {'icon': Icons.shopping_cart_rounded, 'label': 'Panier', 'action': _goToCart},
-      {'icon': Icons.favorite_rounded, 'label': 'Wishlist', 'action': _goToWishlist},
-      {'icon': Icons.chat_bubble_rounded, 'label': 'Messages', 'action': _goToMessages},
-      {'icon': Icons.storefront_rounded, 'label': 'Ma boutique', 'action': _goToVendor},
-    ];
-    return Row(
-      children: items.map((item) {
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: item == items.last ? 0 : 8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: item['action'] as VoidCallback,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: cardWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: hairline),
-                  boxShadow: [
-                    BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
+  Widget _buildBannerInternational(List banners) {
+    return Column(children: [
+      SizedBox(
+        height: 176,
+        child: PageView.builder(
+          controller: _bannerController,
+          onPageChanged: (i) => setState(() => _currentBanner = i),
+          itemCount: banners.length,
+          itemBuilder: (context, i) {
+            final b = banners[i];
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), color: graphite800),
+              clipBehavior: Clip.hardEdge,
+              child: Stack(fit: StackFit.expand, children: [
+                _netImg(b['image_url']),
+                Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [graphite900.withOpacity(0.85), Colors.transparent, Colors.transparent]))),
+                Positioned(
+                  left: 16, bottom: 16, right: 16,
+                  child: Row(children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: accent2, borderRadius: BorderRadius.circular(20)), child: const Text('NOUVEAU', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: graphite900))),
+                      const SizedBox(height: 6),
+                      Text(b['title']?? 'Offre Spéciale Marketplace', maxLines: 1, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+                    ])),
+                    InkWell(onTap: () => context.push('/market/flash-sales'), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: const Text('Acheter', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: graphite900)))),
+                  ]),
                 ),
-                child: Column(
-                  children: [
-                    Icon(item['icon'] as IconData, size: 18, color: navy),
-                    const SizedBox(height: 5),
-                    Text(
-                      item['label'] as String,
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: darkText),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
+              ]),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 10),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(banners.length, (i) => AnimatedContainer(duration: const Duration(milliseconds: 300), width: i == _currentBanner? 20 : 6, height: 6, margin: const EdgeInsets.symmetric(horizontal: 3), decoration: BoxDecoration(color: i == _currentBanner? graphite900 : graphite300, borderRadius: BorderRadius.circular(10))))),
+    ]);
   }
 
   // ============================================================
-  // BANNIÈRE — cadre or, indicateurs institutionnels
+  // SUPERMARCHÉS - INTERNATIONAL CARD
   // ============================================================
-  Widget _buildBannerCarousel(List<dynamic> banners) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 160,
-          child: PageView.builder(
-            controller: _bannerController,
-            itemCount: banners.length,
-            onPageChanged: (index) => setState(() => _currentBannerIndex = index),
-            itemBuilder: (context, index) {
-              final banner = banners[index];
-              return GestureDetector(
-                onTap: _goToFlashSales,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: gold.withOpacity(0.35), width: 1.4),
-                    boxShadow: [
-                      BoxShadow(color: navyDeep.withOpacity(0.12), blurRadius: 18, offset: const Offset(0, 10)),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(19),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _networkImage(banner['image_url']),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.fromLTRB(12, 20, 12, 10),
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Color(0xCC0A1F44)],
-                              ),
-                            ),
-                            child: const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Offre en vedette',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11.5),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(banners.length, (i) {
-            final active = i == _currentBannerIndex;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: active ? 18 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: active ? gold : hairline,
-                borderRadius: BorderRadius.circular(4),
+  Widget _buildSupermarketsInternational() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _sectionHeader('Supermarchés à domicile', action: 'Voir tout', onTap: () => context.push('/market/search'))),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 98,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: _supermarkets.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, i) {
+            final s = _supermarkets[i];
+            return InkWell(
+              onTap: () => context.push('/market/search?shop=${Uri.encodeComponent(s['name'])}'), borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: 180, padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: graphite300)),
+                child: Row(children: [
+                  Container(width: 44, height: 44, alignment: Alignment.center, decoration: BoxDecoration(color: s['color'] as Color, borderRadius: BorderRadius.circular(12)), child: Text(s['initial'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(s['name'], maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: graphite900)),
+                    const SizedBox(height: 2), Text(s['tagline'], style: const TextStyle(fontSize: 10, color: graphite500)),
+                    const SizedBox(height: 4), Row(children: [Container(width: 6, height: 6, decoration: const BoxDecoration(color: success, shape: BoxShape.circle)), const SizedBox(width: 4), const Text('Ouvert', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: success))]),
+                  ])),
+                ]),
               ),
             );
-          }),
+          },
         ),
-      ],
-    );
+      ),
+    ]);
   }
 
   // ============================================================
-  // ✅ SUPERMARCHÉS — liste institutionnelle avec anneau or
+  // CATEGORIES - CHIPS GRAPHITE
   // ============================================================
-  Widget _buildSupermarketsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('Épiceries partenaires', onSeeAll: _goToSearch, subtitle: 'Livraison à domicile'),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 104,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _supermarkets.length,
-            itemBuilder: (context, index) {
-              final s = _supermarkets[index];
-              final initials = (s['name'] as String)
-                  .split(' ')
-                  .map((w) => w.isNotEmpty ? w[0] : '')
-                  .take(2)
-                  .join()
-                  .toUpperCase();
-
-              return GestureDetector(
-                onTap: () => context.push('/market/search?shop=${Uri.encodeComponent(s['name'] as String)}'),
-                child: Container(
-                  width: 178,
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cardWhite,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: hairline),
-                    boxShadow: [
-                      BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: navyDeep,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: gold, width: 1.6),
-                        ),
-                        child: Text(
-                          initials,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              s['name'] as String,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: darkText),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              s['tagline'] as String,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 9, color: mutedText, height: 1.25),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                const Icon(Icons.timer_outlined, size: 10.5, color: navy),
-                                const SizedBox(width: 3),
-                                Text(
-                                  s['time'] as String,
-                                  style: const TextStyle(fontSize: 9, color: navy, fontWeight: FontWeight.w700),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // ✅ CATÉGORIES — icônes circulaires cerclées d'or
-  // ============================================================
-  Widget _buildCategorySection() {
-    final categories = [
-      {'icon': Icons.checkroom_rounded, 'label': 'Mode', 'id': 'fashion'},
-      {'icon': Icons.phone_android_rounded, 'label': 'Électronique', 'id': 'electronics'},
-      {'icon': Icons.chair_rounded, 'label': 'Maison', 'id': 'home'},
-      {'icon': Icons.build_rounded, 'label': 'Services', 'id': 'services'},
-      {'icon': Icons.directions_car_rounded, 'label': 'Véhicules', 'id': 'vehicles'},
-      {'icon': Icons.house_rounded, 'label': 'Immobilier', 'id': 'realestate'},
+  Widget _buildCategoriesInternational() {
+    final cats = [
+      {'label': 'Mode', 'id': 'fashion', 'icon': Icons.checkroom_outlined},
+      {'label': 'Tech', 'id': 'electronics', 'icon': Icons.phone_iphone_outlined},
+      {'label': 'Maison', 'id': 'home', 'icon': Icons.chair_outlined},
+      {'label': 'Services', 'id': 'services', 'icon': Icons.handyman_outlined},
+      {'label': 'Auto', 'id': 'vehicles', 'icon': Icons.directions_car_outlined},
+      {'label': 'Immo', 'id': 'realestate', 'icon': Icons.home_work_outlined},
     ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('Catégories'),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 84,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 14),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(30),
-                  onTap: () => context.push('/market/category/${cat['id']}'),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: ivory,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: gold.withOpacity(0.6), width: 1.4),
-                        ),
-                        child: Icon(cat['icon'] as IconData, size: 21, color: navy),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        cat['label'] as String,
-                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: darkText),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: cats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (c, i) {
+          final cat = cats[i];
+          final isFirst = i == 0;
+          return InkWell(
+            onTap: () => context.push('/market/category/${cat['id']}'), borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(color: isFirst? graphite900 : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isFirst? graphite900 : graphite300)),
+              child: Row(children: [Icon(cat['icon'] as IconData, size: 16, color: isFirst? Colors.white : graphite700), const SizedBox(width: 6), Text(cat['label'] as String, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: isFirst? Colors.white : graphite900))]),
+            ),
+          );
+        },
+      ),
     );
   }
 
   // ============================================================
-  // FLASH SALE — ruban or, chronomètre institutionnel
+  // FLASH SALE - GRAPHITE
   // ============================================================
-  Widget _buildFlashSaleSection(List<dynamic> flashSales) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [navyDeep, navy]),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: gold.withOpacity(0.18), borderRadius: BorderRadius.circular(9)),
-                child: const Icon(Icons.bolt_rounded, color: gold, size: 16),
-              ),
-              const SizedBox(width: 8),
-              const Text('Offres Flash', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Colors.white)),
-              const Spacer(),
-              FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 186,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: flashSales.take(6).length,
-            itemBuilder: (context, index) {
-              final product = flashSales[index];
-              return _buildProductHorizontalCard(product, isFlash: true);
-            },
-          ),
-        ),
-      ],
+  Widget _buildFlashInternational(List flash) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16), padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: graphite900, borderRadius: BorderRadius.circular(20)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: danger, borderRadius: BorderRadius.circular(6)), child: const Text('FLASH', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10))),
+          const SizedBox(width: 8), const Text('Offres Flash', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+          const Spacer(), FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45))),
+        ]),
+        const SizedBox(height: 14),
+        SizedBox(height: 196, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: flash.take(6).length, separatorBuilder: (_, __) => const SizedBox(width: 10), itemBuilder: (c, i) => _productCardGraphite(flash[i], isDark: true, isFlash: true))),
+      ]),
     );
   }
 
-  // ============================================================
-  // RECOMMANDÉ
-  // ============================================================
-  Widget _buildRecommendedSection(List<dynamic> products) {
-    if (products.isEmpty) return const SizedBox();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('Recommandé pour vous', onSeeAll: () => context.push('/market/buy')),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 186,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: products.take(6).length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return _buildProductHorizontalCard(product);
-            },
-          ),
-        ),
-      ],
-    );
+  Widget _buildSectionHorizontal(String title, List products, {VoidCallback? onSeeAll}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.fromLTRB(16, 20, 16, 10), child: _sectionHeader(title, action: 'Voir tout', onTap: onSeeAll)),
+      SizedBox(height: 210, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: products.take(8).length, separatorBuilder: (_, __) => const SizedBox(width: 10), itemBuilder: (c, i) => _productCardGraphite(products[i]))),
+    ]);
   }
 
   // ============================================================
-  // CARTE PRODUIT HORIZONTALE — style institutionnel
+  // PRODUCT CARD - INTERNATIONAL STANDARD
   // ============================================================
-  Widget _buildProductHorizontalCard(Map<String, dynamic> product, {bool isFlash = false}) {
-    final currency = product['currency'] ?? 'FC';
-    final symbol = currency == 'USD' ? '\$' : 'FC';
+  Widget _productCardGraphite(Map product, {bool isDark = false, bool isFlash = false}) {
     final price = (product['price'] as num).toInt();
-
-    return GestureDetector(
-      onTap: () => context.push('/market/product/${product['id']}'),
-      child: Container(
-        width: 136,
-        margin: const EdgeInsets.only(right: 10),
-        decoration: BoxDecoration(
-          color: cardWhite,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: hairline),
-          boxShadow: [
-            BoxShadow(color: navyDeep.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 6)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _networkImage(product['image_url']),
-                    if (isFlash)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: navyDeep,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: gold, width: 1),
-                          ),
-                          child: const Text('FLASH', style: TextStyle(color: gold, fontSize: 7.5, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(9),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product['title'] ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: darkText),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '$price $symbol',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: navy),
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_rounded, size: 10, color: mutedText),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['city'] ?? 'Abidjan',
-                          style: const TextStyle(fontSize: 9, color: mutedText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // GRILLE PRODUITS
-  // ============================================================
-  Widget _productGrid(List<dynamic> products) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.7,
-      ),
-      itemCount: products.length > 8 ? 8 : products.length,
-      itemBuilder: (context, index) => _buildProductCard(products[index]),
-    );
-  }
-
-  Widget _buildProductCard(Map<String, dynamic> product) {
-    final hasDiscount = product['discount_price'] != null && product['discount_price'] < product['price'];
-    final price = (hasDiscount ? product['discount_price'] : product['price']).toDouble();
-    final originalPrice = product['price'].toDouble();
-    final currency = product['currency'] ?? 'FC';
-    final symbol = currency == 'USD' ? '\$' : 'FC';
-
-    return GestureDetector(
-      onTap: () => context.push('/market/product/${product['id']}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardWhite,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: hairline),
-          boxShadow: [
-            BoxShadow(color: navyDeep.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 6)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _networkImage(product['image_url']),
-                    if (hasDiscount)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: gold,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '-${((1 - price / originalPrice) * 100).round()}%',
-                            style: const TextStyle(color: navyDeep, fontSize: 8, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.12), blurRadius: 6)],
-                        ),
-                        child: const Icon(Icons.bookmark_border_rounded, size: 13, color: navy),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(9),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product['title'] ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: darkText),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${price.toInt()} $symbol',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: navy),
-                      ),
-                      if (hasDiscount)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 5),
-                          child: Text(
-                            '${originalPrice.toInt()} $symbol',
-                            style: const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 9.5,
-                              color: mutedText,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_rounded, size: 9.5, color: mutedText),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['city'] ?? 'Abidjan',
-                          style: const TextStyle(fontSize: 8.5, color: mutedText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.store_rounded, size: 9.5, color: mutedText),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(
-                          product['shop']?['name'] ?? 'Vendeur',
-                          style: const TextStyle(fontSize: 8.5, color: mutedText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionHeader(String title, {VoidCallback? onSeeAll, String? subtitle}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: darkText)),
-            if (subtitle != null) ...[
-              const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(fontSize: 10, color: mutedText, fontWeight: FontWeight.w500)),
-            ],
-          ],
-        ),
-        if (onSeeAll != null)
-          TextButton(
-            onPressed: onSeeAll,
-            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-            child: const Text('Voir tout', style: TextStyle(color: navy, fontWeight: FontWeight.w800, fontSize: 12)),
-          ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // NAVBAR FLOTTANTE — pilule navy, indicateur or
-  // ============================================================
-  Widget _buildFloatingNavBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: navyDeep,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(color: navyDeep.withOpacity(0.35), blurRadius: 24, offset: const Offset(0, 12)),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(Icons.home_rounded, 'Accueil', true, () {}),
-                _buildNavItem(Icons.favorite_rounded, 'Wishlist', false, _goToWishlist),
-                _buildNavItem(Icons.shopping_cart_rounded, 'Panier', false, _goToCart),
-                _buildNavItem(Icons.chat_bubble_rounded, 'Chat', false, _goToMessages),
-                _buildNavItem(Icons.person_rounded, 'Profil', false, _goToProfile),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isSelected, VoidCallback onTap) {
+    final currency = product['currency']?? 'FC';
+    final symbol = currency == 'USD'? '\$' : 'FC';
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: isSelected ? gold : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: isSelected ? navyDeep : Colors.white70, size: 19),
-            ),
+      onTap: () => context.push('/market/product/${product['id']}'), borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 148,
+        decoration: BoxDecoration(color: isDark? graphite800 : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark? graphite700 : graphite300)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: Stack(fit: StackFit.expand, children: [
+            _netImg(product['image_url']),
+            if (isFlash) Positioned(top: 8, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(color: danger, borderRadius: BorderRadius.circular(6)), child: const Text('-30%', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)))),
+            Positioned(top: 8, right: 8, child: Container(width: 28, height: 28, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)]), child: const Icon(Icons.favorite_border_rounded, size: 14, color: graphite900))),
+          ]))),
+          Padding(padding: const EdgeInsets.all(9), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(product['title']?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: isDark? Colors.white : graphite900)),
+            const SizedBox(height: 4),
+            Text('$price $symbol', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: isDark? Colors.white : graphite900)),
             const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 8.5,
-                color: isSelected ? gold : Colors.white54,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-              ),
+            Row(children: [const Icon(Icons.location_on_outlined, size: 10, color: graphite500), const SizedBox(width: 2), Expanded(child: Text(product['city']?? 'Kinshasa', maxLines: 1, style: const TextStyle(fontSize: 9.5, color: graphite500)))]),
+          ])),
+        ]),
+      ),
+    );
+  }
+
+  Widget _productGridInternational(List products) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GridView.builder(
+        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.68),
+        itemCount: products.length > 10? 10 : products.length,
+        itemBuilder: (c, i) {
+          final p = products[i];
+          final price = (p['price'] as num).toInt();
+          final symbol = (p['currency']?? 'FC') == 'USD'? '\$' : 'FC';
+          return InkWell(
+            onTap: () => context.push('/market/product/${p['id']}'), borderRadius: BorderRadius.circular(18),
+            child: Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: graphite300)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(18)), child: Stack(fit: StackFit.expand, children: [_netImg(p['image_url']), Positioned(top: 8, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: graphite900, borderRadius: BorderRadius.circular(20)), child: const Text('LIVRAISON', style: TextStyle(color: accent2, fontSize: 8, fontWeight: FontWeight.w800))))]))),
+                Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p['title']?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: graphite900)),
+                  const SizedBox(height: 4), Text('$price $symbol', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: graphite900)),
+                  const SizedBox(height: 4), Row(children: [const Icon(Icons.store_outlined, size: 11, color: graphite500), const SizedBox(width: 3), Expanded(child: Text(p['shop']?['name']?? 'Vendeur vérifié', maxLines: 1, style: const TextStyle(fontSize: 10, color: graphite500)))]),
+                ])),
+              ]),
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title, {String? action, VoidCallback? onTap}) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: graphite900)),
+      if (action!= null) InkWell(onTap: onTap, child: Text(action, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: graphite500))),
+    ]);
+  }
+
+  Widget _buildBottomNavGraphite() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      decoration: BoxDecoration(color: graphite900, borderRadius: BorderRadius.circular(22), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8))]),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            _navItemGraphite(Icons.home_rounded, 'Accueil', true, () {}),
+            _navItemGraphite(Icons.favorite_border_rounded, 'Wishlist', false, _goToWishlist),
+            _navItemGraphite(Icons.shopping_bag_outlined, 'Panier', false, _goToCart),
+            _navItemGraphite(Icons.chat_bubble_outline_rounded, 'Chat', false, () => context.push('/market/messages')),
+            _navItemGraphite(Icons.person_outline_rounded, 'Profil', false, () => context.push('/market/activity')),
+          ]),
         ),
       ),
+    );
+  }
+
+  Widget _navItemGraphite(IconData icon, String label, bool sel, VoidCallback tap) {
+    return InkWell(
+      onTap: tap, borderRadius: BorderRadius.circular(12),
+      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 20, color: sel? accent2 : graphite500),
+        const SizedBox(height: 3), Text(label, style: TextStyle(fontSize: 9.5, fontWeight: sel? FontWeight.w800 : FontWeight.w500, color: sel? Colors.white : graphite500)),
+      ])),
     );
   }
 }
