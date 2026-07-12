@@ -1,7 +1,7 @@
 // lib/presentation/mon_pays/services/achievements_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/provincial_achievement.dart'; // <--- IMPORT CORRECT
+import '../models/provincial_achievement.dart'; // <--- Import harmonisé
 
 class AchievementsService {
   final SupabaseClient _client = Supabase.instance.client;
