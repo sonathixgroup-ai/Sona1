@@ -1,18 +1,12 @@
 // lib/presentation/mon_pays/mon_pays_page.dart
-// Espace Citoyen — Page d'accueil du module Mon Pays
+// Page d'accueil du module Mon Pays — Espace Citoyen RDC
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-// ═══════════════════════════════════════════════════════════════
-// IMPORTS CORRECTS POUR SUPABASE
-// ═══════════════════════════════════════════════════════════════
-import '../../providers/authorities_provider.dart';
-import '../../providers/news_provider.dart';
-import '../../models/authority.dart';
-import '../../models/news.dart';
-import '../../utils/helpers.dart';
+import 'sections/authorities_section.dart';
+import 'sections/header_section.dart';
+import 'admin/admin_authorities_page.dart';
 
 class MonPaysPage extends ConsumerWidget {
   const MonPaysPage({super.key});
@@ -34,10 +28,6 @@ class MonPaysPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ Utilisation des providers avec le bon chemin
-    final authoritiesAsync = ref.watch(authoritiesProvider(null));
-    final newsAsync = ref.watch(newsProvider);
-
     return Scaffold(
       backgroundColor: ivory,
       body: CustomScrollView(
@@ -50,17 +40,35 @@ class MonPaysPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
-                  _buildHeroBannerWithNews(context, ref, newsAsync),
+                  // ─── 1. Bannière "Espace Citoyen" ─────────────
+                  _buildHeroBanner(),
                   const SizedBox(height: 20),
-                  _buildAuthoritiesSection(context, ref, authoritiesAsync),
+                  // ─── 2. Les Autorités (FONCTIONNEL) ────────────
+                  const AuthoritiesSection(),
+                  const SizedBox(height: 16),
+                  // ─── Voir toutes les autorités ──────────────────
+                  _buildSeeAllButton(context),
                   const SizedBox(height: 24),
+                  // ─── 3. Figures Historiques ─────────────────────
+                  _buildHistoricalFiguresSection(context),
+                  const SizedBox(height: 24),
+                  // ─── 4. À la Une ────────────────────────────────
+                  _buildNewsSection(context),
+                  const SizedBox(height: 24),
+                  // ─── 5. Agences & Institutions ──────────────────
                   _buildAgenciesSection(context),
                   const SizedBox(height: 24),
+                  // ─── 6. Accès rapides ──────────────────────────
                   _buildQuickAccessRow(context),
                   const SizedBox(height: 20),
+                  // ─── 7. Citoyens Exemplaires ────────────────────
                   _buildCitizensBanner(context),
                   const SizedBox(height: 20),
-                  _buildHistoricalFiguresFull(context),
+                  // ─── 8. Alertes ──────────────────────────────────
+                  _buildAlertRow(context),
+                  const SizedBox(height: 20),
+                  // ─── 9. Tous les modules ────────────────────────
+                  _buildModulesGrid(context),
                   const SizedBox(height: 30),
                 ],
               ),
@@ -106,7 +114,11 @@ class MonPaysPage extends ConsumerWidget {
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white, height: 1.25, letterSpacing: 0.3),
             ),
           ),
-          _headerIconButton(Icons.search_rounded, () {}),
+          _headerIconButton(Icons.search_rounded, () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Recherche globale - En développement')),
+            );
+          }),
           const SizedBox(width: 8),
           Stack(
             clipBehavior: Clip.none,
@@ -127,7 +139,10 @@ class MonPaysPage extends ConsumerWidget {
           const SizedBox(width: 8),
           InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: () => context.pushNamed('monPaysAdmin'),
+            onTap: () {
+              // ✅ ADMIN - FONCTIONNEL
+              context.push('/mon-pays/admin');
+            },
             child: Container(
               width: 32,
               height: 32,
@@ -162,9 +177,9 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 1. BANNIÈRE "ESPACE CITOYEN" + À LA UNE
+  // 1. BANNIÈRE "ESPACE CITOYEN"
   // ============================================================
-  Widget _buildHeroBannerWithNews(BuildContext context, WidgetRef ref, AsyncValue<List<News>> newsAsync) {
+  Widget _buildHeroBanner() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -176,123 +191,23 @@ class MonPaysPage extends ConsumerWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.25), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: const Row(
         children: [
-          const Row(
-            children: [
-              Icon(Icons.star_rounded, color: gold, size: 18),
-              SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Espace Citoyen',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.3),
-                    ),
-                    Text(
-                      "S'informer • Comprendre • Participer • Construire",
-                      style: TextStyle(fontSize: 10.5, color: Colors.white70, fontWeight: FontWeight.w600),
-                    ),
-                  ],
+          Icon(Icons.star_rounded, color: gold, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Espace Citoyen',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.3),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          newsAsync.when(
-            loading: () => const SizedBox(
-              height: 100,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-            error: (_, __) => const SizedBox(
-              height: 100,
-              child: Center(
-                child: Text('Impossible de charger les actualités', style: TextStyle(color: Colors.white70, fontSize: 11)),
-              ),
-            ),
-            data: (news) {
-              if (news.isEmpty) {
-                return const SizedBox(
-                  height: 100,
-                  child: Center(
-                    child: Text('Aucune actualité', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                  ),
-                );
-              }
-              return SizedBox(
-                height: 110,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: news.length,
-                  itemBuilder: (context, index) {
-                    final item = news[index];
-                    return Container(
-                      width: 160,
-                      margin: const EdgeInsets.only(right: 10),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(4)),
-                                child: Text(
-                                  item.category.toUpperCase(),
-                                  style: const TextStyle(color: navyDeep, fontSize: 6, fontWeight: FontWeight.w800),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                item.date,
-                                style: const TextStyle(color: Colors.white70, fontSize: 7, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
-                          ),
-                          if (item.excerpt.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              item.excerpt,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
+                Text(
+                  "S'informer • Comprendre • Participer • Construire",
+                  style: TextStyle(fontSize: 10.5, color: Colors.white70, fontWeight: FontWeight.w600),
                 ),
-              );
-            },
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: InkWell(
-              onTap: () => context.pushNamed('monPaysNews'),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Voir toutes', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.w700)),
-                  Icon(Icons.arrow_forward_ios, color: gold, size: 12),
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -301,114 +216,137 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 2. AUTORITÉS
+  // BOUTON "VOIR TOUTES LES AUTORITÉS"
   // ============================================================
-  Widget _buildAuthoritiesSection(BuildContext context, WidgetRef ref, AsyncValue<List<Authority>> authoritiesAsync) {
+  Widget _buildSeeAllButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // ✅ AUTORITÉS - FONCTIONNEL
+        context.push('/mon-pays/authorities');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Voir toutes les autorités',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A5276),
+              ),
+            ),
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward, color: Color(0xFF1A5276)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // 2. FIGURES HISTORIQUES
+  // ============================================================
+  Widget _buildHistoricalFiguresSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('🏛 Les Autorités', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
-            InkWell(
-              onTap: () => context.pushNamed('monPaysAuthorities'),
-              child: const Text('Voir tout →', style: TextStyle(color: navy, fontWeight: FontWeight.w600, fontSize: 12)),
-            ),
+            const Text('📜 Figures Historiques', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
+            _buildComingSoonButton(context, 'Explorer →'),
           ],
         ),
         const SizedBox(height: 10),
-        authoritiesAsync.when(
-          loading: () => const SizedBox(
-            height: 180,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (_, __) => const SizedBox(
-            height: 180,
-            child: Center(child: Text('Impossible de charger les autorités', style: TextStyle(color: danger, fontSize: 12))),
-          ),
-          data: (authorities) {
-            if (authorities.isEmpty) {
-              return const SizedBox(
-                height: 180,
-                child: Center(child: Text('Aucune autorité enregistrée', style: TextStyle(color: mutedText, fontSize: 12))),
+        SizedBox(
+          height: 80,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: 5,
+            itemBuilder: (context, index) {
+              return Container(
+                width: 60,
+                height: 60,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: hairline, width: 1.4),
+                  color: navy.withOpacity(0.08),
+                ),
+                child: const Center(
+                  child: Icon(Icons.person_rounded, color: navy, size: 24),
+                ),
               );
-            }
-            final display = authorities.take(6).toList();
-            return SizedBox(
-              height: 180,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: display.length,
-                itemBuilder: (context, index) {
-                  final a = display[index];
-                  return Container(
-                    width: 150,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: pureWhite,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: hairline),
-                      boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => context.pushNamed('monPaysAuthorityProfile', pathParameters: {'id': a.id}),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: gold, width: 2),
-                              color: ivory,
-                              image: a.imageUrl != null && a.imageUrl!.isNotEmpty
-                                  ? DecorationImage(image: NetworkImage(a.imageUrl!), fit: BoxFit.cover)
-                                  : null,
-                            ),
-                            child: a.imageUrl == null || a.imageUrl!.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      Helpers.getInitials(a.name),
-                                      style: const TextStyle(color: navy, fontWeight: FontWeight.bold, fontSize: 22),
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            a.name,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: darkText),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            a.title,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10, color: mutedText, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+            },
+          ),
         ),
+        const SizedBox(height: 4),
+        const Text('Découvrez ceux qui ont marqué notre histoire.', style: TextStyle(fontSize: 9.5, color: mutedText, fontWeight: FontWeight.w500)),
       ],
     );
   }
 
   // ============================================================
-  // 3. AGENCES & INSTITUTIONS
+  // 3. À LA UNE
+  // ============================================================
+  Widget _buildNewsSection(BuildContext context) {
+    final List<Map<String, String>> news = [
+      {'tag': 'OFFICIEL', 'date': '27 Mai 2025', 'title': 'Inauguration du Pont Maréchal à Kinshasa', 'excerpt': 'Un nouvel ouvrage pour renforcer la mobilité et le développement.'},
+      {'tag': 'COMMUNIQUÉ', 'date': '25 Mai 2025', 'title': 'Conseil des Ministres : Principales décisions', 'excerpt': 'Résumé des décisions prises lors du dernier conseil des ministres.'},
+      {'tag': 'NATIONAL', 'date': '23 Mai 2025', 'title': "Réforme de l'éducation : cap sur la qualité", 'excerpt': "Le Gouvernement réaffirme son engagement pour l'avenir des jeunes."},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('📰 À la Une', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
+            _buildComingSoonButton(context, 'Voir toutes →'),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...news.take(2).map((n) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: navyDeep, borderRadius: BorderRadius.circular(6)),
+                    child: Text(n['tag']!, style: const TextStyle(fontSize: 7, color: gold, fontWeight: FontWeight.w800)),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          n['title']!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: darkText, height: 1.25),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(n['date']!, style: const TextStyle(fontSize: 8.5, color: mutedText, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+      ],
+    );
+  }
+
+  // ============================================================
+  // 4. AGENCES & INSTITUTIONS
   // ============================================================
   Widget _buildAgenciesSection(BuildContext context) {
     final List<Map<String, dynamic>> agencies = [
@@ -433,10 +371,7 @@ class MonPaysPage extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('🏢 Agences & Institutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: darkText)),
-            InkWell(
-              onTap: () => context.pushNamed('monPaysAgencies'),
-              child: const Text('Explorer →', style: TextStyle(color: navy, fontWeight: FontWeight.w600, fontSize: 12)),
-            ),
+            _buildComingSoonButton(context, 'Explorer →'),
           ],
         ),
         const SizedBox(height: 10),
@@ -455,9 +390,7 @@ class MonPaysPage extends ConsumerWidget {
             return InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${ag['label']} - Bientôt disponible')),
-                );
+                _showComingSoon(context);
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -488,7 +421,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 4. ACCÈS RAPIDES
+  // 5. ACCÈS RAPIDES
   // ============================================================
   Widget _buildQuickAccessRow(BuildContext context) {
     final items = [
@@ -508,9 +441,7 @@ class MonPaysPage extends ConsumerWidget {
           return InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Bientôt disponible')),
-              );
+              _showComingSoon(context);
             },
             child: Container(
               width: 84,
@@ -542,7 +473,7 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 5. CITOYENS EXEMPLAIRES
+  // 6. CITOYENS EXEMPLAIRES
   // ============================================================
   Widget _buildCitizensBanner(BuildContext context) {
     return Container(
@@ -570,7 +501,9 @@ class MonPaysPage extends ConsumerWidget {
             ),
           ),
           InkWell(
-            onTap: () => context.pushNamed('monPaysCitizens'),
+            onTap: () {
+              _showComingSoon(context);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(20)),
@@ -583,91 +516,209 @@ class MonPaysPage extends ConsumerWidget {
   }
 
   // ============================================================
-  // 6. FIGURES HISTORIQUES
+  // 7. ALERTES
   // ============================================================
-  Widget _buildHistoricalFiguresFull(BuildContext context) {
-    final List<Map<String, String>> figures = [
-      {'name': 'Patrice Lumumba', 'role': 'Héros de l\'indépendance', 'date': '1925-1961'},
-      {'name': 'Joseph Kasa-Vubu', 'role': '1er Président', 'date': '1910-1969'},
-      {'name': 'Mobutu Sese Seko', 'role': 'Président', 'date': '1930-1997'},
-      {'name': 'Laurent-Désiré Kabila', 'role': 'Président', 'date': '1939-2001'},
-      {'name': 'Joseph Kabila', 'role': 'Président', 'date': '1971-...'},
+  Widget _buildAlertRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              _showComingSoon(context);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: danger.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: danger.withOpacity(0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: danger, size: 20),
+                  const SizedBox(height: 8),
+                  const Text('Personne Recherchée', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: danger)),
+                  const SizedBox(height: 3),
+                  Text('Signaler ou rechercher une personne dangereuse.', style: TextStyle(fontSize: 8.5, color: darkText.withOpacity(0.7), fontWeight: FontWeight.w500, height: 1.3)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              _showComingSoon(context);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: primaryBlue.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: primaryBlue.withOpacity(0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.travel_explore_rounded, color: navy, size: 20),
+                  const SizedBox(height: 8),
+                  const Text('Recherche Personnalisée', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: navy)),
+                  const SizedBox(height: 3),
+                  Text('Rechercher des informations ciblées et officielles.', style: TextStyle(fontSize: 8.5, color: darkText.withOpacity(0.7), fontWeight: FontWeight.w500, height: 1.3)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // 8. TOUS LES MODULES (grille complète)
+  // ============================================================
+  Widget _buildModulesGrid(BuildContext context) {
+    final modules = [
+      {'icon': Icons.account_balance_rounded, 'label': 'Autorités', 'active': true},
+      {'icon': Icons.history_edu_rounded, 'label': 'Figures Historiques', 'active': false},
+      {'icon': Icons.newspaper_rounded, 'label': 'À la Une', 'active': false},
+      {'icon': Icons.business_rounded, 'label': 'Agences & Institutions', 'active': false},
+      {'icon': Icons.video_library_rounded, 'label': 'Vidéos Officielles', 'active': false},
+      {'icon': Icons.library_books_rounded, 'label': 'Documentaires', 'active': false},
+      {'icon': Icons.people_alt_rounded, 'label': 'Citoyens Exemplaires', 'active': false},
+      {'icon': Icons.gavel_rounded, 'label': 'Valeurs & Lois', 'active': false},
+      {'icon': Icons.record_voice_over_rounded, 'label': 'Participer', 'active': false},
+      {'icon': Icons.warning_rounded, 'label': 'Personnes recherchées', 'active': false},
+      {'icon': Icons.search_rounded, 'label': 'Recherche globale', 'active': false},
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('📜 Figures Historiques', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText)),
-            InkWell(
-              onTap: () => context.pushNamed('monPaysHistory'),
-              child: const Text('Explorer →', style: TextStyle(color: navy, fontWeight: FontWeight.w600, fontSize: 12)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: figures.length,
-            itemBuilder: (context, index) {
-              final f = figures[index];
-              return Container(
-                width: 120,
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.all(10),
+        const Text('Tous les modules', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: darkText)),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 3,
+          childAspectRatio: 1.1,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          children: modules.map((module) {
+            final isActive = module['active'] as bool;
+            return InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: isActive
+                  ? () {
+                      // ✅ AUTORITÉS - FONCTIONNEL
+                      context.push('/mon-pays/authorities');
+                    }
+                  : () {
+                      _showComingSoon(context);
+                    },
+              child: Container(
                 decoration: BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: hairline),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isActive ? gold : hairline,
+                    width: isActive ? 2 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: navyDeep.withOpacity(isActive ? 0.08 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 60,
-                      height: 60,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
+                        color: isActive ? gold.withOpacity(0.15) : ivory,
                         shape: BoxShape.circle,
-                        border: Border.all(color: gold, width: 2),
-                        color: navy.withOpacity(0.08),
+                        border: Border.all(
+                          color: isActive ? gold : Colors.grey.shade300,
+                          width: 1.2,
+                        ),
                       ),
-                      child: const Center(
-                        child: Icon(Icons.person_rounded, color: navy, size: 30),
+                      child: Icon(
+                        module['icon'] as IconData,
+                        color: isActive ? navy : Colors.grey,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      f['name']!,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: darkText),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        module['label'] as String,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                          color: isActive ? darkText : Colors.grey,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    Text(
-                      f['role']!,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 9, color: mutedText, fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      f['date']!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 8, color: mutedText, fontWeight: FontWeight.w400),
-                    ),
+                    if (isActive)
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: success,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'ACTIF',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }).toList(),
         ),
-        const SizedBox(height: 6),
-        const Text('Découvrez ceux qui ont marqué notre histoire.', style: TextStyle(fontSize: 10, color: mutedText, fontWeight: FontWeight.w500)),
       ],
+    );
+  }
+
+  // ============================================================
+  // WIDGETS UTILITAIRES
+  // ============================================================
+  Widget _buildComingSoonButton(BuildContext context, String label) {
+    return InkWell(
+      onTap: () => _showComingSoon(context),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 11)),
+          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500, size: 14),
+        ],
+      ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🚧 Module en cours de développement'),
+        duration: Duration(seconds: 2),
+        backgroundColor: Colors.orange,
+      ),
     );
   }
 
