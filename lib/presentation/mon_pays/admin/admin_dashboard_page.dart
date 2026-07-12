@@ -193,7 +193,7 @@ class AdminDashboardPage extends StatelessWidget {
                   icon: Icons.emoji_events,
                   label: 'Réalisations',
                   subtitle: 'Projets & Accomplissements',
-                  color: Colors.gold,
+                  color: const Color(0xFFFFD700),
                   onTap: () => _showSelectProvinceDialog(context, 'achievement'),
                 ),
                 _adminCard(
