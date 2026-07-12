@@ -40,34 +40,24 @@ class MonPaysPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
-                  // ─── 1. Bannière "Espace Citoyen" ─────────────
                   _buildHeroBanner(),
                   const SizedBox(height: 20),
-                  // ─── 2. Les Autorités (FONCTIONNEL) ────────────
                   const AuthoritiesSection(),
                   const SizedBox(height: 16),
-                  // ─── Voir toutes les autorités ──────────────────
                   _buildSeeAllButton(context),
                   const SizedBox(height: 24),
-                  // ─── 3. Figures Historiques ─────────────────────
                   _buildHistoricalFiguresSection(context),
                   const SizedBox(height: 24),
-                  // ─── 4. À la Une ────────────────────────────────
                   _buildNewsSection(context),
                   const SizedBox(height: 24),
-                  // ─── 5. Agences & Institutions ──────────────────
                   _buildAgenciesSection(context),
                   const SizedBox(height: 24),
-                  // ─── 6. Accès rapides ──────────────────────────
                   _buildQuickAccessRow(context),
                   const SizedBox(height: 20),
-                  // ─── 7. Citoyens Exemplaires ────────────────────
                   _buildCitizensBanner(context),
                   const SizedBox(height: 20),
-                  // ─── 8. Alertes ──────────────────────────────────
                   _buildAlertRow(context),
                   const SizedBox(height: 20),
-                  // ─── 9. Tous les modules ────────────────────────
                   _buildModulesGrid(context),
                   const SizedBox(height: 30),
                 ],
@@ -115,9 +105,7 @@ class MonPaysPage extends ConsumerWidget {
             ),
           ),
           _headerIconButton(Icons.search_rounded, () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Recherche globale - En développement')),
-            );
+            _showComingSoon(context);
           }),
           const SizedBox(width: 8),
           Stack(
@@ -140,7 +128,6 @@ class MonPaysPage extends ConsumerWidget {
           InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
-              // ✅ ADMIN - FONCTIONNEL
               context.push('/mon-pays/admin');
             },
             child: Container(
@@ -221,7 +208,6 @@ class MonPaysPage extends ConsumerWidget {
   Widget _buildSeeAllButton(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // ✅ AUTORITÉS - FONCTIONNEL
         context.push('/mon-pays/authorities');
       },
       child: Container(
@@ -441,7 +427,11 @@ class MonPaysPage extends ConsumerWidget {
           return InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () {
-              _showComingSoon(context);
+              if (item['label'] == 'Valeurs\n& Lois') {
+                context.push('/mon-pays/laws');
+              } else {
+                _showComingSoon(context);
+              }
             },
             child: Container(
               width: 84,
@@ -590,7 +580,7 @@ class MonPaysPage extends ConsumerWidget {
       {'icon': Icons.video_library_rounded, 'label': 'Vidéos Officielles', 'active': false},
       {'icon': Icons.library_books_rounded, 'label': 'Documentaires', 'active': false},
       {'icon': Icons.people_alt_rounded, 'label': 'Citoyens Exemplaires', 'active': false},
-      {'icon': Icons.gavel_rounded, 'label': 'Valeurs & Lois', 'active': false},
+      {'icon': Icons.gavel_rounded, 'label': 'Valeurs & Lois', 'active': true},
       {'icon': Icons.record_voice_over_rounded, 'label': 'Participer', 'active': false},
       {'icon': Icons.warning_rounded, 'label': 'Personnes recherchées', 'active': false},
       {'icon': Icons.search_rounded, 'label': 'Recherche globale', 'active': false},
@@ -610,12 +600,18 @@ class MonPaysPage extends ConsumerWidget {
           mainAxisSpacing: 12,
           children: modules.map((module) {
             final isActive = module['active'] as bool;
+            final label = module['label'] as String;
             return InkWell(
               borderRadius: BorderRadius.circular(18),
               onTap: isActive
                   ? () {
-                      // ✅ AUTORITÉS - FONCTIONNEL
-                      context.push('/mon-pays/authorities');
+                      if (label == 'Autorités') {
+                        context.push('/mon-pays/authorities');
+                      } else if (label == 'Valeurs & Lois') {
+                        context.push('/mon-pays/laws');
+                      } else {
+                        _showComingSoon(context);
+                      }
                     }
                   : () {
                       _showComingSoon(context);
@@ -659,7 +655,7 @@ class MonPaysPage extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Text(
-                        module['label'] as String,
+                        label,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 10,
@@ -736,31 +732,26 @@ class MonPaysPage extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(Icons.home_rounded, 'Accueil', true),
-            _navItem(Icons.flag_rounded, 'Mon Pays', false),
+            _navItem(context, Icons.home_rounded, 'Accueil', true),
+            _navItem(context, Icons.flag_rounded, 'Mon Pays', false),
             const SizedBox(width: 44),
-            _navItem(Icons.apps_rounded, 'Services', false),
-            _navItem(Icons.person_rounded, 'Mon Compte', false),
+            _navItem(context, Icons.apps_rounded, 'Services', false),
+            _navItem(context, Icons.person_rounded, 'Mon Compte', false),
           ],
         ),
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool isSelected) {
+  Widget _navItem(BuildContext context, IconData icon, String label, bool isSelected) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () {
-        // Navigation vers les pages correspondantes
         if (label == 'Accueil') {
           context.push('/');
         } else if (label == 'Mon Pays') {
           context.push('/mon-pays');
-        } else if (label == 'Services') {
-          // TODO: Navigation vers Services
-          _showComingSoon(context);
-        } else if (label == 'Mon Compte') {
-          // TODO: Navigation vers Mon Compte
+        } else {
           _showComingSoon(context);
         }
       },
