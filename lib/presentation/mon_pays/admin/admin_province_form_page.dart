@@ -1,6 +1,3 @@
-// ============================================================
-// FICHIER 21 : admin/admin_province_form_page.dart
-// ============================================================
 // lib/presentation/mon_pays/admin/admin_province_form_page.dart
 
 import 'package:flutter/material.dart';
@@ -10,7 +7,9 @@ import '../models/province.dart';
 import '../providers/provinces_provider.dart';
 
 class AdminProvinceFormPage extends ConsumerStatefulWidget {
-  const AdminProvinceFormPage({super.key});
+  final Province? province;
+
+  const AdminProvinceFormPage({super.key, this.province});
 
   @override
   ConsumerState<AdminProvinceFormPage> createState() => _AdminProvinceFormPageState();
@@ -35,24 +34,20 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   @override
   void initState() {
     super.initState();
-    final extra = ModalRoute.of(context)?.settings.arguments;
-    Province? province;
-    if (extra is Province) {
-      province = extra;
-      _isEditing = true;
-      _provinceId = province.id;
-    }
-    _nameController = TextEditingController(text: province?.name ?? '');
-    _codeController = TextEditingController(text: province?.code ?? '');
-    _capitalController = TextEditingController(text: province?.capital ?? '');
-    _regionController = TextEditingController(text: province?.region ?? '');
-    _areaController = TextEditingController(text: province?.area?.toString() ?? '');
-    _populationController = TextEditingController(text: province?.population?.toString() ?? '');
-    _descriptionController = TextEditingController(text: province?.description ?? '');
-    _coverImageUrlController = TextEditingController(text: province?.coverImageUrl ?? '');
-    _coatOfArmsUrlController = TextEditingController(text: province?.coatOfArmsUrl ?? '');
-    _mapUrlController = TextEditingController(text: province?.mapUrl ?? '');
-    _websiteController = TextEditingController(text: province?.website ?? '');
+    final p = widget.province;
+    _isEditing = p != null;
+    _provinceId = p?.id;
+    _nameController = TextEditingController(text: p?.name ?? '');
+    _codeController = TextEditingController(text: p?.code ?? '');
+    _capitalController = TextEditingController(text: p?.capital ?? '');
+    _regionController = TextEditingController(text: p?.region ?? '');
+    _areaController = TextEditingController(text: p?.area?.toString() ?? '');
+    _populationController = TextEditingController(text: p?.population?.toString() ?? '');
+    _descriptionController = TextEditingController(text: p?.description ?? '');
+    _coverImageUrlController = TextEditingController(text: p?.coverImageUrl ?? '');
+    _coatOfArmsUrlController = TextEditingController(text: p?.coatOfArmsUrl ?? '');
+    _mapUrlController = TextEditingController(text: p?.mapUrl ?? '');
+    _websiteController = TextEditingController(text: p?.website ?? '');
   }
 
   @override
