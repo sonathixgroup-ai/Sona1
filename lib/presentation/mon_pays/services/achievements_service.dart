@@ -1,25 +1,27 @@
 // lib/presentation/mon_pays/services/achievements_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/province_achievement.dart'; // ✅ IMPORT AJOUTÉ
+import '../models/provincial_achievement.dart'; // Assure-toi que le fichier s'appelle bien provincial_achievement.dart
 
 class AchievementsService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  Future<List<ProvinceAchievement>> getAchievementsByProvince(String provinceId) async {
+  // On utilise bien ProvincialAchievement (le nom complet)
+  Future<List<ProvincialAchievement>> getAchievementsByProvince(String provinceId) async {
     try {
       final response = await _client
           .from('province_achievements')
           .select('*')
           .eq('province_id', provinceId)
-          .order('date', ascending: false);
-      return response.map((e) => ProvinceAchievement.fromJson(e)).toList();
+          .order('achievement_date', ascending: false); // Correction : nom de colonne correct
+      
+      return (response as List).map((e) => ProvincialAchievement.fromJson(e)).toList();
     } catch (e) {
       throw Exception('Erreur chargement réalisations: $e');
     }
   }
 
-  Future<ProvinceAchievement> createAchievement(ProvinceAchievement achievement) async {
+  Future<ProvincialAchievement> createAchievement(ProvincialAchievement achievement) async {
     try {
       final data = achievement.toJson();
       data.remove('id');
@@ -28,13 +30,13 @@ class AchievementsService {
           .insert(data)
           .select()
           .single();
-      return ProvinceAchievement.fromJson(response);
+      return ProvincialAchievement.fromJson(response);
     } catch (e) {
       throw Exception('Erreur création réalisation: $e');
     }
   }
 
-  Future<ProvinceAchievement> updateAchievement(ProvinceAchievement achievement) async {
+  Future<ProvincialAchievement> updateAchievement(ProvincialAchievement achievement) async {
     try {
       final response = await _client
           .from('province_achievements')
@@ -42,7 +44,7 @@ class AchievementsService {
           .eq('id', achievement.id)
           .select()
           .single();
-      return ProvinceAchievement.fromJson(response);
+      return ProvincialAchievement.fromJson(response);
     } catch (e) {
       throw Exception('Erreur mise à jour réalisation: $e');
     }
