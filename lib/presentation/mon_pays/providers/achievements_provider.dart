@@ -1,25 +1,24 @@
-// Fichier n°15 : providers/achievements_provider.dart
 // lib/presentation/mon_pays/providers/achievements_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/provincial_achievement.dart';
+import '../models/provincial_achievement.dart'; // <--- IMPORT CORRIGÉ
 import '../services/achievements_service.dart';
 
 final achievementsServiceProvider = Provider<AchievementsService>((ref) {
   return AchievementsService();
 });
 
-final achievementsByProvinceProvider = FutureProvider.family<List<ProvinceAchievement>, String>((ref, provinceId) async {
+final achievementsByProvinceProvider = FutureProvider.family<List<ProvincialAchievement>, String>((ref, provinceId) async {
   final service = ref.watch(achievementsServiceProvider);
   return service.getAchievementsByProvince(provinceId);
 });
 
 // Admin
-final adminAchievementsProvider = StateNotifierProvider<AdminAchievementsNotifier, AsyncValue<List<ProvinceAchievement>>>((ref) {
+final adminAchievementsProvider = StateNotifierProvider<AdminAchievementsNotifier, AsyncValue<List<ProvincialAchievement>>>((ref) {
   return AdminAchievementsNotifier(ref);
 });
 
-class AdminAchievementsNotifier extends StateNotifier<AsyncValue<List<ProvinceAchievement>>> {
+class AdminAchievementsNotifier extends StateNotifier<AsyncValue<List<ProvincialAchievement>>> {
   final Ref _ref;
   String? _currentProvinceId;
 
@@ -37,7 +36,7 @@ class AdminAchievementsNotifier extends StateNotifier<AsyncValue<List<ProvinceAc
     }
   }
 
-  Future<void> createAchievement(ProvinceAchievement achievement) async {
+  Future<void> createAchievement(ProvincialAchievement achievement) async {
     try {
       final service = _ref.read(achievementsServiceProvider);
       await service.createAchievement(achievement);
@@ -49,7 +48,7 @@ class AdminAchievementsNotifier extends StateNotifier<AsyncValue<List<ProvinceAc
     }
   }
 
-  Future<void> updateAchievement(ProvinceAchievement achievement) async {
+  Future<void> updateAchievement(ProvincialAchievement achievement) async {
     try {
       final service = _ref.read(achievementsServiceProvider);
       await service.updateAchievement(achievement);
