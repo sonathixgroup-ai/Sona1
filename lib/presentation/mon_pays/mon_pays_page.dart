@@ -173,7 +173,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
   }
 
   Widget _buildAutoritesFullWidth() {
-    final authAsync = ref.watch(authoritiesProvider);
+    final authAsync = ref.watch(authoritiesProvider(null));
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
