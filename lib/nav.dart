@@ -114,13 +114,31 @@ class AppRoutes {
   // ═══════════════════════════════════════════════════════════════════════
   // ─── MON PAYS ───
   // ═══════════════════════════════════════════════════════════════════════
+  // === Routes principales ===
   static const String monPays = '/mon-pays';
+  
+  // === Autorités ===
   static const String monPaysAuthorities = '/mon-pays/authorities';
   static const String monPaysAuthorityProfile = '/mon-pays/authority/:id';
-  static const String monPaysAdmin = '/mon-pays/admin';
-  static const String monPaysAdminForm = '/mon-pays/admin/form';
+  static const String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
 
-  // Helpers pour les routes dynamiques
+  // === Valeurs & Lois ===
+  static const String monPaysLaws = '/mon-pays/laws';
+  static const String monPaysArticleType = '/mon-pays/laws/:type';
+  static const String monPaysArticleTypePath(String type) => '/mon-pays/laws/$type';
+  static const String monPaysArticleDetail = '/mon-pays/laws/article/:id';
+  static const String monPaysArticleDetailPath(String id) => '/mon-pays/laws/article/$id';
+
+  // === Administration ===
+  static const String monPaysAdmin = '/mon-pays/admin';
+  static const String monPaysAdminAuthorities = '/mon-pays/admin/authorities';
+  static const String monPaysAdminForm = '/mon-pays/admin/form';
+  static const String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
+  static const String monPaysAdminArticles = '/mon-pays/admin/articles';
+  static const String monPaysAdminArticleForm = '/mon-pays/admin/articles/form';
+  static const String monPaysAdminArticleFormPath({dynamic article}) => '/mon-pays/admin/articles/form';
+
+  // === Helpers pour les routes dynamiques ===
   static String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
   static String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
 
