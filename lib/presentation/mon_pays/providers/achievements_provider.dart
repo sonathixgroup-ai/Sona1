@@ -2,7 +2,7 @@
 // lib/presentation/mon_pays/providers/achievements_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/province_achievement.dart';
+import '../models/provincial_achievement.dart';
 import '../services/achievements_service.dart';
 
 final achievementsServiceProvider = Provider<AchievementsService>((ref) {
