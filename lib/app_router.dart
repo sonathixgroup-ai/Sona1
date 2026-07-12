@@ -790,22 +790,19 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
 
-        // ===== MON PAYS =====
+// ===== MON PAYS =====
 GoRoute(
   path: AppRoutes.monPays,
   name: 'monPays',
   pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()),
   routes: [
-    // ============================================================
-    // 1. AUTORITÉS
-    // ============================================================
-    // Liste des autorités
+    // Autorités - Liste
     GoRoute(
       path: 'authorities',
       name: 'monPaysAuthorities',
       pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage()),
     ),
-    // Détail d'une autorité
+    // Autorités - Détail
     GoRoute(
       path: 'authority/:id',
       name: 'monPaysAuthorityProfile',
@@ -814,17 +811,13 @@ GoRoute(
         return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
       },
     ),
-
-    // ============================================================
-    // 2. VALEURS & LOIS
-    // ============================================================
-    // Menu principal des lois
+    // Valeurs & Lois - Menu
     GoRoute(
       path: 'laws',
       name: 'monPaysLaws',
       pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage()),
     ),
-    // Liste par type (Constitution, Code Pénal, etc.)
+    // Valeurs & Lois - Liste par type
     GoRoute(
       path: 'laws/:type',
       name: 'monPaysArticleType',
@@ -836,32 +829,28 @@ GoRoute(
         );
       },
     ),
-    // Détail d'un article
-    onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ArticleDetailPage(articleId: article.id),
+    // Valeurs & Lois - Détail d'un article
+    GoRoute(
+      path: 'laws/article/:id',
+      name: 'monPaysArticleDetail',
+      pageBuilder: (_, state) {
+        final id = state.pathParameters['id']!;
+        return NoTransitionPage(child: ArticleDetailPage(articleId: id));
+      },
     ),
-  );
-}
-
-    // ============================================================
-    // 3. ADMINISTRATION
-    // ============================================================
-    // Tableau de bord admin
+    // Admin - Dashboard
     GoRoute(
       path: 'admin',
       name: 'monPaysAdmin',
       pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboardPage()),
     ),
-    // Admin - Autorités (liste)
+    // Admin - Autorités
     GoRoute(
       path: 'admin/authorities',
       name: 'monPaysAdminAuthorities',
       pageBuilder: (_, __) => const NoTransitionPage(child: AdminAuthoritiesPage()),
     ),
-    // Admin - Formulaire autorité (création/modification)
+    // Admin - Formulaire autorité
     GoRoute(
       path: 'admin/form',
       name: 'monPaysAdminForm',
@@ -872,13 +861,13 @@ GoRoute(
         );
       },
     ),
-    // Admin - Articles (Lois)
+    // Admin - Articles
     GoRoute(
       path: 'admin/articles',
       name: 'monPaysAdminArticles',
       pageBuilder: (_, __) => const NoTransitionPage(child: AdminArticlesPage()),
     ),
-    // Admin - Formulaire article (création/modification)
+    // Admin - Formulaire article
     GoRoute(
       path: 'admin/articles/form',
       name: 'monPaysAdminArticleForm',
@@ -889,7 +878,7 @@ GoRoute(
         );
       },
     ),
-
+    // ⚠️ TOUTES LES AUTRES ROUTES (PROVINCES, HISTOIRE, ETC.) VIENDRONT ICI PLUS TARD
     // ============================================================
     // 4. FIGURES HISTORIQUES (à venir - Phase 2B)
     // ============================================================
@@ -1051,8 +1040,6 @@ GoRoute(
     //     return NoTransitionPage(child: SearchResultsPage(query: query));
     //   },
     // ),
-  ],
-),
 
         // ---- Admin ----
         GoRoute(
