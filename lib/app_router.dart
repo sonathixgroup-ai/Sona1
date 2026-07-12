@@ -22,7 +22,53 @@ import 'package:thix_id/presentation/enterprise/enterprise_portal_page.dart';
 import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.dart';
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
+// ============================================================
+// IMPORTS THIX SANTÉ - 42 écrans sans mock - Supabase RLS
+// ============================================================
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+// Core THIX ID
+import '../presentation/thix_sante/core/thix_id_validator.dart';
+
+// Patient Models & Services (si besoin dans router)
+import '../presentation/thix_sante/patient/models/health_record_model.dart';
+import '../presentation/thix_sante/patient/models/patient_link_model.dart';
+
+// Services Rapides 20/20
+import '../presentation/thix_sante/patient/screens/patient_dashboard_page.dart';
+import '../presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
+import '../presentation/thix_sante/patient/screens/dossier_famille_page.dart';
+import '../presentation/thix_sante/patient/screens/second_avis_page.dart';
+import '../presentation/thix_sante/patient/screens/consulter_medecin_page.dart';
+import '../presentation/thix_sante/patient/screens/dossier_medical_page.dart';
+import '../presentation/thix_sante/patient/screens/resultats_examens_page.dart';
+import '../presentation/thix_sante/patient/screens/mes_ordonnances_page.dart';
+import '../presentation/thix_sante/patient/screens/trouver_hopital_page.dart';
+import '../presentation/thix_sante/patient/screens/trouver_medicament_page.dart';
+import '../presentation/thix_sante/patient/screens/pharmacies_proches_page.dart';
+import '../presentation/thix_sante/patient/screens/urgences_proches_page.dart';
+import '../presentation/thix_sante/patient/screens/prendre_rdv_page.dart';
+import '../presentation/thix_sante/patient/screens/teleconsultation_page.dart';
+import '../presentation/thix_sante/patient/screens/assistant_ia_page.dart';
+import '../presentation/thix_sante/patient/screens/dossier_partage_page.dart';
+import '../presentation/thix_sante/patient/screens/epidemies_don_page.dart';
+import '../presentation/thix_sante/patient/screens/sante_plus_pages.dart';
+
+// Services Santé 11/11 - Sans mock
+import '../presentation/thix_sante/sante/screens/sante_enfants_page.dart';
+import '../presentation/thix_sante/sante/screens/carnet_vaccination_page.dart';
+import '../presentation/thix_sante/sante/screens/suivi_grossesse_page.dart';
+import '../presentation/thix_sante/sante/screens/analyse_predictive_page.dart';
+import '../presentation/thix_sante/sante/screens/bien_etre_mental_page.dart';
+import '../presentation/thix_sante/sante/screens/nutrition_page.dart';
+import '../presentation/thix_sante/sante/screens/activite_physique_page.dart';
+import '../presentation/thix_sante/sante/screens/gestion_stress_page.dart';
+import '../presentation/thix_sante/sante/screens/assurance_sante_page.dart';
+import '../presentation/thix_sante/sante/screens/plus_services_page.dart';
+
+// Ton fichier nav existant
+import '../nav.dart';
 // Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
@@ -534,6 +580,28 @@ class AppRouter {
           ],
         ),
 
+// THIX SANTE
+GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c,s) => const PatientDashboardPage()),
+GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c,s) => const MonMedecinTraitantPage()),
+GoRoute(path: AppRoutes.santeDossierFamille, builder: (c,s) => const DossierFamillePage()),
+GoRoute(path: AppRoutes.santeSecondAvis, builder: (c,s) => const SecondAvisPage()),
+GoRoute(path: AppRoutes.santeDossierMedical, builder: (c,s) => const DossierMedicalPage()),
+GoRoute(path: AppRoutes.santeOrdonnances, builder: (c,s) => const MesOrdonnancesPage()),
+GoRoute(path: AppRoutes.santeResultatsExamens, builder: (c,s) => const ResultatsExamensPage()),
+GoRoute(path: AppRoutes.santePrendreRdv, builder: (c,s) => const PrendreRdvPage()),
+GoRoute(path: AppRoutes.santeTeleconsultation, builder: (c,s) => const TeleconsultationPage()),
+GoRoute(path: AppRoutes.santeEnfants, builder: (c,s) => const SanteEnfantsPage()),
+GoRoute(path: AppRoutes.santeCarnetVaccination, builder: (c,s) => const CarnetVaccinationPage()),
+GoRoute(path: AppRoutes.santeSuiviGrossesse, builder: (c,s) => const SuiviGrossessePage()),
+GoRoute(path: AppRoutes.santeAnalysePredictive, builder: (c,s) => const AnalysePredictivePage()),
+GoRoute(path: AppRoutes.santeBienEtreMental, builder: (c,s) => const BienEtreMentalPage()),
+GoRoute(path: AppRoutes.santeNutrition, builder: (c,s) => const NutritionPage()),
+GoRoute(path: AppRoutes.santeActivitePhysique, builder: (c,s) => const ActivitePhysiquePage()),
+GoRoute(path: AppRoutes.santeGestionStress, builder: (c,s) => const GestionStressPage()),
+GoRoute(path: AppRoutes.santeAssuranceSanteDetail, builder: (c,s) => const AssuranceSantePage()),
+GoRoute(path: AppRoutes.santePlusServices, builder: (c,s) => const PlusServicesPage()),
+
+        
         // ============================================================
         // ===== MON PAYS =====
         GoRoute(
