@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 import '../providers/patient_dashboard_provider.dart';
 import '../models/health_record_model.dart';
 import '../services/health_record_service.dart';
