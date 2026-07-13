@@ -47,6 +47,9 @@ import 'presentation/thix_sante/patient/screens/activite_physique_page.dart';
 import 'presentation/thix_sante/patient/screens/gestion_stress_page.dart';
 import 'presentation/thix_sante/patient/screens/assurance_sante_page.dart';
 import 'presentation/thix_sante/patient/screens/plus_services_page.dart';
+import 'presentation/thix_sante/patient/screens/analyse_predictive_page.dart';
+import 'presentation/thix_sante/patient/screens/bien_etre_mental_page.dart';
+
 // Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
