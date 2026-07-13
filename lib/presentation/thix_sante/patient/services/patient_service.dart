@@ -6,7 +6,7 @@
 // =============================================================================
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../core/thix_id_validator.dart';
+import '../../core/thix_id_validator.dart';
 import '../models/doctor_profile_model.dart';
 
 class PatientService {
