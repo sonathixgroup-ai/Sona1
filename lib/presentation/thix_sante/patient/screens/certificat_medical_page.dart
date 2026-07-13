@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/thix_sante_colors.dart';
+import 'package:pdf/pdf.dart';
+
 
 class CertificatMedicalPage extends StatefulWidget {
   const CertificatMedicalPage({super.key});
