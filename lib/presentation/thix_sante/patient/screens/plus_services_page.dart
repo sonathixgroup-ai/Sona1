@@ -27,6 +27,15 @@ import 'package:thix_id/presentation/thix_sante/patient/screens/carnet_vaccinati
 import 'package:thix_id/presentation/thix_sante/patient/screens/suivi_grossesse_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/screens/analyse_predictive_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/screens/bien_etre_mental_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/gestion_stress_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/dossier_famille_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/second_avis_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/dossier_medical_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/resultats_examens_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/mes_ordonnances_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/nutrition_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/activite_physique_page.dart';
 
 class PlusServicesPage extends ConsumerWidget {
   const PlusServicesPage({super.key});
