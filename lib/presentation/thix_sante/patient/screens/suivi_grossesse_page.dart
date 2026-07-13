@@ -9,7 +9,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 import '../../patient/models/health_record_model.dart';
 
 final grossesseRecordsProvider = FutureProvider<List<HealthRecordModel>>((ref) async {
