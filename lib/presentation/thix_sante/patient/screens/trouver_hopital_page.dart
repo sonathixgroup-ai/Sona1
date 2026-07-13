@@ -1,7 +1,7 @@
 // lib/presentation/thix_sante/patient/screens/trouver_hopital_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/thix_sante_theme.dart';
+import '../../core/thix_sante_colors.dart';
 class TrouverHopitalPage extends ConsumerStatefulWidget { const TrouverHopitalPage({super.key}); @override ConsumerState<TrouverHopitalPage> createState()=>_TrouverHopitalPageState(); }
 class _TrouverHopitalPageState extends ConsumerState<TrouverHopitalPage> {
   String f='Tous'; final all=[{'nom':'Hôpital Général','type':'Public','dist':'0.8 km','wait':'15 min','rating':4.7,'open':true},{'nom':'Clinique Diamant','type':'Privé','dist':'1.4 km','wait':'5 min','rating':4.9,'open':true},{'nom':'Centre Médical Gombe','type':'Public','dist':'2.1 km','wait':'25 min','rating':4.3,'open':false}];
