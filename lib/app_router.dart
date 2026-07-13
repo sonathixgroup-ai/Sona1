@@ -304,32 +304,139 @@ class AppRouter {
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => NoTransitionPage(child: ProfilePage())),
   
-        // THIX SANTE - BUILD VERT - SANS CONST car Riverpod ConsumerWidget
-GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c,s) => PatientDashboardPage()),
-GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c,s) => MonMedecinTraitantPage()),
-GoRoute(path: AppRoutes.santeDossierFamille, builder: (c,s) => DossierFamillePage()),
-GoRoute(path: AppRoutes.santeSecondAvis, builder: (c,s) => SecondAvisPage()),
-GoRoute(path: AppRoutes.santeDossierMedical, builder: (c,s) => DossierMedicalPage()),
-GoRoute(path: AppRoutes.santeOrdonnances, builder: (c,s) => MesOrdonnancesPage()),
-GoRoute(path: AppRoutes.santeResultatsExamens, builder: (c,s) => ResultatsExamensPage()),
-GoRoute(path: AppRoutes.santePrendreRdv, builder: (c,s) => PrendreRdvPage()),
-GoRoute(path: AppRoutes.santeTeleconsultation, builder: (c,s) => TeleconsultationPage()),
-GoRoute(path: AppRoutes.santeTrouverHopital, builder: (c,s) => TrouverHopitalPage()),
-GoRoute(path: AppRoutes.santeTrouverMedicament, builder: (c,s) => TrouverMedicamentPage()),
-GoRoute(path: AppRoutes.santePharmaciesProches, builder: (c,s) => PharmaciesProchesPage()),
-GoRoute(path: AppRoutes.santeUrgencesProches, builder: (c,s) => UrgencesProchesPage()),
-GoRoute(path: AppRoutes.santeEpidemies, builder: (c,s) => EpidemiesPage()),
-GoRoute(path: AppRoutes.santeDonSang, builder: (c,s) => DonSangPage()),
-GoRoute(path: AppRoutes.santeEnfants, builder: (c,s) => SanteEnfantsPage()),
-GoRoute(path: AppRoutes.santeCarnetVaccination, builder: (c,s) => CarnetVaccinationPage()),
-GoRoute(path: AppRoutes.santeSuiviGrossesse, builder: (c,s) => SuiviGrossessePage()),
-GoRoute(path: AppRoutes.santeAnalysePredictive, builder: (c,s) => AnalysePredictivePage()),
-GoRoute(path: AppRoutes.santeBienEtreMental, builder: (c,s) => BienEtreMentalPage()),
-GoRoute(path: AppRoutes.santeNutrition, builder: (c,s) => NutritionPage()),
-GoRoute(path: AppRoutes.santeActivitePhysique, builder: (c,s) => ActivitePhysiquePage()),
-GoRoute(path: AppRoutes.santeGestionStress, builder: (c,s) => GestionStressPage()),
-GoRoute(path: AppRoutes.santeAssuranceSanteDetail, builder: (c,s) => AssuranceSantePage()),
-GoRoute(path: AppRoutes.santePlusServices, builder: (c,s) => PlusServicesPage()),
+        // =============================================================================
+// THIX SANTE
+// =============================================================================
+
+GoRoute(
+  path: AppRoutes.thixSante,
+  redirect: (_, __) => AppRoutes.thixSanteDashboard,
+),
+
+GoRoute(
+  path: AppRoutes.thixSanteDashboard,
+  builder: (c, s) => PatientDashboardPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeMonMedecinTraitant,
+  builder: (c, s) => MonMedecinTraitantPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeDossierFamille,
+  builder: (c, s) => DossierFamillePage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeSecondAvis,
+  builder: (c, s) => SecondAvisPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeDossierMedical,
+  builder: (c, s) => DossierMedicalPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeOrdonnances,
+  builder: (c, s) => MesOrdonnancesPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeResultatsExamens,
+  builder: (c, s) => ResultatsExamensPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santePrendreRdv,
+  builder: (c, s) => PrendreRdvPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeTeleconsultation,
+  builder: (c, s) => TeleconsultationPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeTrouverHopital,
+  builder: (c, s) => TrouverHopitalPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeTrouverMedicament,
+  builder: (c, s) => TrouverMedicamentPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santePharmaciesProches,
+  builder: (c, s) => PharmaciesProchesPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeUrgencesProches,
+  builder: (c, s) => UrgencesProchesPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeEpidemies,
+  builder: (c, s) => EpidemiesPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeDonSang,
+  builder: (c, s) => DonSangPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeEnfants,
+  builder: (c, s) => SanteEnfantsPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeCarnetVaccination,
+  builder: (c, s) => CarnetVaccinationPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeSuiviGrossesse,
+  builder: (c, s) => SuiviGrossessePage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeAnalysePredictive,
+  builder: (c, s) => AnalysePredictivePage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeBienEtreMental,
+  builder: (c, s) => BienEtreMentalPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeNutrition,
+  builder: (c, s) => NutritionPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeActivitePhysique,
+  builder: (c, s) => ActivitePhysiquePage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeGestionStress,
+  builder: (c, s) => GestionStressPage(),
+),
+
+GoRoute(
+  path: AppRoutes.santeAssuranceSanteDetail,
+  builder: (c, s) => AssuranceSantePage(),
+),
+
+GoRoute(
+  path: AppRoutes.santePlusServices,
+  builder: (c, s) => PlusServicesPage(),
+),
         
         // THIX Market, Info, Event, Jobs...
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
