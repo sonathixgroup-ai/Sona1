@@ -121,7 +121,7 @@ class PatientDashboardPage extends ConsumerWidget {
     {'l':'Activite\nphysique','icon':Icons.fitness_center_rounded,'p':const ActivitePhysiquePage()},
     {'l':'Gestion\nstress','icon':Icons.self_improvement_rounded,'p':const GestionStressPage()},
     {'l':'Assurance','icon':Icons.shield_rounded,'p':const AssuranceSantePage()},
-    {'l':'Plus de\nservices','icon':Icons.grid_view_rounded,'p':const PlusServicesPage()},
+    {'l':'Plus de\nservices','icon':Icons.grid_view_rounded,'p': PlusServicesPage()},
   ];
     return Padding(padding:const EdgeInsets.symmetric(horizontal:12),child:GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:4,crossAxisSpacing:10,mainAxisSpacing:10,childAspectRatio:.85),itemCount:sante.length,itemBuilder:(c,i){final it=sante[i];return InkWell(onTap:()=>_go(context,it['p'] as Widget),borderRadius:BorderRadius.circular(16),child:Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xFFE2E8F0))),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(it['icon'] as IconData,color:ThixSanteColors.primary,size:26),const SizedBox(height:6),Text(it['l'] as String,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w600))])));}));
   }
