@@ -67,8 +67,7 @@ import '../presentation/thix_sante/sante/screens/gestion_stress_page.dart';
 import '../presentation/thix_sante/sante/screens/assurance_sante_page.dart';
 import '../presentation/thix_sante/sante/screens/plus_services_page.dart';
 
-// Ton fichier nav existant
-import '../nav.dart';
+
 // Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
