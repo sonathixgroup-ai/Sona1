@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/thix_sante_colors.dart';
-import '../../core/thix_id_validator.dart';
 
 final moodProvider = FutureProvider<List<Map<String,dynamic>>>((ref) async {
   final db = Supabase.instance.client;
