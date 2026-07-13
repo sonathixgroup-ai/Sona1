@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/thix_id_validator.dart';
+import '../core/thix_sante_colors.dart';
 import 'providers/patient_dashboard_provider.dart';
 import 'screens/mon_medecin_traitant_page.dart';
 import 'screens/dossier_famille_page.dart';
