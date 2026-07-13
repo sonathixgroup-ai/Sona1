@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../core/thix_sante_colors.dart';
+
 import 'screens/mon_medecin_traitant_page.dart';
 import 'screens/dossier_famille_page.dart';
 import 'screens/second_avis_page.dart';
@@ -19,7 +21,7 @@ import 'screens/teleconsultation_page.dart';
 import 'screens/assistant_ia_page.dart';
 import 'screens/dossier_partage_page.dart';
 import 'screens/epidemies_page.dart';
-import 'screens/don_de_sang_page.dart';
+import 'screens/don_sang_page.dart';          // ✅ corrigé
 import 'screens/rappels_vaccin_page.dart';
 import 'screens/certificat_medical_page.dart';
 import 'screens/assurance_sante_page.dart';
@@ -83,44 +85,44 @@ class PatientDashboardPage extends ConsumerWidget {
   Widget _stat(String v,String l1,String l2)=>Container(width:118,margin:const EdgeInsets.only(right:10),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xFFE2E8F0))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.center,children:[Text(v,style:const TextStyle(fontWeight:FontWeight.w900,fontSize:18)),Text(l1,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w600)),Text(l2,style:const TextStyle(fontSize:9,color:Color(0xFF64748B)))]));
   Widget _section(String t,VoidCallback a)=>Padding(padding:const EdgeInsets.fromLTRB(16,20,16,10),child:Row(children:[Text(t,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:14)),const Spacer(),InkWell(onTap:a,child:const Text('Voir tout >',style:TextStyle(color:Color(0xFF64748B),fontSize:11)))]));
   Widget _rapides(BuildContext context){
-    final items = <Map<String,dynamic>>[
-      {'l':'Consulter\nmedecin','icon':Icons.stethoscope_rounded,'p':const ConsulterMedecinPage()},
-      {'l':'Dossier\nmedical','icon':Icons.folder_rounded,'p':const DossierMedicalPage()},
-      {'l':'Resultats\nexamens','icon':Icons.biotech_rounded,'p':const ResultatsExamensPage()},
-      {'l':'Mes\nordonnances','icon':Icons.receipt_long_rounded,'p':const MesOrdonnancesPage()},
-      {'l':'Trouver\nhopital','icon':Icons.local_hospital_rounded,'p':const TrouverHopitalPage()},
-      {'l':'Trouver\nmedicament','icon':Icons.medication_rounded,'p':const TrouverMedicamentPage()},
-      {'l':'Pharmacies\nproches','icon':Icons.add_business_rounded,'p':const PharmaciesProchesPage()},
-      {'l':'Urgences\nproches','icon':Icons.emergency_rounded,'p':const UrgencesProchesPage()},
-      {'l':'Prendre\nRDV','icon':Icons.event_rounded,'p':const PrendreRdvPage()},
-      {'l':'Teleconsult\nation','icon':Icons.videocam_rounded,'p':const TeleconsultationPage()},
-      {'l':'Assistant\nIA','icon':Icons.smart_toy_rounded,'p':const AssistantIAPage()},
-      {'l':'Dossier\npartage','icon':Icons.link_rounded,'p':const DossierPartagePage()},
-      {'l':'Epidemies','icon':Icons.coronavirus_rounded,'p':const EpidemiesPage()},
-      {'l':'Don de sang','icon':Icons.water_drop_rounded,'p':const DonDeSangPage()},
-      {'l':'Mon Medecin\nTraitant','icon':Icons.medical_services_rounded,'p':const MonMedecinTraitantPage(),'new':true},
-      {'l':'Dossier\nFamille','icon':Icons.family_restroom_rounded,'p':const DossierFamillePage(),'new':true},
-      {'l':'Second Avis\nMedical','icon':Icons.medical_information_rounded,'p':const SecondAvisPage(),'new':true},
-      {'l':'Rappels\nvaccin','icon':Icons.vaccines_rounded,'p':const RappelsVaccinPage()},
-      {'l':'Certificat\nmedical','icon':Icons.description_rounded,'p': CertificatMedicalPage()},
-      {'l':'Assurance\nsante','icon':Icons.shield_rounded,'p':const AssuranceSantePage()},
-    ];
+    final items = <Map<String, dynamic>>[
+  {'l':'Consulter\nmedecin','icon':Icons.medical_services_rounded,'p':const ConsulterMedecinPage()},
+  {'l':'Dossier\nmedical','icon':Icons.folder_rounded,'p':const DossierMedicalPage()},
+  {'l':'Resultats\nexamens','icon':Icons.biotech_rounded,'p':const ResultatsExamensPage()},
+  {'l':'Mes\nordonnances','icon':Icons.receipt_long_rounded,'p':const MesOrdonnancesPage()},
+  {'l':'Trouver\nhopital','icon':Icons.local_hospital_rounded,'p':const TrouverHopitalPage()},
+  {'l':'Trouver\nmedicament','icon':Icons.medication_rounded,'p':const TrouverMedicamentPage()},
+  {'l':'Pharmacies\nproches','icon':Icons.add_business_rounded,'p':const PharmaciesProchesPage()},
+  {'l':'Urgences\nproches','icon':Icons.emergency_rounded,'p':const UrgencesProchesPage()},
+  {'l':'Prendre\nRDV','icon':Icons.event_rounded,'p':const PrendreRdvPage()},
+  {'l':'Teleconsult\nation','icon':Icons.videocam_rounded,'p':const TeleconsultationPage()},
+  {'l':'Assistant\nIA','icon':Icons.smart_toy_rounded,'p':const AssistantIAPage()},
+  {'l':'Dossier\npartage','icon':Icons.link_rounded,'p':const DossierPartagePage()},
+  {'l':'Epidemies','icon':Icons.coronavirus_rounded,'p':const EpidemiesPage()},
+  {'l':'Don de sang','icon':Icons.water_drop_rounded,'p':const DonSangPage()},
+  {'l':'Mon Medecin\nTraitant','icon':Icons.medical_services_rounded,'p':const MonMedecinTraitantPage(),'new':true},
+  {'l':'Dossier\nFamille','icon':Icons.family_restroom_rounded,'p':const DossierFamillePage(),'new':true},
+  {'l':'Second Avis\nMedical','icon':Icons.medical_information_rounded,'p':const SecondAvisPage(),'new':true},
+  {'l':'Rappels\nvaccin','icon':Icons.vaccines_rounded,'p':const RappelsVaccinPage()},
+  {'l':'Certificat\nmedical','icon':Icons.description_rounded,'p':const CertificatMedicalPage()},
+  {'l':'Assurance\nsante','icon':Icons.shield_rounded,'p':const AssuranceSantePage()},
+];
     return Padding(padding:const EdgeInsets.symmetric(horizontal:12),child:GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:4,crossAxisSpacing:10,mainAxisSpacing:10,childAspectRatio:.82),itemCount:items.length,itemBuilder:(c,i){final it=items[i];return InkWell(onTap:()=>_go(context,it['p'] as Widget),borderRadius:BorderRadius.circular(16),child:Stack(children:[Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xFFE2E8F0))),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Container(width:44,height:44,decoration:BoxDecoration(color:const Color(0xFFEFF6FF),borderRadius:BorderRadius.circular(12)),child:Icon(it['icon'] as IconData,color:ThixSanteColors.primary,size:22)),const SizedBox(height:8),Text(it['l'] as String,textAlign:TextAlign.center,style:const TextStyle(fontSize:10.5,fontWeight:FontWeight.w700,height:1.15))])),if(it['new']==true)Positioned(top:6,right:6,child:Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:2),decoration:BoxDecoration(color:const Color(0xFF16A34A),borderRadius:BorderRadius.circular(6)),child:const Text('NEW',style:TextStyle(color:Colors.white,fontSize:7,fontWeight:FontWeight.w900))))]));}));
   }
   Widget _sante(BuildContext context){
-    final sante=<Map<String,dynamic>>[
-      {'l':'Sante\nenfants','icon':Icons.child_care_rounded,'p':const SanteEnfantsPage()},
-      {'l':'Carnet\nvaccination','icon':Icons.vaccines_rounded,'p':const CarnetVaccinationPage()},
-      {'l':'Suivi\ngrossesses','icon':Icons.pregnant_woman_rounded,'p':const SuiviGrossessePage()},
-      {'l':'Dossier\nmedical','icon':Icons.folder_rounded,'p':const DossierMedicalPage()},
-      {'l':'Analyse\npredictive','icon':Icons.show_chart_rounded,'p':const AnalysePredictivePage()},
-      {'l':'Bien-etre\nmental','icon':Icons.psychology_rounded,'p':const BienEtreMentalPage()},
-      {'l':'Nutrition','icon':Icons.apple_rounded,'p':const NutritionPage()},
-      {'l':'Activite\nphysique','icon':Icons.fitness_center_rounded,'p':const ActivitePhysiquePage()},
-      {'l':'Gestion\nstress','icon':Icons.self_improvement_rounded,'p':const GestionStressPage()},
-      {'l':'Assurance','icon':Icons.umbrella_rounded,'p':const AssuranceSantePage()},
-      {'l':'Plus de\nservices','icon':Icons.grid_view_rounded,'p':const AssuranceSantePage()},
-    ];
+  final sante = <Map<String,dynamic>>[
+    {'l':'Sante\nenfants','icon':Icons.child_care_rounded,'p':const SanteEnfantsPage()},
+    {'l':'Carnet\nvaccination','icon':Icons.vaccines_rounded,'p':const CarnetVaccinationPage()},
+    {'l':'Suivi\ngrossesse','icon':Icons.pregnant_woman_rounded,'p':const SuiviGrossessePage()},
+    {'l':'Dossier\nmedical','icon':Icons.folder_rounded,'p':const DossierMedicalPage()},
+    {'l':'Analyse\npredictive','icon':Icons.show_chart_rounded,'p':const AnalysePredictivePage()},
+    {'l':'Bien-etre\nmental','icon':Icons.psychology_rounded,'p':const BienEtreMentalPage()},
+    {'l':'Nutrition','icon':Icons.apple_rounded,'p':const NutritionPage()},
+    {'l':'Activite\nphysique','icon':Icons.fitness_center_rounded,'p':const ActivitePhysiquePage()},
+    {'l':'Gestion\nstress','icon':Icons.self_improvement_rounded,'p':const GestionStressPage()},
+    {'l':'Assurance','icon':Icons.shield_rounded,'p':const AssuranceSantePage()},
+    {'l':'Plus de\nservices','icon':Icons.grid_view_rounded,'p':const PlusServicesPage()},
+  ];
     return Padding(padding:const EdgeInsets.symmetric(horizontal:12),child:GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:4,crossAxisSpacing:10,mainAxisSpacing:10,childAspectRatio:.85),itemCount:sante.length,itemBuilder:(c,i){final it=sante[i];return InkWell(onTap:()=>_go(context,it['p'] as Widget),borderRadius:BorderRadius.circular(16),child:Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0xFFE2E8F0))),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(it['icon'] as IconData,color:ThixSanteColors.primary,size:26),const SizedBox(height:6),Text(it['l'] as String,textAlign:TextAlign.center,style:const TextStyle(fontSize:10,fontWeight:FontWeight.w600))])));}));
   }
 }
