@@ -303,7 +303,7 @@ class AppRouter {
         GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!))),
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => NoTransitionPage(child: ProfilePage())),
-
+      
         // THIX SANTE - BUILD VERT
         GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c,s) => const PatientDashboardPage()),
         GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c,s) => const MonMedecinTraitantPage()),
@@ -325,11 +325,13 @@ class AppRouter {
         GoRoute(path: AppRoutes.santeSuiviGrossesse, builder: (c,s) => const SuiviGrossessePage()),
         GoRoute(path: AppRoutes.santeAnalysePredictive, builder: (c,s) => const AnalysePredictivePage()),
         GoRoute(path: AppRoutes.santeBienEtreMental, builder: (c,s) => const BienEtreMentalPage()),
-        GoRoute(path: AppRoutes.santeNutrition, builder: (c,s) => NutritionPage()),
-        GoRoute(path: AppRoutes.santeActivitePhysique, builder: (c,s) => ActivitePhysiquePage()),
-        GoRoute(path: AppRoutes.santeGestionStress, builder: (c,s) => GestionStressPage()),
+        // --- CORRECTIONS ICI : Ajout du mot-clé const ---
+        GoRoute(path: AppRoutes.santeNutrition, builder: (c,s) => const NutritionPage()),
+        GoRoute(path: AppRoutes.santeActivitePhysique, builder: (c,s) => const ActivitePhysiquePage()),
+        GoRoute(path: AppRoutes.santeGestionStress, builder: (c,s) => const GestionStressPage()),
         GoRoute(path: AppRoutes.santeAssuranceSanteDetail, builder: (c,s) => const AssuranceSantePage()),
-        GoRoute(path: AppRoutes.santePlusServices, builder: (c,s) => PlusServicesPage()),
+        GoRoute(path: AppRoutes.santePlusServices, builder: (c,s) => const PlusServicesPage()),
+
 
         // THIX Market, Info, Event, Jobs...
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
