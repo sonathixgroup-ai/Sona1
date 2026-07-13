@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 
 final insuranceClaimsProvider = FutureProvider<List<Map<String,dynamic>>>((ref) async {
   final db = Supabase.instance.client;
