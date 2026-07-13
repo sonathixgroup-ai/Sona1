@@ -150,7 +150,7 @@ class HealthRecordModel {
       case RecordType.laboratoire:
         return Icons.biotech_rounded;
       case RecordType.radiologie:
-        return Icons.radiology_rounded;
+        return Icons.medical_services_rounded; 
       case RecordType.vaccin:
         return Icons.vaccines_rounded;
       case RecordType.certificat:
