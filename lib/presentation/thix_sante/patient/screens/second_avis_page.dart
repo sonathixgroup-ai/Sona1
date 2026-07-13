@@ -4,10 +4,11 @@
 // Role: Demander un second avis a un autre docteur lie par UID
 // Fonctionnalite Master: Partage dossier securise, workflow academique
 // =============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 import '../providers/patient_dashboard_provider.dart';
 import '../models/patient_link_model.dart';
 
