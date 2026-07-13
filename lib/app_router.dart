@@ -489,7 +489,22 @@ GoRoute(
     ),
   ],
 ),
-       // ---- THIX Market ----
+    
+                // ---- THIX Info ----
+        GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
+        GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) {
+          return NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!));
+        }),
+        GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => NoTransitionPage(child: const infoSearch.SearchPage())),
+        GoRoute(path: AppRoutes.thixInfoCategory, name: 'thixInfoCategory', pageBuilder: (_, state) {
+          return NoTransitionPage(child: CategoryArticlesPage(category: state.pathParameters['category']!));
+        }),
+        GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => NoTransitionPage(child: const SavedArticlesPage())),
+        GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
+        GoRoute(path: AppRoutes.thixInfoAdmin, name: 'thixInfoAdmin', pageBuilder: (_, __) => NoTransitionPage(child: const AdminNewsDashboard())),
+        GoRoute(path: AppRoutes.thixInfoCreate, name: 'thixInfoCreate', pageBuilder: (_, __) => NoTransitionPage(child: const CreateNewsPage())),
+
+        // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
           name: 'thixMarket',
