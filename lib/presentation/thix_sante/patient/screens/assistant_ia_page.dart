@@ -6,7 +6,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
-import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 
 class AssistantIAPage extends StatefulWidget {
   const AssistantIAPage({super.key});
