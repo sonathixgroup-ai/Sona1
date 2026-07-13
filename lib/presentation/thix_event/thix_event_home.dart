@@ -346,7 +346,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
               ),
             ),
           
-          const SliverToBoxAdapter(child: SizedBox(height: 110)), // Espace pour la barre de navigation
+          const SliverToBoxAdapter(child: SizedBox(height: 110)),
         ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
@@ -378,10 +378,21 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           ),
           const SizedBox(width: 8),
           const Expanded(
-            child: Text('THIX ÉVÉNEMENT\nRÉPUBLIQUE DÉMOCRATIQUE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _EventColors.primaryBlue, height: 1.1))
+            child: Text('THIX ÉVÉNEMENT\nRÉPUBLIQUE DÉMOCRATIQUE', 
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _EventColors.primaryBlue, height: 1.1)
+            )
           ),
           
-          _circleIcon(Icons.admin_panel_settings_rounded, () => context.push('/moderator')),
+          // ============================================================
+          // 👇 BOUTON MODÉRATEUR - TOUJOURS VISIBLE (MODE TEST)
+          // ============================================================
+          // ⚠️ MODE TEST : L'accès est libre sans vérification de rôle
+          // Pour sécuriser, remplacer par Consumer<AuthProvider>
+          // ============================================================
+          _circleIcon(
+            Icons.admin_panel_settings_rounded, 
+            () => context.push('/moderator')
+          ),
           const SizedBox(width: 8),
           
           Stack(
@@ -394,7 +405,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                 child: Container(
                   padding: const EdgeInsets.all(4), 
                   decoration: const BoxDecoration(color: _EventColors.gold, shape: BoxShape.circle), 
-                  child: const Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _EventColors.primaryBlue))
+                  child: const Text('3', 
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _EventColors.primaryBlue)
+                  )
                 )
               ),
             ]
