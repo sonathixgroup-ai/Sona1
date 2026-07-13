@@ -504,6 +504,40 @@ GoRoute(
         GoRoute(path: AppRoutes.thixInfoAdmin, name: 'thixInfoAdmin', pageBuilder: (_, __) => NoTransitionPage(child: const AdminNewsDashboard())),
         GoRoute(path: AppRoutes.thixInfoCreate, name: 'thixInfoCreate', pageBuilder: (_, __) => NoTransitionPage(child: const CreateNewsPage())),
 
+        // ---- THIX Money, Media, Reservation ----
+        GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
+        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage())),
+        GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) {
+          final title = (state.uri.queryParameters['title'] ?? '').trim();
+          final url = (state.uri.queryParameters['url'] ?? '').trim();
+          return NoTransitionPage(child: VideoPlayerPage(title: title.isEmpty ? 'Lecture vidéo' : title, videoUrl: url));
+        }),
+        GoRoute(path: AppRoutes.reservation, name: 'reservation', pageBuilder: (_, __) => NoTransitionPage(child: ThixReservationPage())),
+
+        // ---- THIX Événement ----
+        GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
+        GoRoute(path: AppRoutes.thixEventDetail, name: 'thixEventDetail', pageBuilder: (_, state) {
+          return NoTransitionPage(child: EventDetailPage(eventId: state.pathParameters['eventId']!));
+        }),
+        GoRoute(path: AppRoutes.thixEventSearch, name: 'thixEventSearch', pageBuilder: (_, __) => NoTransitionPage(child: EventSearchPage())),
+        GoRoute(path: AppRoutes.thixEventCategory, name: 'thixEventCategory', pageBuilder: (_, state) {
+          return NoTransitionPage(child: EventCategoryPage(category: state.pathParameters['category']!));
+        }),
+        GoRoute(path: AppRoutes.thixEventReservation, name: 'thixEventReservation', pageBuilder: (_, state) {
+          final eventId = state.pathParameters['eventId']!;
+          final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
+          return NoTransitionPage(child: EventReservationPage(eventId: eventId, quantity: quantity));
+        }),
+        GoRoute(path: AppRoutes.thixEventMyTickets, name: 'thixEventMyTickets', pageBuilder: (_, __) => NoTransitionPage(child: MyTicketsPage())),
+        GoRoute(path: AppRoutes.thixEventFavorites, name: 'thixEventFavorites', pageBuilder: (_, __) => NoTransitionPage(child: FavoriteEventsPage())),
+        GoRoute(path: AppRoutes.thixEventSeatSelection, name: 'thixEventSeatSelection', pageBuilder: (_, state) {
+          return NoTransitionPage(child: SeatSelectionPage(eventId: state.pathParameters['eventId']!));
+        }),
+        GoRoute(path: AppRoutes.thixEventWaitingQueue, name: 'thixEventWaitingQueue', pageBuilder: (_, state) {
+          final eventId = state.pathParameters['eventId']!;
+          final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
+          return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
+        }),
         // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
