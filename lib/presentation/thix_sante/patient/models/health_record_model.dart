@@ -6,8 +6,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:thix_id/presentation/thix_sante/core/thix_sante_colors.dart';
-import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 
 /// Type de document medical, categorise pour filtrage et UI.
 enum RecordType {
