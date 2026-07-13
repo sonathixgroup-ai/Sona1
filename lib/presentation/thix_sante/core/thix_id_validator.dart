@@ -9,7 +9,7 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
-
+import 'thix_sante_colors.dart';
 /// Service de validation et generation du THIX ID officiel.
 /// Utilise uniquement dart:math - aucune dependance externe.
 class ThixIdValidator {
@@ -69,43 +69,3 @@ class ThixIdValidator {
   static String getCountryCode(String country) => _countryCodes[country]?? 'XX';
 }
 
-/// Design System Medical THIX SANTE
-/// Charte couleur validee pour usage medical professionnel.
-/// Conforme WCAG AA pour accessibilite.
-class ThixSanteColors {
-  ThixSanteColors._();
-
-  // Primary - Confiance medicale
-  static const Color primary = Color(0xFF2563EB);
-  static const Color primaryDark = Color(0xFF1E40AF);
-  static const Color primaryLight = Color(0xFFEFF6FF);
-  static const Color primarySurface = Color(0xFFDBEAFE);
-
-  // Accent - Technologie sante
-  static const Color sky = Color(0xFF06B6D4);
-  static const Color skyLight = Color(0xFFCFFAFE);
-
-  // Semantique medicale
-  static const Color success = Color(0xFF10B981);
-  static const Color successLight = Color(0xFFD1FAE5);
-  static const Color successSurface = Color(0xFFECFDF5);
-
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningLight = Color(0xFFFFEDD5);
-
-  static const Color danger = Color(0xFFEF4444);
-  static const Color dangerLight = Color(0xFFFEE2E2);
-
-  static const Color purple = Color(0xFF8B5CF6);
-  static const Color purpleLight = Color(0xFFEDE9FE);
-
-  // Neutres - Lecture medicale
-  static const Color ink = Color(0xFF0F172A);
-  static const Color inkLight = Color(0xFF334155);
-  static const Color muted = Color(0xFF64748B);
-  static const Color mutedLight = Color(0xFF94A3B8);
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color borderLight = Color(0xFFF1F5F9);
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color surface = Color(0xFFFFFFFF);
-}
