@@ -451,7 +451,80 @@ GoRoute(
         // Education
         ...educationRoutes,
         ...instructorRoutes,
+       // ---- THIX Market ----
+        GoRoute(
+          path: AppRoutes.thixMarket,
+          name: 'thixMarket',
+          pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage()),
+          routes: [
+            GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
+            GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => NoTransitionPage(child: const marketSearch.SearchPage())),
+            GoRoute(path: 'shops', name: 'marketShops', pageBuilder: (_, __) => NoTransitionPage(child: const ShopsPage())),
+            GoRoute(path: 'buy', name: 'marketBuy', pageBuilder: (_, __) => NoTransitionPage(child: const BuyPage())),
+            GoRoute(path: 'sell', name: 'marketSell', pageBuilder: (_, __) => NoTransitionPage(child: const SellPage())),
+            GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
+            GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => NoTransitionPage(child: const LivePage())),
+            GoRoute(path: 'activity', name: 'marketActivity', pageBuilder: (_, __) => NoTransitionPage(child: const MyActivityPage())),
+            GoRoute(path: 'settings', name: 'marketSettings', pageBuilder: (_, __) => NoTransitionPage(child: const MarketSettingsPage())),
+            GoRoute(path: 'help', name: 'marketHelp', pageBuilder: (_, __) => NoTransitionPage(child: const HelpSupportPage())),
+            GoRoute(path: 'product/:productId', name: 'marketProductDetail', pageBuilder: (_, state) {
+              return NoTransitionPage(child: ProductDetailPage(productId: state.pathParameters['productId']!));
+            }),
+            GoRoute(path: 'shop/:shopId', name: 'marketShopDetail', pageBuilder: (_, state) {
+              return NoTransitionPage(child: ShopDetailPage(shopId: state.pathParameters['shopId']!));
+            }),
+            GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
+            GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
+            GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => NoTransitionPage(child: const CartPage())),
+            GoRoute(path: 'checkout', name: 'marketCheckout', pageBuilder: (_, __) => NoTransitionPage(child: const CheckoutPage())),
+            GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => NoTransitionPage(child: const OrderHistoryPage())),
+            GoRoute(path: 'order/:orderId', name: 'marketOrderDetail', pageBuilder: (_, state) {
+              return NoTransitionPage(child: OrderDetailPage(orderId: state.pathParameters['orderId']!));
+            }),
+            GoRoute(path: 'chat/:shopId', name: 'marketChatSeller', pageBuilder: (_, state) {
+              final shopId = state.pathParameters['shopId']!;
+              final extra = state.extra as Map?;
+              return NoTransitionPage(child: ChatPage(
+                conversationId: '',
+                shopId: shopId,
+                title: extra?['title'] ?? 'Vendeur',
+                avatar: extra?['userAvatar'] as String?,
+              ));
+            }),
+            GoRoute(path: 'shop/create', name: 'marketCreateShop', pageBuilder: (_, __) => NoTransitionPage(child: const CreateShopPage())),
+            GoRoute(path: 'shop/:shopId/manage', name: 'marketManageShop', pageBuilder: (_, state) {
+              return NoTransitionPage(child: ManageShopPage(shopId: state.pathParameters['shopId']!));
+            }),
+            GoRoute(path: 'shop/:shopId/stats', name: 'marketShopStats', pageBuilder: (_, state) {
+              return NoTransitionPage(child: ShopStatisticsPage(shopId: state.pathParameters['shopId']!));
+            }),
+            GoRoute(path: 'announcement/publish', name: 'marketPublishAnnouncement', pageBuilder: (_, __) => NoTransitionPage(child: const PublishAnnouncementPage())),
+            GoRoute(path: 'vendor/dashboard', name: 'vendorDashboard', pageBuilder: (_, __) => NoTransitionPage(child: const VendorDashboard())),
+            GoRoute(path: 'deliveries', name: 'deliveryManagement', pageBuilder: (_, __) => NoTransitionPage(child: const DeliveryManagementPage())),
+            GoRoute(path: 'announcement/:announcementId/edit', name: 'marketEditAnnouncement', pageBuilder: (_, state) {
+              return NoTransitionPage(child: EditAnnouncementPage(announcementId: state.pathParameters['announcementId']!));
+            }),
+            GoRoute(path: 'live/:liveId', name: 'marketLiveStream', pageBuilder: (_, state) {
+              return NoTransitionPage(child: LiveStreamPage(liveId: state.pathParameters['liveId']!));
+            }),
+            GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => NoTransitionPage(child: const CreateLivePage())),
+            GoRoute(path: 'live/:liveId/replay', name: 'marketLiveReplay', pageBuilder: (_, state) {
+              return NoTransitionPage(child: LiveReplayPage(liveId: state.pathParameters['liveId']!));
+            }),
+            GoRoute(path: 'auction/:auctionId', name: 'marketAuction', pageBuilder: (_, state) {
+              return NoTransitionPage(child: AuctionPage(auctionId: state.pathParameters['auctionId']!));
+            }),
+            GoRoute(path: 'chat/:conversationId', name: 'marketChat', pageBuilder: (_, state) {
+              return NoTransitionPage(child: ChatPage(conversationId: state.pathParameters['conversationId']!));
+            }),
+            GoRoute(path: 'dispute/:disputeId', name: 'marketDispute', pageBuilder: (_, state) {
+              return NoTransitionPage(child: DisputeDetailPage(disputeId: state.pathParameters['disputeId']!));
+            }),
+            GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => NoTransitionPage(child: const NotificationPage())),
+          ],
+        ),
 
+        
         // MON PAYS - unique definition
         GoRoute(path: AppRoutes.monPays, name: 'monPays', pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()), routes: [
           GoRoute(path: 'authorities', name: 'monPaysAuthorities', pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage())),
