@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import '../../core/thix_id_validator.dart';
-
+import '../../core/thix_sante_colors.dart';
 class QuickServiceItem {
   final String label;
   final String icon;
