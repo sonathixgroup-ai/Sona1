@@ -6,7 +6,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
-import '../core/thix_id_validator.dart';
+import '../../core/thix_id_validator.dart';
 
 /// Type de document medical, categorise pour filtrage et UI.
 enum RecordType {
