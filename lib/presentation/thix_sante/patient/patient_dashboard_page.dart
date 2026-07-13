@@ -1,237 +1,289 @@
 // lib/presentation/thix_sante/patient/patient_dashboard_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import '../../../core/app_routes.dart';
 import '../core/thix_sante_colors.dart';
-// Imports des pages Patient
-import 'screens/consulter_medecin_page.dart';
-import 'screens/dossier_famille_page.dart';
-import 'screens/dossier_medical_page.dart';
-import 'screens/mes_ordonnances_page.dart';
-import 'screens/mon_medecin_traitant_page.dart';
-import 'screens/resultats_examens_page.dart';
-import 'screens/second_avis_page.dart';
-import 'screens/prendre_rdv_page.dart';
-import 'screens/trouver_hopital_page.dart';
-import 'screens/pharmacies_proches_page.dart';
-import 'screens/trouver_medicament_page.dart';
-import 'screens/urgences_proches_page.dart';
-// Imports des pages Santé (Chemins corrigés)
-import 'screens/sante_enfants_page.dart';
-import 'screens/carnet_vaccination_page.dart';
-import 'screens/suivi_grossesse_page.dart';
 
-// =============================================================================
-// PROVIDERS
-// =============================================================================
-
-final patientProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final db = Supabase.instance.client;
-  final uid = db.auth.currentUser?.id;
-  if (uid == null) return {'full_name': 'Patient'};
-  
-  try {
-    return await db.from('profiles').select('full_name, avatar_url').eq('uid', uid).single();
-  } catch (_) {
-    return {'full_name': 'Patient'};
-  }
-});
-
+// STATS
 class DashboardStats {
-  final int consultations;
-  final int examens;
-  final int medicamentsEnCours;
-  final int rendezVousAVenir;
-  const DashboardStats({required this.consultations, required this.examens, required this.medicamentsEnCours, required this.rendezVousAVenir});
+  final int consultations, examens, medicaments, rdvs;
+  const DashboardStats({this.consultations=0,this.examens=0,this.medicaments=0,this.rdvs=0});
 }
 
 final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   final db = Supabase.instance.client;
   final uid = db.auth.currentUser?.id;
-  if (uid == null) return const DashboardStats(consultations: 0, examens: 0, medicamentsEnCours: 0, rendezVousAVenir: 0);
-  
+  if (uid == null) return const DashboardStats();
   try {
-    final consult = await db.from('consultations').select('id').eq('patient_uid', uid);
-    final exams = await db.from('health_records').select('id').eq('patient_uid', uid).eq('type', 'laboratoire');
-    final meds = await db.from('prescriptions').select('id').eq('patient_uid', uid).neq('status', 'delivree');
-    final rdvs = await db.from('appointments').select('id').eq('patient_uid', uid).gte('date', DateTime.now().toIso8601String());
-    
+    final c = await db.from('health_links').select('id').eq('patient_id', uid);
+    final e = await db.from('health_records').select('id').eq('patient_id', uid);
+    final p = await db.from('prescriptions').select('id').eq('patient_id', uid).neq('status', 'delivree');
+    final r = await db.from('appointments').select('id').eq('patient_id', uid).gte('date_rdv', DateTime.now().toIso8601String());
     return DashboardStats(
-      consultations: (consult as List).length,
-      examens: (exams as List).length,
-      medicamentsEnCours: (meds as List).length,
-      rendezVousAVenir: (rdvs as List).length,
+      consultations: (c as List).length,
+      examens: (e as List).length,
+      medicaments: (p as List).length,
+      rdvs: (r as List).length,
     );
   } catch (_) {
-    return const DashboardStats(consultations: 0, examens: 0, medicamentsEnCours: 0, rendezVousAVenir: 0);
+    return const DashboardStats();
   }
 });
-
-// =============================================================================
-// INTERFACE PREMIUM
-// =============================================================================
 
 class PatientDashboardPage extends ConsumerWidget {
   const PatientDashboardPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statsAsync = ref.watch(dashboardStatsProvider);
-    final profileAsync = ref.watch(patientProfileProvider);
-
+    final stats = ref.watch(dashboardStatsProvider);
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildAppBar(context, profileAsync),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            SliverToBoxAdapter(child: _buildHero(context, profileAsync)),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _buildStats(statsAsync)),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            SliverToBoxAdapter(child: _buildServicesRapides(context)),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            SliverToBoxAdapter(child: _buildServicesSante(context)),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            SliverToBoxAdapter(child: _buildSOS(context)),
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            _appBar(context),
+            SliverToBoxAdapter(child: _hero(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _stats(stats)),
+            const SliverToBoxAdapter(child: SizedBox(height: 22)),
+            SliverToBoxAdapter(child: _title(context, 'Services rapides', AppRoutes.santePlusServices)),
+            SliverToBoxAdapter(child: _rapides(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 22)),
+            SliverToBoxAdapter(child: _title(context, 'Services sante', AppRoutes.santePlusServices)),
+            SliverToBoxAdapter(child: _sante(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 22)),
+            SliverToBoxAdapter(child: _title(context, 'Pour vous', AppRoutes.santeAssistantIA)),
+            SliverToBoxAdapter(child: _pourVous(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _sos(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context, AsyncValue<Map<String, dynamic>> profileAsync) {
-    return SliverAppBar(
-      floating: true,
-      pinned: false,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      toolbarHeight: 70,
-      leading: IconButton(icon: const Icon(Icons.menu_rounded, color: ThixSanteColors.ink, size: 28), onPressed: () {}),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: ThixSanteColors.primary, borderRadius: BorderRadius.circular(8), boxShadow: [BoxShadow(color: ThixSanteColors.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))]), child: const Icon(Icons.health_and_safety_rounded, color: Colors.white, size: 16)),
-            const SizedBox(width: 10),
-            const Text('THIX ID', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.5, color: ThixSanteColors.ink)),
-          ]),
-          const Text('Votre santé, notre priorité', style: TextStyle(fontSize: 12, color: ThixSanteColors.muted, fontWeight: FontWeight.w500)),
+  Widget _appBar(BuildContext context) => SliverAppBar(
+        floating: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        toolbarHeight: 64,
+        title: Row(children: [
+          Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(color: ThixSanteColors.primary, borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 18)),
+          const SizedBox(width: 10),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('THIX SANTE', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A))),
+            Text('Votre sante, notre priorite', style: TextStyle(fontSize: 11, color: Color(0xFF64748B)))
+          ])
+        ]),
+        actions: [
+          IconButton(icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF0F172A)), onPressed: () => context.push(AppRoutes.santeAssistantIA)),
+          Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: GestureDetector(onTap: () => context.push('/profile'), child: const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100?img=12'))))
         ],
-      ),
-      actions: [
-        Padding(padding: const EdgeInsets.only(right: 16), child: profileAsync.when(
-            data: (profile) => CircleAvatar(radius: 20, backgroundColor: ThixSanteColors.primaryLight, backgroundImage: profile['avatar_url'] != null ? NetworkImage(profile['avatar_url']) : null, child: profile['avatar_url'] == null ? Text(profile['full_name'][0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w800, color: ThixSanteColors.primary)) : null),
-            loading: () => const CircleAvatar(radius: 20, backgroundColor: ThixSanteColors.borderLight),
-            error: (_, __) => const CircleAvatar(radius: 20, backgroundColor: ThixSanteColors.borderLight, child: Icon(Icons.person, color: ThixSanteColors.muted)),
-          ),
-        ),
-      ],
-    );
-  }
+      );
 
-  Widget _buildHero(BuildContext context, AsyncValue<Map<String, dynamic>> profileAsync) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)]), boxShadow: [BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          profileAsync.when(
-            data: (profile) => Text('Bonjour, ${profile['full_name']?.split(' ')[0] ?? 'Patient'} 👋', style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
-            loading: () => const Text('Chargement...', style: TextStyle(color: Colors.white70)),
-            error: (_, __) => const Text('Bonjour 👋', style: TextStyle(color: Colors.white70)),
-          ),
-          const SizedBox(height: 16),
-          const Text('Votre santé\nentre de bonnes mains', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, height: 1.1, letterSpacing: -0.5)),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: ThixSanteColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24)),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DossierMedicalPage())),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.folder_special_rounded, size: 20), SizedBox(width: 8), Text('Mon Dossier Santé', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13))]),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _hero(BuildContext context) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(20, 20, 12, 20),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF06B6D4)])),
+        child: Row(children: [
+          Expanded(
+              flex: 3,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Bonjour, vous', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 8),
+                const Text('Votre sante\nentre de bonnes\nmains', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, height: 1.1)),
+                const SizedBox(height: 10),
+                const Text('Gerez tout depuis un seul endroit.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 16),
+                Row(children: [
+                  ElevatedButton(
+                      onPressed: () => context.push(AppRoutes.santeDossierMedical),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: ThixSanteColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+                      child: const Text('Dossier', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                      onTap: () => context.push(AppRoutes.santeAnalysePredictive),
+                      child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white30)),
+                          child: const Text('Score 85%', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)))),
+                ])
+              ])),
+          Expanded(
+              flex: 2,
+              child: Image.network('https://cdn3d.iconscout.com/3d/premium/thumb/doctor-3d-icon-download-in-png-blend-fbx-gltf-file-formats--medical-health-care-pack-medical-icons-5183886.png',
+                  height: 130, errorBuilder: (_, __, ___) => const Icon(Icons.medical_services_rounded, color: Colors.white, size: 70))),
+        ]),
+      );
 
-  Widget _buildStats(AsyncValue<DashboardStats> statsAsync) {
-    return statsAsync.when(
-      data: (s) => SizedBox(height: 90, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), physics: const BouncingScrollPhysics(), children: [
-        _statCard(icon: Icons.monitor_heart_rounded, value: '${s.consultations}', label: 'Consultations', color: const Color(0xFFEFF6FF), iconColor: const Color(0xFF3B82F6)),
-        _statCard(icon: Icons.science_rounded, value: '${s.examens}', label: 'Examens', color: const Color(0xFFF0FDF4), iconColor: const Color(0xFF22C55E)),
-        _statCard(icon: Icons.medication_rounded, value: '${s.medicamentsEnCours}', label: 'Médicaments', color: const Color(0xFFFAF5FF), iconColor: const Color(0xFFA855F7)),
-        _statCard(icon: Icons.event_available_rounded, value: '${s.rendezVousAVenir}', label: 'À venir', color: const Color(0xFFFFF7ED), iconColor: const Color(0xFFF97316)),
-      ])),
-      loading: () => const SizedBox(height: 90, child: Center(child: CircularProgressIndicator())),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
+  Widget _stats(AsyncValue<DashboardStats> s) => s.when(
+        data: (d) => SizedBox(
+            height: 84,
+            child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, children: [
+              _stat('${d.consultations}', 'Consult.', 'Cette annee', const Color(0xFFDBEAFE)),
+              _stat('${d.examens}', 'Examens', 'Completes', const Color(0xFFD1FAE5)),
+              _stat('${d.medicaments}', 'Medicaments', 'En cours', const Color(0xFFEDE9FE)),
+              _stat('${d.rdvs}', 'Rendez-vous', 'A venir', const Color(0xFFFFEDD5)),
+            ])),
+        loading: () => const SizedBox(height: 84, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+        error: (_, __) => const SizedBox(height: 84),
+      );
 
-  Widget _statCard({required IconData icon, required String value, required String label, required Color color, required Color iconColor}) {
-    return Container(width: 120, margin: const EdgeInsets.only(right: 12), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: ThixSanteColors.ink.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: iconColor, size: 18)), Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: iconColor))]),
-      Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ThixSanteColors.inkLight))
-    ]));
-  }
+  Widget _stat(String val, String l1, String l2, Color c) => Container(
+      width: 118,
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Row(children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(11)), child: Center(child: Text(l1[0], style: const TextStyle(fontWeight: FontWeight.w800)))),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(val, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text(l1, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(l2, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)))
+        ])
+      ]));
 
-  Widget _buildServicesRapides(BuildContext context) {
-    final List<Map<String, dynamic>> items = [
-      {'l': 'Consulter', 'i': Icons.medical_services_rounded, 'c': const Color(0xFF3B82F6), 'p': const ConsulterMedecinPage()},
-      {'l': 'Dossier', 'i': Icons.folder_shared_rounded, 'c': const Color(0xFF6366F1), 'p': const DossierMedicalPage()},
-      {'l': 'Famille', 'i': Icons.family_restroom_rounded, 'c': const Color(0xFFEC4899), 'p': const DossierFamillePage(), 'n': true},
-      {'l': 'Résultats', 'i': Icons.biotech_rounded, 'c': const Color(0xFF10B981), 'p': const ResultatsExamensPage()},
-      {'l': 'Médecin', 'i': Icons.person_add_alt_1_rounded, 'c': const Color(0xFF06B6D4), 'p': const MonMedecinTraitantPage(), 'n': true},
-      {'l': 'Ordonnances', 'i': Icons.receipt_long_rounded, 'c': const Color(0xFF8B5CF6), 'p': const MesOrdonnancesPage()},
-      {'l': 'Second Avis', 'i': Icons.people_alt_rounded, 'c': const Color(0xFFF59E0B), 'p': const SecondAvisPage(), 'n': true},
-      {'l': 'RDV', 'i': Icons.edit_calendar_rounded, 'c': const Color(0xFF14B8A6), 'p': const PrendreRdvPage()},
-      {'l': 'Hôpital', 'i': Icons.local_hospital_rounded, 'c': const Color(0xFFEF4444), 'p': const TrouverHopitalPage()},
-      {'l': 'Pharmacie', 'i': Icons.local_pharmacy_rounded, 'c': const Color(0xFF22C55E), 'p': const PharmaciesProchesPage()},
-      {'l': 'Médicaments', 'i': Icons.medication_liquid_rounded, 'c': const Color(0xFF6366F1), 'p': const TrouverMedicamentPage()},
-      {'l': 'Urgences', 'i': Icons.emergency_rounded, 'c': const Color(0xFFEF4444), 'p': const UrgencesProchesPage()},
+  Widget _title(BuildContext context, String t, String route) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: [
+        Text(t, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A))),
+        const Spacer(),
+        InkWell(onTap: () => context.push(route), child: const Text('Voir tout >', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)))
+      ]));
+
+  Widget _rapides(BuildContext context) {
+    final items = [
+      ['Consulter\nmedecin', AppRoutes.santeConsulterMedecin, false],
+      ['Dossier\nmedical', AppRoutes.santeDossierMedical, false],
+      ['Resultats\nexamens', AppRoutes.santeResultatsExamens, false],
+      ['Mes\nordonnances', AppRoutes.santeOrdonnances, false],
+      ['Trouver\nhopital', AppRoutes.santeTrouverHopital, false],
+      ['Trouver\nmedicament', AppRoutes.santeTrouverMedicament, false],
+      ['Pharmacies\nproches', AppRoutes.santePharmaciesProches, false],
+      ['Urgences\nproches', AppRoutes.santeUrgencesProches, false],
+      ['Prendre\nRDV', AppRoutes.santePrendreRdv, false],
+      ['Teleconsultation', AppRoutes.santeTeleconsultation, false],
+      ['Assistant\nIA', AppRoutes.santeAssistantIA, false],
+      ['Dossier\npartage', AppRoutes.santeDossierPartage, false],
+      ['Epidemies', AppRoutes.santeEpidemies, false],
+      ['Don de sang', AppRoutes.santeDonSang, false],
+      ['Mon Medecin\nTraitant', AppRoutes.santeMonMedecinTraitant, true],
+      ['Dossier\nFamille', AppRoutes.santeDossierFamille, true],
+      ['Second Avis', AppRoutes.santeSecondAvis, true],
+      ['Rappels\nvaccin', AppRoutes.santeRappelsVaccin, false],
+      ['Certificat\nmedical', AppRoutes.santeCertificatMedical, false],
+      ['Assurance\nsante', AppRoutes.santeAssurance, false],
     ];
-
-    return Column(children: [
-      const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: Row(children: [Text('Services Rapides', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: ThixSanteColors.ink, letterSpacing: -0.5))])),
-      const SizedBox(height: 16),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, childAspectRatio: 0.85, crossAxisSpacing: 12, mainAxisSpacing: 16), itemCount: items.length, itemBuilder: (c, i) {
-        final it = items[i];
-        return InkWell(onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => it['p'] as Widget)), borderRadius: BorderRadius.circular(16), child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
-          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(width: 52, height: 52, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: (it['c'] as Color).withOpacity(0.15), blurRadius: 12, offset: const Offset(0, 4))]), child: Icon(it['i'] as IconData, color: it['c'] as Color, size: 24)),
-            const SizedBox(height: 8),
-            Text(it['l'] as String, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixSanteColors.ink)),
-          ]),
-          if (it['n'] == true) Positioned(top: -4, right: 4, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: ThixSanteColors.danger, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 2)), child: const Text('NEW', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900))))
-        ]));
-      })),
-    ]);
+    return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio:.88),
+            itemCount: items.length,
+            itemBuilder: (c, i) {
+              final l = items[i][0] as String;
+              final r = items[i][1] as String;
+              final isNew = items[i][2] as bool;
+              return InkWell(
+                  onTap: () => context.push(r),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(children: [
+                    Container(
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(12)),
+                              child: Center(child: Text(l[0], style: const TextStyle(fontWeight: FontWeight.w800)))),
+                          const SizedBox(height: 8),
+                          Text(l, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, height: 1.15))
+                        ])),
+                    if (isNew)
+                      Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(6)),
+                              child: const Text('NEW', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))
+                  ]));
+            }));
   }
 
-  Widget _buildServicesSante(BuildContext context) {
-    // SANS 'const' devant les pages car les routes sont créées dynamiquement
-    final List<Map<String, dynamic>> sante = [
-      {'l': 'Enfants', 'i': Icons.child_care_rounded, 'c': const Color(0xFFF59E0B), 'p': SanteEnfantsPage()},
-      {'l': 'Vaccins', 'i': Icons.vaccines_rounded, 'c': const Color(0xFF10B981), 'p': CarnetVaccinationPage()},
-      {'l': 'Grossesse', 'i': Icons.pregnant_woman_rounded, 'c': const Color(0xFFEC4899), 'p': SuiviGrossessePage()},
-      {'l': 'Nutrition', 'i': Icons.restaurant_menu_rounded, 'c': const Color(0xFF84CC16), 'p': null},
+  Widget _sante(BuildContext context) {
+    final sante = [
+      [AppRoutes.santeEnfants, 'Sante\nenfants'],
+      [AppRoutes.santeCarnetVaccination, 'Carnet\nvaccination'],
+      [AppRoutes.santeSuiviGrossesse, 'Suivi\ngrossesse'],
+      [AppRoutes.santeAnalysePredictive, 'Analyse\npredictive'],
+      [AppRoutes.santeBienEtreMental, 'Bien-etre\nmental'],
+      [AppRoutes.santeNutrition, 'Nutrition'],
+      [AppRoutes.santeActivitePhysique, 'Activite\nphysique'],
+      [AppRoutes.santeGestionStress, 'Gestion\nstress'],
+      [AppRoutes.santeAssuranceSanteDetail, 'Assurance'],
+      [AppRoutes.santePlusServices, 'Plus'],
     ];
-
-    return Column(children: [
-      const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: Row(children: [Text('Parcours Santé', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: ThixSanteColors.ink, letterSpacing: -0.5))])),
-      const SizedBox(height: 16),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: sante.map((it) => GestureDetector(onTap: () {
-        if (it['p'] != null) Navigator.push(context, MaterialPageRoute(builder: (_) => it['p'] as Widget));
-      }, child: Container(width: 78, padding: const EdgeInsets.symmetric(vertical: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: ThixSanteColors.borderLight)), child: Column(children: [Icon(it['i'] as IconData, color: it['c'] as Color, size: 28), const SizedBox(height: 8), Text(it['l'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixSanteColors.inkLight))])) )).toList())),
-    ]);
+    return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio:.9),
+            itemCount: sante.length,
+            itemBuilder: (c, i) {
+              final r = sante[i][0] as String;
+              final l = sante[i][1] as String;
+              return InkWell(
+                  onTap: () => context.push(r),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(l[0], style: const TextStyle(fontSize: 22)),
+                        const SizedBox(height: 6),
+                        Text(l, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600))
+                      ])));
+            }));
   }
 
-  Widget _buildSOS(BuildContext context) {
-    return GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UrgencesProchesPage())), child: Container(margin: const EdgeInsets.symmetric(horizontal: 16), padding: const EdgeInsets.all(20), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 8))]), child: Row(children: [Container(width: 50, height: 50, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: const Center(child: Text('SOS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: ThixSanteColors.danger)))), const SizedBox(width: 16), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Urgence Médicale ?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)), SizedBox(height: 4), Text('Appelez immédiatement les secours', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))])), const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16)])));
-  }
+  Widget _pourVous(BuildContext context) => SizedBox(
+      height: 152,
+      child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemCount: 3,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (c, i) => GestureDetector(
+              onTap: () => context.push(AppRoutes.santeAssistantIA),
+              child: Container(
+                  width: 172,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Column(children: [
+                    ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        child: Image.network('https://picsum.photos/300/150?random=$i', height: 86, width: 172, fit: BoxFit.cover)),
+                    const Padding(padding: EdgeInsets.all(10), child: Text('5 conseils pour rester en bonne sante', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))
+                  ])))));
+
+  Widget _sos(BuildContext context) => Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)]), borderRadius: BorderRadius.circular(16)),
+      child: Row(children: [
+        Container(width: 44, height: 44, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Center(child: Text('SOS', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFDC2626))))),
+        const SizedBox(width: 12),
+        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Urgence? Nous sommes la', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)), Text('Hopital le plus proche', style: TextStyle(color: Colors.white70, fontSize: 11))])),
+        ElevatedButton(onPressed: () => context.push(AppRoutes.santeUrgencesProches), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFFDC2626), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), elevation: 0), child: const Text('Appeler', style: TextStyle(fontWeight: FontWeight.w800)))
+      ]));
 }
