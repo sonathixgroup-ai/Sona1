@@ -438,19 +438,57 @@ GoRoute(
   builder: (c, s) => PlusServicesPage(),
 ),
         
-        // THIX Market, Info, Event, Jobs...
-        GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
-        GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
-        GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
+        // ---- Jobs & Opportunités ----
         GoRoute(path: AppRoutes.jobs, name: 'jobs', pageBuilder: (_, __) => NoTransitionPage(child: JobsPage())),
-        GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
-        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage())),
-        GoRoute(path: AppRoutes.reservation, name: 'reservation', pageBuilder: (_, __) => NoTransitionPage(child: ThixReservationPage())),
-        GoRoute(path: AppRoutes.adminMedia, name: 'adminMedia', pageBuilder: (_, __) => NoTransitionPage(child: AdminMediaPage())),
+        GoRoute(path: AppRoutes.jobDashboard, name: 'jobDashboard', pageBuilder: (_, __) => NoTransitionPage(child: JobDashboardPage())),
+        GoRoute(path: AppRoutes.recruiter, name: 'recruiter', pageBuilder: (_, __) => NoTransitionPage(child: RecruiterPortalPage())),
+        GoRoute(path: AppRoutes.opportunities, name: 'opportunities', pageBuilder: (_, __) => NoTransitionPage(child: OpportunitiesPage())),
+        GoRoute(path: '/opportunities/:opportunityId', name: 'opportunityDetails', pageBuilder: (_, state) {
+          final oppId = state.pathParameters['opportunityId'] ?? '';
+          final applied = (state.uri.queryParameters['applied'] ?? '').trim() == '1';
+          return NoTransitionPage(child: OpportunityDetailsPage(opportunityId: oppId, applied: applied));
+        }),
+        GoRoute(path: '/opportunities/:opportunityId/apply', name: 'opportunityApply', pageBuilder: (_, state) {
+          return NoTransitionPage(child: OpportunityApplyPage(opportunityId: state.pathParameters['opportunityId'] ?? ''));
+        }),
+        GoRoute(path: '/jobs/:jobId', name: 'jobDetails', pageBuilder: (_, state) {
+          final jobId = state.pathParameters['jobId'] ?? '';
+          final applied = (state.uri.queryParameters['applied'] ?? '').trim() == '1';
+          return NoTransitionPage(child: JobDetailsPage(jobId: jobId, applied: applied));
+        }),
+        GoRoute(path: '/jobs/:jobId/apply', name: 'jobApply', pageBuilder: (_, state) {
+          return NoTransitionPage(child: JobApplyPage(jobId: state.pathParameters['jobId'] ?? ''));
+        }),
 
-        // Education
+        // ---- Éducation (importée) ----
         ...educationRoutes,
         ...instructorRoutes,
+
+        // ---- Modérateur ----
+GoRoute(
+  path: '/moderator',
+  name: 'moderatorHome',
+  builder: (context, state) => const ModeratorHome(), // ✅ Accès direct sans vérification
+  routes: [
+    GoRoute(
+      path: 'events',
+      name: 'moderatorEvents',
+      builder: (context, state) => const ModeratorEventList(),
+    ),
+    GoRoute(
+      path: 'event/create',
+      name: 'moderatorEventCreate',
+      builder: (context, state) => const ModeratorEventForm(),
+    ),
+    GoRoute(
+      path: 'event/edit/:id',
+      name: 'moderatorEventEdit',
+      builder: (context, state) => ModeratorEventForm(
+        eventId: state.pathParameters['id']!,
+      ),
+    ),
+  ],
+),
        // ---- THIX Market ----
         GoRoute(
           path: AppRoutes.thixMarket,
