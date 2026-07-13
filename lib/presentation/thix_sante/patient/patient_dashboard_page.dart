@@ -303,9 +303,9 @@ class PatientDashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildServicesRapides(BuildContext context) {
+    Widget _buildServicesRapides(BuildContext context) {
     final List<Map<String, dynamic>> items = [
-      {'l': 'Consulter', 'i': Icons.stethoscope, 'c': const Color(0xFF3B82F6), 'p': const ConsulterMedecinPage()},
+      {'l': 'Consulter', 'i': Icons.medical_services_rounded, 'c': const Color(0xFF3B82F6), 'p': const ConsulterMedecinPage()},
       {'l': 'Dossier', 'i': Icons.folder_shared_rounded, 'c': const Color(0xFF6366F1), 'p': const DossierMedicalPage()},
       {'l': 'Famille', 'i': Icons.family_restroom_rounded, 'c': const Color(0xFFEC4899), 'p': const DossierFamillePage(), 'n': true},
       {'l': 'Résultats', 'i': Icons.biotech_rounded, 'c': const Color(0xFF10B981), 'p': const ResultatsExamensPage()},
@@ -318,6 +318,7 @@ class PatientDashboardPage extends ConsumerWidget {
       {'l': 'Assistant IA', 'i': Icons.auto_awesome_rounded, 'c': const Color(0xFF6366F1)},
       {'l': 'Assurance', 'i': Icons.shield_rounded, 'c': const Color(0xFF3B82F6)},
     ];
+
 
     return Column(
       children: [
