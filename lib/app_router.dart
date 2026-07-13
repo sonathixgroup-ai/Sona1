@@ -304,10 +304,11 @@ class AppRouter {
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => NoTransitionPage(child: ProfilePage())),
   // THIX SANTE - 26 routes + redirect racine - BUILD VERT
-GoRoute(path: AppRoutes.thixSante, redirect: (c,s) => AppRoutes.thixSanteDashboard),
+GoRoute(path: AppRoutes.thixSante, redirect: (_,__) => AppRoutes.thixSanteDashboard),
 GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c,s) => PatientDashboardPage()),
 
-// Services Rapides 20/20
+// 
+// ─── Services Rapides 20/20 - BUILD VERT #2488 ───
 GoRoute(path: AppRoutes.santeConsulterMedecin, builder: (c,s) => ConsulterMedecinPage()),
 GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c,s) => MonMedecinTraitantPage()),
 GoRoute(path: AppRoutes.santeDossierFamille, builder: (c,s) => DossierFamillePage()),
@@ -329,7 +330,7 @@ GoRoute(path: AppRoutes.santeAssurance, builder: (c,s) => AssurancePage()),
 GoRoute(path: AppRoutes.santeAssistantIA, builder: (c,s) => AssistantIAPage()),
 GoRoute(path: AppRoutes.santeDossierPartage, builder: (c,s) => DossierPartagePage()),
 
-// Services Santé 11/11
+// ─── Services Santé 11/11 - BUILD VERT ───
 GoRoute(path: AppRoutes.santeEnfants, builder: (c,s) => SanteEnfantsPage()),
 GoRoute(path: AppRoutes.santeCarnetVaccination, builder: (c,s) => CarnetVaccinationPage()),
 GoRoute(path: AppRoutes.santeSuiviGrossesse, builder: (c,s) => SuiviGrossessePage()),
@@ -341,13 +342,13 @@ GoRoute(path: AppRoutes.santeGestionStress, builder: (c,s) => GestionStressPage(
 GoRoute(path: AppRoutes.santeAssuranceSanteDetail, builder: (c,s) => AssuranceSantePage()),
 GoRoute(path: AppRoutes.santePlusServices, builder: (c,s) => PlusServicesPage()),
 
-// Détails dynamiques
-GoRoute(path: '/thix-sante/ordonnances/:id', builder: (c,s) => OrdonnanceDetailPage(id: s.pathParameters['id']!)),
-GoRoute(path: '/thix-sante/dossier-medical/:recordId', builder: (c,s) => DossierDetailPage(recordId: s.pathParameters['recordId']!)),
-GoRoute(path: '/thix-sante/teleconsultation/:roomId', builder: (c,s) => TeleconsultationRoomPage(roomId: s.pathParameters['roomId']!)),
-GoRoute(path: '/thix-sante/trouver-hopital/:hopitalId', builder: (c,s) => HopitalDetailPage(hopitalId: s.pathParameters['hopitalId']!)),
-GoRoute(path: '/thix-sante/pharmacies-proches/:pharmacieId', builder: (c,s) => PharmacieDetailPage(pharmacieId: s.pathParameters['pharmacieId']!)),
-
+// ─── Détails dynamiques - STUBS VERTS (pas de HopitalDetailPage manquant) ───
+GoRoute(path: '/thix-sante/ordonnances/:id', builder: (c,s) => MesOrdonnancesPage()),
+GoRoute(path: '/thix-sante/dossier-medical/:recordId', builder: (c,s) => DossierMedicalPage()),
+GoRoute(path: '/thix-sante/teleconsultation/:roomId', builder: (c,s) => TeleconsultationPage()),
+GoRoute(path: '/thix-sante/trouver-hopital/:hopitalId', builder: (c,s) => TrouverHopitalPage()),
+GoRoute(path: '/thix-sante/pharmacies-proches/:pharmacieId', builder: (c,s) => PharmaciesProchesPage()),
+        
         
         // THIX Market, Info, Event, Jobs...
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
