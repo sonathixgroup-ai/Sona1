@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 import '../../patient/models/health_record_model.dart';
 
 final vaccinationRecordsProvider = FutureProvider<List<HealthRecordModel>>((ref) async {
