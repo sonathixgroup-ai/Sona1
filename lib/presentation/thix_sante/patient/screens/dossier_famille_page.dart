@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 
 class DossierFamillePage extends StatefulWidget {
   const DossierFamillePage({super.key});
