@@ -5,8 +5,9 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
-import '../../core/thix_id_validator.dart';
 
+import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 // ---------------- RAPPELS VACCIN ----------------
 class RappelsVaccinPage extends StatelessWidget {
   const RappelsVaccinPage({super.key});
