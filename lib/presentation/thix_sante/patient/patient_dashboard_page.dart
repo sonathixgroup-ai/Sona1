@@ -17,10 +17,10 @@ import 'screens/trouver_hopital_page.dart';
 import 'screens/pharmacies_proches_page.dart';
 import 'screens/trouver_medicament_page.dart';
 import 'screens/urgences_proches_page.dart';
-// Imports des pages Santé
-import '../sante/screens/sante_enfants_page.dart';
-import '../sante/screens/carnet_vaccination_page.dart';
-import '../sante/screens/suivi_grossesse_page.dart';
+// Imports des pages Santé (Chemins corrigés)
+import 'screens/sante_enfants_page.dart';
+import 'screens/carnet_vaccination_page.dart';
+import 'screens/suivi_grossesse_page.dart';
 
 // =============================================================================
 // PROVIDERS
@@ -30,6 +30,7 @@ final patientProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   final db = Supabase.instance.client;
   final uid = db.auth.currentUser?.id;
   if (uid == null) return {'full_name': 'Patient'};
+  
   try {
     return await db.from('profiles').select('full_name, avatar_url').eq('uid', uid).single();
   } catch (_) {
@@ -49,11 +50,13 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   final db = Supabase.instance.client;
   final uid = db.auth.currentUser?.id;
   if (uid == null) return const DashboardStats(consultations: 0, examens: 0, medicamentsEnCours: 0, rendezVousAVenir: 0);
+  
   try {
     final consult = await db.from('consultations').select('id').eq('patient_uid', uid);
     final exams = await db.from('health_records').select('id').eq('patient_uid', uid).eq('type', 'laboratoire');
     final meds = await db.from('prescriptions').select('id').eq('patient_uid', uid).neq('status', 'delivree');
     final rdvs = await db.from('appointments').select('id').eq('patient_uid', uid).gte('date', DateTime.now().toIso8601String());
+    
     return DashboardStats(
       consultations: (consult as List).length,
       examens: (exams as List).length,
@@ -178,20 +181,19 @@ class PatientDashboardPage extends ConsumerWidget {
   }
 
   Widget _buildServicesRapides(BuildContext context) {
-    // Retrait des 'const' pour éviter l'erreur de compilation
     final List<Map<String, dynamic>> items = [
-      {'l': 'Consulter', 'i': Icons.medical_services_rounded, 'c': const Color(0xFF3B82F6), 'p': ConsulterMedecinPage()},
-      {'l': 'Dossier', 'i': Icons.folder_shared_rounded, 'c': const Color(0xFF6366F1), 'p': DossierMedicalPage()},
-      {'l': 'Famille', 'i': Icons.family_restroom_rounded, 'c': const Color(0xFFEC4899), 'p': DossierFamillePage(), 'n': true},
-      {'l': 'Résultats', 'i': Icons.biotech_rounded, 'c': const Color(0xFF10B981), 'p': ResultatsExamensPage()},
-      {'l': 'Médecin', 'i': Icons.person_add_alt_1_rounded, 'c': const Color(0xFF06B6D4), 'p': MonMedecinTraitantPage(), 'n': true},
-      {'l': 'Ordonnances', 'i': Icons.receipt_long_rounded, 'c': const Color(0xFF8B5CF6), 'p': MesOrdonnancesPage()},
-      {'l': 'Second Avis', 'i': Icons.people_alt_rounded, 'c': const Color(0xFFF59E0B), 'p': SecondAvisPage(), 'n': true},
-      {'l': 'RDV', 'i': Icons.edit_calendar_rounded, 'c': const Color(0xFF14B8A6), 'p': PrendreRdvPage()},
-      {'l': 'Hôpital', 'i': Icons.local_hospital_rounded, 'c': const Color(0xFFEF4444), 'p': TrouverHopitalPage()},
-      {'l': 'Pharmacie', 'i': Icons.local_pharmacy_rounded, 'c': const Color(0xFF22C55E), 'p': PharmaciesProchesPage()},
-      {'l': 'Médicaments', 'i': Icons.medication_liquid_rounded, 'c': const Color(0xFF6366F1), 'p': TrouverMedicamentPage()},
-      {'l': 'Urgences', 'i': Icons.emergency_rounded, 'c': const Color(0xFFEF4444), 'p': UrgencesProchesPage()},
+      {'l': 'Consulter', 'i': Icons.medical_services_rounded, 'c': const Color(0xFF3B82F6), 'p': const ConsulterMedecinPage()},
+      {'l': 'Dossier', 'i': Icons.folder_shared_rounded, 'c': const Color(0xFF6366F1), 'p': const DossierMedicalPage()},
+      {'l': 'Famille', 'i': Icons.family_restroom_rounded, 'c': const Color(0xFFEC4899), 'p': const DossierFamillePage(), 'n': true},
+      {'l': 'Résultats', 'i': Icons.biotech_rounded, 'c': const Color(0xFF10B981), 'p': const ResultatsExamensPage()},
+      {'l': 'Médecin', 'i': Icons.person_add_alt_1_rounded, 'c': const Color(0xFF06B6D4), 'p': const MonMedecinTraitantPage(), 'n': true},
+      {'l': 'Ordonnances', 'i': Icons.receipt_long_rounded, 'c': const Color(0xFF8B5CF6), 'p': const MesOrdonnancesPage()},
+      {'l': 'Second Avis', 'i': Icons.people_alt_rounded, 'c': const Color(0xFFF59E0B), 'p': const SecondAvisPage(), 'n': true},
+      {'l': 'RDV', 'i': Icons.edit_calendar_rounded, 'c': const Color(0xFF14B8A6), 'p': const PrendreRdvPage()},
+      {'l': 'Hôpital', 'i': Icons.local_hospital_rounded, 'c': const Color(0xFFEF4444), 'p': const TrouverHopitalPage()},
+      {'l': 'Pharmacie', 'i': Icons.local_pharmacy_rounded, 'c': const Color(0xFF22C55E), 'p': const PharmaciesProchesPage()},
+      {'l': 'Médicaments', 'i': Icons.medication_liquid_rounded, 'c': const Color(0xFF6366F1), 'p': const TrouverMedicamentPage()},
+      {'l': 'Urgences', 'i': Icons.emergency_rounded, 'c': const Color(0xFFEF4444), 'p': const UrgencesProchesPage()},
     ];
 
     return Column(children: [
@@ -212,17 +214,20 @@ class PatientDashboardPage extends ConsumerWidget {
   }
 
   Widget _buildServicesSante(BuildContext context) {
-    // Retrait des 'const' pour éviter l'erreur de compilation
+    // SANS 'const' devant les pages car les routes sont créées dynamiquement
     final List<Map<String, dynamic>> sante = [
       {'l': 'Enfants', 'i': Icons.child_care_rounded, 'c': const Color(0xFFF59E0B), 'p': SanteEnfantsPage()},
       {'l': 'Vaccins', 'i': Icons.vaccines_rounded, 'c': const Color(0xFF10B981), 'p': CarnetVaccinationPage()},
       {'l': 'Grossesse', 'i': Icons.pregnant_woman_rounded, 'c': const Color(0xFFEC4899), 'p': SuiviGrossessePage()},
+      {'l': 'Nutrition', 'i': Icons.restaurant_menu_rounded, 'c': const Color(0xFF84CC16), 'p': null},
     ];
 
     return Column(children: [
       const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: Row(children: [Text('Parcours Santé', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: ThixSanteColors.ink, letterSpacing: -0.5))])),
       const SizedBox(height: 16),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: sante.map((it) => GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => it['p'] as Widget)), child: Container(width: 90, padding: const EdgeInsets.symmetric(vertical: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: ThixSanteColors.borderLight)), child: Column(children: [Icon(it['i'] as IconData, color: it['c'] as Color, size: 28), const SizedBox(height: 8), Text(it['l'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixSanteColors.inkLight))])))).toList())),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: sante.map((it) => GestureDetector(onTap: () {
+        if (it['p'] != null) Navigator.push(context, MaterialPageRoute(builder: (_) => it['p'] as Widget));
+      }, child: Container(width: 78, padding: const EdgeInsets.symmetric(vertical: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: ThixSanteColors.borderLight)), child: Column(children: [Icon(it['i'] as IconData, color: it['c'] as Color, size: 28), const SizedBox(height: 8), Text(it['l'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixSanteColors.inkLight))])) )).toList())),
     ]);
   }
 
