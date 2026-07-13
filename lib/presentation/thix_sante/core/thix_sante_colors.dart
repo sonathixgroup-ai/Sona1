@@ -18,6 +18,7 @@ class ThixSanteColors {
   static const Color danger = Color(0xFFEF4444);
   static const Color dangerLight = Color(0xFFFEF2F2);
   static const Color sky = Color(0xFF0EA5E9);
+    static const Color primarySurface = Color(0xFFEFF6FF); // Un bleu très clair, idéal pour les fonds d'icônes et cartes
   static const Color skyLight = Color(0xFFF0F9FF);
   static const Color purple = Color(0xFF8B5CF6);
   static const Color purpleLight = Color(0xFFF5F3FF);
