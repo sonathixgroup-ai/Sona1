@@ -4,22 +4,29 @@
 // Role: Afficher tous les services (rapides + sante + nouveaux)
 // Charte: THIX SANTE - Design System Medical Premium
 // =============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:thix_id/presentation/thix_sante/core/thix_sante_colors.dart';
-
-import 'package:thix_id/presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/dossier_famille_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/second_avis_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/dossier_medical_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/resultats_examens_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/mes_ordonnances_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/screens/consulter_medecin_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/gestion_stress_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/nutrition_page.dart';
-import 'package:thix_id/presentation/thix_sante/patient/screens/activite_physique_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/trouver_hopital_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/trouver_medicament_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/pharmacies_proches_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/urgences_proches_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/prendre_rdv_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/teleconsultation_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/assistant_ia_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/dossier_partage_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/epidemies_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/don_sang_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/rappels_vaccin_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/certificat_medical_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/assurance_sante_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/sante_enfants_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/carnet_vaccination_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/suivi_grossesse_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/analyse_predictive_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/bien_etre_mental_page.dart';
 
 class PlusServicesPage extends ConsumerWidget {
   const PlusServicesPage({super.key});
@@ -97,7 +104,7 @@ class PlusServicesPage extends ConsumerWidget {
           ),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
             child: const Icon(Icons.apps_rounded, color: Colors.white, size: 28),
           ),
         ],
@@ -212,36 +219,39 @@ class PlusServicesPage extends ConsumerWidget {
   // DATA - 3 Categories
   // =============================================================================
   static final List<Map<String, dynamic>> _servicesRapides = [
-    {'label': 'Consulter\nmédecin', 'icon': '🩺', 'color': const Color(0xFFDBEAFE), 'page': const ConsulterMedecinPage()},
-    {'label': 'Dossier\nmédical', 'icon': '📁', 'color': const Color(0xFFDBEAFE), 'page': const DossierMedicalPage()},
-    {'label': 'Résultats\nexamens', 'icon': '🧪', 'color': const Color(0xFFD1FAE5), 'page': const ResultatsExamensPage()},
-    {'label': 'Mes\nordonnances', 'icon': '📋', 'color': const Color(0xFFEDE9FE), 'page': const MesOrdonnancesPage()},
-    {'label': 'Trouver\nhôpital', 'icon': '🏥', 'color': const Color(0xFFCFFAFE)},
-    {'label': 'Trouver\nmédicament', 'icon': '💊', 'color': const Color(0xFFE0E7FF)},
-    {'label': 'Pharmacies\nproches', 'icon': '➕', 'color': const Color(0xFFDCFCE7)},
-    {'label': 'Urgences\nproches', 'icon': '🚨', 'color': const Color(0xFFFEE2E2)},
-  ];
+  {'label':'Consulter\nmédecin','icon':'🩺','color':const Color(0xFFDBEAFE),'page':const ConsulterMedecinPage()},
+  {'label':'Dossier\nmédical','icon':'📁','color':const Color(0xFFDBEAFE),'page':const DossierMedicalPage()},
+  {'label':'Résultats\nexamens','icon':'🧪','color':const Color(0xFFD1FAE5),'page':const ResultatsExamensPage()},
+  {'label':'Mes\nordonnances','icon':'📋','color':const Color(0xFFEDE9FE),'page':const MesOrdonnancesPage()},
+  {'label':'Trouver\nhôpital','icon':'🏥','color':const Color(0xFFCFFAFE),'page':const TrouverHopitalPage()},
+  {'label':'Trouver\nmédicament','icon':'💊','color':const Color(0xFFE0E7FF),'page':const TrouverMedicamentPage()},
+  {'label':'Pharmacies\nproches','icon':'💊','color':const Color(0xFFDCFCE7),'page':const PharmaciesProchesPage()},
+  {'label':'Urgences\nproches','icon':'🚑','color':const Color(0xFFFEE2E2),'page':const UrgencesProchesPage()},
+];
 
   static final List<Map<String, dynamic>> _servicesSante = [
-    {'label': 'Santé\nenfants', 'icon': '👶', 'color': const Color(0xFFFFEDD5)},
-    {'label': 'Carnet\nvaccination', 'icon': '💉', 'color': const Color(0xFFDBEAFE)},
-    {'label': 'Suivi\ngrossesses', 'icon': '🤰', 'color': const Color(0xFFFCE7F3)},
-    {'label': 'Analyse\nprédictive', 'icon': '📈', 'color': const Color(0xFFE0E7FF)},
-    {'label': 'Bien-être\nmental', 'icon': '🧠', 'color': const Color(0xFFEDE9FE)},
-    {'label': 'Nutrition', 'icon': '🍏', 'color': const Color(0xFFDCFCE7), 'page': const NutritionPage()},
-    {'label': 'Activité\nphysique', 'icon': '🏋️', 'color': const Color(0xFFFFEDD5), 'page': const ActivitePhysiquePage()},
-    {'label': 'Gestion\nstress', 'icon': '🧘', 'color': const Color(0xFFDBEAFE), 'page': const GestionStressPage()},
-    {'label': 'Assurance', 'icon': '☂️', 'color': const Color(0xFFDBEAFE)},
-  ];
+  {'label':'Santé\nenfants','icon':'👶','color':const Color(0xFFFFEDD5),'page':const SanteEnfantsPage()},
+  {'label':'Carnet\nvaccination','icon':'💉','color':const Color(0xFFDBEAFE),'page':const CarnetVaccinationPage()},
+  {'label':'Suivi\ngrossesse','icon':'🤰','color':const Color(0xFFFCE7F3),'page':const SuiviGrossessePage()},
+  {'label':'Analyse\nprédictive','icon':'📈','color':const Color(0xFFE0E7FF),'page':const AnalysePredictivePage()},
+  {'label':'Bien-être\nmental','icon':'🧠','color':const Color(0xFFEDE9FE),'page':const BienEtreMentalPage()},
+  {'label':'Nutrition','icon':'🍏','color':const Color(0xFFDCFCE7),'page':const NutritionPage()},
+  {'label':'Activité\nphysique','icon':'🏋️','color':const Color(0xFFFFEDD5),'page':const ActivitePhysiquePage()},
+  {'label':'Gestion\nstress','icon':'🧘','color':const Color(0xFFDBEAFE),'page':const GestionStressPage()},
+  {'label':'Assurance','icon':'🛡️','color':const Color(0xFFDBEAFE),'page':const AssuranceSantePage()},
+];
 
   static final List<Map<String, dynamic>> _nouveautes = [
-    {'label': 'Mon Médecin\nTraitant', 'icon': '👨‍⚕️', 'color': const Color(0xFFD1FAE5), 'isNew': true, 'page': const MonMedecinTraitantPage()},
-    {'label': 'Dossier\nFamille', 'icon': '👨‍👩‍👧‍👦', 'color': const Color(0xFFFFEDD5), 'isNew': true, 'page': const DossierFamillePage()},
-    {'label': 'Second Avis\nMédical', 'icon': '🩻', 'color': const Color(0xFFE0E7FF), 'isNew': true, 'page': const SecondAvisPage()},
-    {'label': 'Téléconsultation', 'icon': '📹', 'color': const Color(0xFFEDE9FE)},
-    {'label': 'Assistant\nIA', 'icon': '🤖', 'color': const Color(0xFFDBEAFE)},
-    {'label': 'Dossier\npartagé', 'icon': '🔗', 'color': const Color(0xFFF3E8FF)},
-    {'label': 'Épidémies', 'icon': '🦠', 'color': const Color(0xFFFEE2E2)},
-    {'label': 'Don de sang', 'icon': '🩸', 'color': const Color(0xFFFEE2E2)},
-  ];
+  {'label':'Mon Médecin\nTraitant','icon':'👨‍⚕️','color':const Color(0xFFD1FAE5),'isNew':true,'page':const MonMedecinTraitantPage()},
+  {'label':'Dossier\nFamille','icon':'👨‍👩‍👧‍👦','color':const Color(0xFFFFEDD5),'isNew':true,'page':const DossierFamillePage()},
+  {'label':'Second Avis\nMédical','icon':'🩻','color':const Color(0xFFE0E7FF),'isNew':true,'page':const SecondAvisPage()},
+  {'label':'Téléconsultation','icon':'📹','color':const Color(0xFFEDE9FE),'page':const TeleconsultationPage()},
+  {'label':'Assistant\nIA','icon':'🤖','color':const Color(0xFFDBEAFE),'page':const AssistantIAPage()},
+  {'label':'Dossier\npartagé','icon':'🔗','color':const Color(0xFFF3E8FF),'page':const DossierPartagePage()},
+  {'label':'Épidémies','icon':'🦠','color':const Color(0xFFFEE2E2),'page':const EpidemiesPage()},
+  {'label':'Don de sang','icon':'🩸','color':const Color(0xFFFEE2E2),'page':const DonSangPage()},
+  {'label':'Rappels\nvaccin','icon':'💉','color':const Color(0xFFE0F2FE),'page':const RappelsVaccinPage()},
+  {'label':'Certificat\nmédical','icon':'📄','color':const Color(0xFFF3F4F6),'page':const CertificatMedicalPage()},
+  {'label':'Prendre\nRDV','icon':'📅','color':const Color(0xFFEDE9FE),'page':const PrendreRdvPage()},
+];
 }
