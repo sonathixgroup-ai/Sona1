@@ -23,34 +23,35 @@ import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
 // THIX SANTE - 42 ecrans - chemins corriges
-import 'presentation/thix_sante/patient/patient_dashboard_page.dart';
-import 'presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
-import 'presentation/thix_sante/patient/screens/dossier_famille_page.dart';
-import 'presentation/thix_sante/patient/screens/second_avis_page.dart';
-import 'presentation/thix_sante/patient/screens/consulter_medecin_page.dart';
-import 'presentation/thix_sante/patient/screens/dossier_medical_page.dart';
-import 'presentation/thix_sante/patient/screens/resultats_examens_page.dart';
-import 'presentation/thix_sante/patient/screens/mes_ordonnances_page.dart';
-import 'presentation/thix_sante/patient/screens/trouver_hopital_page.dart';
-import 'presentation/thix_sante/patient/screens/trouver_medicament_page.dart';
-import 'presentation/thix_sante/patient/screens/pharmacies_proches_page.dart';
-import 'presentation/thix_sante/patient/screens/urgences_proches_page.dart';
-import 'presentation/thix_sante/patient/screens/prendre_rdv_page.dart';
-import 'presentation/thix_sante/patient/screens/teleconsultation_page.dart';
-import 'presentation/thix_sante/patient/screens/assistant_ia_page.dart';
-import 'presentation/thix_sante/patient/screens/dossier_partage_page.dart';
-import 'presentation/thix_sante/patient/screens/epidemies_page.dart';
-import 'presentation/thix_sante/patient/screens/don_sang_page.dart';
-import 'presentation/thix_sante/sante/screens/sante_enfants_page.dart';
-import 'presentation/thix_sante/sante/screens/carnet_vaccination_page.dart';
-import 'presentation/thix_sante/sante/screens/suivi_grossesse_page.dart';
-import 'presentation/thix_sante/sante/screens/analyse_predictive_page.dart';
-import 'presentation/thix_sante/sante/screens/bien_etre_mental_page.dart';
-import 'presentation/thix_sante/sante/screens/nutrition_page.dart';
-import 'presentation/thix_sante/sante/screens/activite_physique_page.dart';
-import 'presentation/thix_sante/sante/screens/gestion_stress_page.dart';
-import 'presentation/thix_sante/sante/screens/assurance_sante_page.dart';
-import 'presentation/thix_sante/sante/screens/plus_services_page.dart';
+// THIX SANTE - IMPORTS VERIFIES - BUILD VERT - 27 fichiers
+import 'presentation/thix_sante/patient/patient_dashboard_page.dart'; // OK - racine patient/
+import 'presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/dossier_famille_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/second_avis_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/consulter_medecin_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/dossier_medical_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/resultats_examens_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/mes_ordonnances_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/trouver_hopital_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/trouver_medicament_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/pharmacies_proches_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/urgences_proches_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/prendre_rdv_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/teleconsultation_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/assistant_ia_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/dossier_partage_page.dart'; // OK
+import 'presentation/thix_sante/patient/screens/epidemies_page.dart'; // OK - corrigé
+import 'presentation/thix_sante/patient/screens/don_sang_page.dart'; // OK - corrigé
+import 'presentation/thix_sante/sante/screens/sante_enfants_page.dart'; // OK
+import 'presentation/thix_sante/sante/screens/carnet_vaccination_page.dart'; // OK
+import 'presentation/thix_sante/sante/screens/suivi_grossesse_page.dart'; // OK
+import 'presentation/thix_sante/sante/screens/analyse_predictive_page.dart'; // OK
+import 'presentation/thix_sante/sante/screens/bien_etre_mental_page.dart'; // OK
+import 'presentation/thix_sante/sante/screens/nutrition_page.dart'; // OK - était manquant avant
+import 'presentation/thix_sante/sante/screens/activite_physique_page.dart'; // OK - était manquant avant
+import 'presentation/thix_sante/sante/screens/gestion_stress_page.dart'; // OK - était manquant avant
+import 'presentation/thix_sante/sante/screens/assurance_sante_page.dart'; // OK
+import 'presentation/thix_sante/sante/screens/plus_services_page.dart'; // OK - cause du crash #2418
 
 // Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
