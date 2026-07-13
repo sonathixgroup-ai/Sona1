@@ -2,7 +2,7 @@
 // THIX SANTE - Don de sang - Eligibilite + Centres + RDV - Supabase RLS
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/thix_id_validator.dart';
+import '../../core/thix_sante_theme.dart';
 
 class DonSangPage extends ConsumerStatefulWidget {
   const DonSangPage({super.key});
