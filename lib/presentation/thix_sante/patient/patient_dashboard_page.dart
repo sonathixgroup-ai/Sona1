@@ -33,6 +33,7 @@ import 'screens/bien_etre_mental_page.dart';
 import 'screens/nutrition_page.dart';
 import 'screens/activite_physique_page.dart';
 import 'screens/gestion_stress_page.dart';
+import 'package:thix_id/presentation/thix_sante/patient/screens/plus_services_page.dart';
 
 class DashboardStats {
   final int consultations, examens, medicaments, rdvs;
