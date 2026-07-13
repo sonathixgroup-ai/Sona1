@@ -41,7 +41,7 @@ class AppRoutes {
   static const String trainingDetailsBasePath = '/education';
   static const String instructorDashboard = '/';
   static const String instructorCourses = '/instructor/courses';
-  
+  static const String thixMediaVideo = '/thix-media-video'; 
 static const String adminMedia = '/admin-media';
 static const String thixMedia = '/thix-media';
 static const String thixMoney = '/thix-money';
