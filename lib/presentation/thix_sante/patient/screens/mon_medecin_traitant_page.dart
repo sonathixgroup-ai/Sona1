@@ -82,30 +82,46 @@ class _MonMedecinTraitantPageState extends ConsumerState<MonMedecinTraitantPage>
   }
 
   Future<void> _confirmLink() async {
-    if (_foundDoctor == null) return;
-    setState(() => _isLinking = true);
-    try {
-      // FIX: signature correcte thixId: (pas doctorThixId)
-      await ref.read(patientLinkServiceProvider).requestDoctorByThixId(
-            thixId: _foundDoctor!.thixId,
-          );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Demande envoyee au Dr ${_foundDoctor!.fullName}'),
-          backgroundColor: ThixSanteColors.success,
+  if (_foundDoctor == null) return;
+
+  setState(() {
+    _isLinking = true;
+  });
+
+  try {
+    await ref.read(patientLinkServiceProvider).requestDoctorByThixId(
+      doctorThixId: _foundDoctor!.thixId,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Demande envoyee au Dr ${_foundDoctor!.fullName}',
         ),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: ThixSanteColors.danger),
-      );
-    } finally {
-      if (mounted) setState(() => _isLinking = false);
+        backgroundColor: ThixSanteColors.success,
+      ),
+    );
+
+    Navigator.of(context).pop();
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: ThixSanteColors.danger,
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLinking = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
