@@ -5,6 +5,11 @@
 // Charte: THIX SANTE - Design System Medical Premium
 // =============================================================================
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:thix_id/presentation/thix_sante/core/thix_sante_colors.dart';
+
 import 'package:thix_id/presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/screens/dossier_famille_page.dart';
 import 'package:thix_id/presentation/thix_sante/patient/screens/second_avis_page.dart';
