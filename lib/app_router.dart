@@ -49,6 +49,7 @@ import 'presentation/thix_sante/patient/screens/assurance_sante_page.dart';
 import 'presentation/thix_sante/patient/screens/plus_services_page.dart';
 import 'presentation/thix_sante/patient/screens/analyse_predictive_page.dart';
 import 'presentation/thix_sante/patient/screens/bien_etre_mental_page.dart';
+import 'presentation/thix_sante/sante/screens/suivi_grossesse_page.dart';
 
 // Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
