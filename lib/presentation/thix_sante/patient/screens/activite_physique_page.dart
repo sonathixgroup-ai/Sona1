@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/thix_id_validator.dart';
+import '../../core/thix_sante_colors.dart';
 
 final activityTodayProvider = FutureProvider<Map<String,int>>((ref) async {
   final db = Supabase.instance.client;
