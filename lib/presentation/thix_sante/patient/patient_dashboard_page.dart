@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/thix_sante_colors.dart';
+// Imports des pages Patient
 import 'screens/consulter_medecin_page.dart';
 import 'screens/dossier_famille_page.dart';
 import 'screens/dossier_medical_page.dart';
@@ -11,12 +12,20 @@ import 'screens/mes_ordonnances_page.dart';
 import 'screens/mon_medecin_traitant_page.dart';
 import 'screens/resultats_examens_page.dart';
 import 'screens/second_avis_page.dart';
+import 'screens/prendre_rdv_page.dart';
+import 'screens/trouver_hopital_page.dart';
+import 'screens/pharmacies_proches_page.dart';
+import 'screens/trouver_medicament_page.dart';
+import 'screens/urgences_proches_page.dart';
+// Imports des pages Santé
+import '../sante/screens/sante_enfants_page.dart';
+import '../sante/screens/carnet_vaccination_page.dart';
+import '../sante/screens/suivi_grossesse_page.dart';
 
 // =============================================================================
 // PROVIDERS (100% Supabase, Zéro Mock-up)
 // =============================================================================
 
-// Récupération du profil réel du patient
 final patientProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final db = Supabase.instance.client;
   final uid = db.auth.currentUser?.id;
@@ -55,7 +64,6 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
       rendezVousAVenir: (rdvs as List).length,
     );
   } catch (_) {
-    // Si la table est vide, on renvoie de vrais 0
     return const DashboardStats(consultations: 0, examens: 0, medicamentsEnCours: 0, rendezVousAVenir: 0);
   }
 });
@@ -67,33 +75,21 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
 class PatientDashboardPage extends ConsumerWidget {
   const PatientDashboardPage({super.key});
 
-  // Fonction utilitaire pour gérer les boutons sans page définie
-  void _showComingSoon(BuildContext context, String serviceName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$serviceName sera disponible très prochainement.'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: ThixSanteColors.ink,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(dashboardStatsProvider);
     final profileAsync = ref.watch(patientProfileProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Fond gris ultra-léger et moderne
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(), // Scroll premium type iOS
+          physics: const BouncingScrollPhysics(),
           slivers: [
             _buildAppBar(context, profileAsync),
-            SliverToBoxAdapter(child: const SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(child: _buildHero(context, profileAsync)),
-            SliverToBoxAdapter(child: const SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
             SliverToBoxAdapter(child: _buildStats(statsAsync)),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
             SliverToBoxAdapter(child: _buildServicesRapides(context)),
@@ -117,7 +113,7 @@ class PatientDashboardPage extends ConsumerWidget {
       toolbarHeight: 70,
       leading: IconButton(
         icon: const Icon(Icons.menu_rounded, color: ThixSanteColors.ink, size: 28),
-        onPressed: () => _showComingSoon(context, "Le menu principal"),
+        onPressed: () {}, // Action menu
       ),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,7 +146,7 @@ class PatientDashboardPage extends ConsumerWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined, color: ThixSanteColors.ink, size: 28),
-                onPressed: () => _showComingSoon(context, "Le centre de notifications"),
+                onPressed: () {}, // Action notifications
               ),
               Positioned(
                 top: 12,
@@ -190,7 +186,7 @@ class PatientDashboardPage extends ConsumerWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)], // Bleu premium profond
+          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
         ),
         boxShadow: [
           BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
@@ -303,7 +299,7 @@ class PatientDashboardPage extends ConsumerWidget {
     );
   }
 
-    Widget _buildServicesRapides(BuildContext context) {
+  Widget _buildServicesRapides(BuildContext context) {
     final List<Map<String, dynamic>> items = [
       {'l': 'Consulter', 'i': Icons.medical_services_rounded, 'c': const Color(0xFF3B82F6), 'p': const ConsulterMedecinPage()},
       {'l': 'Dossier', 'i': Icons.folder_shared_rounded, 'c': const Color(0xFF6366F1), 'p': const DossierMedicalPage()},
@@ -312,13 +308,12 @@ class PatientDashboardPage extends ConsumerWidget {
       {'l': 'Médecin', 'i': Icons.person_add_alt_1_rounded, 'c': const Color(0xFF06B6D4), 'p': const MonMedecinTraitantPage(), 'n': true},
       {'l': 'Ordonnances', 'i': Icons.receipt_long_rounded, 'c': const Color(0xFF8B5CF6), 'p': const MesOrdonnancesPage()},
       {'l': 'Second Avis', 'i': Icons.people_alt_rounded, 'c': const Color(0xFFF59E0B), 'p': const SecondAvisPage(), 'n': true},
-      {'l': 'RDV', 'i': Icons.edit_calendar_rounded, 'c': const Color(0xFF14B8A6)},
-      {'l': 'Hôpital', 'i': Icons.local_hospital_rounded, 'c': const Color(0xFFEF4444)},
-      {'l': 'Pharmacie', 'i': Icons.local_pharmacy_rounded, 'c': const Color(0xFF22C55E)},
-      {'l': 'Assistant IA', 'i': Icons.auto_awesome_rounded, 'c': const Color(0xFF6366F1)},
-      {'l': 'Assurance', 'i': Icons.shield_rounded, 'c': const Color(0xFF3B82F6)},
+      {'l': 'RDV', 'i': Icons.edit_calendar_rounded, 'c': const Color(0xFF14B8A6), 'p': const PrendreRdvPage()},
+      {'l': 'Hôpital', 'i': Icons.local_hospital_rounded, 'c': const Color(0xFFEF4444), 'p': const TrouverHopitalPage()},
+      {'l': 'Pharmacie', 'i': Icons.local_pharmacy_rounded, 'c': const Color(0xFF22C55E), 'p': const PharmaciesProchesPage()},
+      {'l': 'Médicaments', 'i': Icons.medication_liquid_rounded, 'c': const Color(0xFF6366F1), 'p': const TrouverMedicamentPage()},
+      {'l': 'Urgences', 'i': Icons.emergency_rounded, 'c': const Color(0xFFEF4444), 'p': const UrgencesProchesPage()},
     ];
-
 
     return Column(
       children: [
@@ -328,7 +323,7 @@ class PatientDashboardPage extends ConsumerWidget {
             children: [
               const Text('Services Rapides', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: ThixSanteColors.ink, letterSpacing: -0.5)),
               const Spacer(),
-              InkWell(onTap: () => _showComingSoon(context, "Le catalogue complet"), child: const Text('Tout voir', style: TextStyle(color: ThixSanteColors.primary, fontSize: 13, fontWeight: FontWeight.w700))),
+              InkWell(onTap: () {}, child: const Text('Tout voir', style: TextStyle(color: ThixSanteColors.primary, fontSize: 13, fontWeight: FontWeight.w700))),
             ],
           ),
         ),
@@ -346,8 +341,6 @@ class PatientDashboardPage extends ConsumerWidget {
                 onTap: () {
                   if (it['p'] != null) {
                     Navigator.push(c, MaterialPageRoute(builder: (_) => it['p'] as Widget));
-                  } else {
-                    _showComingSoon(c, it['l'] as String);
                   }
                 },
                 borderRadius: BorderRadius.circular(16),
@@ -390,10 +383,10 @@ class PatientDashboardPage extends ConsumerWidget {
 
   Widget _buildServicesSante(BuildContext context) {
     final List<Map<String, dynamic>> sante = [
-      {'l': 'Enfants', 'i': Icons.child_care_rounded, 'c': const Color(0xFFF59E0B)},
-      {'l': 'Vaccins', 'i': Icons.vaccines_rounded, 'c': const Color(0xFF10B981)},
-      {'l': 'Grossesse', 'i': Icons.pregnant_woman_rounded, 'c': const Color(0xFFEC4899)},
-      {'l': 'Nutrition', 'i': Icons.restaurant_menu_rounded, 'c': const Color(0xFF84CC16)},
+      {'l': 'Enfants', 'i': Icons.child_care_rounded, 'c': const Color(0xFFF59E0B), 'p': const SanteEnfantsPage()},
+      {'l': 'Vaccins', 'i': Icons.vaccines_rounded, 'c': const Color(0xFF10B981), 'p': const CarnetVaccinationPage()},
+      {'l': 'Grossesse', 'i': Icons.pregnant_woman_rounded, 'c': const Color(0xFFEC4899), 'p': const SuiviGrossessePage()},
+      {'l': 'Nutrition', 'i': Icons.restaurant_menu_rounded, 'c': const Color(0xFF84CC16), 'p': null},
     ];
 
     return Column(
@@ -404,7 +397,7 @@ class PatientDashboardPage extends ConsumerWidget {
             children: [
               const Text('Parcours Santé', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: ThixSanteColors.ink, letterSpacing: -0.5)),
               const Spacer(),
-              InkWell(onTap: () => _showComingSoon(context, "Les parcours santé"), child: const Text('Tout voir', style: TextStyle(color: ThixSanteColors.primary, fontSize: 13, fontWeight: FontWeight.w700))),
+              InkWell(onTap: () {}, child: const Text('Tout voir', style: TextStyle(color: ThixSanteColors.primary, fontSize: 13, fontWeight: FontWeight.w700))),
             ],
           ),
         ),
@@ -414,7 +407,11 @@ class PatientDashboardPage extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: sante.map((it) => GestureDetector(
-              onTap: () => _showComingSoon(context, it['l'] as String),
+              onTap: () {
+                if (it['p'] != null) {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => it['p'] as Widget));
+                }
+              },
               child: Container(
                 width: 78,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -436,7 +433,9 @@ class PatientDashboardPage extends ConsumerWidget {
 
   Widget _buildSOS(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showComingSoon(context, "Le module de géolocalisation des urgences"),
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const UrgencesProchesPage()));
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.all(20),
