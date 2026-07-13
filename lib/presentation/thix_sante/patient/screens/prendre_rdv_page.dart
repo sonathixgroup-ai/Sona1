@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/thix_sante_colors.dart';
 import '../providers/appointment_provider.dart';
+import 'package:intl/intl.dart';
 
 class PrendreRdvPage extends ConsumerStatefulWidget {
   const PrendreRdvPage({super.key});
