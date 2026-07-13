@@ -1,7 +1,7 @@
 // lib/presentation/thix_sante/patient/screens/urgences_proches_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/thix_sante_theme.dart';
+import '../../core/thix_sante_colors.dart';
 class UrgencesProchesPage extends ConsumerWidget {
   const UrgencesProchesPage({super.key});
   @override Widget build(BuildContext context, WidgetRef ref){
