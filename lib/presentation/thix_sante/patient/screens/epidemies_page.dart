@@ -2,7 +2,7 @@
 // THIX SANTE - Surveillance épidémies - Don réel Supabase
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/thix_id_validator.dart';
+import '../../core/thix_sante_theme.dart';
 
 class EpidemiesPage extends ConsumerStatefulWidget {
   const EpidemiesPage({super.key});
