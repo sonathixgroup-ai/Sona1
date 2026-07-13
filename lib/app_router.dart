@@ -42,17 +42,11 @@ import 'presentation/thix_sante/patient/screens/assistant_ia_page.dart'; // OK
 import 'presentation/thix_sante/patient/screens/dossier_partage_page.dart'; // OK
 import 'presentation/thix_sante/patient/screens/epidemies_page.dart'; // OK - corrigé
 import 'presentation/thix_sante/patient/screens/don_sang_page.dart'; // OK - corrigé
-import 'presentation/thix_sante/sante/screens/sante_enfants_page.dart'; // OK
-import 'presentation/thix_sante/sante/screens/carnet_vaccination_page.dart'; // OK
-import 'presentation/thix_sante/sante/screens/suivi_grossesse_page.dart'; // OK
-import 'presentation/thix_sante/sante/screens/analyse_predictive_page.dart'; // OK
-import 'presentation/thix_sante/sante/screens/bien_etre_mental_page.dart'; // OK
-import 'presentation/thix_sante/sante/screens/nutrition_page.dart'; // OK - était manquant avant
-import 'presentation/thix_sante/sante/screens/activite_physique_page.dart'; // OK - était manquant avant
-import 'presentation/thix_sante/sante/screens/gestion_stress_page.dart'; // OK - était manquant avant
-import 'presentation/thix_sante/sante/screens/assurance_sante_page.dart'; // OK
-import 'presentation/thix_sante/sante/screens/plus_services_page.dart'; // OK - cause du crash #2418
-
+import 'presentation/thix_sante/patient/screens/nutrition_page.dart';
+import 'presentation/thix_sante/patient/screens/activite_physique_page.dart';
+import 'presentation/thix_sante/patient/screens/gestion_stress_page.dart';
+import 'presentation/thix_sante/patient/screens/assurance_sante_page.dart';
+import 'presentation/thix_sante/patient/screens/plus_services_page.dart';
 // Réseau Pro
 import 'package:thix_id/presentation/network/network_pro_home.dart';
 import 'package:thix_id/presentation/network/search_network_page.dart';
