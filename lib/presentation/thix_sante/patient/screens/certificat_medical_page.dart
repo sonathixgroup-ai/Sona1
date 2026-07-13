@@ -65,7 +65,7 @@ class _CertificatMedicalPageState extends State<CertificatMedicalPage> {
         ]),
         pw.Spacer(),
         pw.Divider(),
-        pw.Text('Document genere via THIX SANTE - Verifiable par QR code THIX ID', style: const pw.TextStyle(fontSize:8, color: PdfColors.grey)),
+        pw.Text('Document genere via THIX SANTE - Verifiable par QR code THIX ID', style:  pw.TextStyle(fontSize:8, color: PdfColors.grey)),
       ])
     ));
     return pdf.save();
