@@ -1,7 +1,7 @@
 // lib/presentation/thix_sante/patient/screens/teleconsultation_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/thix_sante_theme.dart';
+import '../../core/thix_sante_colors.dart';
 
 class TeleconsultationPage extends ConsumerStatefulWidget {
   const TeleconsultationPage({super.key});
