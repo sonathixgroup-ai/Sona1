@@ -439,7 +439,11 @@ GoRoute(
   name: 'thixreservation',
   pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())
 ),
-
+// Redirection pour ancien lien /thix-reservation/bus
+GoRoute(
+  path: '/thix-reservation/bus',
+  redirect: (_, __) => '/thix-reservation/bus/search',
+),
 // ═══ MODULE BUS SAAS ═══
 GoRoute(path: '/thix-reservation/bus/search', builder: (_, __) => const BusSearchResultPage()),
 GoRoute(path: '/thix-reservation/bus/trip/:id', builder: (ctx, state) {
