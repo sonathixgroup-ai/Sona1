@@ -1,158 +1,103 @@
 // lib/presentation/thix_sante/patient/screens/don_sang_page.dart
-// THIX SANTE - Don de sang - Eligibilite + Centres + RDV - Supabase RLS
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:thix_id/presentation/thix_sante/core/thix_sante_colors.dart';
-import 'package:thix_id/presentation/thix_sante/core/thix_id_validator.dart';
+import '../services/don_sang_service.dart';
 
-class DonSangPage extends ConsumerStatefulWidget {
-  const DonSangPage({super.key});
-  @override
-  ConsumerState<DonSangPage> createState() => _DonSangPageState();
-}
+class DonSangPage extends ConsumerStatefulWidget { const DonSangPage({super.key}); @override ConsumerState<DonSangPage> createState()=> _DonSangPageState(); }
 
-class _DonSangPageState extends ConsumerState<DonSangPage> {
-  String _groupe = 'O+';
-  bool _eligible = true;
+class _DonSangPageState extends ConsumerState<DonSangPage> with SingleTickerProviderStateMixin {
+  late TabController _tab;
+  String _groupe='O+'; final groupes=['O+','O-','A+','A-','B+','B-','AB+','AB-'];
+  final service = DonSangService();
+  Map<String,dynamic>? _elig; List<Map<String,dynamic>> _centres=[]; List<Map<String,dynamic>> _alertes=[]; List<Map<String,dynamic>> _hist=[];
+  bool _loading=true;
 
-  final groupes = ['O+','O-','A+','A-','B+','B-','AB+','AB-'];
+  // Questionnaire
+  final _poidsCtrl = TextEditingController(text:'65'); final _hbCtrl = TextEditingController(text:'13.5');
+  bool _aJeune=true; bool _tatouageRecent=false; bool _maladieRecente=false;
 
-  final centres = [
-    {'nom':'CNTS Kinshasa','adresse':'Av. du Commerce, Gombe','distance':'1.2 km','dispo':'Aujourd\'hui 08h-16h','tel':'082 123 4567','besoin':'Urgent O+'},
-    {'nom':'Hôpital Général','adresse':'Av. Kasa-Vubu','distance':'2.8 km','dispo':'Lun-Sam 07h-17h','tel':'081 987 6543','besoin':'Besoins tous groupes'},
-    {'nom':'Croix-Rouge RDC','adresse':'Lingwala','distance':'3.5 km','dispo':'Urgence 24/7','tel':'084 555 0011','besoin':'AB- rare recherché'},
-  ];
+  @override void initState(){ super.initState(); _tab=TabController(length:3, vsync:this); _load(); }
+  Future<void> _load() async { final e=await service.getEligibilite(); final c=await service.getCentresWithStock(_groupe); final a=await service.getAlertes(); final h=await service.getHistorique(); setState((){_elig=e; _centres=c; _alertes=a; _hist=h; _loading=false;}); }
 
-  @override
-  Widget build(BuildContext context) {
+  bool get isEligibleQuestionnaire => double.tryParse(_poidsCtrl.text)!= null && double.parse(_poidsCtrl.text)>=50 &&!_tatouageRecent &&!_maladieRecente && double.tryParse(_hbCtrl.text)!= null && double.parse(_hbCtrl.text)>=12;
+
+  @override Widget build(BuildContext context){
+    if(_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return Scaffold(
-      backgroundColor: ThixSanteColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF111827)), onPressed: ()=> Navigator.pop(context)),
-        title: const Text('Don de sang', style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w800)),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _hero()),
-          SliverToBoxAdapter(child: _groupeSelector()),
-          SliverToBoxAdapter(child: _eligibilityCard()),
-          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(16,20,16,10), child: Row(children: [const Text('Centres proches', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)), const Spacer(), TextButton(onPressed: (){}, child: const Text('Voir carte'))]))),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverList.separated(
-              itemCount: centres.length,
-              separatorBuilder: (_, __)=> const SizedBox(height: 10),
-              itemBuilder: (c,i)=> _centreCard(centres[i]),
-            ),
-          ),
-          SliverToBoxAdapter(child: _impact()),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE5E7EB)))),
-        child: ElevatedButton.icon(
-          onPressed: _eligible? (){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('RDV Don de sang - bientôt via Supabase'))); } : null,
-          icon: const Icon(Icons.favorite_rounded),
-          label: Text(_eligible? 'Prendre RDV don' : 'Non éligible 90j'),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-        ),
-      ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(backgroundColor: Colors.white, elevation:0, leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: ()=>Navigator.pop(context)), title: const Text('Don de sang', style: TextStyle(fontWeight:FontWeight.w800)), bottom: TabBar(controller:_tab, labelColor: const Color(0xFFDC2626), tabs: const [Tab(text:'Donner'), Tab(text:'Demander'), Tab(text:'Mon suivi')])),
+      body: TabBarView(controller:_tab, children: [_tabDonner(), _tabDemander(), _tabSuivi()]),
     );
   }
 
-  Widget _hero(){
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFDC2626), Color(0xFFEF4444)]), borderRadius: BorderRadius.circular(20)),
-      child: Row(children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Sauvez 3 vies en 1 don', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-          const SizedBox(height: 6),
-          const Text('15 min de votre temps = espoir pour 3 patients', style: TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 12),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: const Text('🩸 Besoin urgent cette semaine', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFDC2626)))),
-        ])),
-        const Text('🩸', style: TextStyle(fontSize: 48)),
-      ]),
-    );
-  }
-
-  Widget _groupeSelector(){
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Mon groupe sanguin', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
-      const SizedBox(height: 8),
-      SizedBox(height: 40, child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: groupes.length,
-        separatorBuilder: (_, __)=> const SizedBox(width: 8),
-        itemBuilder: (c,i){
-          final g = groupes[i]; final sel = g==_groupe;
-          return ChoiceChip(label: Text(g), selected: sel, selectedColor: const Color(0xFFDC2626), labelStyle: TextStyle(color: sel? Colors.white: const Color(0xFF6B7280), fontWeight: FontWeight.w800), onSelected: (_)=> setState(()=> _groupe=g));
-        },
-      )),
+  Widget _tabDonner(){
+    return CustomScrollView(slivers: [
+      SliverToBoxAdapter(child: _alertes.isNotEmpty? Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFECACA))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Row(children:[Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size:18), SizedBox(width:6), Text('Alertes urgentes', style: TextStyle(fontWeight:FontWeight.w800, color: Color(0xFFDC2626)))]),..._alertes.map((a)=> Padding(padding: const EdgeInsets.only(top:6), child: Text('🩸 ${a['message']}', style: const TextStyle(fontSize:12))))])): const SizedBox())),
+      SliverToBoxAdapter(child: _groupeSelector()),
+      SliverToBoxAdapter(child: _questionnaireEligibilite()),
+      SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(16,16,16,8), child: Row(children:[const Text('Stock en temps réel', style: TextStyle(fontWeight:FontWeight.w800)), const Spacer(), Icon(Icons.circle, size:8, color: Colors.green), const SizedBox(width:4), const Text('Live Supabase', style: TextStyle(fontSize:10, color: Colors.green))]))),
+      SliverPadding(padding: const EdgeInsets.symmetric(horizontal:16), sliver: SliverList.separated(itemCount:_centres.length, separatorBuilder: (_,__ )=> const SizedBox(height:10), itemBuilder: (_,i)=> _centreCardLive(_centres[i]))),
+      const SliverToBoxAdapter(child: SizedBox(height:80)),
     ]);
   }
 
-  Widget _eligibilityCard(){
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16,16,16,0),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _eligible? const Color(0xFFDCFCE7): const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(14), border: Border.all(color: _eligible? const Color(0xFFBBF7D0): const Color(0xFFFECACA))),
-      child: Row(children: [
-        Icon(_eligible? Icons.check_circle_rounded: Icons.block_rounded, color: _eligible? const Color(0xFF16A34A): const Color(0xFFDC2626)),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_eligible? 'Vous êtes éligible au don':'Délai à respecter', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _eligible? const Color(0xFF15803D): const Color(0xFF991B1B))),
-          Text(_eligible? 'Dernier don il y a > 3 mois • Poids > 50kg':'Dernier don le 12/04/2026 • Prochain don possible le 12/07/2026', style: TextStyle(fontSize: 11, color: _eligible? const Color(0xFF166534): const Color(0xFF7F1D1D))),
-        ])),
-        Switch(value: _eligible, activeColor: const Color(0xFF16A34A), onChanged: (v)=> setState(()=> _eligible=v)),
-      ]),
-    );
+  Widget _questionnaireEligibilite(){
+    final eligible = _elig?['eligible']!=false && isEligibleQuestionnaire;
+    return Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Row(children:[Icon(Icons.quiz_rounded, color: Color(0xFFDC2626)), SizedBox(width:8), Text('Questionnaire éligibilité ⭐⭐⭐⭐⭐', style: TextStyle(fontWeight:FontWeight.w800, fontSize:13))]),
+      const SizedBox(height:12),
+      Row(children:[Expanded(child: TextField(controller:_poidsCtrl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText:'Poids kg', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), isDense:true), onChanged: (_)=>setState((){}))), const SizedBox(width:10), Expanded(child: TextField(controller:_hbCtrl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText:'Hémoglobine g/dL', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), isDense:true), onChanged: (_)=>setState((){})))]),
+      CheckboxListTile(value:_aJeune, dense:true, title: const Text('À jeun 4h', style: TextStyle(fontSize:12)), onChanged: (v)=>setState(()=>_aJeune=v!), controlAffinity: ListTileControlAffinity.leading),
+      CheckboxListTile(value:_tatouageRecent, dense:true, title: const Text('Tatouage < 4 mois (exclusion)', style: TextStyle(fontSize:12)), onChanged: (v)=>setState(()=>_tatouageRecent=v!), controlAffinity: ListTileControlAffinity.leading),
+      CheckboxListTile(value:_maladieRecente, dense:true, title: const Text('Fièvre/maladie < 7j', style: TextStyle(fontSize:12)), onChanged: (v)=>setState(()=>_maladieRecente=v!), controlAffinity: ListTileControlAffinity.leading),
+      const SizedBox(height:8),
+      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: eligible? const Color(0xFFDCFCE7): const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)), child: Row(children:[Icon(eligible? Icons.check_circle: Icons.block, color: eligible? Colors.green: Colors.red, size:18), const SizedBox(width:8), Expanded(child: Text(eligible? 'Éligible ✅ - Vous pouvez donner':'Non éligible ❌ - ${_elig?['eligible']==false?'Prochain don le ${_elig?['next_date'].toString().substring(0,10)}':'Corrigez questionnaire'}', style: TextStyle(fontSize:12, fontWeight:FontWeight.w700, color: eligible? const Color(0xFF15803D): const Color(0xFF991B1B))))])),
+    ]);
   }
 
-  Widget _centreCard(Map<String,String> c){
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(width: 40, height: 40, decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.local_hospital_rounded, color: Color(0xFFDC2626))),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(c['nom']!, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-            Text(c['adresse']!, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 11)),
-          ])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(20)), child: Text(c['distance']!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
-        ]),
-        const SizedBox(height: 10),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)), child: Text('⚠️ ${c['besoin']!}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF92400E)))),
-        const SizedBox(height: 10),
-        Row(children: [
-          const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF6B7280)), const SizedBox(width: 4), Text(c['dispo']!, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
-          const Spacer(),
-          OutlinedButton(onPressed: (){}, style: OutlinedButton.styleFrom(minimumSize: const Size(0,32), padding: const EdgeInsets.symmetric(horizontal: 12)), child: const Text('Appeler', style: TextStyle(fontSize: 11))),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: (){}, style: ElevatedButton.styleFrom(minimumSize: const Size(0,32), backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 14)), child: const Text('RDV', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800))),
-        ])
-      ]),
-    );
+  Widget _groupeSelector()=> Column(crossAxisAlignment: CrossAxisAlignment.start, children:[const Padding(padding: EdgeInsets.symmetric(horizontal:16), child: Text('Mon groupe', style: TextStyle(fontWeight:FontWeight.w700, fontSize:13))), const SizedBox(height:8), SizedBox(height:40, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal:16), scrollDirection: Axis.horizontal, itemCount:groupes.length, separatorBuilder: (_,__ )=> const SizedBox(width:8), itemBuilder: (_,i){ final g=groupes[i]; final sel=g==_groupe; return ChoiceChip(label: Text(g), selected:sel, selectedColor: const Color(0xFFDC2626), labelStyle: TextStyle(color: sel? Colors.white: const Color(0xFF6B7280), fontWeight: FontWeight.w800), onSelected: (_){ setState(()=>_groupe=g); _load(); }); }))]);
+
+  Widget _centreCardLive(Map<String,dynamic> c){
+    final stock = service.getStockForGroupe(c, _groupe);
+    final critique = stock<=2;
+    return Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: critique? const Color(0xFFFECACA): const Color(0xFFE5E7EB))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
+      Row(children:[Container(width:40,height:40,decoration:BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.local_hospital, color: Color(0xFFDC2626))), const SizedBox(width:10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[Text(c['nom'], style: const TextStyle(fontWeight:FontWeight.w800, fontSize:13)), Text(c['adresse'], style: const TextStyle(color: Color(0xFF6B7280), fontSize:11))])), Container(padding: const EdgeInsets.symmetric(horizontal:8,vertical:4), decoration: BoxDecoration(color: critique? const Color(0xFFFEE2E2): const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(20)), child: Text('$stock poches $_groupe', style: TextStyle(fontSize:10, fontWeight:FontWeight.w800, color: critique? const Color(0xFFDC2626): const Color(0xFF16A34A))))]),
+      const SizedBox(height:10),
+      Row(children:[const Icon(Icons.access_time, size:14, color: Color(0xFF6B7280)), const SizedBox(width:4), Text(c['horaires']??'', style: const TextStyle(fontSize:11)), const Spacer(), OutlinedButton(onPressed: (){}, style: OutlinedButton.styleFrom(minimumSize: const Size(0,32)), child: const Text('Carte', style: TextStyle(fontSize:11))), const SizedBox(width:8), ElevatedButton(onPressed:!isEligibleQuestionnaire? null: () async { try{ await service.prendreRdvDon(groupe:_groupe, centreId:c['id'], date:DateTime.now().add(const Duration(days:1)), questionnaire:{'poids':double.tryParse(_poidsCtrl.text),'hemoglobine':double.tryParse(_hbCtrl.text),'tension':'120/80'}); if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('RDV confirmé! QR généré'))); _load(); }catch(e){ ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));} }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white, minimumSize: const Size(0,32)), child: const Text('Donner', style: TextStyle(fontSize:11, fontWeight:FontWeight.w800)))]),
+    ]));
   }
 
-  Widget _impact(){
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _stat('12','Dons','❤️'), _stat('36','Vies sauvées','🙏'), _stat('Or','Donneur','🏅'),
-      ]),
-    );
+  Widget _tabDemander(){
+    final telCtrl=TextEditingController(); final raisonCtrl=TextEditingController(); String urgence='urgent'; int poches=1; String groupeDemande='O+';
+    return StatefulBuilder(builder: (ctx,setSB){ return ListView(padding: const EdgeInsets.all(16), children:[
+      Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF7F1D1D), Color(0xFFDC2626)]), borderRadius: BorderRadius.circular(16)), child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children:[Text('Demander du sang', style: TextStyle(color: Colors.white, fontWeight:FontWeight.w900, fontSize:18)), SizedBox(height:4), Text('Pour vous ou un proche - réponse en < 30 min', style: TextStyle(color: Colors.white70, fontSize:12))])),
+      const SizedBox(height:16),
+      const Text('Groupe recherché', style: TextStyle(fontWeight:FontWeight.w700, fontSize:13)), const SizedBox(height:8),
+      Wrap(spacing:8, children: groupes.map((g)=> ChoiceChip(label: Text(g), selected: groupeDemande==g, onSelected: (_)=>setSB(()=>groupeDemande=g))).toList()),
+      const SizedBox(height:16),
+      DropdownButtonFormField(value: urgence, decoration: InputDecoration(labelText:'Niveau urgence', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), items: const [DropdownMenuItem(value:'critique', child: Text('🔴 Critique - <2h')), DropdownMenuItem(value:'urgent', child: Text('🟠 Urgent - <24h')), DropdownMenuItem(value:'modere', child: Text('🟡 Modéré'))], onChanged: (v)=>setSB(()=>urgence=v!)),
+      const SizedBox(height:12),
+      Row(children:[const Text('Poches:'), IconButton(onPressed: ()=>setSB(()=>poches=poches>1?poches-1:1), icon: const Icon(Icons.remove_circle_outline)), Text('$poches', style: const TextStyle(fontWeight:FontWeight.w800)), IconButton(onPressed: ()=>setSB(()=>poches++), icon: const Icon(Icons.add_circle_outline))]),
+      TextField(controller: telCtrl, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText:'Téléphone contact *', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: const Icon(Icons.phone))),
+      const SizedBox(height:12),
+      TextField(controller: raisonCtrl, maxLines:3, decoration: InputDecoration(labelText:'Raison (optionnel)', hintText:'Accouchement, accident...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+      const SizedBox(height:20),
+      ElevatedButton.icon(onPressed: () async { if(telCtrl.text.isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Téléphone requis'))); return;} await service.demanderSang(groupe: groupeDemande, urgence: urgence, poches: poches, tel: telCtrl.text, raison: raisonCtrl.text); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demande envoyée - centres alertés!'), backgroundColor: Color(0xFF16A34A))); }, icon: const Icon(Icons.send_rounded), label: const Text('Lancer alerte sang'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
+    ]); });
   }
-  Widget _stat(String v, String l, String i)=> Column(children: [Text(i, style: const TextStyle(fontSize: 20)), const SizedBox(height: 4), Text(v, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), Text(l, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 11))]);
+
+  Widget _tabSuivi(){
+    int totalDons = _hist.length;
+    int viesSauvees = totalDons*3;
+    String badge = totalDons>=10? 'Or 🏅': totalDons>=5? 'Argent 🥈': totalDons>=1? 'Bronze 🥉': 'Nouveau';
+    return ListView(padding: const EdgeInsets.all(16), children:[
+      Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children:[_stat('$totalDons','Dons','❤️'), _stat('$viesSauvees','Vies','🙏'), _stat(badge,'Badge','🏆')])),
+      const SizedBox(height:16),
+      const Text('Historique + QR Code', style: TextStyle(fontWeight:FontWeight.w800, fontSize:15)),
+      const SizedBox(height:8),
+     ..._hist.map((h)=> Container(margin: const EdgeInsets.only(bottom:10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE5E7EB))), child: Row(children:[Container(width:44,height:44,decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(h['groupe_sanguin'], style: const TextStyle(fontWeight:FontWeight.w900, color: Color(0xFFDC2626))))), const SizedBox(width:12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[Text('${h['blood_centres']?['nom']??'Centre'} • ${h['statut']}', style: const TextStyle(fontWeight:FontWeight.w700, fontSize:13)), Text('Le ${h['date_don'].toString().substring(0,10)} • ${h['volume_ml']??450}ml', style: const TextStyle(fontSize:11, color: Color(0xFF6B7280))), Text('QR: ${h['qr_code'].toString().substring(0,8).toUpperCase()}', style: const TextStyle(fontFamily:'monospace', fontSize:10))])), const Icon(Icons.qr_code_2_rounded, color: Color(0xFF6B7280))]))),
+      if(_hist.isEmpty) const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('Aucun don - votre historique apparaîtra ici', style: TextStyle(color: Color(0xFF9CA3AF))))),
+    ]);
+  }
+  Widget _stat(String v,String l,String i)=> Column(children:[Text(i, style: const TextStyle(fontSize:22)), const SizedBox(height:4), Text(v, style: const TextStyle(fontWeight:FontWeight.w900, fontSize:16)), Text(l, style: const TextStyle(color: Color(0xFF6B7280), fontSize:11))]);
 }
