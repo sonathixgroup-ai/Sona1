@@ -164,7 +164,7 @@ import 'package:thix_id/presentation/education/education_routes.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
-import 'package:thix_id/presentation/thix_reservation/thix_reservation_page.dart';
+import 'package:thix_id/presentation/thix_reservation/thix_reservation_home_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
 // THIX Chat
@@ -433,14 +433,31 @@ class AppRouter {
 
 
         
-// BUS
-GoRoute(path: '/thix-reservation/bus', builder: (_, __) => const BusHomePage()),
+// ═══════════ THIX RESERVATION HUB ═══════════
+GoRoute(
+  path: AppRoutes.reservation,
+  name: 'thixreservation',
+  pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())
+),
+
+// ═══ MODULE BUS SAAS ═══
 GoRoute(path: '/thix-reservation/bus/search', builder: (_, __) => const BusSearchResultPage()),
-GoRoute(path: '/thix-reservation/bus/trip/:id', builder: (ctx, state) { final trip = state.extra as BusTripModel; return BusTripDetailPage(trip: trip); }),
-GoRoute(path: '/thix-reservation/bus/seats/:id', builder: (ctx, state) { final trip = state.extra as BusTripModel; return BusSeatSelectionPage(trip: trip); }),
-GoRoute(path: '/thix-reservation/bus/passenger', builder: (ctx, state) { final data = state.extra as Map<String,dynamic>; return BusPaymentPage(trip: data['trip'] as BusTripModel, seats: data['seats'] as List<String>); }),
-GoRoute(path: '/thix-reservation/bus/ticket/:id', builder: (ctx, state) { final b = state.extra as BookingModel; return BusTicketPage(booking: b); }),
-// Agence SaaS
+GoRoute(path: '/thix-reservation/bus/trip/:id', builder: (ctx, state) {
+  final trip = state.extra as BusTripModel;
+  return BusTripDetailPage(trip: trip);
+}),
+GoRoute(path: '/thix-reservation/bus/seats/:id', builder: (ctx, state) {
+  final trip = state.extra as BusTripModel;
+  return BusSeatSelectionPage(trip: trip);
+}),
+GoRoute(path: '/thix-reservation/bus/passenger', builder: (ctx, state) {
+  final data = state.extra as Map<String,dynamic>;
+  return BusPaymentPage(trip: data['trip'] as BusTripModel, seats: data['seats'] as List<String>);
+}),
+GoRoute(path: '/thix-reservation/bus/ticket/:id', builder: (ctx, state) {
+  final b = state.extra as BookingModel;
+  return BusTicketPage(booking: b);
+}),
 GoRoute(path: '/thix-reservation/bus/agency/onboarding', builder: (_, __) => const AgencyOnboardingPage()),
 GoRoute(path: '/thix-reservation/bus/agency/dashboard', builder: (_, __) => const AgencyDashboardPage()),
 GoRoute(path: '/thix-reservation/bus/agency/create-trip', builder: (_, __) => const AgencyCreateTripPage()),
