@@ -7,7 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-coconst _kGold = Color(0xFFFFB800);
+const _kGold = Color(0xFFFFB800);
 const _kDark = Color(0xFF101840);
 const _kBorder = Color(0xFFECEEF4);
 const _kWhite = Colors.white;
