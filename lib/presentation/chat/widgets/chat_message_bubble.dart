@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:thix_id/models/chat/chat_message.dart';
-import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'chat_code_snippet.dart';
@@ -15,6 +14,8 @@ class ChatMessageBubble extends StatefulWidget {
   final VoidCallback? onDelete;
   final ChatMessage? replyToMessage;
   final bool isEphemeralActive;
+  final bool isInternalNote;        // Nouveau : note interne
+  final bool isAgentView;           // Nouveau : vue agent (pour afficher les notes internes)
 
   const ChatMessageBubble({
     super.key,
@@ -25,6 +26,8 @@ class ChatMessageBubble extends StatefulWidget {
     this.onDelete,
     this.replyToMessage,
     this.isEphemeralActive = false,
+    this.isInternalNote = false,
+    this.isAgentView = false,
   });
 
   @override
@@ -130,16 +133,22 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    // Ne pas afficher si c'est une note interne et que l'utilisateur n'est pas un agent
+    if (widget.isInternalNote && !widget.isAgentView) {
+      return const SizedBox.shrink();
+    }
+
     final isOwn = widget.isOwn;
     final msg = widget.message;
+    final bool isFromAgent = msg.senderId != null && msg.senderId!.contains('agent_'); // exemple, à adapter
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
         crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // Nom de l'expéditeur (pour les messages reçus)
-          if (!isOwn)
+          // Nom de l'expéditeur (pour les messages reçus) – sauf pour les notes internes (on les affiche différemment)
+          if (!isOwn && !widget.isInternalNote)
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: 2),
               child: Row(
@@ -166,12 +175,26 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                       color: mutedText,
                     ),
                   ),
+                  if (isFromAgent) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: navy.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Agent',
+                        style: TextStyle(fontSize: 9, color: navy, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
 
           // Message cité (réponse)
-          if (widget.replyToMessage != null)
+          if (widget.replyToMessage != null && !widget.isInternalNote)
             Padding(
               padding: EdgeInsets.only(
                 bottom: 4,
@@ -219,7 +242,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               ),
             ),
 
-          // Bulle de message avec nom de l'expéditeur pour les messages reçus
+          // Bulle de message
           Row(
             mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -245,7 +268,10 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                       maxWidth: MediaQuery.of(context).size.width * 0.72,
                     ),
                     decoration: BoxDecoration(
-                      color: isOwn ? navy : pureWhite,
+                      // Style différent pour les notes internes
+                      color: widget.isInternalNote
+                          ? Colors.yellow.shade100
+                          : (isOwn ? navy : pureWhite),
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
@@ -259,18 +285,46 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                           offset: const Offset(0, 1),
                         ),
                       ],
-                      border: _isEncrypted && !_isDecrypted
-                          ? Border.all(color: gold, width: 1.5)
-                          : null,
+                      border: widget.isInternalNote
+                          ? Border.all(color: Colors.orange.shade700, width: 2)
+                          : (_isEncrypted && !_isDecrypted
+                              ? Border.all(color: gold, width: 1.5)
+                              : null),
                     ),
                     child: Column(
                       crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
-                        // Badge : Chiffré / Éphémère / Document
+                        // Badges : Note interne, chiffré, éphémère, document
                         Wrap(
                           spacing: 4,
                           runSpacing: 2,
                           children: [
+                            // Badge note interne
+                            if (widget.isInternalNote)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.orange.shade700),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.note_rounded, size: 12, color: Colors.orange),
+                                    SizedBox(width: 2),
+                                    Text(
+                                      'Note interne',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
                             // Badge chiffré
                             if (_isEncrypted)
                               Container(
@@ -382,7 +436,9 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                           Text(
                             _displayContent,
                             style: TextStyle(
-                              color: isOwn ? Colors.white : darkText,
+                              color: widget.isInternalNote
+                                  ? Colors.black87
+                                  : (isOwn ? Colors.white : darkText),
                               fontSize: 14,
                               height: 1.4,
                             ),
@@ -406,7 +462,9 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                               DateFormat('HH:mm').format(msg.createdAt),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: isOwn ? Colors.white.withOpacity(0.7) : mutedText,
+                                color: widget.isInternalNote
+                                    ? Colors.black54
+                                    : (isOwn ? Colors.white.withOpacity(0.7) : mutedText),
                               ),
                             ),
                             if (isOwn) ...[
@@ -450,8 +508,8 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ],
           ),
 
-          // Barre d'actions (hover ou long press)
-          if (_isHovering || _showReactions)
+          // Barre d'actions (hover ou long press) – cachée pour les notes internes
+          if ((_isHovering || _showReactions) && !widget.isInternalNote)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Row(
