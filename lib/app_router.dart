@@ -404,7 +404,7 @@ class AppRouter {
           final url = (state.uri.queryParameters['url'] ?? '').trim();
           return NoTransitionPage(child: VideoPlayerPage(title: title.isEmpty ? 'Lecture vidéo' : title, videoUrl: url));
         }),
-        GoRoute(path: AppRoutes.reservation, name: 'reservation', pageBuilder: (_, __) => NoTransitionPage(child: ThixReservationPage())),
+        GoRoute(path: AppRoutes.reservation, name: 'reservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
 
         // THIX Evenement
         GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
