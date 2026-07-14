@@ -11,6 +11,10 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback onEphemeralToggle;
   final bool isEphemeral;
   final ValueChanged<String>? onTyping;
+  
+  // 👇 AJOUTS POUR LES NOTES INTERNES
+  final VoidCallback? onInternalNoteToggle;
+  final bool isInternalNote;
 
   const ChatInputBar({
     super.key,
@@ -24,6 +28,8 @@ class ChatInputBar extends StatefulWidget {
     required this.onEphemeralToggle,
     required this.isEphemeral,
     this.onTyping,
+    this.onInternalNoteToggle, // 👈
+    this.isInternalNote = false, // 👈
   });
 
   @override
@@ -62,9 +68,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
+    // Changement de couleur si on est en mode note interne
+    final bgColor = widget.isInternalNote ? Colors.orange.shade50 : Colors.white;
+    final hintText = widget.isInternalNote ? 'Écrire une note interne...' : 'Écrire un message...';
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bgColor,
         border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
         boxShadow: [
           BoxShadow(
@@ -105,6 +115,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     label: 'Audio',
                     onTap: widget.onAudio,
                   ),
+                  // 👇 Affiche le bouton Note Interne uniquement si la fonction est fournie (ex: pour les agents)
+                  if (widget.onInternalNoteToggle != null)
+                    _buildActionButton(
+                      icon: Icons.speaker_notes,
+                      label: 'Note',
+                      onTap: widget.onInternalNoteToggle!,
+                      isActive: widget.isInternalNote,
+                      activeColor: Colors.orange,
+                    ),
                   const Spacer(),
                   if (_hasText)
                     Text(
@@ -125,7 +144,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 children: [
                   Expanded(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
+                      constraints: const BoxConstraints(
                         minHeight: 36,
                         maxHeight: 120,
                       ),
@@ -140,7 +159,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           keyboardType: TextInputType.multiline,
                           textInputAction: TextInputAction.newline,
                           decoration: InputDecoration(
-                            hintText: 'Écrire un message...',
+                            hintText: hintText,
                             hintStyle: TextStyle(
                               color: Colors.grey.shade400,
                               fontSize: 14,
@@ -150,7 +169,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
-                            fillColor: Colors.grey.shade100,
+                            fillColor: widget.isInternalNote ? Colors.orange.shade100 : Colors.grey.shade100,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 10,
@@ -166,7 +185,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: (_hasText && !widget.isSending) ? navyDeep : Colors.grey.shade300,
+                      color: (_hasText && !widget.isSending) 
+                          ? (widget.isInternalNote ? Colors.orange : navyDeep) 
+                          : Colors.grey.shade300,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
