@@ -1,4 +1,5 @@
 // lib/presentation/thix_event/thix_event_home.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -31,20 +32,84 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   int _selectedNavIndex = 0;
   bool _isInitialized = false;
   String _selectedQuickFilter = 'all';
+  String _selectedDateFilter = 'all';
+
+  // --- Hero banner auto-scroll ---
+  final PageController _heroPageController = PageController();
+  Timer? _heroTimer;
+  int _heroIndex = 0;
+
+  final List<Map<String, String>> _fallbackHeroSlides = [
+    {
+      'image': 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?q=80&w=2070',
+      'badge': 'A LA UNE',
+      'title': 'Vivez des moments\ninoubliables.',
+      'subtitle': 'Concerts, festivals, conferences,\nspectacles et plus encore.',
+    },
+    {
+      'image': 'https://images.unsplash.com/photo-1493676304819-0d7a8d026dcf?q=80&w=2070',
+      'badge': 'TENDANCE',
+      'title': 'Les meilleurs concerts\nde la ville.',
+      'subtitle': 'Reservez vos places avant\nqu\'il ne soit trop tard.',
+    },
+    {
+      'image': 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?q=80&w=2070',
+      'badge': 'NOUVEAU',
+      'title': 'Conferences et\nrencontres pro.',
+      'subtitle': 'Echangez avec des experts\nde votre secteur.',
+    },
+    {
+      'image': 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070',
+      'badge': 'POPULAIRE',
+      'title': 'Spectacles et\ntheatre en direct.',
+      'subtitle': 'Une programmation riche\nchaque semaine.',
+    },
+    {
+      'image': 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=2070',
+      'badge': 'SPORT',
+      'title': 'Vivez l\'intensite\ndes matchs en direct.',
+      'subtitle': 'Ne manquez aucune\ncompetition locale.',
+    },
+    {
+      'image': 'https://images.unsplash.com/photo-1508997449629-303059a039c0?q=80&w=2070',
+      'badge': 'A NE PAS MANQUER',
+      'title': 'Festivals et grands\nrassemblements.',
+      'subtitle': 'Toute l\'ambiance, toute\nl\'annee, pres de vous.',
+    },
+  ];
 
   final List<Map<String, dynamic>> _quickFilters = [
-    {'value': 'all', 'label': 'Tous les\nevenements', 'icon': Icons.calendar_month_rounded, 'color': const Color(0xFF6B3BFF)},
+    {'value': 'all', 'label': 'Tous', 'icon': Icons.calendar_month_rounded, 'color': const Color(0xFF6B3BFF)},
     {'value': 'concert', 'label': 'Concerts', 'icon': Icons.music_note_rounded, 'color': const Color(0xFFEC4899)},
     {'value': 'spectacle', 'label': 'Spectacles', 'icon': Icons.theater_comedy_rounded, 'color': const Color(0xFFF59E0B)},
-    {'value': 'conference', 'label': 'Conferences', 'icon': Icons.mic_rounded, 'color': const Color(0xFF3B82F6)},
+    {'value': 'conference', 'label': 'Conf.', 'icon': Icons.mic_rounded, 'color': const Color(0xFF3B82F6)},
     {'value': 'sport', 'label': 'Sport', 'icon': Icons.emoji_events_rounded, 'color': const Color(0xFF10B981)},
     {'value': 'more', 'label': 'Plus', 'icon': Icons.more_horiz_rounded, 'color': const Color(0xFF9CA3AF)},
+  ];
+
+  final List<Map<String, String>> _dateFilters = [
+    {'value': 'today', 'label': 'Aujourd\'hui'},
+    {'value': 'week', 'label': 'Cette semaine'},
+    {'value': 'month', 'label': 'Ce mois'},
   ];
 
   @override
   void initState() {
     super.initState();
     _initializeData();
+    _startHeroAutoScroll();
+  }
+
+  void _startHeroAutoScroll() {
+    _heroTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted || !_heroPageController.hasClients) return;
+      _heroIndex = (_heroIndex + 1) % _fallbackHeroSlides.length;
+      _heroPageController.animateToPage(
+        _heroIndex,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   Future<void> _initializeData() async {
@@ -67,6 +132,8 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _heroTimer?.cancel();
+    _heroPageController.dispose();
     super.dispose();
   }
 
@@ -83,6 +150,12 @@ class _ThixEventHomeState extends State<ThixEventHome> {
       case 3: context.push('/thix-event/favorites'); break;
       case 4: context.push('/profile'); break;
     }
+  }
+
+  void _onDateFilterTap(String value) {
+    setState(() => _selectedDateFilter = value);
+    HapticFeedback.selectionClick();
+    context.read<EventProvider>().fetchEvents(dateFilter: value);
   }
 
   void _goToEventDetail(String eventId) => context.push('/thix-event/event/$eventId');
@@ -119,7 +192,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     final recommendedEvents = events.take(4).toList();
     final upcomingEvents = events.skip(4).take(6).toList();
     final isLoading = eventProvider.isLoading;
-    final hasError = eventProvider.error!= null;
+    final hasError = eventProvider.error != null;
 
     if (!_isInitialized && isLoading) {
       return const Scaffold(backgroundColor: _ThixColors.lightBg, body: Center(child: CircularProgressIndicator(color: _ThixColors.primary)));
@@ -129,7 +202,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
         backgroundColor: _ThixColors.lightBg,
         body: Center(
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(width: 84, height: 84, decoration: const BoxDecoration(color: Color(0xFFEEE9FF), shape: BoxShape.circle), child: Icon(Icons.error_outline_rounded, size: 38, color: Color(0x886B3BFF))),
+            Container(width: 84, height: 84, decoration: const BoxDecoration(color: Color(0xFFEEE9FF), shape: BoxShape.circle), child: const Icon(Icons.error_outline_rounded, size: 38, color: Color(0x886B3BFF))),
             const SizedBox(height: 16),
             const Text('Impossible de charger les evenements', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _ThixColors.darkText)),
             const SizedBox(height: 24),
@@ -150,6 +223,8 @@ class _ThixEventHomeState extends State<ThixEventHome> {
               const SizedBox(height: 12),
               _buildHeroBanner(featuredEvent),
               const SizedBox(height: 16),
+              _buildDateFilters(),
+              const SizedBox(height: 12),
               _buildQuickFilters(),
               const SizedBox(height: 20),
               _buildCategorySection(),
@@ -218,33 +293,50 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           Positioned(top: -4, right: -2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle), child: const Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)))),
         ]),
         const SizedBox(width: 8),
-        InkWell(onTap: () => context.push('/profile'), child: Container(decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(0x336B3BFF), width: 2)), child: const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100')))),
+        InkWell(onTap: () => context.push('/profile'), child: Container(decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0x336B3BFF), width: 2)), child: const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100')))),
       ]),
     );
   }
 
   Widget _buildHeroBanner(dynamic featuredEvent) {
-    final imageUrl = featuredEvent?.imageUrl?? 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?q=80&w=2070';
+    // Slide 0 uses the real featured event image when available, slides 1-5 use curated fallbacks.
+    final slides = List<Map<String, String>>.from(_fallbackHeroSlides);
+    if (featuredEvent?.imageUrl != null) {
+      slides[0] = {...slides[0], 'image': featuredEvent.imageUrl as String};
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
+      child: SizedBox(
         height: 180,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: _ThixColors.primary),
-        clipBehavior: Clip.antiAlias,
         child: Stack(children: [
-          Positioned.fill(child: Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _ThixColors.primary))),
-          Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [const Color(0xF26B3BFF), const Color(0xB36B3BFF), Colors.transparent])))),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(6)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.star_rounded, size: 12, color: Colors.white), SizedBox(width: 4), Text('A LA UNE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.5))])),
-              const SizedBox(height: 12),
-              const Text('Vivez des moments\ninoubliables.', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.1)),
-              const SizedBox(height: 8),
-              const Text('Concerts, festivals, conferences,\nspectacles et plus encore.', style: TextStyle(color: Color(0xB3FFFFFF), fontSize: 11, height: 1.3)),
-              const SizedBox(height: 14),
-              InkWell(onTap: () => context.push('/thix-event/search'), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(10)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Decouvrir les evenements', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)), SizedBox(width: 6), Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white)]))),
-            ]),
+          PageView.builder(
+            controller: _heroPageController,
+            itemCount: slides.length,
+            onPageChanged: (i) => setState(() => _heroIndex = i),
+            itemBuilder: (context, index) {
+              final slide = slides[index];
+              return Container(
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: _ThixColors.primary),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(children: [
+                  Positioned.fill(child: Image.network(slide['image']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _ThixColors.primary))),
+                  Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [Color(0xF26B3BFF), Color(0xB36B3BFF), Colors.transparent])))),
+                  Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(6)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.star_rounded, size: 12, color: Colors.white), const SizedBox(width: 4), Text(slide['badge']!, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.5))])),
+                      const SizedBox(height: 12),
+                      Text(slide['title']!, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.1)),
+                      const SizedBox(height: 8),
+                      Text(slide['subtitle']!, style: const TextStyle(color: Color(0xB3FFFFFF), fontSize: 11, height: 1.3)),
+                      const SizedBox(height: 14),
+                      InkWell(onTap: () => context.push('/thix-event/search'), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(10)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Decouvrir les evenements', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)), SizedBox(width: 6), Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white)]))),
+                    ]),
+                  ),
+                ]),
+              );
+            },
           ),
           Positioned(
             bottom: 12,
@@ -252,13 +344,14 @@ class _ThixEventHomeState extends State<ThixEventHome> {
             right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (i) {
-                final bool isFirst = i == 0;
-                return Container(
+              children: List.generate(slides.length, (i) {
+                final bool isActive = i == _heroIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: isFirst? 16 : 6,
+                  width: isActive ? 16 : 6,
                   height: 6,
-                  decoration: BoxDecoration(color: isFirst? _ThixColors.primaryLight : const Color(0x80FFFFFF), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: isActive ? _ThixColors.primaryLight : const Color(0x80FFFFFF), borderRadius: BorderRadius.circular(10)),
                 );
               }),
             ),
@@ -268,10 +361,41 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     );
   }
 
+  Widget _buildDateFilters() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: _dateFilters.map((f) {
+        final isSelected = _selectedDateFilter == f['value'];
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: f['value'] == 'month' ? 0 : 8),
+            child: InkWell(
+              onTap: () => _onDateFilterTap(f['value']!),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? _ThixColors.primary : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isSelected ? _ThixColors.primary : _ThixColors.cardBorder),
+                ),
+                child: Text(
+                  f['label']!,
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : _ThixColors.mutedText),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList()),
+    );
+  }
+
   Widget _buildQuickFilters() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _ThixColors.cardBorder)),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -280,19 +404,22 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           final isSelected = _selectedQuickFilter == f['value'];
           final color = f['color'] as Color;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 5),
             child: InkWell(
               onTap: () {
                 if (f['value'] == 'more') { context.push('/thix-event/categories'); return; }
                 setState(() => _selectedQuickFilter = f['value'] as String);
-                context.read<EventProvider>().fetchEvents(dateFilter: 'all');
+                context.read<EventProvider>().fetchEvents(dateFilter: _selectedDateFilter);
               },
               borderRadius: BorderRadius.circular(12),
-              child: Column(children: [
-                Container(width: 48, height: 48, decoration: BoxDecoration(color: isSelected? color.withOpacity(0.18) : color.withOpacity(0.10), borderRadius: BorderRadius.circular(12), border: isSelected? Border.all(color: color, width: 1.2) : null), child: Icon(f['icon'] as IconData, color: color, size: 22)),
-                const SizedBox(height: 6),
-                Text(f['label'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: 10.5, fontWeight: isSelected? FontWeight.w800 : FontWeight.w600, color: isSelected? _ThixColors.darkText : _ThixColors.mutedText, height: 1.1)),
-              ]),
+              child: SizedBox(
+                width: 52,
+                child: Column(children: [
+                  Container(width: 38, height: 38, decoration: BoxDecoration(color: isSelected ? color.withOpacity(0.18) : color.withOpacity(0.10), borderRadius: BorderRadius.circular(11), border: isSelected ? Border.all(color: color, width: 1.2) : null), child: Icon(f['icon'] as IconData, color: color, size: 18)),
+                  const SizedBox(height: 5),
+                  Text(f['label'] as String, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9.5, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, color: isSelected ? _ThixColors.darkText : _ThixColors.mutedText, height: 1.1)),
+                ]),
+              ),
             ),
           );
         }).toList()),
@@ -337,7 +464,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
 
   Widget _navItem(IconData icon, String label, int index) {
     final isSelected = _selectedNavIndex == index;
-    return InkWell(onTap: () => _onNavTap(index), borderRadius: BorderRadius.circular(16), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: isSelected? _ThixColors.primary : _ThixColors.mutedText, size: 22), const SizedBox(height: 2), Text(label, style: TextStyle(fontSize: 10, color: isSelected? _ThixColors.primary : _ThixColors.mutedText, fontWeight: isSelected? FontWeight.w700 : FontWeight.w500))])));
+    return InkWell(onTap: () => _onNavTap(index), borderRadius: BorderRadius.circular(16), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: isSelected ? _ThixColors.primary : _ThixColors.mutedText, size: 22), const SizedBox(height: 2), Text(label, style: TextStyle(fontSize: 10, color: isSelected ? _ThixColors.primary : _ThixColors.mutedText, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500))])));
   }
 
   Widget _centerNavItem() {
