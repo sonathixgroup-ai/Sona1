@@ -84,6 +84,19 @@ class _PassengerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<BusSearchProvider>();
-    return Container(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [const Text('Nombre de passagers', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)), const SizedBox(height: 20), Row(mainAxisAlignment: MainAxisAlignment.center, children: [IconButton(filled: true, onPressed: () => p.setPassengers(p.passengers-1), icon: const Icon(Icons.remove)), Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Text('${p.passengers}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))), IconButton(filled: true, onPressed: () => p.setPassengers(p.passengers+1), icon: const Icon(Icons.add))]), const SizedBox(height: 20), SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Confirmer')))]));
+    return Container(
+      padding: const EdgeInsets.all(20), 
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Nombre de passagers', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)), 
+        const SizedBox(height: 20), 
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          IconButton.filledTonal(onPressed: () => p.setPassengers(p.passengers-1), icon: const Icon(Icons.remove)), 
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Text('${p.passengers}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))), 
+          IconButton.filledTonal(onPressed: () => p.setPassengers(p.passengers+1), icon: const Icon(Icons.add))
+        ]), 
+        const SizedBox(height: 20), 
+        SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Confirmer')))
+      ])
+    );
   }
 }
