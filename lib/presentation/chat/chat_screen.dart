@@ -1,3 +1,7 @@
+// ============================================================
+// chat_screen.dart (version finale avec escalade et notes internes)
+// ============================================================
+
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
@@ -6,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 
 // Services
 import 'package:thix_id/services/chat/chat_service.dart';
@@ -26,6 +31,11 @@ import 'package:thix_id/presentation/chat/widgets/audio_recorder.dart';
 import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
 import 'package:thix_id/presentation/chat/group/group_info_panel.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
+
+// ==================== ESCALADE ====================
+import 'package:thix_id/presentation/chat/escalation/models/escalation_level.dart';
+import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
+import 'package:provider/provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -73,6 +83,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isTyping = false;
   Timer? _typingTimer;
 
+  // === NOUVEAU : ESCALADE ET NOTES INTERNES ===
+  bool _isAgent = false; // Récupéré depuis l'utilisateur courant
+  bool _isInternalNoteMode = false; // Mode note interne activé ?
+  bool _isConversationEscalated = false; // Statut de la conversation
+
   // Streams
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
   Stream<UserStatus?>? _presenceStream;
@@ -103,6 +118,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _audioService = AudioService(client);
     _groupService = GroupService(client);
 
+    // Déterminer si l'utilisateur est un agent
+    _loadUserRole();
+
     WidgetsBinding.instance.addObserver(this);
 
     _loadMessages();
@@ -113,6 +131,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _subscribeToRealtimeMessages();
     _loadGroupMembersIfGroup();
     _checkMicrophonePermission();
+  }
+
+  Future<void> _loadUserRole() async {
+    final user = _chatService.currentUser;
+    // Exemple : on considère agent si l'utilisateur est dans un groupe "agents" ou a un rôle
+    // À adapter selon votre logique (par exemple, depuis le profil)
+    if (user != null) {
+      // Remplacer par votre logique de détection
+      _isAgent = user.role == 'agent' || user.role == 'admin' || user.role == 'support';
+      setState(() {});
+    }
   }
 
   Future<void> _checkMicrophonePermission() async {
@@ -162,11 +191,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         if (loadMore) {
-          // ✅ Anciens messages au début, nouveaux à la fin
+          // Ajouter les anciens au début (car affichage inversé)
           _messages = [...msgs.reversed, ..._messages];
           _hasMoreMessages = msgs.length >= _pageSize;
         } else {
-          // ✅ Ordre normal : du plus ancien au plus récent
           _messages = msgs;
           _hasMoreMessages = msgs.length >= _pageSize;
         }
@@ -195,8 +223,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200) {
+      // Comme on est en reverse, le bas est en position 0
+      // Le haut correspond à maxScrollExtent
+      final position = _scrollController.position;
+      if (position.pixels >= position.maxScrollExtent - 200) {
         if (_hasMoreMessages && !_isLoadingMore) {
           _page++;
           _loadMessages(loadMore: true);
@@ -270,17 +300,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _messages[index] = msg;
             }
           } else if (!msg.isDeleted) {
-            // ✅ Nouveau message ajouté à la fin (pas au début)
+            // Nouveau message ajouté à la fin (pour affichage inversé)
             _messages.add(msg);
           }
         }
       });
-      _scrollToBottom(); // ✅ Scroll vers le bas
+      _scrollToBottom();
     });
   }
 
   // ============================================================
-  // ENVOI DE MESSAGES
+  // ENVOI DE MESSAGES (avec support notes internes)
   // ============================================================
 
   Future<void> _sendMessage() async {
@@ -297,15 +327,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         replyToId: _replyToId.isEmpty ? null : _replyToId,
         isEphemeral: _isEphemeral,
         ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        isInternalNote: _isInternalNoteMode, // ✅ Passage du flag
       );
 
       setState(() {
         if (!_messages.any((m) => m.id == msg.id)) {
-          _messages.add(msg); // ✅ Ajout à la fin
+          _messages.add(msg);
         }
         _inputController.clear();
         _replyToId = '';
         _isSending = false;
+        // Si note interne, on désactive le mode après envoi (optionnel)
+        if (_isInternalNoteMode) {
+          _isInternalNoteMode = false;
+        }
       });
       _scrollToBottom();
     } catch (e) {
@@ -324,10 +359,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         isEphemeral: _isEphemeral,
         ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
         replyToId: _replyToId.isEmpty ? null : _replyToId,
+        isInternalNote: _isInternalNoteMode,
       );
       setState(() {
-        _messages.add(msg); // ✅ Ajout à la fin
+        _messages.add(msg);
         _replyToId = '';
+        if (_isInternalNoteMode) _isInternalNoteMode = false;
       });
       _scrollToBottom();
     } catch (e) {
@@ -448,6 +485,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     isEphemeral: _isEphemeral,
                     ephemeralDuration:
                         _isEphemeral ? _ephemeralDuration : null,
+                    isInternalNote: _isInternalNoteMode,
                   );
                   if (context.mounted) Navigator.pop(ctx);
                 } catch (e) {
@@ -595,7 +633,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _sendTypingStatus(bool typing) {
-    // À implémenter avec WebSocket
+    // Implémentation WebSocket si nécessaire
   }
 
   // ============================================================
@@ -631,6 +669,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             mediaType: 'image',
             isEphemeral: _isEphemeral,
             ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+            isInternalNote: _isInternalNoteMode,
           );
         }
       }
@@ -721,6 +760,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
+  // ESCALADE
+  // ============================================================
+
+  void _escalateConversation() {
+    if (!_isAgent) {
+      _showSnackBar('Seul un agent peut escalader une conversation', mutedText);
+      return;
+    }
+    // Naviguer vers la page d'escalade
+    context.pushNamed(
+      'chatEscalate',
+      pathParameters: {'conversationId': widget.conversationId},
+      queryParameters: {
+        'agentId': _chatService.currentUserId ?? '',
+        'agentName': _chatService.currentUser?.displayName ?? '',
+      },
+    );
+  }
+
+  void _toggleInternalNoteMode() {
+    setState(() {
+      _isInternalNoteMode = !_isInternalNoteMode;
+    });
+    _showSnackBar(
+      _isInternalNoteMode ? 'Mode note interne activé' : 'Mode note interne désactivé',
+      _isInternalNoteMode ? Colors.orange : mutedText,
+    );
+  }
+
+  // ============================================================
   // UTILITAIRES
   // ============================================================
 
@@ -752,58 +821,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               onLeaveGroup: _leaveGroup,
               onDeleteGroup: _deleteGroup,
             ),
+          // Indicateur d'escalade si actif
+          if (_isConversationEscalated)
+            _buildEscalationIndicator(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: primaryBlue))
-                : Stack(
-                    children: [
-                      ListView.builder(
-                        controller: _scrollController,
-                        reverse: true, // ✅ Les derniers en bas
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                        itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
-                        itemBuilder: (ctx, index) {
-                          if (index == _messages.length && _isLoadingMore) {
-                            return const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Center(
-                                child: CircularProgressIndicator(strokeWidth: 2, color: navy),
-                              ),
-                            );
-                          }
-                          // ✅ Du plus récent au plus ancien
-                          final msg = _messages[_messages.length - 1 - index];
-                          final isOwn = msg.senderId == _chatService.currentUserId;
-
-                          return ChatMessageBubble(
-                            message: msg,
-                            isOwn: isOwn,
-                            onReply: () => setState(() => _replyToId = msg.id),
-                            onDelete: () async {
-                              setState(() => _messages.removeWhere((m) => m.id == msg.id));
-                              if (isOwn) {
-                                try {
-                                  await _chatService.deleteMessage(msg.id);
-                                } catch (_) {}
-                              }
-                            },
-                            onReaction: (r) => _chatService.toggleReaction(msg.id, r),
-                            replyToMessage: msg.replyToId != null
-                                ? _messages.firstWhere(
-                                    (m) => m.id == msg.replyToId,
-                                    orElse: () => msg,
-                                  )
-                                : null,
-                            isEphemeralActive: msg.isEphemeral,
-                          );
-                        },
-                      ),
-                      if (_isTyping) _buildTypingIndicator(),
-                    ],
-                  ),
+                : _buildMessageList(),
           ),
           if (_replyToId.isNotEmpty) _buildReplyIndicator(),
-          // ✅ Barre d'input agrandissable (via ChatInputBar)
+          // Barre d'input avec bouton note interne (si agent)
           ChatInputBar(
             controller: _inputController,
             focusNode: _inputFocus,
@@ -815,6 +842,79 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             onEphemeralToggle: _showEphemeralTimerDialog,
             isEphemeral: _isEphemeral,
             onTyping: _onTypingChanged,
+            // NOUVEAU : callback pour basculer note interne
+            onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null,
+            isInternalNote: _isInternalNoteMode,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageList() {
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: _scrollController,
+          reverse: true, // Les derniers en bas
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
+          itemBuilder: (ctx, index) {
+            if (index == _messages.length && _isLoadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Center(
+                  child: CircularProgressIndicator(strokeWidth: 2, color: navy),
+                ),
+              );
+            }
+            final msg = _messages[_messages.length - 1 - index];
+            final isOwn = msg.senderId == _chatService.currentUserId;
+
+            return ChatMessageBubble(
+              message: msg,
+              isOwn: isOwn,
+              onReply: () => setState(() => _replyToId = msg.id),
+              onDelete: () async {
+                setState(() => _messages.removeWhere((m) => m.id == msg.id));
+                if (isOwn) {
+                  try {
+                    await _chatService.deleteMessage(msg.id);
+                  } catch (_) {}
+                }
+              },
+              onReaction: (r) => _chatService.toggleReaction(msg.id, r),
+              replyToMessage: msg.replyToId != null
+                  ? _messages.firstWhere(
+                      (m) => m.id == msg.replyToId,
+                      orElse: () => msg,
+                    )
+                  : null,
+              isEphemeralActive: msg.isEphemeral,
+              // NOUVEAUX PARAMÈTRES
+              isInternalNote: msg.isInternalNote ?? false,
+              isAgentView: _isAgent,
+            );
+          },
+        ),
+        if (_isTyping) _buildTypingIndicator(),
+      ],
+    );
+  }
+
+  Widget _buildEscalationIndicator() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      color: Colors.orange.shade100,
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Cette conversation est en cours d\'escalade vers un niveau supérieur.',
+              style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
@@ -822,7 +922,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // APP BAR
+  // APP BAR (avec escalade)
   // ============================================================
 
   PreferredSizeWidget _buildAppBar() {
@@ -908,11 +1008,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }),
         if (widget.conversation.isGroup)
           _appBarIconButton(Icons.info_outline_rounded, _navigateToGroupInfo),
-        _appBarIconButton(Icons.more_vert_rounded, () {
-          // Menu options
-        }),
+        // Menu overflow avec escalade
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert_rounded, color: gold),
+          onSelected: (value) {
+            if (value == 'escalate') _escalateConversation();
+            else if (value == 'history') _viewEscalationHistory();
+          },
+          itemBuilder: (context) => [
+            if (_isAgent)
+              const PopupMenuItem<String>(
+                value: 'escalate',
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_upward, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Escalader'),
+                  ],
+                ),
+              ),
+            const PopupMenuItem<String>(
+              value: 'history',
+              child: Row(
+                children: [
+                  Icon(Icons.history, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('Historique escalades'),
+                ],
+              ),
+            ),
+          ],
+        ),
         const SizedBox(width: 4),
       ],
+    );
+  }
+
+  void _viewEscalationHistory() {
+    context.pushNamed(
+      'chatEscalationHistory',
+      pathParameters: {'conversationId': widget.conversationId},
     );
   }
 
