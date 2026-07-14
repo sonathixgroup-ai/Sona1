@@ -327,7 +327,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         replyToId: _replyToId.isEmpty ? null : _replyToId,
         isEphemeral: _isEphemeral,
         ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-        isInternalNote: _isInternalNoteMode, // ✅ Passage du flag
       );
 
       setState(() {
@@ -359,7 +358,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         isEphemeral: _isEphemeral,
         ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
         replyToId: _replyToId.isEmpty ? null : _replyToId,
-        isInternalNote: _isInternalNoteMode,
       );
       setState(() {
         _messages.add(msg);
@@ -485,7 +483,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     isEphemeral: _isEphemeral,
                     ephemeralDuration:
                         _isEphemeral ? _ephemeralDuration : null,
-                    isInternalNote: _isInternalNoteMode,
                   );
                   if (context.mounted) Navigator.pop(ctx);
                 } catch (e) {
@@ -669,7 +666,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             mediaType: 'image',
             isEphemeral: _isEphemeral,
             ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-            isInternalNote: _isInternalNoteMode,
           );
         }
       }
@@ -774,7 +770,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       pathParameters: {'conversationId': widget.conversationId},
       queryParameters: {
         'agentId': _chatService.currentUserId ?? '',
-        'agentName': _chatService.currentUser?.displayName ?? '',
+        'agentName': _chatService.currentUser?.userMetadata?['full_name'] ?? 'Agent',
       },
     );
   }
