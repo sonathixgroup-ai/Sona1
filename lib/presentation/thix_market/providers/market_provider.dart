@@ -11,6 +11,7 @@ class MarketProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _recommendedProducts = [];
   List<Map<String, dynamic>> _featuredShops = [];
   List<Map<String, dynamic>> _forYouProducts = [];
+  List<Map<String, dynamic>> _supermarkets = [];
   int _unreadNotifications = 0;
   bool _isLoading = false;
   bool _isRefreshing = false;
@@ -21,29 +22,32 @@ class MarketProvider extends ChangeNotifier {
   String? _myShopId;
   bool _isLoadingMyShop = false;
 
-  // Getters
-  List<Map<String, dynamic>> get liveSessions => _liveSessions;
-  List<Map<String, dynamic>> get flashSales => _flashSales;
-  List<Map<String, dynamic>> get promoBanners => _promoBanners;
-  List<Map<String, dynamic>> get recommendedProducts => _recommendedProducts;
-  List<Map<String, dynamic>> get featuredShops => _featuredShops;
-  List<Map<String, dynamic>> get forYouProducts => _forYouProducts;
-  int get unreadNotifications => _unreadNotifications;
-  bool get isLoading => _isLoading;
-  bool get isRefreshing => _isRefreshing;
-  String? get error => _error;
-  String? get myShopId => _myShopId;
-  bool get hasShop => _myShopId != null;
-  bool get isLoadingMyShop => _isLoadingMyShop;
+// Getters
+List<Map<String, dynamic>> get liveSessions => _liveSessions;
+List<Map<String, dynamic>> get flashSales => _flashSales;
+List<Map<String, dynamic>> get promoBanners => _promoBanners;
+List<Map<String, dynamic>> get recommendedProducts => _recommendedProducts;
+List<Map<String, dynamic>> get featuredShops => _featuredShops;
+List<Map<String, dynamic>> get forYouProducts => _forYouProducts;
+List<Map<String, dynamic>> get supermarkets => _supermarkets;
+
+int get unreadNotifications => _unreadNotifications;
+bool get isLoading => _isLoading;
+bool get isRefreshing => _isRefreshing;
+String? get error => _error;
+String? get myShopId => _myShopId;
+bool get hasShop => _myShopId != null;
+bool get isLoadingMyShop => _isLoadingMyShop;
 
   bool get hasData =>
-      _liveSessions.isNotEmpty ||
-      _flashSales.isNotEmpty ||
-      _promoBanners.isNotEmpty ||
-      _recommendedProducts.isNotEmpty ||
-      _featuredShops.isNotEmpty ||
-      _forYouProducts.isNotEmpty;
-
+    _liveSessions.isNotEmpty ||
+    _flashSales.isNotEmpty ||
+    _promoBanners.isNotEmpty ||
+    _recommendedProducts.isNotEmpty ||
+    _featuredShops.isNotEmpty ||
+    _forYouProducts.isNotEmpty ||
+    _supermarkets.isNotEmpty;
+  
   /// Nom affiché dans le message de bienvenue ("Bonjour, {name}")
   String get userDisplayName {
     final user = _supabase.auth.currentUser;
@@ -83,13 +87,13 @@ class MarketProvider extends ChangeNotifier {
       ]);
 
       _liveSessions = results[0] as List<Map<String, dynamic>>;
-      _flashSales = results[1] as List<Map<String, dynamic>>;
-      _promoBanners = results[2] as List<Map<String, dynamic>>;
-      _recommendedProducts = results[3] as List<Map<String, dynamic>>;
-      _featuredShops = results[4] as List<Map<String, dynamic>>;
-      _forYouProducts = results[5] as List<Map<String, dynamic>>;
-      _unreadNotifications = results[6] as int;
-      _lastLoadedAt = DateTime.now();
+_flashSales = results[1] as List<Map<String, dynamic>>;
+_promoBanners = results[2] as List<Map<String, dynamic>>;
+_recommendedProducts = results[3] as List<Map<String, dynamic>>;
+_featuredShops = results[4] as List<Map<String, dynamic>>;
+_forYouProducts = results[5] as List<Map<String, dynamic>>;
+_unreadNotifications = results[6] as int;
+_lastLoadedAt = DateTime.now();
 
       // Charge le shop de l'utilisateur en parallèle (n'impacte pas home data si absent)
       unawaited(loadMyShop());
