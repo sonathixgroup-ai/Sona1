@@ -1,5 +1,5 @@
 // ============================================================
-// chat_screen.dart (version finale avec escalade et notes internes)
+// chat_screen.dart (version finale avec escalade accessible à tous)
 // ============================================================
 
 import 'dart:io';
@@ -83,10 +83,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isTyping = false;
   Timer? _typingTimer;
 
-  // === NOUVEAU : ESCALADE ET NOTES INTERNES ===
-  bool _isAgent = false; // Récupéré depuis l'utilisateur courant
-  bool _isInternalNoteMode = false; // Mode note interne activé ?
-  bool _isConversationEscalated = false; // Statut de la conversation
+  // === ESCALADE ET NOTES INTERNES ===
+  bool _isAgent = false; // utilisée pour les notes internes uniquement
+  bool _isInternalNoteMode = false;
+  bool _isConversationEscalated = false;
 
   // Streams
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
@@ -118,7 +118,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _audioService = AudioService(client);
     _groupService = GroupService(client);
 
-    // Déterminer si l'utilisateur est un agent
     _loadUserRole();
 
     WidgetsBinding.instance.addObserver(this);
@@ -135,10 +134,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadUserRole() async {
     final user = _chatService.currentUser;
-    // Exemple : on considère agent si l'utilisateur est dans un groupe "agents" ou a un rôle
-    // À adapter selon votre logique (par exemple, depuis le profil)
     if (user != null) {
-      // Remplacer par votre logique de détection
       _isAgent = user.role == 'agent' || user.role == 'admin' || user.role == 'support';
       setState(() {});
     }
@@ -191,7 +187,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         if (loadMore) {
-          // Ajouter les anciens au début (car affichage inversé)
           _messages = [...msgs.reversed, ..._messages];
           _hasMoreMessages = msgs.length >= _pageSize;
         } else {
@@ -223,8 +218,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      // Comme on est en reverse, le bas est en position 0
-      // Le haut correspond à maxScrollExtent
       final position = _scrollController.position;
       if (position.pixels >= position.maxScrollExtent - 200) {
         if (_hasMoreMessages && !_isLoadingMore) {
@@ -300,7 +293,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _messages[index] = msg;
             }
           } else if (!msg.isDeleted) {
-            // Nouveau message ajouté à la fin (pour affichage inversé)
             _messages.add(msg);
           }
         }
@@ -336,7 +328,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _inputController.clear();
         _replyToId = '';
         _isSending = false;
-        // Si note interne, on désactive le mode après envoi (optionnel)
         if (_isInternalNoteMode) {
           _isInternalNoteMode = false;
         }
@@ -756,15 +747,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // ESCALADE
+  // ESCALADE (accessible à tous)
   // ============================================================
 
   void _escalateConversation() {
-    if (!_isAgent) {
-      _showSnackBar('Seul un agent peut escalader une conversation', mutedText);
-      return;
-    }
-    // Naviguer vers la page d'escalade
+    // ✅ Plus de condition – tout le monde peut escalader
     context.pushNamed(
       'chatEscalate',
       pathParameters: {'conversationId': widget.conversationId},
@@ -817,7 +804,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               onLeaveGroup: _leaveGroup,
               onDeleteGroup: _deleteGroup,
             ),
-          // Indicateur d'escalade si actif
           if (_isConversationEscalated)
             _buildEscalationIndicator(),
           Expanded(
@@ -826,7 +812,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 : _buildMessageList(),
           ),
           if (_replyToId.isNotEmpty) _buildReplyIndicator(),
-          // Barre d'input avec bouton note interne (si agent)
           ChatInputBar(
             controller: _inputController,
             focusNode: _inputFocus,
@@ -838,7 +823,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             onEphemeralToggle: _showEphemeralTimerDialog,
             isEphemeral: _isEphemeral,
             onTyping: _onTypingChanged,
-            // NOUVEAU : callback pour basculer note interne
             onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null,
             isInternalNote: _isInternalNoteMode,
           ),
@@ -852,7 +836,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       children: [
         ListView.builder(
           controller: _scrollController,
-          reverse: true, // Les derniers en bas
+          reverse: true,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
           itemBuilder: (ctx, index) {
@@ -887,7 +871,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     )
                   : null,
               isEphemeralActive: msg.isEphemeral,
-              // NOUVEAUX PARAMÈTRES
               isInternalNote: msg.isInternalNote ?? false,
               isAgentView: _isAgent,
             );
@@ -918,7 +901,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // APP BAR (avec escalade)
+  // APP BAR (avec escalade toujours visible)
   // ============================================================
 
   PreferredSizeWidget _buildAppBar() {
@@ -1004,7 +987,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }),
         if (widget.conversation.isGroup)
           _appBarIconButton(Icons.info_outline_rounded, _navigateToGroupInfo),
-        // Menu overflow avec escalade
+        // ✅ Menu overflow : Escalader toujours présent
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: gold),
           onSelected: (value) {
@@ -1012,17 +995,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             else if (value == 'history') _viewEscalationHistory();
           },
           itemBuilder: (context) => [
-            if (_isAgent)
-              const PopupMenuItem<String>(
-                value: 'escalate',
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_upward, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text('Escalader'),
-                  ],
-                ),
+            const PopupMenuItem<String>(
+              value: 'escalate',
+              child: Row(
+                children: [
+                  Icon(Icons.arrow_upward, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Escalader'),
+                ],
               ),
+            ),
             const PopupMenuItem<String>(
               value: 'history',
               child: Row(
