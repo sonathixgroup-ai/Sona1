@@ -35,6 +35,31 @@ class _ChatInputBarState extends State<ChatInputBar> {
   static const Color gold = Color(0xFFE3B23C);
   static const Color navy = Color(0xFF123B7A);
 
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Écoute les changements du texte pour activer/désactiver le bouton
+    widget.controller.addListener(_onTextChanged);
+    _hasText = widget.controller.text.isNotEmpty;
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    final hasText = widget.controller.text.isNotEmpty;
+    if (_hasText != hasText) {
+      setState(() {
+        _hasText = hasText;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -53,18 +78,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ✅ BANDE DES BOUTONS (en haut)
+            // BANDE DES BOUTONS
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Row(
                 children: [
-                  // Bouton Attachement
                   _buildActionButton(
                     icon: Icons.attach_file_rounded,
                     label: 'Pièce jointe',
                     onTap: widget.onAttach,
                   ),
-                  // Bouton Message éphémère
                   _buildActionButton(
                     icon: widget.isEphemeral ? Icons.timer_rounded : Icons.timer_outlined,
                     label: 'Éphémère',
@@ -72,21 +95,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     isActive: widget.isEphemeral,
                     activeColor: gold,
                   ),
-                  // Bouton Message protégé
                   _buildActionButton(
                     icon: Icons.lock_outline_rounded,
                     label: 'Protégé',
                     onTap: widget.onSecureMessage,
                   ),
-                  // Bouton Audio
                   _buildActionButton(
                     icon: Icons.mic_none_rounded,
                     label: 'Audio',
                     onTap: widget.onAudio,
                   ),
                   const Spacer(),
-                  // Indicateur de saisie (optionnel)
-                  if (widget.controller.text.isNotEmpty)
+                  if (_hasText)
                     Text(
                       '${widget.controller.text.length}',
                       style: TextStyle(
@@ -98,12 +118,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ),
             ),
 
-            // ✅ ZONE DE SAISIE PRINCIPALE (occupe toute la largeur)
+            // ZONE DE SAISIE
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 children: [
-                  // Champ de saisie agrandissable
                   Expanded(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -147,7 +166,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: widget.controller.text.isNotEmpty ? navyDeep : Colors.grey.shade300,
+                      color: (_hasText && !widget.isSending) ? navyDeep : Colors.grey.shade300,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
@@ -165,9 +184,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                               color: Colors.white,
                               size: 20,
                             ),
-                      onPressed: widget.isSending || widget.controller.text.isEmpty
-                          ? null
-                          : widget.onSend,
+                      onPressed: (widget.isSending || !_hasText) ? null : widget.onSend,
                       padding: EdgeInsets.zero,
                     ),
                   ),
