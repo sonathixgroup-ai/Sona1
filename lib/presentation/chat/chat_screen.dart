@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Services
 import 'package:thix_id/services/chat/chat_service.dart';
@@ -80,8 +81,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _replyToId = '';
   bool _isEphemeral = false;
   int? _ephemeralDuration;
+
+  // === TYPING INDICATOR ===
+  // _isTyping = MOI en train d'écrire (pour savoir quand envoyer stop)
+  // _otherUserTyping = l'AUTRE en train d'écrire (pour l'affichage)
   bool _isTyping = false;
+  bool _otherUserTyping = false;
   Timer? _typingTimer;
+  RealtimeChannel? _typingChannel;
 
   // === ESCALADE ET NOTES INTERNES ===
   bool _isAgent = false; // utilisée pour les notes internes uniquement
@@ -128,6 +135,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _setupScrollListener();
     _subscribeToPresence();
     _subscribeToRealtimeMessages();
+    _subscribeToTypingChannel();
     _loadGroupMembersIfGroup();
     _checkMicrophonePermission();
   }
@@ -141,16 +149,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _checkMicrophonePermission() async {
-    try {
-      final hasPermission = await _audioService.hasPermission();
-      if (!hasPermission) {
-        debugPrint('⚠️ Permission microphone non accordée');
-      } else {
-        debugPrint('✅ Permission microphone accordée');
-      }
-    } catch (e) {
-      debugPrint('❌ Erreur vérification permission: $e');
-    }
+    // Simple lecture d'état au chargement de l'écran (ne déclenche pas de popup).
+    // La vraie demande d'autorisation se fait au moment où l'utilisateur
+    // appuie sur le bouton micro, dans _startAudioRecording().
+    final status = await Permission.microphone.status;
+    debugPrint('🎙 Statut permission microphone au chargement: $status');
   }
 
   @override
@@ -161,6 +164,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _inputFocus.dispose();
     _typingTimer?.cancel();
     _messageSubscription?.cancel();
+    _typingChannel?.unsubscribe();
     _audioService.dispose();
     super.dispose();
   }
@@ -275,7 +279,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // REALTIME
+  // REALTIME - MESSAGES
   // ============================================================
 
   void _subscribeToRealtimeMessages() {
@@ -302,6 +306,43 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
+  // REALTIME - TYPING INDICATOR (channel séparé, broadcast)
+  // ============================================================
+
+  void _subscribeToTypingChannel() {
+    final currentUserId = _chatService.currentUserId;
+
+    _typingChannel = Supabase.instance.client
+        .channel('typing:${widget.conversationId}')
+        .onBroadcast(
+          event: 'typing',
+          callback: (payload) {
+            final senderId = payload['senderId'] as String?;
+            final isTyping = payload['isTyping'] as bool? ?? false;
+
+            // On n'affiche que le statut de L'AUTRE participant, jamais le sien
+            if (senderId != null && senderId != currentUserId && mounted) {
+              setState(() => _otherUserTyping = isTyping);
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _sendTypingStatus(bool typing) {
+    final currentUserId = _chatService.currentUserId;
+    if (currentUserId == null || _typingChannel == null) return;
+
+    _typingChannel!.sendBroadcastMessage(
+      event: 'typing',
+      payload: {
+        'senderId': currentUserId,
+        'isTyping': typing,
+      },
+    );
+  }
+
+  // ============================================================
   // ENVOI DE MESSAGES (avec support notes internes)
   // ============================================================
 
@@ -309,6 +350,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending) return;
 
+    _isTyping = false;
     _sendTypingStatus(false);
     setState(() => _isSending = true);
 
@@ -362,19 +404,68 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // AUDIO (RECORDING)
+  // AUDIO (RECORDING) — avec vraie demande de permission
   // ============================================================
 
   void _startAudioRecording() async {
-    final hasPermission = await _audioService.hasPermission();
-    if (!hasPermission) {
-      _showSnackBar(
-        '❌ Permission microphone refusée. Veuillez autoriser dans les paramètres.',
-        danger,
-      );
+    final status = await Permission.microphone.request();
+
+    if (status.isGranted) {
+      _openAudioRecorderSheet();
       return;
     }
 
+    if (status.isPermanentlyDenied) {
+      _showMicPermissionDeniedDialog();
+      return;
+    }
+
+    _showSnackBar(
+      '❌ Permission microphone refusée. Veuillez autoriser dans les paramètres.',
+      danger,
+    );
+  }
+
+  void _showMicPermissionDeniedDialog() {
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.mic_off_rounded, color: danger),
+            SizedBox(width: 8),
+            Text('Microphone désactivé',
+                style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          "L'accès au microphone est bloqué pour THIX CHAT. Active-le dans les paramètres de ton téléphone pour envoyer des messages vocaux.",
+          style: TextStyle(color: mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler', style: TextStyle(color: mutedText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: navyDeep,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+            child: const Text('Ouvrir les paramètres', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openAudioRecorderSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -599,7 +690,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // TYPING INDICATOR
+  // TYPING INDICATOR (émission de MON statut)
   // ============================================================
 
   void _onTypingChanged(String text) {
@@ -620,10 +711,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  void _sendTypingStatus(bool typing) {
-    // Implémentation WebSocket si nécessaire
-  }
-
   // ============================================================
   // RÉPONSE
   // ============================================================
@@ -631,38 +718,350 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _cancelReply() => setState(() => _replyToId = '');
 
   // ============================================================
-  // GESTION DES MÉDIAS (Attachement)
+  // GESTION DES MÉDIAS — MENU D'ATTACHEMENT (Photo / Vidéo / Document)
   // ============================================================
 
-  Future<void> _pickImage() async {
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    decoration: BoxDecoration(
+                        color: hairline, borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.attach_file_rounded, color: navy),
+                      SizedBox(width: 10),
+                      Text(
+                        'Envoyer une pièce jointe',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: darkText),
+                      ),
+                    ],
+                  ),
+                ),
+                _attachmentOption(
+                  ctx,
+                  icon: Icons.image_rounded,
+                  label: 'Photo',
+                  color: gold,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(type: FileType.image);
+                  },
+                ),
+                _attachmentOption(
+                  ctx,
+                  icon: Icons.videocam_rounded,
+                  label: 'Vidéo',
+                  color: primaryBlue,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(type: FileType.video);
+                  },
+                ),
+                _attachmentOption(
+                  ctx,
+                  icon: Icons.insert_drive_file_rounded,
+                  label: 'Document',
+                  color: navy,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(type: FileType.any);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _attachmentOption(
+    BuildContext ctx, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600, color: darkText),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // ============================================================
+  // GESTION DES FICHIERS (image / vidéo / tout type) avec preview
+  // ============================================================
+
+  Future<void> _pickFile({FileType type = FileType.any}) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
         allowMultiple: false,
+        type: type,
       );
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final bytes = file.bytes ?? await File(file.path!).readAsBytes();
-        final url = await _chatService.uploadFileWithUniqueName(
-          'images',
-          'messages/${widget.conversationId}',
-          Uint8List.fromList(bytes),
-          file.extension ?? 'jpg',
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final extension = file.extension ?? 'file';
+      final size = file.size;
+
+      // Déterminer le type MIME
+      String mimeType = _getMimeType(extension);
+      String mediaType = _getMediaType(extension);
+
+      // Afficher une prévisualisation avant envoi
+      final confirmed = await _showFilePreviewDialog(
+        fileName: file.name,
+        fileSize: size,
+        fileBytes: Uint8List.fromList(bytes),
+        mimeType: mimeType,
+        extension: extension,
+      );
+
+      if (confirmed != true) return;
+
+      // Upload du fichier
+      final url = await _chatService.uploadFileWithUniqueName(
+        'messages/${widget.conversationId}',
+        Uint8List.fromList(bytes),
+        extension,
+      );
+
+      if (url != null) {
+        // Envoyer le message avec les métadonnées
+        await _chatService.sendMessage(
+          conversationId: widget.conversationId,
+          content: '📎 ${file.name}',
+          mediaUrl: url,
+          mediaType: mediaType,
+          mediaName: file.name,
+          mediaSize: size,
+          mimeType: mimeType,
+          isEphemeral: _isEphemeral,
+          ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
         );
-        if (url != null) {
-          await _chatService.sendMessage(
-            conversationId: widget.conversationId,
-            content: '🖼️ Image',
-            mediaUrl: url,
-            mediaType: 'image',
-            isEphemeral: _isEphemeral,
-            ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-          );
-        }
+        _scrollToBottom();
       }
     } catch (e) {
-      _showSnackBar('Erreur pièce jointe: $e', danger);
+      _showSnackBar('Erreur fichier: $e', danger);
     }
+  }
+
+  // Déterminer le type MIME
+  String _getMimeType(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'jpg': case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'gif': return 'image/gif';
+      case 'webp': return 'image/webp';
+      case 'mp4': return 'video/mp4';
+      case 'mov': return 'video/quicktime';
+      case 'avi': return 'video/x-msvideo';
+      case 'pdf': return 'application/pdf';
+      case 'doc': return 'application/msword';
+      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls': return 'application/vnd.ms-excel';
+      case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'ppt': return 'application/vnd.ms-powerpoint';
+      case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'txt': return 'text/plain';
+      case 'zip': return 'application/zip';
+      case 'rar': return 'application/x-rar-compressed';
+      default: return 'application/octet-stream';
+    }
+  }
+
+  // Déterminer le type média (pour affichage)
+  String _getMediaType(String extension) {
+    const imageExt = {'jpg','jpeg','png','gif','webp','bmp','svg'};
+    const videoExt = {'mp4','mov','avi','mkv','webm','flv'};
+    const audioExt = {'mp3','wav','aac','ogg','flac','m4a'};
+    const docExt = {'pdf','doc','docx','xls','xlsx','ppt','pptx','txt'};
+
+    final ext = extension.toLowerCase();
+    if (imageExt.contains(ext)) return 'image';
+    if (videoExt.contains(ext)) return 'video';
+    if (audioExt.contains(ext)) return 'audio';
+    if (docExt.contains(ext)) return 'document';
+    return 'file';
+  }
+
+  // Dialogue de prévisualisation
+  Future<bool?> _showFilePreviewDialog({
+    required String fileName,
+    required int fileSize,
+    required Uint8List fileBytes,
+    required String mimeType,
+    required String extension,
+  }) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.attach_file, color: navy),
+            const SizedBox(width: 8),
+            const Text('Aperçu du fichier'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Miniature ou icône
+            _buildFilePreviewThumbnail(fileBytes, mimeType, extension),
+            const SizedBox(height: 12),
+            Text(
+              'Nom : $fileName',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            Text(
+              'Taille : ${_formatFileSize(fileSize)}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            Text(
+              'Type : $mimeType',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilePreviewThumbnail(Uint8List bytes, String mimeType, String extension) {
+    // Image
+    if (mimeType.startsWith('image/')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.memory(
+          bytes,
+          height: 150,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 60),
+        ),
+      );
+    }
+    // Vidéo -> on affiche une icône
+    if (mimeType.startsWith('video/')) {
+      return Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Icon(Icons.play_circle_filled, size: 60, color: Colors.blue),
+        ),
+      );
+    }
+    // Audio
+    if (mimeType.startsWith('audio/')) {
+      return Container(
+        height: 80,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Icon(Icons.audiotrack, size: 40, color: Colors.grey),
+        ),
+      );
+    }
+    // Document ou autre
+    return Container(
+      height: 80,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(_getFileIcon(extension), size: 40, color: Colors.blue),
+            const SizedBox(height: 4),
+            Text(
+              extension.toUpperCase(),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getFileIcon(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'pdf': return Icons.picture_as_pdf;
+      case 'doc': case 'docx': return Icons.description;
+      case 'xls': case 'xlsx': return Icons.table_chart;
+      case 'ppt': case 'pptx': return Icons.slideshow;
+      case 'zip': case 'rar': return Icons.folder_zip;
+      case 'txt': return Icons.text_snippet;
+      default: return Icons.insert_drive_file;
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   // ============================================================
@@ -817,7 +1216,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             focusNode: _inputFocus,
             onSend: _sendMessage,
             isSending: _isSending,
-            onAttach: _pickImage,
+            onAttach: _showAttachmentMenu,
             onAudio: _startAudioRecording,
             onSecureMessage: _showPasswordProtectDialog,
             onEphemeralToggle: _showEphemeralTimerDialog,
@@ -876,7 +1275,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             );
           },
         ),
-        if (_isTyping) _buildTypingIndicator(),
+        if (_otherUserTyping) _buildTypingIndicator(),
       ],
     );
   }
@@ -1108,7 +1507,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // INDICATEUR DE SAISIE
+  // INDICATEUR DE SAISIE (affiche l'AUTRE participant uniquement)
   // ============================================================
 
   Widget _buildTypingIndicator() {
