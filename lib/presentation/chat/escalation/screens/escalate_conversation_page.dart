@@ -4,10 +4,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_priority.dart';
 import '../providers/escalation_provider.dart';
-import 'package:provider/provider.dart';
+
 class EscalateConversationPage extends StatefulWidget {
   final String conversationId;
   final String fromAgentId;
@@ -40,7 +41,8 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<EscalationProvider>();
+    // ✅ Remplacer context.watch par Provider.of avec listen: true
+    final provider = Provider.of<EscalationProvider>(context, listen: true);
 
     return Scaffold(
       appBar: AppBar(
@@ -83,7 +85,7 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               Wrap(
                 spacing: 8,
                 children: EscalationLevel.values
-                    .where((level) => level != EscalationLevel.agent) // On ne peut pas escalader vers agent
+                    .where((level) => level != EscalationLevel.agent)
                     .map((level) => ChoiceChip(
                           label: Text(level.shortLabel),
                           selected: _selectedLevel == level,
@@ -224,7 +226,8 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
       return;
     }
 
-    final provider = context.read<EscalationProvider>();
+    // ✅ Remplacer context.read par Provider.of avec listen: false
+    final provider = Provider.of<EscalationProvider>(context, listen: false);
     final success = await provider.createEscalation(
       conversationId: widget.conversationId,
       fromAgentId: widget.fromAgentId,
