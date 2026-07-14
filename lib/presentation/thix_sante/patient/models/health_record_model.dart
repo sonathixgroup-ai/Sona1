@@ -55,40 +55,67 @@ class HealthRecordModel {
   final DateTime examDate;
   final DateTime createdAt;
 
-  HealthRecordModel({
-    required this.id, required this.patientId, required this.title, required this.type,
-    this.description, this.fileName, this.filePath, this.fileSize, this.mimeType,
-    required this.examDate, required this.createdAt,
-  });
+  // Champs legacy pour compat avec anciennes pages
+  final String? _doctorNameLegacy;
+  final String? _lotLegacy;
 
+  HealthRecordModel({
+    required this.id,
+    required this.patientId,
+    required this.title,
+    required this.type,
+    this.description,
+    this.fileName,
+    this.filePath,
+    this.fileSize,
+    this.mimeType,
+    required this.examDate,
+    required this.createdAt,
+    String? doctorName,
+    String? lot,
+  }) : _doctorNameLegacy = doctorName,
+       _lotLegacy = lot;
+
+  // ===== GETTERS COMPATIBILITE ANCIEN CODE =====
+  String? get doctorName => _doctorNameLegacy?? description;
+  String? get lot => _lotLegacy?? fileName;
+  DateTime? get examDateNullable => examDate;
   bool get hasFile => filePath!= null && filePath!.isNotEmpty;
   bool get isPdf => mimeType == 'application/pdf' || (fileName?.endsWith('.pdf')??false);
   IconData get typeIcon => type.icon;
   Color get typeColor => type.color;
   Color get typeLightColor => type.lightColor;
-  String get fileSizeLabel => fileSize==null? '' : fileSize! < 1024? '$fileSize B' : fileSize! < 1048576? '${(fileSize!/1024).toStringAsFixed(1)} KB' : '${(fileSize!/1048576).toStringAsFixed(1)} MB';
+  String get fileSizeLabel {
+    if(fileSize==null) return '';
+    if(fileSize! < 1024) return '$fileSize B';
+    if(fileSize! < 1048576) return '${(fileSize!/1024).toStringAsFixed(1)} KB';
+    return '${(fileSize!/1048576).toStringAsFixed(1)} MB';
+  }
 
   factory HealthRecordModel.fromJson(Map<String,dynamic> j){
     RecordType t;
-    switch(j['type']){
+    final raw = (j['type']??'autre').toString().toLowerCase();
+    switch(raw){
       case 'radiologie': t=RecordType.radiologie; break;
       case 'ordonnance': t=RecordType.ordonnance; break;
-      case 'analyse': t=RecordType.analyse; break;
-      case 'vaccin': t=RecordType.vaccin; break;
+      case 'analyse': case 'analyse_medicale': t=RecordType.analyse; break;
+      case 'vaccin': case 'vaccination': t=RecordType.vaccin; break;
       default: t=RecordType.autre;
     }
     return HealthRecordModel(
       id: j['id'].toString(),
-      patientId: j['patient_id'].toString(),
-      title: j['title'].toString(),
+      patientId: (j['patient_id']??j['user_id']??'').toString(),
+      title: (j['title']??j['nom']??'Document').toString(),
       type: t,
       description: j['description']?.toString(),
-      fileName: j['file_name']?.toString(),
-      filePath: j['file_path']?.toString(),
-      fileSize: j['file_size']!=null? int.tryParse(j['file_size'].toString()): null,
+      fileName: (j['file_name']??j['fileName']??j['lot'])?.toString(),
+      filePath: (j['file_path']??j['filePath'])?.toString(),
+      fileSize: j['file_size']!=null? int.tryParse(j['file_size'].toString()): (j['size']!=null? int.tryParse(j['size'].toString()): null),
       mimeType: j['mime_type']?.toString(),
-      examDate: j['exam_date']!=null? DateTime.parse(j['exam_date'].toString()) : DateTime.now(),
-      createdAt: DateTime.parse(j['created_at'].toString()),
+      examDate: j['exam_date']!=null? DateTime.tryParse(j['exam_date'].toString())?? DateTime.now() : (j['date']!=null? DateTime.tryParse(j['date'].toString())??DateTime.now() : DateTime.now()),
+      createdAt: j['created_at']!=null? DateTime.tryParse(j['created_at'].toString())??DateTime.now() : DateTime.now(),
+      doctorName: (j['doctor_name']??j['doctorName']??j['medecin'])?.toString(),
+      lot: j['lot']?.toString(),
     );
   }
 }
