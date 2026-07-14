@@ -4,12 +4,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart'; // LA LIGNE MAGIQUE QUI MANQUAIT !
+
 import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
 import '../widgets/level_badge.dart';
 import '../widgets/priority_chip.dart';
 import '../widgets/status_indicator.dart';
+
 
 class HandleEscalationPage extends StatefulWidget {
   final String escalationId;
