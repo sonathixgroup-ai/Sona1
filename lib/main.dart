@@ -58,6 +58,14 @@ import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
+// THIX RESERVATION BUS — SaaS Providers
+// ═══════════════════════════════════════
+import 'package:thix_id/presentation/thix_reservation/bus/providers/bus_search_provider.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/providers/seat_selection_provider.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/providers/booking_provider.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/providers/agency_dashboard_provider.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -103,7 +111,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
   late final Future<_BootstrapResult> _future = _bootstrap();
 
   Future<_BootstrapResult> _bootstrap() async {
-    // 1. Initialisation de la configuration de base de Supabase
     await SupabaseConfig.initialize();
 
     final profiles = ProfileService();
@@ -113,7 +120,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
       auth: SupabaseAuthManager(profiles: profiles),
     );
 
-    // 2. Sécurisation de l'authentification
     try {
       await auth.init();
     } catch (e) {
@@ -123,7 +129,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
 
-    // 3. Sécurisation du flux Realtime
     try {
       feed.initRealtime();
     } catch (e) {
@@ -132,7 +137,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
     final eventService = EventService(SupabaseConfig.client);
 
-    // ─── THIX CHAT : Initialisation des services ───
     final chatService = ChatService(SupabaseConfig.client);
     final presenceService = PresenceService(SupabaseConfig.client);
     final audioService = AudioService(SupabaseConfig.client);
@@ -170,40 +174,16 @@ class _BootstrapAppState extends State<BootstrapApp> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.cloud_off_rounded,
-                        size: 72,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                      Icon(Icons.cloud_off_rounded, size: 72, color: Theme.of(context).colorScheme.error),
                       const SizedBox(height: 16),
-                      Text(
-                        'Connexion impossible',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
+                      Text('Connexion impossible', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      Text(
-                        'Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
+                      Text('Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
                       const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          runApp(const ProviderScope(child: BootstrapApp()));
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Réessayer'),
-                      ),
+                      ElevatedButton.icon(onPressed: () { runApp(const ProviderScope(child: BootstrapApp())); }, icon: const Icon(Icons.refresh), label: const Text('Réessayer')),
                       if (kDebugMode) ...[
                         const SizedBox(height: 16),
-                        Text(
-                          'Erreur : ${snap.error}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.red,
-                                fontFamily: 'monospace',
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
+                        Text('Erreur : ${snap.error}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, fontFamily: 'monospace'), textAlign: TextAlign.center),
                       ],
                     ],
                   ),
@@ -238,10 +218,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
           duration: const Duration(milliseconds: 250),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
-          child: KeyedSubtree(
-            key: ValueKey(snap.hasData),
-            child: child,
-          ),
+          child: KeyedSubtree(key: ValueKey(snap.hasData), child: child),
         );
       },
     );
@@ -257,7 +234,6 @@ class _BootstrapResult {
   final NetworkService network;
   final FeedProvider feed;
   final EventService eventService;
-  // ─── THIX CHAT ───
   final ChatService chatService;
   final PresenceService presenceService;
   final AudioService audioService;
@@ -281,7 +257,6 @@ class _BootstrapResult {
 
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -293,33 +268,13 @@ class _StartupLoadingPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                height: 56,
-                width: 56,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(Icons.verified_user_rounded, color: cs.primary),
-              ),
+              Container(height: 56, width: 56, decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)), child: Icon(Icons.verified_user_rounded, color: cs.primary)),
               const SizedBox(height: 14),
               Text('THIX ID', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 6),
-              Text(
-                'Chargement sécurisé…',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                textAlign: TextAlign.center,
-              ),
+              Text('Chargement sécurisé…', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant), textAlign: TextAlign.center),
               const SizedBox(height: 14),
-              SizedBox(
-                width: 140,
-                child: LinearProgressIndicator(
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
+              SizedBox(width: 140, child: LinearProgressIndicator(minHeight: 6, borderRadius: BorderRadius.circular(999))),
             ],
           ),
         ),
@@ -337,7 +292,6 @@ class MyApp extends StatefulWidget {
   final NetworkService network;
   final FeedProvider feed;
   final EventService eventService;
-  // ─── THIX CHAT ───
   final ChatService chatService;
   final PresenceService presenceService;
   final AudioService audioService;
@@ -373,11 +327,6 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
@@ -394,14 +343,10 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider.value(value: widget.feed),
 
         // ─── ÉVÉNEMENTS ───
-        ChangeNotifierProvider<EventProvider>(
-          create: (_) => EventProvider(widget.eventService),
-        ),
+        ChangeNotifierProvider<EventProvider>(create: (_) => EventProvider(widget.eventService)),
 
         // ─── THIX INFO ───
-        ChangeNotifierProvider<NewsProvider>(
-          create: (_) => NewsProvider(NewsService(SupabaseConfig.client)),
-        ),
+        ChangeNotifierProvider<NewsProvider>(create: (_) => NewsProvider(NewsService(SupabaseConfig.client))),
 
         // ─── THIX MARKET ───
         ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
@@ -418,37 +363,29 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
 
         // ─── EDUCATION ───
-        ChangeNotifierProvider<EducationProvider>(
-          create: (_) => EducationProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<ProgressProvider>(
-          create: (_) => ProgressProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<CertificateProvider>(
-          create: (_) => CertificateProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<ForumProvider>(
-          create: (_) => ForumProvider(EducationService(SupabaseConfig.client)),
-        ),
-        ChangeNotifierProvider<RecommendationProvider>(
-          create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client)),
-        ),
+        ChangeNotifierProvider<EducationProvider>(create: (_) => EducationProvider(EducationService(SupabaseConfig.client))),
+        ChangeNotifierProvider<ProgressProvider>(create: (_) => ProgressProvider(EducationService(SupabaseConfig.client))),
+        ChangeNotifierProvider<CertificateProvider>(create: (_) => CertificateProvider(EducationService(SupabaseConfig.client))),
+        ChangeNotifierProvider<ForumProvider>(create: (_) => ForumProvider(EducationService(SupabaseConfig.client))),
+        ChangeNotifierProvider<RecommendationProvider>(create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client))),
 
         // ─── MODERATEUR ───
-        ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider(SupabaseConfig.client),
-        ),
-        ChangeNotifierProvider<ModeratorProvider>(
-          create: (_) => ModeratorProvider(widget.eventService),
-        ),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider(SupabaseConfig.client)),
+        ChangeNotifierProvider<ModeratorProvider>(create: (_) => ModeratorProvider(widget.eventService)),
 
-        // ═══════════════════════════════════════════════════════════════════
         // ─── THIX CHAT ───
-        // ═══════════════════════════════════════════════════════════════════
         Provider<ChatService>.value(value: widget.chatService),
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
+
+        // ════════════════════════════════════════════════════
+        // ─── THIX RESERVATION BUS — SaaS (AJOUTÉ ICI) ───
+        // ════════════════════════════════════════════════════
+        ChangeNotifierProvider<BusSearchProvider>(create: (_) => BusSearchProvider()),
+        ChangeNotifierProvider<SeatSelectionProvider>(create: (_) => SeatSelectionProvider()),
+        ChangeNotifierProvider<BookingProvider>(create: (_) => BookingProvider()),
+        ChangeNotifierProvider<AgencyDashboardProvider>(create: (_) => AgencyDashboardProvider()),
       ],
       child: Builder(
         builder: (context) {
