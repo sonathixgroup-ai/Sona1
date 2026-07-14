@@ -2,27 +2,15 @@
 // lib/presentation/chat/escalation/models/escalation_level.dart
 // ============================================================
 import 'package:flutter/material.dart';
-enum EscalationLevel {
-  agent,      // Niveau 0
-  senior,     // Niveau 1
-  manager,    // Niveau 2
-  director,   // Niveau 3
-  technical;  // Niveau 4
 
-  int get index {
-    switch (this) {
-      case EscalationLevel.agent:
-        return 0;
-      case EscalationLevel.senior:
-        return 1;
-      case EscalationLevel.manager:
-        return 2;
-      case EscalationLevel.director:
-        return 3;
-      case EscalationLevel.technical:
-        return 4;
-    }
-  }
+enum EscalationLevel {
+  agent,      // Niveau 0 (index natif: 0)
+  senior,     // Niveau 1 (index natif: 1)
+  manager,    // Niveau 2 (index natif: 2)
+  director,   // Niveau 3 (index natif: 3)
+  technical;  // Niveau 4 (index natif: 4)
+
+  // Le bloc "int get index" a été supprimé car Dart le gère automatiquement !
 
   String get label {
     switch (this) {
