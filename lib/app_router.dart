@@ -128,8 +128,7 @@ import 'package:thix_id/presentation/thix_info/search_page.dart' as infoSearch;
 import 'package:thix_id/presentation/thix_info/category_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/saved_articles_page.dart';
 import 'package:thix_id/presentation/thix_info/breaking_news_page.dart';
-import 'package:thix_id/presentation/admin/pages/admin_news_dashboard.dart';
-import 'package:thix_id/presentation/admin/pages/create_news_page.dart';
+';
 
 // THIX Evenement
 import 'package:thix_id/presentation/thix_event/thix_event_home.dart';
@@ -505,8 +504,7 @@ GoRoute(
           return NoTransitionPage(child: CategoryArticlesPage(category: state.pathParameters['category']!));
         }),
         GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => NoTransitionPage(child: const SavedArticlesPage())),
-        GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
-        GoRoute(path: AppRoutes.thixInfoAdmin, name: 'thixInfoAdmin', pageBuilder: (_, __) => NoTransitionPage(child: const AdminNewsDashboard())),
+        GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage()))
         GoRoute(path: AppRoutes.thixInfoCreate, name: 'thixInfoCreate', pageBuilder: (_, __) => NoTransitionPage(child: const CreateNewsPage())),
 
         // ---- THIX Money, Media, Reservation ----
