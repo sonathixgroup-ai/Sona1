@@ -1,14 +1,10 @@
-// lib/presentation/thix_sante/patient/screens/patient_dashboard.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// --- PROVIDERS UNIQUEMENT (pas de services directs) ---
-import '../providers/patient_dashboard_provider.dart';
-import '../models/health_record_model.dart';
-
-// --- SCREENS ---
+// --- IMPORTS DE TOUS VOS SERVICES ---
+// Ajuste ces chemins si nécessaire (ex: package:thix_id/presentation/...)
 import 'screens/consulter_medecin_page.dart';
 import 'screens/dossier_famille_page.dart';
 import 'screens/dossier_medical_page.dart';
