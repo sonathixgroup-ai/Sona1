@@ -31,16 +31,15 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
   int _selectedNavIndex = 0;
   bool _isInitialized = false;
 
-  // TA LOGIQUE INTACTE
   final List<Map<String, dynamic>> _categories = [
-    {'slug': 'featured', 'name': 'À la une', 'icon': Icons.local_fire_department_rounded},
-    {'slug': 'politique', 'name': 'Politique', 'icon': Icons.account_balance_rounded},
-    {'slug': 'economie', 'name': 'Économie', 'icon': Icons.trending_up_rounded},
-    {'slug': 'societe', 'name': 'Société', 'icon': Icons.people_alt_rounded},
-    {'slug': 'tech', 'name': 'Tech', 'icon': Icons.computer_rounded},
-    {'slug': 'sport', 'name': 'Sport', 'icon': Icons.sports_soccer_rounded},
-    {'slug': 'culture', 'name': 'Culture', 'icon': Icons.museum_rounded},
-    {'slug': 'international', 'name': 'International', 'icon': Icons.public_rounded},
+    {'slug': 'featured', 'name': 'À la une'},
+    {'slug': 'politique', 'name': 'Politique'},
+    {'slug': 'economie', 'name': 'Économie'},
+    {'slug': 'societe', 'name': 'Société'},
+    {'slug': 'tech', 'name': 'Tech'},
+    {'slug': 'sport', 'name': 'Sport'},
+    {'slug': 'culture', 'name': 'Culture'},
+    {'slug': 'international', 'name': 'International'},
   ];
 
   final List<Map<String, dynamic>> _quickActions = [
@@ -129,7 +128,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // ================= HEADER PHOTO =================
   Widget _buildTopBar() {
     return Container(
       color: _InfoColors.white,
@@ -147,7 +145,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
           const Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Text('THIX', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.3, color: _InfoColors.textDark)),
+                Text('THIX', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _InfoColors.textDark)),
                 SizedBox(width: 6),
                 Text('INFO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _InfoColors.gold)),
               ]),
@@ -194,7 +192,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _categories.length + 1,
-        separatorBuilder: (_,__) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           if (index == _categories.length) {
             return const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.menu_rounded, size: 22));
@@ -211,7 +209,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(color: selected ? _InfoColors.gold : _InfoColors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: selected ? _InfoColors.gold : _InfoColors.border)),
               alignment: Alignment.center,
-              child: Text(cat['name'], style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: selected ? _InfoColors.textDark : _InfoColors.textDark)),
+              child: Text(cat['name'], style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _InfoColors.textDark)),
             ),
           );
         },
@@ -219,6 +217,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
+  // ✅ CORRIGÉ ICI : summary au lieu de excerpt
   Widget _buildHeroCard(NewsArticle a) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -238,7 +237,12 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                   const SizedBox(height: 10),
                   Text(a.title, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900, height: 1.2, color: _InfoColors.textDark)),
                   const SizedBox(height: 8),
-                  Text(a.excerpt ?? 'Un plan ambitieux pour stimuler la croissance, créer des emplois et améliorer le pouvoir d\'achat des Congolais.', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: _InfoColors.textMuted, height: 1.3)),
+                  Text(
+                    a.summary ?? 'Un plan ambitieux pour stimuler la croissance, créer des emplois et améliorer le pouvoir d\'achat des Congolais.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11.5, color: _InfoColors.textMuted, height: 1.3),
+                  ),
                   const Spacer(),
                   Row(children: [
                     const Icon(Icons.access_time_rounded, size: 12, color: _InfoColors.textMuted),
@@ -253,7 +257,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(color: _InfoColors.gold, borderRadius: BorderRadius.circular(20)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: const [Text("Lire l'article", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)), SizedBox(width: 6), Icon(Icons.arrow_forward_rounded, size: 14)]),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [Text("Lire l'article", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)), SizedBox(width: 6), Icon(Icons.arrow_forward_rounded, size: 14)]),
                   ),
                 ]),
               ),
@@ -291,7 +295,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _InfoColors.textDark)),
-        GestureDetector(onTap: () => context.push(route), child: Row(children: const [Text('Voir tout', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF9A7B11))), SizedBox(width: 2), Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF9A7B11))])),
+        GestureDetector(onTap: () => context.push(route), child: const Row(children: [Text('Voir tout', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF9A7B11))), SizedBox(width: 2), Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF9A7B11))])),
       ]),
     );
   }
@@ -317,16 +321,21 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
               clipBehavior: Clip.antiAlias,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Stack(children: [
-                  SizedBox(height: 90, width: double.infinity, child: a.imageUrl != null ? Image.network(a.imageUrl!, fit: BoxFit.cover) : Container(color: _InfoColors.bg)),
+                  SizedBox(height: 90, width: double.infinity, child: a.imageUrl != null ? Image.network(a.imageUrl!, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(color: _InfoColors.bg, child: const Icon(Icons.broken_image))) : Container(color: _InfoColors.bg)),
                   Positioned(top: 8, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(6)), child: Text(_getCategoryName(a.category).toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white)))),
                 ]),
-                Padding(padding: const EdgeInsets.fromLTRB(10, 8, 10, 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_formatTimeAgo(a.publishedAt), style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)),
-                  const SizedBox(height: 4),
-                  Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
-                  const Spacer(),
-                  Row(children: [Text('${_formatCount(a.viewsCount)} vues', style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)), const Spacer(), const Icon(Icons.bookmark_border_rounded, size: 16, color: _InfoColors.textMuted)]),
-                ])),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_formatTimeAgo(a.publishedAt), style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)),
+                      const SizedBox(height: 4),
+                      Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
+                      const Spacer(),
+                      Row(children: [Text('${_formatCount(a.viewsCount)} vues', style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)), const Spacer(), const Icon(Icons.bookmark_border_rounded, size: 16, color: _InfoColors.textMuted)]),
+                    ]),
+                  ),
+                ),
               ]),
             ),
           );
@@ -346,8 +355,6 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
           Text('Restez informé en temps réel !', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
           SizedBox(height: 2),
           Text('Activez vos notifications et ne manquez aucune information importante.', style: TextStyle(fontSize: 11, color: _InfoColors.textMuted, height: 1.3)),
-          SizedBox(height: 8),
-          // bouton
         ])),
         const Icon(Icons.close_rounded, size: 18, color: _InfoColors.textMuted),
       ]),
@@ -356,28 +363,29 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
 
   Widget _buildVideosHorizontal(List<NewsArticle> vids, bool loading) {
     if (loading && vids.isEmpty) return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator()));
+    final items = vids.isEmpty ? <NewsArticle>[] : vids;
+    if (items.isEmpty) return const SizedBox(height: 80, child: Center(child: Text('Aucune vidéo', style: TextStyle(color: _InfoColors.textMuted))));
     return SizedBox(
       height: 190,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: vids.isEmpty ? 4 : vids.length,
+        itemCount: items.length,
         itemBuilder: (_, i) {
-          final v = vids.isEmpty ? null : vids[i % vids.length];
+          final v = items[i];
           return GestureDetector(
-            onTap: () => v != null ? context.push('/thix-info/article/${v.id}') : null,
+            onTap: () => context.push('/thix-info/article/${v.id}'),
             child: Container(
-              width: 160, margin: EdgeInsets.only(right: i==3?0:12),
+              width: 160, margin: EdgeInsets.only(right: i==items.length-1?0:12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Stack(children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(14), child: SizedBox(height: 100, width: 160, child: v?.imageUrl != null ? Image.network(v!.imageUrl!, fit: BoxFit.cover) : Container(color: Colors.black12, child: const Icon(Icons.play_circle)))),
+                  ClipRRect(borderRadius: BorderRadius.circular(14), child: SizedBox(height: 100, width: 160, child: v.imageUrl != null ? Image.network(v.imageUrl!, fit: BoxFit.cover) : Container(color: Colors.black12))),
                   Positioned.fill(child: Center(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), shape: BoxShape.circle), child: const Icon(Icons.play_arrow_rounded, size: 20)))),
-                  Positioned(bottom: 6, right: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.black.withOpacity(0.75), borderRadius: BorderRadius.circular(6)), child: const Text('05:32', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))),
                 ]),
                 const SizedBox(height: 8),
-                Text(v?.title ?? 'Interview exclusive avec le Ministre', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
+                Text(v.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
                 const SizedBox(height: 4),
-                Row(children: [const Icon(Icons.remove_red_eye_outlined, size: 11, color: _InfoColors.textMuted), const SizedBox(width: 3), Text('${v!=null?_formatCount(v.viewsCount):'2.7k'} vues', style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)), const Text('  •  il y a 4h', style: TextStyle(fontSize: 10, color: _InfoColors.textMuted))]),
+                Text('${_formatCount(v.viewsCount)} vues  •  ${_formatTimeAgo(v.publishedAt)}', style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)),
               ]),
             ),
           );
@@ -392,17 +400,17 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 18)]),
       child: SafeArea(top: false, child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _nav(Icons.home_rounded, 'Accueil', 0, true),
-        _nav(Icons.grid_view_rounded, 'Catégories', 1, false),
+        _nav(Icons.home_rounded, 'Accueil', 0),
+        _nav(Icons.grid_view_rounded, 'Catégories', 1),
         _centerFab(),
-        _nav(Icons.bookmark_border_rounded, 'Favoris', 3, false),
-        _nav(Icons.person_outline_rounded, 'Profil', 4, false),
+        _nav(Icons.bookmark_border_rounded, 'Favoris', 3),
+        _nav(Icons.person_outline_rounded, 'Profil', 4),
       ])),
     );
   }
 
-  Widget _nav(IconData ic, String lb, int idx, bool sel) {
-    final active = _selectedNavIndex == idx && sel || _selectedNavIndex==idx && idx==0;
+  Widget _nav(IconData ic, String lb, int idx) {
+    final active = _selectedNavIndex == idx;
     return InkWell(onTap: ()=>_onNavTap(idx), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(ic, color: active? _InfoColors.gold: _InfoColors.textMuted, size: 22), const SizedBox(height: 2), Text(lb, style: TextStyle(fontSize: 10, fontWeight: active?FontWeight.w800:FontWeight.w500, color: active? _InfoColors.gold: _InfoColors.textMuted))]));
   }
   Widget _centerFab() => InkWell(onTap: ()=>_onNavTap(2), child: Container(width: 56, height: 56, decoration: const BoxDecoration(color: _InfoColors.gold, shape: BoxShape.circle), child: const Icon(Icons.newspaper_rounded, color: Colors.white)));
