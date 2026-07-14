@@ -22,7 +22,8 @@ import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
-// BUS 
+// ============ BUS MODULE ============
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart'; // <-- MANQUANT chez toi
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_search_result_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_trip_detail_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_seat_selection_page.dart';
@@ -34,6 +35,7 @@ import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_cr
 import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_qr_scan_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/data/models/bus_trip_model.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/data/models/booking_model.dart';
+
 // THIX SANTE
 import 'presentation/thix_sante/patient/patient_dashboard_page.dart';
 import 'presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
@@ -439,37 +441,51 @@ GoRoute(
   name: 'thixreservation',
   pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())
 ),
-// Redirection pour ancien lien /thix-reservation/bus
-GoRoute(path: '/thix-reservation/bus', builder: (_, __) => const BusHomePage()),
-GoRoute(path: '/thix-reservation/bus/search', builder: (ctx, state) {
-  final from = state.uri.queryParameters['from'];
-  final to = state.uri.queryParameters['to'];
-  return BusSearchResultPage(initialFrom: from, initialTo: to); // adapte si ton constructeur est différent
-}),
+// --- CLIENT FLOW ---
+GoRoute(path: '/thix-reservation/bus', name: 'bus-home', builder: (_, __) => const BusHomePage()),
+
+GoRoute(
+  path: '/thix-reservation/bus/search',
+  name: 'bus-search',
+  builder: (_, state) {
+    return BusSearchResultPage(
+      from: state.uri.queryParameters['from'],
+      to: state.uri.queryParameters['to'],
+      date: state.uri.queryParameters['date'],
+    );
+  },
 ),
-// ═══ MODULE BUS SAAS ═══
-GoRoute(path: '/thix-reservation/bus/search', builder: (_, __) => const BusSearchResultPage()),
-GoRoute(path: '/thix-reservation/bus/trip/:id', builder: (ctx, state) {
-  final trip = state.extra as BusTripModel;
-  return BusTripDetailPage(trip: trip);
-}),
-GoRoute(path: '/thix-reservation/bus/seats/:id', builder: (ctx, state) {
-  final trip = state.extra as BusTripModel;
-  return BusSeatSelectionPage(trip: trip);
-}),
-GoRoute(path: '/thix-reservation/bus/passenger', builder: (ctx, state) {
-  final data = state.extra as Map<String,dynamic>;
-  return BusPaymentPage(trip: data['trip'] as BusTripModel, seats: data['seats'] as List<String>);
-}),
-GoRoute(path: '/thix-reservation/bus/ticket/:id', builder: (ctx, state) {
-  final b = state.extra as BookingModel;
-  return BusTicketPage(booking: b);
-}),
-GoRoute(path: '/thix-reservation/bus/agency/onboarding', builder: (_, __) => const AgencyOnboardingPage()),
-GoRoute(path: '/thix-reservation/bus/agency/dashboard', builder: (_, __) => const AgencyDashboardPage()),
-GoRoute(path: '/thix-reservation/bus/agency/create-trip', builder: (_, __) => const AgencyCreateTripPage()),
-GoRoute(path: '/thix-reservation/bus/agency/scan', builder: (_, __) => const AgencyQrScanPage()),
-       
+
+GoRoute(
+  path: '/thix-reservation/bus/detail',
+  name: 'bus-detail',
+  builder: (_, state) => BusTripDetailPage(trip: state.extra as BusTripModel),
+),
+
+GoRoute(
+  path: '/thix-reservation/bus/seats',
+  name: 'bus-seats',
+  builder: (_, state) => BusSeatSelectionPage(trip: state.extra as BusTripModel),
+),
+
+GoRoute(
+  path: '/thix-reservation/bus/payment',
+  name: 'bus-payment',
+  builder: (_, state) => BusPaymentPage(data: state.extra as Map<String,dynamic>),
+),
+
+GoRoute(
+  path: '/thix-reservation/bus/ticket/:id',
+  name: 'bus-ticket',
+  builder: (_, state) => BusTicketPage(bookingId: state.pathParameters['id']!),
+),
+
+// --- AGENCY FLOW ---
+GoRoute(path: '/agency/onboarding', name: 'agency-onboarding', builder: (_, __) => const AgencyOnboardingPage()),
+GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', builder: (_, __) => const AgencyDashboardPage()),
+GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', builder: (_, __) => const AgencyCreateTripPage()),
+GoRoute(path: '/agency/scan', name: 'agency-scan', builder: (_, __) => const AgencyQrScanPage()),
+     
         // THIX Market
         GoRoute(
           path: AppRoutes.thixMarket,
