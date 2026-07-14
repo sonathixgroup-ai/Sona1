@@ -44,6 +44,7 @@ class ChatMessage {
   final String? codeLanguage;
   final String? codeContent;
   final List<MessageReaction> reactions;
+  final bool isInternalNote; // 👈 AJOUTÉ POUR LES NOTES INTERNES
 
   ChatMessage({
     required this.id,
@@ -67,6 +68,7 @@ class ChatMessage {
     this.codeLanguage,
     this.codeContent,
     this.reactions = const [],
+    this.isInternalNote = false, // 👈 AJOUTÉ (Par défaut à false)
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -104,6 +106,7 @@ class ChatMessage {
               ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
               .toList() ??
           [],
+      isInternalNote: json['is_internal_note'] ?? false, // 👈 AJOUTÉ
     );
   }
 
@@ -127,6 +130,7 @@ class ChatMessage {
     'code_language': codeLanguage,
     'code_content': codeContent,
     'reactions': reactions.map((r) => r.toJson()).toList(),
+    'is_internal_note': isInternalNote, // 👈 AJOUTÉ
   };
 
   ChatMessage copyWith({
@@ -151,6 +155,7 @@ class ChatMessage {
     String? codeLanguage,
     String? codeContent,
     List<MessageReaction>? reactions,
+    bool? isInternalNote, // 👈 AJOUTÉ
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -174,6 +179,7 @@ class ChatMessage {
       codeLanguage: codeLanguage ?? this.codeLanguage,
       codeContent: codeContent ?? this.codeContent,
       reactions: reactions ?? this.reactions,
+      isInternalNote: isInternalNote ?? this.isInternalNote, // 👈 AJOUTÉ
     );
   }
 
