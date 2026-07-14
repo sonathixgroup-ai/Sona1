@@ -1,195 +1,94 @@
 // lib/presentation/thix_sante/patient/models/health_record_model.dart
-// =============================================================================
-// Model: HealthRecordModel
-// Role: Document medical avec support fichier image/PDF
-// Fonctionnalites modernes: upload, preview, download, type categorise
-// =============================================================================
-
 import 'package:flutter/material.dart';
-import '../../core/thix_sante_colors.dart';
-/// Type de document medical, categorise pour filtrage et UI.
-enum RecordType {
-  consultation,
-  ordonnance,
-  laboratoire,
-  radiologie,
-  vaccin,
-  certificat,
-  autre;
 
-  static RecordType fromString(String? value) {
-    switch (value) {
-      case 'ordonnance':
-        return RecordType.ordonnance;
-      case 'laboratoire':
-        return RecordType.laboratoire;
-      case 'radiologie':
-        return RecordType.radiologie;
-      case 'vaccin':
-        return RecordType.vaccin;
-      case 'certificat':
-        return RecordType.certificat;
-      case 'consultation':
-        return RecordType.consultation;
-      default:
-        return RecordType.autre;
+enum RecordType { radiologie, ordonnance, analyse, vaccin, autre }
+
+extension RecordTypeX on RecordType {
+  String get label {
+    switch(this){
+      case RecordType.radiologie: return 'Radiologie';
+      case RecordType.ordonnance: return 'Ordonnance';
+      case RecordType.analyse: return 'Analyse';
+      case RecordType.vaccin: return 'Vaccin';
+      case RecordType.autre: return 'Autre';
     }
   }
-
-  String get label {
-    switch (this) {
-      case RecordType.consultation:
-        return 'Consultation';
-      case RecordType.ordonnance:
-        return 'Ordonnance';
-      case RecordType.laboratoire:
-        return 'Laboratoire';
-      case RecordType.radiologie:
-        return 'Radiologie';
-      case RecordType.vaccin:
-        return 'Vaccin';
-      case RecordType.certificat:
-        return 'Certificat';
-      case RecordType.autre:
-        return 'Autre';
+  IconData get icon {
+    switch(this){
+      case RecordType.radiologie: return Icons.medical_services_rounded;
+      case RecordType.ordonnance: return Icons.receipt_long_rounded;
+      case RecordType.analyse: return Icons.biotech_rounded;
+      case RecordType.vaccin: return Icons.vaccines_rounded;
+      case RecordType.autre: return Icons.folder_rounded;
+    }
+  }
+  Color get color {
+    switch(this){
+      case RecordType.radiologie: return const Color(0xFF0B63F6);
+      case RecordType.ordonnance: return const Color(0xFFDC2626);
+      case RecordType.analyse: return const Color(0xFF16A34A);
+      case RecordType.vaccin: return const Color(0xFF9333EA);
+      case RecordType.autre: return const Color(0xFF6B7280);
+    }
+  }
+  Color get lightColor {
+    switch(this){
+      case RecordType.radiologie: return const Color(0xFFDBEAFE);
+      case RecordType.ordonnance: return const Color(0xFFFEE2E2);
+      case RecordType.analyse: return const Color(0xFFDCFCE7);
+      case RecordType.vaccin: return const Color(0xFFF3E8FF);
+      case RecordType.autre: return const Color(0xFFF3F4F6);
     }
   }
 }
 
-/// Document medical immutable avec support fichier.
-/// Gere photo, PDF, ordonnance telechargeable depuis Supabase Storage.
-@immutable
 class HealthRecordModel {
   final String id;
-  final String patientUid;
-  final String patientThixId;
+  final String patientId;
   final String title;
   final RecordType type;
   final String? description;
-  final String? fileUrl;
   final String? fileName;
-  final int? fileSizeBytes;
+  final String? filePath;
+  final int? fileSize;
   final String? mimeType;
-  final String createdByUid;
-  final String? doctorName;
+  final DateTime examDate;
   final DateTime createdAt;
-  final DateTime? examDate;
 
-  const HealthRecordModel({
-    required this.id,
-    required this.patientUid,
-    required this.patientThixId,
-    required this.title,
-    required this.type,
-    this.description,
-    this.fileUrl,
-    this.fileName,
-    this.fileSizeBytes,
-    this.mimeType,
-    required this.createdByUid,
-    this.doctorName,
-    required this.createdAt,
-    this.examDate,
+  HealthRecordModel({
+    required this.id, required this.patientId, required this.title, required this.type,
+    this.description, this.fileName, this.filePath, this.fileSize, this.mimeType,
+    required this.examDate, required this.createdAt,
   });
 
-  factory HealthRecordModel.fromJson(Map<String, dynamic> json) {
+  bool get hasFile => filePath!= null && filePath!.isNotEmpty;
+  bool get isPdf => mimeType == 'application/pdf' || (fileName?.endsWith('.pdf')??false);
+  IconData get typeIcon => type.icon;
+  Color get typeColor => type.color;
+  Color get typeLightColor => type.lightColor;
+  String get fileSizeLabel => fileSize==null? '' : fileSize! < 1024? '$fileSize B' : fileSize! < 1048576? '${(fileSize!/1024).toStringAsFixed(1)} KB' : '${(fileSize!/1048576).toStringAsFixed(1)} MB';
+
+  factory HealthRecordModel.fromJson(Map<String,dynamic> j){
+    RecordType t;
+    switch(j['type']){
+      case 'radiologie': t=RecordType.radiologie; break;
+      case 'ordonnance': t=RecordType.ordonnance; break;
+      case 'analyse': t=RecordType.analyse; break;
+      case 'vaccin': t=RecordType.vaccin; break;
+      default: t=RecordType.autre;
+    }
     return HealthRecordModel(
-      id: json['id'] as String,
-      patientUid: json['patient_uid'] as String,
-      patientThixId: json['patient_thix_id'] as String,
-      title: json['title'] as String,
-      type: RecordType.fromString(json['type'] as String?),
-      description: json['description'] as String?,
-      fileUrl: json['file_url'] as String?,
-      fileName: json['file_name'] as String?,
-      fileSizeBytes: json['file_size'] as int?,
-      mimeType: json['mime_type'] as String?,
-      createdByUid: (json['created_by_uid'] as String?)?? json['patient_uid'] as String,
-      doctorName: json['doctor_name'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      examDate: json['exam_date']!= null
-         ? DateTime.tryParse(json['exam_date'] as String)
-          : null,
+      id: j['id'].toString(),
+      patientId: j['patient_id'].toString(),
+      title: j['title'].toString(),
+      type: t,
+      description: j['description']?.toString(),
+      fileName: j['file_name']?.toString(),
+      filePath: j['file_path']?.toString(),
+      fileSize: j['file_size']!=null? int.tryParse(j['file_size'].toString()): null,
+      mimeType: j['mime_type']?.toString(),
+      examDate: j['exam_date']!=null? DateTime.parse(j['exam_date'].toString()) : DateTime.now(),
+      createdAt: DateTime.parse(j['created_at'].toString()),
     );
-  }
-
-  Map<String, dynamic> toInsertJson() => {
-        'patient_uid': patientUid,
-        'patient_thix_id': patientThixId,
-        'title': title,
-        'type': type.name,
-        'description': description,
-        'file_url': fileUrl,
-        'file_name': fileName,
-        'file_size': fileSizeBytes,
-        'mime_type': mimeType,
-        'created_by_uid': createdByUid,
-        'doctor_name': doctorName,
-        'exam_date': examDate?.toIso8601String(),
-      };
-
-  // --- Helpers modernes ---
-  bool get hasFile => fileUrl!= null && fileUrl!.isNotEmpty;
-  bool get isImage => mimeType?.startsWith('image/')?? false;
-  bool get isPdf => mimeType == 'application/pdf' || (fileName?.toLowerCase().endsWith('.pdf')?? false);
-
-  String get fileSizeLabel {
-    if (fileSizeBytes == null) return '';
-    if (fileSizeBytes! < 1024) return '${fileSizeBytes} B';
-    if (fileSizeBytes! < 1048576) return '${(fileSizeBytes! / 1024).toStringAsFixed(1)} KB';
-    return '${(fileSizeBytes! / 1048576).toStringAsFixed(1)} MB';
-  }
-
-  IconData get typeIcon {
-    switch (type) {
-      case RecordType.consultation:
-        return Icons.medical_services_rounded;
-      case RecordType.ordonnance:
-        return Icons.receipt_long_rounded;
-      case RecordType.laboratoire:
-        return Icons.biotech_rounded;
-      case RecordType.radiologie:
-        return Icons.medical_services_rounded; 
-      case RecordType.vaccin:
-        return Icons.vaccines_rounded;
-      case RecordType.certificat:
-        return Icons.verified_user_rounded;
-      case RecordType.autre:
-        return Icons.folder_rounded;
-    }
-  }
-
-  Color get typeColor {
-    switch (type) {
-      case RecordType.consultation:
-        return ThixSanteColors.primary;
-      case RecordType.ordonnance:
-        return ThixSanteColors.purple;
-      case RecordType.laboratoire:
-        return ThixSanteColors.success;
-      case RecordType.radiologie:
-        return ThixSanteColors.sky;
-      case RecordType.vaccin:
-        return ThixSanteColors.warning;
-      case RecordType.certificat:
-        return ThixSanteColors.success;
-      case RecordType.autre:
-        return ThixSanteColors.muted;
-    }
-  }
-
-  Color get typeLightColor {
-    switch (type) {
-      case RecordType.consultation:
-        return ThixSanteColors.primaryLight;
-      case RecordType.ordonnance:
-        return ThixSanteColors.purpleLight;
-      case RecordType.laboratoire:
-        return ThixSanteColors.successLight;
-      case RecordType.radiologie:
-        return ThixSanteColors.skyLight;
-      default:
-        return ThixSanteColors.borderLight;
-    }
   }
 }
