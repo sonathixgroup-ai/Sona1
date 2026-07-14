@@ -1,10 +1,11 @@
-// ============================================================
-// lib/presentation/chat/escalation/screens/escalation_dashboard_page.dart
-// ============================================================
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/escalation_provider.dart';
 import '../models/escalation_level.dart';
+import '../models/escalation_step.dart';
+import '../widgets/level_badge.dart';
+import '../widgets/priority_chip.dart';
 
 class EscalationDashboardPage extends StatelessWidget {
   final String agentId;
@@ -31,7 +32,6 @@ class EscalationDashboardPage extends StatelessWidget {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  // Stats
                   Card(
                     margin: const EdgeInsets.all(12),
                     child: Padding(
@@ -58,7 +58,6 @@ class EscalationDashboardPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Liste des escalades en attente
                   Expanded(
                     child: provider.pendingEscalations.isEmpty
                         ? const Center(child: Text('Aucune escalade en attente'))
@@ -102,14 +101,13 @@ class EscalationDashboardPage extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: step.priority.color,
-          child: Text(step.priority.shortLabel[0]),
+          child: Text(step.priority.label[0]),
         ),
         title: Text('De: ${step.fromAgentName ?? step.fromAgentId}'),
         subtitle: Text(step.reason),
         trailing: IconButton(
           icon: const Icon(Icons.arrow_forward, color: Colors.blue),
           onPressed: () {
-            // Naviguer vers la page de gestion de l'escalade
             context.push('/chat/escalation/handle/${step.id}');
           },
         ),
