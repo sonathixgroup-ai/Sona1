@@ -3,30 +3,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../providers/news_provider.dart';
 import '../../models/news_article.dart';
 
-// ============================================================
-// CHARTE GRAPHIQUE UNIFIÉE — Style "Mon Pays" / Événement / Emploi
-// ============================================================
 class _InfoColors {
   static const Color primaryBlue = Color(0xFF0B3D91);
   static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A); // <-- LA COULEUR MANQUANTE EST ICI
-  static const Color lightBg = Color(0xFFF6F8FB);
-  static const Color gold = Color(0xFFF7C948);
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color cardBorder = Color(0xFFEEF1F7);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color softBlue = Color(0xFFEEF1F7);
+  static const Color gold = Color(0xFFFFB800);
+  static const Color goldLight = Color(0xFFFFC72C);
+  static const Color bg = Color(0xFFF7F8FB);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color textDark = Color(0xFF101840);
+  static const Color textMuted = Color(0xFF8A8FA8);
+  static const Color border = Color(0xFFECEEF4);
 }
 
 class ThixInfoHome extends StatefulWidget {
   const ThixInfoHome({super.key});
-
   @override
   State<ThixInfoHome> createState() => _ThixInfoHomeState();
 }
@@ -37,6 +31,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
   int _selectedNavIndex = 0;
   bool _isInitialized = false;
 
+  // TA LOGIQUE INTACTE
   final List<Map<String, dynamic>> _categories = [
     {'slug': 'featured', 'name': 'À la une', 'icon': Icons.local_fire_department_rounded},
     {'slug': 'politique', 'name': 'Politique', 'icon': Icons.account_balance_rounded},
@@ -48,6 +43,15 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     {'slug': 'international', 'name': 'International', 'icon': Icons.public_rounded},
   ];
 
+  final List<Map<String, dynamic>> _quickActions = [
+    {'label': 'Fil Info', 'icon': Icons.article_rounded, 'color': Color(0xFF2F80ED), 'bg': Color(0xFFEFF6FF)},
+    {'label': 'Vidéos', 'icon': Icons.play_circle_rounded, 'color': Color(0xFFEB5757), 'bg': Color(0xFFFFF0F0)},
+    {'label': 'Podcasts', 'icon': Icons.headset_rounded, 'color': Color(0xFF9B51E0), 'bg': Color(0xFFF5EFFF)},
+    {'label': 'Magazines', 'icon': Icons.menu_book_rounded, 'color': Color(0xFFF2994A), 'bg': Color(0xFFFFF6EB)},
+    {'label': 'Communiqués', 'icon': Icons.campaign_rounded, 'color': Color(0xFF2D9CDB), 'bg': Color(0xFFEFF8FF)},
+    {'label': 'Alertes', 'icon': Icons.notifications_rounded, 'color': Color(0xFF27AE60), 'bg': Color(0xFFECFFF3)},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -56,23 +60,14 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
 
   Future<void> _initializeData() async {
     await Future.delayed(Duration.zero);
-    
-    if (mounted) {
-      final newsProvider = Provider.of<NewsProvider>(context, listen: false);
-      
-      try {
-        await Future.wait([
-          newsProvider.fetchArticles(),
-          newsProvider.fetchVideos(),
-        ]);
-      } catch (e) {
-        debugPrint('❌ Erreur lors du chargement initial: $e');
-      }
-      
-      setState(() {
-        _isInitialized = true;
-      });
+    if (!mounted) return;
+    final newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    try {
+      await Future.wait([newsProvider.fetchArticles(), newsProvider.fetchVideos()]);
+    } catch (e) {
+      debugPrint('❌ Erreur chargement: $e');
     }
+    if (mounted) setState(() => _isInitialized = true);
   }
 
   @override
@@ -84,786 +79,338 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
   void _onNavTap(int index) {
     setState(() => _selectedNavIndex = index);
     HapticFeedback.lightImpact();
-    
     switch (index) {
-      case 0:
-        break;
-      case 1:
-        context.push('/thix-info/categories');
-        break;
-      case 2:
-        context.push('/thix-info/breaking');
-        break;
-      case 3:
-        context.push('/thix-info/saved');
-        break;
+      case 0: break;
+      case 1: context.push('/thix-info/categories'); break;
+      case 2: context.push('/thix-info/breaking'); break;
+      case 3: context.push('/thix-info/saved'); break;
+      case 4: context.push('/thix-info/profile'); break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final newsProvider = Provider.of<NewsProvider>(context);
-    final featuredArticle = newsProvider.featuredArticle;
-    final recentArticles = newsProvider.recentArticles;
+    final newsProvider = context.watch<NewsProvider>();
+    final featured = newsProvider.featuredArticle;
+    final recents = newsProvider.recentArticles;
     final videos = newsProvider.videos;
-    final isLoading = newsProvider.isLoading;
-    final hasError = newsProvider.error != null;
 
-    if (!_isInitialized && isLoading) {
-      return const Scaffold(
-        backgroundColor: _InfoColors.lightBg,
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(_InfoColors.primaryBlue),
-          ),
-        ),
-      );
-    }
-
-    if (hasError && featuredArticle == null && recentArticles.isEmpty) {
-      return Scaffold(
-        backgroundColor: _InfoColors.lightBg,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 84,
-                height: 84,
-                decoration: const BoxDecoration(color: _InfoColors.softBlue, shape: BoxShape.circle),
-                child: Icon(Icons.error_outline_rounded, size: 38, color: _InfoColors.primaryBlue.withOpacity(0.5)),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Impossible de charger les actualités',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _InfoColors.darkText),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                newsProvider.error ?? 'Erreur inconnue',
-                style: const TextStyle(fontSize: 12, color: _InfoColors.mutedText),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  newsProvider.clearError();
-                  newsProvider.fetchArticles();
-                  newsProvider.fetchVideos();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _InfoColors.primaryBlue,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                child: const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-        ),
-      );
+    if (!_isInitialized && newsProvider.isLoading) {
+      return const Scaffold(backgroundColor: _InfoColors.bg, body: Center(child: CircularProgressIndicator(color: _InfoColors.primaryBlue)));
     }
 
     return Scaffold(
-      backgroundColor: _InfoColors.lightBg,
+      backgroundColor: _InfoColors.bg,
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverToBoxAdapter(child: _buildHeader()),
-          
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 12),
-                _buildSearchBar(),
-                const SizedBox(height: 20),
-                _buildCategorySection(),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-          
-          // Article à la une
-          if (isLoading && featuredArticle == null)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(_InfoColors.primaryBlue),
-                  ),
-                ),
-              ),
-            )
-          else if (featuredArticle != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildFeaturedArticle(featuredArticle),
-              ),
-            ),
-          
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          
-          // Actualités récentes
+          SliverToBoxAdapter(child: _buildTopBar()),
+          SliverToBoxAdapter(child: _buildSearch()),
+          SliverToBoxAdapter(child: const SizedBox(height: 12)),
+          SliverToBoxAdapter(child: _buildCategoryPills()),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(child: featured != null ? _buildHeroCard(featured) : _buildHeroPlaceholder()),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(child: _buildQuickActions()),
+          const SliverToBoxAdapter(child: SizedBox(height: 22)),
           SliverToBoxAdapter(child: _buildSectionHeader('Actualités récentes', '/thix-info/recent')),
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          
-          if (isLoading && recentArticles.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(_InfoColors.primaryBlue),
-                  ),
-                ),
-              ),
-            )
-          else if (recentArticles.isEmpty && !isLoading)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: Text(
-                    'Aucune actualité disponible',
-                    style: TextStyle(color: _InfoColors.mutedText),
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildRecentArticleItem(recentArticles[index]),
-                  childCount: recentArticles.length > 5 ? 5 : recentArticles.length,
-                ),
-              ),
-            ),
-          
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildNotificationBanner(),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          SliverToBoxAdapter(child: _buildRecentHorizontal(recents, newsProvider.isLoading)),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildAlertBanner())),
+          const SliverToBoxAdapter(child: SizedBox(height: 22)),
           SliverToBoxAdapter(child: _buildSectionHeader('Vidéos à la une', '/thix-info/videos')),
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          
-          // Vidéos
-          if (isLoading && videos.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(_InfoColors.primaryBlue),
-                  ),
-                ),
-              ),
-            )
-          else if (videos.isEmpty && !isLoading)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: Text(
-                    'Aucune vidéo disponible',
-                    style: TextStyle(color: _InfoColors.mutedText),
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 240,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: videos.length,
-                  itemBuilder: (context, index) => _buildVideoCard(videos[index]),
-                ),
-              ),
-            ),
-          
+          SliverToBoxAdapter(child: _buildVideosHorizontal(videos, newsProvider.isLoading)),
           const SliverToBoxAdapter(child: SizedBox(height: 110)),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // ============================================================
-  // HEADER
-  // ============================================================
-  Widget _buildHeader() {
+  // ================= HEADER PHOTO =================
+  Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 48, 16, 20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_InfoColors.navyDeep, _InfoColors.primaryBlue],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(26),
-          bottomRight: Radius.circular(26),
-        ),
-        boxShadow: [
-          BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
-        ],
-      ),
+      color: _InfoColors.white,
+      padding: const EdgeInsets.fromLTRB(16, 48, 16, 12),
       child: Row(
         children: [
-          InkWell(
-            onTap: () => context.go('/'),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.14),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-            ),
+          IconButton(icon: const Icon(Icons.menu_rounded, size: 26), onPressed: () => context.go('/')),
+          const SizedBox(width: 4),
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(color: _InfoColors.gold, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.newspaper_rounded, color: Colors.white),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'THIX INFO',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'L\'information vraie, partout.',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('THIX', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.3, color: _InfoColors.textDark)),
+                SizedBox(width: 6),
+                Text('INFO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _InfoColors.gold)),
+              ]),
+              Text("L'information vraie, partout.", style: TextStyle(fontSize: 11, color: _InfoColors.textMuted)),
+            ]),
           ),
-          Stack(
-            clipBehavior: Clip.none, 
-            children: [
-              InkWell(
-                onTap: () => _showNotificationSettings(),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 20),
-                ),
-              ),
-              Positioned(
-                top: -4, 
-                right: -4, 
-                child: Container(
-                  padding: const EdgeInsets.all(4), 
-                  decoration: const BoxDecoration(color: _InfoColors.gold, shape: BoxShape.circle), 
-                  child: const Text('3', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _InfoColors.primaryBlue))
-                )
-              ),
-            ]
-          ),
+          Stack(clipBehavior: Clip.none, children: [
+            IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, size: 26)),
+            Positioned(top: 2, right: 2, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)))),
+          ]),
+          const SizedBox(width: 4),
+          const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/100')),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // BARRE DE RECHERCHE
-  // ============================================================
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+  Widget _buildSearch() {
+    return Container(
+      color: _InfoColors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: GestureDetector(
         onTap: () => context.push('/thix-info/search'),
         child: Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: _InfoColors.pureWhite,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _InfoColors.cardBorder),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.search_rounded, size: 18, color: _InfoColors.mutedText),
-              SizedBox(width: 9),
-              Text('Rechercher une actualité, un sujet...', style: TextStyle(fontSize: 12.5, color: _InfoColors.mutedText)),
-            ],
-          ),
+          decoration: BoxDecoration(color: _InfoColors.bg, borderRadius: BorderRadius.circular(14), border: Border.all(color: _InfoColors.border)),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
+            const Icon(Icons.search_rounded, color: _InfoColors.textMuted, size: 20),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Rechercher une actualité, un sujet...', style: TextStyle(color: _InfoColors.textMuted, fontSize: 13))),
+            Container(width: 1, height: 22, color: _InfoColors.border, margin: const EdgeInsets.symmetric(horizontal: 10)),
+            const Icon(Icons.tune_rounded, size: 20, color: _InfoColors.textDark),
+          ]),
         ),
       ),
     );
   }
 
-  // ============================================================
-  // CATÉGORIES
-  // ============================================================
-  Widget _buildCategorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Catégories',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _InfoColors.primaryBlue),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 44,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: _categories.length,
-            itemBuilder: (context, index) {
-              final cat = _categories[index];
-              final isSelected = _selectedCategory == cat['slug'];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    setState(() => _selectedCategory = cat['slug']);
-                    context.read<NewsProvider>().fetchArticles(category: cat['slug']);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? _InfoColors.primaryBlue : _InfoColors.pureWhite,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: isSelected ? Colors.transparent : _InfoColors.cardBorder),
-                      boxShadow: isSelected
-                          ? [BoxShadow(color: _InfoColors.primaryBlue.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(cat['icon'] as IconData, size: 14, color: isSelected ? _InfoColors.gold : _InfoColors.primaryBlue),
-                        const SizedBox(width: 6),
-                        Text(
-                          cat['name'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected ? Colors.white : _InfoColors.darkText,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
+  Widget _buildCategoryPills() {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _categories.length + 1,
+        separatorBuilder: (_,__) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == _categories.length) {
+            return const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.menu_rounded, size: 22));
+          }
+          final cat = _categories[index];
+          final selected = _selectedCategory == cat['slug'];
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selectedCategory = cat['slug']);
+              context.read<NewsProvider>().fetchArticles(category: cat['slug']);
             },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // ARTICLE À LA UNE
-  // ============================================================
-  Widget _buildFeaturedArticle(NewsArticle article) {
-    return GestureDetector(
-      onTap: () => context.push('/thix-info/article/${article.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: _InfoColors.navyDeep.withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 8))],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
-              Image.network(
-                article.imageUrl!,
-                height: 240,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(height: 240, color: _InfoColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _InfoColors.primaryBlue)));
-                },
-                errorBuilder: (context, error, stackTrace) => Container(height: 240, color: _InfoColors.softBlue, child: Icon(Icons.broken_image_rounded, size: 38, color: _InfoColors.navy.withOpacity(0.4))),
-              )
-            else
-              Container(height: 240, color: _InfoColors.navyDeep),
-              
-            Container(
-              height: 240,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [_InfoColors.primaryBlue.withOpacity(0.95), Colors.transparent],
-                  stops: const [0, 0.7],
-                ),
-              ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(color: selected ? _InfoColors.gold : _InfoColors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: selected ? _InfoColors.gold : _InfoColors.border)),
+              alignment: Alignment.center,
+              child: Text(cat['name'], style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: selected ? _InfoColors.textDark : _InfoColors.textDark)),
             ),
-            
-            Positioned(
-              top: 14,
-              left: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _InfoColors.gold, borderRadius: BorderRadius.circular(8)),
-                child: const Text('À LA UNE', style: TextStyle(fontSize: 9, color: _InfoColors.navyDeep, fontWeight: FontWeight.w900)),
-              ),
-            ),
-            
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    article.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w900, height: 1.15),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), borderRadius: BorderRadius.circular(6)),
-                        child: Text(_getCategoryName(article.category), style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w800)),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(_formatTimeAgo(article.publishedAt), style: const TextStyle(fontSize: 11, color: _InfoColors.gold, fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      const Icon(Icons.visibility_rounded, size: 14, color: Colors.white70),
-                      const SizedBox(width: 4),
-                      Text(_formatCount(article.viewsCount), style: const TextStyle(fontSize: 11, color: Colors.white70)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  // ============================================================
-  // EN-TÊTE DE SECTION
-  // ============================================================
-  Widget _buildSectionHeader(String title, String route) {
+  Widget _buildHeroCard(NewsArticle a) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _InfoColors.primaryBlue)),
-          GestureDetector(
-            onTap: () => context.push(route),
-            child: const Row(
-              children: [
-                Text('Voir tout', style: TextStyle(fontSize: 12, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
-                SizedBox(width: 2),
-                Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF5B8DEF)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ARTICLE RÉCENT (item liste)
-  // ============================================================
-  Widget _buildRecentArticleItem(NewsArticle article) {
-    return GestureDetector(
-      onTap: () => context.push('/thix-info/article/${article.id}'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: _InfoColors.pureWhite,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _InfoColors.cardBorder),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  article.imageUrl!,
-                  width: 70,
-                  height: 70,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(width: 70, height: 70, color: _InfoColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _InfoColors.primaryBlue)));
-                  },
-                  errorBuilder: (context, error, stackTrace) => Container(width: 70, height: 70, color: _InfoColors.softBlue, child: Icon(Icons.broken_image_rounded, size: 26, color: _InfoColors.primaryBlue)),
-                ),
-              ),
-            const SizedBox(width: 12),
+      child: GestureDetector(
+        onTap: () => context.push('/thix-info/article/${a.id}'),
+        child: Container(
+          height: 210,
+          decoration: BoxDecoration(color: _InfoColors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))]),
+          clipBehavior: Clip.antiAlias,
+          child: Row(children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(color: _InfoColors.softBlue, borderRadius: BorderRadius.circular(6)),
-                        child: Text(_getCategoryName(article.category), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _InfoColors.primaryBlue)),
-                      ),
-                      const Spacer(),
-                      Text(_formatTimeAgo(article.publishedAt), style: const TextStyle(fontSize: 10, color: _InfoColors.mutedText)),
-                    ],
+              flex: 5,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: _InfoColors.goldLight.withOpacity(0.28), borderRadius: BorderRadius.circular(6)), child: const Text('À LA UNE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: _InfoColors.textDark))),
+                  const SizedBox(height: 10),
+                  Text(a.title, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900, height: 1.2, color: _InfoColors.textDark)),
+                  const SizedBox(height: 8),
+                  Text(a.excerpt ?? 'Un plan ambitieux pour stimuler la croissance, créer des emplois et améliorer le pouvoir d\'achat des Congolais.', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: _InfoColors.textMuted, height: 1.3)),
+                  const Spacer(),
+                  Row(children: [
+                    const Icon(Icons.access_time_rounded, size: 12, color: _InfoColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text(_formatTimeAgo(a.publishedAt), style: const TextStyle(fontSize: 11, color: _InfoColors.textMuted)),
+                    const SizedBox(width: 10),
+                    const Icon(Icons.remove_red_eye_outlined, size: 12, color: _InfoColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text('${_formatCount(a.viewsCount)} vues', style: const TextStyle(fontSize: 11, color: _InfoColors.textMuted)),
+                  ]),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(color: _InfoColors.gold, borderRadius: BorderRadius.circular(20)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: const [Text("Lire l'article", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)), SizedBox(width: 6), Icon(Icons.arrow_forward_rounded, size: 14)]),
                   ),
-                  const SizedBox(height: 6),
-                  Text(article.title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _InfoColors.darkText, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
-                ],
+                ]),
               ),
             ),
-          ],
+            Expanded(
+              flex: 5,
+              child: Stack(children: [
+                Positioned.fill(child: a.imageUrl != null && a.imageUrl!.isNotEmpty ? Image.network(a.imageUrl!, fit: BoxFit.cover) : Container(color: _InfoColors.primaryBlue)),
+                Positioned(bottom: 10, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(3, (i) => Container(margin: const EdgeInsets.symmetric(horizontal: 3), width: i==0?18:8, height: 6, decoration: BoxDecoration(color: i==0?_InfoColors.gold:Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(10)))))),
+              ]),
+            ),
+          ]),
         ),
       ),
     );
   }
 
-  // ============================================================
-  // CARTE VIDÉO
-  // ============================================================
-  Widget _buildVideoCard(NewsArticle video) {
-    return GestureDetector(
-      onTap: () => context.push('/thix-info/article/${video.id}'),
-      child: Container(
-        width: 280,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color: _InfoColors.pureWhite,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _InfoColors.cardBorder),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                Image.network(
-                  video.imageUrl ?? '',
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(height: 150, color: _InfoColors.softBlue, child: const Center(child: CircularProgressIndicator(color: _InfoColors.primaryBlue)));
-                  },
-                  errorBuilder: (context, error, stackTrace) => Container(height: 150, color: _InfoColors.softBlue, child: Icon(Icons.videocam_rounded, size: 38, color: _InfoColors.primaryBlue)),
-                ),
-                Positioned.fill(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: _InfoColors.navyDeep.withOpacity(0.7), shape: BoxShape.circle),
-                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    video.title,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _InfoColors.darkText, height: 1.2),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(Icons.visibility_rounded, size: 12, color: _InfoColors.mutedText),
-                      const SizedBox(width: 4),
-                      Text(_formatCount(video.viewsCount), style: const TextStyle(fontSize: 10, color: _InfoColors.mutedText)),
-                      const SizedBox(width: 8),
-                      Text('•', style: TextStyle(fontSize: 10, color: _InfoColors.mutedText.withOpacity(0.5))),
-                      const SizedBox(width: 8),
-                      Text(_formatTimeAgo(video.publishedAt), style: const TextStyle(fontSize: 10, color: _InfoColors.mutedText)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildHeroPlaceholder() => Container(margin: const EdgeInsets.symmetric(horizontal: 16), height: 210, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: const Center(child: CircularProgressIndicator()));
 
-  // ============================================================
-  // BANNIÈRE NOTIFICATIONS
-  // ============================================================
-  Widget _buildNotificationBanner() {
+  Widget _buildQuickActions() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _InfoColors.primaryBlue,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: _InfoColors.primaryBlue.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 8)),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.notifications_active_rounded, color: _InfoColors.gold, size: 28),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Alerte Info', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                SizedBox(height: 2),
-                Text('Soyez notifié des actus importantes.', style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3)),
-              ],
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(color: _InfoColors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: _InfoColors.border)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: _quickActions.map((e) => Column(children: [
+        Container(width: 44, height: 44, decoration: BoxDecoration(color: e['bg'] as Color, borderRadius: BorderRadius.circular(12)), child: Icon(e['icon'] as IconData, color: e['color'] as Color, size: 22)),
+        const SizedBox(height: 6),
+        Text(e['label'] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _InfoColors.textDark)),
+      ])).toList()),
+    );
+  }
+
+  Widget _buildSectionHeader(String t, String route) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _InfoColors.textDark)),
+        GestureDetector(onTap: () => context.push(route), child: Row(children: const [Text('Voir tout', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF9A7B11))), SizedBox(width: 2), Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF9A7B11))])),
+      ]),
+    );
+  }
+
+  Widget _buildRecentHorizontal(List<NewsArticle> list, bool loading) {
+    if (loading && list.isEmpty) return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
+    if (list.isEmpty) return const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Aucune actualité', style: TextStyle(color: _InfoColors.textMuted))));
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: list.length > 8 ? 8 : list.length,
+        itemBuilder: (_, i) {
+          final a = list[i];
+          final badgeColor = _badgeFor(a.category);
+          return GestureDetector(
+            onTap: () => context.push('/thix-info/article/${a.id}'),
+            child: Container(
+              width: 165,
+              margin: EdgeInsets.only(right: i == list.length-1 ? 0 : 12),
+              decoration: BoxDecoration(color: _InfoColors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _InfoColors.border)),
+              clipBehavior: Clip.antiAlias,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Stack(children: [
+                  SizedBox(height: 90, width: double.infinity, child: a.imageUrl != null ? Image.network(a.imageUrl!, fit: BoxFit.cover) : Container(color: _InfoColors.bg)),
+                  Positioned(top: 8, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(6)), child: Text(_getCategoryName(a.category).toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white)))),
+                ]),
+                Padding(padding: const EdgeInsets.fromLTRB(10, 8, 10, 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_formatTimeAgo(a.publishedAt), style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)),
+                  const SizedBox(height: 4),
+                  Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
+                  const Spacer(),
+                  Row(children: [Text('${_formatCount(a.viewsCount)} vues', style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)), const Spacer(), const Icon(Icons.bookmark_border_rounded, size: 16, color: _InfoColors.textMuted)]),
+                ])),
+              ]),
             ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _requestNotificationPermission,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _InfoColors.gold,
-              foregroundColor: _InfoColors.primaryBlue,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: const Text('Activer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  // ============================================================
-  // BARRE DE NAVIGATION BOTTOM
-  // ============================================================
-  Widget _buildBottomNavBar() {
+  Widget _buildAlertBanner() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16), 
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(30), 
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20)]
-      ), 
-      child: SafeArea(
-        top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround, 
-          children: [
-            _navItem(Icons.home_rounded, 'Accueil', 0), 
-            _navItem(Icons.category_rounded, 'Catégories', 1), 
-            _navItem(Icons.flash_on_rounded, 'Fil Info', 2), 
-            _navItem(Icons.bookmark_rounded, 'Favoris', 3), 
-          ]
-        ),
-      )
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFFFE9A8))),
+      child: Row(children: [
+        Container(width: 42, height: 42, decoration: BoxDecoration(color: _InfoColors.gold.withOpacity(0.22), shape: BoxShape.circle), child: const Icon(Icons.notifications_rounded, color: _InfoColors.gold)),
+        const SizedBox(width: 12),
+        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Restez informé en temps réel !', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+          SizedBox(height: 2),
+          Text('Activez vos notifications et ne manquez aucune information importante.', style: TextStyle(fontSize: 11, color: _InfoColors.textMuted, height: 1.3)),
+          SizedBox(height: 8),
+          // bouton
+        ])),
+        const Icon(Icons.close_rounded, size: 18, color: _InfoColors.textMuted),
+      ]),
     );
   }
 
-  Widget _navItem(IconData icon, String label, int index) {
-    final isSelected = _selectedNavIndex == index;
-    return InkWell(
-      onTap: () => _onNavTap(index), 
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: isSelected ? _InfoColors.primaryBlue : _InfoColors.mutedText, size: 22), 
-          Text(label, style: TextStyle(fontSize: 10, color: isSelected ? _InfoColors.primaryBlue : _InfoColors.mutedText, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal))
-        ]
-      )
-    );
-  }
-
-  String _formatTimeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays >= 1) return 'il y a ${diff.inDays}j';
-    if (diff.inHours >= 1) return 'il y a ${diff.inHours}h';
-    if (diff.inMinutes >= 1) return 'il y a ${diff.inMinutes}min';
-    return 'maintenant';
-  }
-
-  String _formatCount(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
-    return count.toString();
-  }
-
-  String _getCategoryName(String slug) {
-    final cat = _categories.firstWhere((c) => c['slug'] == slug, orElse: () => {'name': slug});
-    return cat['name'] as String;
-  }
-
-  void _showNotificationSettings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _InfoColors.darkText)),
-        content: const Text('Recevoir les alertes en temps réel ?', style: TextStyle(fontSize: 13, color: _InfoColors.mutedText)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Plus tard', style: TextStyle(fontSize: 12))),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _requestNotificationPermission();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _InfoColors.gold,
-              foregroundColor: _InfoColors.primaryBlue,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+  Widget _buildVideosHorizontal(List<NewsArticle> vids, bool loading) {
+    if (loading && vids.isEmpty) return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator()));
+    return SizedBox(
+      height: 190,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: vids.isEmpty ? 4 : vids.length,
+        itemBuilder: (_, i) {
+          final v = vids.isEmpty ? null : vids[i % vids.length];
+          return GestureDetector(
+            onTap: () => v != null ? context.push('/thix-info/article/${v.id}') : null,
+            child: Container(
+              width: 160, margin: EdgeInsets.only(right: i==3?0:12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Stack(children: [
+                  ClipRRect(borderRadius: BorderRadius.circular(14), child: SizedBox(height: 100, width: 160, child: v?.imageUrl != null ? Image.network(v!.imageUrl!, fit: BoxFit.cover) : Container(color: Colors.black12, child: const Icon(Icons.play_circle)))),
+                  Positioned.fill(child: Center(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), shape: BoxShape.circle), child: const Icon(Icons.play_arrow_rounded, size: 20)))),
+                  Positioned(bottom: 6, right: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.black.withOpacity(0.75), borderRadius: BorderRadius.circular(6)), child: const Text('05:32', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))),
+                ]),
+                const SizedBox(height: 8),
+                Text(v?.title ?? 'Interview exclusive avec le Ministre', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
+                const SizedBox(height: 4),
+                Row(children: [const Icon(Icons.remove_red_eye_outlined, size: 11, color: _InfoColors.textMuted), const SizedBox(width: 3), Text('${v!=null?_formatCount(v.viewsCount):'2.7k'} vues', style: const TextStyle(fontSize: 10, color: _InfoColors.textMuted)), const Text('  •  il y a 4h', style: TextStyle(fontSize: 10, color: _InfoColors.textMuted))]),
+              ]),
             ),
-            child: const Text('Activer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  void _requestNotificationPermission() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notifications activées'), duration: Duration(seconds: 1)),
+  Widget _buildBottomNav() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 18)]),
+      child: SafeArea(top: false, child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        _nav(Icons.home_rounded, 'Accueil', 0, true),
+        _nav(Icons.grid_view_rounded, 'Catégories', 1, false),
+        _centerFab(),
+        _nav(Icons.bookmark_border_rounded, 'Favoris', 3, false),
+        _nav(Icons.person_outline_rounded, 'Profil', 4, false),
+      ])),
     );
   }
+
+  Widget _nav(IconData ic, String lb, int idx, bool sel) {
+    final active = _selectedNavIndex == idx && sel || _selectedNavIndex==idx && idx==0;
+    return InkWell(onTap: ()=>_onNavTap(idx), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(ic, color: active? _InfoColors.gold: _InfoColors.textMuted, size: 22), const SizedBox(height: 2), Text(lb, style: TextStyle(fontSize: 10, fontWeight: active?FontWeight.w800:FontWeight.w500, color: active? _InfoColors.gold: _InfoColors.textMuted))]));
+  }
+  Widget _centerFab() => InkWell(onTap: ()=>_onNavTap(2), child: Container(width: 56, height: 56, decoration: const BoxDecoration(color: _InfoColors.gold, shape: BoxShape.circle), child: const Icon(Icons.newspaper_rounded, color: Colors.white)));
+
+  Color _badgeFor(String slug) {
+    switch(slug){ case 'politique': return const Color(0xFF2F80ED); case 'economie': return const Color(0xFF27AE60); case 'tech': return const Color(0xFF2D9CDB); case 'sport': return const Color(0xFFF2994A); default: return _InfoColors.primaryBlue; }
+  }
+  String _formatTimeAgo(DateTime d){ final diff=DateTime.now().difference(d); if(diff.inDays>=1) return 'il y a ${diff.inDays}j'; if(diff.inHours>=1) return 'il y a ${diff.inHours}h'; if(diff.inMinutes>=1) return 'il y a ${diff.inMinutes}min'; return 'maintenant'; }
+  String _formatCount(int c){ if(c>=1000000) return '${(c/1000000).toStringAsFixed(1)}M'; if(c>=1000) return '${(c/1000).toStringAsFixed(1)}k'; return '$c'; }
+  String _getCategoryName(String slug){ final cat=_categories.firstWhere((e)=>e['slug']==slug, orElse:()=>{'name':slug}); return cat['name'] as String; }
 }
