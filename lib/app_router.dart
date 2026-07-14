@@ -23,7 +23,6 @@ import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
 // BUS 
-import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_search_result_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_trip_detail_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_seat_selection_page.dart';
@@ -35,7 +34,6 @@ import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_cr
 import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_qr_scan_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/data/models/bus_trip_model.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/data/models/booking_model.dart';
-
 // THIX SANTE
 import 'presentation/thix_sante/patient/patient_dashboard_page.dart';
 import 'presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
