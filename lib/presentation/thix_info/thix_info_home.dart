@@ -8,7 +8,7 @@ import '../../models/news_article.dart';
 const _kGold = Color(0xFFFFB800);
 const _kBlue = Color(0xFF0B3D91);
 const _kBg = Color(0xFFF7F8FB);
-const _kWhite = Colors.white;
+const Color _kWhite = Colors.white;
 const _kDark = Color(0xFF101840);
 const _kMuted = Color(0xFF8A8FA8);
 const _kBorder = Color(0xFFECEEF4);
