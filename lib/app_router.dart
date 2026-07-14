@@ -440,9 +440,12 @@ GoRoute(
   pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())
 ),
 // Redirection pour ancien lien /thix-reservation/bus
-GoRoute(
-  path: '/thix-reservation/bus',
-  redirect: (_, __) => '/thix-reservation/bus/search',
+GoRoute(path: '/thix-reservation/bus', builder: (_, __) => const BusHomePage()),
+GoRoute(path: '/thix-reservation/bus/search', builder: (ctx, state) {
+  final from = state.uri.queryParameters['from'];
+  final to = state.uri.queryParameters['to'];
+  return BusSearchResultPage(initialFrom: from, initialTo: to); // adapte si ton constructeur est différent
+}),
 ),
 // ═══ MODULE BUS SAAS ═══
 GoRoute(path: '/thix-reservation/bus/search', builder: (_, __) => const BusSearchResultPage()),
