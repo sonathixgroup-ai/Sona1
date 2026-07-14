@@ -22,6 +22,20 @@ import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
+// BUS 
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_search_result_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_trip_detail_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_seat_selection_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_payment_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_ticket_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_onboarding_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_create_trip_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/pages/agency/agency_qr_scan_page.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/data/models/bus_trip_model.dart';
+import 'package:thix_id/presentation/thix_reservation/bus/data/models/booking_model.dart';
+
 // THIX SANTE
 import 'presentation/thix_sante/patient/patient_dashboard_page.dart';
 import 'presentation/thix_sante/patient/screens/mon_medecin_traitant_page.dart';
@@ -419,6 +433,21 @@ class AppRouter {
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
 
+
+        
+// BUS
+GoRoute(path: '/thix-reservation/bus', builder: (_, __) => const BusHomePage()),
+GoRoute(path: '/thix-reservation/bus/search', builder: (_, __) => const BusSearchResultPage()),
+GoRoute(path: '/thix-reservation/bus/trip/:id', builder: (ctx, state) { final trip = state.extra as BusTripModel; return BusTripDetailPage(trip: trip); }),
+GoRoute(path: '/thix-reservation/bus/seats/:id', builder: (ctx, state) { final trip = state.extra as BusTripModel; return BusSeatSelectionPage(trip: trip); }),
+GoRoute(path: '/thix-reservation/bus/passenger', builder: (ctx, state) { final data = state.extra as Map<String,dynamic>; return BusPaymentPage(trip: data['trip'] as BusTripModel, seats: data['seats'] as List<String>); }),
+GoRoute(path: '/thix-reservation/bus/ticket/:id', builder: (ctx, state) { final b = state.extra as BookingModel; return BusTicketPage(booking: b); }),
+// Agence SaaS
+GoRoute(path: '/thix-reservation/bus/agency/onboarding', builder: (_, __) => const AgencyOnboardingPage()),
+GoRoute(path: '/thix-reservation/bus/agency/dashboard', builder: (_, __) => const AgencyDashboardPage()),
+GoRoute(path: '/thix-reservation/bus/agency/create-trip', builder: (_, __) => const AgencyCreateTripPage()),
+GoRoute(path: '/thix-reservation/bus/agency/scan', builder: (_, __) => const AgencyQrScanPage()),
+       
         // THIX Market
         GoRoute(
           path: AppRoutes.thixMarket,
