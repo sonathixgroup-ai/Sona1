@@ -427,36 +427,36 @@ class AppRouter {
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
 
-        // ═══════════ BUS FIX VERT - AUCUNE ROUTE COUPEE ═══════════
-        GoRoute(path: '/thix-reservation/bus', name: 'bus-home', pageBuilder: (_, __) => NoTransitionPage(child: BusHomePage())),
-        GoRoute(path: '/thix-reservation/bus/search', name: 'bus-search', pageBuilder: (_, __) => const NoTransitionPage(child: BusSearchResultPage())),
-        GoRoute(path: '/thix-reservation/bus/detail', name: 'bus-detail', pageBuilder: (_, state) => NoTransitionPage(child: BusTripDetailPage(trip: state.extra as BusTripModel))),
-        GoRoute(
-          path: '/thix-reservation/bus/seats',
-          name: 'bus-seats',
-          pageBuilder: (_, state) => NoTransitionPage(child: BusSeatSelectionPage(trip: state.extra as BusTripModel)),
-        ),
-        GoRoute(
-          path: '/thix-reservation/bus/payment',
-          name: 'bus-payment',
-          pageBuilder: (_, state) {
-            final map = state.extra as Map<String, dynamic>;
-            return NoTransitionPage(child: BusPaymentPage(trip: map['trip'] as BusTripModel, seats: (map['seats'] as List).cast<String>()));
-          },
-        ),
-        GoRoute(
-          path: '/thix-reservation/bus/ticket/:id',
-          name: 'bus-ticket',
-          pageBuilder: (_, state) {
-            final booking = state.extra as BookingModel;
-            return NoTransitionPage(child: BusTicketPage(booking: booking));
-          },
-        ),
-        GoRoute(path: '/agency/onboarding', name: 'agency-onboarding', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyOnboardingPage())),
-        GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyDashboardPage())),
-        GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
-        GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
-     
+        // ═══════════ BUS FIX VERT ═══════════
+GoRoute(path: '/thix-reservation/bus', name: 'bus-home', pageBuilder: (_, __) => NoTransitionPage(child: BusHomePage())),
+GoRoute(path: '/thix-reservation/bus/search', name: 'bus-search', pageBuilder: (_, __) => const NoTransitionPage(child: BusSearchResultPage())),
+GoRoute(path: '/thix-reservation/bus/detail', name: 'bus-detail', pageBuilder: (_, state) => NoTransitionPage(child: BusTripDetailPage(trip: state.extra as BusTripModel))),
+GoRoute(path: '/thix-reservation/bus/seats', name: 'bus-seats', pageBuilder: (_, state) => NoTransitionPage(child: BusSeatSelectionPage(trip: state.extra as BusTripModel))),
+GoRoute(
+  path: '/thix-reservation/bus/payment',
+  name: 'bus-payment',
+  pageBuilder: (_, state) {
+    final map = state.extra as Map<String, dynamic>;
+    return NoTransitionPage(child: BusPaymentPage(trip: map['trip'] as BusTripModel, seats: (map['seats'] as List).cast<String>()));
+  },
+),
+GoRoute(
+  path: '/thix-reservation/bus/ticket/:id',
+  name: 'bus-ticket',
+  pageBuilder: (_, state) => NoTransitionPage(child: BusTicketPage(booking: state.extra as BookingModel)),
+),
+
+// ALIAS POUR EVITER GoException si un bouton pousse /thix-reservation/bus/agency/...
+GoRoute(path: '/thix-reservation/bus/agency/onboarding', redirect: (_, __) => '/agency/onboarding'),
+GoRoute(path: '/thix-reservation/bus/agency/dashboard', redirect: (_, __) => '/agency/dashboard'),
+GoRoute(path: '/thix-reservation/bus/agency/trip/create', redirect: (_, __) => '/agency/trip/create'),
+GoRoute(path: '/thix-reservation/bus/agency/qr-scan', redirect: (_, __) => '/agency/scan'),
+
+// VRAIES ROUTES AGENCY
+GoRoute(path: '/agency/onboarding', name: 'agency-onboarding', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyOnboardingPage())),
+GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyDashboardPage())),
+GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
+GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
         // THIX Market
         GoRoute(
           path: AppRoutes.thixMarket,
