@@ -14,7 +14,7 @@ class EscalationHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<EscalationProvider>(context, listen: true)
+   final provider = Provider.of<EscalationProvider>(context, listen: true);
 
     return Scaffold(
       appBar: AppBar(
