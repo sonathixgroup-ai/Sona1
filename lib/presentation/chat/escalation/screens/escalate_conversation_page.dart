@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_priority.dart';
 import '../providers/escalation_provider.dart';
-
+import 'package:provider/provider.dart';
 class EscalateConversationPage extends StatefulWidget {
   final String conversationId;
   final String fromAgentId;
