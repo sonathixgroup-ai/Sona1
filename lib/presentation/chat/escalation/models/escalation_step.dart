@@ -1,8 +1,8 @@
-// ============================================================
-// lib/presentation/chat/escalation/models/escalation_step.dart
-// ============================================================
-
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
+import 'escalation_level.dart';
+import 'escalation_status.dart';
+import 'escalation_priority.dart';
 
 class EscalationStep extends Equatable {
   final String id;
