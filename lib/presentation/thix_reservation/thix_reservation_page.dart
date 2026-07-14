@@ -1,607 +1,189 @@
+// lib/presentation/thix_reservation/thix_reservation_home_page.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
-  runApp(const MyApp());
+class ThixReservationHomePage extends StatefulWidget {
+  const ThixReservationHomePage({super.key});
+  @override
+  State<ThixReservationHomePage> createState() => _ThixReservationHomePageState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
+  Map<String, int> counts = {'upcoming': 0, 'ongoing': 0, 'completed': 0, 'cancelled': 0};
+  bool loadingCounts = true;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF1A73E8),
-        fontFamily: 'Roboto',
-      ),
-      home: const ThixReservationPage(),
-    );
+  void initState() {
+    super.initState();
+    _loadCounts();
   }
-}
 
-class ThixReservationPage extends StatelessWidget {
-  const ThixReservationPage({super.key});
+  Future<void> _loadCounts() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      final res = await Supabase.instance.client.from('bus_bookings').select('status').eq('user_id', userId);
+      final map = {'upcoming': 0, 'ongoing': 0, 'completed': 0, 'cancelled': 0};
+      for (final r in res as List) {
+        final s = r['status'] as String;
+        if (s == 'confirmed' || s == 'pending_payment') map['upcoming'] = map['upcoming']! + 1;
+        else if (s == 'in_progress') map['ongoing'] = map['ongoing']! + 1;
+        else if (s == 'completed') map['completed'] = map['completed']! + 1;
+        else if (s == 'cancelled') map['cancelled'] = map['cancelled']! + 1;
+      }
+      if (mounted) setState(() { counts = map; loadingCounts = false; });
+    } catch (_) { if (mounted) setState(() => loadingCounts = false); }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isSmallScreen = screenHeight < 700;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. Header App Bar
-            _buildHeader(),
-
-            // Zone de contenu principale (Ajustée pour éviter le scroll vertical)
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      
-                      // 2. Banner Promo Flash + Page Indicators
-                      _buildPromoBanner(isSmallScreen),
-                      const SizedBox(height: 12),
-
-                      // 3. Grid Services (Bus, Vol, Hôtel...)
-                      _buildServicesGrid(),
-                      const SizedBox(height: 14),
-
-                      // 4. Mes Réservations
-                      _buildSectionHeader("Mes réservations"),
-                      const SizedBox(height: 6),
-                      _buildReservationsStatus(),
-                      const SizedBox(height: 14),
-
-                      // 5. Offres spéciales
-                      _buildSectionHeader("Offres spéciales pour vous"),
-                      const SizedBox(height: 6),
-                      _buildSpecialOffers(isSmallScreen),
-                      const SizedBox(height: 14),
-
-                      // 6. Parrainez & Gagnez
-                      _buildReferralBanner(),
-                      const SizedBox(height: 14),
-
-                      // 7. Restaurants à proximité
-                      _buildSectionHeader("Restaurants à proximité"),
-                      const SizedBox(height: 6),
-                      _buildRestaurantsList(isSmallScreen),
-                      const SizedBox(height: 14),
-
-                      // 8. Annonces
-                      _buildSectionHeader("Annonces"),
-                      const SizedBox(height: 6),
-                      _buildAnnoncesList(isSmallScreen),
-                      const SizedBox(height: 20),
-
-                      // 9. Reassurance Badges
-                      _buildReassuranceBadges(),
-                      const SizedBox(height: 75), 
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: _buildMiddleButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-
-  // --- COMPOSANTS DE L'INTERFACE ---
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text("R", style: TextStyle(color: Color(0xFF1A73E8), fontSize: 22, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Text("THIX ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      Text("RÉSERVATION", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1A73E8))),
-                    ],
-                  ),
-                  const Text("Réservez tout, partout, en toute simplicité.", style: TextStyle(fontSize: 9, color: Colors.grey)),
-                ],
-              )
-            ],
-          ),
-          Row(
-            children: [
-              Stack(
-                children: [
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none, color: Colors.black54, size: 24)),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      child: const Text("3", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                    ),
-                  )
-                ],
-              ),
-              const CircleAvatar(
-                radius: 16,
-                backgroundColor: Color(0xFFF1F3F4),
-                child: Icon(Icons.person_outline, color: Colors.black54, size: 20),
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPromoBanner(bool isSmallScreen) {
-    return Column(
-      children: [
-        Container(
-          height: isSmallScreen ? 110 : 125,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade50, const Color(0xFFE8F0FE)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.flash_on, color: Colors.orange, size: 12),
-                        Text(" PROMO FLASH", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 9)),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    const Text("Jusqu'à -40%", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-                    Text("sur vos réservations de bus & vols", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.black.withOpacity(0.8))),
-                    const Text("Valable jusqu'au 30 Juin 2025", style: TextStyle(fontSize: 8, color: Colors.grey)),
-                    const SizedBox(height: 6),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A73E8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                        minimumSize: const Size(75, 24),
-                      ),
-                      child: const Text("Profiter maintenant", style: TextStyle(fontSize: 9, color: Colors.white)),
-                    )
-                  ],
-                ),
-              ),
-              Positioned(
-                right: -10,
-                bottom: 10,
-                child: Icon(Icons.directions_bus_filled, size: isSmallScreen ? 80 : 100, color: const Color(0xFF1A73E8).withOpacity(0.9)),
-              )
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(width: 12, height: 5, decoration: BoxDecoration(color: const Color(0xFF1A73E8), borderRadius: BorderRadius.circular(4))),
-            const SizedBox(width: 4),
-            ...List.generate(3, (index) => Container(margin: const EdgeInsets.symmetric(horizontal: 2), width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black26, shape: BoxShape.circle))),
-          ],
-        )
-      ],
-    );
-  }
-
-  Widget _buildServicesGrid() {
-    final services = [
-      {'icon': Icons.directions_bus, 'label': 'Bus', 'color': const Color(0xFF1A73E8)},
-      {'icon': Icons.flight, 'label': 'Vol', 'color': Colors.indigo},
-      {'icon': Icons.hotel, 'label': 'Hôtel', 'color': Colors.orange},
-      {'icon': Icons.local_taxi, 'label': 'Taxi', 'color': Colors.amber},
-      {'icon': Icons.delivery_dining, 'label': 'Livraison', 'color': Colors.green},
-      {'icon': Icons.apps, 'label': 'Plus', 'color': Colors.grey},
-    ];
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: services.map((service) {
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
-              ),
-              child: Icon(service['icon'] as IconData, color: service['color'] as Color, size: 22),
-            ),
-            const SizedBox(height: 4),
-            Text(service['label'] as String, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-          ],
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black.withOpacity(0.8))),
-        Row(
-          children: const [
-            Text("Voir tout", style: TextStyle(fontSize: 10, color: Colors.grey)),
-            Icon(Icons.chevron_right, size: 12, color: Colors.grey),
-          ],
-        )
-      ],
-    );
-  }
-
-  Widget _buildReservationsStatus() {
-    final status = [
-      {'label': 'À venir', 'count': '3', 'color': Colors.blue, 'icon': Icons.business_center},
-      {'label': 'En cours', 'count': '1', 'color': Colors.green, 'icon': Icons.timelapse},
-      {'label': 'Terminées', 'count': '8', 'color': Colors.purple, 'icon': Icons.check_circle_outline},
-      {'label': 'Annulées', 'count': '0', 'color': Colors.red, 'icon': Icons.cancel_outlined},
-    ];
-
-    return Row(
-      children: status.map((item) {
-        return Expanded(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade100),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Icon(item['icon'] as IconData, color: item['color'] as Color, size: 14),
-                    Text(item['count'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(item['label'] as String, style: const TextStyle(fontSize: 9, color: Colors.grey), maxLines: 1),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildSpecialOffers(bool isSmallScreen) {
-    final offers = [
-      {'title': 'Hôtels', 'promo': '-30%', 'desc': 'Séjournez plus,\npayez moins', 'color': Colors.red.shade50},
-      {'title': 'Vols', 'promo': '-20%', 'desc': 'Sur tous les vols', 'color': Colors.blue.shade50},
-      {'title': 'Bus', 'promo': '-15%', 'desc': 'Voyagez en toute\nconfiance', 'color': Colors.indigo.shade50},
-      {'title': 'Livraison', 'promo': '-10%', 'desc': 'Envoi express', 'color': Colors.green.shade50},
-    ];
-
-    return SizedBox(
-      height: isSmallScreen ? 70 : 80,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: offers.length,
-        itemBuilder: (context, index) {
-          final offer = offers[index];
-          return Container(
-            width: 105,
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: offer['color'] as Color,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(offer['title'] as String, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54)),
-                Text(offer['promo'] as String, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A73E8))),
-                const SizedBox(height: 1),
-                Text(offer['desc'] as String, style: const TextStyle(fontSize: 8, color: Colors.black54, height: 1.1)),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildReferralBanner() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.card_giftcard, color: Colors.purple, size: 24),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text("Parrainez & Gagnez !", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.purple)),
-                Text("Invitez vos proches et gagnez jusqu'à 10.000 FC par parrainage.", style: TextStyle(fontSize: 8.5, color: Colors.black54)),
-              ],
-            ),
-          ),
-          Row(
-            children: List.generate(3, (index) => const Align(
-              widthFactor: 0.6,
-              child: CircleAvatar(radius: 9, backgroundColor: Colors.grey, child: Icon(Icons.person, size: 10, color: Colors.white)),
-            )),
-          ),
+      backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Row(children: [
+          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)]), child: const Text('R', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 26, color: Color(0xFF0D47A1)))),
+          const SizedBox(width: 10),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text('THIX ', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black87, fontSize: 16)), Text('RÉSERVATION', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0D88F2), fontSize: 16))]), Text('Réservez tout, partout, en toute simplicité.', style: TextStyle(fontSize: 11, color: Colors.grey))])
+        ]),
+        actions: [
+          Stack(children: [IconButton(onPressed: () => context.push('/notifications'), icon: const Icon(Icons.notifications_none_rounded, size: 26)), Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))))]),
+          IconButton(onPressed: () => context.push('/profile'), icon: const Icon(Icons.person_outline_rounded, size: 26)),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: Colors.grey, size: 14)
         ],
       ),
-    );
-  }
-
-  Widget _buildRestaurantsList(bool isSmallScreen) {
-    final restaurants = [
-      {'name': "Le Goût d'Ici", 'type': 'Africaine', 'time': '20-30 min', 'price': '\$\$', 'rating': '4.6'},
-      {'name': 'Fast & Good', 'type': 'Fast Food', 'time': '15-25 min', 'price': '\$\$', 'rating': '4.8'},
-      {'name': 'Pizza Time', 'type': 'Italienne', 'time': '20-30 min', 'price': '\$\$', 'rating': '4.5'},
-      {'name': 'Sushi House', 'type': 'Japonaise', 'time': '25-35 min', 'price': '\$\$', 'rating': '4.7'},
-    ];
-
-    return SizedBox(
-      height: isSmallScreen ? 115 : 125,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: restaurants.length,
-        itemBuilder: (context, index) {
-          final restau = restaurants[index];
-          return Container(
-            width: 115,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade100),
+      body: RefreshIndicator(
+        onRefresh: _loadCounts,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // PROMO FLASH - réel depuis table promotions
+            FutureBuilder(
+              future: Supabase.instance.client.from('promotions').select().eq('is_active', true).order('created_at').limit(1).maybeSingle(),
+              builder: (_, snap) {
+                final promo = snap.data;
+                return Container(
+                  height: 170,
+                  decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(18)),
+                  child: Stack(children: [
+                    Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(18), child: promo?['banner_url']!=null? Image.network(promo!['banner_url'], fit: BoxFit.cover): CustomPaint(painter: _PromoPainter()))),
+                    Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [const Icon(Icons.flash_on, size: 14, color: Colors.orange), const SizedBox(width: 4), Text((promo?['badge']??'PROMO FLASH').toString().toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade700))]),
+                        const SizedBox(height: 6),
+                        Text(promo?['title']??'Jusqu\'à -40%', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0A3D62))),
+                        Text(promo?['subtitle']??'sur vos réservations de bus & vols', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(promo?['valid_until_label']??'Valable jusqu\'au 30 Juin 2025', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                        const SizedBox(height: 10),
+                        ElevatedButton(onPressed: () => context.push('/thix-reservation/bus'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D88F2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)), child: const Text('Profiter maintenant', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+                      ])),
+                      Image.network(promo?['illustration_url']??'https://cdn3d.iconscout.com/3d/premium/thumb/bus-3d-icon-download-in-png-blend-fbx-gltf-file-formats--automobile-transport-vehicle-pack-icons-5187691.png', width: 110, errorBuilder: (_,__,___)=> const Icon(Icons.directions_bus, size: 80, color: Color(0xFF0D47A1))),
+                    ])),
+                    Positioned(left: 0, top: 0, bottom: 0, child: IconButton(icon: const Icon(Icons.chevron_left), onPressed: (){})),
+                    Positioned(right: 0, top: 0, bottom: 0, child: IconButton(icon: const Icon(Icons.chevron_right), onPressed: (){})),
+                  ]),
+                );
+              },
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          top: 4, right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(4)),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 8),
-                                Text(" ${restau['rating']}", style: const TextStyle(color: Colors.white, fontSize: 8)),
-                              ],
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(restau['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 9), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(restau['type']!, style: const TextStyle(fontSize: 7.5, color: Colors.grey)),
-                      const SizedBox(height: 1),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(restau['time']!, style: const TextStyle(fontSize: 7.5, color: Colors.black54)),
-                          const Icon(Icons.favorite_border, size: 10, color: Colors.black54),
-                        ],
-                      )
-                    ],
-                  ),
-                )
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+            const SizedBox(height: 14),
 
-  Widget _buildAnnoncesList(bool isSmallScreen) {
-    final annonces = [
-      {'tag': 'À VENDRE', 'tagColor': Colors.green, 'title': 'Toyota RAV4 2021', 'price': '25.000.000 FC'},
-      {'tag': 'À LOUER', 'tagColor': Colors.red, 'title': 'Appartement 3 pièces', 'price': '600.000 FC / mois'},
-      {'tag': 'SERVICE', 'tagColor': Colors.teal, 'title': 'Ménage à domicile', 'price': 'À partir de 10.000 FC'},
-    ];
+            // CATEGORIES - Navigation réelle
+            Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+              _Cat(icon: '🚌', label: 'Bus', color: Colors.blue.shade50, onTap: ()=> context.push('/thix-reservation/bus')),
+              _Cat(icon: '✈️', label: 'Vol', color: Colors.purple.shade50, onTap: ()=> context.push('/thix-reservation/flights')),
+              _Cat(icon: '🏨', label: 'Hôtel', color: Colors.orange.shade50, onTap: ()=> context.push('/thix-reservation/hotels')),
+              _Cat(icon: '🚕', label: 'Taxi', color: Colors.amber.shade50, onTap: ()=> context.push('/thix-reservation/taxi')),
+              _Cat(icon: '🛵', label: 'Livraison', color: Colors.green.shade50, onTap: ()=> context.push('/thix-reservation/delivery')),
+              _Cat(icon: '⊞', label: 'Plus', color: Colors.grey.shade100, onTap: ()=> showModalBottomSheet(context: context, builder: (_)=> const _MoreSheet())),
+            ])),
+            const SizedBox(height: 16),
 
-    return SizedBox(
-      height: isSmallScreen ? 110 : 120,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: annonces.length,
-        itemBuilder: (context, index) {
-          final item = annonces[index];
-          return Container(
-            width: 140,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade100),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          top: 4, left: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(color: item['tagColor'] as Color, borderRadius: BorderRadius.circular(4)),
-                            child: Text(item['tag'] as String, style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 9), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 1),
-                      Text(item['price'] as String, style: const TextStyle(fontSize: 8.5, color: Color(0xFF1A73E8), fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+            // MES RESERVATIONS
+            _SectionHeader(title: 'Mes réservations', icon: Icons.calendar_today_outlined, onSeeAll: ()=> context.push('/thix-reservation/bus/bookings')),
+            const SizedBox(height: 8),
+            Row(children: [
+              _ReservationCard(label: 'À venir', count: loadingCounts? '-' : '${counts['upcoming']}', color: Colors.blue, icon: Icons.luggage_rounded),
+              const SizedBox(width: 8),
+              _ReservationCard(label: 'En cours', count: loadingCounts? '-' : '${counts['ongoing']}', color: Colors.green, icon: Icons.timer_outlined),
+              const SizedBox(width: 8),
+              _ReservationCard(label: 'Terminées', count: loadingCounts? '-' : '${counts['completed']}', color: Colors.purple, icon: Icons.check_circle),
+              const SizedBox(width: 8),
+              _ReservationCard(label: 'Annulées', count: loadingCounts? '-' : '${counts['cancelled']}', color: Colors.red, icon: Icons.cancel),
+            ]),
+            const SizedBox(height: 16),
 
-  Widget _buildReassuranceBadges() {
-    final badges = [
-      {'icon': Icons.verified_user_outlined, 'text': 'Paiement sécurisé'},
-      {'icon': Icons.support_agent, 'text': 'Support 24/7'},
-      {'icon': Icons.workspace_premium_outlined, 'text': 'Meilleurs prix'},
-      {'icon': Icons.cancel_schedule_send_outlined, 'text': 'Annulation facile'},
-    ];
+            // OFFRES SPECIALES
+            _SectionHeader(title: 'Offres spéciales pour vous', onSeeAll: (){}),
+            const SizedBox(height: 8),
+            SizedBox(height: 110, child: FutureBuilder(future: Supabase.instance.client.from('promotions').select().eq('is_active', true).limit(4), builder: (_, snap){
+              final data = (snap.data as List?)?? [];
+              if(data.isEmpty) return Row(children: const [_OfferCard(title:'Hôtels', discount:'-30%', subtitle:'Séjournez plus,\npayez moins', color: Color(0xFFF3E8FF)), SizedBox(width: 8), _OfferCard(title:'Vols', discount:'-20%', subtitle:'Sur tous les vols', color: Color(0xFFE8F4FF)), SizedBox(width: 8), _OfferCard(title:'Bus', discount:'-15%', subtitle:'Voyagez en toute\nconfiance', color: Color(0xFFE8F0FF)), SizedBox(width: 8), _OfferCard(title:'Livraison', discount:'-10%', subtitle:'Envoi express', color: Color(0xFFFFF3E0))]);
+              return ListView.separated(scrollDirection: Axis.horizontal, itemCount: data.length, separatorBuilder: (_,__)=> const SizedBox(width: 8), itemBuilder: (_,i){ final o=data[i]; return _OfferCard(title: o['category']??'', discount: o['discount']??'', subtitle: o['subtitle']??'', color: Colors.blue.shade50); });
+            })),
+            const SizedBox(height: 14),
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: badges.map((badge) {
-        return Column(
-          children: [
-            Icon(badge['icon'] as IconData, size: 14, color: const Color(0xFF1A73E8)),
-            const SizedBox(height: 2),
-            Text(badge['text'] as String, style: const TextStyle(fontSize: 7.5, color: Colors.black54)),
-          ],
-        );
-      }).toList(),
-    );
-  }
+            // PARRAINAGE
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFF8F3FF), borderRadius: BorderRadius.circular(14)), child: Row(children: [
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)), child: const Text('🎁', style: TextStyle(fontSize: 26))),
+              const SizedBox(width: 12),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Parrainez & Gagnez!', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))), SizedBox(height: 2), Text('Invitez vos proches et gagnez jusqu\'à 10.000 FC par parrainage.', style: TextStyle(fontSize: 11, color: Colors.black54))])),
+              const SizedBox(width: 8),
+              FutureBuilder(future: Supabase.instance.client.from('profiles').select('avatar_url').limit(4), builder: (_, s){ final avs = (s.data as List?)?? []; return SizedBox(width: 80, height: 32, child: Stack(children: List.generate(avs.length.clamp(0,4), (i)=> Positioned(left: i*18, child: CircleAvatar(radius: 14, backgroundColor: Colors.white, child: CircleAvatar(radius: 12, backgroundImage: avs[i]['avatar_url']!=null? NetworkImage(avs[i]['avatar_url']): null)))))); }),
+              const Icon(Icons.chevron_right),
+            ])),
+            const SizedBox(height: 16),
 
-  Widget _buildBottomNavigationBar() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 5.0,
-      elevation: 8,
-      child: SizedBox(
-        height: 50,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildBottomNavItem(Icons.home, "Accueil", true),
-            _buildBottomNavItem(Icons.explore_outlined, "Explorer", false),
-            const SizedBox(width: 35), 
-            _buildBottomNavItem(Icons.event_note, "Mes rés.", false),
-            _buildBottomNavItem(Icons.person_outline, "Profil", false),
-          ],
+            // RESTAURANTS
+            _SectionHeader(title: 'Restaurants à proximité', onSeeAll: ()=> context.push('/thix-reservation/restaurants')),
+            const SizedBox(height: 8),
+            SizedBox(height: 170, child: FutureBuilder(future: Supabase.instance.client.from('restaurants').select().eq('is_active', true).limit(6), builder: (_, snap){
+              final list = (snap.data as List?)?? [];
+              if(list.isEmpty) return const Center(child: Text('Aucun restaurant partenaire pour le moment', style: TextStyle(color: Colors.grey)));
+              return ListView.separated(scrollDirection: Axis.horizontal, itemCount: list.length, separatorBuilder: (_,__)=> const SizedBox(width: 10), itemBuilder: (_, i){ final r=list[i]; return _RestaurantCard(name: r['name'], category: r['category'], time: '${r['min_time']??15}-${r['max_time']??30} min', price: r['price_level']??'\$\$', image: r['image_url'], rating: (r['rating']??4.5).toDouble()); });
+            })),
+            const SizedBox(height: 16),
+
+            // ANNONCES
+            _SectionHeader(title: 'Annonces', onSeeAll: ()=> context.push('/market')),
+            const SizedBox(height: 8),
+            SizedBox(height: 170, child: FutureBuilder(future: Supabase.instance.client.from('market_products').select().eq('is_published', true).limit(6), builder: (_, snap){
+              final list = (snap.data as List?)?? [];
+              if(list.isEmpty) return Row(children: const [_AnnonceCard(badge:'À VENDRE', badgeColor: Colors.green, title:'Toyota RAV4 2021', price:'25.000.000 FC'), SizedBox(width: 10), _AnnonceCard(badge:'À LOUER', badgeColor: Colors.red, title:'Appartement 3 pièces', price:'600.000 FC / mois'), SizedBox(width: 10), _AnnonceCard(badge:'SERVICE', badgeColor: Colors.green, title:'Ménage à domicile', price:'À partir de 10.000 FC')]);
+              return ListView.separated(scrollDirection: Axis.horizontal, itemCount: list.length, separatorBuilder: (_,__)=> const SizedBox(width: 10), itemBuilder: (_, i){ final a=list[i]; return _AnnonceCard(badge: a['type']??'À VENDRE', badgeColor: Colors.green, title: a['title']??'', price: '${a['price']??0} FC', image: a['image_url']); });
+            })),
+            const SizedBox(height: 16),
+
+            // FOOTER
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+              _FooterItem(icon: Icons.verified_user_outlined, title: 'Paiement sécurisé', sub: 'Transactions 100% sûres'),
+              _FooterItem(icon: Icons.headset_mic_outlined, title: 'Support 24/7', sub: 'Nous sommes là'),
+              _FooterItem(icon: Icons.workspace_premium_outlined, title: 'Meilleurs prix', sub: 'Garantie incluse'),
+              _FooterItem(icon: Icons.cancel_outlined, title: 'Annulation facile', sub: 'Flexible et rapide'),
+            ])),
+            const SizedBox(height: 80),
+          ]),
         ),
       ),
-    );
-  }
-
-  Widget _buildBottomNavItem(IconData icon, String label, bool isActive) {
-    return InkWell(
-      onTap: () {},
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: isActive ? const Color(0xFF1A73E8) : Colors.grey, size: 18),
-          Text(label, style: TextStyle(color: isActive ? const Color(0xFF1A73E8) : Colors.grey, fontSize: 8.5)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiddleButton() {
-    return Container(
-      height: 54,
-      width: 54,
-      margin: const EdgeInsets.only(top: 10),
-      child: FloatingActionButton(
-        backgroundColor: const Color(0xFF1A73E8),
-        elevation: 3,
-        shape: const CircleBorder(),
-        onPressed: () {},
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.calendar_month, color: Colors.white, size: 18),
-            SizedBox(height: 1),
-            Text("Réserver", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
+      bottomNavigationBar: BottomNavigationBar(currentIndex: 2, selectedItemColor: const Color(0xFF0D88F2), unselectedItemColor: Colors.grey, type: BottomNavigationBarType.fixed, items: [
+        const BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Accueil'),
+        const BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: 'Explorer'),
+        BottomNavigationBarItem(icon: Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Color(0xFF0D88F2), shape: BoxShape.circle), child: const Icon(Icons.calendar_month, color: Colors.white)), label: 'Réserver'),
+        const BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Mes réservations'),
+        const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
+      ], onTap: (i){ if(i==2) return; if(i==0) context.go('/'); if(i==3) context.push('/thix-reservation/bus/bookings'); }),
     );
   }
 }
+
+class _Cat extends StatelessWidget { final String icon, label; final Color color; final VoidCallback onTap; const _Cat({required this.icon, required this.label, required this.color, required this.onTap}); @override Widget build(BuildContext context)=> InkWell(onTap: onTap, child: Column(children: [Container(width: 52, height: 52, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)), child: Center(child: Text(icon, style: const TextStyle(fontSize: 26)))), const SizedBox(height: 6), Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))])); }
+class _SectionHeader extends StatelessWidget { final String title; final IconData? icon; final VoidCallback? onSeeAll; const _SectionHeader({required this.title, this.icon, this.onSeeAll}); @override Widget build(BuildContext context)=> Row(children: [if(icon!=null) Icon(icon, size: 18, color: const Color(0xFF0D88F2)), if(icon!=null) const SizedBox(width: 6), Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), const Spacer(), InkWell(onTap: onSeeAll, child: Row(children: const [Text('Voir tout', style: TextStyle(fontSize: 12, color: Colors.grey)), Icon(Icons.chevron_right, size: 16, color: Colors.grey)]))]); }
+class _ReservationCard extends StatelessWidget { final String label, count; final Color color; final IconData icon; const _ReservationCard({required this.label, required this.count, required this.color, required this.icon}); @override Widget build(BuildContext context)=> Expanded(child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Row(children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 18, color: color)), const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)), Text(count, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))])]))); }
+class _OfferCard extends StatelessWidget { final String title, discount, subtitle; final Color color; const _OfferCard({required this.title, required this.discount, required this.subtitle, required this.color}); @override Widget build(BuildContext context)=> Container(width: 150, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), const SizedBox(height: 4), Text(discount, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: title=='Hôtels'? Colors.purple: title=='Vols'? Colors.blue: title=='Bus'? Colors.blue.shade700: Colors.green)), const SizedBox(height: 4), Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black54))])) ;}
+class _RestaurantCard extends StatelessWidget { final String name, category, time, price; final String? image; final double rating; const _RestaurantCard({required this.name, required this.category, required this.time, required this.price, this.image, required this.rating}); @override Widget build(BuildContext context)=> Container(width: 150, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Stack(children: [ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: image!=null? Image.network(image!, height: 90, width: 150, fit: BoxFit.cover): Container(height: 90, color: Colors.grey.shade200, child: const Icon(Icons.restaurant))), Positioned(top: 6, right: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(8)), child: Row(children: [const Icon(Icons.star, size: 10, color: Colors.amber), const SizedBox(width: 2), Text('$rating', style: const TextStyle(color: Colors.white, fontSize: 10))])))]), Padding(padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)), const Icon(Icons.favorite_border, size: 14)]), Text(category, style: const TextStyle(fontSize: 10, color: Colors.grey)), const SizedBox(height: 4), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(time, style: const TextStyle(fontSize: 10)), Text(price, style: const TextStyle(fontSize: 10))])]))])); }
+class _AnnonceCard extends StatelessWidget { final String badge, title, price; final Color badgeColor; final String? image; const _AnnonceCard({required this.badge, required this.title, required this.price, required this.badgeColor, this.image}); @override Widget build(BuildContext context)=> Container(width: 160, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Stack(children: [ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: image!=null? Image.network(image!, height: 90, width: 160, fit: BoxFit.cover): Container(height: 90, color: Colors.grey.shade200)), Positioned(top: 6, left: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(6)), child: Text(badge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)))), Positioned(top: 6, right: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.favorite_border, size: 14))) ]), Padding(padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis), const SizedBox(height: 2), Text(price, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))]))])); }
+class _FooterItem extends StatelessWidget { final IconData icon; final String title, sub; const _FooterItem({required this.icon, required this.title, required this.sub}); @override Widget build(BuildContext context)=> Column(children: [Icon(icon, size: 20, color: const Color(0xFF0D88F2)), Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), Text(sub, style: const TextStyle(fontSize: 9, color: Colors.grey))]); }
+class _MoreSheet extends StatelessWidget { const _MoreSheet(); @override Widget build(BuildContext context)=> Container(padding: const EdgeInsets.all(20), child: Wrap(spacing: 20, runSpacing: 20, children: [ _Cat(icon: '🍽️', label: 'Restaurant', color: Colors.orange.shade50, onTap: (){}), _Cat(icon: '📦', label: 'Annonces', color: Colors.blue.shade50, onTap: (){}), _Cat(icon: '🎟️', label: 'Événement', color: Colors.purple.shade50, onTap: (){}), ])); }
+class _PromoPainter extends CustomPainter { @override void paint(Canvas canvas, Size size){ final p=Paint()..color=const Color(0xFFE8F0FF); canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0,0,size.width,size.height), const Radius.circular(18)), p);} @override bool shouldRepaint(_)=>false; }
