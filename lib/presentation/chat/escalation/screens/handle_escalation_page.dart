@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart'; // LA LIGNE MAGIQUE QUI MANQUAIT !
-
+import '../models/escalation_level.dart';
 import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
