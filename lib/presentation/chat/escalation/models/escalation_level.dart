@@ -1,7 +1,7 @@
 // ============================================================
 // lib/presentation/chat/escalation/models/escalation_level.dart
 // ============================================================
-
+import 'package:flutter/material.dart';
 enum EscalationLevel {
   agent,      // Niveau 0
   senior,     // Niveau 1
