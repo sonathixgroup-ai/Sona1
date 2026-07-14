@@ -177,7 +177,12 @@ import 'package:thix_id/presentation/chat/new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_info_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_settings_page.dart';
-
+// ==================== CHAT ESCALATION ====================
+import 'package:thix_id/presentation/chat/escalation/screens/escalate_conversation_page.dart';
+import 'package:thix_id/presentation/chat/escalation/screens/handle_escalation_page.dart';
+import 'package:thix_id/presentation/chat/escalation/screens/escalation_history_page.dart';
+import 'package:thix_id/presentation/chat/escalation/screens/escalation_dashboard_page.dart';
+import 'package:thix_id/presentation/chat/escalation/models/escalation_level.dart';
 // MON PAYS
 import 'presentation/mon_pays/mon_pays_page.dart';
 import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
@@ -290,7 +295,62 @@ class AppRouter {
         GoRoute(path: AppRoutes.groupCreate, name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
         GoRoute(path: AppRoutes.groupInfo, name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
         GoRoute(path: AppRoutes.groupSettings, name: 'group_settings', pageBuilder: (_, state) => NoTransitionPage(child: GroupSettingsPage(groupId: state.pathParameters['groupId']!))),
-
+        // ==================== CHAT ESCALATION ====================
+GoRoute(
+  path: AppRoutes.chatEscalate,
+  name: 'chatEscalate',
+  pageBuilder: (context, state) {
+    final conversationId = state.pathParameters['conversationId']!;
+    final fromAgentId = state.uri.queryParameters['agentId'] ?? '';
+    final fromAgentName = state.uri.queryParameters['agentName'];
+    return NoTransitionPage(
+      child: EscalateConversationPage(
+        conversationId: conversationId,
+        fromAgentId: fromAgentId,
+        fromAgentName: fromAgentName,
+      ),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatEscalationHandle,
+  name: 'chatEscalationHandle',
+  pageBuilder: (context, state) {
+    final escalationId = state.pathParameters['escalationId']!;
+    final agentId = state.uri.queryParameters['agentId'] ?? '';
+    return NoTransitionPage(
+      child: HandleEscalationPage(
+        escalationId: escalationId,
+        agentId: agentId,
+      ),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatEscalationHistory,
+  name: 'chatEscalationHistory',
+  pageBuilder: (context, state) {
+    final conversationId = state.pathParameters['conversationId']!;
+    return NoTransitionPage(
+      child: EscalationHistoryPage(conversationId: conversationId),
+    );
+  },
+),
+GoRoute(
+  path: AppRoutes.chatEscalationDashboard,
+  name: 'chatEscalationDashboard',
+  pageBuilder: (context, state) {
+    final agentId = state.uri.queryParameters['agentId'] ?? '';
+    final levelIndex = int.tryParse(state.uri.queryParameters['level'] ?? '0') ?? 0;
+    final level = EscalationLevel.values[levelIndex];
+    return NoTransitionPage(
+      child: EscalationDashboardPage(
+        agentId: agentId,
+        agentLevel: level,
+      ),
+    );
+  },
+),
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => NoTransitionPage(child: DocumentVaultPage())),
         GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => NoTransitionPage(child: SettingsPage())),
 
