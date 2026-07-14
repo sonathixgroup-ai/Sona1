@@ -223,7 +223,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     );
   }
 
-  Widget _buildHeroBanner(EventModel? featuredEvent) {
+  Widget _buildHeroBanner(dynamic featuredEvent) {
     final imageUrl = featuredEvent?.imageUrl?? 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?q=80&w=2070';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
