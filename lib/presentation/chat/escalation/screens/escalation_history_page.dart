@@ -3,11 +3,9 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
-import '../models/escalation_step.dart';
+import 'package:provider/provider.dart';
 import '../providers/escalation_provider.dart';
-import '../widgets/level_badge.dart';
-import '../widgets/priority_chip.dart';
-import '../widgets/status_indicator.dart';
+import '../models/escalation_step.dart';
 
 class EscalationHistoryPage extends StatelessWidget {
   final String conversationId;
@@ -16,7 +14,7 @@ class EscalationHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<EscalationProvider>();
+    final provider = Provider.of<EscalationProvider>(context, listen: true)
 
     return Scaffold(
       appBar: AppBar(
