@@ -1,14 +1,12 @@
-// ============================================================
-// lib/presentation/chat/escalation/models/escalation_status.dart
-// ============================================================
+import 'package:flutter/material.dart';
 
 enum EscalationStatus {
-  pending,   // En attente de traitement
-  accepted,  // Acceptée par le niveau supérieur
-  rejected,  // Refusée
-  timeout,   // Délai dépassé, escalade automatique
-  resolved,  // Résolue (clôturée)
-  canceled;  // Annulée par l'agent initial
+  pending,
+  accepted,
+  rejected,
+  timeout,
+  resolved,
+  canceled;
 
   String get label {
     switch (this) {
