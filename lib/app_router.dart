@@ -1,4 +1,4 @@
-// lib/app_router.dart - BUILD VERT - Toutes routes conservees
+// lib/app_router.dart - BUILD VERT - Toutes routes conservees - FIX BUS
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,7 +23,7 @@ import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
 // ============ BUS MODULE ============
-import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart'; // <-- MANQUANT chez toi
+import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_search_result_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_trip_detail_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_seat_selection_page.dart';
@@ -205,7 +205,7 @@ import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 import 'package:thix_id/presentation/mon_pays/models/province.dart';
 
-// -------- THIX INFO ADMIN - ALIAS POUR EVITER CONFLIT --------
+// ADMIN ALIAS
 import 'presentation/admin/admin_home_page.dart' as thix_admin;
 import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
 import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
@@ -319,7 +319,7 @@ class AppRouter {
         GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (_, state) => NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!))),
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => NoTransitionPage(child: ProfilePage())),
-  
+
         // THIX SANTE
         GoRoute(path: AppRoutes.thixSante, redirect: (_, __) => AppRoutes.thixSanteDashboard),
         GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c, s) => PatientDashboardPage()),
@@ -386,7 +386,7 @@ class AppRouter {
           ],
         ),
     
-        // THIX Info - CORRIGE VIRGULES
+        // THIX Info
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) {
           return NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!));
@@ -398,7 +398,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => NoTransitionPage(child: const SavedArticlesPage())),
         GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
 
-        // THIX Money, Media, Reservation
+        // THIX Money, Media, Reservation Hub
         GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
         GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage())),
         GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) {
@@ -410,13 +410,9 @@ class AppRouter {
 
         // THIX Evenement
         GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
-        GoRoute(path: AppRoutes.thixEventDetail, name: 'thixEventDetail', pageBuilder: (_, state) {
-          return NoTransitionPage(child: EventDetailPage(eventId: state.pathParameters['eventId']!));
-        }),
+        GoRoute(path: AppRoutes.thixEventDetail, name: 'thixEventDetail', pageBuilder: (_, state) => NoTransitionPage(child: EventDetailPage(eventId: state.pathParameters['eventId']!))),
         GoRoute(path: AppRoutes.thixEventSearch, name: 'thixEventSearch', pageBuilder: (_, __) => NoTransitionPage(child: EventSearchPage())),
-        GoRoute(path: AppRoutes.thixEventCategory, name: 'thixEventCategory', pageBuilder: (_, state) {
-          return NoTransitionPage(child: EventCategoryPage(category: state.pathParameters['category']!));
-        }),
+        GoRoute(path: AppRoutes.thixEventCategory, name: 'thixEventCategory', pageBuilder: (_, state) => NoTransitionPage(child: EventCategoryPage(category: state.pathParameters['category']!))),
         GoRoute(path: AppRoutes.thixEventReservation, name: 'thixEventReservation', pageBuilder: (_, state) {
           final eventId = state.pathParameters['eventId']!;
           final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
@@ -424,67 +420,42 @@ class AppRouter {
         }),
         GoRoute(path: AppRoutes.thixEventMyTickets, name: 'thixEventMyTickets', pageBuilder: (_, __) => NoTransitionPage(child: MyTicketsPage())),
         GoRoute(path: AppRoutes.thixEventFavorites, name: 'thixEventFavorites', pageBuilder: (_, __) => NoTransitionPage(child: FavoriteEventsPage())),
-        GoRoute(path: AppRoutes.thixEventSeatSelection, name: 'thixEventSeatSelection', pageBuilder: (_, state) {
-          return NoTransitionPage(child: SeatSelectionPage(eventId: state.pathParameters['eventId']!));
-        }),
+        GoRoute(path: AppRoutes.thixEventSeatSelection, name: 'thixEventSeatSelection', pageBuilder: (_, state) => NoTransitionPage(child: SeatSelectionPage(eventId: state.pathParameters['eventId']!))),
         GoRoute(path: AppRoutes.thixEventWaitingQueue, name: 'thixEventWaitingQueue', pageBuilder: (_, state) {
           final eventId = state.pathParameters['eventId']!;
           final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
 
-
-        
-// ═══════════ THIX RESERVATION HUB ═══════════
-GoRoute(
-  path: AppRoutes.reservation,
-  name: 'thixreservation',
-  pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())
-),
-// --- CLIENT FLOW ---
-GoRoute(path: '/thix-reservation/bus', name: 'bus-home', builder: (_, __) => const BusHomePage()),
-
-GoRoute(
-  path: '/thix-reservation/bus/search',
-  name: 'bus-search',
-  builder: (_, state) {
-    return BusSearchResultPage(
-      from: state.uri.queryParameters['from'],
-      to: state.uri.queryParameters['to'],
-      date: state.uri.queryParameters['date'],
-    );
-  },
-),
-
-GoRoute(
-  path: '/thix-reservation/bus/detail',
-  name: 'bus-detail',
-  builder: (_, state) => BusTripDetailPage(trip: state.extra as BusTripModel),
-),
-
-GoRoute(
-  path: '/thix-reservation/bus/seats',
-  name: 'bus-seats',
-  builder: (_, state) => BusSeatSelectionPage(trip: state.extra as BusTripModel),
-),
-
-GoRoute(
-  path: '/thix-reservation/bus/payment',
-  name: 'bus-payment',
-  builder: (_, state) => BusPaymentPage(data: state.extra as Map<String,dynamic>),
-),
-
-GoRoute(
-  path: '/thix-reservation/bus/ticket/:id',
-  name: 'bus-ticket',
-  builder: (_, state) => BusTicketPage(bookingId: state.pathParameters['id']!),
-),
-
-// --- AGENCY FLOW ---
-GoRoute(path: '/agency/onboarding', name: 'agency-onboarding', builder: (_, __) => const AgencyOnboardingPage()),
-GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', builder: (_, __) => const AgencyDashboardPage()),
-GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', builder: (_, __) => const AgencyCreateTripPage()),
-GoRoute(path: '/agency/scan', name: 'agency-scan', builder: (_, __) => const AgencyQrScanPage()),
+        // ═══════════ BUS FIX VERT - AUCUNE ROUTE COUPEE ═══════════
+        GoRoute(path: '/thix-reservation/bus', name: 'bus-home', pageBuilder: (_, __) => NoTransitionPage(child: BusHomePage())),
+        GoRoute(path: '/thix-reservation/bus/search', name: 'bus-search', pageBuilder: (_, __) => const NoTransitionPage(child: BusSearchResultPage())),
+        GoRoute(path: '/thix-reservation/bus/detail', name: 'bus-detail', pageBuilder: (_, state) => NoTransitionPage(child: BusTripDetailPage(trip: state.extra as BusTripModel))),
+        GoRoute(
+          path: '/thix-reservation/bus/seats',
+          name: 'bus-seats',
+          pageBuilder: (_, state) => NoTransitionPage(child: BusSeatSelectionPage(trip: state.extra as BusTripModel)),
+        ),
+        GoRoute(
+          path: '/thix-reservation/bus/payment',
+          name: 'bus-payment',
+          pageBuilder: (_, state) {
+            final map = state.extra as Map<String, dynamic>;
+            return NoTransitionPage(child: BusPaymentPage(trip: map['trip'] as BusTripModel, seats: (map['seats'] as List).cast<String>()));
+          },
+        ),
+        GoRoute(
+          path: '/thix-reservation/bus/ticket/:id',
+          name: 'bus-ticket',
+          pageBuilder: (_, state) {
+            final booking = state.extra as BookingModel;
+            return NoTransitionPage(child: BusTicketPage(booking: booking));
+          },
+        ),
+        GoRoute(path: '/agency/onboarding', name: 'agency-onboarding', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyOnboardingPage())),
+        GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyDashboardPage())),
+        GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
+        GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
      
         // THIX Market
         GoRoute(
@@ -532,7 +503,6 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', builder: (_, __) => const Age
           ],
         ),
 
-        // THIX INFO ADMIN - OUVERT - ALIAS
         GoRoute(path: '/admin', builder: (context, state) => const thix_admin.AdminHomePage()),
         GoRoute(path: '/admin/articles', builder: (context, state) => const thix_admin_list.AdminArticlesListPage()),
         GoRoute(path: '/admin/articles/new', builder: (context, state) => const thix_admin_form.AdminArticleFormPage()),
