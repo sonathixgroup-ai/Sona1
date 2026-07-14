@@ -194,6 +194,11 @@ import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 import 'package:thix_id/presentation/mon_pays/models/province.dart';
 
+// -------- info admin--------
+import 'presentation/admin/admin_home_page.dart';
+import 'presentation/admin/admin_articles_list_page.dart';
+import 'presentation/admin/admin_article_form_page.dart';
+
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
@@ -610,7 +615,11 @@ GoRoute(
             GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => NoTransitionPage(child: const NotificationPage())),
           ],
         ),
-
+ // ---------------- admin info -----------------
+        GoRoute(path: '/admin', builder: (context, state) => const AdminHomePage()),
+GoRoute(path: '/admin/articles', builder: (context, state) => const AdminArticlesListPage()),
+GoRoute(path: '/admin/articles/new', builder: (context, state) => const AdminArticleFormPage()),
+GoRoute(path: '/admin/articles/:id/edit', builder: (context, state) => AdminArticleFormPage(articleId: state.pathParameters['id'])),
         
         // MON PAYS - unique definition
         GoRoute(path: AppRoutes.monPays, name: 'monPays', pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()), routes: [
