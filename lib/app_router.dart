@@ -614,11 +614,11 @@ GoRoute(
           ],
         ),
  // ---------------- admin info -----------------
-        GoRoute(path: '/admin', builder: (context, state) => const AdminHomePage()),
-GoRoute(path: '/admin/articles', builder: (context, state) => const AdminArticlesListPage()),
-GoRoute(path: '/admin/articles/new', builder: (context, state) => const AdminArticleFormPage()),
-GoRoute(path: '/admin/articles/:id/edit', builder: (context, state) => AdminArticleFormPage(articleId: state.pathParameters['id'])),
-        
+GoRoute(path: '/admin', builder: (context, state) => const thix_admin.AdminHomePage()),
+GoRoute(path: '/admin/articles', builder: (context, state) => const thix_admin_list.AdminArticlesListPage()),
+GoRoute(path: '/admin/articles/new', builder: (context, state) => const thix_admin_form.AdminArticleFormPage()),
+GoRoute(path: '/admin/articles/:id/edit', builder: (context, state) => thix_admin_form.AdminArticleFormPage(articleId: state.pathParameters['id'])),
+
         // MON PAYS - unique definition
         GoRoute(path: AppRoutes.monPays, name: 'monPays', pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()), routes: [
           GoRoute(path: 'authorities', name: 'monPaysAuthorities', pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage())),
