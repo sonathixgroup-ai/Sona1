@@ -7,7 +7,7 @@ import '../models/escalation_step.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_status.dart';
 import '../models/escalation_priority.dart';
-
+import '../models/escalation_rule.dart';  // <-- AJOUTER
 class EscalationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
