@@ -14,7 +14,7 @@ class BusSearchProvider extends ChangeNotifier {
   int passengers = 1;
 
   List<CityModel> cities = [];
-  List<BusTripModel> _allResults = [];
+  List<BusTripModel> allResults = []; // PUBLIC pour filtre agences
   List<BusTripModel> filteredResults = [];
 
   bool isLoading = false;
@@ -84,13 +84,13 @@ class BusSearchProvider extends ChangeNotifier {
       error = null;
       notifyListeners();
 
-      _allResults = await _service.searchTrips(
+      allResults = await _service.searchTrips(
         from: departureCity!,
         to: arrivalCity!,
         date: departureDate,
         passengers: passengers,
       );
-      filteredResults = List.from(_allResults);
+      filteredResults = List.from(allResults);
       _applyFiltersAndSort();
     } catch (e) {
       error = 'Erreur recherche: $e';
@@ -102,7 +102,7 @@ class BusSearchProvider extends ChangeNotifier {
   }
 
   void _applyFiltersAndSort() {
-    var list = _allResults.where((t) {
+    var list = allResults.where((t) {
       final priceOk = t.priceFcfa >= minPrice && t.priceFcfa <= maxPrice;
       final agencyOk = selectedAgencies.isEmpty || selectedAgencies.contains(t.agencyId);
       final typeOk = selectedBusType == null || t.busType == selectedBusType;
@@ -149,7 +149,7 @@ class BusSearchProvider extends ChangeNotifier {
     selectedAgencies.clear();
     selectedBusType = null;
     sortBy = 'departure';
-    filteredResults = List.from(_allResults);
+    filteredResults = List.from(allResults);
     notifyListeners();
   }
 }
