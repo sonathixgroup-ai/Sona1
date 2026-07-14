@@ -6,10 +6,12 @@ import '../../providers/news_provider.dart';
 const _kBorder = Color(0xFFECEEF4);
 const _kGold = Color(0xFFFFB800);
 const _kDark = Color(0xFF101840);
+const _kBg = Color(0xFFF7F8FB);
 
 class AdminArticlesListPage extends StatefulWidget {
   const AdminArticlesListPage({super.key});
-  @override State<AdminArticlesListPage> createState() => _AdminArticlesListPageState();
+  @override
+  State<AdminArticlesListPage> createState() => _AdminArticlesListPageState();
 }
 
 class _AdminArticlesListPageState extends State<AdminArticlesListPage> {
@@ -18,14 +20,13 @@ class _AdminArticlesListPageState extends State<AdminArticlesListPage> {
   @override
   void initState() {
     super.initState();
-    // CORRIGE : Pas de context dans microtask, on attend le frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      // Force 'all' pour voir TOUT, même non publiés
       await context.read<NewsProvider>().fetchArticles(category: 'all');
     } catch (e) {
       debugPrint('❌ Erreur load admin: $e');
@@ -36,25 +37,20 @@ class _AdminArticlesListPageState extends State<AdminArticlesListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<NewsProvider>();
-    final articles = provider.articles;
+    final articles = context.watch<NewsProvider>().articles;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FB),
+      backgroundColor: _kBg,
       appBar: AppBar(
         title: const Text('Gérer Articles', style: TextStyle(fontWeight: FontWeight.w900)),
         backgroundColor: _kDark,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _load,
-          ),
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
               await context.push('/admin/articles/new');
-              // CORRIGE : Recharge auto au retour de la création
               _load();
             },
           ),
@@ -81,29 +77,16 @@ class _AdminArticlesListPageState extends State<AdminArticlesListPage> {
                       itemBuilder: (_, i) {
                         final a = articles[i];
                         return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _kBorder),
-                          ),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: _kBorder)),
                           child: ListTile(
                             leading: a.imageUrl != null && a.imageUrl!.isNotEmpty
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      a.imageUrl!,
-                                      width: 56,
-                                      height: 56,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(width: 56, height: 56, color: Colors.grey[200], child: const Icon(Icons.image)),
-                                    ),
+                                    child: Image.network(a.imageUrl!, width: 56, height: 56, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 56, height: 56, color: Colors.grey[200], child: const Icon(Icons.image))),
                                   )
                                 : Container(width: 56, height: 56, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.article)),
                             title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                            subtitle: Text(
-                              '${a.category} ${a.isFeatured ? "• À la une" : ""} ${a.isBreaking ? "• Breaking" : ""} • ${a.isPublished ? "Publié" : "Brouillon"}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            subtitle: Text('${a.category} ${a.isFeatured ? "• À la une" : ""} ${a.isBreaking ? "• Breaking" : ""}', style: const TextStyle(fontSize: 12)),
                             trailing: PopupMenuButton<String>(
                               onSelected: (v) async {
                                 if (v == 'edit') {
