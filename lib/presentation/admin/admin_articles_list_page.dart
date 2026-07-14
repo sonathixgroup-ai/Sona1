@@ -3,56 +3,151 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/news_provider.dart';
 
+const _kBorder = Color(0xFFECEEF4);
+const _kGold = Color(0xFFFFB800);
+const _kDark = Color(0xFF101840);
+
 class AdminArticlesListPage extends StatefulWidget {
   const AdminArticlesListPage({super.key});
   @override State<AdminArticlesListPage> createState() => _AdminArticlesListPageState();
 }
 
 class _AdminArticlesListPageState extends State<AdminArticlesListPage> {
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<NewsProvider>().fetchArticles(category: 'all'));
+    // CORRIGE : Pas de context dans microtask, on attend le frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      // Force 'all' pour voir TOUT, même non publiés
+      await context.read<NewsProvider>().fetchArticles(category: 'all');
+    } catch (e) {
+      debugPrint('❌ Erreur load admin: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final articles = context.watch<NewsProvider>().articles;
+    final provider = context.watch<NewsProvider>();
+    final articles = provider.articles;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FB),
       appBar: AppBar(
-        title: const Text('Gérer Articles'),
-        actions: [IconButton(icon: const Icon(Icons.add), onPressed: () => context.push('/admin/articles/new'))],
+        title: const Text('Gérer Articles', style: TextStyle(fontWeight: FontWeight.w900)),
+        backgroundColor: _kDark,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            onPressed: () async {
+              await context.push('/admin/articles/new');
+              // CORRIGE : Recharge auto au retour de la création
+              _load();
+            },
+          ),
+        ],
       ),
-      body: articles.isEmpty
-          ? const Center(child: Text('Aucun article - Clique + pour créer'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: articles.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) {
-                final a = articles[i];
-                return Container(
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFECEEF4))),
-                  child: ListTile(
-                    leading: a.imageUrl != null
-                        ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(a.imageUrl!, width: 56, height: 56, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image)))
-                        : Container(width: 56, height: 56, color: Colors.grey[200], child: const Icon(Icons.article)),
-                    title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text('${a.category} ${a.isFeatured ? "• À la une" : ""} ${a.isBreaking ? "• Breaking" : ""}'),
-                    trailing: PopupMenuButton(
-                      onSelected: (v) async {
-                        if (v == 'edit') context.push('/admin/articles/${a.id}/edit');
-                        if (v == 'delete') {
-                          await context.read<NewsProvider>().deleteArticle(a.id);
-                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Supprimé')));
-                        }
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: _kGold))
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: _kGold,
+              child: articles.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 200),
+                        Center(child: Icon(Icons.article_outlined, size: 64, color: Colors.grey)),
+                        SizedBox(height: 16),
+                        Center(child: Text('Aucun article - Clique + pour créer', style: TextStyle(color: Colors.grey))),
+                      ],
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: articles.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final a = articles[i];
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _kBorder),
+                          ),
+                          child: ListTile(
+                            leading: a.imageUrl != null && a.imageUrl!.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      a.imageUrl!,
+                                      width: 56,
+                                      height: 56,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(width: 56, height: 56, color: Colors.grey[200], child: const Icon(Icons.image)),
+                                    ),
+                                  )
+                                : Container(width: 56, height: 56, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.article)),
+                            title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            subtitle: Text(
+                              '${a.category} ${a.isFeatured ? "• À la une" : ""} ${a.isBreaking ? "• Breaking" : ""} • ${a.isPublished ? "Publié" : "Brouillon"}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (v) async {
+                                if (v == 'edit') {
+                                  await context.push('/admin/articles/${a.id}/edit');
+                                  _load();
+                                }
+                                if (v == 'delete') {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (c) => AlertDialog(
+                                      title: const Text('Supprimer ?'),
+                                      content: Text('Supprimer "${a.title}" ?'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annuler')),
+                                        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Supprimer', style: TextStyle(color: Colors.red))),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await context.read<NewsProvider>().deleteArticle(a.id);
+                                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Supprimé')));
+                                    _load();
+                                  }
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: 'edit', child: Text('Éditer')),
+                                PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          ),
+                        );
                       },
-                      itemBuilder: (_) => [const PopupMenuItem(value: 'edit', child: Text('Éditer')), const PopupMenuItem(value: 'delete', child: Text('Supprimer'))],
                     ),
-                  ),
-                );
-              },
             ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: _kGold,
+        foregroundColor: Colors.black,
+        onPressed: () async {
+          await context.push('/admin/articles/new');
+          _load();
+        },
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
