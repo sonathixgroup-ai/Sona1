@@ -9,10 +9,12 @@ import '../widgets/status_indicator.dart';
 class EscalationHistoryPage extends StatelessWidget {
   final String conversationId;
 
-  const EscalationHistoryPage({Key? key, required this.conversationId}) : super(key: key);
+  const EscalationHistoryPage({Key? key, required this.conversationId})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Utilisation de Provider.of (compatible toutes versions)
     final provider = Provider.of<EscalationProvider>(context, listen: true);
 
     return Scaffold(
@@ -23,7 +25,9 @@ class EscalationHistoryPage extends StatelessWidget {
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : provider.history.isEmpty
-              ? const Center(child: Text('Aucune escalade pour cette conversation'))
+              ? const Center(
+                  child: Text('Aucune escalade pour cette conversation'),
+                )
               : ListView.builder(
                   padding: const EdgeInsets.all(8),
                   itemCount: provider.history.length,
