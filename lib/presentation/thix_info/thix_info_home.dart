@@ -15,6 +15,25 @@ const _kMuted = Color(0xFF8A8FA8);
 const _kBorder = Color(0xFFECEEF4);
 const _kRed = Color(0xFFE0263A);
 
+Color _catColor(String cat) {
+  switch (cat.toLowerCase()) {
+    case 'politique':
+      return const Color(0xFF3B5BDB);
+    case 'economie':
+    case 'économie':
+      return const Color(0xFF2F9E44);
+    case 'tech':
+      return const Color(0xFF7048E8);
+    case 'sport':
+      return const Color(0xFFF08C00);
+    case 'societe':
+    case 'société':
+      return const Color(0xFF0C8599);
+    default:
+      return _kBlue;
+  }
+}
+
 class ThixInfoHome extends StatefulWidget {
   const ThixInfoHome({super.key});
 
@@ -39,6 +58,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     {'slug': 'societe', 'name': 'Société'},
     {'slug': 'tech', 'name': 'Tech'},
     {'slug': 'sport', 'name': 'Sport'},
+    {'slug': 'culture', 'name': 'Culture'},
+    {'slug': 'international', 'name': 'International'},
   ];
 
   @override
@@ -46,6 +67,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NewsProvider>().fetchArticles(category: 'all');
+      context.read<NewsProvider>().loadSavedArticles();
       _startAuto();
       _startBreakingScroll();
     });
@@ -148,73 +170,95 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
+  // Header : logo, titre, cloche notif, avatar, et bouton admin
+  // rendu totalement invisible (blanc sur blanc) mais toujours cliquable.
   Widget _top() {
     return Container(
       color: _kWhite,
       padding: const EdgeInsets.fromLTRB(12, 44, 12, 10),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: _kGold, width: 2),
-        ),
-      ),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.menu, size: 20),
+            icon: const Icon(Icons.menu, size: 20, color: _kDark),
             onPressed: () => context.go('/'),
           ),
           Container(
-            width: 34,
-            height: 34,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: _kGold,
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.newspaper,
-              size: 16,
+              size: 18,
               color: Colors.white,
             ),
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'THIX INFO',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
+                RichText(
+                  text: const TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'THIX ',
+                        style: TextStyle(
+                          color: _kDark,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'INFO',
+                        style: TextStyle(
+                          color: _kGold,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  "L'info vraie, partout.",
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: _kMuted,
-                  ),
+                const Text(
+                  "L'information vraie, partout.",
+                  style: TextStyle(fontSize: 9, color: _kMuted),
                 ),
               ],
             ),
           ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.notifications_none, size: 22, color: _kDark),
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: _kRed,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 10),
+          // Zone admin : totalement fondue dans le blanc, sans texte,
+          // sans bordure, mais toujours cliquable pour toi.
           GestureDetector(
             onTap: () => context.push('/admin'),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 5,
-              ),
-              decoration: BoxDecoration(
-                color: _kGold,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'ADMIN',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                ),
+              width: 34,
+              height: 34,
+              color: _kWhite,
+              child: CircleAvatar(
+                backgroundColor: _kBg,
+                radius: 17,
+                child: const Icon(Icons.person, size: 18, color: _kMuted),
               ),
             ),
           ),
@@ -228,21 +272,24 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
       color: _kWhite,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
       child: Container(
-        height: 36,
+        height: 40,
         decoration: BoxDecoration(
-          color: _kGoldLight,
-          borderRadius: BorderRadius.circular(11),
+          color: _kBg,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _kBorder),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: const Row(
           children: [
-            Icon(Icons.search, size: 16, color: _kMuted),
-            SizedBox(width: 6),
-            Text(
-              'Rechercher une actualité...',
-              style: TextStyle(fontSize: 11, color: _kMuted),
+            Icon(Icons.search, size: 18, color: _kMuted),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Rechercher une actualité, un sujet...',
+                style: TextStyle(fontSize: 11, color: _kMuted),
+              ),
             ),
+            Icon(Icons.tune, size: 16, color: _kMuted),
           ],
         ),
       ),
@@ -250,52 +297,54 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
   }
 
   Widget _cats() {
-    return SizedBox(
-      height: 30,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        scrollDirection: Axis.horizontal,
-        itemCount: cats.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (_, i) {
-          final c = cats[i];
-          final sel = _cat == c['slug'];
-          return GestureDetector(
-            onTap: () {
-              setState(() => _cat = c['slug']!);
-              if (c['slug'] == 'featured') {
-                context.read<NewsProvider>().fetchArticles(category: 'all');
-              } else {
-                context
-                    .read<NewsProvider>()
-                    .fetchArticles(category: c['slug']!);
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: sel ? _kGold : _kWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: sel ? _kGold : _kBorder,
+    return Container(
+      color: _kWhite,
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SizedBox(
+        height: 32,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          scrollDirection: Axis.horizontal,
+          itemCount: cats.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 14),
+          itemBuilder: (_, i) {
+            final c = cats[i];
+            final sel = _cat == c['slug'];
+            return GestureDetector(
+              onTap: () {
+                setState(() => _cat = c['slug']!);
+                if (c['slug'] == 'featured') {
+                  context.read<NewsProvider>().fetchArticles(category: 'all');
+                } else {
+                  context
+                      .read<NewsProvider>()
+                      .fetchArticles(category: c['slug']!);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: sel ? _kGold : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  c['name']!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
+                    color: sel ? _kDark : _kMuted,
+                  ),
                 ),
               ),
-              child: Text(
-                c['name']!,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
-  // 3. Bande rouge défilante avec titre + petit détail de chaque breaking news
+  // Bande rouge défilante conservée : titre + petit détail, en boucle.
   Widget _breakingBar(List<NewsArticle> list) {
     return Container(
       height: 34,
@@ -358,144 +407,257 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
+  // Carte "À la une" façon capture : badge, titre, description,
+  // heure + vues, bouton "Lire l'article", flèches et dots.
   Widget _featuredAuto(List<NewsArticle> list) {
-    return SizedBox(
-      height: 144,
-      child: PageView.builder(
-        controller: _pageCtrl,
-        onPageChanged: (v) => _page = v,
-        itemCount: list.length,
-        itemBuilder: (_, i) {
-          final a = list[i];
-          return GestureDetector(
-            onTap: () => context.push('/thix-info/article/${a.id}'),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: _kWhite,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _kGold, width: 1.4),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(9),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          height: 210,
+          child: PageView.builder(
+            controller: _pageCtrl,
+            onPageChanged: (v) => setState(() => _page = v),
+            itemCount: list.length,
+            itemBuilder: (_, i) {
+              final a = list[i];
+              return GestureDetector(
+                onTap: () => context.push('/thix-info/article/${a.id}'),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: _kWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _kBorder),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: a.imageUrl != null
+                            ? Image.network(a.imageUrl!, fit: BoxFit.cover)
+                            : Container(color: _kBlue),
+                      ),
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomLeft,
+                              end: Alignment.topRight,
+                              colors: [
+                                Colors.black.withOpacity(0.75),
+                                Colors.black.withOpacity(0.05),
+                              ],
                             ),
-                            decoration: BoxDecoration(
-                              color: _kGold.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'À LA UNE',
-                              style: TextStyle(
-                                fontSize: 7,
-                                fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 14,
+                        right: 14,
+                        bottom: 14,
+                        top: 14,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            a.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              height: 1.1,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            a.summary ?? '',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 9,
-                              color: _kMuted,
-                            ),
-                          ),
-                          const Spacer(),
-                          SizedBox(
-                            height: 24,
-                            child: ElevatedButton(
-                              onPressed: () => context
-                                  .push('/thix-info/article/${a.id}'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _kGold,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
+                              decoration: BoxDecoration(
+                                color: _kGold,
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
-                                'Lire',
+                                'À LA UNE',
                                 style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w800,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  color: _kDark,
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                            const Spacer(),
+                            Text(
+                              a.title,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                height: 1.15,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              a.summary ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white70,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.access_time,
+                                  size: 11,
+                                  color: Colors.white70,
+                                ),
+                                const SizedBox(width: 3),
+                                const Text(
+                                  'Récemment',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                const Icon(
+                                  Icons.remove_red_eye_outlined,
+                                  size: 11,
+                                  color: Colors.white70,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${a.viewsCount} vues',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              height: 30,
+                              child: ElevatedButton.icon(
+                                onPressed: () => context
+                                    .push('/thix-info/article/${a.id}'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _kGold,
+                                  foregroundColor: _kDark,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                ),
+                                icon: const Text(
+                                  "Lire l'article",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                label: const Icon(
+                                  Icons.arrow_forward,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  Expanded(
-                    child: a.imageUrl != null
-                        ? Image.network(
-                            a.imageUrl!,
-                            fit: BoxFit.cover,
-                            height: 144,
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: _kBlue),
-                          )
-                        : Container(color: _kBlue),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                ),
+              );
+            },
+          ),
+        ),
+        Positioned(
+          bottom: 6,
+          child: Row(
+            children: List.generate(list.length, (i) {
+              final active = i == _page;
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: active ? 14 : 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: active ? _kGold : Colors.white70,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 
-  // 2. Un peu de jaune sur les icônes rapides (fond alterné)
+  // Icônes rapides colorées, comme sur la capture.
   Widget _quick() {
     final items = [
-      {'icon': Icons.article, 'label': 'Fil Info'},
-      {'icon': Icons.play_circle, 'label': 'Vidéos'},
-      {'icon': Icons.headset, 'label': 'Podcasts'},
-      {'icon': Icons.menu_book, 'label': 'Magazines'},
-      {'icon': Icons.notifications, 'label': 'Alertes'},
+      {
+        'icon': Icons.article,
+        'label': 'Fil Info',
+        'bg': const Color(0xFFE7F1FF),
+        'fg': const Color(0xFF1971C2),
+      },
+      {
+        'icon': Icons.play_circle,
+        'label': 'Vidéos',
+        'bg': const Color(0xFFFFE3E3),
+        'fg': const Color(0xFFE03131),
+      },
+      {
+        'icon': Icons.headset,
+        'label': 'Podcasts',
+        'bg': const Color(0xFFF3E8FF),
+        'fg': const Color(0xFF7048E8),
+      },
+      {
+        'icon': Icons.menu_book,
+        'label': 'Magazines',
+        'bg': const Color(0xFFFFF0E0),
+        'fg': const Color(0xFFF08C00),
+      },
+      {
+        'icon': Icons.notifications,
+        'label': 'Alertes',
+        'bg': const Color(0xFFE6FCF5),
+        'fg': const Color(0xFF12B886),
+      },
     ];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: _kWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kGold.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBorder),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (i) {
-          return _QI(
-            icon: items[i]['icon'] as IconData,
-            label: items[i]['label'] as String,
-            highlight: i.isEven,
+        children: items.map((it) {
+          return Column(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: it['bg'] as Color,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  it['icon'] as IconData,
+                  size: 17,
+                  color: it['fg'] as Color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                it['label'] as String,
+                style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
+              ),
+            ],
           );
-        }),
+        }).toList(),
       ),
     );
   }
@@ -506,25 +668,13 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: _kGold,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                t,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+          Text(
+            t,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: _kDark,
+            ),
           ),
           const Text(
             'Voir tout',
@@ -539,7 +689,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // 4. onTap ajouté pour ouvrir le détail
+  // Cartes récentes façon capture : badge catégorie coloré sur l'image,
+  // titre, puis vues + favori.
   Widget _recentCompact(List<NewsArticle> list) {
     if (list.isEmpty) {
       return const Padding(
@@ -554,50 +705,65 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     }
 
     return SizedBox(
-      height: 120,
+      height: 190,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         scrollDirection: Axis.horizontal,
         itemCount: list.length > 8 ? 8 : list.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final a = list[i];
           return GestureDetector(
             onTap: () => context.push('/thix-info/article/${a.id}'),
             child: Container(
-              width: 132,
+              width: 160,
               decoration: BoxDecoration(
                 color: _kWhite,
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _kBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: _kGold.withOpacity(0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(11),
-                    ),
-                    child: SizedBox(
-                      height: 54,
-                      width: 132,
-                      child: a.imageUrl != null
-                          ? Image.network(a.imageUrl!, fit: BoxFit.cover)
-                          : Container(
-                              color: _kGoldLight,
-                              child: const Icon(Icons.image, size: 16),
+                  Stack(
+                    children: [
+                      SizedBox(
+                        height: 90,
+                        width: 160,
+                        child: a.imageUrl != null
+                            ? Image.network(a.imageUrl!, fit: BoxFit.cover)
+                            : Container(
+                                color: _kGoldLight,
+                                child: const Icon(Icons.image, size: 16),
+                              ),
+                      ),
+                      Positioned(
+                        left: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _catColor(a.category),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            a.category.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
                             ),
-                    ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -607,16 +773,12 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
                           ),
                         ),
-                        Text(
-                          a.category,
-                          style: const TextStyle(
-                            fontSize: 8,
-                            color: _kMuted,
-                          ),
-                        ),
+                        const SizedBox(height: 6),
+                        _engagementRow(a),
                       ],
                     ),
                   ),
@@ -657,7 +819,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
               width: 158,
               decoration: BoxDecoration(
                 color: _kWhite,
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _kBorder),
               ),
               clipBehavior: Clip.antiAlias,
@@ -667,7 +829,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                   Stack(
                     children: [
                       SizedBox(
-                        height: 84,
+                        height: 90,
                         width: 158,
                         child: v.imageUrl != null
                             ? Image.network(v.imageUrl!, fit: BoxFit.cover)
@@ -683,23 +845,23 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                         ),
                       ),
                       Positioned(
-                        bottom: 4,
-                        right: 4,
+                        bottom: 6,
+                        right: 6,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
+                            horizontal: 5,
+                            vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: _kGold,
-                            borderRadius: BorderRadius.circular(3),
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
                             'VIDEO',
                             style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 7,
-                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
@@ -707,7 +869,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                     ],
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(7, 6, 7, 4),
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -721,71 +883,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                             height: 1.1,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.category,
-                              size: 10,
-                              color: _kMuted,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              v.category,
-                              style: const TextStyle(
-                                fontSize: 8,
-                                color: _kMuted,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.visibility,
-                              size: 10,
-                              color: _kMuted,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${v.viewsCount} vues',
-                              style: const TextStyle(
-                                fontSize: 8,
-                                color: _kMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _kGoldLight,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: _kBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.link,
-                                size: 9,
-                                color: _kMuted,
-                              ),
-                              const SizedBox(width: 3),
-                              Expanded(
-                                child: Text(
-                                  v.videoUrl ?? '',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 7,
-                                    color: _kMuted,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        const SizedBox(height: 4),
+                        _engagementRow(v),
                       ],
                     ),
                   ),
@@ -798,8 +897,8 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
     );
   }
 
-  // 1. Bloc "Toute l'actualité" : grandes cartes empilées verticalement,
-  // même style que la carte "À la Une", tappables vers le détail.
+  // Bloc "Toute l'actualité" : grandes cartes empilées verticalement,
+  // tappables vers le détail.
   Widget _allNewsList(List<NewsArticle> list) {
     if (list.isEmpty) {
       return const Padding(
@@ -824,25 +923,13 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                 color: _kWhite,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _kBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: _kGold.withOpacity(0.10),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Row(
                 children: [
-                  Container(
-                    width: 4,
-                    height: 148,
-                    color: _kGold,
-                  ),
                   SizedBox(
                     width: 120,
-                    height: 148,
+                    height: 150,
                     child: a.imageUrl != null
                         ? Image.network(a.imageUrl!, fit: BoxFit.cover)
                         : Container(
@@ -858,18 +945,19 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
+                              horizontal: 6,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: _kGold.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
+                              color: _catColor(a.category),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               a.category.toUpperCase(),
                               style: const TextStyle(
                                 fontSize: 7,
                                 fontWeight: FontWeight.w900,
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -895,42 +983,7 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
                             ),
                           ),
                           const Spacer(),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.visibility,
-                                size: 11,
-                                color: _kMuted,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                '${a.viewsCount} vues',
-                                style: const TextStyle(
-                                  fontSize: 8,
-                                  color: _kMuted,
-                                ),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _kGold,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  'Lire',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          _engagementRow(a),
                         ],
                       ),
                     ),
@@ -941,6 +994,39 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  // Ligne vues + favori réutilisée sur toutes les cartes.
+  // Utilise savedArticles + saveArticle/unsaveArticle du NewsProvider.
+  Widget _engagementRow(NewsArticle a) {
+    final prov = context.watch<NewsProvider>();
+    final isSaved = prov.savedArticles.any((s) => s.id == a.id);
+
+    return Row(
+      children: [
+        const Icon(Icons.remove_red_eye_outlined, size: 12, color: _kMuted),
+        const SizedBox(width: 3),
+        Text(
+          '${a.viewsCount}',
+          style: const TextStyle(fontSize: 8, color: _kMuted),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: () {
+            if (isSaved) {
+              context.read<NewsProvider>().unsaveArticle(a.id);
+            } else {
+              context.read<NewsProvider>().saveArticle(a.id);
+            }
+          },
+          child: Icon(
+            isSaved ? Icons.bookmark : Icons.bookmark_border,
+            size: 15,
+            color: isSaved ? _kGold : _kMuted,
+          ),
+        ),
+      ],
     );
   }
 
@@ -959,9 +1045,17 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
   }
 
   Widget _bottom() {
+    final items = [
+      {'icon': Icons.home, 'label': 'Accueil'},
+      {'icon': Icons.grid_view, 'label': 'Catégories'},
+      {'icon': Icons.newspaper, 'label': 'Fil Info'},
+      {'icon': Icons.bookmark_border, 'label': 'Favoris'},
+      {'icon': Icons.person_outline, 'label': 'Profil'},
+    ];
+
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: _kWhite,
         borderRadius: BorderRadius.circular(22),
@@ -972,54 +1066,42 @@ class _ThixInfoHomeState extends State<ThixInfoHome> {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          Icon(Icons.home, color: _kGold, size: 20),
-          Icon(Icons.grid_view, color: _kMuted, size: 20),
-          CircleAvatar(
-            backgroundColor: _kGold,
-            radius: 18,
-            child: Icon(Icons.newspaper, color: Colors.white, size: 16),
-          ),
-          Icon(Icons.bookmark_border, color: _kMuted, size: 20),
-          Icon(Icons.person_outline, color: _kMuted, size: 20),
-        ],
+        children: List.generate(items.length, (i) {
+          final active = i == 2;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (active)
+                CircleAvatar(
+                  backgroundColor: _kGold,
+                  radius: 18,
+                  child: Icon(
+                    items[i]['icon'] as IconData,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                )
+              else
+                Icon(
+                  items[i]['icon'] as IconData,
+                  color: _kMuted,
+                  size: 20,
+                ),
+              const SizedBox(height: 2),
+              Text(
+                items[i]['label'] as String,
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                  color: active ? _kGold : _kMuted,
+                ),
+              ),
+            ],
+          );
+        }),
       ),
-    );
-  }
-}
-
-class _QI extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool highlight;
-
-  const _QI({
-    required this.icon,
-    required this.label,
-    this.highlight = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: highlight ? _kGoldLight : _kBg,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Icon(icon, size: 16, color: _kDark),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
-        ),
-      ],
     );
   }
 }
