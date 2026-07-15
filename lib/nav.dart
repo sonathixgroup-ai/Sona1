@@ -42,12 +42,11 @@ class AppRoutes {
   static const String instructorDashboard = '/';
   static const String instructorCourses = '/instructor/courses';
   static const String thixMediaVideo = '/thix-media-video'; 
-static const String adminMedia = '/admin-media';
-static const String thixMedia = '/thix-media';
-static const String thixMoney = '/thix-money';
-static const String reservation = '/reservation';
+  static const String adminMedia = '/admin-media';
+  static const String thixMedia = '/thix-media';
+  static const String thixMoney = '/thix-money';
+  static const String reservation = '/reservation';
 
-  
   // THIX INFO
   static const String thixInfo = '/thix-info';
   static const String thixInfoArticle = '/thix-info/article/:articleId';
@@ -66,12 +65,14 @@ static const String reservation = '/reservation';
   static const String chatNew = '/chat/new';
   static const String chatConversation = '/chat/:conversationId';
   static String chatDetail(String conversationId) => '/chat/$conversationId';
-// ==================== CHAT ESCALATION ====================
-static const String chatEscalate = '/chat/escalate/:conversationId';
-static const String chatEscalationHandle = '/chat/escalation/handle/:escalationId';
-static const String chatEscalationHistory = '/chat/escalation/history/:conversationId';
-static const String chatEscalationDashboard = '/chat/escalation/dashboard';
+  
+  // ==================== CHAT ESCALATION ====================
+  static const String chatEscalate = '/chat/escalate/:conversationId';
+  static const String chatEscalationHandle = '/chat/escalation/handle/:escalationId';
+  static const String chatEscalationHistory = '/chat/escalation/history/:conversationId';
+  static const String chatEscalationDashboard = '/chat/escalation/dashboard';
   static const String chatEscalationReceived = '/chat/escalation/received';
+  
   // ─── Groupes ───
   static const String groupCreate = '/chat/group/create';
   static const String groupInfo = '/chat/group/:groupId/info';
@@ -83,12 +84,6 @@ static const String chatEscalationDashboard = '/chat/escalation/dashboard';
   static String groupSettingsPath(String groupId) => '/chat/group/$groupId/settings';
   static String groupMembersPath(String groupId) => '/chat/group/$groupId/members';
   static String groupAddMembersPath(String groupId) => '/chat/group/$groupId/add-members';
-
-  static const String call = '/call';
-  static const String callIncoming = '/call/incoming';
-  static const String callOutgoing = '/call/outgoing';
-  
-  static String callWithUser(String userId) => '/call/$userId';
 
   // THIX Événement
   static const String thixEvent = '/thix-event';
@@ -203,7 +198,7 @@ static const String chatEscalationDashboard = '/chat/escalation/dashboard';
   static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
   static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
 
-    // ═══════════════════════════════════════
+  // ═══════════════════════════════════════
   // ─── CALL PROD - SANS IMPORT ───
   // ═══════════════════════════════════════
   static const String call = '/call';
