@@ -71,6 +71,7 @@ static const String chatEscalate = '/chat/escalate/:conversationId';
 static const String chatEscalationHandle = '/chat/escalation/handle/:escalationId';
 static const String chatEscalationHistory = '/chat/escalation/history/:conversationId';
 static const String chatEscalationDashboard = '/chat/escalation/dashboard';
+  static const String chatEscalationReceived = '/chat/escalation/received';
   // ─── Groupes ───
   static const String groupCreate = '/chat/group/create';
   static const String groupInfo = '/chat/group/:groupId/info';
