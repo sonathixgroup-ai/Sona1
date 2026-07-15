@@ -183,6 +183,7 @@ import 'package:thix_id/presentation/chat/escalation/screens/handle_escalation_p
 import 'package:thix_id/presentation/chat/escalation/screens/escalation_history_page.dart';
 import 'package:thix_id/presentation/chat/escalation/screens/escalation_dashboard_page.dart';
 import 'package:thix_id/presentation/chat/escalation/models/escalation_level.dart';
+import 'package:thix_id/presentation/chat/escalation/screens/received_escalations_page.dart';
 // MON PAYS
 import 'presentation/mon_pays/mon_pays_page.dart';
 import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
