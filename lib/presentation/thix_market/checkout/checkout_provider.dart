@@ -176,7 +176,7 @@ class CheckoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── TRAITEMENT DE LA COMMANDE ───
+  // ─── TRAITEMENT DE LA COMMANDE (Corrigé avec shop_id) ───
   Future<Map<String, dynamic>> processOrder({
     required CartProvider cartProvider,
     required double total,
@@ -187,14 +187,19 @@ class CheckoutProvider extends ChangeNotifier {
     if (_selectedAddress == null) throw Exception('Adresse requise');
     if (_selectedShippingMethod == null) throw Exception('Mode de livraison requis');
     if (_selectedPaymentMethod == null) throw Exception('Moyen de paiement requis');
+    if (items.isEmpty) throw Exception('Le panier est vide');
 
     _isProcessing = true;
     notifyListeners();
 
     try {
-      // 1. Création de la commande mère
+      // 🌟 ÉTAPE CLÉ : Récupération dynamique du shop_id depuis les articles du panier
+      final String? shopId = items.first['product']?['shop_id'] ?? items.first['shop_id']?.toString();
+
+      // 1. Création de la commande mère avec shop_id connecté
       final orderData = {
         'user_id': userId,
+        'shop_id': shopId, // 👈 Lien direct avec la boutique du vendeur !
         'address_id': _selectedAddress!['id'],
         'shipping_method': _selectedShippingMethod!['id'],
         'shipping_cost': _selectedShippingMethod!['price'] ?? 0.0,
@@ -213,7 +218,6 @@ class CheckoutProvider extends ChangeNotifier {
 
       // 2. Insertion des articles de la commande (Items)
       for (var item in items) {
-        // Validation des données pour éviter les erreurs SQL (null values)
         final productTitle = item['product_name'] ?? item['product']?['title'] ?? 'Produit inconnu';
         
         await _supabase.from('order_items').insert({
@@ -223,7 +227,7 @@ class CheckoutProvider extends ChangeNotifier {
           'price': item['price'] ?? item['product']?['price'] ?? 0.0,
           'product_name': productTitle,
           'product_image': item['image_url'] ?? item['product']?['image_url'],
-          'title_snapshot': productTitle, // Assure que title_snapshot n'est jamais vide
+          'title_snapshot': productTitle,
         });
       }
 
@@ -231,18 +235,13 @@ class CheckoutProvider extends ChangeNotifier {
       final paymentResult = await _processPayment(total);
 
       if (paymentResult['success'] == true) {
-        
-        // Logique conditionnelle selon le mode de paiement
         final isCash = _selectedPaymentMethod!['id'] == 'cash';
         
         await _supabase
             .from('orders')
             .update({
-              // Si c'est du cash, le statut de paiement reste en attente de livraison
               'payment_status': isCash ? 'pending_delivery' : 'paid',
-              // Le statut global de la commande passe en préparation
               'status': 'processing',
-              // On n'enregistre pas de date de paiement pour le cash (ce sera fait par le livreur)
               'paid_at': isCash ? null : DateTime.now().toIso8601String(),
             })
             .eq('id', _createdOrder!['id']);
@@ -264,7 +263,7 @@ class CheckoutProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ Checkout error: $e');
-      // Rollback : si une erreur survient (paiement refusé, erreur réseau), on supprime la commande créée pour éviter les commandes fantômes.
+      // Rollback en cas d'échec
       if (_createdOrder != null) {
         try {
           await _supabase
@@ -287,8 +286,6 @@ class CheckoutProvider extends ChangeNotifier {
 
     switch (method) {
       case 'cash':
-        // Pour le paiement à la livraison, l'action est validée immédiatement côté application.
-        // L'encaissement se fera physiquement plus tard.
         return {'success': true, 'message': 'Paiement à la livraison enregistré.'};
 
       case 'card':
@@ -297,7 +294,7 @@ class CheckoutProvider extends ChangeNotifier {
             'create-payment-intent',
             body: {
               'amount': amount,
-              'currency': 'CDF', // Ajusté selon la devise locale
+              'currency': 'CDF',
               'order_id': _createdOrder!['id'],
             },
           );
@@ -342,7 +339,6 @@ class CheckoutProvider extends ChangeNotifier {
         }
 
       default:
-        // Sécurité : empêche de valider si un mode non reconnu est passé
         return {'success': false, 'error': 'Méthode de paiement non supportée.'};
     }
   }
