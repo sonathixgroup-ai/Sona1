@@ -47,10 +47,11 @@ class EscalationProvider extends ChangeNotifier {
     }
   }
 
-  // Créer une nouvelle escalade
+  // ✅ Créer une nouvelle escalade (avec targetAgentId)
   Future<EscalationStep?> createEscalation({
     required String conversationId,
     required String fromAgentId,
+    required String targetAgentId,   // ✅ AJOUTÉ
     required EscalationLevel toLevel,
     required String reason,
     required EscalationPriority priority,
@@ -62,6 +63,7 @@ class EscalationProvider extends ChangeNotifier {
       final step = await _service.createEscalation(
         conversationId: conversationId,
         fromAgentId: fromAgentId,
+        targetAgentId: targetAgentId,   // ✅ TRANSMIS
         toLevel: toLevel,
         reason: reason,
         priority: priority,
@@ -69,7 +71,6 @@ class EscalationProvider extends ChangeNotifier {
         fromAgentName: fromAgentName,
       );
       _error = null;
-      // Ajouter à la liste des en attente si nécessaire
       _pendingEscalations.add(step);
       notifyListeners();
       return step;
@@ -86,9 +87,7 @@ class EscalationProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       final step = await _service.acceptEscalation(escalationId, agentId);
-      // Retirer de la liste des en attente
       _pendingEscalations.removeWhere((s) => s.id == escalationId);
-      // Ajouter à l'historique
       _history.add(step);
       _error = null;
       notifyListeners();
@@ -123,7 +122,6 @@ class EscalationProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       final step = await _service.resolveEscalation(escalationId);
-      // Mettre à jour l'historique
       final index = _history.indexWhere((s) => s.id == escalationId);
       if (index != -1) {
         _history[index] = step;
