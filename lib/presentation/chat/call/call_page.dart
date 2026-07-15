@@ -42,7 +42,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     final p = context.read<CallProvider>();
 
-    if (widget.isCaller == false && widget.inviteId!= null) {
+    if (widget.isCaller == false && widget.inviteId != null) {
       p.accept(
         channel: widget.channel,
         inviteId: widget.inviteId!,
@@ -157,7 +157,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                                 Text(statusText,
                                     style: TextStyle(
                                         color: prov.status == CallStatus.ongoing
-                                           ? const Color(0xFF1FA971)
+                                            ? const Color(0xFF1FA971)
                                             : Colors.white60,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600)),
@@ -260,9 +260,9 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
   String _getStatusText(CallProvider p) {
     switch (p.status) {
       case CallStatus.ringing:
-        return widget.isCaller? 'Appel en cours...' : 'Connexion...';
+        return widget.isCaller ? 'Appel en cours...' : 'Connexion...';
       case CallStatus.ongoing:
-        return p.remoteUid == null? 'Sonnerie...' : 'En cours';
+        return p.remoteUid == null ? 'Sonnerie...' : 'En cours';
       case CallStatus.ended:
         return 'Terminé';
       default:
@@ -304,7 +304,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                     fontWeight: FontWeight.w600)),
           ),
           const SizedBox(height: 18),
-          if (prov.status == CallStatus.ongoing && prov.remoteUid!= null)
+          if (prov.status == CallStatus.ongoing && prov.remoteUid != null)
             Text(_formatTime(_seconds),
                 style: const TextStyle(
                     color: Colors.white54,
@@ -318,10 +318,11 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
 
   Widget _buildVideoLayout(CallProvider prov) {
     Widget remoteView;
-    if (prov.remoteUid!= null) {
+    if (prov.remoteUid != null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
-          // 👇 CORRECTION : rtcConnection remplacé par connection
+          // 👇 CORRECTION : Ajout du moteur RTC obligatoire
+          rtcEngine: createAgoraRtcEngine(),
           connection: RtcConnection(channelId: widget.channel),
           canvas: VideoCanvas(
             uid: prov.remoteUid,
@@ -371,8 +372,9 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                 child: Stack(
                   children: [
                     AgoraVideoView(
-                      // 👇 CORRECTION : rtcConnection supprimé car inutile pour la vidéo locale
                       controller: VideoViewController(
+                        // 👇 CORRECTION : Ajout du moteur RTC obligatoire
+                        rtcEngine: createAgoraRtcEngine(),
                         canvas: const VideoCanvas(
                           uid: 0,
                           renderMode: RenderModeType.renderModeHidden,
