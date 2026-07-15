@@ -56,6 +56,8 @@ import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
+// 👇 L'IMPORT DE TON PROVIDER D'ESCALADE EST AJOUTÉ ICI
+import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // THIX RESERVATION BUS — SaaS Providers
@@ -378,6 +380,8 @@ class _MyAppState extends State<MyApp> {
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
+        // 👇 TON PROVIDER D'ESCALADE EST BIEN DÉCLARÉ ICI !
+        ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
 
         // ════════════════════════════════════════════════════
         // ─── THIX RESERVATION BUS — SaaS (AJOUTÉ ICI) ───
