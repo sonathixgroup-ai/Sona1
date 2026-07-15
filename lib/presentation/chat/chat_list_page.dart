@@ -3,26 +3,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/chat/chat_service.dart';
 import '../../services/chat/presence_service.dart';
 import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
+import 'package:thix_id/presentation/chat/escalation/screens/received_escalations_page.dart';
+import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
+import 'package:provider/provider.dart';
 
 // ============================================================
 // CHARTE GRAPHIQUE ULTRA-PREMIUM (Clair & Élégant)
 // ============================================================
 class _ChatColors {
-  static const Color background = Color(0xFFF4F7FC); // Fond très doux
-  static const Color surface = Color(0xFFFFFFFF); // Blanc pur pour les cartes
-  static const Color navyDeep = Color(0xFF0A1F44); // Texte principal
-  static const Color primaryBlue = Color(0xFF2D6CDF); // Accents bleus
-  static const Color softBlue = Color(0xFFE8F0FE); // Arrière-plans secondaires
-  static const Color gold = Color(0xFFE3B23C); // Touche prestige
-  static const Color mutedText = Color(0xFF7B8BA4); // Texte secondaire
-  static const Color success = Color(0xFF10B981); // Statut en ligne
-  static const Color border = Color(0xFFE2E8F0); // Bordures ultra-fines
+  static const Color background = Color(0xFFF4F7FC);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color primaryBlue = Color(0xFF2D6CDF);
+  static const Color softBlue = Color(0xFFE8F0FE);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color mutedText = Color(0xFF7B8BA4);
+  static const Color success = Color(0xFF10B981);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color border = Color(0xFFE2E8F0);
 }
 
 class ChatListPage extends StatefulWidget {
@@ -39,7 +44,8 @@ class _ChatListPageState extends State<ChatListPage> {
   List<ChatConversation> _filteredConversations = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  int _selectedIndex = 0; 
+  int _selectedIndex = 0;
+  int _pendingEscalationsCount = 0;
 
   @override
   void initState() {
@@ -47,6 +53,7 @@ class _ChatListPageState extends State<ChatListPage> {
     _chatService = ChatService(Supabase.instance.client);
     _presenceService = PresenceService(Supabase.instance.client);
     _loadConversations();
+    _loadPendingEscalationsCount();
     _presenceService.initPresence();
   }
 
@@ -70,9 +77,27 @@ class _ChatListPageState extends State<ChatListPage> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: _ChatColors.danger),
         );
       }
+    }
+  }
+
+  // ✅ Charger le nombre d'escalades en attente reçues par l'utilisateur
+  Future<void> _loadPendingEscalationsCount() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      final count = await Supabase.instance.client
+          .from('escalation_steps')
+          .select('id', count: 'exact')
+          .eq('to_agent_id', user.id)
+          .eq('status', 0); // 0 = pending
+      setState(() {
+        _pendingEscalationsCount = count;
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement escalades: $e');
     }
   }
 
@@ -98,7 +123,6 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Statut de la barre système pour s'adapter au fond clair
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
@@ -111,7 +135,10 @@ class _ChatListPageState extends State<ChatListPage> {
           : RefreshIndicator(
               color: _ChatColors.primaryBlue,
               backgroundColor: _ChatColors.surface,
-              onRefresh: _loadConversations,
+              onRefresh: () async {
+                await _loadConversations();
+                await _loadPendingEscalationsCount();
+              },
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
@@ -134,7 +161,7 @@ class _ChatListPageState extends State<ChatListPage> {
                         _buildSectionTitle('Conversations', unreadCount: _totalUnread),
                         const SizedBox(height: 12),
                         _buildRecentConversations(),
-                        const SizedBox(height: 120), // Espace pour la barre de navigation
+                        const SizedBox(height: 120),
                       ],
                     ),
                   ),
@@ -148,7 +175,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // HEADER ULTRA PREMIUM (Fond clair, Typo élégante)
+  // HEADER avec BOUTON ESCALADES (à côté du profil)
   // ============================================================
   Widget _buildPremiumHeader() {
     return SliverAppBar(
@@ -194,20 +221,72 @@ class _ChatListPageState extends State<ChatListPage> {
                     ),
                   ],
                 ),
-                InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {}, // Action Profil
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _ChatColors.primaryBlue.withOpacity(0.3), width: 2),
+                Row(
+                  children: [
+                    // ✅ BOUTON ESCALADES REÇUES (avec badge)
+                    Stack(
+                      children: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            context.pushNamed('chatEscalationReceived');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _ChatColors.surface,
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+                            ),
+                            child: Icon(
+                              Icons.swap_vertical_circle_rounded,
+                              color: _pendingEscalationsCount > 0 ? _ChatColors.gold : _ChatColors.mutedText,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                        if (_pendingEscalationsCount > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: _ChatColors.danger,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                              child: Text(
+                                '$_pendingEscalationsCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: const CircleAvatar(
-                      radius: 20,
-                      backgroundImage: NetworkImage('https://i.pravatar.cc/150'),
+                    const SizedBox(width: 8),
+                    // Avatar profil
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {}, // Action Profil
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _ChatColors.primaryBlue.withOpacity(0.3), width: 2),
+                        ),
+                        child: const CircleAvatar(
+                          radius: 20,
+                          backgroundImage: NetworkImage('https://i.pravatar.cc/150'),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -218,54 +297,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // BARRE DE RECHERCHE FLOTTANTE
-  // ============================================================
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: _ChatColors.surface,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
-        ),
-        child: Row(
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(left: 20, right: 12),
-              child: Icon(Icons.search_rounded, color: _ChatColors.mutedText, size: 20),
-            ),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                style: const TextStyle(fontSize: 14, color: _ChatColors.navyDeep, fontWeight: FontWeight.w600),
-                decoration: const InputDecoration(
-                  hintText: 'Rechercher un message, un contact...',
-                  hintStyle: TextStyle(color: _ChatColors.mutedText, fontSize: 13.5, fontWeight: FontWeight.w400),
-                  border: InputBorder.none,
-                  isDense: true,
-                ),
-              ),
-            ),
-            if (_searchController.text.isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: _ChatColors.mutedText, size: 18),
-                onPressed: () {
-                  _searchController.clear();
-                  _onSearchChanged('');
-                },
-              ),
-            const SizedBox(width: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // BARRE DE STATISTIQUES (Design Pilule Segmentée)
+  // BARRE DE STATISTIQUES (avec Alerte cliquable)
   // ============================================================
   Widget _buildStatsBar() {
     return Padding(
@@ -280,25 +312,40 @@ class _ChatListPageState extends State<ChatListPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _statItem(Icons.people_alt_rounded, '$_onlineCount', 'Contacts', _ChatColors.primaryBlue),
+            _statItem(Icons.people_alt_rounded, '$_onlineCount', 'Contacts', _ChatColors.primaryBlue, onTap: null),
             _verticalDivider(),
-            _statItem(Icons.groups_rounded, '$_groupCount', 'Groupes', _ChatColors.navyDeep),
+            _statItem(Icons.groups_rounded, '$_groupCount', 'Groupes', _ChatColors.navyDeep, onTap: null),
             _verticalDivider(),
-            _statItem(Icons.notifications_active_rounded, '$_totalUnread', 'Alertes', _ChatColors.gold),
+            // ✅ ALERTES cliquables -> redirige vers les escalades reçues
+            _statItem(
+              Icons.notifications_active_rounded,
+              '$_pendingEscalationsCount',
+              'Alertes',
+              _ChatColors.gold,
+              onTap: () => context.pushNamed('chatEscalationReceived'),
+              isClickable: true,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _statItem(IconData icon, String value, String label, Color color) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(height: 6),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ChatColors.navyDeep)),
-        Text(label, style: const TextStyle(fontSize: 10, color: _ChatColors.mutedText, fontWeight: FontWeight.w600)),
-      ],
+  Widget _statItem(IconData icon, String value, String label, Color color, {VoidCallback? onTap, bool isClickable = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 6),
+            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ChatColors.navyDeep)),
+            Text(label, style: TextStyle(fontSize: 10, color: isClickable ? _ChatColors.primaryBlue : _ChatColors.mutedText, fontWeight: isClickable ? FontWeight.w700 : FontWeight.w600)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -422,7 +469,7 @@ class _ChatListPageState extends State<ChatListPage> {
               child,
               const SizedBox(height: 6),
               Text(
-                label.split(' ').first, // Affiche juste le prénom pour faire propre
+                label.split(' ').first,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -436,7 +483,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // CONVERSATIONS RÉCENTES (Cartes épurées)
+  // CONVERSATIONS RÉCENTES (inchangé)
   // ============================================================
   Widget _buildRecentConversations() {
     final list = _searchController.text.isEmpty ? _conversations : _filteredConversations;
@@ -490,7 +537,6 @@ class _ChatListPageState extends State<ChatListPage> {
             ),
             child: Row(
               children: [
-                // Avatar
                 isGroup
                     ? Container(
                         width: 52,
@@ -507,7 +553,6 @@ class _ChatListPageState extends State<ChatListPage> {
                             : null,
                       ),
                 const SizedBox(width: 14),
-                // Textes
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,7 +574,6 @@ class _ChatListPageState extends State<ChatListPage> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Heure et Badge
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -552,11 +596,11 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // FAB (Nouveau Message)
+  // FAB (inchangé)
   // ============================================================
   Widget _buildPremiumFab() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 80), // Pour ne pas chevaucher la BottomNav
+      margin: const EdgeInsets.only(bottom: 80),
       height: 60,
       width: 60,
       decoration: BoxDecoration(
@@ -618,13 +662,13 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // BOTTOM NAVIGATION BAR (Pilule Flottante)
+  // BOTTOM NAV (inchangée)
   // ============================================================
   Widget _buildFloatingBottomNav() {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       decoration: BoxDecoration(
-        color: _ChatColors.navyDeep, // Fond sombre uniquement pour la navbar pour créer un contraste luxueux
+        color: _ChatColors.navyDeep,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.3), blurRadius: 25, offset: const Offset(0, 10))],
       ),
