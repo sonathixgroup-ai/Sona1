@@ -39,9 +39,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Espace vendeur'),
+        title: const Text('Espace vendeur', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -62,6 +63,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
           ]);
         },
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +77,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
               const SizedBox(height: 24),
               _buildActionGrid(context, hasShop),
               const SizedBox(height: 24),
-              _buildRecentOrders(orders),
+              _buildRecentOrders(orders, context),
             ],
           ),
         ),
@@ -106,9 +108,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
                     style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: () => context.push('/market/shop/create'),
+                  // 👇 CORRECTION : Utilisation de pushNamed
+                  onPressed: () => context.pushNamed('marketCreateShop'),
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8)),
-                  child: const Text('Créer une boutique'),
+                  child: const Text('Créer une boutique', style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -150,7 +153,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
           ),
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () => context.push('/market/shop/${shop['id']}/manage'),
+            // 👇 CORRECTION : Utilisation de pushNamed avec paramètres dynamiques
+            onPressed: () => context.pushNamed('marketManageShop', pathParameters: {'shopId': shop['id'].toString()}),
           ),
         ],
       ),
@@ -211,15 +215,16 @@ class _VendorDashboardState extends State<VendorDashboard> {
   }
 
   Widget _buildActionGrid(BuildContext context, bool hasShop) {
-    final actions = [
-      {'icon': Icons.store, 'label': 'Ma boutique', 'route': '/market/shops'},
-      {'icon': Icons.inventory_2, 'label': 'Produits', 'route': '/market/sell'},
-      {'icon': Icons.shopping_bag, 'label': 'Commandes', 'route': '/market/sell?tab=orders'},
-      {'icon': Icons.announcement, 'label': 'Publier une annonce', 'route': '/market/announcement/publish'},
-      {'icon': Icons.live_tv, 'label': 'Lives', 'route': '/market/live/create'},
-      {'icon': Icons.bar_chart, 'label': 'Statistiques', 'route': '/market/sell?tab=stats'},
-      {'icon': Icons.local_shipping, 'label': 'Livraisons', 'route': '/market/deliveries'},
-      {'icon': Icons.settings, 'label': 'Paramètres', 'route': '/market/settings'},
+    // 👇 CORRECTION : Refactorisation pour utiliser des Callbacks propres avec pushNamed
+    final List<Map<String, dynamic>> actions = [
+      {'icon': Icons.store, 'label': 'Ma boutique', 'action': () => context.pushNamed('marketShops')},
+      {'icon': Icons.inventory_2, 'label': 'Produits', 'action': () => context.pushNamed('marketSell')},
+      {'icon': Icons.shopping_bag, 'label': 'Commandes', 'action': () => context.pushNamed('marketSell', queryParameters: {'tab': 'orders'})},
+      {'icon': Icons.announcement, 'label': 'Publier une annonce', 'action': () => context.pushNamed('marketPublishAnnouncement')},
+      {'icon': Icons.live_tv, 'label': 'Lives', 'action': () => context.pushNamed('marketCreateLive')},
+      {'icon': Icons.bar_chart, 'label': 'Statistiques', 'action': () => context.pushNamed('marketSell', queryParameters: {'tab': 'stats'})},
+      {'icon': Icons.local_shipping, 'label': 'Livraisons', 'action': () => context.pushNamed('deliveryManagement')},
+      {'icon': Icons.settings, 'label': 'Paramètres', 'action': () => context.pushNamed('marketSettings')},
     ];
 
     return Column(
@@ -236,7 +241,15 @@ class _VendorDashboardState extends State<VendorDashboard> {
           childAspectRatio: 1.2,
           children: actions.map((action) {
             return InkWell(
-              onTap: () => context.push(action['route'] as String),
+              onTap: () {
+                if (!hasShop && action['label'] != 'Ma boutique' && action['label'] != 'Paramètres') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Veuillez créer une boutique d\'abord.')),
+                  );
+                  return;
+                }
+                (action['action'] as VoidCallback)();
+              },
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 decoration: BoxDecoration(
@@ -262,7 +275,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
-  Widget _buildRecentOrders(List<Map<String, dynamic>> orders) {
+  Widget _buildRecentOrders(List<Map<String, dynamic>> orders, BuildContext context) {
     final recent = orders.take(5).toList();
     if (recent.isEmpty) {
       return Container(
@@ -283,7 +296,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
           children: [
             const Text('Dernières commandes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             TextButton(
-              onPressed: () => context.push('/market/sell?tab=orders'),
+              // 👇 CORRECTION : Utilisation de pushNamed
+              onPressed: () => context.pushNamed('marketSell', queryParameters: {'tab': 'orders'}),
               child: const Text('Voir tout'),
             ),
           ],
