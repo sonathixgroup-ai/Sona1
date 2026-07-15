@@ -321,7 +321,8 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     if (prov.remoteUid!= null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
-          rtcConnection: RtcConnection(channelId: widget.channel),
+          // 👇 CORRECTION : rtcConnection remplacé par connection
+          connection: RtcConnection(channelId: widget.channel),
           canvas: VideoCanvas(
             uid: prov.remoteUid,
             renderMode: RenderModeType.renderModeHidden,
@@ -370,9 +371,8 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                 child: Stack(
                   children: [
                     AgoraVideoView(
+                      // 👇 CORRECTION : rtcConnection supprimé car inutile pour la vidéo locale
                       controller: VideoViewController(
-                        rtcConnection:
-                            RtcConnection(channelId: widget.channel),
                         canvas: const VideoCanvas(
                           uid: 0,
                           renderMode: RenderModeType.renderModeHidden,
