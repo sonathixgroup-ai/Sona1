@@ -24,7 +24,7 @@ class EscalationService {
     }
   }
 
-  // Créer une nouvelle escalade (avec targetAgentId explicite)
+  // Créer une nouvelle escalade
   Future<EscalationStep> createEscalation({
     required String conversationId,
     required String fromAgentId,
@@ -36,7 +36,6 @@ class EscalationService {
     String? fromAgentName,
   }) async {
     try {
-      // Vérifier que l'agent cible existe
       final target = await _supabase
           .from('profiles')
           .select('id')
@@ -128,7 +127,7 @@ class EscalationService {
     return step;
   }
 
-  // Résoudre une escalade (après traitement)
+  // Résoudre une escalade
   Future<EscalationStep> resolveEscalation(String escalationId) async {
     final response = await _supabase
         .from('escalation_steps')
@@ -174,7 +173,7 @@ class EscalationService {
     return response.map((json) => EscalationStep.fromJson(json)).toList();
   }
 
-  // Escalade automatique (à appeler via un scheduler)
+  // Escalade automatique
   Future<void> processAutoEscalations() async {
     try {
       final rulesResponse = await _supabase
@@ -205,7 +204,7 @@ class EscalationService {
           .from('conversations')
           .select()
           .eq('id', conversationId)
-          .maybeSingle(); // ✅ retourne null si la conversation n'existe pas
+          .maybeSingle();
       return response;
     } catch (e) {
       print('❌ Erreur getConversation : $e');
