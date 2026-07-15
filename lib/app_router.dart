@@ -295,7 +295,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.groupCreate, name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
         GoRoute(path: AppRoutes.groupInfo, name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
         GoRoute(path: AppRoutes.groupSettings, name: 'group_settings', pageBuilder: (_, state) => NoTransitionPage(child: GroupSettingsPage(groupId: state.pathParameters['groupId']!))),
-        // ==================== CHAT ESCALATION ====================
+// ==================== CHAT ESCALATION ====================
 GoRoute(
   path: AppRoutes.chatEscalate,
   name: 'chatEscalate',
