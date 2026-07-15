@@ -40,7 +40,6 @@ class ChatService {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
-      // 1. Récupérer les IDs des conversations
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -52,7 +51,6 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
-      // 2. Récupérer les conversations avec les participants et leurs profils
       final response = await _supabase
           .from('conversations')
           .select('''
@@ -81,7 +79,6 @@ class ChatService {
         String? otherParticipantName;
         String? otherParticipantAvatar;
 
-        // Pour les conversations individuelles (non-groupes)
         if (!(conv['is_group'] ?? false) && participants.length == 2) {
           final other = participants.firstWhere(
             (p) => p['user_id'] != uid,
@@ -94,7 +91,6 @@ class ChatService {
           }
         }
 
-        // 3. Dernier message avec le nom de l'expéditeur
         final lastMsg = await _supabase
             .from('messages')
             .select('''
@@ -119,7 +115,6 @@ class ChatService {
           lastMessage = ChatMessage.fromJson(lastMsg);
         }
 
-        // 4. Messages non lus
         final unread = await _supabase
             .from('messages')
             .select('id')
@@ -285,17 +280,20 @@ class ChatService {
         .eq('id', conversationId);
   }
 
+  // ✅ CORRIGÉ : Supporte les conversations escaladées où tu n'es pas encore participant
   Future<ChatConversation?> getConversation(String conversationId) async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return null;
 
+      // FIX 1: On enlève le !inner qui bloquait tout si tu n'es pas dans conversation_participants
       final response = await _supabase
           .from('conversations')
           .select('''
             *,
-            conversation_participants!inner (
+            conversation_participants (
               user_id,
+              role,
               profiles!user_id (
                 display_name,
                 full_name,
@@ -306,25 +304,33 @@ class ChatService {
           .eq('id', conversationId)
           .maybeSingle();
 
-      if (response == null) return null;
+      if (response == null) {
+        debugPrint('❌ getConversation: conversation $conversationId introuvable (RLS ou id invalide)');
+        return null;
+      }
 
-      final participants = response['conversation_participants'] as List;
-      final participantIds = participants
-          .map((p) => p['user_id'] as String)
-          .toList();
+      final participants = response['conversation_participants'] as List? ?? [];
+      final participantIds = participants.map((p) => p['user_id'] as String).toList();
 
       String? otherParticipantName;
       String? otherParticipantAvatar;
 
-      if (!(response['is_group'] ?? false) && participants.length == 2) {
-        final other = participants.firstWhere(
-          (p) => p['user_id'] != uid,
-          orElse: () => null,
-        );
-        if (other != null) {
-          final profile = other['profiles'] as Map<String, dynamic>?;
-          otherParticipantName = _resolveDisplayName(profile);
-          otherParticipantAvatar = profile?['avatar_url'] as String?;
+      // FIX 2: Gestion du cas où la liste des participants est vide (escalade non acceptée)
+      if (!(response['is_group'] ?? false)) {
+        if (participants.isNotEmpty) {
+          final other = participants.firstWhere(
+            (p) => p['user_id'] != uid,
+            orElse: () => participants.first,
+          );
+          if (other != null) {
+            final profile = other['profiles'] as Map<String, dynamic>?;
+            otherParticipantName = _resolveDisplayName(profile);
+            otherParticipantAvatar = profile?['avatar_url'] as String?;
+          }
+        } else {
+          // Cas escalade : on n'a pas les participants, on affiche un nom générique
+          // On peut essayer de récupérer le customer via assigned_agent_id ou autre logique
+          otherParticipantName = 'Client (escalade)';
         }
       }
 
@@ -334,8 +340,9 @@ class ChatService {
         'other_participant_name': otherParticipantName ?? 'Utilisateur inconnu',
         'other_participant_avatar': otherParticipantAvatar,
       });
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('❌ getConversation: $e');
+      debugPrint('Stack: $stack');
       return null;
     }
   }
@@ -433,7 +440,6 @@ class ChatService {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      // ✅ Convertir les messages avec les noms des expéditeurs
       final messages = (response as List).map((e) {
         final profile = e['profiles'] as Map<String, dynamic>?;
         e['sender_name'] = _resolveDisplayName(profile);
@@ -441,7 +447,6 @@ class ChatService {
         return ChatMessage.fromJson(e);
       }).toList();
 
-      // ✅ Ordre : du plus ancien au plus récent (pour l'affichage avec reverse: true)
       return messages.reversed.toList();
     } catch (e) {
       debugPrint('❌ getMessages: $e');
@@ -498,7 +503,6 @@ class ChatService {
       )
     ''').single();
 
-    // Ajouter le nom de l'expéditeur
     final profile = response['profiles'] as Map<String, dynamic>?;
     response['sender_name'] = _resolveDisplayName(profile);
     response['sender_avatar'] = profile?['avatar_url'];
