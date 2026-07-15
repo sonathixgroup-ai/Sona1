@@ -350,7 +350,15 @@ GoRoute(
       ),
     );
   },
+), 
+        GoRoute(
+  path: AppRoutes.chatEscalationReceived,
+  name: 'chatEscalationReceived',
+  pageBuilder: (context, state) => NoTransitionPage(
+    child: const ReceivedEscalationsPage(),
+  ),
 ),
+     
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => NoTransitionPage(child: DocumentVaultPage())),
         GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => NoTransitionPage(child: SettingsPage())),
 
