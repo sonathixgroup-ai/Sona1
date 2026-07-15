@@ -308,34 +308,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ============================================================
 
   void _subscribeToTypingChannel() {
-    final currentUserId = _chatService.currentUserId;
+  final currentUserId = _chatService.currentUserId;
 
-    _typingChannel = Supabase.instance.client
-       .channel('typing:${widget.conversationId}')
-       .onBroadcast(
-          event: 'typing',
-          callback: (payload) {
-            final senderId = payload['senderId'] as String?;
-            final isTyping = payload['isTyping'] as bool??? false;
-            if (senderId!= null && senderId!= currentUserId && mounted) {
-              setState(() => _otherUserTyping = isTyping);
-            }
-          },
-        )
-       .subscribe();
-  }
+  _typingChannel = Supabase.instance.client
+      .channel('typing:${widget.conversationId}')
+      .onBroadcast(
+        event: 'typing',
+        callback: (payload) {
+          final senderId = payload['senderId'] as String?;
+          final isTyping = (payload['isTyping'] as bool?) ?? false;
 
-  void _sendTypingStatus(bool typing) {
-    final currentUserId = _chatService.currentUserId;
-    if (currentUserId == null || _typingChannel == null) return;
-    _typingChannel!.sendBroadcastMessage(
-      event: 'typing',
-      payload: {
-        'senderId': currentUserId,
-        'isTyping': typing,
-      },
-    );
-  }
+          if (senderId != null &&
+              senderId != currentUserId &&
+              mounted) {
+            setState(() => _otherUserTyping = isTyping);
+          }
+        },
+      )
+      .subscribe();
+}
+
+void _sendTypingStatus(bool typing) {
+  final currentUserId = _chatService.currentUserId;
+
+  if (currentUserId == null || _typingChannel == null) return;
+
+  _typingChannel!.sendBroadcastMessage(
+    event: 'typing',
+    payload: {
+      'senderId': currentUserId,
+      'isTyping': typing,
+    },
+  );
+}
 
   // ============================================================
   // APPEL AUDIO / VIDEO - NOUVEAU - NE SUPPRIME RIEN
