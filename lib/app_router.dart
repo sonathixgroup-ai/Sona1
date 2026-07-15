@@ -135,9 +135,9 @@ import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
 import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
 
 // --- AJOUTS MANQUANTS (pour corriger ton erreur de build) ---
-import 'package:thix_id/presentation/thix_market/widgets/products/wishlist_page.dart';
-import 'package:thix_id/presentation/thix_market/delivery/ordertracking/order_tracking_page.dart';
-import 'package:thix_id/presentation/thix_market/pages/shop_history_page.dart';
+//import 'package:thix_id/presentation/thix_market/widgets/products/wishlist_page.dart';
+//import 'package:thix_id/presentation/thix_market/delivery/ordertracking';
+//import 'package:thix_id/presentation/thix_market/pages/shop_history_page.dart';
 
 
 // THIX Info
@@ -559,9 +559,9 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'sell', name: 'marketSell', pageBuilder: (_, __) => NoTransitionPage(child: const SellPage())),
     GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
     GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
-    GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
-    GoRoute(path: 'tracking/:trackingId', name: 'marketTracking', pageBuilder: (_, state) => NoTransitionPage(child: OrderTrackingPage(trackingId: state.pathParameters['trackingId']!))),
-    GoRoute(path: 'shop/:shopId/history', name: 'marketShopHistory', pageBuilder: (_, state) => NoTransitionPage(child: ShopHistoryPage(shopId: state.pathParameters['shopId']!))),
+   // GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
+  //  GoRoute(path: 'tracking/:trackingId', name: 'marketTracking', pageBuilder: (_, state) => NoTransitionPage(child: OrderTrackingPage(trackingId: state.pathParameters['trackingId']!))),
+ //   GoRoute(path: 'shop/:shopId/history', name: 'marketShopHistory', pageBuilder: (_, state) => NoTransitionPage(child: ShopHistoryPage(shopId: state.pathParameters['shopId']!))),
 
     // --- Social, Utilisateur & Outils ---
     GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
