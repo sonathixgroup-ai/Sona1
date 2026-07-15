@@ -203,6 +203,51 @@ static const String chatEscalationDashboard = '/chat/escalation/dashboard';
   static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
   static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
 
+    // ═══════════════════════════════════════
+  // ─── CALL PROD - SANS IMPORT ───
+  // ═══════════════════════════════════════
+  static const String call = '/call';
+  static const String callIncoming = '/call/incoming';
+  static const String callOutgoing = '/call/outgoing';
+  static const String callOngoing = '/call/ongoing';
+  static const String callHistory = '/call/history';
+
+  static const String callIncomingName = 'callIncoming';
+  static const String callOutgoingName = 'callOutgoing';
+  static const String callOngoingName = 'callOngoing';
+  static const String callHistoryName = 'callHistory';
+
+  static String callWithUser(String userId) => '/call/$userId';
+
+  // ─── CALL CONST PROD ───
+  static const String agoraAppIdKey = 'AGORA_APP_ID';
+  static const int agoraTokenExpireSec = 3600;
+  static const int callTimeoutSec = 45;
+  static const int callRingingTimeoutSec = 30;
+  static const String callChannelPrefix = 'thix_';
+  static const String tableCallInvites = 'call_invites';
+  static const String funcAgoraToken = 'agora-token';
+
+  static String callChannelId(String conversationId) => '$callChannelPrefix$conversationId';
+
+  static Map<String, dynamic> callOngoingExtra({
+    required String channel,
+    required String name,
+    required String type, // 'audio' | 'video' -> string pour éviter import
+    String? inviteId,
+    bool isCaller = true,
+    String? avatarUrl,
+    String? calleeId,
+  }) => {
+    'channel': channel,
+    'name': name,
+    'type': type,
+    'inviteId': inviteId,
+    'isCaller': isCaller,
+    'avatarUrl': avatarUrl,
+    'calleeId': calleeId,
+  };
+
   // ========================================================================
   // HELPERS GÉNÉRIQUES
   // ========================================================================
