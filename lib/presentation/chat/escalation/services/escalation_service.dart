@@ -1,7 +1,4 @@
-// ============================================================
 // lib/presentation/chat/escalation/services/escalation_service.dart
-// ============================================================
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/escalation_step.dart';
 import '../models/escalation_level.dart';
@@ -18,7 +15,7 @@ class EscalationService {
       final response = await _supabase
           .from('profiles')
           .select('id, display_name, username, avatar_url')
-          .eq('username', username) // adaptez le nom de colonne (username, handle, etc.)
+          .eq('username', username)
           .maybeSingle();
       return response;
     } catch (e) {
@@ -201,13 +198,18 @@ class EscalationService {
     }
   }
 
-  // Récupérer la conversation associée à une escalade
-  Future<Map<String, dynamic>> getConversation(String conversationId) async {
-    final response = await _supabase
-        .from('conversations')
-        .select()
-        .eq('id', conversationId)
-        .single();
-    return response;
+  // ✅ Récupérer la conversation associée à une escalade (retourne null si inexistante)
+  Future<Map<String, dynamic>?> getConversation(String conversationId) async {
+    try {
+      final response = await _supabase
+          .from('conversations')
+          .select()
+          .eq('id', conversationId)
+          .maybeSingle(); // ✅ retourne null si la conversation n'existe pas
+      return response;
+    } catch (e) {
+      print('❌ Erreur getConversation : $e');
+      return null;
+    }
   }
 }
