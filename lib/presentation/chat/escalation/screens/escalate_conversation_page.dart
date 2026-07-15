@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_priority.dart';
 import '../providers/escalation_provider.dart';
@@ -33,12 +34,35 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
   final _reasonController = TextEditingController();
   final _commentController = TextEditingController();
 
-  // ✅ Champ pour le destinataire (handle @username)
   final _targetController = TextEditingController();
   String? _targetUserId;
   bool _isSearching = false;
   String? _searchError;
   Map<String, dynamic>? _foundUser;
+
+  // Liste des utilisateurs (chargée depuis Supabase)
+  List<Map<String, dynamic>> _users = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  // Charger les utilisateurs depuis Supabase
+  Future<void> _loadUsers() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .select('id, display_name, username, avatar_url')
+          .limit(50);
+      setState(() {
+        _users = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      print('❌ Erreur chargement utilisateurs : $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -48,7 +72,7 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
     super.dispose();
   }
 
-  // 🔍 Rechercher un utilisateur par son handle (ex: @nlumina)
+  // 🔍 Recherche par handle
   Future<void> _searchUser() async {
     final identifier = _targetController.text.trim();
     if (identifier.isEmpty) {
@@ -59,37 +83,40 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
       });
       return;
     }
-
-    // Retirer le @ si présent
     final cleanIdentifier = identifier.startsWith('@') 
         ? identifier.substring(1) 
         : identifier;
-
     setState(() {
       _isSearching = true;
       _searchError = null;
       _targetUserId = null;
       _foundUser = null;
     });
-
     try {
       final service = EscalationService();
-      // Recherche par handle (username) ou thix_id
       final user = await service.getUserByHandle(cleanIdentifier);
-      
       if (user != null && user['id'] != null) {
-        setState(() {
-          _targetUserId = user['id'];
-          _foundUser = user;
-          _searchError = null;
-        });
-        // Afficher un snackbar avec le nom trouvé
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Utilisateur trouvé : ${user['display_name'] ?? user['username']}'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // Vérifier que l'ID est un UUID (format 8-4-4-4-12)
+        final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+        if (uuidRegex.hasMatch(user['id'])) {
+          setState(() {
+            _targetUserId = user['id'];
+            _foundUser = user;
+            _searchError = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Utilisateur trouvé : ${user['display_name'] ?? user['username']}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          setState(() {
+            _searchError = 'ID utilisateur invalide (non UUID)';
+            _targetUserId = null;
+            _foundUser = null;
+          });
+        }
       } else {
         setState(() {
           _searchError = 'Aucun utilisateur trouvé avec @$cleanIdentifier';
@@ -108,7 +135,7 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
     }
   }
 
-  // 📋 Ouvrir la liste des contacts
+  // 📋 Ouvrir la liste des contacts réels
   void _openContactPicker() {
     showModalBottomSheet(
       context: context,
@@ -121,7 +148,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Barre de titre
             Row(
               children: [
                 const Text(
@@ -136,7 +162,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               ],
             ),
             const Divider(),
-            // Champ de recherche dans le modal
             TextField(
               decoration: const InputDecoration(
                 hintText: 'Rechercher un contact...',
@@ -144,14 +169,12 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
                 border: OutlineInputBorder(),
               ),
               onChanged: (value) {
-                // Filtrer les contacts en temps réel
-                _filterContacts(value);
+                // Filtrer localement si besoin
               },
             ),
             const SizedBox(height: 8),
-            // Liste des contacts (exemple)
             Expanded(
-              child: _buildContactList(ctx),
+              child: _buildRealContactList(ctx),
             ),
           ],
         ),
@@ -159,44 +182,45 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
     );
   }
 
-  // 📋 Liste des contacts (exemple)
-  Widget _buildContactList(BuildContext ctx) {
-    // Dans une vraie implémentation, vous chargeriez cette liste depuis Supabase
-    // avec la table 'profiles' ou une table de contacts.
-    // Pour l'exemple, on utilise des données statiques.
-    final List<Map<String, dynamic>> contacts = [
-      {'id': '1', 'display_name': 'Nathan.L', 'username': 'nlumina'},
-      {'id': '2', 'display_name': 'backymassamba@gmail.com', 'username': 'backy'},
-      {'id': '3', 'display_name': 'THIX CENTRAL', 'username': 'contact_thix'},
-      {'id': '4', 'display_name': 'Ustawi food', 'username': 'ustawif'},
-    ];
-
+  // Liste réelle depuis _users
+  Widget _buildRealContactList(BuildContext ctx) {
+    if (_users.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return ListView.builder(
-      itemCount: contacts.length,
+      itemCount: _users.length,
       itemBuilder: (context, index) {
-        final contact = contacts[index];
+        final user = _users[index];
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: Colors.blue.shade100,
             child: Text(
-              contact['display_name']![0].toUpperCase(),
+              (user['display_name'] ?? user['username'] ?? '?')[0].toUpperCase(),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          title: Text(contact['display_name'] ?? ''),
-          subtitle: Text('@${contact['username']}'),
+          title: Text(user['display_name'] ?? user['username'] ?? 'Inconnu'),
+          subtitle: Text('@${user['username'] ?? ''}'),
           onTap: () {
-            // Sélectionner le contact
-            _targetController.text = '@${contact['username']}';
-            _targetUserId = contact['id'];
-            _foundUser = contact;
+            // Vérifier que l'ID est bien un UUID
+            final id = user['id'] as String;
+            final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+            if (!uuidRegex.hasMatch(id)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('❌ ID utilisateur invalide'), backgroundColor: Colors.red),
+              );
+              return;
+            }
+            _targetController.text = '@${user['username']}';
+            _targetUserId = id;
+            _foundUser = user;
             setState(() {
               _searchError = null;
             });
             Navigator.pop(ctx);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('✅ ${contact['display_name']} sélectionné'),
+                content: Text('✅ ${user['display_name'] ?? user['username']} sélectionné'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -204,11 +228,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
         );
       },
     );
-  }
-
-  // Filtrer les contacts (à implémenter avec une vraie liste)
-  void _filterContacts(String query) {
-    // À implémenter
   }
 
   @override
@@ -227,7 +246,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Info conversation
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -247,7 +265,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               ),
               const SizedBox(height: 16),
 
-              // ✅ Destinataire (handle @username)
               const Text(
                 'Destinataire (@identifiant) *',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -279,6 +296,11 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
                         }
                         if (_targetUserId == null) {
                           return 'Appuyez sur "Vérifier" ou sélectionnez un contact';
+                        }
+                        // Vérifier que l'ID est un UUID
+                        final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+                        if (!uuidRegex.hasMatch(_targetUserId!)) {
+                          return 'ID utilisateur invalide (non UUID)';
                         }
                         return null;
                       },
@@ -325,7 +347,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
                 ),
               const SizedBox(height: 16),
 
-              // Sélection du niveau cible
               const Text(
                 'Niveau cible',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -357,7 +378,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               ],
               const SizedBox(height: 16),
 
-              // Priorité
               const Text(
                 'Priorité',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -381,7 +401,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               ),
               const SizedBox(height: 16),
 
-              // Raison
               const Text(
                 'Raison de l\'escalade *',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -403,7 +422,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               ),
               const SizedBox(height: 16),
 
-              // Commentaire optionnel
               const Text(
                 'Commentaire (optionnel)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -419,7 +437,6 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
               ),
               const SizedBox(height: 24),
 
-              // Boutons
               Row(
                 children: [
                   Expanded(
@@ -477,6 +494,15 @@ class _EscalateConversationPageState extends State<EscalateConversationPage> {
     if (_targetUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez sélectionner un destinataire valide')),
+      );
+      return;
+    }
+
+    // Vérification finale que l'ID est un UUID
+    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    if (!uuidRegex.hasMatch(_targetUserId!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ ID utilisateur invalide'), backgroundColor: Colors.red),
       );
       return;
     }
