@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
-import '../../../chat/chat_screen.dart'; // ✅ 3 niveaux : chat/escalation/screens -> chat/chat_screen.dart
-import '../../../../services/chat/chat_service.dart'; // ✅ 4 niveaux pour arriver à lib/
+import '../../chat_screen.dart';
+import '../../../../services/chat/chat_service.dart';
 
 class ReceivedEscalationsPage extends StatefulWidget {
   const ReceivedEscalationsPage({super.key});
@@ -53,7 +53,9 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
     }
   }
 
-  Future<void> _openConversation(String conversationId) async {
+  // ✅ Gestion de l'ouverture avec fallback si conversation introuvable
+  Future<void> _openConversation(EscalationStep step) async {
+    final conversationId = step.conversationId;
     try {
       final conv = await _chatService.getConversation(conversationId);
       if (conv != null && mounted) {
@@ -66,9 +68,54 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
             ),
           ),
         );
+        return;
+      }
+
+      // 🔁 Conversation introuvable – proposer de la recréer
+      if (!mounted) return;
+      final shouldCreate = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Conversation introuvable'),
+          content: Text(
+            'La conversation d\'origine a été supprimée.\n'
+            'Voulez-vous en créer une nouvelle avec ${step.fromAgentName ?? 'l\'agent'} ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Créer'),
+            ),
+          ],
+        ),
+      );
+      if (shouldCreate != true) return;
+
+      // Créer une nouvelle conversation avec l'agent source
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (currentUserId == null) return;
+      final newConv = await _chatService.createConversation([
+        step.fromAgentId,
+        currentUserId,
+      ]);
+      if (newConv != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatScreen(
+              conversationId: newConv.id,
+              conversation: newConv,
+            ),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conversation introuvable'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Erreur lors de la création de la conversation'), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -158,7 +205,7 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () => _openConversation(step.conversationId),
+                            onTap: () => _openConversation(step), // ✅ on passe tout le step
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
