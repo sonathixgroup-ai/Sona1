@@ -7,7 +7,8 @@ import '../models/escalation_step.dart';
 import '../models/escalation_level.dart';
 import '../models/escalation_status.dart';
 import '../models/escalation_priority.dart';
-import '../models/escalation_rule.dart';  // <-- AJOUTER
+import '../models/escalation_rule.dart';
+
 class EscalationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -21,42 +22,46 @@ class EscalationService {
     String? comment,
     String? fromAgentName,
   }) async {
-    // Déterminer l'agent cible en fonction du niveau (pour l'exemple, on prend le premier disponible)
-    // Dans une vraie implémentation, on pourrait avoir un algorithme de round-robin ou un mapping
-    final targetAgentId = await _getTargetAgentId(toLevel);
+    try {
+      // 1. Récupérer un agent cible valide (UUID)
+      final targetAgentId = await _getTargetAgentId(toLevel);
+      print('✅ Agent cible trouvé : $targetAgentId');
 
-    final data = {
-      'conversation_id': conversationId,
-      'from_level': EscalationLevel.agent.index, // on part toujours de L0
-      'to_level': toLevel.index,
-      'from_agent_id': fromAgentId,
-      'to_agent_id': targetAgentId,
-      'reason': reason,
-      'priority': priority.index,
-      'status': EscalationStatus.pending.index,
-      'comment': comment,
-      'from_agent_name': fromAgentName,
-    };
+      // 2. Construire les données
+      final data = {
+        'conversation_id': conversationId,
+        'from_level': EscalationLevel.agent.index, // on part toujours de L0
+        'to_level': toLevel.index,
+        'from_agent_id': fromAgentId,
+        'to_agent_id': targetAgentId,
+        'reason': reason,
+        'priority': priority.index,
+        'status': EscalationStatus.pending.index,
+        'comment': comment,
+        'from_agent_name': fromAgentName,
+      };
 
-    final response = await _supabase
-        .from('escalation_steps')
-        .insert(data)
-        .select()
-        .single();
+      // 3. Insérer dans la table escalation_steps
+      final response = await _supabase
+          .from('escalation_steps')
+          .insert(data)
+          .select()
+          .single();
 
-    // Mettre à jour la conversation : status = escalated, current_level = toLevel
-    await _supabase
-        .from('conversations')
-        .update({
-          'status': 'escalated',
-          'current_level': toLevel.index,
-        })
-        .eq('id', conversationId);
+      // 4. Mettre à jour la conversation
+      await _supabase
+          .from('conversations')
+          .update({
+            'status': 'escalated',
+            'current_level': toLevel.index,
+          })
+          .eq('id', conversationId);
 
-    // Ajouter l'historique d'escalade dans la conversation (on pourrait stocker un array)
-    // Ici, on pourrait aussi envoyer des notifications
-
-    return EscalationStep.fromJson(response);
+      return EscalationStep.fromJson(response);
+    } catch (e) {
+      print('❌ Erreur lors de la création de l\'escalade : $e');
+      rethrow;
+    }
   }
 
   // Accepter une escalade
@@ -66,13 +71,12 @@ class EscalationService {
         .update({
           'status': EscalationStatus.accepted.index,
           'resolved_at': DateTime.now().toIso8601String(),
-          'to_agent_id': agentId, // on peut assigner l'agent qui accepte
+          'to_agent_id': agentId,
         })
         .eq('id', escalationId)
         .select()
         .single();
 
-    // Mettre à jour la conversation : assigned_agent_id = agentId
     final step = EscalationStep.fromJson(response);
     await _supabase
         .from('conversations')
@@ -80,8 +84,6 @@ class EscalationService {
           'assigned_agent_id': agentId,
         })
         .eq('id', step.conversationId);
-
-    // Notifier l'agent initial que l'escalade est acceptée
 
     return step;
   }
@@ -98,7 +100,6 @@ class EscalationService {
         .select()
         .single();
 
-    // Remettre la conversation en status active, current_level = agent
     final step = EscalationStep.fromJson(response);
     await _supabase
         .from('conversations')
@@ -123,7 +124,6 @@ class EscalationService {
         .select()
         .single();
 
-    // Mettre à jour la conversation : status = resolved, closed
     final step = EscalationStep.fromJson(response);
     await _supabase
         .from('conversations')
@@ -148,8 +148,6 @@ class EscalationService {
 
   // Obtenir les escalades en attente pour un agent (selon son niveau)
   Future<List<EscalationStep>> getPendingEscalations(String agentId, EscalationLevel agentLevel) async {
-    // On cherche les escalades dont le to_level correspond au niveau de l'agent
-    // et qui sont en attente
     final response = await _supabase
         .from('escalation_steps')
         .select()
@@ -160,37 +158,95 @@ class EscalationService {
     return response.map((json) => EscalationStep.fromJson(json)).toList();
   }
 
-  // Fonction interne pour obtenir l'agent cible (simulation)
+  // ============================================================
+  // 🔧 RÉCUPÉRATION D'UN AGENT CIBLE (UUID VALIDE)
+  // ============================================================
   Future<String> _getTargetAgentId(EscalationLevel level) async {
-    // Dans une vraie implémentation, on récupérerait les agents disponibles
-    // selon leur rôle/niveau, et on ferait un round-robin.
-    // Ici, on retourne un ID fictif pour l'exemple.
-    // On pourrait aussi stocker un mapping entre niveau et agent dans une table.
-    return 'agent_senior_1'; // à remplacer par une vraie logique
+    try {
+      // 1. Déterminer le rôle correspondant au niveau (adaptez selon votre schéma)
+      final role = _getRoleForLevel(level);
+
+      // 2. Récupérer un agent avec ce rôle
+      final response = await _supabase
+          .from('profiles') // ⚠️ Remplacez par le nom de votre table utilisateur (ex: 'users')
+          .select('id')
+          .eq('role', role) // ⚠️ Remplacez par la colonne qui stocke le rôle (ex: 'user_type', 'level')
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null && response['id'] != null) {
+        return response['id'] as String;
+      }
+
+      // 3. Fallback : récupérer n'importe quel utilisateur ayant un rôle 'agent'
+      final fallback = await _supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'agent')
+          .limit(1)
+          .maybeSingle();
+
+      if (fallback != null && fallback['id'] != null) {
+        return fallback['id'] as String;
+      }
+
+      // 4. Dernier recours : récupérer le premier utilisateur (pour test)
+      final anyUser = await _supabase
+          .from('profiles')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
+
+      if (anyUser != null && anyUser['id'] != null) {
+        return anyUser['id'] as String;
+      }
+
+      // Si aucun utilisateur n'existe, on lève une exception
+      throw Exception('Aucun utilisateur trouvé pour attribuer l\'escalade');
+    } catch (e) {
+      print('❌ Erreur dans _getTargetAgentId : $e');
+      rethrow;
+    }
   }
 
-  // Escalade automatique basée sur les règles (à appeler périodiquement)
+  // ============================================================
+  // Mapper un niveau vers un rôle (à adapter selon votre schéma)
+  // ============================================================
+  String _getRoleForLevel(EscalationLevel level) {
+    switch (level) {
+      case EscalationLevel.senior: return 'senior_agent';
+      case EscalationLevel.manager: return 'manager';
+      case EscalationLevel.director: return 'director';
+      case EscalationLevel.technical: return 'technical_agent';
+      default: return 'agent';
+    }
+  }
+
+  // ============================================================
+  // Escalade automatique (à appeler via un scheduler)
+  // ============================================================
   Future<void> processAutoEscalations() async {
-    // 1. Récupérer toutes les règles actives
-    final rulesResponse = await _supabase
-        .from('escalation_rules')
-        .select()
-        .eq('is_active', true);
+    try {
+      final rulesResponse = await _supabase
+          .from('escalation_rules')
+          .select()
+          .eq('is_active', true);
 
-    final rules = rulesResponse.map((json) => EscalationRule.fromJson(json)).toList();
+      final rules = rulesResponse.map((json) => EscalationRule.fromJson(json)).toList();
 
-    // 2. Récupérer les conversations actives
-    final conversationsResponse = await _supabase
-        .from('conversations')
-        .select()
-        .eq('status', 'active');
+      final conversationsResponse = await _supabase
+          .from('conversations')
+          .select()
+          .eq('status', 'active');
 
-    // 3. Pour chaque conversation, vérifier les règles
-    for (final conv in conversationsResponse) {
-      final conversationId = conv['id'];
-      // Récupérer les messages pour analyser le sentiment, les mots-clés, etc.
-      // Pour l'exemple, on ne fait que simuler
-      // Si une règle correspond, créer une escalade automatique
+      for (final conv in conversationsResponse) {
+        // Implémentez ici la logique d'analyse pour déclencher des escalades automatiques
+        // Exemple : analyser le sentiment, mots-clés, temps d'attente, etc.
+        final conversationId = conv['id'];
+        // ... logique à ajouter
+      }
+    } catch (e) {
+      print('❌ Erreur dans processAutoEscalations : $e');
     }
   }
 
