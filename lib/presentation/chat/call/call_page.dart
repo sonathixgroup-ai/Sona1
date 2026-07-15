@@ -6,8 +6,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:provider/provider.dart';
 import '../../../../models/chat/call_status.dart';
 import 'providers/call_provider.dart';
-import 'widgets/call_controls.dart';
-import 'widgets/call_avatar.dart';
+import 'widgets/call_avatar.dart'; // Assure-toi que ce fichier existe bien, sinon on fera la même chose !
 
 class CallPage extends StatefulWidget {
   final String channel;
@@ -321,7 +320,6 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     if (prov.remoteUid != null) {
       remoteView = AgoraVideoView(
         controller: VideoViewController.remote(
-          // 👇 CORRECTION : Ajout du moteur RTC obligatoire
           rtcEngine: createAgoraRtcEngine(),
           connection: RtcConnection(channelId: widget.channel),
           canvas: VideoCanvas(
@@ -373,7 +371,6 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
                   children: [
                     AgoraVideoView(
                       controller: VideoViewController(
-                        // 👇 CORRECTION : Ajout du moteur RTC obligatoire
                         rtcEngine: createAgoraRtcEngine(),
                         canvas: const VideoCanvas(
                           uid: 0,
@@ -423,6 +420,100 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ============================================================================
+// COMPOSANT DES BOUTONS D'APPEL INTÉGRÉ DIRECTEMENT ICI
+// ============================================================================
+class CallControls extends StatelessWidget {
+  final bool isVideo;
+  final bool muted;
+  final bool videoOff;
+  final bool speakerOn;
+  final VoidCallback onMute;
+  final VoidCallback onVideo;
+  final VoidCallback onSwitch;
+  final VoidCallback onSpeaker;
+  final VoidCallback onEnd;
+
+  const CallControls({
+    super.key,
+    required this.isVideo,
+    required this.muted,
+    required this.videoOff,
+    required this.speakerOn,
+    required this.onMute,
+    required this.onVideo,
+    required this.onSwitch,
+    required this.onSpeaker,
+    required this.onEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // Bouton Micro
+        _buildButton(
+          icon: muted ? Icons.mic_off : Icons.mic,
+          color: muted ? Colors.white : Colors.white24,
+          iconColor: muted ? Colors.black : Colors.white,
+          onTap: onMute,
+        ),
+        
+        // Bouton Vidéo (Uniquement si appel vidéo)
+        if (isVideo)
+          _buildButton(
+            icon: videoOff ? Icons.videocam_off : Icons.videocam,
+            color: videoOff ? Colors.white : Colors.white24,
+            iconColor: videoOff ? Colors.black : Colors.white,
+            onTap: onVideo,
+          ),
+          
+        // Bouton Haut-parleur
+        _buildButton(
+          icon: speakerOn ? Icons.volume_up : Icons.volume_down,
+          color: speakerOn ? Colors.white : Colors.white24,
+          iconColor: speakerOn ? Colors.black : Colors.white,
+          onTap: onSpeaker,
+        ),
+        
+        // Bouton Raccrocher
+        _buildButton(
+          icon: Icons.call_end,
+          color: Colors.redAccent,
+          iconColor: Colors.white,
+          onTap: onEnd,
+          isEndButton: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildButton({
+    required IconData icon,
+    required Color color,
+    required Color iconColor,
+    required VoidCallback onTap,
+    bool isEndButton = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(isEndButton ? 18 : 14),
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: iconColor,
+          size: isEndButton ? 32 : 28,
+        ),
+      ),
     );
   }
 }
