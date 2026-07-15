@@ -31,14 +31,17 @@ class _GlobalCallListenerState extends State<GlobalCallListener> {
     final myId = Supabase.instance.client.auth.currentUser?.id;
     if (myId == null) return;
     _stop();
+    
     _channel = Supabase.instance.client
         .channel('calls:$myId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: AppRoutes.tableCallInvites,
-          filter: PostgresFilter(
-            filter: 'callee_id',
+          // 👇 CORRECTION 1 : Nouvelle syntaxe Supabase
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'callee_id',
             value: myId,
           ),
           callback: _onIncoming,
@@ -48,15 +51,20 @@ class _GlobalCallListenerState extends State<GlobalCallListener> {
 
   void _onIncoming(PostgresChangePayload payload) {
     try {
-      final invite = CallInvite.fromMap(payload.newRecord);
+      // 👇 CORRECTION 2 : Utilisation de fromJson au lieu de fromMap
+      final invite = CallInvite.fromJson(payload.newRecord);
+      
       if (invite.status != 'ringing') return;
       if (!mounted) return;
+      
       // évite double push si déjà sur incoming/ongoing
       final loc = GoRouterState.of(context).uri.toString();
       if (loc.contains(AppRoutes.callIncoming) || loc.contains(AppRoutes.callOngoing)) return;
 
       context.pushNamed(AppRoutes.callIncomingName, extra: invite);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Erreur réception appel: $e');
+    }
   }
 
   void _stop() {
