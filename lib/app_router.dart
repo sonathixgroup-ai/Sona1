@@ -592,6 +592,9 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
             GoRoute(path: 'auction/:auctionId', name: 'marketAuction', pageBuilder: (_, state) => NoTransitionPage(child: AuctionPage(auctionId: state.pathParameters['auctionId']!))),
             GoRoute(path: 'dispute/:disputeId', name: 'marketDispute', pageBuilder: (_, state) => NoTransitionPage(child: DisputeDetailPage(disputeId: state.pathParameters['disputeId']!))),
             GoRoute(path: 'announcement/:announcementId/edit', name: 'marketEditAnnouncement', pageBuilder: (_, state) => NoTransitionPage(child: EditAnnouncementPage(announcementId: state.pathParameters['announcementId']!))),
+            GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => NoTransitionPage(child: const WishlistPage())),
+            GoRoute(path: 'tracking/:trackingId', name: 'marketTracking', pageBuilder: (_, state) => NoTransitionPage(child: OrderTrackingPage(trackingId: state.pathParameters['trackingId']!))),
+            GoRoute(path: 'shop/:shopId/history', name: 'marketShopHistory', pageBuilder: (_, state) => NoTransitionPage(child: ShopHistoryPage(shopId: state.pathParameters['shopId']!))),
 
             // --- Live dynamiques ---
             GoRoute(path: 'live/:liveId/replay', name: 'marketLiveReplay', pageBuilder: (_, state) => NoTransitionPage(child: LiveReplayPage(liveId: state.pathParameters['liveId']!))),
