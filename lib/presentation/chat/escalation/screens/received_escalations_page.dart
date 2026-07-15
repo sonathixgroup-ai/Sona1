@@ -1,4 +1,4 @@
-// 📁 lib/presentation/chat/escalation/screens/received_escalations_page.dart
+// lib/presentation/chat/escalation/screens/received_escalations_page.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +6,8 @@ import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
 import 'package:provider/provider.dart';
+import '../../chat_screen.dart'; // ✅ Importer ChatScreen
+import '../../../services/chat/chat_service.dart'; // ✅ Pour récupérer la conversation
 
 class ReceivedEscalationsPage extends StatefulWidget {
   const ReceivedEscalationsPage({super.key});
@@ -18,6 +20,7 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
   List<EscalationStep> _escalations = [];
   bool _loading = true;
   String? _error;
+  final ChatService _chatService = ChatService(Supabase.instance.client);
 
   @override
   void initState() {
@@ -31,7 +34,6 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
       setState(() { _loading = false; });
       return;
     }
-
     try {
       final response = await Supabase.instance.client
           .from('escalation_steps')
@@ -48,6 +50,32 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  // ✅ Fonction pour ouvrir la conversation
+  Future<void> _openConversation(String conversationId) async {
+    try {
+      final conv = await _chatService.getConversation(conversationId);
+      if (conv != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatScreen(
+              conversationId: conversationId,
+              conversation: conv,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conversation introuvable'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -127,60 +155,65 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
                         final step = _escalations[index];
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.person, size: 16),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      step.fromAgentName ?? 'Inconnu',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    const Spacer(),
-                                    _buildStatusChip(step.status),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text('Raison : ${step.reason}'),
-                                if (step.comment != null) Text('Commentaire : ${step.comment}'),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Demandé le ${step.createdAt.toString().substring(0, 16)}',
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                                if (step.status == EscalationStatus.pending) ...[
-                                  const SizedBox(height: 8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            // ✅ Ouverture de la conversation au tap
+                            onTap: () => _openConversation(step.conversationId),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
-                                      ElevatedButton.icon(
-                                        onPressed: () => _accept(step.id),
-                                        icon: const Icon(Icons.check, size: 16),
-                                        label: const Text('Accepter'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        ),
+                                      const Icon(Icons.person, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        step.fromAgentName ?? 'Inconnu',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
                                       ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        onPressed: () => _reject(step.id),
-                                        icon: const Icon(Icons.close, size: 16),
-                                        label: const Text('Refuser'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        ),
-                                      ),
+                                      const Spacer(),
+                                      _buildStatusChip(step.status),
                                     ],
                                   ),
+                                  const SizedBox(height: 4),
+                                  Text('Raison : ${step.reason}'),
+                                  if (step.comment != null) Text('Commentaire : ${step.comment}'),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Demandé le ${step.createdAt.toString().substring(0, 16)}',
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                  if (step.status == EscalationStatus.pending) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        ElevatedButton.icon(
+                                          onPressed: () => _accept(step.id),
+                                          icon: const Icon(Icons.check, size: 16),
+                                          label: const Text('Accepter'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        OutlinedButton.icon(
+                                          onPressed: () => _reject(step.id),
+                                          icon: const Icon(Icons.close, size: 16),
+                                          label: const Text('Refuser'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         );
