@@ -1,39 +1,28 @@
 // lib/presentation/chat/chat_list_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:go_router/go_router.dart';
 import '../../services/chat/chat_service.dart';
 import '../../services/chat/presence_service.dart';
 import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
-// ✅ Importer la page des escalades reçues
-import 'package:thix_id/presentation/chat/escalation/screens/received_escalations_page.dart';
-import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
-import 'package:provider/provider.dart';
 
-// ============================================================
-// CHARTE GRAPHIQUE ULTRA-PREMIUM (Clair & Élégant)
-// ============================================================
-class _ChatColors {
-  static const Color background = Color(0xFFF4F7FC);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color softBlue = Color(0xFFE8F0FE);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color mutedText = Color(0xFF7B8BA4);
-  static const Color success = Color(0xFF10B981);
-  static const Color danger = Color(0xFFEF4444);
-  static const Color border = Color(0xFFE2E8F0);
+class _C {
+  static const bg = Color(0xFFF7F8FD);
+  static const white = Colors.white;
+  static const navy = Color(0xFF1A1C6B);
+  static const blue = Color(0xFF2F5BFF);
+  static const softBlue = Color(0xFFEEF2FF);
+  static const textMuted = Color(0xFF8A8FA8);
+  static const border = Color(0xFFECEEF6);
+  static const green = Color(0xFF10B981);
+  static const orange = Color(0xFFFF8A1A);
 }
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
-
   @override
   State<ChatListPage> createState() => _ChatListPageState();
 }
@@ -41,605 +30,269 @@ class ChatListPage extends StatefulWidget {
 class _ChatListPageState extends State<ChatListPage> {
   late ChatService _chatService;
   late PresenceService _presenceService;
-  List<ChatConversation> _conversations = [];
-  List<ChatConversation> _filteredConversations = [];
+  List<ChatConversation> _all = [];
+  List<ChatConversation> _filtered = [];
   bool _isLoading = true;
-  final TextEditingController _searchController = TextEditingController();
-  int _selectedIndex = 0;
-  int _pendingEscalationsCount = 0;
+  final _searchCtrl = TextEditingController();
+  int _selectedFilter = 0;
+  int _pendingEscalations = 0;
+  int _selectedNav = 1;
 
   @override
   void initState() {
     super.initState();
     _chatService = ChatService(Supabase.instance.client);
     _presenceService = PresenceService(Supabase.instance.client);
-    _loadConversations();
-    _loadPendingEscalationsCount();
+    _load();
     _presenceService.initPresence();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      final convs = await _chatService.getConversations();
+      final user = Supabase.instance.client.auth.currentUser;
+      int pending = 0;
+      if (user!= null) {
+        try {
+          final res = await Supabase.instance.client.from('escalation_steps').select('id').eq('to_agent_id', user.id).eq('status', 0).count();
+          pending = (res.count as int?)?? 0;
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      setState(() {
+        _all = convs;
+        _filtered = convs;
+        _pendingEscalations = pending;
+        _isLoading = false;
+      });
+      _applyFilter();
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _onSearch(String v) {
+    final q = v.toLowerCase();
+    setState(() {
+      _filtered = _all.where((c) => c.displayName.toLowerCase().contains(q) || (c.lastMessage?.content?? '').toLowerCase().contains(q)).toList();
+    });
+    _applyFilter();
+  }
+
+  void _applyFilter() {
+    List<ChatConversation> base = _searchCtrl.text.isEmpty? _all : _filtered;
+    List<ChatConversation> result;
+    switch (_selectedFilter) {
+      case 1: result = base.where((c) => c.isGroup).toList(); break;
+      case 2: result = []; break; // Appels -> tu branchera call_history
+      case 3: result = base.where((c) => c.unreadCount > 0).toList(); break; // Favoris = non lus pour l'instant
+      case 4: result = base; break; // Rendez-vous
+      default: result = base;
+    }
+    setState(() => _filtered = _searchCtrl.text.isEmpty && _selectedFilter==0? _all : result);
+    if(_searchCtrl.text.isNotEmpty){
+      result = _filtered.where((c) => _selectedFilter==0 || (_selectedFilter==1 && c.isGroup) || (_selectedFilter==3 && c.unreadCount>0)).toList();
+      if(_selectedFilter!=0 && _selectedFilter!=1 && _selectedFilter!=3) result = _filtered;
+    }
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchCtrl.dispose();
     _presenceService.dispose();
     super.dispose();
   }
 
-  Future<void> _loadConversations() async {
-    setState(() => _isLoading = true);
-    try {
-      final convs = await _chatService.getConversations();
-      setState(() {
-        _conversations = convs;
-        _filteredConversations = convs;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: _ChatColors.danger),
-        );
-      }
-    }
-  }
-
-  // ✅ Charger le nombre d'escalades en attente reçues par l'utilisateur
-  // ...
-
-Future<void> _loadPendingEscalationsCount() async {
-  final user = Supabase.instance.client.auth.currentUser;
-  if (user == null) return;
-  try {
-    final count = await Supabase.instance.client
-        .from('escalation_steps')
-        .select('id')
-        .eq('to_agent_id', user.id)
-        .eq('status', 0) // 0 = pending
-        .count();
-    setState(() {
-      _pendingEscalationsCount = (count as int?) ?? 0; // ✅ cast explicite
-    });
-  } catch (e) {
-    debugPrint('Erreur chargement escalades: $e');
-  }
-}
-// ...
-
-  void _onSearchChanged(String value) {
-    final query = value.toLowerCase();
-    setState(() {
-      _filteredConversations = _conversations.where((conv) {
-        return conv.displayName.toLowerCase().contains(query) ||
-            (conv.lastMessage?.content ?? '').toLowerCase().contains(query);
-      }).toList();
-    });
-  }
-
-  List<ChatConversation> get _quickContacts {
-    final list = _conversations.where((c) => !c.isGroup).toList();
-    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    return list.take(5).toList();
-  }
-
-  int get _onlineCount => _conversations.where((c) => !c.isGroup).length;
-  int get _groupCount => _conversations.where((c) => c.isGroup).length;
-  int get _totalUnread => _conversations.fold(0, (sum, c) => sum + c.unreadCount);
-
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
-
+    final enLigne = _all.where((c) =>!c.isGroup).length;
+    final nouveauxMsg = _all.fold(0, (s,c)=> s + c.unreadCount);
     return Scaffold(
-      backgroundColor: _ChatColors.background,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _ChatColors.primaryBlue))
-          : RefreshIndicator(
-              color: _ChatColors.primaryBlue,
-              backgroundColor: _ChatColors.surface,
-              onRefresh: () async {
-                await _loadConversations();
-                await _loadPendingEscalationsCount();
-              },
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                slivers: [
-                  _buildPremiumHeader(),
-                  SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        _buildSearchBar(),
-                        const SizedBox(height: 24),
-                        _buildStatsBar(),
-                        const SizedBox(height: 28),
-                        if (_quickContacts.isNotEmpty) ...[
-                          _buildSectionTitle('Contacts Récents', onSeeAll: () {}),
-                          const SizedBox(height: 16),
-                          _buildQuickContacts(),
-                          const SizedBox(height: 28),
-                        ],
-                        _buildSectionTitle('Conversations', unreadCount: _totalUnread),
-                        const SizedBox(height: 12),
-                        _buildRecentConversations(),
-                        const SizedBox(height: 120),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-      floatingActionButton: _buildPremiumFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _buildFloatingBottomNav(),
-    );
-  }
-
-  // ============================================================
-  // HEADER avec BOUTON ESCALADES (à côté du profil)
-  // ============================================================
-  Widget _buildPremiumHeader() {
-    return SliverAppBar(
-      pinned: true,
-      elevation: 0,
-      expandedHeight: 80,
-      backgroundColor: _ChatColors.background,
-      surfaceTintColor: _ChatColors.background,
-      automaticallyImplyLeading: false,
-      flexibleSpace: FlexibleSpaceBar(
-        background: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _ChatColors.surface,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-                      ),
-                      child: const Icon(Icons.forum_rounded, color: _ChatColors.gold, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'THIX CHAT',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ChatColors.navyDeep, letterSpacing: 0.5),
-                        ),
-                        Text(
-                          'Connectez-vous. Avancez.',
-                          style: TextStyle(fontSize: 11, color: _ChatColors.mutedText, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    // ✅ BOUTON ESCALADES REÇUES (avec badge)
-                    Stack(
-                      children: [
-                        InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () {
-                            context.pushNamed('chatEscalationReceived');
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: _ChatColors.surface,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
-                            ),
-                            child: Icon(
-                              Icons.swap_vertical_circle_rounded,
-                              color: _pendingEscalationsCount > 0 ? _ChatColors.gold : _ChatColors.mutedText,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                        if (_pendingEscalationsCount > 0)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: _ChatColors.danger,
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                              child: Text(
-                                '$_pendingEscalationsCount',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    // Avatar profil
-                    InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () {}, // Action Profil
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _ChatColors.primaryBlue.withOpacity(0.3), width: 2),
-                        ),
-                        child: const CircleAvatar(
-                          radius: 20,
-                          backgroundImage: NetworkImage('https://i.pravatar.cc/150'),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+      backgroundColor: _C.bg,
+      body: SafeArea(
+        child: _isLoading? const Center(child: CircularProgressIndicator(color: _C.blue))
+        : RefreshIndicator(
+          onRefresh: _load,
+          color: _C.blue,
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              SliverToBoxAdapter(child: _header()),
+              SliverToBoxAdapter(child: _searchBar()),
+              SliverToBoxAdapter(child: _statsCard(enLigne, nouveauxMsg)),
+              SliverToBoxAdapter(child: _enLigneSection()),
+              SliverToBoxAdapter(child: _filterTabs()),
+              SliverToBoxAdapter(child: _sectionTitle()),
+              _conversationSliver(),
+              const SliverToBoxAdapter(child: SizedBox(height: 110)),
+            ],
           ),
         ),
       ),
+      bottomNavigationBar: _bottomNav(),
+      floatingActionButton: _fab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
-  // ============================================================
-  // BARRE DE STATISTIQUES (avec Alerte cliquable)
-  // ============================================================
-  Widget _buildStatsBar() {
+  // HEADER comme capture
+  Widget _header() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: _ChatColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 8))],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _statItem(Icons.people_alt_rounded, '$_onlineCount', 'Contacts', _ChatColors.primaryBlue, onTap: null),
-            _verticalDivider(),
-            _statItem(Icons.groups_rounded, '$_groupCount', 'Groupes', _ChatColors.navyDeep, onTap: null),
-            _verticalDivider(),
-            // ✅ ALERTES cliquables -> redirige vers les escalades reçues
-            _statItem(
-              Icons.notifications_active_rounded,
-              '$_pendingEscalationsCount',
-              'Alertes',
-              _ChatColors.gold,
-              onTap: () => context.pushNamed('chatEscalationReceived'),
-              isClickable: true,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statItem(IconData icon, String value, String label, Color color, {VoidCallback? onTap, bool isClickable = false}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(height: 6),
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ChatColors.navyDeep)),
-            Text(label, style: TextStyle(fontSize: 10, color: isClickable ? _ChatColors.primaryBlue : _ChatColors.mutedText, fontWeight: isClickable ? FontWeight.w700 : FontWeight.w600)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _verticalDivider() {
-    return Container(width: 1, height: 30, color: _ChatColors.border);
-  }
-
-  // ============================================================
-  // BARRE DE RECHERCHE FLOTTANTE
-  // ============================================================
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: _ChatColors.surface,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
-        ),
-        child: Row(
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(left: 20, right: 12),
-              child: Icon(Icons.search_rounded, color: _ChatColors.mutedText, size: 20),
-            ),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                style: const TextStyle(fontSize: 14, color: _ChatColors.navyDeep, fontWeight: FontWeight.w600),
-                decoration: const InputDecoration(
-                  hintText: 'Rechercher un message, un contact...',
-                  hintStyle: TextStyle(color: _ChatColors.mutedText, fontSize: 13.5, fontWeight: FontWeight.w400),
-                  border: InputBorder.none,
-                  isDense: true,
-                ),
-              ),
-            ),
-            if (_searchController.text.isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: _ChatColors.mutedText, size: 18),
-                onPressed: () {
-                  _searchController.clear();
-                  _onSearchChanged('');
-                },
-              ),
-            const SizedBox(width: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // TITRE DE SECTION
-  // ============================================================
-  Widget _buildSectionTitle(String title, {VoidCallback? onSeeAll, int? unreadCount}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ChatColors.navyDeep)),
-          if (unreadCount != null && unreadCount > 0) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: _ChatColors.gold.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-              child: Text('$unreadCount', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _ChatColors.gold)),
-            ),
-          ],
-          const Spacer(),
-          if (onSeeAll != null)
-            InkWell(
-              onTap: onSeeAll,
-              child: const Text('Tout voir', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _ChatColors.primaryBlue)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // CONTACTS RAPIDES
-  // ============================================================
-  Widget _buildQuickContacts() {
-    return SizedBox(
-      height: 90,
-      child: ListView(
-        physics: const BouncingScrollPhysics(),
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _quickContactSlot(
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: _ChatColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: _ChatColors.border, width: 2),
-                boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
-              ),
-              child: const Icon(Icons.add_rounded, color: _ChatColors.primaryBlue, size: 24),
-            ),
-            label: 'Nouveau',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage())),
+          const Icon(Icons.menu, size: 22, color: _C.navy),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              RichText(text: TextSpan(children: [
+                TextSpan(text: 'THIX ', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing:.5)),
+                TextSpan(text: 'CHAT', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.blue)),
+              ])),
+              Text('Connectez-vous. Échangez. Avancez.', style: TextStyle(fontSize: 10.5, color: _C.textMuted, fontWeight: FontWeight.w500)),
+            ]),
           ),
-          ..._quickContacts.map((conv) {
-            final name = conv.displayName;
-            final avatar = conv.displayAvatar;
-            return _quickContactSlot(
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(colors: [_ChatColors.primaryBlue, _ChatColors.gold]),
-                      boxShadow: [BoxShadow(color: _ChatColors.primaryBlue.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
-                    ),
-                    child: Container(
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: _ChatColors.surface),
-                      padding: const EdgeInsets.all(2),
-                      child: CircleAvatar(
-                        backgroundColor: _ChatColors.softBlue,
-                        backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                        child: avatar == null
-                            ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 18, color: _ChatColors.primaryBlue, fontWeight: FontWeight.w800))
-                            : null,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(color: _ChatColors.success, shape: BoxShape.circle, border: Border.all(color: _ChatColors.surface, width: 2)),
-                    ),
-                  ),
-                ],
-              ),
-              label: name,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
-            );
-          }),
+          IconButton(onPressed: (){}, icon: const Icon(Icons.search_rounded, color: _C.navy, size: 22)),
+          Stack(children: [
+            IconButton(onPressed: _load, icon: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 22)),
+            if(_pendingEscalations>0) Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle), child: Text('$_pendingEscalations', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)))),
+          ]),
+          const SizedBox(width: 4),
+          Container(padding: const EdgeInsets.all(1.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.border)), child: const CircleAvatar(radius: 16, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12'))),
         ],
       ),
     );
   }
 
-  Widget _quickContactSlot({required Widget child, required String label, required VoidCallback onTap}) {
+  Widget _searchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(30),
-        onTap: onTap,
-        child: SizedBox(
-          width: 60,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              child,
-              const SizedBox(height: 6),
-              Text(
-                label.split(' ').first,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, color: _ChatColors.navyDeep, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(color: _C.softBlue, borderRadius: BorderRadius.circular(14)),
+        child: Row(children: [
+          const SizedBox(width: 12),
+          const Icon(Icons.search, size: 18, color: _C.textMuted),
+          const SizedBox(width: 8),
+          Expanded(child: TextField(controller: _searchCtrl, onChanged: _onSearch, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500), decoration: const InputDecoration(hintText: 'Rechercher un chat, contact, groupe...', hintStyle: TextStyle(fontSize: 12.5, color: _C.textMuted), border: InputBorder.none, isDense: true))),
+          IconButton(icon: const Icon(Icons.tune_rounded, size: 18, color: _C.navy), onPressed: (){}),
+        ]),
       ),
     );
   }
 
-  // ============================================================
-  // CONVERSATIONS RÉCENTES
-  // ============================================================
-  Widget _buildRecentConversations() {
-    final list = _searchController.text.isEmpty ? _conversations : _filteredConversations;
+  // Carte 4 stats comme capture
+  Widget _statsCard(int enLigne, int nouveaux) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0,4))]),
+      child: Row(children: [
+        _stat(icon: Icons.groups_rounded, color: _C.green, value: '$enLigne', label: 'En ligne'),
+        _divider(),
+        _stat(icon: Icons.chat_bubble_rounded, color: _C.blue, value: '$nouveaux', label: 'Nouveaux\nmessages'),
+        _divider(),
+        _stat(icon: Icons.videocam_rounded, color: _C.blue, value: '12', label: 'Réunions\nactives'),
+        _divider(),
+        _stat(icon: Icons.verified_user_rounded, color: _C.orange, value: '$_pendingEscalations', label: 'Alertes\nsécurité', isLast: true),
+      ]),
+    );
+  }
+  Widget _stat({required IconData icon, required Color color, required String value, required String label, bool isLast=false}) {
+    return Expanded(child: Column(children: [
+      Icon(icon, size: 18, color: color),
+      const SizedBox(height: 6),
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _C.navy)),
+      const SizedBox(height: 2),
+      Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, height: 1.1, color: _C.textMuted, fontWeight: FontWeight.w600)),
+    ]));
+  }
+  Widget _divider() => Container(width: 1, height: 34, color: _C.border);
 
-    if (list.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: Column(
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(color: _ChatColors.surface, shape: BoxShape.circle),
-                child: const Icon(Icons.chat_bubble_outline_rounded, size: 30, color: _ChatColors.mutedText),
-              ),
-              const SizedBox(height: 16),
-              const Text('Aucune conversation trouvée', style: TextStyle(color: _ChatColors.mutedText, fontSize: 13, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      );
-    }
+  Widget _enLigneSection() {
+    final contacts = _all.where((c)=>!c.isGroup).take(6).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Text('En ligne', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.navy)), const Spacer(), InkWell(onTap: (){}, child: const Row(children: [Text('Voir tout', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)), Icon(Icons.chevron_right, size: 14, color: _C.blue)])) ])),
+      const SizedBox(height: 10),
+      SizedBox(height: 72, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: contacts.length+1, separatorBuilder: (_,__)=>const SizedBox(width: 14), itemBuilder: (c,i){
+        if(i==0) return Column(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: _C.softBlue, shape: BoxShape.circle, border: Border.all(color: _C.border)), child: const Icon(Icons.add, color: _C.navy, size: 20)), const SizedBox(height: 5), const Text('Nouvelle\nhistoire', textAlign: TextAlign.center, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: _C.textMuted, height: 1.1))]);
+        final conv = contacts[i-1];
+        return InkWell(onTap: ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> ChatScreen(conversationId: conv.id, conversation: conv))), child: Column(children: [Stack(children: [Container(padding: const EdgeInsets.all(1.8), decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_C.blue, Color(0xFF8AA8FF)]))), child: CircleAvatar(radius: 22, backgroundColor: _C.softBlue, backgroundImage: conv.displayAvatar!=null? NetworkImage(conv.displayAvatar!):null, child: conv.displayAvatar==null? Text(conv.displayName[0], style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 14)):null)), Positioned(bottom: 0, right: 1, child: Container(width: 10, height: 10, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))]), const SizedBox(height: 5), SizedBox(width: 52, child: Text(conv.displayName.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.navy)))]));
+      })),
+      const SizedBox(height: 14),
+    ]);
+  }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+  // 5 boutons demandés : Tous / Equipes / Appels / Favoris / Rendez-vous (+ escalade badge sur alertes déjà en haut)
+  Widget _filterTabs() {
+    final tabs = [
+      {'icon': Icons.chat_bubble_rounded, 'label': 'Tous'},
+      {'icon': Icons.groups_rounded, 'label': 'Équipes'},
+      {'icon': Icons.call_rounded, 'label': 'Appels'},
+      {'icon': Icons.star_rounded, 'label': 'Favoris'},
+      {'icon': Icons.calendar_month_rounded, 'label': 'Rendez-vous'},
+    ];
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: List.generate(tabs.length, (i){
+        final sel = _selectedFilter==i;
+        return InkWell(onTap: (){ setState(()=>_selectedFilter=i); _applyFilter(); }, borderRadius: BorderRadius.circular(12), child: Column(children: [
+          Icon(tabs[i]['icon'] as IconData, size: 18, color: sel? _C.blue : _C.textMuted),
+          const SizedBox(height: 4),
+          Text(tabs[i]['label'] as String, style: TextStyle(fontSize: 10.5, fontWeight: sel? FontWeight.w800:FontWeight.w600, color: sel? _C.blue:_C.textMuted)),
+          const SizedBox(height: 4),
+          AnimatedContainer(duration: const Duration(milliseconds: 200), height: 2.5, width: sel? 18:0, decoration: BoxDecoration(color: _C.blue, borderRadius: BorderRadius.circular(2))),
+        ]));
+      })),
+    );
+  }
+
+  Widget _sectionTitle() {
+    return Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Row(children: [const Text('Conversations récentes', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.navy)), const Spacer(), InkWell(onTap: (){}, child: Row(children: const [Text('Filtres', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)), SizedBox(width: 4), Icon(Icons.tune, size: 14, color: _C.blue)]))]));
+  }
+
+  Widget _conversationSliver() {
+    final list = _filtered;
+    if(list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(30), child: Center(child: Text('Aucune conversation', style: TextStyle(color: _C.textMuted, fontSize: 12)))) );
+    return SliverList.separated(
       itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final conv = list[index];
-        final isGroup = conv.isGroup;
-        final name = conv.displayName;
-        final avatar = conv.displayAvatar;
-        final lastMsg = conv.lastMessage;
-        final time = lastMsg != null ? lastMsg.createdAt : conv.updatedAt;
+      separatorBuilder: (_,__)=> const SizedBox(height: 8),
+      itemBuilder: (context, idx){
+        final conv = list[idx];
+        final last = conv.lastMessage;
+        final time = last!=null? last.createdAt : conv.updatedAt;
         final unread = conv.unreadCount;
-        final hasUnread = unread > 0;
-
-        return InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _ChatColors.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: hasUnread ? _ChatColors.primaryBlue.withOpacity(0.2) : _ChatColors.border),
-              boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(hasUnread ? 0.08 : 0.02), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: Row(
-              children: [
-                isGroup
-                    ? Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(color: _ChatColors.softBlue, borderRadius: BorderRadius.circular(16)),
-                        child: const Icon(Icons.groups_rounded, color: _ChatColors.primaryBlue, size: 24),
-                      )
-                    : CircleAvatar(
-                        radius: 26,
-                        backgroundColor: _ChatColors.softBlue,
-                        backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                        child: avatar == null
-                            ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 18, color: _ChatColors.primaryBlue, fontWeight: FontWeight.w800))
-                            : null,
-                      ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: hasUnread ? FontWeight.w900 : FontWeight.w700, fontSize: 15, color: _ChatColors.navyDeep),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isGroup && lastMsg != null ? '${lastMsg.senderName}: ${lastMsg.content}' : (lastMsg?.content ?? 'Nouvelle conversation'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12.5, color: hasUnread ? _ChatColors.navyDeep.withOpacity(0.8) : _ChatColors.mutedText, fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> ChatScreen(conversationId: conv.id, conversation: conv))),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: unread>0? _C.blue.withOpacity(0.18):_C.border)),
+              child: Row(children: [
+                Stack(children: [
+                  CircleAvatar(radius: 22, backgroundColor: _C.softBlue, backgroundImage: conv.displayAvatar!=null? NetworkImage(conv.displayAvatar!):null, child: conv.displayAvatar==null? Text(conv.displayName.isNotEmpty?conv.displayName[0].toUpperCase():'?', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 14)):null),
+                  if(conv.isGroup) Positioned(bottom: -2, right: -2, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: _C.white, shape: BoxShape.circle), child: const Icon(Icons.groups, size: 10, color: _C.blue)))
+                  else if(unread==0) Positioned(bottom: 0, right: 0, child: Container(width: 9, height: 9, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)))),
+                ]),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(_formatTime(time), style: TextStyle(fontSize: 10.5, color: hasUnread ? _ChatColors.primaryBlue : _ChatColors.mutedText, fontWeight: hasUnread ? FontWeight.w800 : FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    if (hasUnread)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(gradient: const LinearGradient(colors: [_ChatColors.primaryBlue, _ChatColors.navyDeep]), borderRadius: BorderRadius.circular(12)),
-                        child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
-                      ),
-                  ],
-                ),
-              ],
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread>0? FontWeight.w800:FontWeight.w700, color: _C.navy))), if(!conv.isGroup && conv.displayName.contains('Aminata')) const Padding(padding: EdgeInsets.only(left:4), child: Icon(Icons.verified, size: 12, color: _C.blue))]),
+                  const SizedBox(height: 3),
+                  Text(last?.content?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: unread>0? _C.navy.withOpacity(0.8):_C.textMuted, fontWeight: unread>0? FontWeight.w600:FontWeight.w400)),
+                ])),
+                const SizedBox(width: 8),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(_fmt(time), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: unread>0? _C.navy:_C.textMuted)),
+                  const SizedBox(height: 5),
+                  if(unread>0) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5), decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle), child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)))
+                  else const Icon(Icons.push_pin, size: 12, color: Colors.transparent),
+                ])
+              ]),
             ),
           ),
         );
@@ -647,141 +300,42 @@ Future<void> _loadPendingEscalationsCount() async {
     );
   }
 
-  // ============================================================
-  // FAB
-  // ============================================================
-  Widget _buildPremiumFab() {
+  Widget _fab() {
+    return Container(width: 52, height: 52, decoration: BoxDecoration(color: _C.blue, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: _C.blue.withOpacity(0.35), blurRadius: 14, offset: const Offset(0,6))]), child: IconButton(icon: const Icon(Icons.add, color: Colors.white, size: 26), onPressed: ()=> showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (ctx)=> Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: _C.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 36, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(2))),
+      const SizedBox(height: 16),
+      _sheetOpt(Icons.chat_bubble_rounded, 'Nouvelle discussion', ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> const NewConversationPage()))),
+      const SizedBox(height: 10),
+      _sheetOpt(Icons.group_add_rounded, 'Nouveau groupe', ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> const GroupCreatePage()))),
+      const SizedBox(height: 10),
+    ]))));
+  }
+
+  Widget _sheetOpt(IconData i, String t, VoidCallback tap){ return InkWell(onTap: (){ Navigator.pop(context); tap(); }, child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(12)), child: Row(children: [Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: _C.softBlue, borderRadius: BorderRadius.circular(8)), child: Icon(i, size: 18, color: _C.blue)), const SizedBox(width: 12), Text(t, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _C.navy))]))); }
+
+  Widget _bottomNav(){
     return Container(
-      margin: const EdgeInsets.only(bottom: 80),
-      height: 60,
-      width: 60,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_ChatColors.primaryBlue, _ChatColors.navyDeep]),
-        boxShadow: [BoxShadow(color: _ChatColors.primaryBlue.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
-      ),
-      child: FloatingActionButton(
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (ctx) => Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(color: _ChatColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 40, height: 4, decoration: BoxDecoration(color: _ChatColors.border, borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(height: 24),
-                  _modalOption(Icons.chat_bubble_rounded, 'Nouvelle discussion', () {
-                    Navigator.pop(ctx);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()));
-                  }),
-                  const SizedBox(height: 12),
-                  _modalOption(Icons.group_add_rounded, 'Nouveau groupe', () {
-                    Navigator.pop(ctx);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()));
-                  }),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-          );
-        },
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: const Icon(Icons.edit_rounded, color: Colors.white, size: 26),
-      ),
+      margin: const EdgeInsets.fromLTRB(12,0,12,12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(22), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0,6))], border: Border.all(color: _C.border)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        _nav(Icons.home_rounded, 'Accueil', 0),
+        _nav(Icons.chat_bubble_rounded, 'Chats', 1, badge: _all.fold(0,(s,c)=>s+c.unreadCount)),
+        const SizedBox(width: 36),
+        _nav(Icons.workspaces_rounded, 'Spaces', 2),
+        _nav(Icons.person_rounded, 'Profil', 3),
+      ]),
     );
   }
-
-  Widget _modalOption(IconData icon, String title, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(border: Border.all(color: _ChatColors.border), borderRadius: BorderRadius.circular(16)),
-        child: Row(
-          children: [
-            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _ChatColors.softBlue, borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: _ChatColors.primaryBlue)),
-            const SizedBox(width: 16),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _ChatColors.navyDeep)),
-          ],
-        ),
-      ),
-    );
+  Widget _nav(IconData icon, String label, int idx, {int badge=0}){
+    final sel = _selectedNav==idx;
+    return InkWell(onTap: ()=> setState(()=>_selectedNav=idx), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Stack(clipBehavior: Clip.none, children: [Icon(icon, size: 20, color: sel? _C.blue:_C.textMuted), if(badge>0) Positioned(right: -6, top: -4, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical:1), decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle), child: Text('$badge', style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w800))))]),
+      const SizedBox(height: 3),
+      Text(label, style: TextStyle(fontSize: 10, fontWeight: sel? FontWeight.w800:FontWeight.w600, color: sel? _C.blue:_C.textMuted)),
+      if(sel) Container(margin: const EdgeInsets.only(top:3), width: 4, height: 4, decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle)),
+    ]));
   }
 
-  // ============================================================
-  // BOTTOM NAV
-  // ============================================================
-  Widget _buildFloatingBottomNav() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      decoration: BoxDecoration(
-        color: _ChatColors.navyDeep,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.3), blurRadius: 25, offset: const Offset(0, 10))],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _navItem(Icons.home_rounded, 'Accueil', 0),
-              _navItem(Icons.forum_rounded, 'Chats', 1),
-              _navItem(Icons.explore_rounded, 'Espaces', 2),
-              _navItem(Icons.settings_rounded, 'Paramètres', 3),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, int index) {
-    final isSelected = _selectedIndex == index;
-    return InkWell(
-      onTap: () {
-        setState(() => _selectedIndex = index);
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? _ChatColors.primaryBlue.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: isSelected ? _ChatColors.gold : Colors.white70),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _ChatColors.gold)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final date = DateTime(time.year, time.month, time.day);
-
-    if (date == today) {
-      return DateFormat('HH:mm').format(time);
-    } else if (date == today.subtract(const Duration(days: 1))) {
-      return 'Hier';
-    } else if (now.difference(time).inDays < 7) {
-      return DateFormat('E').format(time);
-    } else {
-      return DateFormat('dd/MM').format(time);
-    }
-  }
+  String _fmt(DateTime t){ final now=DateTime.now(); final d=DateTime(t.year,t.month,t.day); final today=DateTime(now.year,now.month,now.day); if(d==today) return DateFormat('HH:mm').format(t); if(d==today.subtract(const Duration(days:1))) return 'Hier'; if(now.difference(t).inDays<7) return DateFormat('E','fr_FR').format(t); return DateFormat('dd/MM').format(t); }
 }
