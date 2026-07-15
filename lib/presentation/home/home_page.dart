@@ -253,7 +253,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
     context.push(AppRoutes.login);
   }
 
-  // ✅ Nouveau : NFC remplacé par Document -> ouvre le coffre-fort documents.
   void _openDocumentVault() {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
@@ -305,7 +304,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
         : (auth.currentUser?.email.trim().isNotEmpty ?? false)
             ? auth.currentUser!.email.trim()
             : 'Bonjour';
-    // ✅ Photo réelle de l'utilisateur (même source que le Dashboard).
     final photoUrl = auth.currentUser?.photoUrl;
     final badgeCountsStream = auth.currentUser == null
         ? Stream.value(SectionBadgeCounts.zero)
@@ -365,7 +363,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _QuickActionsRow(
                     onScanTap: _openThixAi,
-                    onDocumentTap: _openDocumentVault, // ✅ remplace NFC
+                    onDocumentTap: _openDocumentVault,
                     onChatTap: _openThixChat,
                     onSecurityTap: _openEmergency,
                   ),
@@ -452,8 +450,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
 
-              // ✅ Espace supplémentaire pour ne pas cacher le contenu
-              // derrière le bouton flottant (plus de bottomNavigationBar fixe).
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 130)),
             ],
           ),
@@ -468,7 +464,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
             ),
-          // ✅ Bouton flottant unique (QR scan + menu extensible).
           Positioned(
             left: 0,
             right: 0,
@@ -646,7 +641,6 @@ class _PremiumHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmedPhoto = (photoUrl ?? '').trim();
     return Padding(
-      // ✅ Le menu "3 barres" a été retiré.
       padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -688,59 +682,81 @@ class _PremiumHeader extends StatelessWidget {
                 child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 18),
               ),
               const SizedBox(width: AppSpacing.s),
-              GestureDetector(
-                onTap: () => NotificationsSheet.show(context),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                    boxShadow: AppShadows.secondary,
-                  ),
-                  child: Stack(
-                    children: [
-                      const Center(
-                        child: Icon(
-                          Icons.notifications_none_rounded,
-                          color: AppColors.darkText,
-                          size: 18,
-                        ),
-                      ),
-                      Positioned(
-                        right: 7,
-                        top: 7,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: AppColors.dangerRed,
-                            shape: BoxShape.circle,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => NotificationsSheet.show(context),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorder, width: 0.5),
+                      boxShadow: AppShadows.secondary,
+                    ),
+                    child: Stack(
+                      children: [
+                        const Center(
+                          child: Icon(
+                            Icons.notifications_none_rounded,
+                            color: AppColors.darkText,
+                            size: 18,
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          right: 7,
+                          top: 7,
+                          child: Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppColors.dangerRed,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: AppSpacing.s),
-              GestureDetector(
-                onTap: onProfileTap,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.white, width: 2),
-                    boxShadow: AppShadows.secondary,
-                    image: DecorationImage(
-                      image: trimmedPhoto.isNotEmpty
-                          ? NetworkImage(trimmedPhoto) as ImageProvider
-                          : const AssetImage(
+              // ✅ FIX #1 : icône profil vraiment tappable (Material+InkWell,
+              // hitTestBehavior opaque, image chargée via Image.network avec
+              // fallback propre — plus de DecorationImage silencieuse).
+              Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onProfileTap,
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.white, width: 2),
+                      boxShadow: AppShadows.secondary,
+                      color: AppColors.cardBorder,
+                    ),
+                    child: ClipOval(
+                      child: trimmedPhoto.isNotEmpty
+                          ? Image.network(
+                              trimmedPhoto,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Image.asset(
+                                'assets/images/African_businessman_in_suit_grayscale_1775573970767.jpg',
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Image.asset(
                               'assets/images/African_businessman_in_suit_grayscale_1775573970767.jpg',
+                              fit: BoxFit.cover,
                             ),
-                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
@@ -895,7 +911,7 @@ class _PremiumStatusCard extends StatelessWidget {
 
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onScanTap;
-  final VoidCallback onDocumentTap; // ✅ remplace onNfcTap
+  final VoidCallback onDocumentTap;
   final VoidCallback onChatTap;
   final VoidCallback onSecurityTap;
 
@@ -930,7 +946,7 @@ class _QuickActionsRow extends StatelessWidget {
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onDocumentTap, // ✅ ouvre le vault
+              onTap: onDocumentTap,
             ),
           ),
         ),
@@ -1273,7 +1289,7 @@ class _SectionCage extends StatelessWidget {
 }
 
 // ============================================================================
-// CAROUSEL "À LA UNE" — connecté (THIX Info + Opportunity + Notification prioritaire)
+// CAROUSEL "À LA UNE" — vraies bannières image (FIX #2)
 // ============================================================================
 
 class _HeadlinesCarousel extends StatefulWidget {
@@ -1300,14 +1316,14 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
   Timer? _autoTimer;
   int _cardCount = 0;
 
+  static const double _bannerHeight = 150;
+
   @override
   void initState() {
     super.initState();
     final client = Supabase.instance.client;
 
-    // NOTE: adapte les noms de table/colonnes ci-dessous si ton schéma
-    // Supabase utilise des noms différents (ex: 'articles' au lieu de
-    // 'thix_info_articles', 'featured' au lieu de 'is_featured', etc.)
+    // NOTE: adapte les noms de table/colonnes si ton schéma Supabase diffère.
     try {
       _articlesStream = client
           .from('thix_info_articles')
@@ -1384,10 +1400,9 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
 
                 final cards = <Widget>[];
 
-                // ✅ Priorité : une notification (si elle existe) passe en 1ère carte.
                 if (priorityNotif != null) {
                   cards.add(
-                    _HeadlineCard(
+                    _HeadlineBanner(
                       label: 'Notification prioritaire',
                       title: (priorityNotif['title'] as String?) ??
                           (priorityNotif['message'] as String?) ??
@@ -1395,6 +1410,7 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
                       imageUrl: priorityNotif['image_url'] as String?,
                       icon: Icons.priority_high_rounded,
                       accent: AppColors.dangerRed,
+                      height: _bannerHeight,
                       onTap: () => NotificationsSheet.show(context),
                     ),
                   );
@@ -1402,12 +1418,13 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
 
                 for (final a in articles) {
                   cards.add(
-                    _HeadlineCard(
+                    _HeadlineBanner(
                       label: 'À la une • THIX Info',
                       title: (a['title'] as String?) ?? 'Actualité THIX Info',
                       imageUrl: a['image_url'] as String?,
                       icon: Icons.newspaper_rounded,
                       accent: AppColors.domainInfo,
+                      height: _bannerHeight,
                       onTap: widget.onThixInfoTap,
                     ),
                   );
@@ -1415,12 +1432,13 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
 
                 for (final o in opportunities) {
                   cards.add(
-                    _HeadlineCard(
+                    _HeadlineBanner(
                       label: 'À la une • Opportunity',
                       title: (o['title'] as String?) ?? 'Nouvelle opportunité',
                       imageUrl: o['image_url'] as String?,
                       icon: Icons.lightbulb_rounded,
                       accent: AppColors.domainOpportunity,
+                      height: _bannerHeight,
                       onTap: widget.onOpportunityTap,
                     ),
                   );
@@ -1428,18 +1446,20 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
 
                 if (cards.isEmpty) {
                   cards.addAll([
-                    _HeadlineCard(
+                    _HeadlineBanner(
                       label: 'À la une • THIX Info',
                       title: 'Nouvelles, annonces et mises à jour',
                       icon: Icons.newspaper_rounded,
                       accent: AppColors.domainInfo,
+                      height: _bannerHeight,
                       onTap: widget.onThixInfoTap,
                     ),
-                    _HeadlineCard(
+                    _HeadlineBanner(
                       label: 'À la une • Opportunity',
                       title: 'Opportunités pro à saisir maintenant',
                       icon: Icons.lightbulb_rounded,
                       accent: AppColors.domainOpportunity,
+                      height: _bannerHeight,
                       onTap: widget.onOpportunityTap,
                     ),
                   ]);
@@ -1452,7 +1472,7 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(
-                      height: 104,
+                      height: _bannerHeight,
                       child: PageView(controller: widget.controller, children: cards),
                     ),
                     if (cards.length > 1) ...[
@@ -1523,19 +1543,24 @@ class _CarouselDotsState extends State<_CarouselDots> {
   }
 }
 
-class _HeadlineCard extends StatelessWidget {
+/// ✅ FIX #2 : bannière plein format avec vraie image (BoxFit.cover, adaptée
+/// à la taille de la carte) + dégradé pour lisibilité du texte. Fallback
+/// icône/couleur si pas d'image ou erreur de chargement.
+class _HeadlineBanner extends StatelessWidget {
   final String label;
   final String title;
   final IconData icon;
   final Color accent;
   final String? imageUrl;
+  final double height;
   final VoidCallback onTap;
 
-  const _HeadlineCard({
+  const _HeadlineBanner({
     required this.label,
     required this.title,
     required this.icon,
     required this.accent,
+    required this.height,
     this.imageUrl,
     required this.onTap,
   });
@@ -1545,62 +1570,118 @@ class _HeadlineCard extends StatelessWidget {
     final hasImage = (imageUrl ?? '').trim().isNotEmpty;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(AppRadius.mainCard),
-          border: Border.all(color: AppColors.cardBorder, width: 0.6),
-          boxShadow: AppShadows.main,
-        ),
-        padding: const EdgeInsets.all(AppSpacing.l),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-                image: hasImage
-                    ? DecorationImage(image: NetworkImage(imageUrl!.trim()), fit: BoxFit.cover)
-                    : null,
-              ),
-              child: hasImage ? null : Icon(icon, color: accent, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.mainCard),
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            boxShadow: AppShadows.main,
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                Image.network(
+                  imageUrl!.trim(),
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      color: accent.withValues(alpha: 0.10),
+                      child: Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: accent),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    color: accent.withValues(alpha: 0.14),
+                    alignment: Alignment.center,
+                    child: Icon(icon, color: accent, size: 40),
+                  ),
+                )
+              else
+                Container(
+                  color: accent.withValues(alpha: 0.14),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: accent, size: 40),
+                ),
+
+              // Dégradé pour lisibilité du texte par-dessus l'image.
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.0),
+                        Colors.black.withValues(alpha: hasImage ? 0.55 : 0.25),
+                      ],
+                      stops: const [0.35, 1.0],
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.darkText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                      height: 1.15,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
-          ],
+
+              Positioned(
+                left: AppSpacing.l,
+                right: AppSpacing.l,
+                bottom: AppSpacing.m,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              Positioned(
+                right: AppSpacing.m,
+                top: AppSpacing.m,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkText),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1688,13 +1769,22 @@ class _MiniRoundAction extends StatelessWidget {
 }
 
 // ============================================================================
-// BOUTON FLOTTANT UNIQUE — QR SCAN + MENU EXTENSIBLE (remplace l'ancienne bottom bar)
+// BOUTON FLOTTANT UNIQUE — FIX #3
+// Jaune, neutre à l'état initial. Tap simple = ouvre les raccourcis
+// (Home, Mini Apps, Documents, Profil, Scan QR). Le scan n'est plus
+// au premier plan : c'est juste un raccourci parmi les autres.
 // ============================================================================
 
 class _NavSatelliteData {
   final IconData icon;
   final String label;
-  const _NavSatelliteData({required this.icon, required this.label});
+  final VoidCallback Function(BuildContext) actionBuilder;
+
+  const _NavSatelliteData({
+    required this.icon,
+    required this.label,
+    required this.actionBuilder,
+  });
 }
 
 class _ExpandableNavFab extends StatefulWidget {
@@ -1733,61 +1823,39 @@ class _ExpandableNavFabState extends State<_ExpandableNavFab> {
 
   void _armAutoCollapse() {
     _collapseTimer?.cancel();
-    // ✅ Repli automatique après 10 secondes d'inactivité.
     _collapseTimer = Timer(const Duration(seconds: 10), () {
       if (mounted) setState(() => _expanded = false);
     });
   }
 
-  void _expand() {
+  void _toggleExpand() {
     HapticFeedback.mediumImpact();
-    setState(() => _expanded = true);
-    _armAutoCollapse();
-  }
-
-  void _collapse() {
-    _collapseTimer?.cancel();
-    if (mounted) setState(() => _expanded = false);
-  }
-
-  void _runSatellite(VoidCallback action) {
-    _collapse();
-    action();
-  }
-
-  void _handleCentralTap() {
-    if (_expanded) {
-      // Le bouton central sert aussi à refermer le menu.
-      _collapse();
-    } else {
-      // ✅ Fonctionne directement comme scanner QR.
-      widget.onScanTap();
-    }
-  }
-
-  void _handleCentralLongPress() {
+    setState(() => _expanded = !_expanded);
     if (_expanded) {
       _armAutoCollapse();
     } else {
-      _expand();
+      _collapseTimer?.cancel();
     }
+  }
+
+  void _runSatellite(VoidCallback action) {
+    _collapseTimer?.cancel();
+    setState(() => _expanded = false);
+    action();
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
 
+    // ✅ Le scan QR est désormais un raccourci parmi les autres, pas l'action
+    // par défaut du bouton central.
     final items = <_NavSatelliteData>[
-      const _NavSatelliteData(icon: Icons.home_filled, label: 'Home'),
-      const _NavSatelliteData(icon: Icons.apps_rounded, label: 'Mini Apps'),
-      const _NavSatelliteData(icon: Icons.folder_rounded, label: 'Documents'),
-      const _NavSatelliteData(icon: Icons.person_outline_rounded, label: 'Profil'),
-    ];
-    final actions = <VoidCallback>[
-      widget.onHomeTap,
-      widget.onMiniAppsTap,
-      widget.onDocumentsTap,
-      widget.onProfileTap,
+      _NavSatelliteData(icon: Icons.home_filled, label: 'Home', actionBuilder: (_) => widget.onHomeTap),
+      _NavSatelliteData(icon: Icons.apps_rounded, label: 'Mini Apps', actionBuilder: (_) => widget.onMiniAppsTap),
+      _NavSatelliteData(icon: Icons.folder_rounded, label: 'Documents', actionBuilder: (_) => widget.onDocumentsTap),
+      _NavSatelliteData(icon: Icons.person_outline_rounded, label: 'Profil', actionBuilder: (_) => widget.onProfileTap),
+      _NavSatelliteData(icon: Icons.qr_code_scanner_rounded, label: 'Scan QR', actionBuilder: (_) => widget.onScanTap),
     ];
 
     final totalHeight = _centralBottom +
@@ -1810,13 +1878,12 @@ class _ExpandableNavFabState extends State<_ExpandableNavFab> {
               order: i,
               icon: items[i].icon,
               label: items[i].label,
-              onTap: () => _runSatellite(actions[i]),
+              onTap: () => _runSatellite(items[i].actionBuilder(context)),
             ),
           Positioned(
             bottom: bottomSafe + _centralBottom,
             child: GestureDetector(
-              onTap: _handleCentralTap,
-              onLongPress: _handleCentralLongPress,
+              onTap: _toggleExpand,
               child: AnimatedRotation(
                 turns: _expanded ? 0.125 : 0,
                 duration: const Duration(milliseconds: 220),
@@ -1824,6 +1891,7 @@ class _ExpandableNavFabState extends State<_ExpandableNavFab> {
                   width: _centralSize,
                   height: _centralSize,
                   decoration: BoxDecoration(
+                    // ✅ Toujours jaune, icône neutre à l'état initial.
                     color: AppColors.goldBadge,
                     shape: BoxShape.circle,
                     boxShadow: [
@@ -1835,7 +1903,7 @@ class _ExpandableNavFabState extends State<_ExpandableNavFab> {
                     ],
                   ),
                   child: Icon(
-                    _expanded ? Icons.close_rounded : Icons.qr_code_scanner_rounded,
+                    _expanded ? Icons.close_rounded : Icons.apps_rounded,
                     color: AppColors.bottomNavCenterIcon,
                     size: 26,
                   ),
