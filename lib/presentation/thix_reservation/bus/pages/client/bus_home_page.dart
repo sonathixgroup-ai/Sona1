@@ -1,5 +1,5 @@
 // lib/presentation/thix_reservation/bus/pages/client/bus_home_page.dart
-// V2.2 FIX BUILD - NO INLINE LIST - NO \n
+// V2.3 FIX BUILD - Aligné avec BusSearchProvider (departureCity/arrivalCity/setDate)
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -73,7 +73,7 @@ class _BusHomePageState extends State<BusHomePage> {
     super.initState();
     _init();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted ||!_heroCtrl.hasClients) return;
+      if (!mounted || !_heroCtrl.hasClients) return;
       _heroIndex = (_heroIndex + 1) % _heroSlides.length;
       _heroCtrl.animateToPage(_heroIndex, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
     });
@@ -81,14 +81,14 @@ class _BusHomePageState extends State<BusHomePage> {
 
   Future<void> _init() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user!= null) {
+    if (user != null) {
       try {
         final p = await Supabase.instance.client.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-        if (p!= null && mounted) {
+        if (p != null && mounted) {
           setState(() => _userName = (p["full_name"] as String).split(" ").first);
         }
         final a1 = await Supabase.instance.client.from("bus_agencies").select("id").eq("owner_id", user.id).maybeSingle();
-        if (a1!= null && mounted) setState(() => _hasAgency = true);
+        if (a1 != null && mounted) setState(() => _hasAgency = true);
       } catch (_) {}
     }
     if (mounted) Future.microtask(() => context.read<AgencyDashboardProvider>().init());
@@ -125,8 +125,8 @@ class _BusHomePageState extends State<BusHomePage> {
         ]),
         actions: [
           IconButton(
-            onPressed: () => _hasAgency? context.push("/agency/dashboard") : context.push("/agency/onboarding"),
-            icon: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _hasAgency? const Color(0xFFEAF1FF) : const Color(0xFFFFF7E6), borderRadius: BorderRadius.circular(10)), child: Icon(_hasAgency? Icons.storefront_rounded : Icons.add_business_rounded, size: 18, color: _hasAgency? kPrimary : const Color(0xFFB7791F))),
+            onPressed: () => _hasAgency ? context.push("/agency/dashboard") : context.push("/agency/onboarding"),
+            icon: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _hasAgency ? const Color(0xFFEAF1FF) : const Color(0xFFFFF7E6), borderRadius: BorderRadius.circular(10)), child: Icon(_hasAgency ? Icons.storefront_rounded : Icons.add_business_rounded, size: 18, color: _hasAgency ? kPrimary : const Color(0xFFB7791F))),
           ),
           IconButton(onPressed: () => context.push("/notifications"), icon: const Badge(label: Text("3"), child: Icon(Icons.notifications_none_rounded))),
           const SizedBox(width: 4),
@@ -167,7 +167,7 @@ class _BusHomePageState extends State<BusHomePage> {
                     );
                   },
                 ),
-                Positioned(bottom: 10, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(_heroSlides.length, (i) => Container(margin: const EdgeInsets.symmetric(horizontal: 3), width: i == _heroIndex? 16 : 6, height: 6, decoration: BoxDecoration(color: i == _heroIndex? Colors.white : Colors.white54, borderRadius: BorderRadius.circular(10)))))),
+                Positioned(bottom: 10, left: 0, right: 0, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(_heroSlides.length, (i) => Container(margin: const EdgeInsets.symmetric(horizontal: 3), width: i == _heroIndex ? 16 : 6, height: 6, decoration: BoxDecoration(color: i == _heroIndex ? Colors.white : Colors.white54, borderRadius: BorderRadius.circular(10)))))),
               ]),
             ),
             const SizedBox(height: 12),
@@ -189,15 +189,15 @@ class _BusHomePageState extends State<BusHomePage> {
                 Row(children: [const Text("Reservation rapide de bus", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)), const Spacer(), Text("Voir tout", style: TextStyle(fontSize: 11, color: kPrimary, fontWeight: FontWeight.w700))]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: _FieldBox(icon: Icons.my_location_rounded, label: "Depart", value: searchP.departure?? "Choisir", onTap: () => _showCityPicker(context, true))),
+                  Expanded(child: _FieldBox(icon: Icons.my_location_rounded, label: "Depart", value: searchP.departureCity ?? "Choisir", onTap: () => _showCityPicker(context, true))),
                   const SizedBox(width: 8),
-                  Expanded(child: _FieldBox(icon: Icons.location_on_rounded, label: "Arrivee", value: searchP.arrival?? "Choisir", onTap: () => _showCityPicker(context, false))),
+                  Expanded(child: _FieldBox(icon: Icons.location_on_rounded, label: "Arrivee", value: searchP.arrivalCity ?? "Choisir", onTap: () => _showCityPicker(context, false))),
                 ]),
                 const SizedBox(height: 10),
                 Row(children: [
-                  Expanded(child: _FieldBox(icon: Icons.calendar_today_rounded, label: "Date", value: searchP.departureDate!= null? "${searchP.departureDate!.day}/${searchP.departureDate!.month}" : "18 Mai 2024", onTap: () => _pickDate(context))),
+                  Expanded(child: _FieldBox(icon: Icons.calendar_today_rounded, label: "Date", value: "${searchP.departureDate.day}/${searchP.departureDate.month}", onTap: () => _pickDate(context))),
                   const SizedBox(width: 10),
-                  Expanded(child: _FieldBox(icon: Icons.person_outline_rounded, label: "Passagers", value: "${searchP.passengers?? 1}", onTap: () => _pickPassengers(context))),
+                  Expanded(child: _FieldBox(icon: Icons.person_outline_rounded, label: "Passagers", value: "${searchP.passengers}", onTap: () => _pickPassengers(context))),
                   const SizedBox(width: 10),
                   SizedBox(height: 46, child: ElevatedButton(onPressed: () async { await searchP.search(); if (context.mounted) context.push("/thix-reservation/bus/search"); }, style: ElevatedButton.styleFrom(backgroundColor: kPrimary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Icon(Icons.search_rounded, color: Colors.white))),
                 ]),
@@ -210,11 +210,11 @@ class _BusHomePageState extends State<BusHomePage> {
             else if (_popularRoutes.isEmpty) Container(height: 70, alignment: Alignment.center, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: const Text("Aucune route"))
             else SizedBox(height: 170, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _popularRoutes.length, separatorBuilder: (_, __) => const SizedBox(width: 10), itemBuilder: (_, i) {
               final r = _popularRoutes[i];
-              final dep = r["departure_city"]?? "Kinshasa";
-              final arr = r["arrival_city"]?? "Matadi";
-              final label = r["next_departure_label"]?? "08:00";
-              final price = r["min_price"]?? 5000;
-              final img = r["arrival_city_image"]?? "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400";
+              final dep = r["departure_city"] ?? "Kinshasa";
+              final arr = r["arrival_city"] ?? "Matadi";
+              final label = r["next_departure_label"] ?? "08:00";
+              final price = r["min_price"] ?? 5000;
+              final img = r["arrival_city_image"] ?? "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400";
               return _RouteCard(from: dep, to: arr, date: label, price: "$price FCFA", img: img, onTap: () {});
             })),
             const SizedBox(height: 16),
@@ -250,16 +250,16 @@ class _BusHomePageState extends State<BusHomePage> {
 
   Future<void> _pickDate(BuildContext context) async {
     final d = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (d!= null && mounted) context.read<BusSearchProvider>().setDepartureDate(d);
+    if (d != null && mounted) context.read<BusSearchProvider>().setDate(d);
   }
 
   void _pickPassengers(BuildContext context) {
     showModalBottomSheet(context: context, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))), builder: (_) {
-      int p = context.read<BusSearchProvider>().passengers?? 1;
+      int p = context.read<BusSearchProvider>().passengers;
       return StatefulBuilder(builder: (c, setS) => Container(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           const Text("Passagers", style: TextStyle(fontWeight: FontWeight.w800)),
-          Row(children: [IconButton(onPressed: () => setS(() => p = p > 1? p - 1 : 1), icon: const Icon(Icons.remove_circle_outline)), Text("$p", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)), IconButton(onPressed: () => setS(() => p++), icon: const Icon(Icons.add_circle_outline))]),
+          Row(children: [IconButton(onPressed: () => setS(() => p = p > 1 ? p - 1 : 1), icon: const Icon(Icons.remove_circle_outline)), Text("$p", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)), IconButton(onPressed: () => setS(() => p++), icon: const Icon(Icons.add_circle_outline))]),
         ]),
         SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () { context.read<BusSearchProvider>().setPassengers(p); Navigator.pop(c); }, child: const Text("Confirmer"))),
       ])));
@@ -281,7 +281,7 @@ class _BusHomePageState extends State<BusHomePage> {
 class _Cat extends StatelessWidget {
   final IconData icon; final String label; final Color color; final bool active; final VoidCallback onTap;
   const _Cat({required this.icon, required this.label, required this.color, this.active = false, required this.onTap});
-  @override Widget build(BuildContext context) => InkWell(onTap: onTap, child: Column(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: active? const Color(0xFFEAF1FF) : color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: color)), const SizedBox(height: 4), Text(label, style: TextStyle(fontSize: 9, fontWeight: active? FontWeight.w800 : FontWeight.w600))]));
+  @override Widget build(BuildContext context) => InkWell(onTap: onTap, child: Column(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: active ? const Color(0xFFEAF1FF) : color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: color)), const SizedBox(height: 4), Text(label, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w800 : FontWeight.w600))]));
 }
 class _FieldBox extends StatelessWidget {
   final IconData icon; final String label, value; final VoidCallback onTap;
@@ -319,7 +319,7 @@ class _CityPickerState extends State<_CityPicker> {
       const SizedBox(height: 10),
       Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(10))),
       const SizedBox(height: 12),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextField(controller: ctrl, decoration: InputDecoration(hintText: widget.isDep? "Depart" : "Arrivee", prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextField(controller: ctrl, decoration: InputDecoration(hintText: widget.isDep ? "Depart" : "Arrivee", prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
       const SizedBox(height: 10),
       if (loading) const Expanded(child: Center(child: CircularProgressIndicator())) else Expanded(child: ListView.separated(controller: c, itemCount: filtered.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, i) => ListTile(title: Text(filtered[i], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)), onTap: () { final p = context.read<BusSearchProvider>(); if (widget.isDep) p.setDeparture(filtered[i]); else p.setArrival(filtered[i]); Navigator.pop(context); }))),
     ]));
