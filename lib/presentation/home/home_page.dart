@@ -372,6 +372,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
 
+              // ✅ "Mes services" enveloppé dans le cadre premium or/bleu lumineux.
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 sliver: SliverToBoxAdapter(
@@ -379,52 +380,54 @@ class _HomePagePremiumState extends State<HomePagePremium>
                     stream: badgeCountsStream,
                     builder: (context, snap) {
                       final counts = snap.data ?? SectionBadgeCounts.zero;
-                      return _SectionCage(
-                        title: 'Mes services',
-                        child: _ServicesGrid(
-                          counts: counts,
-                          onServiceTap: (serviceKey) {
-                            switch (serviceKey) {
-                              case 'thixMedia':
-                                context.push(AppRoutes.thixMedia);
-                                break;
-                              case 'thixMarket':
-                                context.push(AppRoutes.thixMarket);
-                                break;
-                              case 'formations':
-                                context.push(AppRoutes.trainingHome);
-                                break;
-                              case 'emplois':
-                                context.push(AppRoutes.jobs);
-                                break;
-                              case 'thixInfo':
-                                context.push(AppRoutes.thixInfo);
-                                break;
-                              case 'opportunites':
-                                context.push(AppRoutes.opportunities);
-                                break;
-                              case 'evenements':
-                                context.push('/thix-event');
-                                break;
-                              case 'reseauPro':
-                                context.push(AppRoutes.network);
-                                break;
-                              case 'thixSante':
-                                context.push(AppRoutes.thixSante);
-                                break;
-                              case 'thixMoney':
-                                context.push(AppRoutes.thixMoney);
-                                break;
-                              case 'monPays':
-                                context.push(AppRoutes.monPays);
-                                break;
-                              case 'reservation':
-                                context.push(AppRoutes.reservation);
-                                break;
-                              default:
-                                break;
-                            }
-                          },
+                      return _PremiumGlowFrame(
+                        child: _SectionCage(
+                          title: 'Mes services',
+                          child: _ServicesGrid(
+                            counts: counts,
+                            onServiceTap: (serviceKey) {
+                              switch (serviceKey) {
+                                case 'thixMedia':
+                                  context.push(AppRoutes.thixMedia);
+                                  break;
+                                case 'thixMarket':
+                                  context.push(AppRoutes.thixMarket);
+                                  break;
+                                case 'formations':
+                                  context.push(AppRoutes.trainingHome);
+                                  break;
+                                case 'emplois':
+                                  context.push(AppRoutes.jobs);
+                                  break;
+                                case 'thixInfo':
+                                  context.push(AppRoutes.thixInfo);
+                                  break;
+                                case 'opportunites':
+                                  context.push(AppRoutes.opportunities);
+                                  break;
+                                case 'evenements':
+                                  context.push('/thix-event');
+                                  break;
+                                case 'reseauPro':
+                                  context.push(AppRoutes.network);
+                                  break;
+                                case 'thixSante':
+                                  context.push(AppRoutes.thixSante);
+                                  break;
+                                case 'thixMoney':
+                                  context.push(AppRoutes.thixMoney);
+                                  break;
+                                case 'monPays':
+                                  context.push(AppRoutes.monPays);
+                                  break;
+                                case 'reservation':
+                                  context.push(AppRoutes.reservation);
+                                  break;
+                                default:
+                                  break;
+                              }
+                            },
+                          ),
                         ),
                       );
                     },
@@ -645,18 +648,12 @@ class _PremiumHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // ✅ "Welcome Back" statique remplacé par la salutation rotative RDC.
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Welcome Back',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              const _RotatingGreeting(),
               Text(
                 displayName,
                 style: const TextStyle(
@@ -723,9 +720,9 @@ class _PremiumHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.s),
-              // ✅ FIX #1 : icône profil vraiment tappable (Material+InkWell,
-              // hitTestBehavior opaque, image chargée via Image.network avec
-              // fallback propre — plus de DecorationImage silencieuse).
+              // ✅ Icône profil réellement tappable : Material + InkWell +
+              // Image.network avec fallback propre (pas de DecorationImage
+              // silencieuse qui bloquait le tap).
               Material(
                 color: Colors.transparent,
                 shape: const CircleBorder(),
@@ -764,6 +761,93 @@ class _PremiumHeader extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SALUTATION ROTATIVE — 4 LANGUES NATIONALES DE LA RDC
+// ============================================================================
+
+class _RotatingGreeting extends StatefulWidget {
+  const _RotatingGreeting();
+
+  @override
+  State<_RotatingGreeting> createState() => _RotatingGreetingState();
+}
+
+class _RotatingGreetingState extends State<_RotatingGreeting> {
+  static const List<Map<String, String>> _greetings = [
+    {'lang': 'Lingala', 'text': 'Mbote'},
+    {'lang': 'Kiswahili', 'text': 'Jambo'},
+    {'lang': 'Tshiluba', 'text': 'Moyo'},
+    {'lang': 'Kikongo', 'text': 'Mbote'},
+  ];
+
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      setState(() => _index = (_index + 1) % _greetings.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final g = _greetings[_index];
+    return SizedBox(
+      height: 15,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 380),
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: SlideTransition(
+            position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim),
+            child: child,
+          ),
+        ),
+        child: Row(
+          key: ValueKey(g['lang']),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              g['text']!,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppColors.goldBadge.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                g['lang']!,
+                style: const TextStyle(
+                  color: AppColors.premiumAccent,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1289,7 +1373,119 @@ class _SectionCage extends StatelessWidget {
 }
 
 // ============================================================================
-// CAROUSEL "À LA UNE" — vraies bannières image (FIX #2)
+// CADRE PREMIUM LUMINEUX — OR + BLEU, GLOW PULSÉ + REFLET ANIMÉ
+// ============================================================================
+
+class _PremiumGlowFrame extends StatefulWidget {
+  final Widget child;
+  const _PremiumGlowFrame({required this.child});
+
+  @override
+  State<_PremiumGlowFrame> createState() => _PremiumGlowFrameState();
+}
+
+class _PremiumGlowFrameState extends State<_PremiumGlowFrame> with TickerProviderStateMixin {
+  late final AnimationController _shineController;
+  late final AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shineController = AnimationController(vsync: this, duration: const Duration(seconds: 3))
+      ..repeat();
+    _glowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _shineController.dispose();
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_shineController, _glowController]),
+      builder: (context, _) {
+        final glow = 0.35 + (_glowController.value * 0.30);
+        return Container(
+          padding: const EdgeInsets.all(2.4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.mainCard + 4),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFFF0C2), // or très clair
+                Color(0xFFE3B23C), // or THIX
+                Color(0xFF2D6CDF), // bleu THIX
+                Color(0xFF123B7A), // navy profond
+              ],
+              stops: [0.0, 0.32, 0.68, 1.0],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE3B23C).withValues(alpha: glow * 0.55),
+                blurRadius: 26,
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: const Color(0xFF2D6CDF).withValues(alpha: glow * 0.45),
+                blurRadius: 32,
+                spreadRadius: -3,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.mainCard + 2),
+            child: Stack(
+              children: [
+                widget.child,
+                // Reflet diagonal animé, façon carte premium métal.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ClipRect(
+                      child: Transform.translate(
+                        offset: Offset(
+                          (_shineController.value * 520) - 220,
+                          0,
+                        ),
+                        child: Transform.rotate(
+                          angle: -0.45,
+                          child: Container(
+                            width: 70,
+                            height: 400,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.0),
+                                  Colors.white.withValues(alpha: 0.32),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ============================================================================
+// CAROUSEL "À LA UNE" — vraies bannières image
 // ============================================================================
 
 class _HeadlinesCarousel extends StatefulWidget {
@@ -1543,9 +1739,9 @@ class _CarouselDotsState extends State<_CarouselDots> {
   }
 }
 
-/// ✅ FIX #2 : bannière plein format avec vraie image (BoxFit.cover, adaptée
-/// à la taille de la carte) + dégradé pour lisibilité du texte. Fallback
-/// icône/couleur si pas d'image ou erreur de chargement.
+/// Bannière plein format avec vraie image (BoxFit.cover, adaptée à la taille
+/// de la carte) + dégradé pour lisibilité du texte. Fallback icône/couleur
+/// si pas d'image ou erreur de chargement.
 class _HeadlineBanner extends StatelessWidget {
   final String label;
   final String title;
@@ -1611,7 +1807,6 @@ class _HeadlineBanner extends StatelessWidget {
                   child: Icon(icon, color: accent, size: 40),
                 ),
 
-              // Dégradé pour lisibilité du texte par-dessus l'image.
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -1769,10 +1964,10 @@ class _MiniRoundAction extends StatelessWidget {
 }
 
 // ============================================================================
-// BOUTON FLOTTANT UNIQUE — FIX #3
-// Jaune, neutre à l'état initial. Tap simple = ouvre les raccourcis
-// (Home, Mini Apps, Documents, Profil, Scan QR). Le scan n'est plus
-// au premier plan : c'est juste un raccourci parmi les autres.
+// BOUTON FLOTTANT UNIQUE — jaune, neutre à l'état initial.
+// Tap simple = ouvre les raccourcis (Home, Mini Apps, Documents, Profil,
+// Scan QR). Le scan n'est plus au premier plan : c'est un raccourci parmi
+// les autres. Repli auto après 10s d'inactivité.
 // ============================================================================
 
 class _NavSatelliteData {
@@ -1848,8 +2043,6 @@ class _ExpandableNavFabState extends State<_ExpandableNavFab> {
   Widget build(BuildContext context) {
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
 
-    // ✅ Le scan QR est désormais un raccourci parmi les autres, pas l'action
-    // par défaut du bouton central.
     final items = <_NavSatelliteData>[
       _NavSatelliteData(icon: Icons.home_filled, label: 'Home', actionBuilder: (_) => widget.onHomeTap),
       _NavSatelliteData(icon: Icons.apps_rounded, label: 'Mini Apps', actionBuilder: (_) => widget.onMiniAppsTap),
@@ -1891,7 +2084,6 @@ class _ExpandableNavFabState extends State<_ExpandableNavFab> {
                   width: _centralSize,
                   height: _centralSize,
                   decoration: BoxDecoration(
-                    // ✅ Toujours jaune, icône neutre à l'état initial.
                     color: AppColors.goldBadge,
                     shape: BoxShape.circle,
                     boxShadow: [
