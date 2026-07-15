@@ -1,13 +1,12 @@
 // lib/presentation/chat/escalation/screens/received_escalations_page.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
-import '../../chat/chat_screen.dart'; // ✅ chemin correct vers ChatScreen
-import '../../../../services/chat/chat_service.dart'; // ✅ chemin correct vers ChatService
+import '../../../chat/chat_screen.dart'; // ✅ 3 niveaux : chat/escalation/screens -> chat/chat_screen.dart
+import '../../../../services/chat/chat_service.dart'; // ✅ 4 niveaux pour arriver à lib/
 
 class ReceivedEscalationsPage extends StatefulWidget {
   const ReceivedEscalationsPage({super.key});
