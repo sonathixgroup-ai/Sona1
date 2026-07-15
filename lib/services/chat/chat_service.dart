@@ -16,6 +16,22 @@ class ChatService {
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
 
   // ============================================================
+  // Helper: extrait le meilleur nom disponible depuis un profil
+  // ============================================================
+  static String _resolveDisplayName(Map<String, dynamic>? profile) {
+    if (profile == null) return 'Utilisateur inconnu';
+    final displayName = profile['display_name'] as String?;
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      return displayName;
+    }
+    final fullName = profile['full_name'] as String?;
+    if (fullName != null && fullName.trim().isNotEmpty) {
+      return fullName;
+    }
+    return 'Utilisateur inconnu';
+  }
+
+  // ============================================================
   // CONVERSATIONS
   // ============================================================
 
@@ -45,7 +61,7 @@ class ChatService {
               user_id,
               role,
               profiles!user_id (
-                username,
+                display_name,
                 full_name,
                 avatar_url
               )
@@ -73,15 +89,8 @@ class ChatService {
           );
           if (other != null) {
             final profile = other['profiles'] as Map<String, dynamic>?;
-            if (profile != null) {
-              otherParticipantName = profile['full_name'] as String?;
-              if (otherParticipantName == null || otherParticipantName.isEmpty) {
-                otherParticipantName = profile['username'] as String? ?? 'Utilisateur inconnu';
-              }
-              otherParticipantAvatar = profile['avatar_url'] as String?;
-            } else {
-              otherParticipantName = 'Utilisateur inconnu';
-            }
+            otherParticipantName = _resolveDisplayName(profile);
+            otherParticipantAvatar = profile?['avatar_url'] as String?;
           }
         }
 
@@ -91,7 +100,7 @@ class ChatService {
             .select('''
               *,
               profiles!sender_id (
-                username,
+                display_name,
                 full_name,
                 avatar_url
               )
@@ -104,6 +113,9 @@ class ChatService {
 
         ChatMessage? lastMessage;
         if (lastMsg != null) {
+          final profile = lastMsg['profiles'] as Map<String, dynamic>?;
+          lastMsg['sender_name'] = _resolveDisplayName(profile);
+          lastMsg['sender_avatar'] = profile?['avatar_url'];
           lastMessage = ChatMessage.fromJson(lastMsg);
         }
 
@@ -160,7 +172,7 @@ class ChatService {
       final convIds = (existing as List)
           .map((e) => e['conversation_id'] as String)
           .toList();
-          
+
       for (var cid in convIds) {
         final other = await _supabase
             .from('conversation_participants')
@@ -176,15 +188,13 @@ class ChatService {
 
           final otherProfile = await _supabase
               .from('profiles')
-              .select('username, full_name, avatar_url')
+              .select('display_name, full_name, avatar_url')
               .eq('id', otherId)
               .single();
 
           return ChatConversation.fromJson({
             ...convData,
-            'other_participant_name': otherProfile['full_name'] ??
-                otherProfile['username'] ??
-                'Utilisateur inconnu',
+            'other_participant_name': _resolveDisplayName(otherProfile),
             'other_participant_avatar': otherProfile['avatar_url'],
           });
         }
@@ -226,12 +236,10 @@ class ChatService {
       final otherId = participantIds.firstWhere((id) => id != uid);
       final otherProfile = await _supabase
           .from('profiles')
-          .select('username, full_name, avatar_url')
+          .select('display_name, full_name, avatar_url')
           .eq('id', otherId)
           .single();
-      otherName = otherProfile['full_name'] ??
-          otherProfile['username'] ??
-          'Utilisateur inconnu';
+      otherName = _resolveDisplayName(otherProfile);
       otherAvatar = otherProfile['avatar_url'];
     }
 
@@ -289,7 +297,7 @@ class ChatService {
             conversation_participants!inner (
               user_id,
               profiles!user_id (
-                username,
+                display_name,
                 full_name,
                 avatar_url
               )
@@ -315,15 +323,8 @@ class ChatService {
         );
         if (other != null) {
           final profile = other['profiles'] as Map<String, dynamic>?;
-          if (profile != null) {
-            otherParticipantName = profile['full_name'] as String?;
-            if (otherParticipantName == null || otherParticipantName.isEmpty) {
-              otherParticipantName = profile['username'] as String? ?? 'Utilisateur inconnu';
-            }
-            otherParticipantAvatar = profile['avatar_url'] as String?;
-          } else {
-            otherParticipantName = 'Utilisateur inconnu';
-          }
+          otherParticipantName = _resolveDisplayName(profile);
+          otherParticipantAvatar = profile?['avatar_url'] as String?;
         }
       }
 
@@ -355,7 +356,7 @@ class ChatService {
             role,
             last_read_at,
             profiles!user_id (
-              username,
+              display_name,
               full_name,
               avatar_url
             )
@@ -377,7 +378,7 @@ class ChatService {
 
         members.add(GroupMember(
           userId: userId,
-          displayName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur',
+          displayName: _resolveDisplayName(profile),
           avatarUrl: profile?['avatar_url'],
           role: role,
           isOnline: isOnline,
@@ -422,7 +423,7 @@ class ChatService {
           .select('''
             *,
             profiles!sender_id (
-              username,
+              display_name,
               full_name,
               avatar_url
             )
@@ -435,13 +436,8 @@ class ChatService {
       // ✅ Convertir les messages avec les noms des expéditeurs
       final messages = (response as List).map((e) {
         final profile = e['profiles'] as Map<String, dynamic>?;
-        if (profile != null) {
-          e['sender_name'] = profile['full_name'] ?? profile['username'] ?? 'Utilisateur inconnu';
-          e['sender_avatar'] = profile['avatar_url'];
-        } else {
-          e['sender_name'] = 'Utilisateur inconnu';
-          e['sender_avatar'] = null;
-        }
+        e['sender_name'] = _resolveDisplayName(profile);
+        e['sender_avatar'] = profile?['avatar_url'];
         return ChatMessage.fromJson(e);
       }).toList();
 
@@ -458,6 +454,9 @@ class ChatService {
     required String content,
     String? mediaUrl,
     String? mediaType,
+    String? mediaName,
+    int? mediaSize,
+    String? mimeType,
     String? replyToId,
     bool isEphemeral = false,
     int? ephemeralDuration,
@@ -493,7 +492,7 @@ class ChatService {
     }).select('''
       *,
       profiles!sender_id (
-        username,
+        display_name,
         full_name,
         avatar_url
       )
@@ -501,10 +500,8 @@ class ChatService {
 
     // Ajouter le nom de l'expéditeur
     final profile = response['profiles'] as Map<String, dynamic>?;
-    if (profile != null) {
-      response['sender_name'] = profile['full_name'] ?? profile['username'] ?? 'Utilisateur inconnu';
-      response['sender_avatar'] = profile['avatar_url'];
-    }
+    response['sender_name'] = _resolveDisplayName(profile);
+    response['sender_avatar'] = profile?['avatar_url'];
 
     await _supabase
         .from('conversations')
@@ -623,7 +620,7 @@ class ChatService {
           .select('''
             *,
             profiles!sender_id (
-              username,
+              display_name,
               full_name,
               avatar_url
             )
@@ -632,6 +629,9 @@ class ChatService {
           .eq('is_deleted', false)
           .maybeSingle();
       if (response == null) return null;
+      final profile = response['profiles'] as Map<String, dynamic>?;
+      response['sender_name'] = _resolveDisplayName(profile);
+      response['sender_avatar'] = profile?['avatar_url'];
       return ChatMessage.fromJson(response);
     } catch (e) {
       debugPrint('❌ getMessageById: $e');
@@ -675,7 +675,7 @@ class ChatService {
           .select('''
             *,
             profiles!user_id (
-              username,
+              display_name,
               full_name,
               avatar_url
             )
@@ -698,7 +698,7 @@ class ChatService {
           .select('''
             *,
             profiles!user_id (
-              username,
+              display_name,
               full_name,
               avatar_url
             )
@@ -721,7 +721,7 @@ class ChatService {
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
     final controller = StreamController<List<ChatMessage>>();
     final channel = _supabase.channel('messages:$conversationId');
-    
+
     channel.onPostgresChanges(
       event: PostgresChangeEvent.all,
       schema: 'public',
