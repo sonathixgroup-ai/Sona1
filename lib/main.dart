@@ -50,27 +50,44 @@ import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
-// THIX CHAT — Nouveaux imports
-// ═══════════════════════════════════════════════════════════════════════
+// THIX CHAT — Imports
+// ═══════════════════════════════════════
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
-// 👇 L'IMPORT DE TON PROVIDER D'ESCALADE EST AJOUTÉ ICI
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
+
+// ─── CALL MODULE PROD ───
+import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
+import 'package:thix_id/services/chat/call_signaling_service.dart';
+import 'package:thix_id/presentation/chat/call/call_routes.dart';
+import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // THIX RESERVATION BUS — SaaS Providers
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 import 'package:thix_id/presentation/thix_reservation/bus/providers/bus_search_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/providers/seat_selection_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/providers/booking_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/providers/agency_dashboard_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
+// STATIC CONST GLOBALES
+// ═══════════════════════════════════════
+class AppConstants {
+  static const String appName = 'THIX ID';
+  static const String agoraAppIdKey = 'AGORA_APP_ID';
+  static const int agoraTokenExpireSec = 3600;
+  static const int callTimeoutSec = 45;
+  static const String callChannelPrefix = 'thix_';
+  static const String tableCallInvites = 'call_invites';
+  static const String funcAgoraToken = 'agora-token';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -101,10 +118,8 @@ Future<void> main() async {
 }
 
 // ─── Bootstrap ──────────────────────────────────────────────────────────────
-
 class BootstrapApp extends StatefulWidget {
   const BootstrapApp({super.key});
-
   @override
   State<BootstrapApp> createState() => _BootstrapAppState();
 }
@@ -118,14 +133,12 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
 
-    final auth = AuthController(
-      auth: SupabaseAuthManager(profiles: profiles),
-    );
+    final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
 
     try {
       await auth.init();
     } catch (e) {
-      debugPrint("⚠️ Échec initialisation de l'authentification : $e");
+      debugPrint("⚠️ Échec initialisation auth : $e");
     }
 
     final network = NetworkService(SupabaseConfig.client);
@@ -134,7 +147,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
     try {
       feed.initRealtime();
     } catch (e) {
-      debugPrint("⚠️ Échec de l'initialisation Realtime : $e");
+      debugPrint("⚠️ Échec Realtime : $e");
     }
 
     final eventService = EventService(SupabaseConfig.client);
@@ -143,6 +156,9 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final presenceService = PresenceService(SupabaseConfig.client);
     final audioService = AudioService(SupabaseConfig.client);
     final groupService = GroupService(SupabaseConfig.client);
+
+    // Call signaling global
+    final callSignaling = CallSignalingService();
 
     return _BootstrapResult(
       auth: auth,
@@ -155,6 +171,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
       presenceService: presenceService,
       audioService: audioService,
       groupService: groupService,
+      callSignaling: callSignaling,
     );
   }
 
@@ -180,9 +197,9 @@ class _BootstrapAppState extends State<BootstrapApp> {
                       const SizedBox(height: 16),
                       Text('Connexion impossible', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      Text('Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+                      Text('Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.', textAlign: TextAlign.center),
                       const SizedBox(height: 24),
-                      ElevatedButton.icon(onPressed: () { runApp(const ProviderScope(child: BootstrapApp())); }, icon: const Icon(Icons.refresh), label: const Text('Réessayer')),
+                      ElevatedButton.icon(onPressed: () => runApp(const ProviderScope(child: BootstrapApp())), icon: const Icon(Icons.refresh), label: const Text('Réessayer')),
                       if (kDebugMode) ...[
                         const SizedBox(height: 16),
                         Text('Erreur : ${snap.error}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, fontFamily: 'monospace'), textAlign: TextAlign.center),
@@ -207,6 +224,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
                 presenceService: snap.data!.presenceService,
                 audioService: snap.data!.audioService,
                 groupService: snap.data!.groupService,
+                callSignaling: snap.data!.callSignaling,
               )
             : MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -218,8 +236,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
           child: KeyedSubtree(key: ValueKey(snap.hasData), child: child),
         );
       },
@@ -228,7 +244,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
 }
 
 // ─── Résultat du bootstrap ────────────────────────────────────────────────
-
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
@@ -240,6 +255,7 @@ class _BootstrapResult {
   final PresenceService presenceService;
   final AudioService audioService;
   final GroupService groupService;
+  final CallSignalingService callSignaling;
 
   const _BootstrapResult({
     required this.auth,
@@ -252,11 +268,11 @@ class _BootstrapResult {
     required this.presenceService,
     required this.audioService,
     required this.groupService,
+    required this.callSignaling,
   });
 }
 
 // ─── Écran de chargement ──────────────────────────────────────────────────
-
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
   @override
@@ -265,20 +281,17 @@ class _StartupLoadingPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: cs.surface,
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 260),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(height: 56, width: 56, decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)), child: Icon(Icons.verified_user_rounded, color: cs.primary)),
-              const SizedBox(height: 14),
-              Text('THIX ID', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text('Chargement sécurisé…', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant), textAlign: TextAlign.center),
-              const SizedBox(height: 14),
-              SizedBox(width: 140, child: LinearProgressIndicator(minHeight: 6, borderRadius: BorderRadius.circular(999))),
-            ],
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(height: 56, width: 56, decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)), child: Icon(Icons.verified_user_rounded, color: cs.primary)),
+            const SizedBox(height: 14),
+            Text(AppConstants.appName, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text('Chargement sécurisé…', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 14),
+            SizedBox(width: 140, child: LinearProgressIndicator(minHeight: 6, borderRadius: BorderRadius.circular(999))),
+          ],
         ),
       ),
     );
@@ -286,7 +299,6 @@ class _StartupLoadingPage extends StatelessWidget {
 }
 
 // ─── Application principale ──────────────────────────────────────────────
-
 class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
@@ -298,6 +310,7 @@ class MyApp extends StatefulWidget {
   final PresenceService presenceService;
   final AudioService audioService;
   final GroupService groupService;
+  final CallSignalingService callSignaling;
 
   const MyApp({
     super.key,
@@ -311,6 +324,7 @@ class MyApp extends StatefulWidget {
     required this.presenceService,
     required this.audioService,
     required this.groupService,
+    required this.callSignaling,
   });
 
   @override
@@ -319,7 +333,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late final LocaleController _localeController;
-  late final _router;
+  late final dynamic _router;
 
   @override
   void initState() {
@@ -332,25 +346,25 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ─── AUTH & LANGUE ───
+        // AUTH & LANGUE
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
 
-        // ─── SERVICES ───
+        // SERVICES
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<UserService>.value(value: widget.userService),
         Provider<NetworkService>.value(value: widget.network),
+        Provider<CallSignalingService>.value(value: widget.callSignaling),
 
-        // ─── FEED ───
+        // CALL GLOBAL PROVIDER
+        ChangeNotifierProvider<CallProvider>(create: (_) => CallProvider()),
+
+        // FEED / EVENT / NEWS
         ChangeNotifierProvider.value(value: widget.feed),
-
-        // ─── ÉVÉNEMENTS ───
         ChangeNotifierProvider<EventProvider>(create: (_) => EventProvider(widget.eventService)),
-
-        // ─── THIX INFO ───
         ChangeNotifierProvider<NewsProvider>(create: (_) => NewsProvider(NewsService(SupabaseConfig.client))),
 
-        // ─── THIX MARKET ───
+        // THIX MARKET
         ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
         ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
         ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
@@ -364,28 +378,25 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
 
-        // ─── EDUCATION ───
+        // EDUCATION
         ChangeNotifierProvider<EducationProvider>(create: (_) => EducationProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ProgressProvider>(create: (_) => ProgressProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<CertificateProvider>(create: (_) => CertificateProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ForumProvider>(create: (_) => ForumProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<RecommendationProvider>(create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client))),
 
-        // ─── MODERATEUR ───
+        // MODERATEUR
         ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider(SupabaseConfig.client)),
         ChangeNotifierProvider<ModeratorProvider>(create: (_) => ModeratorProvider(widget.eventService)),
 
-        // ─── THIX CHAT ───
+        // THIX CHAT
         Provider<ChatService>.value(value: widget.chatService),
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
-        // 👇 TON PROVIDER D'ESCALADE EST BIEN DÉCLARÉ ICI !
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
 
-        // ════════════════════════════════════════════════════
-        // ─── THIX RESERVATION BUS — SaaS (AJOUTÉ ICI) ───
-        // ════════════════════════════════════════════════════
+        // BUS
         ChangeNotifierProvider<BusSearchProvider>(create: (_) => BusSearchProvider()),
         ChangeNotifierProvider<SeatSelectionProvider>(create: (_) => SeatSelectionProvider()),
         ChangeNotifierProvider<BookingProvider>(create: (_) => BookingProvider()),
@@ -395,7 +406,7 @@ class _MyAppState extends State<MyApp> {
         builder: (context) {
           final locale = context.watch<LocaleController>().locale;
           return MaterialApp.router(
-            title: 'THIX ID',
+            title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
             theme: lightTheme,
             darkTheme: darkTheme,
@@ -409,7 +420,10 @@ class _MyAppState extends State<MyApp> {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            builder: (context, child) => child ?? const SizedBox.shrink(),
+            // 👇 LISTENER GLOBAL D'APPELS
+            builder: (context, child) {
+              return GlobalCallListener(child: child ?? const SizedBox.shrink());
+            },
           );
         },
       ),
