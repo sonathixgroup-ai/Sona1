@@ -15,7 +15,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   String? _error;
-  String _filter = 'all'; // all, pending, processing, shipped, delivered, cancelled
+  String _filter = 'all';
 
   static const Color primaryBlue = Color(0xFF1A73E8);
   static const Color bgLight = Color(0xFFF8F9FA);
@@ -27,7 +27,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   }
 
   Future<void> _loadOrders() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
@@ -38,7 +42,6 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         return;
       }
 
-      // Construire la requête avec les filtres
       var query = Supabase.instance.client
           .from('orders')
           .select('''
@@ -52,14 +55,20 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         query = query.eq('status', _filter);
       }
 
-      // ✅ CORRECTION : on appelle .order() directement dans le await
       final response = await query.order('created_at', ascending: false);
 
+      // ✅ CORRECTION DU CRASH : Parse sécurisé de la liste Supabase
+      final List<Map<String, dynamic>> parsedOrders = [];
+      for (var item in (response as List)) {
+        parsedOrders.add(Map<String, dynamic>.from(item as Map));
+      }
+
       setState(() {
-        _orders = List<Map<String, dynamic>>.from(response);
+        _orders = parsedOrders;
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('🚨 Erreur de chargement commandes: $e');
       setState(() {
         _error = 'Impossible de charger vos commandes';
         _isLoading = false;
@@ -79,35 +88,23 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'processing':
-        return Colors.blue;
-      case 'shipped':
-        return Colors.purple;
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'pending': return Colors.orange;
+      case 'processing': return Colors.blue;
+      case 'shipped': return Colors.purple;
+      case 'delivered': return Colors.green;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
     }
   }
 
   String _getStatusLabel(String status) {
     switch (status) {
-      case 'pending':
-        return 'En attente';
-      case 'processing':
-        return 'En préparation';
-      case 'shipped':
-        return 'Expédiée';
-      case 'delivered':
-        return 'Livrée';
-      case 'cancelled':
-        return 'Annulée';
-      default:
-        return status;
+      case 'pending': return 'En attente';
+      case 'processing': return 'Préparation';
+      case 'shipped': return 'Expédiée';
+      case 'delivered': return 'Livrée';
+      case 'cancelled': return 'Annulée';
+      default: return status;
     }
   }
 
@@ -118,7 +115,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
       appBar: AppBar(
         title: const Text(
           'Historique des commandes',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -138,19 +135,19 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
           : _error != null
               ? _buildErrorState()
               : _orders.isEmpty
                   ? _buildEmptyState()
                   : RefreshIndicator(
                       onRefresh: _loadOrders,
+                      color: primaryBlue,
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: _orders.length,
                         itemBuilder: (context, index) {
-                          final order = _orders[index];
-                          return _buildOrderCard(order);
+                          return _buildOrderCard(_orders[index]);
                         },
                       ),
                     ),
@@ -176,7 +173,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             final isSelected = _filter == filter['key'];
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
+              child: ChoiceChip(
                 label: Text(filter['label'] as String),
                 selected: isSelected,
                 onSelected: (_) {
@@ -186,11 +183,16 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 selectedColor: primaryBlue,
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : Colors.black87,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
-                backgroundColor: isSelected ? primaryBlue : Colors.white,
-                side: BorderSide(
-                  color: isSelected ? primaryBlue : Colors.grey[300]!,
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected ? primaryBlue : Colors.grey[300]!,
+                  ),
                 ),
+                showCheckmark: false,
               ),
             );
           }).toList(),
@@ -207,6 +209,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     final shop = order['shop'] as Map?;
     final statusColor = _getStatusColor(status);
 
+    // 💰 RÉCUPÉRATION DE LA DEVISE DYNAMIQUE
+    // Cherche la devise dans la commande, sinon dans le 1er produit, sinon "FCFA" par défaut
+    final String currency = order['currency'] ?? (items.isNotEmpty ? items.first['currency'] : null) ?? 'FCFA';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -215,22 +221,23 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         side: BorderSide(color: Colors.grey[200]!),
       ),
       child: InkWell(
-        onTap: () => context.push('/market/order/${order['id']}'),
+        // 🔒 CORRECTION DE NAVIGATION : Utilisation sécurisée de pushNamed
+        onTap: () => context.pushNamed('marketOrderDetail', pathParameters: {'orderId': order['id'].toString()}),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // En-tête : numéro, date, statut
+              // En-tête
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Commande #${order['id']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  Expanded(
+                    child: Text(
+                      'Commande #${order['id']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
@@ -241,11 +248,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                     ),
                     child: Text(
                       _getStatusLabel(status),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.w600, fontSize: 12),
                     ),
                   ),
                 ],
@@ -257,10 +260,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 children: [
                   Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
                   const SizedBox(width: 4),
-                  Text(
-                    createdAt,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
+                  Text(createdAt, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 ],
               ),
               const SizedBox(height: 12),
@@ -271,97 +271,76 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                   children: [
                     CircleAvatar(
                       radius: 14,
-                      backgroundImage: shop['logo_url'] != null
-                          ? CachedNetworkImageProvider(shop['logo_url'])
-                          : null,
-                      child: shop['logo_url'] == null
-                          ? const Icon(Icons.store, size: 14)
-                          : null,
+                      backgroundImage: shop['logo_url'] != null ? CachedNetworkImageProvider(shop['logo_url']) : null,
+                      child: shop['logo_url'] == null ? const Icon(Icons.store, size: 14) : null,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        shop['name'] ?? 'Boutique',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
+                      child: Text(shop['name'] ?? 'Boutique', style: const TextStyle(fontWeight: FontWeight.w500)),
                     ),
                   ],
                 ),
               const SizedBox(height: 12),
 
-              // Articles (max 2)
+              // Articles
               if (items.isNotEmpty) ...[
-                ...items.take(2).map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: item['product_image'] != null
-                            ? CachedNetworkImage(
-                                imageUrl: item['product_image'],
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => Container(
+                ...items.take(2).map((item) {
+                  final itemPrice = (item['price'] as num?)?.toDouble() ?? 0;
+                  // On vérifie si l'article a sa propre devise (sinon on prend celle de la commande)
+                  final itemCurrency = item['currency'] ?? currency; 
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: item['product_image'] != null
+                              ? CachedNetworkImage(
+                                  imageUrl: item['product_image'],
                                   width: 40,
                                   height: 40,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.image, size: 20),
-                                ),
-                              )
-                            : Container(
-                                width: 40,
-                                height: 40,
-                                color: Colors.grey[200],
-                                child: const Icon(Icons.image, size: 20),
-                              ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item['product_name'] ?? 'Produit',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '${item['quantity']} x ${item['price']?.toInt() ?? 0} FCFA',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                          ],
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => _buildFallbackImage(),
+                                )
+                              : _buildFallbackImage(),
                         ),
-                      ),
-                    ],
-                  ),
-                )),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['product_name'] ?? 'Produit',
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${item['quantity']} x ${itemPrice.toStringAsFixed(itemPrice.truncateToDouble() == itemPrice ? 0 : 2)} $itemCurrency', // Affichage propre du prix sans .0 inutile
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
                 if (items.length > 2)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'et ${items.length - 2} autre(s) article(s)',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
+                    child: Text('et ${items.length - 2} autre(s) article(s)', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                   ),
               ],
               const Divider(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Total',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(
-                    '${total.toInt()} FCFA',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: primaryBlue,
-                    ),
+                    '${total.toStringAsFixed(total.truncateToDouble() == total ? 0 : 2)} $currency', // Devise dynamique appliquée ici
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryBlue),
                   ),
                 ],
               ),
@@ -372,6 +351,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     );
   }
 
+  Widget _buildFallbackImage() {
+    return Container(
+      width: 40,
+      height: 40,
+      color: Colors.grey[200],
+      child: const Icon(Icons.image, size: 20, color: Colors.grey),
+    );
+  }
+
   Widget _buildErrorState() {
     return Center(
       child: Column(
@@ -379,17 +367,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         children: [
           Icon(Icons.error_outline, size: 60, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text(
-            _error!,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
-          ),
+          Text(_error ?? 'Erreur inconnue', style: const TextStyle(fontSize: 16, color: Colors.grey)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadOrders,
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
-            child: const Text('Réessayer'),
+            child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -403,25 +389,18 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         children: [
           Icon(Icons.shopping_bag_outlined, size: 60, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          const Text(
-            'Aucune commande',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          const Text('Aucune commande', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            'Vos commandes apparaîtront ici',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
+          Text('Vos commandes apparaîtront ici', style: TextStyle(color: Colors.grey[500])),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => context.push('/market/buy'),
+            onPressed: () => context.pushNamed('marketBuy'), // 🔒 CORRECTION DE NAVIGATION
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
             ),
-            child: const Text('Découvrir des produits'),
+            child: const Text('Découvrir des produits', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
