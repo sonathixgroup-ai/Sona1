@@ -1,3 +1,4 @@
+// lib/presentation/thix_market/vendor/widgets/order_management_tile.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,14 +21,12 @@ class OrderManagementTile extends StatefulWidget {
 
 class _OrderManagementTileState extends State<OrderManagementTile> {
   bool _isUpdating = false;
-  String _currentStatus;
-
-  _OrderManagementTileState() : _currentStatus = '';
+  String _currentStatus = '';
 
   @override
   void initState() {
     super.initState();
-    _currentStatus = widget.order['status'];
+    _currentStatus = widget.order['status'] ?? 'pending';
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -51,7 +50,7 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Commande mise à jour: $newStatus')),
+          SnackBar(content: Text('Commande mise à jour: ${_getStatusLabel(newStatus)}')),
         );
       }
     } catch (e) {
@@ -122,9 +121,12 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Commande #${widget.order['id']}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    'Commande #${widget.order['id']}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -134,7 +136,7 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
                   ),
                   child: Text(
                     _getStatusLabel(_currentStatus),
-                    style: TextStyle(color: _getStatusColor(_currentStatus), fontSize: 12),
+                    style: TextStyle(color: _getStatusColor(_currentStatus), fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -197,12 +199,12 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item['name'], style: const TextStyle(fontSize: 13), maxLines: 1),
+                        Text(item['name'] ?? 'Produit', style: const TextStyle(fontSize: 13), maxLines: 1),
                         Text('x${item['quantity']}', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                       ],
                     ),
                   ),
-                  Text('${(item['price'] * item['quantity']).toInt()} FCFA', style: const TextStyle(fontSize: 13)),
+                  Text('${((item['price'] ?? 0) * (item['quantity'] ?? 1)).toInt()} FCFA', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ],
               ),
             )),
@@ -236,7 +238,7 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _viewOrderDetail(),
+                    onPressed: _viewOrderDetail,
                     icon: const Icon(Icons.visibility),
                     label: const Text('Détails'),
                     style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[300]!)),
@@ -274,7 +276,11 @@ class _OrderManagementTileState extends State<OrderManagementTile> {
     }
   }
 
+  // 👇 SÉCURISÉ : Utilisation de pushNamed avec les bons paramètres dynamiques
   void _viewOrderDetail() {
-    context.push('/market/order/${widget.order['id']}');
+    context.pushNamed(
+      'marketOrderDetail', 
+      pathParameters: {'orderId': widget.order['id'].toString()},
+    );
   }
 }
