@@ -1,65 +1,48 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Controls the application locale (language) at runtime.
-///
-/// - Persists the chosen language in SharedPreferences.
-/// - `locale == null` means "system default".
 class LocaleController extends ChangeNotifier {
-  static const _prefsKey = 'thix.locale';
+  static const _key = 'app_locale_code';
 
-  static const supportedLocales = <Locale>[
+  static const supportedLocales = [
     Locale('fr'),
     Locale('en'),
-    Locale('sw'),
-    Locale('ln'),
     Locale('ar'),
+    Locale('zh'),
+    Locale('pt'),
+    Locale('ln'),
+    Locale('kg'),
+    Locale('sw'),
   ];
 
-  Locale? _locale;
-  Locale? get locale => _locale;
+  static const Map<String, String> nativeNames = {
+    'fr': 'Français',
+    'en': 'English',
+    'ar': 'العربية',
+    'zh': '中文',
+    'pt': 'Português',
+    'ln': 'Lingála',
+    'kg': 'Kikongo',
+    'sw': 'Kiswahili',
+  };
+
+  Locale _locale = const Locale('fr');
+  Locale get locale => _locale;
 
   Future<void> init() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_prefsKey);
-      if (raw == null || raw.isEmpty || raw == 'system') {
-        _locale = null;
-      } else {
-        _locale = _parseLocale(raw);
-      }
-    } catch (e, st) {
-      debugPrint('LocaleController.init failed: $e');
-      debugPrint(st.toString());
-      _locale = null;
-    } finally {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString(_key);
+    if (code != null && supportedLocales.any((l) => l.languageCode == code)) {
+      _locale = Locale(code);
       notifyListeners();
     }
   }
 
-  Future<void> setSystem() => setLocale(null);
-
-  Future<void> setLocale(Locale? locale) async {
-    _locale = locale;
+  Future<void> setLocale(Locale newLocale) async {
+    if (!supportedLocales.any((l) => l.languageCode == newLocale.languageCode)) return;
+    _locale = newLocale;
     notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (locale == null) {
-        await prefs.setString(_prefsKey, 'system');
-      } else {
-        await prefs.setString(_prefsKey, locale.languageCode);
-      }
-    } catch (e, st) {
-      debugPrint('LocaleController.setLocale persist failed: $e');
-      debugPrint(st.toString());
-    }
-  }
-
-  static Locale? _parseLocale(String code) {
-    for (final l in supportedLocales) {
-      if (l.languageCode == code) return l;
-    }
-    return null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, newLocale.languageCode);
   }
 }
