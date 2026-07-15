@@ -53,10 +53,10 @@ class _ChatListPageState extends State<ChatListPage> {
       final convs = await _chatService.getConversations();
       final user = Supabase.instance.client.auth.currentUser;
       int pending = 0;
-      if (user!= null) {
+      if (user != null) {
         try {
           final res = await Supabase.instance.client.from('escalation_steps').select('id').eq('to_agent_id', user.id).eq('status', 0).count();
-          pending = (res.count as int?)?? 0;
+          pending = (res.count as int?) ?? 0;
         } catch (_) {}
       }
       if (!mounted) return;
@@ -75,25 +75,25 @@ class _ChatListPageState extends State<ChatListPage> {
   void _onSearch(String v) {
     final q = v.toLowerCase();
     setState(() {
-      _filtered = _all.where((c) => c.displayName.toLowerCase().contains(q) || (c.lastMessage?.content?? '').toLowerCase().contains(q)).toList();
+      _filtered = _all.where((c) => c.displayName.toLowerCase().contains(q) || (c.lastMessage?.content ?? '').toLowerCase().contains(q)).toList();
     });
     _applyFilter();
   }
 
   void _applyFilter() {
-    List<ChatConversation> base = _searchCtrl.text.isEmpty? _all : _filtered;
+    List<ChatConversation> base = _searchCtrl.text.isEmpty ? _all : _filtered;
     List<ChatConversation> result;
     switch (_selectedFilter) {
       case 1: result = base.where((c) => c.isGroup).toList(); break;
-      case 2: result = []; break; // Appels -> tu branchera call_history
+      case 2: result = []; break; // Appels -> tu brancheras call_history
       case 3: result = base.where((c) => c.unreadCount > 0).toList(); break; // Favoris = non lus pour l'instant
       case 4: result = base; break; // Rendez-vous
       default: result = base;
     }
-    setState(() => _filtered = _searchCtrl.text.isEmpty && _selectedFilter==0? _all : result);
+    setState(() => _filtered = _searchCtrl.text.isEmpty && _selectedFilter == 0 ? _all : result);
     if(_searchCtrl.text.isNotEmpty){
-      result = _filtered.where((c) => _selectedFilter==0 || (_selectedFilter==1 && c.isGroup) || (_selectedFilter==3 && c.unreadCount>0)).toList();
-      if(_selectedFilter!=0 && _selectedFilter!=1 && _selectedFilter!=3) result = _filtered;
+      result = _filtered.where((c) => _selectedFilter == 0 || (_selectedFilter == 1 && c.isGroup) || (_selectedFilter == 3 && c.unreadCount > 0)).toList();
+      if(_selectedFilter != 0 && _selectedFilter != 1 && _selectedFilter != 3) result = _filtered;
     }
   }
 
@@ -106,12 +106,12 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final enLigne = _all.where((c) =>!c.isGroup).length;
-    final nouveauxMsg = _all.fold(0, (s,c)=> s + c.unreadCount);
+    final enLigne = _all.where((c) => !c.isGroup).length;
+    final nouveauxMsg = _all.fold(0, (s,c) => s + c.unreadCount);
     return Scaffold(
       backgroundColor: _C.bg,
       body: SafeArea(
-        child: _isLoading? const Center(child: CircularProgressIndicator(color: _C.blue))
+        child: _isLoading ? const Center(child: CircularProgressIndicator(color: _C.blue))
         : RefreshIndicator(
           onRefresh: _load,
           color: _C.blue,
@@ -136,7 +136,6 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // HEADER comme capture
   Widget _header() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -182,7 +181,6 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // Carte 4 stats comme capture
   Widget _statsCard(int enLigne, int nouveaux) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -211,20 +209,94 @@ class _ChatListPageState extends State<ChatListPage> {
   Widget _divider() => Container(width: 1, height: 34, color: _C.border);
 
   Widget _enLigneSection() {
-    final contacts = _all.where((c)=>!c.isGroup).take(6).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Text('En ligne', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.navy)), const Spacer(), InkWell(onTap: (){}, child: const Row(children: [Text('Voir tout', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)), Icon(Icons.chevron_right, size: 14, color: _C.blue)])) ])),
-      const SizedBox(height: 10),
-      SizedBox(height: 72, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: contacts.length+1, separatorBuilder: (_,__)=>const SizedBox(width: 14), itemBuilder: (c,i){
-        if(i==0) return Column(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: _C.softBlue, shape: BoxShape.circle, border: Border.all(color: _C.border)), child: const Icon(Icons.add, color: _C.navy, size: 20)), const SizedBox(height: 5), const Text('Nouvelle\nhistoire', textAlign: TextAlign.center, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: _C.textMuted, height: 1.1))]);
-        final conv = contacts[i-1];
-        return InkWell(onTap: ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> ChatScreen(conversationId: conv.id, conversation: conv))), child: Column(children: [Stack(children: [Container(padding: const EdgeInsets.all(1.8), decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_C.blue, Color(0xFF8AA8FF)]))), child: CircleAvatar(radius: 22, backgroundColor: _C.softBlue, backgroundImage: conv.displayAvatar!=null? NetworkImage(conv.displayAvatar!):null, child: conv.displayAvatar==null? Text(conv.displayName[0], style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 14)):null)), Positioned(bottom: 0, right: 1, child: Container(width: 10, height: 10, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5))))]), const SizedBox(height: 5), SizedBox(width: 52, child: Text(conv.displayName.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.navy)))]));
-      })),
-      const SizedBox(height: 14),
-    ]);
+    final contacts = _all.where((c) => !c.isGroup).take(6).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Text('En ligne', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.navy)),
+              const Spacer(),
+              InkWell(
+                onTap: () {},
+                child: const Row(
+                  children: [
+                    Text('Voir tout', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)),
+                    Icon(Icons.chevron_right, size: 14, color: _C.blue)
+                  ]
+                )
+              )
+            ]
+          )
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: contacts.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (c, i) {
+              if (i == 0) {
+                return Column(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(color: _C.softBlue, shape: BoxShape.circle, border: Border.all(color: _C.border)),
+                      child: const Icon(Icons.add, color: _C.navy, size: 20)
+                    ),
+                    const SizedBox(height: 5),
+                    const Text('Nouvelle\nhistoire', textAlign: TextAlign.center, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: _C.textMuted, height: 1.1))
+                  ]
+                );
+              }
+              final conv = contacts[i - 1];
+              return InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(1.8),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(colors: [_C.blue, Color(0xFF8AA8FF)])
+                          ), // CORRECTION DE LA PARENTHÈSE ICI
+                          child: CircleAvatar(
+                            radius: 22,
+                            backgroundColor: _C.softBlue,
+                            backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
+                            child: conv.displayAvatar == null ? Text(conv.displayName[0], style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 14)) : null
+                          )
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 1,
+                          child: Container(width: 10, height: 10, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)))
+                        )
+                      ]
+                    ),
+                    const SizedBox(height: 5),
+                    SizedBox(
+                      width: 52,
+                      child: Text(conv.displayName.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.navy))
+                    )
+                  ]
+                )
+              );
+            }
+          )
+        ),
+        const SizedBox(height: 14),
+      ]
+    );
   }
 
-  // 5 boutons demandés : Tous / Equipes / Appels / Favoris / Rendez-vous (+ escalade badge sur alertes déjà en haut)
   Widget _filterTabs() {
     final tabs = [
       {'icon': Icons.chat_bubble_rounded, 'label': 'Tous'},
@@ -251,7 +323,25 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Widget _sectionTitle() {
-    return Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Row(children: [const Text('Conversations récentes', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.navy)), const Spacer(), InkWell(onTap: (){}, child: Row(children: const [Text('Filtres', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)), SizedBox(width: 4), Icon(Icons.tune, size: 14, color: _C.blue)]))]));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          const Text('Conversations récentes', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.navy)),
+          const Spacer(),
+          InkWell(
+            onTap: () {},
+            child: const Row(
+              children: [
+                Text('Filtres', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)),
+                SizedBox(width: 4),
+                Icon(Icons.tune, size: 14, color: _C.blue)
+              ]
+            )
+          )
+        ]
+      )
+    );
   }
 
   Widget _conversationSliver() {
@@ -259,40 +349,71 @@ class _ChatListPageState extends State<ChatListPage> {
     if(list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(30), child: Center(child: Text('Aucune conversation', style: TextStyle(color: _C.textMuted, fontSize: 12)))) );
     return SliverList.separated(
       itemCount: list.length,
-      separatorBuilder: (_,__)=> const SizedBox(height: 8),
-      itemBuilder: (context, idx){
+      separatorBuilder: (_,__) => const SizedBox(height: 8),
+      itemBuilder: (context, idx) {
         final conv = list[idx];
         final last = conv.lastMessage;
-        final time = last!=null? last.createdAt : conv.updatedAt;
+        final time = last != null ? last.createdAt : conv.updatedAt;
         final unread = conv.unreadCount;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> ChatScreen(conversationId: conv.id, conversation: conv))),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
             child: Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: unread>0? _C.blue.withOpacity(0.18):_C.border)),
-              child: Row(children: [
-                Stack(children: [
-                  CircleAvatar(radius: 22, backgroundColor: _C.softBlue, backgroundImage: conv.displayAvatar!=null? NetworkImage(conv.displayAvatar!):null, child: conv.displayAvatar==null? Text(conv.displayName.isNotEmpty?conv.displayName[0].toUpperCase():'?', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 14)):null),
-                  if(conv.isGroup) Positioned(bottom: -2, right: -2, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: _C.white, shape: BoxShape.circle), child: const Icon(Icons.groups, size: 10, color: _C.blue)))
-                  else if(unread==0) Positioned(bottom: 0, right: 0, child: Container(width: 9, height: 9, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)))),
-                ]),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread>0? FontWeight.w800:FontWeight.w700, color: _C.navy))), if(!conv.isGroup && conv.displayName.contains('Aminata')) const Padding(padding: EdgeInsets.only(left:4), child: Icon(Icons.verified, size: 12, color: _C.blue))]),
-                  const SizedBox(height: 3),
-                  Text(last?.content?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: unread>0? _C.navy.withOpacity(0.8):_C.textMuted, fontWeight: unread>0? FontWeight.w600:FontWeight.w400)),
-                ])),
-                const SizedBox(width: 8),
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(_fmt(time), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: unread>0? _C.navy:_C.textMuted)),
-                  const SizedBox(height: 5),
-                  if(unread>0) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5), decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle), child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)))
-                  else const Icon(Icons.push_pin, size: 12, color: Colors.transparent),
-                ])
-              ]),
+              decoration: BoxDecoration(
+                color: _C.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: unread > 0 ? _C.blue.withOpacity(0.18) : _C.border)
+              ),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: _C.softBlue,
+                        backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
+                        child: conv.displayAvatar == null ? Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 14)) : null
+                      ),
+                      if(conv.isGroup)
+                        Positioned(bottom: -2, right: -2, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: _C.white, shape: BoxShape.circle), child: const Icon(Icons.groups, size: 10, color: _C.blue)))
+                      else if(unread == 0)
+                        Positioned(bottom: 0, right: 0, child: Container(width: 9, height: 9, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)))),
+                    ]
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: unread > 0 ? FontWeight.w800 : FontWeight.w700, color: _C.navy))),
+                            if(!conv.isGroup && conv.displayName.contains('Aminata'))
+                              const Padding(padding: EdgeInsets.only(left:4), child: Icon(Icons.verified, size: 12, color: _C.blue))
+                          ]
+                        ),
+                        const SizedBox(height: 3),
+                        Text(last?.content ?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: unread > 0 ? _C.navy.withOpacity(0.8) : _C.textMuted, fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.w400)),
+                      ]
+                    )
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_fmt(time), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: unread > 0 ? _C.navy : _C.textMuted)),
+                      const SizedBox(height: 5),
+                      if(unread > 0)
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5), decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle), child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)))
+                      else
+                        const Icon(Icons.push_pin, size: 12, color: Colors.transparent),
+                    ]
+                  )
+                ]
+              ),
             ),
           ),
         );
@@ -301,14 +422,37 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Widget _fab() {
-    return Container(width: 52, height: 52, decoration: BoxDecoration(color: _C.blue, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: _C.blue.withOpacity(0.35), blurRadius: 14, offset: const Offset(0,6))]), child: IconButton(icon: const Icon(Icons.add, color: Colors.white, size: 26), onPressed: ()=> showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (ctx)=> Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: _C.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 36, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(2))),
-      const SizedBox(height: 16),
-      _sheetOpt(Icons.chat_bubble_rounded, 'Nouvelle discussion', ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> const NewConversationPage()))),
-      const SizedBox(height: 10),
-      _sheetOpt(Icons.group_add_rounded, 'Nouveau groupe', ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> const GroupCreatePage()))),
-      const SizedBox(height: 10),
-    ]))));
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: _C.blue,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: _C.blue.withOpacity(0.35), blurRadius: 14, offset: const Offset(0,6))]
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.add, color: Colors.white, size: 26),
+        onPressed: () => showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) => Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(color: _C.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 36, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 16),
+                _sheetOpt(Icons.chat_bubble_rounded, 'Nouvelle discussion', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))),
+                const SizedBox(height: 10),
+                _sheetOpt(Icons.group_add_rounded, 'Nouveau groupe', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()))),
+                const SizedBox(height: 10),
+              ]
+            )
+          )
+        )
+      )
+    );
   }
 
   Widget _sheetOpt(IconData i, String t, VoidCallback tap){ return InkWell(onTap: (){ Navigator.pop(context); tap(); }, child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(12)), child: Row(children: [Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: _C.softBlue, borderRadius: BorderRadius.circular(8)), child: Icon(i, size: 18, color: _C.blue)), const SizedBox(width: 12), Text(t, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _C.navy))]))); }
@@ -327,6 +471,7 @@ class _ChatListPageState extends State<ChatListPage> {
       ]),
     );
   }
+  
   Widget _nav(IconData icon, String label, int idx, {int badge=0}){
     final sel = _selectedNav==idx;
     return InkWell(onTap: ()=> setState(()=>_selectedNav=idx), child: Column(mainAxisSize: MainAxisSize.min, children: [
