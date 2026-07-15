@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
-import 'package:provider/provider.dart';
-import '../../../chat_screen.dart'; // pour ChatScreen
-import '../../../../services/chat/chat_service.dart'; // ✅ chemin corrigé
+import '../../chat/chat_screen.dart'; // ✅ chemin correct vers ChatScreen
+import '../../../../services/chat/chat_service.dart'; // ✅ chemin correct vers ChatService
 
 class ReceivedEscalationsPage extends StatefulWidget {
   const ReceivedEscalationsPage({super.key});
@@ -58,9 +58,6 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
     try {
       final conv = await _chatService.getConversation(conversationId);
       if (conv != null && mounted) {
-        // Utilisation de GoRouter si disponible
-        // context.push('/chat/conversation/$conversationId', extra: conv);
-        // Ou bien Navigator.push classique
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -82,9 +79,11 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
     }
   }
 
-  Future<void> _accept(escalationId) async {
+  Future<void> _accept(String escalationId) async {
     final provider = context.read<EscalationProvider>();
-    final success = await provider.acceptEscalation(escalationId, Supabase.instance.client.auth.currentUser!.id);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    final success = await provider.acceptEscalation(escalationId, user.id);
     if (success != null) {
       _loadEscalations();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -97,7 +96,7 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
     }
   }
 
-  Future<void> _reject(escalationId) async {
+  Future<void> _reject(String escalationId) async {
     final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
