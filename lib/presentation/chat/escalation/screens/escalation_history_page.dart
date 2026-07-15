@@ -1,14 +1,14 @@
 // lib/presentation/chat/escalation/screens/escalation_history_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/escalation_provider.dart';
 import '../models/escalation_step.dart';
 import '../widgets/level_badge.dart';
 import '../widgets/priority_chip.dart';
 import '../widgets/status_indicator.dart';
-import '../../chat_screen.dart';
-import '../../../services/chat/chat_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../chat_screen.dart'; // pour ChatScreen
+import '../../../../services/chat/chat_service.dart'; // ✅ chemin corrigé
 
 class EscalationHistoryPage extends StatelessWidget {
   final String conversationId;
