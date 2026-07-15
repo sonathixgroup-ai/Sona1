@@ -85,24 +85,26 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ✅ Charger le nombre d'escalades en attente reçues par l'utilisateur
-  Future<void> _loadPendingEscalationsCount() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-    try {
-      // ✅ Utilisation de .count() après select
-      final count = await Supabase.instance.client
-          .from('escalation_steps')
-          .select('id')
-          .eq('to_agent_id', user.id)
-          .eq('status', 0) // 0 = pending
-          .count();
-      setState(() {
-        _pendingEscalationsCount = count ?? 0;
-      });
-    } catch (e) {
-      debugPrint('Erreur chargement escalades: $e');
-    }
+  // ...
+
+Future<void> _loadPendingEscalationsCount() async {
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) return;
+  try {
+    final count = await Supabase.instance.client
+        .from('escalation_steps')
+        .select('id')
+        .eq('to_agent_id', user.id)
+        .eq('status', 0) // 0 = pending
+        .count();
+    setState(() {
+      _pendingEscalationsCount = (count as int?) ?? 0; // ✅ cast explicite
+    });
+  } catch (e) {
+    debugPrint('Erreur chargement escalades: $e');
   }
+}
+// ...
 
   void _onSearchChanged(String value) {
     final query = value.toLowerCase();
