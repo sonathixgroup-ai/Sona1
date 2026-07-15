@@ -6,8 +6,8 @@ import '../models/escalation_step.dart';
 import '../models/escalation_status.dart';
 import '../providers/escalation_provider.dart';
 import 'package:provider/provider.dart';
-import '../../chat_screen.dart'; // ✅ Importer ChatScreen
-import '../../../services/chat/chat_service.dart'; // ✅ Pour récupérer la conversation
+import '../../../chat_screen.dart'; // pour ChatScreen
+import '../../../../services/chat/chat_service.dart'; // ✅ chemin corrigé
 
 class ReceivedEscalationsPage extends StatefulWidget {
   const ReceivedEscalationsPage({super.key});
@@ -20,11 +20,12 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
   List<EscalationStep> _escalations = [];
   bool _loading = true;
   String? _error;
-  final ChatService _chatService = ChatService(Supabase.instance.client);
+  late ChatService _chatService;
 
   @override
   void initState() {
     super.initState();
+    _chatService = ChatService(Supabase.instance.client);
     _loadEscalations();
   }
 
@@ -53,11 +54,13 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
     }
   }
 
-  // ✅ Fonction pour ouvrir la conversation
   Future<void> _openConversation(String conversationId) async {
     try {
       final conv = await _chatService.getConversation(conversationId);
       if (conv != null && mounted) {
+        // Utilisation de GoRouter si disponible
+        // context.push('/chat/conversation/$conversationId', extra: conv);
+        // Ou bien Navigator.push classique
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -157,7 +160,6 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            // ✅ Ouverture de la conversation au tap
                             onTap: () => _openConversation(step.conversationId),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
