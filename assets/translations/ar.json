@@ -1,0 +1,7 @@
+{
+  "header": {"greeting": "مرحبا"},
+  "common": {"search": "بحث", "language": "اللغة", "choose_lang": "اختر لغتك"},
+  "banner": {"announcements": "الإعلانات والتحديثات", "headline": "أهم الأخبار"},
+  "quick_access": {"thix_ia": "THIX AI", "document": "المستندات", "thix_chat": "دردشة THIX", "urgence": "طوارئ"},
+  "services": {"title": "خدماتي", "media": "THIX ميديا", "reservation": "حجز", "market": "سوق THIX", "formations": "تدريب", "mon_pays": "بلدي", "money": "THIX موني", "emplois": "وظائف", "sante": "صحة THIX", "reseau_pro": "الشبكة المهنية", "opportunites": "فرص", "info": "معلومات THIX", "evenements": "فعاليات"}
+} 
