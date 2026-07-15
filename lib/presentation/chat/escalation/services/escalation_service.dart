@@ -157,7 +157,26 @@ class EscalationService {
 
     return response.map((json) => EscalationStep.fromJson(json)).toList();
   }
+// ============================================================
+// lib/presentation/chat/escalation/services/escalation_service.dart
+// ============================================================
 
+// Ajouter cette méthode dans la classe EscalationService
+
+// 🔍 Rechercher un utilisateur par son handle (username)
+Future<Map<String, dynamic>?> getUserByHandle(String username) async {
+  try {
+    final response = await _supabase
+        .from('profiles')
+        .select('id, display_name, username, avatar_url')
+        .eq('username', username) // adaptez le nom de colonne
+        .maybeSingle();
+    return response;
+  } catch (e) {
+    print('❌ Erreur recherche utilisateur par handle : $e');
+    return null;
+  }
+}
   // ============================================================
   // 🔧 RÉCUPÉRATION D'UN AGENT CIBLE (UUID VALIDE)
   // ============================================================
