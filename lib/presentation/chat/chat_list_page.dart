@@ -10,6 +10,7 @@ import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
+// ✅ Importer la page des escalades reçues
 import 'package:thix_id/presentation/chat/escalation/screens/received_escalations_page.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
 import 'package:provider/provider.dart';
@@ -88,13 +89,15 @@ class _ChatListPageState extends State<ChatListPage> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
+      // ✅ Utilisation de .count() après select
       final count = await Supabase.instance.client
           .from('escalation_steps')
-          .select('id', count: 'exact')
+          .select('id')
           .eq('to_agent_id', user.id)
-          .eq('status', 0); // 0 = pending
+          .eq('status', 0) // 0 = pending
+          .count();
       setState(() {
-        _pendingEscalationsCount = count;
+        _pendingEscalationsCount = count ?? 0;
       });
     } catch (e) {
       debugPrint('Erreur chargement escalades: $e');
@@ -354,6 +357,53 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
+  // BARRE DE RECHERCHE FLOTTANTE
+  // ============================================================
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: _ChatColors.surface,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [BoxShadow(color: _ChatColors.navyDeep.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 20, right: 12),
+              child: Icon(Icons.search_rounded, color: _ChatColors.mutedText, size: 20),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(fontSize: 14, color: _ChatColors.navyDeep, fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher un message, un contact...',
+                  hintStyle: TextStyle(color: _ChatColors.mutedText, fontSize: 13.5, fontWeight: FontWeight.w400),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: _ChatColors.mutedText, size: 18),
+                onPressed: () {
+                  _searchController.clear();
+                  _onSearchChanged('');
+                },
+              ),
+            const SizedBox(width: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
   // TITRE DE SECTION
   // ============================================================
   Widget _buildSectionTitle(String title, {VoidCallback? onSeeAll, int? unreadCount}) {
@@ -382,7 +432,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // CONTACTS RAPIDES (Style Stories Premium)
+  // CONTACTS RAPIDES
   // ============================================================
   Widget _buildQuickContacts() {
     return SizedBox(
@@ -483,7 +533,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // CONVERSATIONS RÉCENTES (inchangé)
+  // CONVERSATIONS RÉCENTES
   // ============================================================
   Widget _buildRecentConversations() {
     final list = _searchController.text.isEmpty ? _conversations : _filteredConversations;
@@ -596,7 +646,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // FAB (inchangé)
+  // FAB
   // ============================================================
   Widget _buildPremiumFab() {
     return Container(
@@ -662,7 +712,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   // ============================================================
-  // BOTTOM NAV (inchangée)
+  // BOTTOM NAV
   // ============================================================
   Widget _buildFloatingBottomNav() {
     return Container(
