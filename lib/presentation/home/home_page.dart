@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -295,6 +296,49 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
   }
 
+  void _handleServiceTap(String serviceKey) {
+    switch (serviceKey) {
+      case 'thixMedia':
+        context.push(AppRoutes.thixMedia);
+        break;
+      case 'thixMarket':
+        context.push(AppRoutes.thixMarket);
+        break;
+      case 'formations':
+        context.push(AppRoutes.trainingHome);
+        break;
+      case 'emplois':
+        context.push(AppRoutes.jobs);
+        break;
+      case 'thixInfo':
+        context.push(AppRoutes.thixInfo);
+        break;
+      case 'opportunites':
+        context.push(AppRoutes.opportunities);
+        break;
+      case 'evenements':
+        context.push('/thix-event');
+        break;
+      case 'reseauPro':
+        context.push(AppRoutes.network);
+        break;
+      case 'thixSante':
+        context.push(AppRoutes.thixSante);
+        break;
+      case 'thixMoney':
+        context.push(AppRoutes.thixMoney);
+        break;
+      case 'monPays':
+        context.push(AppRoutes.monPays);
+        break;
+      case 'reservation':
+        context.push(AppRoutes.reservation);
+        break;
+      default:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
@@ -370,72 +414,25 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
 
-              // ✅ "Mes services" enveloppé dans le cadre premium or/bleu lumineux.
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                sliver: SliverToBoxAdapter(
-                  child: StreamBuilder<SectionBadgeCounts>(
-                    stream: badgeCountsStream,
-                    builder: (context, snap) {
-                      final counts = snap.data ?? SectionBadgeCounts.zero;
-                      return _PremiumGlowFrame(
-                        child: _SectionCage(
-                          title: 'Mes services',
-                          child: _ServicesGrid(
-                            counts: counts,
-                            onServiceTap: (serviceKey) {
-                              switch (serviceKey) {
-                                case 'thixMedia':
-                                  context.push(AppRoutes.thixMedia);
-                                  break;
-                                case 'thixMarket':
-                                  context.push(AppRoutes.thixMarket);
-                                  break;
-                                case 'formations':
-                                  context.push(AppRoutes.trainingHome);
-                                  break;
-                                case 'emplois':
-                                  context.push(AppRoutes.jobs);
-                                  break;
-                                case 'thixInfo':
-                                  context.push(AppRoutes.thixInfo);
-                                  break;
-                                case 'opportunites':
-                                  context.push(AppRoutes.opportunities);
-                                  break;
-                                case 'evenements':
-                                  context.push('/thix-event');
-                                  break;
-                                case 'reseauPro':
-                                  context.push(AppRoutes.network);
-                                  break;
-                                case 'thixSante':
-                                  context.push(AppRoutes.thixSante);
-                                  break;
-                                case 'thixMoney':
-                                  context.push(AppRoutes.thixMoney);
-                                  break;
-                                case 'monPays':
-                                  context.push(AppRoutes.monPays);
-                                  break;
-                                case 'reservation':
-                                  context.push(AppRoutes.reservation);
-                                  break;
-                                default:
-                                  break;
-                              }
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+              // ✅ "Mes services" — disposition radiale (constellation), sans
+              // cadre/contour, empreinte réduite. Filigrane filant animé
+              // circulant le long des branches vers chaque service.
+              SliverToBoxAdapter(
+                child: StreamBuilder<SectionBadgeCounts>(
+                  stream: badgeCountsStream,
+                  builder: (context, snap) {
+                    final counts = snap.data ?? SectionBadgeCounts.zero;
+                    return _ServicesConstellation(
+                      counts: counts,
+                      onServiceTap: _handleServiceTap,
+                    );
+                  },
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
 
               SliverToBoxAdapter(
                 child: Padding(
@@ -648,7 +645,6 @@ class _PremiumHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ✅ "Welcome Back" statique remplacé par la salutation rotative RDC.
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,9 +716,6 @@ class _PremiumHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.s),
-              // ✅ Icône profil réellement tappable : Material + InkWell +
-              // Image.network avec fallback propre (pas de DecorationImage
-              // silencieuse qui bloquait le tap).
               Material(
                 color: Colors.transparent,
                 shape: const CircleBorder(),
@@ -1165,90 +1158,316 @@ class _PressableScaleState extends State<_PressableScale> {
   }
 }
 
-class _ServicesGrid extends StatelessWidget {
-  final SectionBadgeCounts counts;
-  final Function(String) onServiceTap;
+// ============================================================================
+// "MES SERVICES" — CONSTELLATION RADIALE (sans cadre, filigrane filant
+// circulant le long des branches). Inspiré du croquis fourni : un noyau
+// central relié par des branches à chaque service, disposées en étoile.
+// ============================================================================
 
-  const _ServicesGrid({
+class _ServiceNodeData {
+  final String key;
+  final IconData icon;
+  final String title;
+  final Color color;
+  final int? badge;
+
+  const _ServiceNodeData({
+    required this.key,
+    required this.icon,
+    required this.title,
+    required this.color,
+    this.badge,
+  });
+}
+
+class _ServicesConstellation extends StatefulWidget {
+  final SectionBadgeCounts counts;
+  final void Function(String key) onServiceTap;
+
+  const _ServicesConstellation({
     required this.counts,
     required this.onServiceTap,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final services = [
-      {'key': 'thixMedia', 'icon': Icons.play_circle_filled, 'title': 'THIX MEDIA', 'color': AppColors.domainMedia},
-      {'key': 'thixMarket', 'icon': Icons.storefront_rounded, 'title': 'THIX Market', 'color': AppColors.domainMarket},
-      {'key': 'formations', 'icon': Icons.school_rounded, 'title': 'Formations', 'color': AppColors.domainLearning, 'badge': counts.formations},
-      {'key': 'emplois', 'icon': Icons.work_rounded, 'title': 'Emplois', 'color': AppColors.domainJobs, 'badge': counts.jobs},
-      {'key': 'thixInfo', 'icon': Icons.newspaper_rounded, 'title': 'THIX INFO', 'color': AppColors.domainInfo, 'badge': counts.info},
-      {'key': 'opportunites', 'icon': Icons.lightbulb_rounded, 'title': 'Opportunités', 'color': AppColors.domainOpportunity},
-      {'key': 'evenements', 'icon': Icons.event_rounded, 'title': 'Événements', 'color': AppColors.domainEvents, 'badge': counts.events},
-      {'key': 'reseauPro', 'icon': Icons.groups_rounded, 'title': 'Réseau Pro', 'color': AppColors.domainNetwork},
-      {'key': 'thixSante', 'icon': Icons.local_hospital_rounded, 'title': 'THIX Santé', 'color': AppColors.domainHealth},
-      {'key': 'thixMoney', 'icon': Icons.account_balance_wallet_rounded, 'title': 'Thix Money', 'color': AppColors.domainMoney},
-      {'key': 'monPays', 'icon': Icons.flag, 'title': 'Mon Pays', 'color': AppColors.domainGov},
-      {'key': 'reservation', 'icon': Icons.confirmation_number_rounded, 'title': 'Réservation', 'color': AppColors.domainReservation},
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-        childAspectRatio: 1.02,
-      ),
-      itemCount: services.length,
-      itemBuilder: (ctx, index) {
-        final service = services[index];
-        final badge = service['badge'] as int?;
-        return _ServiceCard(
-          icon: service['icon'] as IconData,
-          title: service['title'] as String,
-          color: service['color'] as Color,
-          badgeCount: badge,
-          onTap: () => onServiceTap(service['key'] as String),
-        );
-      },
-    );
-  }
+  State<_ServicesConstellation> createState() => _ServicesConstellationState();
 }
 
-class _ServiceCard extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final int? badgeCount;
-  final VoidCallback onTap;
+class _ServicesConstellationState extends State<_ServicesConstellation>
+    with TickerProviderStateMixin {
+  late final AnimationController _shineController;
+  late final AnimationController _pulseController;
 
-  const _ServiceCard({
-    required this.icon,
-    required this.title,
-    required this.color,
-    this.badgeCount,
-    required this.onTap,
-  });
-
-  @override
-  State<_ServiceCard> createState() => _ServiceCardState();
-}
-
-class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+  // Hauteur réduite par rapport à l'ancienne grille encadrée.
+  static const double _stageHeight = 360;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
+    _shineController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))
+      ..repeat();
+    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _shineController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  List<_ServiceNodeData> _nodes() {
+    final c = widget.counts;
+    return [
+      _ServiceNodeData(key: 'thixMedia', icon: Icons.play_circle_filled, title: 'THIX MEDIA', color: AppColors.domainMedia),
+      _ServiceNodeData(key: 'thixMarket', icon: Icons.storefront_rounded, title: 'THIX Market', color: AppColors.domainMarket),
+      _ServiceNodeData(key: 'formations', icon: Icons.school_rounded, title: 'Formations', color: AppColors.domainLearning, badge: c.formations),
+      _ServiceNodeData(key: 'emplois', icon: Icons.work_rounded, title: 'Emplois', color: AppColors.domainJobs, badge: c.jobs),
+      _ServiceNodeData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX INFO', color: AppColors.domainInfo, badge: c.info),
+      _ServiceNodeData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: 'Opportunités', color: AppColors.domainOpportunity),
+      _ServiceNodeData(key: 'evenements', icon: Icons.event_rounded, title: 'Événements', color: AppColors.domainEvents, badge: c.events),
+      _ServiceNodeData(key: 'reseauPro', icon: Icons.groups_rounded, title: 'Réseau Pro', color: AppColors.domainNetwork),
+      _ServiceNodeData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: 'THIX Santé', color: AppColors.domainHealth),
+      _ServiceNodeData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: 'Thix Money', color: AppColors.domainMoney),
+      _ServiceNodeData(key: 'monPays', icon: Icons.flag, title: 'Mon Pays', color: AppColors.domainGov),
+      _ServiceNodeData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: 'Réservation', color: AppColors.domainReservation),
+    ];
+  }
+
+  Offset _polar(Offset center, double angleDeg, double radius) {
+    final rad = angleDeg * math.pi / 180;
+    return center + Offset(radius * math.cos(rad), radius * math.sin(rad));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nodes = _nodes();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.hub_rounded, size: 15, color: AppColors.textSecondary),
+              SizedBox(width: 6),
+              Text(
+                'Mes services',
+                style: TextStyle(
+                  color: AppColors.darkText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: _stageHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final w = constraints.maxWidth;
+                final center = Offset(w / 2, _stageHeight / 2 - 6);
+                final maxR = math.min(w / 2 - 34, 148.0);
+                const nodeCount = 12;
+
+                final positions = <Offset>[];
+                for (var i = 0; i < nodeCount; i++) {
+                  final angle = -90.0 + (i * (360.0 / nodeCount));
+                  final radius = i.isEven ? maxR : maxR * 0.70;
+                  positions.add(_polar(center, angle, radius));
+                }
+
+                return AnimatedBuilder(
+                  animation: Listenable.merge([_shineController, _pulseController]),
+                  builder: (context, _) {
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Ambiance lumineuse douce derrière le noyau (pas de
+                        // cadre rectangulaire — juste un halo diffus).
+                        Positioned(
+                          left: center.dx - 130,
+                          top: center.dy - 130,
+                          child: IgnorePointer(
+                            child: Container(
+                              width: 260,
+                              height: 260,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    AppColors.goldBadge.withValues(alpha: 0.10),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Branches + filigrane filant.
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _RadialBranchesPainter(
+                              center: center,
+                              nodeOffsets: positions,
+                              shineProgress: _shineController.value,
+                            ),
+                          ),
+                        ),
+
+                        // Noyau central "THIX ID".
+                        Positioned(
+                          left: center.dx - 34,
+                          top: center.dy - 34,
+                          child: Transform.scale(
+                            scale: 1.0 + (_pulseController.value * 0.05),
+                            child: Container(
+                              width: 68,
+                              height: 68,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [AppColors.goldBadge, AppColors.premiumAccent],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.goldBadge.withValues(alpha: 0.45),
+                                    blurRadius: 22,
+                                    spreadRadius: 1,
+                                  ),
+                                  BoxShadow(
+                                    color: AppColors.premiumAccent.withValues(alpha: 0.35),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                                border: Border.all(color: Colors.white, width: 2.4),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.grid_view_rounded, color: Colors.white, size: 26),
+                            ),
+                          ),
+                        ),
+
+                        // Nœuds de service.
+                        for (var i = 0; i < nodes.length; i++)
+                          Positioned(
+                            left: positions[i].dx - 30,
+                            top: positions[i].dy - 30,
+                            child: _ConstellationNode(
+                              data: nodes[i],
+                              onTap: () => widget.onServiceTap(nodes[i].key),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+  }
+}
+
+/// Dessine les branches noyau → service, avec un point lumineux ("filigrane
+/// filant") qui circule le long de chaque branche en continu, déphasé par
+/// nœud pour un effet de constellation vivante.
+class _RadialBranchesPainter extends CustomPainter {
+  final Offset center;
+  final List<Offset> nodeOffsets;
+  final double shineProgress;
+
+  _RadialBranchesPainter({
+    required this.center,
+    required this.nodeOffsets,
+    required this.shineProgress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < nodeOffsets.length; i++) {
+      final end = nodeOffsets[i];
+
+      // Ligne de base (branche), dégradé or → bleu, très fine et discrète.
+      final basePaint = Paint()
+        ..shader = LinearGradient(
+          colors: [
+            AppColors.goldBadge.withValues(alpha: 0.38),
+            AppColors.premiumAccent.withValues(alpha: 0.30),
+          ],
+        ).createShader(Rect.fromPoints(center, end))
+        ..strokeWidth = 1.4
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(center, end, basePaint);
+
+      // Filigrane filant : déphasé par branche pour un effet "constellation".
+      final phase = i / nodeOffsets.length;
+      final t = (shineProgress + phase) % 1.0;
+      final shinePos = Offset.lerp(center, end, t)!;
+
+      // Traînée (comète) : quelques points décroissants en amont.
+      for (var trail = 1; trail <= 4; trail++) {
+        final trailT = t - (trail * 0.03);
+        if (trailT < 0) continue;
+        final trailPos = Offset.lerp(center, end, trailT)!;
+        final alpha = (0.28 - trail * 0.06).clamp(0.0, 0.28);
+        canvas.drawCircle(
+          trailPos,
+          2.4 - (trail * 0.3),
+          Paint()..color = Colors.white.withValues(alpha: alpha),
+        );
+      }
+
+      // Halo + noyau lumineux du filigrane.
+      canvas.drawCircle(
+        shinePos,
+        7,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.85),
+              AppColors.goldBadge.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: shinePos, radius: 7)),
+      );
+      canvas.drawCircle(shinePos, 2.0, Paint()..color = Colors.white);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadialBranchesPainter oldDelegate) => true;
+}
+
+class _ConstellationNode extends StatefulWidget {
+  final _ServiceNodeData data;
+  final VoidCallback onTap;
+
+  const _ConstellationNode({required this.data, required this.onTap});
+
+  @override
+  State<_ConstellationNode> createState() => _ConstellationNodeState();
+}
+
+class _ConstellationNodeState extends State<_ConstellationNode> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 140));
+    _scale = Tween<double>(begin: 1.0, end: 0.92).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -1259,6 +1478,7 @@ class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
+    final d = widget.data;
     return GestureDetector(
       onTapDown: (_) => _controller.forward(),
       onTapUp: (_) {
@@ -1267,219 +1487,69 @@ class _ServiceCardState extends State<_ServiceCard> with SingleTickerProviderSta
       },
       onTapCancel: () => _controller.reverse(),
       child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: widget.color.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                widget.icon,
-                color: widget.color,
-                size: 18,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Text(
-                  widget.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.darkText,
+        scale: _scale,
+        child: SizedBox(
+          width: 60,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: d.color.withValues(alpha: 0.35), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: d.color.withValues(alpha: 0.22),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(d.icon, color: d.color, size: 20),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (widget.badgeCount != null && widget.badgeCount! > 0)
-                  Positioned(
-                    top: -8,
-                    right: -12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.dangerRed,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${widget.badgeCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                  if (d.badge != null && d.badge! > 0)
+                    Positioned(
+                      top: -4,
+                      right: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerRed,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white, width: 1.2),
+                        ),
+                        child: Text(
+                          '${d.badge}',
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                d.title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.darkText,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _SectionCage extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _SectionCage({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.mainCard),
-        border: Border.all(color: AppColors.cardBorder, width: 0.6),
-        boxShadow: AppShadows.secondary,
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.grid_view_rounded, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.darkText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// CADRE PREMIUM LUMINEUX — OR + BLEU, GLOW PULSÉ + REFLET ANIMÉ
-// ============================================================================
-
-class _PremiumGlowFrame extends StatefulWidget {
-  final Widget child;
-  const _PremiumGlowFrame({required this.child});
-
-  @override
-  State<_PremiumGlowFrame> createState() => _PremiumGlowFrameState();
-}
-
-class _PremiumGlowFrameState extends State<_PremiumGlowFrame> with TickerProviderStateMixin {
-  late final AnimationController _shineController;
-  late final AnimationController _glowController;
-
-  @override
-  void initState() {
-    super.initState();
-    _shineController = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat();
-    _glowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _shineController.dispose();
-    _glowController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_shineController, _glowController]),
-      builder: (context, _) {
-        final glow = 0.35 + (_glowController.value * 0.30);
-        return Container(
-          padding: const EdgeInsets.all(2.4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.mainCard + 4),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFFF0C2), // or très clair
-                Color(0xFFE3B23C), // or THIX
-                Color(0xFF2D6CDF), // bleu THIX
-                Color(0xFF123B7A), // navy profond
-              ],
-              stops: [0.0, 0.32, 0.68, 1.0],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFE3B23C).withValues(alpha: glow * 0.55),
-                blurRadius: 26,
-                spreadRadius: 0,
-              ),
-              BoxShadow(
-                color: const Color(0xFF2D6CDF).withValues(alpha: glow * 0.45),
-                blurRadius: 32,
-                spreadRadius: -3,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.mainCard + 2),
-            child: Stack(
-              children: [
-                widget.child,
-                // Reflet diagonal animé, façon carte premium métal.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ClipRect(
-                      child: Transform.translate(
-                        offset: Offset(
-                          (_shineController.value * 520) - 220,
-                          0,
-                        ),
-                        child: Transform.rotate(
-                          angle: -0.45,
-                          child: Container(
-                            width: 70,
-                            height: 400,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0.0),
-                                  Colors.white.withValues(alpha: 0.32),
-                                  Colors.white.withValues(alpha: 0.0),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -1740,8 +1810,7 @@ class _CarouselDotsState extends State<_CarouselDots> {
 }
 
 /// Bannière plein format avec vraie image (BoxFit.cover, adaptée à la taille
-/// de la carte) + dégradé pour lisibilité du texte. Fallback icône/couleur
-/// si pas d'image ou erreur de chargement.
+/// de la carte) + dégradé pour lisibilité du texte.
 class _HeadlineBanner extends StatelessWidget {
   final String label;
   final String title;
@@ -1964,10 +2033,8 @@ class _MiniRoundAction extends StatelessWidget {
 }
 
 // ============================================================================
-// BOUTON FLOTTANT UNIQUE — jaune, neutre à l'état initial.
-// Tap simple = ouvre les raccourcis (Home, Mini Apps, Documents, Profil,
-// Scan QR). Le scan n'est plus au premier plan : c'est un raccourci parmi
-// les autres. Repli auto après 10s d'inactivité.
+// BOUTON FLOTTANT UNIQUE — jaune, neutre à l'état initial. Tap simple =
+// ouvre les raccourcis (Home, Mini Apps, Documents, Profil, Scan QR).
 // ============================================================================
 
 class _NavSatelliteData {
