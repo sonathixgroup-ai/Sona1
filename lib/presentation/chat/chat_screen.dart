@@ -857,10 +857,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Upload du fichier
       final url = await _chatService.uploadFileWithUniqueName(
-        'messages/${widget.conversationId}',
-        Uint8List.fromList(bytes),
-        extension,
-      );
+  'chat-media',
+  'messages/${widget.conversationId}',
+  Uint8List.fromList(bytes),
+  extension,
+);
 
       if (url != null) {
         // Envoyer le message avec les métadonnées
