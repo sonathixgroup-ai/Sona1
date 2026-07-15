@@ -48,11 +48,11 @@ class EscalationService {
           .select()
           .single();
 
-      // 4. Mettre à jour la conversation
+      // 4. Mettre à jour la conversation (utiliser escalation_status)
       await _supabase
           .from('conversations')
           .update({
-            'status': 'escalated',
+            'escalation_status': 'escalated',   // ✅ modifié
             'current_level': toLevel.index,
           })
           .eq('id', conversationId);
@@ -104,7 +104,7 @@ class EscalationService {
     await _supabase
         .from('conversations')
         .update({
-          'status': 'active',
+          'escalation_status': 'active',   // ✅ modifié
           'current_level': EscalationLevel.agent.index,
         })
         .eq('id', step.conversationId);
@@ -128,7 +128,7 @@ class EscalationService {
     await _supabase
         .from('conversations')
         .update({
-          'status': 'resolved',
+          'escalation_status': 'resolved',   // ✅ modifié
         })
         .eq('id', step.conversationId);
 
@@ -163,18 +163,12 @@ class EscalationService {
   // ============================================================
   Future<String> _getTargetAgentId(EscalationLevel level) async {
     try {
-      // 🔍 Adaptation selon votre schéma :
-      //   - Si vous avez une colonne 'role', utilisez .eq('role', role)
-      //   - Si vous avez une colonne 'user_type', utilisez .eq('user_type', role)
-      //   - Si vous avez une colonne 'level', utilisez .eq('level', level.index)
-      //   - Sinon, prenez n'importe quel utilisateur (fallback ci-dessous)
-
-      // Exemple avec une colonne 'user_type' :
+      // Si vous avez une colonne pour différencier les agents, décommentez et adaptez
       // final role = _getRoleForLevel(level);
       // final response = await _supabase
       //     .from('profiles')
       //     .select('id')
-      //     .eq('user_type', role)   // ← Remplacez 'user_type' par votre colonne
+      //     .eq('role', role)    // adaptez le nom de colonne
       //     .limit(1)
       //     .maybeSingle();
 
@@ -198,7 +192,7 @@ class EscalationService {
   }
 
   // ============================================================
-  // Optionnel : mapper un niveau vers un rôle (à utiliser si vous avez une colonne de rôle)
+  // Optionnel : mapper un niveau vers un rôle (si colonne de rôle)
   // ============================================================
   String _getRoleForLevel(EscalationLevel level) {
     switch (level) {
@@ -222,15 +216,15 @@ class EscalationService {
 
       final rules = rulesResponse.map((json) => EscalationRule.fromJson(json)).toList();
 
+      // ✅ Utiliser escalation_status au lieu de status
       final conversationsResponse = await _supabase
           .from('conversations')
           .select()
-          .eq('status', 'active');
+          .eq('escalation_status', 'active');
 
       for (final conv in conversationsResponse) {
-        // Implémentez ici la logique d'analyse pour déclencher des escalades automatiques
         final conversationId = conv['id'];
-        // ... logique à ajouter
+        // ... logique d'analyse à implémenter
       }
     } catch (e) {
       print('❌ Erreur dans processAutoEscalations : $e');
