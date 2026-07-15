@@ -7,8 +7,8 @@ import '../models/escalation_step.dart';
 import '../widgets/level_badge.dart';
 import '../widgets/priority_chip.dart';
 import '../widgets/status_indicator.dart';
-import '../../chat_screen.dart'; // ✅ chemin correct
-import '../../../../services/chat/chat_service.dart';
+import '../../../chat/chat_screen.dart'; // ✅ 3 niveaux
+import '../../../../services/chat/chat_service.dart'; // ✅ 4 niveaux
 
 class EscalationHistoryPage extends StatelessWidget {
   final String conversationId;
