@@ -30,7 +30,7 @@ class EscalationService {
       // 2. Construire les données
       final data = {
         'conversation_id': conversationId,
-        'from_level': EscalationLevel.agent.index, // on part toujours de L0
+        'from_level': EscalationLevel.agent.index,
         'to_level': toLevel.index,
         'from_agent_id': fromAgentId,
         'to_agent_id': targetAgentId,
@@ -163,42 +163,30 @@ class EscalationService {
   // ============================================================
   Future<String> _getTargetAgentId(EscalationLevel level) async {
     try {
-      // 1. Déterminer le rôle correspondant au niveau (adaptez selon votre schéma)
-      final role = _getRoleForLevel(level);
+      // 🔍 Adaptation selon votre schéma :
+      //   - Si vous avez une colonne 'role', utilisez .eq('role', role)
+      //   - Si vous avez une colonne 'user_type', utilisez .eq('user_type', role)
+      //   - Si vous avez une colonne 'level', utilisez .eq('level', level.index)
+      //   - Sinon, prenez n'importe quel utilisateur (fallback ci-dessous)
 
-      // 2. Récupérer un agent avec ce rôle
+      // Exemple avec une colonne 'user_type' :
+      // final role = _getRoleForLevel(level);
+      // final response = await _supabase
+      //     .from('profiles')
+      //     .select('id')
+      //     .eq('user_type', role)   // ← Remplacez 'user_type' par votre colonne
+      //     .limit(1)
+      //     .maybeSingle();
+
+      // Pour l'instant, on prend le premier utilisateur disponible
       final response = await _supabase
-          .from('profiles') // ⚠️ Remplacez par le nom de votre table utilisateur (ex: 'users')
+          .from('profiles')
           .select('id')
-          .eq('role', role) // ⚠️ Remplacez par la colonne qui stocke le rôle (ex: 'user_type', 'level')
           .limit(1)
           .maybeSingle();
 
       if (response != null && response['id'] != null) {
         return response['id'] as String;
-      }
-
-      // 3. Fallback : récupérer n'importe quel utilisateur ayant un rôle 'agent'
-      final fallback = await _supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'agent')
-          .limit(1)
-          .maybeSingle();
-
-      if (fallback != null && fallback['id'] != null) {
-        return fallback['id'] as String;
-      }
-
-      // 4. Dernier recours : récupérer le premier utilisateur (pour test)
-      final anyUser = await _supabase
-          .from('profiles')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
-
-      if (anyUser != null && anyUser['id'] != null) {
-        return anyUser['id'] as String;
       }
 
       // Si aucun utilisateur n'existe, on lève une exception
@@ -210,7 +198,7 @@ class EscalationService {
   }
 
   // ============================================================
-  // Mapper un niveau vers un rôle (à adapter selon votre schéma)
+  // Optionnel : mapper un niveau vers un rôle (à utiliser si vous avez une colonne de rôle)
   // ============================================================
   String _getRoleForLevel(EscalationLevel level) {
     switch (level) {
@@ -241,7 +229,6 @@ class EscalationService {
 
       for (final conv in conversationsResponse) {
         // Implémentez ici la logique d'analyse pour déclencher des escalades automatiques
-        // Exemple : analyser le sentiment, mots-clés, temps d'attente, etc.
         final conversationId = conv['id'];
         // ... logique à ajouter
       }
