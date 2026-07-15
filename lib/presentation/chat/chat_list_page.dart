@@ -143,14 +143,23 @@ class _ChatListPageState extends State<ChatListPage> {
         children: [
           const Icon(Icons.menu, size: 22, color: _C.navy),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              RichText(text: TextSpan(children: [
-                TextSpan(text: 'THIX ', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing:.5)),
-                TextSpan(text: 'CHAT', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.blue)),
-              ])),
-              Text('Connectez-vous. Échangez. Avancez.', style: TextStyle(fontSize: 10.5, color: _C.textMuted, fontWeight: FontWeight.w500)),
-            ]),
+          // 👇 CORRECTION : Le mot 'const' a été retiré de Expanded
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, 
+              children: [
+                RichText(
+                  // 👇 CORRECTION : Ajout du 'const' ici où c'est autorisé
+                  text: const TextSpan(
+                    children: [
+                      TextSpan(text: 'THIX ', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing:.5)),
+                      TextSpan(text: 'CHAT', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.blue)),
+                    ]
+                  )
+                ),
+                const Text('Connectez-vous. Échangez. Avancez.', style: TextStyle(fontSize: 10.5, color: _C.textMuted, fontWeight: FontWeight.w500)),
+              ]
+            ),
           ),
           IconButton(onPressed: (){}, icon: const Icon(Icons.search_rounded, color: _C.navy, size: 22)),
           Stack(children: [
@@ -197,6 +206,7 @@ class _ChatListPageState extends State<ChatListPage> {
       ]),
     );
   }
+  
   Widget _stat({required IconData icon, required Color color, required String value, required String label, bool isLast=false}) {
     return Expanded(child: Column(children: [
       Icon(icon, size: 18, color: color),
@@ -206,6 +216,7 @@ class _ChatListPageState extends State<ChatListPage> {
       Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, height: 1.1, color: _C.textMuted, fontWeight: FontWeight.w600)),
     ]));
   }
+  
   Widget _divider() => Container(width: 1, height: 34, color: _C.border);
 
   Widget _enLigneSection() {
@@ -266,7 +277,7 @@ class _ChatListPageState extends State<ChatListPage> {
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(colors: [_C.blue, Color(0xFF8AA8FF)])
-                          ), // CORRECTION DE LA PARENTHÈSE ICI
+                          ),
                           child: CircleAvatar(
                             radius: 22,
                             backgroundColor: _C.softBlue,
@@ -331,8 +342,9 @@ class _ChatListPageState extends State<ChatListPage> {
           const Spacer(),
           InkWell(
             onTap: () {},
-            child: const Row(
-              children: [
+            // 👇 CORRECTION : const retiré de la liste si non supporté
+            child: Row(
+              children: const [
                 Text('Filtres', style: TextStyle(fontSize: 11, color: _C.blue, fontWeight: FontWeight.w700)),
                 SizedBox(width: 4),
                 Icon(Icons.tune, size: 14, color: _C.blue)
