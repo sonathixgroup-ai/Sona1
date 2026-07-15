@@ -583,7 +583,7 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
             
             // --- Gestion de boutique dynamique ---
             GoRoute(path: 'shop/:shopId/manage', name: 'marketManageShop', pageBuilder: (_, state) => NoTransitionPage(child: ManageShopPage(shopId: state.pathParameters['shopId']!))),
-            GoRoute(path: 'shop/:shopId/edit', name: 'marketShopEdit', pageBuilder: (_, state) => NoTransitionPage(child: ShopEditPage(shopId: state.pathParameters['shopId']!))),
+          //  GoRoute(path: 'shop/:shopId/edit', name: 'marketShopEdit', pageBuilder: (_, state) => NoTransitionPage(child: ShopEditPage(shopId: state.pathParameters['shopId']!))),
             GoRoute(path: 'shop/:shopId/stats', name: 'marketShopStats', pageBuilder: (_, state) => NoTransitionPage(child: ShopStatisticsPage(shopId: state.pathParameters['shopId']!))),
             
             // --- Ventes & Produits dynamiques ---
