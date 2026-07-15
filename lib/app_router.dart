@@ -184,6 +184,12 @@ import 'package:thix_id/presentation/chat/escalation/screens/escalation_history_
 import 'package:thix_id/presentation/chat/escalation/screens/escalation_dashboard_page.dart';
 import 'package:thix_id/presentation/chat/escalation/models/escalation_level.dart';
 import 'package:thix_id/presentation/chat/escalation/screens/received_escalations_page.dart';
+// ─── CALL PROD IMPORTS ───
+import 'package:thix_id/presentation/chat/call/call_page.dart';
+import 'package:thix_id/presentation/chat/call/incoming_call_page.dart';
+import 'package:thix_id/models/chat/call_invite.dart';
+import 'package:thix_id/models/chat/call_status.dart';
+
 // MON PAYS
 import 'presentation/mon_pays/mon_pays_page.dart';
 import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
@@ -293,6 +299,9 @@ class AppRouter {
           final conv = state.extra as ChatConversation? ?? ChatConversation(id: convId, isGroup: false, participantIds: [], updatedAt: DateTime.now());
           return NoTransitionPage(child: ThixChat.ChatScreen(conversationId: convId, conversation: conv));
         }),
+        GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c,s) => IncomingCallPage(invite: s.extra as CallInvite)),
+        GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c,s) { final e=s.extra as Map<String,dynamic>; return CallPage(channel:e['channel'], name:e['name'], type:e['type']=='video'?CallType.video:CallType.audio, inviteId:e['inviteId'], isCaller:e['isCaller']??true, avatarUrl:e['avatarUrl']); }),
+        GoRoute(path: AppRoutes.callHistory, name: AppRoutes.callHistoryName, builder: (c,s) => const Scaffold(body: Center(child: Text('Historique')))),
         GoRoute(path: AppRoutes.groupCreate, name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
         GoRoute(path: AppRoutes.groupInfo, name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
         GoRoute(path: AppRoutes.groupSettings, name: 'group_settings', pageBuilder: (_, state) => NoTransitionPage(child: GroupSettingsPage(groupId: state.pathParameters['groupId']!))),
