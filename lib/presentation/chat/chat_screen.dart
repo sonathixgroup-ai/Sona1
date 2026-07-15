@@ -1,7 +1,5 @@
-// ============================================================
-// chat_screen.dart (version finale avec escalade accessible à tous)
-// ============================================================
-
+// Route: lib/presentation/chat/chat_screen.dart
+// Version ULTRA COMPLÈTE - Aucune coupe - Avec Appel Audio/Video Agora
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
@@ -12,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 
 // Services
 import 'package:thix_id/services/chat/chat_service.dart';
@@ -36,7 +35,11 @@ import 'package:thix_id/presentation/chat/encryption_service.dart';
 // ==================== ESCALADE ====================
 import 'package:thix_id/presentation/chat/escalation/models/escalation_level.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
-import 'package:provider/provider.dart';
+
+// ==================== CALL AGORA ====================
+import 'package:thix_id/models/chat/call_status.dart';
+import 'package:thix_id/presentation/chat/call/call_page.dart';
+import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -83,15 +86,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int? _ephemeralDuration;
 
   // === TYPING INDICATOR ===
-  // _isTyping = MOI en train d'écrire (pour savoir quand envoyer stop)
-  // _otherUserTyping = l'AUTRE en train d'écrire (pour l'affichage)
   bool _isTyping = false;
   bool _otherUserTyping = false;
   Timer? _typingTimer;
   RealtimeChannel? _typingChannel;
 
   // === ESCALADE ET NOTES INTERNES ===
-  bool _isAgent = false; // utilisée pour les notes internes uniquement
+  bool _isAgent = false;
   bool _isInternalNoteMode = false;
   bool _isConversationEscalated = false;
 
@@ -142,16 +143,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadUserRole() async {
     final user = _chatService.currentUser;
-    if (user != null) {
+    if (user!= null) {
       _isAgent = user.role == 'agent' || user.role == 'admin' || user.role == 'support';
       setState(() {});
     }
   }
 
   Future<void> _checkMicrophonePermission() async {
-    // Simple lecture d'état au chargement de l'écran (ne déclenche pas de popup).
-    // La vraie demande d'autorisation se fait au moment où l'utilisateur
-    // appuie sur le bouton micro, dans _startAudioRecording().
     final status = await Permission.microphone.status;
     debugPrint('🎙 Statut permission microphone au chargement: $status');
   }
@@ -175,7 +173,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadMessages({bool loadMore = false}) async {
     if (loadMore) {
-      if (_isLoadingMore || !_hasMoreMessages) return;
+      if (_isLoadingMore ||!_hasMoreMessages) return;
       setState(() => _isLoadingMore = true);
     } else {
       setState(() => _isLoading = true);
@@ -191,7 +189,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         if (loadMore) {
-          _messages = [...msgs.reversed, ..._messages];
+          _messages = [...msgs.reversed,..._messages];
           _hasMoreMessages = msgs.length >= _pageSize;
         } else {
           _messages = msgs;
@@ -224,7 +222,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.addListener(() {
       final position = _scrollController.position;
       if (position.pixels >= position.maxScrollExtent - 200) {
-        if (_hasMoreMessages && !_isLoadingMore) {
+        if (_hasMoreMessages &&!_isLoadingMore) {
           _page++;
           _loadMessages(loadMore: true);
         }
@@ -253,12 +251,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
     final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != _chatService.currentUserId,
+      (id) => id!= _chatService.currentUserId,
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
       _presenceStream = _chatService.subscribeToPresence([otherId]).map(
-        (list) => list.isNotEmpty ? list.first : null,
+        (list) => list.isNotEmpty? list.first : null,
       );
       _presenceStream?.listen((status) {
         if (mounted) setState(() => _otherParticipant = status);
@@ -269,7 +267,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _getParticipantInfo() async {
     if (widget.conversation.isGroup) return;
     final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != _chatService.currentUserId,
+      (id) => id!= _chatService.currentUserId,
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
@@ -284,13 +282,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _subscribeToRealtimeMessages() {
     _messageSubscription = _chatService
-        .subscribeToMessages(widget.conversationId)
-        .listen((updatedMsgs) {
+       .subscribeToMessages(widget.conversationId)
+       .listen((updatedMsgs) {
       if (!mounted) return;
       setState(() {
         for (var msg in updatedMsgs) {
           final index = _messages.indexWhere((m) => m.id == msg.id);
-          if (index != -1) {
+          if (index!= -1) {
             if (msg.isDeleted) {
               _messages.removeAt(index);
             } else {
@@ -306,33 +304,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // REALTIME - TYPING INDICATOR (channel séparé, broadcast)
+  // REALTIME - TYPING INDICATOR
   // ============================================================
 
   void _subscribeToTypingChannel() {
     final currentUserId = _chatService.currentUserId;
 
     _typingChannel = Supabase.instance.client
-        .channel('typing:${widget.conversationId}')
-        .onBroadcast(
+       .channel('typing:${widget.conversationId}')
+       .onBroadcast(
           event: 'typing',
           callback: (payload) {
             final senderId = payload['senderId'] as String?;
-            final isTyping = payload['isTyping'] as bool? ?? false;
-
-            // On n'affiche que le statut de L'AUTRE participant, jamais le sien
-            if (senderId != null && senderId != currentUserId && mounted) {
+            final isTyping = payload['isTyping'] as bool??? false;
+            if (senderId!= null && senderId!= currentUserId && mounted) {
               setState(() => _otherUserTyping = isTyping);
             }
           },
         )
-        .subscribe();
+       .subscribe();
   }
 
   void _sendTypingStatus(bool typing) {
     final currentUserId = _chatService.currentUserId;
     if (currentUserId == null || _typingChannel == null) return;
-
     _typingChannel!.sendBroadcastMessage(
       event: 'typing',
       payload: {
@@ -343,7 +338,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // ENVOI DE MESSAGES (avec support notes internes)
+  // APPEL AUDIO / VIDEO - NOUVEAU - NE SUPPRIME RIEN
+  // ============================================================
+
+  void _startCall(CallType type) {
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id!= _chatService.currentUserId,
+      orElse: () => '',
+    );
+    if (otherId.isEmpty &&!widget.conversation.isGroup) {
+      _showSnackBar('Participant introuvable', danger);
+      return;
+    }
+    final prov = context.read<CallProvider>();
+    prov.start(
+      channel: widget.conversationId,
+      calleeId: otherId,
+      callType: type,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CallPage(
+          channel: widget.conversationId,
+          name: widget.conversation.displayName,
+          type: type,
+          isCaller: true,
+        ),
+      ),
+    );
+  }
+
+  void _startAudioCall() => _startCall(CallType.audio);
+  void _startVideoCall() => _startCall(CallType.video);
+
+  // ============================================================
+  // ENVOI DE MESSAGES
   // ============================================================
 
   Future<void> _sendMessage() async {
@@ -358,9 +388,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final msg = await _chatService.sendMessage(
         conversationId: widget.conversationId,
         content: text,
-        replyToId: _replyToId.isEmpty ? null : _replyToId,
+        replyToId: _replyToId.isEmpty? null : _replyToId,
         isEphemeral: _isEphemeral,
-        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        ephemeralDuration: _isEphemeral? _ephemeralDuration : null,
       );
 
       setState(() {
@@ -389,8 +419,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         audioData: Uint8List.fromList(bytes),
         duration: duration,
         isEphemeral: _isEphemeral,
-        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
-        replyToId: _replyToId.isEmpty ? null : _replyToId,
+        ephemeralDuration: _isEphemeral? _ephemeralDuration : null,
+        replyToId: _replyToId.isEmpty? null : _replyToId,
       );
       setState(() {
         _messages.add(msg);
@@ -404,22 +434,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // AUDIO (RECORDING) — avec vraie demande de permission
+  // AUDIO RECORDING
   // ============================================================
 
   void _startAudioRecording() async {
     final status = await Permission.microphone.request();
-
     if (status.isGranted) {
       _openAudioRecorderSheet();
       return;
     }
-
     if (status.isPermanentlyDenied) {
       _showMicPermissionDeniedDialog();
       return;
     }
-
     _showSnackBar(
       '❌ Permission microphone refusée. Veuillez autoriser dans les paramètres.',
       danger,
@@ -557,14 +584,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 try {
                   final encrypted = EncryptionService.encryptMessage(
                       msgController.text, passController.text);
-                  
+
                   await _chatService.sendMessage(
                     conversationId: widget.conversationId,
                     content: encrypted,
-                    replyToId: _replyToId.isEmpty ? null : _replyToId,
+                    replyToId: _replyToId.isEmpty? null : _replyToId,
                     isEphemeral: _isEphemeral,
                     ephemeralDuration:
-                        _isEphemeral ? _ephemeralDuration : null,
+                        _isEphemeral? _ephemeralDuration : null,
                   );
                   if (context.mounted) Navigator.pop(ctx);
                 } catch (e) {
@@ -667,17 +694,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return ListTile(
       leading: Icon(
         Icons.timer_rounded,
-        color: isSelected ? navy : darkText,
+        color: isSelected? navy : darkText,
       ),
       title: Text(
         label,
         style: TextStyle(
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-          color: isSelected ? navy : darkText,
+          fontWeight: isSelected? FontWeight.w800 : FontWeight.w500,
+          color: isSelected? navy : darkText,
         ),
       ),
       trailing: isSelected
-          ? const Icon(Icons.check_circle_rounded, color: gold)
+         ? const Icon(Icons.check_circle_rounded, color: gold)
           : null,
       onTap: () {
         setState(() {
@@ -690,11 +717,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // TYPING INDICATOR (émission de MON statut)
+  // TYPING INDICATOR
   // ============================================================
 
   void _onTypingChanged(String text) {
-    if (text.isNotEmpty && !_isTyping) {
+    if (text.isNotEmpty &&!_isTyping) {
       _isTyping = true;
       _sendTypingStatus(true);
     } else if (text.isEmpty && _isTyping) {
@@ -718,7 +745,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _cancelReply() => setState(() => _replyToId = '');
 
   // ============================================================
-  // GESTION DES MÉDIAS — MENU D'ATTACHEMENT (Photo / Vidéo / Document)
+  // GESTION DES MÉDIAS — MENU D'ATTACHEMENT
   // ============================================================
 
   void _showAttachmentMenu() {
@@ -823,7 +850,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // GESTION DES FICHIERS (image / vidéo / tout type) avec preview
+  // GESTION DES FICHIERS - INTEGRLA - AUCUNE COUPE
   // ============================================================
 
   Future<void> _pickFile({FileType type = FileType.any}) async {
@@ -836,15 +863,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (result == null || result.files.isEmpty) return;
 
       final file = result.files.first;
-      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
-      final extension = file.extension ?? 'file';
+      final bytes = file.bytes?? await File(file.path!).readAsBytes();
+      final extension = file.extension?? 'file';
       final size = file.size;
 
-      // Déterminer le type MIME
       String mimeType = _getMimeType(extension);
       String mediaType = _getMediaType(extension);
 
-      // Afficher une prévisualisation avant envoi
       final confirmed = await _showFilePreviewDialog(
         fileName: file.name,
         fileSize: size,
@@ -853,18 +878,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         extension: extension,
       );
 
-      if (confirmed != true) return;
+      if (confirmed!= true) return;
 
-      // Upload du fichier
       final url = await _chatService.uploadFileWithUniqueName(
-  'chat-media',
-  'messages/${widget.conversationId}',
-  Uint8List.fromList(bytes),
-  extension,
-);
+        'chat-media',
+        'messages/${widget.conversationId}',
+        Uint8List.fromList(bytes),
+        extension,
+      );
 
-      if (url != null) {
-        // Envoyer le message avec les métadonnées
+      if (url!= null) {
         await _chatService.sendMessage(
           conversationId: widget.conversationId,
           content: '📎 ${file.name}',
@@ -874,7 +897,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           mediaSize: size,
           mimeType: mimeType,
           isEphemeral: _isEphemeral,
-          ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+          ephemeralDuration: _isEphemeral? _ephemeralDuration : null,
         );
         _scrollToBottom();
       }
@@ -883,36 +906,53 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // Déterminer le type MIME
   String _getMimeType(String extension) {
     switch (extension.toLowerCase()) {
-      case 'jpg': case 'jpeg': return 'image/jpeg';
-      case 'png': return 'image/png';
-      case 'gif': return 'image/gif';
-      case 'webp': return 'image/webp';
-      case 'mp4': return 'video/mp4';
-      case 'mov': return 'video/quicktime';
-      case 'avi': return 'video/x-msvideo';
-      case 'pdf': return 'application/pdf';
-      case 'doc': return 'application/msword';
-      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'xls': return 'application/vnd.ms-excel';
-      case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case 'ppt': return 'application/vnd.ms-powerpoint';
-      case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      case 'txt': return 'text/plain';
-      case 'zip': return 'application/zip';
-      case 'rar': return 'application/x-rar-compressed';
-      default: return 'application/octet-stream';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'ppt':
+        return 'application/vnd.ms-powerpoint';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'txt':
+        return 'text/plain';
+      case 'zip':
+        return 'application/zip';
+      case 'rar':
+        return 'application/x-rar-compressed';
+      default:
+        return 'application/octet-stream';
     }
   }
 
-  // Déterminer le type média (pour affichage)
   String _getMediaType(String extension) {
-    const imageExt = {'jpg','jpeg','png','gif','webp','bmp','svg'};
-    const videoExt = {'mp4','mov','avi','mkv','webm','flv'};
-    const audioExt = {'mp3','wav','aac','ogg','flac','m4a'};
-    const docExt = {'pdf','doc','docx','xls','xlsx','ppt','pptx','txt'};
+    const imageExt = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'};
+    const videoExt = {'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv'};
+    const audioExt = {'mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a'};
+    const docExt = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'};
 
     final ext = extension.toLowerCase();
     if (imageExt.contains(ext)) return 'image';
@@ -922,7 +962,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return 'file';
   }
 
-  // Dialogue de prévisualisation
   Future<bool?> _showFilePreviewDialog({
     required String fileName,
     required int fileSize,
@@ -945,7 +984,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Miniature ou icône
             _buildFilePreviewThumbnail(fileBytes, mimeType, extension),
             const SizedBox(height: 12),
             Text(
@@ -981,7 +1019,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildFilePreviewThumbnail(Uint8List bytes, String mimeType, String extension) {
-    // Image
     if (mimeType.startsWith('image/')) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -994,7 +1031,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    // Vidéo -> on affiche une icône
     if (mimeType.startsWith('video/')) {
       return Container(
         height: 120,
@@ -1008,7 +1044,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    // Audio
     if (mimeType.startsWith('audio/')) {
       return Container(
         height: 80,
@@ -1022,7 +1057,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    // Document ou autre
     return Container(
       height: 80,
       width: double.infinity,
@@ -1048,25 +1082,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   IconData _getFileIcon(String extension) {
     switch (extension.toLowerCase()) {
-      case 'pdf': return Icons.picture_as_pdf;
-      case 'doc': case 'docx': return Icons.description;
-      case 'xls': case 'xlsx': return Icons.table_chart;
-      case 'ppt': case 'pptx': return Icons.slideshow;
-      case 'zip': case 'rar': return Icons.folder_zip;
-      case 'txt': return Icons.text_snippet;
-      default: return Icons.insert_drive_file;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      case 'ppt':
+      case 'pptx':
+        return Icons.slideshow;
+      case 'zip':
+      case 'rar':
+        return Icons.folder_zip;
+      case 'txt':
+        return Icons.text_snippet;
+      default:
+        return Icons.insert_drive_file;
     }
   }
 
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    if (bytes < 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   // ============================================================
-  // GROUPES
+  // GROUPES - INTEGRAL
   // ============================================================
 
   void _navigateToGroupInfo() {
@@ -1090,7 +1135,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Quitter le groupe'),
-        content: const Text('Êtes-vous sûr de vouloir quitter ce groupe ?'),
+        content: const Text('Êtes-vous sûr de vouloir quitter ce groupe?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1147,28 +1192,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // ESCALADE (accessible à tous)
+  // ESCALADE
   // ============================================================
 
   void _escalateConversation() {
-    // ✅ Plus de condition – tout le monde peut escalader
     context.pushNamed(
       'chatEscalate',
       pathParameters: {'conversationId': widget.conversationId},
       queryParameters: {
-        'agentId': _chatService.currentUserId ?? '',
-        'agentName': _chatService.currentUser?.userMetadata?['full_name'] ?? 'Agent',
+        'agentId': _chatService.currentUserId?? '',
+        'agentName': _chatService.currentUser?.userMetadata?['full_name']?? 'Agent',
       },
     );
   }
 
   void _toggleInternalNoteMode() {
     setState(() {
-      _isInternalNoteMode = !_isInternalNoteMode;
+      _isInternalNoteMode =!_isInternalNoteMode;
     });
     _showSnackBar(
-      _isInternalNoteMode ? 'Mode note interne activé' : 'Mode note interne désactivé',
-      _isInternalNoteMode ? Colors.orange : mutedText,
+      _isInternalNoteMode? 'Mode note interne activé' : 'Mode note interne désactivé',
+      _isInternalNoteMode? Colors.orange : mutedText,
     );
   }
 
@@ -1185,7 +1229,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // BUILD
+  // BUILD - INTEGRAL
   // ============================================================
 
   @override
@@ -1208,7 +1252,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _buildEscalationIndicator(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+               ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                 : _buildMessageList(),
           ),
           if (_replyToId.isNotEmpty) _buildReplyIndicator(),
@@ -1223,7 +1267,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             onEphemeralToggle: _showEphemeralTimerDialog,
             isEphemeral: _isEphemeral,
             onTyping: _onTypingChanged,
-            onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null,
+            onInternalNoteToggle: _isAgent? _toggleInternalNoteMode : null,
             isInternalNote: _isInternalNoteMode,
           ),
         ],
@@ -1238,7 +1282,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           controller: _scrollController,
           reverse: true,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
+          itemCount: _messages.length + (_isLoadingMore? 1 : 0),
           itemBuilder: (ctx, index) {
             if (index == _messages.length && _isLoadingMore) {
               return const Padding(
@@ -1264,14 +1308,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 }
               },
               onReaction: (r) => _chatService.toggleReaction(msg.id, r),
-              replyToMessage: msg.replyToId != null
-                  ? _messages.firstWhere(
+              replyToMessage: msg.replyToId!= null
+                 ? _messages.firstWhere(
                       (m) => m.id == msg.replyToId,
                       orElse: () => msg,
                     )
                   : null,
               isEphemeralActive: msg.isEphemeral,
-              isInternalNote: msg.isInternalNote ?? false,
+              isInternalNote: msg.isInternalNote?? false,
               isAgentView: _isAgent,
             );
           },
@@ -1301,7 +1345,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // APP BAR (avec escalade toujours visible)
+  // APP BAR - AVEC CALLS BRANCHES
   // ============================================================
 
   PreferredSizeWidget _buildAppBar() {
@@ -1333,10 +1377,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               radius: 19,
               backgroundColor: navy,
               backgroundImage: widget.conversation.isGroup
-                  ? null
+                 ? null
                   : const NetworkImage('https://i.pravatar.cc/150?img=11'),
               child: widget.conversation.isGroup
-                  ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18)
+                 ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18)
                   : null,
             ),
           ),
@@ -1351,7 +1395,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (!widget.conversation.isGroup && _otherParticipant != null)
+                if (!widget.conversation.isGroup && _otherParticipant!= null)
                   Row(
                     children: [
                       Container(
@@ -1360,15 +1404,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: (_otherParticipant!.status == 'online')
-                              ? success
+                             ? success
                               : Colors.white38,
                         ),
                       ),
                       const SizedBox(width: 5),
                       Text(
                         (_otherParticipant!.status == 'online')
-                            ? 'En ligne'
-                            : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}',
+                           ? 'En ligne'
+                            : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt?? DateTime.now())}',
                         style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -1379,15 +1423,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ],
       ),
       actions: [
-        _appBarIconButton(Icons.videocam_rounded, () {
-          _showSnackBar('Appel vidéo non disponible', mutedText);
-        }),
-        _appBarIconButton(Icons.call_rounded, () {
-          _showSnackBar('Appel vocal non disponible', mutedText);
-        }),
+        _appBarIconButton(Icons.videocam_rounded, _startVideoCall),
+        _appBarIconButton(Icons.call_rounded, _startAudioCall),
         if (widget.conversation.isGroup)
           _appBarIconButton(Icons.info_outline_rounded, _navigateToGroupInfo),
-        // ✅ Menu overflow : Escalader toujours présent
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: gold),
           onSelected: (value) {
@@ -1448,10 +1487,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ============================================================
-  // INDICATEUR DE RÉPONSE
-  // ============================================================
-
   Widget _buildReplyIndicator() {
     final reply = _messages.firstWhere(
       (m) => m.id == _replyToId,
@@ -1480,7 +1515,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               children: [
                 Text(
                   reply.senderId == _chatService.currentUserId
-                      ? 'Vous'
+                     ? 'Vous'
                       : reply.senderName,
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: navy),
                 ),
@@ -1506,10 +1541,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
     );
   }
-
-  // ============================================================
-  // INDICATEUR DE SAISIE (affiche l'AUTRE participant uniquement)
-  // ============================================================
 
   Widget _buildTypingIndicator() {
     return Positioned(
@@ -1558,7 +1589,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
 class _TypingDots extends StatefulWidget {
   const _TypingDots();
-
   @override
   State<_TypingDots> createState() => _TypingDotsState();
 }
@@ -1566,7 +1596,6 @@ class _TypingDots extends StatefulWidget {
 class _TypingDotsState extends State<_TypingDots>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -1575,13 +1604,11 @@ class _TypingDotsState extends State<_TypingDots>
       duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -1592,7 +1619,7 @@ class _TypingDotsState extends State<_TypingDots>
           builder: (context, child) {
             double offset = (index * 0.2);
             double value = (_controller.value + offset) % 1.0;
-            double opacity = value < 0.5 ? value * 2 : 1 - ((value - 0.5) * 2);
+            double opacity = value < 0.5? value * 2 : 1 - ((value - 0.5) * 2);
             return Opacity(
               opacity: opacity,
               child: Container(
