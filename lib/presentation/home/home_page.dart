@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/app_user.dart';
@@ -114,7 +116,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
   bool _searching = false;
   late AnimationController _animationController;
   final PageController _headlinesController = PageController();
-  Timer? _headlinesTimer;
 
   final _notifications = NotificationService();
   final _counters = NotificationCountersService();
@@ -133,15 +134,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _animationController.forward();
-      _headlinesTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        if (!_headlinesController.hasClients) return;
-        final next = (_headlinesController.page?.round() ?? 0) == 0 ? 1 : 0;
-        _headlinesController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 550),
-          curve: Curves.easeInOutCubic,
-        );
-      });
     });
   }
 
@@ -149,7 +141,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
   void dispose() {
     _searchController.dispose();
     _animationController.dispose();
-    _headlinesTimer?.cancel();
     _headlinesController.dispose();
     super.dispose();
   }
@@ -262,6 +253,16 @@ class _HomePagePremiumState extends State<HomePagePremium>
     context.push(AppRoutes.login);
   }
 
+  // ✅ Nouveau : NFC remplacé par Document -> ouvre le coffre-fort documents.
+  void _openDocumentVault() {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.push(AppRoutes.vault);
+    } else {
+      context.push(AppRoutes.login);
+    }
+  }
+
   Future<void> _handleRequestAccount(BuildContext context) async {
     final auth = context.read<AuthController>();
     final res = await showModalBottomSheet<_AccountRequestChoice>(
@@ -304,6 +305,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
         : (auth.currentUser?.email.trim().isNotEmpty ?? false)
             ? auth.currentUser!.email.trim()
             : 'Bonjour';
+    // ✅ Photo réelle de l'utilisateur (même source que le Dashboard).
+    final photoUrl = auth.currentUser?.photoUrl;
     final badgeCountsStream = auth.currentUser == null
         ? Stream.value(SectionBadgeCounts.zero)
         : _counters.streamCounts(auth.currentUser!.id);
@@ -321,6 +324,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 delegate: _PinnedHeaderDelegate(
                   safeTop: safeTop,
                   displayName: displayName,
+                  photoUrl: photoUrl,
                   isAuthenticated: auth.isAuthenticated,
                   onProfileTap: _onProfileTap,
                   onAccountRequest: () => _handleRequestAccount(context),
@@ -347,6 +351,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _HeadlinesCarousel(
                     controller: _headlinesController,
+                    uid: auth.currentUser?.id,
                     onThixInfoTap: () => context.push(AppRoutes.thixInfo),
                     onOpportunityTap: () => context.push(AppRoutes.opportunities),
                   ),
@@ -360,8 +365,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: _QuickActionsRow(
                     onScanTap: _openThixAi,
-                    onNfcTap: () => ThixIdentitySheets.showNfcScanSheet(context),
-                    onChatTap: _openThixChat, // ✅ Connecté correctement ici
+                    onDocumentTap: _openDocumentVault, // ✅ remplace NFC
+                    onChatTap: _openThixChat,
                     onSecurityTap: _openEmergency,
                   ),
                 ),
@@ -447,7 +452,9 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 20)),
+              // ✅ Espace supplémentaire pour ne pas cacher le contenu
+              // derrière le bouton flottant (plus de bottomNavigationBar fixe).
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 130)),
             ],
           ),
           if (_searching)
@@ -461,10 +468,24 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
             ),
+          // ✅ Bouton flottant unique (QR scan + menu extensible).
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _ExpandableNavFab(
+              onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
+              onHomeTap: () => context.go(AppRoutes.home),
+              onMiniAppsTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Mini Apps — bientôt disponible.')),
+                );
+              },
+              onDocumentsTap: _openDocumentVault,
+              onProfileTap: _onProfileTap,
+            ),
+          ),
         ],
-      ),
-      bottomNavigationBar: _FloatingBottomNav(
-        onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
       ),
     );
   }
@@ -473,6 +494,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double safeTop;
   final String displayName;
+  final String? photoUrl;
   final bool isAuthenticated;
   final VoidCallback onProfileTap;
   final VoidCallback onAccountRequest;
@@ -480,6 +502,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   _PinnedHeaderDelegate({
     required this.safeTop,
     required this.displayName,
+    required this.photoUrl,
     required this.isAuthenticated,
     required this.onProfileTap,
     required this.onAccountRequest,
@@ -511,6 +534,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: _PremiumHeader(
         safeTop: safeTop,
         displayName: displayName,
+        photoUrl: photoUrl,
         isAuthenticated: isAuthenticated,
         onProfileTap: onProfileTap,
         onAccountRequest: onAccountRequest,
@@ -522,6 +546,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
     return safeTop != oldDelegate.safeTop ||
         displayName != oldDelegate.displayName ||
+        photoUrl != oldDelegate.photoUrl ||
         isAuthenticated != oldDelegate.isAuthenticated;
   }
 }
@@ -603,6 +628,7 @@ class _SoftBlob extends StatelessWidget {
 class _PremiumHeader extends StatelessWidget {
   final double safeTop;
   final String displayName;
+  final String? photoUrl;
   final bool isAuthenticated;
   final VoidCallback onProfileTap;
   final VoidCallback onAccountRequest;
@@ -610,6 +636,7 @@ class _PremiumHeader extends StatelessWidget {
   const _PremiumHeader({
     required this.safeTop,
     required this.displayName,
+    required this.photoUrl,
     required this.isAuthenticated,
     required this.onProfileTap,
     required this.onAccountRequest,
@@ -617,47 +644,33 @@ class _PremiumHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trimmedPhoto = (photoUrl ?? '').trim();
     return Padding(
+      // ✅ Le menu "3 barres" a été retiré.
       padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                  boxShadow: AppShadows.secondary,
+              const Text(
+                'Welcome Back',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
-                child: const Icon(Icons.menu_rounded, color: AppColors.darkText, size: 18),
               ),
-              const SizedBox(width: AppSpacing.m),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Welcome Back',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      color: AppColors.darkText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
+              Text(
+                displayName,
+                style: const TextStyle(
+                  color: AppColors.darkText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
               ),
             ],
           ),
@@ -721,8 +734,12 @@ class _PremiumHeader extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.white, width: 2),
                     boxShadow: AppShadows.secondary,
-                    image: const DecorationImage(
-                      image: NetworkImage('https://i.pravatar.cc/150?img=11'),
+                    image: DecorationImage(
+                      image: trimmedPhoto.isNotEmpty
+                          ? NetworkImage(trimmedPhoto) as ImageProvider
+                          : const AssetImage(
+                              'assets/images/African_businessman_in_suit_grayscale_1775573970767.jpg',
+                            ),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -878,13 +895,13 @@ class _PremiumStatusCard extends StatelessWidget {
 
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onScanTap;
-  final VoidCallback onNfcTap;
+  final VoidCallback onDocumentTap; // ✅ remplace onNfcTap
   final VoidCallback onChatTap;
   final VoidCallback onSecurityTap;
 
   const _QuickActionsRow({
     required this.onScanTap,
-    required this.onNfcTap,
+    required this.onDocumentTap,
     required this.onChatTap,
     required this.onSecurityTap,
   });
@@ -908,12 +925,12 @@ class _QuickActionsRow extends StatelessWidget {
         Expanded(
           child: Center(
             child: _QuickActionItem(
-              icon: Icons.nfc_rounded,
-              label: 'NFC',
+              icon: Icons.folder_shared_rounded,
+              label: 'Document',
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onNfcTap,
+              onTap: onDocumentTap, // ✅ ouvre le vault
             ),
           ),
         ),
@@ -925,7 +942,7 @@ class _QuickActionsRow extends StatelessWidget {
               backgroundColor: AppColors.goldBadge,
               iconColor: AppColors.bottomNavCenterIcon,
               labelColor: AppColors.darkText,
-              onTap: onChatTap, // ✅ Correctement appelé ici
+              onTap: onChatTap,
             ),
           ),
         ),
@@ -1255,40 +1272,253 @@ class _SectionCage extends StatelessWidget {
   }
 }
 
-class _HeadlinesCarousel extends StatelessWidget {
+// ============================================================================
+// CAROUSEL "À LA UNE" — connecté (THIX Info + Opportunity + Notification prioritaire)
+// ============================================================================
+
+class _HeadlinesCarousel extends StatefulWidget {
   final PageController controller;
+  final String? uid;
   final VoidCallback onThixInfoTap;
   final VoidCallback onOpportunityTap;
 
   const _HeadlinesCarousel({
     required this.controller,
+    required this.uid,
     required this.onThixInfoTap,
     required this.onOpportunityTap,
   });
 
   @override
+  State<_HeadlinesCarousel> createState() => _HeadlinesCarouselState();
+}
+
+class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
+  late final Stream<List<Map<String, dynamic>>> _articlesStream;
+  late final Stream<List<Map<String, dynamic>>> _opportunitiesStream;
+  Stream<List<Map<String, dynamic>>>? _priorityNotifStream;
+  Timer? _autoTimer;
+  int _cardCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final client = Supabase.instance.client;
+
+    // NOTE: adapte les noms de table/colonnes ci-dessous si ton schéma
+    // Supabase utilise des noms différents (ex: 'articles' au lieu de
+    // 'thix_info_articles', 'featured' au lieu de 'is_featured', etc.)
+    try {
+      _articlesStream = client
+          .from('thix_info_articles')
+          .stream(primaryKey: ['id'])
+          .eq('is_featured', true)
+          .order('created_at', ascending: false)
+          .limit(5);
+    } catch (_) {
+      _articlesStream = Stream.value(const <Map<String, dynamic>>[]);
+    }
+
+    try {
+      _opportunitiesStream = client
+          .from('opportunities')
+          .stream(primaryKey: ['id'])
+          .eq('is_featured', true)
+          .order('created_at', ascending: false)
+          .limit(5);
+    } catch (_) {
+      _opportunitiesStream = Stream.value(const <Map<String, dynamic>>[]);
+    }
+
+    final uid = widget.uid;
+    if (uid != null && uid.trim().isNotEmpty) {
+      try {
+        _priorityNotifStream = client
+            .from('notifications')
+            .stream(primaryKey: ['id'])
+            .eq('user_id', uid)
+            .order('created_at', ascending: false)
+            .limit(5);
+      } catch (_) {
+        _priorityNotifStream = null;
+      }
+    }
+
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!widget.controller.hasClients || _cardCount <= 1) return;
+      final current = widget.controller.page?.round() ?? 0;
+      final next = (current + 1) % _cardCount;
+      widget.controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 120,
-      child: PageView(
-        controller: controller,
-        children: [
-          _HeadlineCard(
-            label: 'À la une • THIX Info',
-            title: 'Nouvelles, annonces et mises à jour',
-            icon: Icons.newspaper_rounded,
-            accent: AppColors.domainInfo,
-            onTap: onThixInfoTap,
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _priorityNotifStream,
+      builder: (context, notifSnap) {
+        final notifs = (notifSnap.data ?? const <Map<String, dynamic>>[])
+            .where((n) => (n['priority'] == true) || (n['is_priority'] == true))
+            .toList(growable: false);
+        final priorityNotif = notifs.isEmpty ? null : notifs.first;
+
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _articlesStream,
+          builder: (context, articleSnap) {
+            final articles = articleSnap.data ?? const <Map<String, dynamic>>[];
+
+            return StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _opportunitiesStream,
+              builder: (context, oppSnap) {
+                final opportunities = oppSnap.data ?? const <Map<String, dynamic>>[];
+
+                final cards = <Widget>[];
+
+                // ✅ Priorité : une notification (si elle existe) passe en 1ère carte.
+                if (priorityNotif != null) {
+                  cards.add(
+                    _HeadlineCard(
+                      label: 'Notification prioritaire',
+                      title: (priorityNotif['title'] as String?) ??
+                          (priorityNotif['message'] as String?) ??
+                          'Nouvelle notification',
+                      imageUrl: priorityNotif['image_url'] as String?,
+                      icon: Icons.priority_high_rounded,
+                      accent: AppColors.dangerRed,
+                      onTap: () => NotificationsSheet.show(context),
+                    ),
+                  );
+                }
+
+                for (final a in articles) {
+                  cards.add(
+                    _HeadlineCard(
+                      label: 'À la une • THIX Info',
+                      title: (a['title'] as String?) ?? 'Actualité THIX Info',
+                      imageUrl: a['image_url'] as String?,
+                      icon: Icons.newspaper_rounded,
+                      accent: AppColors.domainInfo,
+                      onTap: widget.onThixInfoTap,
+                    ),
+                  );
+                }
+
+                for (final o in opportunities) {
+                  cards.add(
+                    _HeadlineCard(
+                      label: 'À la une • Opportunity',
+                      title: (o['title'] as String?) ?? 'Nouvelle opportunité',
+                      imageUrl: o['image_url'] as String?,
+                      icon: Icons.lightbulb_rounded,
+                      accent: AppColors.domainOpportunity,
+                      onTap: widget.onOpportunityTap,
+                    ),
+                  );
+                }
+
+                if (cards.isEmpty) {
+                  cards.addAll([
+                    _HeadlineCard(
+                      label: 'À la une • THIX Info',
+                      title: 'Nouvelles, annonces et mises à jour',
+                      icon: Icons.newspaper_rounded,
+                      accent: AppColors.domainInfo,
+                      onTap: widget.onThixInfoTap,
+                    ),
+                    _HeadlineCard(
+                      label: 'À la une • Opportunity',
+                      title: 'Opportunités pro à saisir maintenant',
+                      icon: Icons.lightbulb_rounded,
+                      accent: AppColors.domainOpportunity,
+                      onTap: widget.onOpportunityTap,
+                    ),
+                  ]);
+                }
+
+                _cardCount = cards.length;
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 104,
+                      child: PageView(controller: widget.controller, children: cards),
+                    ),
+                    if (cards.length > 1) ...[
+                      const SizedBox(height: 8),
+                      _CarouselDots(controller: widget.controller, count: cards.length),
+                    ],
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _CarouselDots extends StatefulWidget {
+  final PageController controller;
+  final int count;
+
+  const _CarouselDots({required this.controller, required this.count});
+
+  @override
+  State<_CarouselDots> createState() => _CarouselDotsState();
+}
+
+class _CarouselDotsState extends State<_CarouselDots> {
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!widget.controller.hasClients) return;
+    final p = widget.controller.page?.round() ?? 0;
+    if (p != _page && mounted) setState(() => _page = p);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activePage = widget.count == 0 ? 0 : _page.clamp(0, widget.count - 1);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(widget.count, (i) {
+        final active = i == activePage;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: active ? 16 : 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: active ? AppColors.premiumAccent : AppColors.cardBorder,
+            borderRadius: BorderRadius.circular(3),
           ),
-          _HeadlineCard(
-            label: 'À la une • Opportunity',
-            title: 'Opportunités pro à saisir maintenant',
-            icon: Icons.lightbulb_rounded,
-            accent: AppColors.domainOpportunity,
-            onTap: onOpportunityTap,
-          ),
-        ],
-      ),
+        );
+      }),
     );
   }
 }
@@ -1298,6 +1528,7 @@ class _HeadlineCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final Color accent;
+  final String? imageUrl;
   final VoidCallback onTap;
 
   const _HeadlineCard({
@@ -1305,11 +1536,13 @@ class _HeadlineCard extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.accent,
+    this.imageUrl,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = (imageUrl ?? '').trim().isNotEmpty;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1325,11 +1558,15 @@ class _HeadlineCard extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14),
+                image: hasImage
+                    ? DecorationImage(image: NetworkImage(imageUrl!.trim()), fit: BoxFit.cover)
+                    : null,
               ),
-              child: Icon(icon, color: accent, size: 22),
+              child: hasImage ? null : Icon(icon, color: accent, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1451,123 +1688,158 @@ class _MiniRoundAction extends StatelessWidget {
 }
 
 // ============================================================================
-// BOTTOM NAVIGATION INTERCONNECTÉE (CORRIGÉE)
+// BOUTON FLOTTANT UNIQUE — QR SCAN + MENU EXTENSIBLE (remplace l'ancienne bottom bar)
 // ============================================================================
 
-class _FloatingBottomNav extends StatelessWidget {
+class _NavSatelliteData {
+  final IconData icon;
+  final String label;
+  const _NavSatelliteData({required this.icon, required this.label});
+}
+
+class _ExpandableNavFab extends StatefulWidget {
   final VoidCallback onScanTap;
+  final VoidCallback onHomeTap;
+  final VoidCallback onMiniAppsTap;
+  final VoidCallback onDocumentsTap;
+  final VoidCallback onProfileTap;
 
-  const _FloatingBottomNav({required this.onScanTap});
+  const _ExpandableNavFab({
+    required this.onScanTap,
+    required this.onHomeTap,
+    required this.onMiniAppsTap,
+    required this.onDocumentsTap,
+    required this.onProfileTap,
+  });
 
-  void _openDocuments(BuildContext context) {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.go(AppRoutes.vault);
+  @override
+  State<_ExpandableNavFab> createState() => _ExpandableNavFabState();
+}
+
+class _ExpandableNavFabState extends State<_ExpandableNavFab> {
+  bool _expanded = false;
+  Timer? _collapseTimer;
+
+  static const double _centralBottom = 14;
+  static const double _centralSize = 60;
+  static const double _satSize = 46;
+  static const double _satGap = 12;
+
+  @override
+  void dispose() {
+    _collapseTimer?.cancel();
+    super.dispose();
+  }
+
+  void _armAutoCollapse() {
+    _collapseTimer?.cancel();
+    // ✅ Repli automatique après 10 secondes d'inactivité.
+    _collapseTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted) setState(() => _expanded = false);
+    });
+  }
+
+  void _expand() {
+    HapticFeedback.mediumImpact();
+    setState(() => _expanded = true);
+    _armAutoCollapse();
+  }
+
+  void _collapse() {
+    _collapseTimer?.cancel();
+    if (mounted) setState(() => _expanded = false);
+  }
+
+  void _runSatellite(VoidCallback action) {
+    _collapse();
+    action();
+  }
+
+  void _handleCentralTap() {
+    if (_expanded) {
+      // Le bouton central sert aussi à refermer le menu.
+      _collapse();
     } else {
-      context.push(AppRoutes.login);
+      // ✅ Fonctionne directement comme scanner QR.
+      widget.onScanTap();
     }
   }
 
-  void _openProfile(BuildContext context) {
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.go(AppRoutes.userDashboard);
+  void _handleCentralLongPress() {
+    if (_expanded) {
+      _armAutoCollapse();
     } else {
-      context.push(AppRoutes.login);
+      _expand();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafe = MediaQuery.paddingOf(context).bottom;
+
+    final items = <_NavSatelliteData>[
+      const _NavSatelliteData(icon: Icons.home_filled, label: 'Home'),
+      const _NavSatelliteData(icon: Icons.apps_rounded, label: 'Mini Apps'),
+      const _NavSatelliteData(icon: Icons.folder_rounded, label: 'Documents'),
+      const _NavSatelliteData(icon: Icons.person_outline_rounded, label: 'Profil'),
+    ];
+    final actions = <VoidCallback>[
+      widget.onHomeTap,
+      widget.onMiniAppsTap,
+      widget.onDocumentsTap,
+      widget.onProfileTap,
+    ];
+
+    final totalHeight = _centralBottom +
+        _centralSize +
+        (items.length * (_satSize + _satGap)) +
+        bottomSafe +
+        30;
+
     return SizedBox(
-      height: 92,
+      height: totalHeight,
       child: Stack(
         clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
         children: [
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.bottomNavBlue,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _NavItem(
-                    icon: Icons.home_filled,
-                    label: 'Home',
-                    active: true,
-                    onTap: () => context.go(AppRoutes.home),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  _NavItem(
-                    icon: Icons.apps_rounded,
-                    label: 'Mini Apps',
-                    onTap: () {},
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  const SizedBox(width: 74),
-                  _NavItem(
-                    icon: Icons.folder_rounded,
-                    label: 'Documents',
-                    onTap: () => _openDocuments(context),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                  _NavItem(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Profile',
-                    onTap: () => _openProfile(context),
-                    activeColor: AppColors.bottomNavActive,
-                    inactiveColor: AppColors.bottomNavInactive,
-                  ),
-                ],
-              ),
+          for (var i = 0; i < items.length; i++)
+            _NavSatellite(
+              visible: _expanded,
+              bottomOffset:
+                  bottomSafe + _centralBottom + _centralSize + _satGap + i * (_satSize + _satGap),
+              order: i,
+              icon: items[i].icon,
+              label: items[i].label,
+              onTap: () => _runSatellite(actions[i]),
             ),
-          ),
           Positioned(
-            top: -18,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 74,
-                    height: 74,
-                    decoration: const BoxDecoration(color: AppColors.lightGrayBg, shape: BoxShape.circle),
-                  ),
-                  GestureDetector(
-                    onTap: onScanTap,
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: AppColors.goldBadge,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+            bottom: bottomSafe + _centralBottom,
+            child: GestureDetector(
+              onTap: _handleCentralTap,
+              onLongPress: _handleCentralLongPress,
+              child: AnimatedRotation(
+                turns: _expanded ? 0.125 : 0,
+                duration: const Duration(milliseconds: 220),
+                child: Container(
+                  width: _centralSize,
+                  height: _centralSize,
+                  decoration: BoxDecoration(
+                    color: AppColors.goldBadge,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
                       ),
-                      child: const Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: AppColors.bottomNavCenterIcon,
-                        size: 26,
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                  child: Icon(
+                    _expanded ? Icons.close_rounded : Icons.qr_code_scanner_rounded,
+                    color: AppColors.bottomNavCenterIcon,
+                    size: 26,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1577,47 +1849,66 @@ class _FloatingBottomNav extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavSatellite extends StatelessWidget {
+  final bool visible;
+  final double bottomOffset;
+  final int order;
   final IconData icon;
   final String label;
-  final bool active;
   final VoidCallback onTap;
-  final Color? activeColor;
-  final Color? inactiveColor;
 
-  const _NavItem({
+  const _NavSatellite({
+    required this.visible,
+    required this.bottomOffset,
+    required this.order,
     required this.icon,
     required this.label,
-    this.active = false,
     required this.onTap,
-    this.activeColor,
-    this.inactiveColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final resolvedActive = activeColor ?? AppColors.primaryBlue;
-    final resolvedInactive = inactiveColor ?? AppColors.textSecondary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: active ? resolvedActive : resolvedInactive,
-            size: 22,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: active ? resolvedActive : resolvedInactive,
+    return AnimatedPositioned(
+      duration: Duration(milliseconds: 200 + order * 40),
+      curve: Curves.easeOutBack,
+      bottom: visible ? bottomOffset : bottomOffset - 24,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: Duration(milliseconds: 160 + order * 40),
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.cardBorder, width: 0.6),
+                    boxShadow: AppShadows.main,
+                  ),
+                  child: Icon(icon, color: AppColors.premiumAccent, size: 20),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkNavy.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    label,
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
