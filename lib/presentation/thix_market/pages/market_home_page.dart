@@ -63,38 +63,43 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
   // ============================================================
   // NAVIGATION
+    // ============================================================
+  // NAVIGATION SÉCURISÉE (Routes nommées)
   // ============================================================
-  void _goToVendor() => context.push('/market/vendor/dashboard');
-  void _goToCart() => context.push('/market/cart');
-  void _goToWishlist() => context.push('/market/wishlist');
-  void _goToCategories() => context.push('/market/categories');
-  void _goToOrders() => context.push('/market/orders');
-  void _goToProfile() => context.push('/market/profile');
-  void _goToPriceComparator() => context.push('/market/compare');
-  void _goToSearch() => context.push('/market/search');
+  void _goToVendor() => context.pushNamed('vendorDashboard');
+  void _goToCart() => context.pushNamed('marketCart');
+  void _goToWishlist() => context.pushNamed('marketWishlist');
+  void _goToShops() => context.pushNamed('marketShops');      // Nouveau
+  void _goToOrders() => context.pushNamed('marketOrders');    // Utilisé pour le suivi
+  void _goToProfile() => context.pushNamed('marketProfile'); // Assure-toi que cette route existe
+  void _goToPriceComparator() => context.pushNamed('marketProductComparator');
+  void _goToSearch() => context.pushNamed('marketSearch');
 
   void _onNavTap(int index) {
     setState(() => _selectedNavIndex = index);
     HapticFeedback.lightImpact();
     switch (index) {
-      case 0:
+      case 0: // Accueil
         _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
         break;
-      case 1:
-        _goToCategories();
+      case 1: // Boutiques
+        _goToShops();
         break;
-      case 2:
-        _goToVendor(); // bouton central (boutique / vendre)
+      case 2: // Central : Panier
+        _goToCart();
         break;
-      case 3:
+      case 3: // Suivi
         _goToOrders();
         break;
-      case 4:
+      case 4: // Profil
         _goToProfile();
         break;
     }
   }
 
+  // ============================================================
+  // HELPERS (Inchangés mais conservés pour la cohérence)
+  // ============================================================
   Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
     if (url == null || url.trim().isEmpty) {
       return Container(
@@ -138,6 +143,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
       SnackBar(content: Text('$feature : Bientôt disponible !'), backgroundColor: _MarketColors.gold, duration: const Duration(seconds: 2)),
     );
   }
+
 
   // ============================================================
   // HELPERS DONNÉES PRODUIT (100% Supabase, pas de mock)
