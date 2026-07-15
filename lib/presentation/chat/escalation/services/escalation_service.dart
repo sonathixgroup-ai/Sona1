@@ -12,10 +12,26 @@ import '../models/escalation_rule.dart';
 class EscalationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Créer une nouvelle escalade
+  // 🔍 Rechercher un utilisateur par son handle (username)
+  Future<Map<String, dynamic>?> getUserByHandle(String username) async {
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select('id, display_name, username, avatar_url')
+          .eq('username', username) // adaptez le nom de colonne (username, handle, etc.)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('❌ Erreur recherche utilisateur par handle : $e');
+      return null;
+    }
+  }
+
+  // Créer une nouvelle escalade (avec targetAgentId explicite)
   Future<EscalationStep> createEscalation({
     required String conversationId,
     required String fromAgentId,
+    required String targetAgentId,
     required EscalationLevel toLevel,
     required String reason,
     required EscalationPriority priority,
@@ -23,11 +39,16 @@ class EscalationService {
     String? fromAgentName,
   }) async {
     try {
-      // 1. Récupérer un agent cible valide (UUID)
-      final targetAgentId = await _getTargetAgentId(toLevel);
-      print('✅ Agent cible trouvé : $targetAgentId');
+      // Vérifier que l'agent cible existe
+      final target = await _supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', targetAgentId)
+          .maybeSingle();
+      if (target == null) {
+        throw Exception('L\'utilisateur cible n\'existe pas');
+      }
 
-      // 2. Construire les données
       final data = {
         'conversation_id': conversationId,
         'from_level': EscalationLevel.agent.index,
@@ -41,14 +62,12 @@ class EscalationService {
         'from_agent_name': fromAgentName,
       };
 
-      // 3. Insérer dans la table escalation_steps
       final response = await _supabase
           .from('escalation_steps')
           .insert(data)
           .select()
           .single();
 
-      // 4. Mettre à jour la conversation (⚠️ utilisation de 'escalation_status')
       await _supabase
           .from('conversations')
           .update({
@@ -59,7 +78,7 @@ class EscalationService {
 
       return EscalationStep.fromJson(response);
     } catch (e) {
-      print('❌ Erreur lors de la création de l\'escalade : $e');
+      print('❌ Erreur création escalade : $e');
       rethrow;
     }
   }
@@ -104,7 +123,7 @@ class EscalationService {
     await _supabase
         .from('conversations')
         .update({
-          'escalation_status': 'active',   // ⚠️ utilisation de 'escalation_status'
+          'escalation_status': 'active',
           'current_level': EscalationLevel.agent.index,
         })
         .eq('id', step.conversationId);
@@ -128,7 +147,7 @@ class EscalationService {
     await _supabase
         .from('conversations')
         .update({
-          'escalation_status': 'resolved',   // ⚠️ utilisation de 'escalation_status'
+          'escalation_status': 'resolved',
         })
         .eq('id', step.conversationId);
 
@@ -157,79 +176,8 @@ class EscalationService {
 
     return response.map((json) => EscalationStep.fromJson(json)).toList();
   }
-// ============================================================
-// lib/presentation/chat/escalation/services/escalation_service.dart
-// ============================================================
 
-// Ajouter cette méthode dans la classe EscalationService
-
-// 🔍 Rechercher un utilisateur par son handle (username)
-Future<Map<String, dynamic>?> getUserByHandle(String username) async {
-  try {
-    final response = await _supabase
-        .from('profiles')
-        .select('id, display_name, username, avatar_url')
-        .eq('username', username) // adaptez le nom de colonne
-        .maybeSingle();
-    return response;
-  } catch (e) {
-    print('❌ Erreur recherche utilisateur par handle : $e');
-    return null;
-  }
-}
-  // ============================================================
-  // 🔧 RÉCUPÉRATION D'UN AGENT CIBLE (UUID VALIDE)
-  // ============================================================
-  Future<String> _getTargetAgentId(EscalationLevel level) async {
-    try {
-      // ⚠️ Adaptez selon votre schéma de base de données
-      // Si vous avez une colonne 'role' : .eq('role', role)
-      // Si vous avez une colonne 'user_type' : .eq('user_type', role)
-      // Si vous avez une colonne 'is_agent' : .eq('is_agent', true)
-
-      // Exemple avec une colonne 'user_type' (décommentez et adaptez)
-      // final role = _getRoleForLevel(level);
-      // final response = await _supabase
-      //     .from('profiles')
-      //     .select('id')
-      //     .eq('user_type', role)   // ← Remplacez par votre colonne
-      //     .limit(1)
-      //     .maybeSingle();
-
-      // Pour l'instant, on prend le premier utilisateur disponible (pour que ça fonctionne tout de suite)
-      final response = await _supabase
-          .from('profiles')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
-
-      if (response != null && response['id'] != null) {
-        return response['id'] as String;
-      }
-
-      throw Exception('Aucun utilisateur trouvé pour attribuer l\'escalade');
-    } catch (e) {
-      print('❌ Erreur dans _getTargetAgentId : $e');
-      rethrow;
-    }
-  }
-
-  // ============================================================
-  // Optionnel : mapper un niveau vers un rôle (à utiliser si vous avez une colonne de rôle)
-  // ============================================================
-  String _getRoleForLevel(EscalationLevel level) {
-    switch (level) {
-      case EscalationLevel.senior: return 'senior_agent';
-      case EscalationLevel.manager: return 'manager';
-      case EscalationLevel.director: return 'director';
-      case EscalationLevel.technical: return 'technical_agent';
-      default: return 'agent';
-    }
-  }
-
-  // ============================================================
   // Escalade automatique (à appeler via un scheduler)
-  // ============================================================
   Future<void> processAutoEscalations() async {
     try {
       final rulesResponse = await _supabase
@@ -239,7 +187,6 @@ Future<Map<String, dynamic>?> getUserByHandle(String username) async {
 
       final rules = rulesResponse.map((json) => EscalationRule.fromJson(json)).toList();
 
-      // ⚠️ Utilisation de 'escalation_status' (pas 'status')
       final conversationsResponse = await _supabase
           .from('conversations')
           .select()
