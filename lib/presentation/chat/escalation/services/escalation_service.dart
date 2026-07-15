@@ -36,6 +36,19 @@ class EscalationService {
     String? fromAgentName,
   }) async {
     try {
+      // FIX: empêche les doublons que tu as sur tes screenshots
+      final existingPending = await _supabase
+          .from('escalation_steps')
+          .select('id')
+          .eq('conversation_id', conversationId)
+          .eq('to_agent_id', targetAgentId)
+          .eq('status', EscalationStatus.pending.index)
+          .maybeSingle();
+
+      if (existingPending != null) {
+        throw Exception('Une escalade est déjà en attente pour cet agent');
+      }
+
       final target = await _supabase
           .from('profiles')
           .select('id')
@@ -69,6 +82,8 @@ class EscalationService {
           .update({
             'escalation_status': 'escalated',
             'current_level': toLevel.index,
+            'is_escalated': true,
+            'escalated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', conversationId);
 
@@ -79,28 +94,49 @@ class EscalationService {
     }
   }
 
-  // Accepter une escalade
+  // ✅ CORRIGÉ : Accepter une escalade - AJOUTE LE PARTICIPANT
   Future<EscalationStep> acceptEscalation(String escalationId, String agentId) async {
-    final response = await _supabase
-        .from('escalation_steps')
-        .update({
-          'status': EscalationStatus.accepted.index,
-          'resolved_at': DateTime.now().toIso8601String(),
-          'to_agent_id': agentId,
-        })
-        .eq('id', escalationId)
-        .select()
-        .single();
+    try {
+      final response = await _supabase
+          .from('escalation_steps')
+          .update({
+            'status': EscalationStatus.accepted.index,
+            'resolved_at': DateTime.now().toIso8601String(),
+            'to_agent_id': agentId,
+          })
+          .eq('id', escalationId)
+          .select()
+          .single();
 
-    final step = EscalationStep.fromJson(response);
-    await _supabase
-        .from('conversations')
-        .update({
-          'assigned_agent_id': agentId,
-        })
-        .eq('id', step.conversationId);
+      final step = EscalationStep.fromJson(response);
 
-    return step;
+      // 1. Met à jour la conversation
+      await _supabase
+          .from('conversations')
+          .update({
+            'assigned_agent_id': agentId,
+            'escalation_status': 'accepted',
+            'is_escalated': false,
+          })
+          .eq('id', step.conversationId);
+
+      // 2. CRITIQUE : Ajoute l'agent comme participant
+      // Sans ça, getConversations() ne le verra jamais et getConversation() avec !inner retournait null
+      await _supabase.from('conversation_participants').upsert(
+        {
+          'conversation_id': step.conversationId,
+          'user_id': agentId,
+          'role': 'member',
+          'last_read_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'conversation_id,user_id',
+      );
+
+      return step;
+    } catch (e) {
+      print('❌ Erreur acceptEscalation : $e');
+      rethrow;
+    }
   }
 
   // Refuser une escalade
@@ -110,6 +146,7 @@ class EscalationService {
         .update({
           'status': EscalationStatus.rejected.index,
           'comment': reason,
+          'resolved_at': DateTime.now().toIso8601String(),
         })
         .eq('id', escalationId)
         .select()
@@ -121,6 +158,7 @@ class EscalationService {
         .update({
           'escalation_status': 'active',
           'current_level': EscalationLevel.agent.index,
+          'is_escalated': false,
         })
         .eq('id', step.conversationId);
 
@@ -144,6 +182,7 @@ class EscalationService {
         .from('conversations')
         .update({
           'escalation_status': 'resolved',
+          'is_escalated': false,
         })
         .eq('id', step.conversationId);
 
@@ -158,7 +197,7 @@ class EscalationService {
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: false);
 
-    return response.map((json) => EscalationStep.fromJson(json)).toList();
+    return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
   }
 
   // Obtenir les escalades en attente pour un agent (selon son niveau)
@@ -170,7 +209,18 @@ class EscalationService {
         .eq('status', EscalationStatus.pending.index)
         .order('created_at', ascending: true);
 
-    return response.map((json) => EscalationStep.fromJson(json)).toList();
+    return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
+  }
+
+  // Obtenir les escalades reçues directement par to_agent_id (utilisé par ta page)
+  Future<List<EscalationStep>> getReceivedEscalations(String agentId) async {
+    final response = await _supabase
+        .from('escalation_steps')
+        .select()
+        .eq('to_agent_id', agentId)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((json) => EscalationStep.fromJson(json)).toList();
   }
 
   // Escalade automatique
@@ -181,14 +231,14 @@ class EscalationService {
           .select()
           .eq('is_active', true);
 
-      final rules = rulesResponse.map((json) => EscalationRule.fromJson(json)).toList();
+      final rules = (rulesResponse as List).map((json) => EscalationRule.fromJson(json)).toList();
 
       final conversationsResponse = await _supabase
           .from('conversations')
           .select()
           .eq('escalation_status', 'active');
 
-      for (final conv in conversationsResponse) {
+      for (final conv in conversationsResponse as List) {
         final conversationId = conv['id'];
         // ... logique d'analyse à implémenter
       }
@@ -197,7 +247,7 @@ class EscalationService {
     }
   }
 
-  // ✅ Récupérer la conversation associée à une escalade (retourne null si inexistante)
+  // Récupérer la conversation associée à une escalade (retourne null si inexistante)
   Future<Map<String, dynamic>?> getConversation(String conversationId) async {
     try {
       final response = await _supabase
