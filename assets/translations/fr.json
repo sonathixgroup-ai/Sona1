@@ -1,7 +1,0 @@
-{
-  "header": {"greeting": "Mbote"},
-  "common": {"search": "Rechercher", "language": "Langue", "choose_lang": "Choisissez votre langue"},
-  "banner": {"announcements": "Annonces et mises à jour", "headline": "À la une"},
-  "quick_access": {"thix_ia": "THIX IA", "document": "Document", "thix_chat": "THIX CHAT", "urgence": "URGENCE"},
-  "services": {"title": "Mes services", "media": "THIX MEDIA", "reservation": "Réservation", "market": "THIX Market", "formations": "Formations", "mon_pays": "Mon Pays", "money": "Thix Money", "emplois": "Emplois", "sante": "THIX Santé", "reseau_pro": "Réseau Pro", "opportunites": "Opportunités", "info": "THIX INFO", "evenements": "Événements"}
-}

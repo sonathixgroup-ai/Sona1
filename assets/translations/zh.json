@@ -1,7 +1,0 @@
-{
-  "header": {"greeting": "你好"},
-  "common": {"search": "搜索", "language": "语言", "choose_lang": "选择你的语言"},
-  "banner": {"announcements": "公告与更新", "headline": "头条"},
-  "quick_access": {"thix_ia": "THIX AI", "document": "文档", "thix_chat": "THIX 聊天", "urgence": "紧急"},
-  "services": {"title": "我的服务", "media": "THIX 媒体", "reservation": "预订", "market": "THIX 市场", "formations": "培训", "mon_pays": "我的国家", "money": "Thix 钱包", "emplois": "工作", "sante": "THIX 健康", "reseau_pro": "专业网络", "opportunites": "机会", "info": "THIX 资讯", "evenements": "活动"}
-}

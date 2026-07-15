@@ -1,7 +1,0 @@
-{
-  "header": {"greeting": "Mbote"},
-  "common": {"search": "Sosa", "language": "Ndinga", "choose_lang": "Pona ndinga aku"},
-  "banner": {"announcements": "Nsangu ye mikubu", "headline": "Mu ntuadisi"},
-  "quick_access": {"thix_ia": "THIX IA", "document": "Mikanda", "thix_chat": "THIX CHAT", "urgence": "NSWA LUANGU"},
-  "services": {"title": "Bisalu biama", "media": "THIX MEDIA", "reservation": "Kubuka kisika", "market": "THIX Market", "formations": "Malongi", "mon_pays": "Nsi ama", "money": "Thix Mbongo", "emplois": "Bisalu", "sante": "THIX Mavimpi", "reseau_pro": "Réseau Pro", "opportunites": "Mavwanga", "info": "THIX INFO", "evenements": "Bikabu"}
-}

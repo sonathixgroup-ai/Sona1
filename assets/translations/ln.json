@@ -1,7 +1,0 @@
-{
-  "header": {"greeting": "Mbote"},
-  "common": {"search": "Luka", "language": "Lokota", "choose_lang": "Pona lokota na yo"},
-  "banner": {"announcements": "Nsango mpe mikolo ya sika", "headline": "Ya motuya"},
-  "quick_access": {"thix_ia": "THIX IA", "document": "Mikanda", "thix_chat": "THIX CHAT", "urgence": "LISUNGI YA MBANGU"},
-  "services": {"title": "Misala na ngai", "media": "THIX MEDIA", "reservation": "Kobuka esika", "market": "THIX Market", "formations": "Mateya", "mon_pays": "Mboka na ngai", "money": "Thix Mbongo", "emplois": "Misala", "sante": "THIX Nzoto", "reseau_pro": "Réseau Pro", "opportunites": "Mabaku", "info": "THIX INFO", "evenements": "Makita"}
-}

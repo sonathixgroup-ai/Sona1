@@ -1,7 +1,0 @@
-{
-  "header": {"greeting": "Jambo"},
-  "common": {"search": "Tafuta", "language": "Lugha", "choose_lang": "Chagua lugha yako"},
-  "banner": {"announcements": "Matangazo na sasisho", "headline": "Habari kuu"},
-  "quick_access": {"thix_ia": "THIX IA", "document": "Nyaraka", "thix_chat": "THIX CHAT", "urgence": "DHARURA"},
-  "services": {"title": "Huduma zangu", "media": "THIX MEDIA", "reservation": "Uhifadhi", "market": "THIX Market", "formations": "Mafunzo", "mon_pays": "Nchi Yangu", "money": "Thix Money", "emplois": "Ajira", "sante": "THIX Afya", "reseau_pro": "Mtandao wa Kazi", "opportunites": "Fursa", "info": "THIX INFO", "evenements": "Matukio"}
-}
