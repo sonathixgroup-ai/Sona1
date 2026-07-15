@@ -57,6 +57,7 @@ import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
+import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 
 // ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
