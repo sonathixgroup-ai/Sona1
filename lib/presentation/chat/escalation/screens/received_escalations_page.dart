@@ -53,7 +53,7 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
     }
   }
 
-  // ✅ Gestion de l'ouverture avec fallback si conversation introuvable
+  // ✅ Gestion de l'ouverture : si conversation introuvable, message SnackBar
   Future<void> _openConversation(EscalationStep step) async {
     final conversationId = step.conversationId;
     try {
@@ -71,53 +71,14 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
         return;
       }
 
-      // 🔁 Conversation introuvable – proposer de la recréer
+      // Conversation introuvable
       if (!mounted) return;
-      final shouldCreate = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Conversation introuvable'),
-          content: Text(
-            'La conversation d\'origine a été supprimée.\n'
-            'Voulez-vous en créer une nouvelle avec ${step.fromAgentName ?? 'l\'agent'} ?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text('Créer'),
-            ),
-          ],
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Conversation introuvable. Elle a peut-être été supprimée.'),
+          backgroundColor: Colors.orange,
         ),
       );
-      if (shouldCreate != true) return;
-
-      // Créer une nouvelle conversation avec l'agent source
-      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (currentUserId == null) return;
-      final newConv = await _chatService.createConversation([
-        step.fromAgentId,
-        currentUserId,
-      ]);
-      if (newConv != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              conversationId: newConv.id,
-              conversation: newConv,
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la création de la conversation'), backgroundColor: Colors.red),
-        );
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
@@ -205,7 +166,7 @@ class _ReceivedEscalationsPageState extends State<ReceivedEscalationsPage> {
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () => _openConversation(step), // ✅ on passe tout le step
+                            onTap: () => _openConversation(step),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
