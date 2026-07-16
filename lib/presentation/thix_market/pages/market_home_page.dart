@@ -175,12 +175,12 @@ class _MarketHomePageState extends State<MarketHomePage> {
   // ============================================================
   // SECTION SUPERMARCHÉS : SEULE MODIF ICI = FRESHIA CONNECTÉE
   // ============================================================
-  Widget _buildSupermarketSection() {
+    Widget _buildSupermarketSection() {
     final mockSupermarkets = [
-      {'name': 'Freshia', 'color1': const Color(0xFF00B09B), 'color2': const Color(0xFF96C93D), 'icon': Icons.eco_rounded, 'id': 'freshia-id'},
-      {'name': 'MegaStore', 'color1': const Color(0xFFFF512F), 'color2': const Color(0xFFDD2476), 'icon': Icons.shopping_basket_rounded},
-      {'name': 'CityMart', 'color1': const Color(0xFF36D1DC), 'color2': const Color(0xFF5B86E5), 'icon': Icons.storefront_rounded},
-      {'name': 'DailyDrop', 'color1': const Color(0xFF8E2DE2), 'color2': const Color(0xFF4A00E0), 'icon': Icons.local_mall_rounded},
+      {'name': 'Freshia', 'id': 'freshia-id', 'color1': const Color(0xFF00B09B), 'color2': const Color(0xFF96C93D), 'icon': Icons.eco_rounded},
+      {'name': 'MegaStore', 'id': 'mega-id', 'color1': const Color(0xFFFF512F), 'color2': const Color(0xFFDD2476), 'icon': Icons.shopping_basket_rounded},
+      {'name': 'CityMart', 'id': 'city-id', 'color1': const Color(0xFF36D1DC), 'color2': const Color(0xFF5B86E5), 'icon': Icons.storefront_rounded},
+      {'name': 'DailyDrop', 'id': 'daily-id', 'color1': const Color(0xFF8E2DE2), 'color2': const Color(0xFF4A00E0), 'icon': Icons.local_mall_rounded},
     ];
 
     return Padding(
@@ -188,29 +188,44 @@ class _MarketHomePageState extends State<MarketHomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Supermarchés à domicile', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText)), GestureDetector(onTap: () => _safeNavigate('marketShops', '/market/shops'), child: const Text('Tout voir', style: TextStyle(color: _MarketColors.red, fontSize: 12, fontWeight: FontWeight.w800)))]),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Supermarchés à domicile', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText)),
+              GestureDetector(
+                onTap: () => _safeNavigate('marketShops', '/market/shops'),
+                child: const Text('Tout voir', style: TextStyle(color: _MarketColors.red, fontSize: 12, fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: mockSupermarkets.map((store) {
-              final isFreshia = store['name'] == 'Freshia';
+              final bool isFreshia = store['name'] == 'Freshia';
               return GestureDetector(
                 onTap: () {
                   if (isFreshia) {
-                    // SEULEMENT FRESHIA OUVRE L'ECRAN VERT
-                    HapticFeedback.lightImpact();
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => SupermarketDetail(shopId: store['id'] as String)));
+                    context.pushNamed('supermarketDetail', pathParameters: {'shopId': store['id'] as String});
                   } else {
-                    // LES AUTRES GARDENT TON ANCIEN COMPORTEMENT
                     _safeNavigate('marketShops', '/market/shops');
                   }
                 },
-                behavior: HitTestBehavior.opaque,
-                child: Column(children: [
-                  Container(height: 64, width: 64, decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [store['color1'] as Color, store['color2'] as Color], begin: Alignment.topLeft, end: Alignment.bottomRight), boxShadow: [BoxShadow(color: (store['color1'] as Color).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]), alignment: Alignment.center, child: Icon(store['icon'] as IconData, color: Colors.white, size: 28)),
-                  const SizedBox(height: 8),
-                  Text(store['name'] as String, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _MarketColors.darkText)),
-                ]),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 64,
+                      width: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(colors: [store['color1'] as Color, store['color2'] as Color]),
+                      ),
+                      child: Icon(store['icon'] as IconData, color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(store['name'] as String, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                  ],
+                ),
               );
             }).toList(),
           ),
@@ -218,7 +233,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
       ),
     );
   }
-
   Widget _buildPromoBannersRow() { return Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Expanded(child: GestureDetector(onTap: () => _safeNavigate('marketFlashSales', '/market/flash-sales'), child: Container(height: 150, padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: const LinearGradient(colors: [_MarketColors.redDark, _MarketColors.red]), borderRadius: BorderRadius.circular(20)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('OFFRES EXCLUSIVES', style: TextStyle(color: _MarketColors.gold, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 0.5)), const SizedBox(height: 6), const Text('Jusqu\'à -50%', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19, height: 1.1)), const Text('sur une sélection premium', style: TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: _MarketColors.gold, borderRadius: BorderRadius.circular(10)), child: const Text('Découvrir', style: TextStyle(color: _MarketColors.redDark, fontWeight: FontWeight.w800, fontSize: 11)))])))), const SizedBox(width: 12), Expanded(child: GestureDetector(onTap: _goToVendor, child: Container(height: 150, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: _MarketColors.creamBg, borderRadius: BorderRadius.circular(20)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('VENDEZ AVEC THIX', style: TextStyle(color: Color(0xFFC9862B), fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 0.5)), const SizedBox(height: 6), const Text('Développez votre\nbusiness aujourd\'hui', style: TextStyle(color: _MarketColors.darkText, fontWeight: FontWeight.w900, fontSize: 15, height: 1.15)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: _MarketColors.gold, borderRadius: BorderRadius.circular(10)), child: const Text('Commencer', style: TextStyle(color: _MarketColors.redDark, fontWeight: FontWeight.w800, fontSize: 11)))]))))])); }
   Widget _buildB2BTools() { final tools = [{'icon': Icons.compare_arrows_rounded, 'label': 'Comparer', 'action': _goToPriceComparator}, {'icon': Icons.notifications_active_rounded, 'label': 'Alerte Prix', 'action': _goToPriceAlerts}, {'icon': Icons.request_quote_rounded, 'label': 'Devis B2B', 'action': () => _showComingSoon('Demandes de devis')}, {'icon': Icons.favorite_rounded, 'label': 'Wishlist', 'action': _goToWishlist}]; return Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8), decoration: BoxDecoration(color: _MarketColors.pureWhite, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 8))]), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: tools.map((t) => InkWell(onTap: t['action'] as VoidCallback, borderRadius: BorderRadius.circular(12), child: Padding(padding: const EdgeInsets.all(4.0), child: Column(children: [Icon(t['icon'] as IconData, color: _MarketColors.red, size: 24), const SizedBox(height: 6), Text(t['label'] as String, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _MarketColors.darkText))])))).toList()))); }
   Widget _buildFlashSaleSection(List<dynamic> flashSales) { return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [const Icon(Icons.bolt_rounded, color: _MarketColors.gold, size: 22), const SizedBox(width: 6), const Text('Offres flash', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _MarketColors.darkText)), const Spacer(), FlashSaleTimer(endTime: DateTime.now().add(const Duration(hours: 2, minutes: 45)))])), const SizedBox(height: 12), SizedBox(height: 245, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: flashSales.take(8).length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (context, index) => _buildProductHorizontalCard(flashSales[index], isFlash: true)))]); }
