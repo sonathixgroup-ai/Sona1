@@ -34,51 +34,54 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
     _loadComparisonData();
   }
 
+   // ============================================================
+  // LOGIQUE DE DONNÉES (100% SUPABASE)
   // ============================================================
-  // LOGIQUE DE DONNÉES (À relier à ton Provider / Supabase)
-  // ============================================================
+  
+  // Dans le futur, tu pourras passer cette liste d'IDs depuis un Provider
+  // Exemple: final idsToCompare = context.read<ComparatorProvider>().productIds;
+  final List<String> _productIdsToCompare = []; // Laisse vide si aucun produit n'est sélectionné
+  
   Future<void> _loadComparisonData() async {
-    // Simulation d'un chargement réseau
-    await Future.delayed(const Duration(milliseconds: 1000));
+    setState(() => _isLoading = true);
+    
+    if (_productIdsToCompare.isEmpty) {
+      setState(() {
+        _productsToCompare = [];
+        _isLoading = false;
+      });
+      return;
+    }
 
-    // Fausses données de démonstration : Comparaison de deux téléphones
-    setState(() {
-      _productsToCompare = [
-        {
-          'id': 'p1',
-          'title': 'iPhone 15 Pro Max',
-          'image_url': 'https://store.storeimages.cdn-apple.com/4668/as-images.apple.com/is/iphone-15-pro-max-blue-titanium-select?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692846360618',
-          'price': 1199,
-          'currency': '\$',
-          'brand': 'Apple',
-          'rating': 4.9,
-          'condition': 'Neuf',
-          'delivery': 'Gratuite',
-        },
-        {
-          'id': 'p2',
-          'title': 'Samsung Galaxy S24 Ultra',
-          'image_url': 'https://images.samsung.com/is/image/samsung/p6pim/fr/sm-s928bztqeub/gallery/fr-galaxy-s24-s928-sm-s928bztqeub-539462529?$650_519_PNG$',
-          'price': 1299,
-          'currency': '\$',
-          'brand': 'Samsung',
-          'rating': 4.8,
-          'condition': 'Neuf',
-          'delivery': 'Standard',
-        },
-      ];
-      _isLoading = false;
-    });
+    try {
+      // Requête Supabase : on récupère uniquement les produits dont l'ID est dans notre liste
+      final response = await Supabase.instance.client
+          .from('products')
+          .select('*, shop:shops(name)')
+          .inFilter('id', _productIdsToCompare); // "inFilter" cherche plusieurs IDs d'un coup
+
+      setState(() {
+        _productsToCompare = List<Map<String, dynamic>>.from(response);
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur Supabase (Comparateur) : $e');
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors du chargement des produits'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _removeProduct(String id) {
     setState(() {
+      _productIdsToCompare.remove(id); // On retire l'ID de notre liste locale
       _productsToCompare.removeWhere((p) => p['id'] == id);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Produit retiré du comparateur'), duration: Duration(seconds: 1)),
-    );
   }
+
 
   // ============================================================
   // INTERFACE UTILISATEUR
