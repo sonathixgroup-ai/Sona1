@@ -31,7 +31,7 @@ class CartPage extends StatelessWidget {
         ),
         actions: [
           Consumer<CartProvider>(
-            builder: (_, cart, __) => cart.items.isEmpty
+            builder: (_, cart, __) => cart.cartItems.isEmpty // ✅ Modifié items -> cartItems
                 ? const SizedBox.shrink()
                 : TextButton(
                     onPressed: () async {
@@ -63,7 +63,7 @@ class CartPage extends StatelessWidget {
           if (cart.isLoading) {
             return const Center(child: CircularProgressIndicator(color: navy));
           }
-          if (cart.items.isEmpty) {
+          if (cart.cartItems.isEmpty) { // ✅ Modifié items -> cartItems
             return _buildEmptyCart(context);
           }
 
@@ -72,18 +72,16 @@ class CartPage extends StatelessWidget {
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  itemCount: cart.items.length,
+                  itemCount: cart.cartItems.length, // ✅ Modifié items -> cartItems
                   itemBuilder: (context, index) {
-                    final cartItem = cart.items[index];
+                    final cartItem = cart.cartItems[index]; // ✅ Modifié items -> cartItems
                     final product = cartItem['product'] as Map<String, dynamic>? ?? {};
                     
-                    // ✅ UTILISATION DES MÉTHODES DU PROVIDER (La Source de Vérité)
                     final realPrice = cart.getItemRealPrice(cartItem);
                     final oldPrice = cart.getItemOldPrice(cartItem);
                     final discount = cart.getItemDiscountPercent(cartItem);
                     final cur = cart.currencyForItem(cartItem);
                     
-                    // ID unique de la ligne dans la table 'cart' (vital pour supprimer/modifier)
                     final cartRowId = cartItem['id']; 
 
                     return CartItemTile(
@@ -94,17 +92,17 @@ class CartPage extends StatelessWidget {
                       currency: cur,
                       onQuantityChanged: (newQty) {
                         if (newQty <= 0) {
-                          cart.removeFromCart(cartRowId); // ✅ Utilisation du bon ID
+                          cart.removeFromCart(cartRowId); 
                         } else {
-                          final stock = (product['stock'] ?? 9999) as int;
+                          final stock = (product['stock'] as num?)?.toInt() ?? 9999;
                           if (newQty > stock) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Stock limité à $stock')));
                             return;
                           }
-                          cart.updateQuantity(cartRowId, newQty); // ✅ Utilisation du bon ID
+                          cart.updateQuantity(cartRowId, newQty); 
                         }
                       },
-                      onRemove: () => cart.removeFromCart(cartRowId), // ✅ Utilisation du bon ID
+                      onRemove: () => cart.removeFromCart(cartRowId), 
                     );
                   },
                 ),
