@@ -100,7 +100,9 @@ import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
 
-// THIX Market
+// ==========================================
+// THIX Market - Imports mis à jour
+// ==========================================
 import 'package:thix_id/presentation/thix_market/pages/market_home_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/search_page.dart' as marketSearch;
 import 'package:thix_id/presentation/thix_market/pages/shops_page.dart';
@@ -114,8 +116,10 @@ import 'package:thix_id/presentation/thix_market/pages/help_support_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/product_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/product_comparator_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/price_alerts_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/wishlist_page.dart'; // Nouvelle route
 import 'package:thix_id/presentation/thix_market/cart/cart_page.dart';
 import 'package:thix_id/presentation/thix_market/checkout/checkout_page.dart';
+import 'package:thix_id/presentation/thix_market/delivery/delivery_tracking_page.dart'; // Nouvelle route
 import 'package:thix_id/presentation/thix_market/pages/order_history_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/order_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/create_shop_page.dart';
@@ -133,11 +137,6 @@ import 'package:thix_id/presentation/thix_market/pages/notification_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
 import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
-
-/// --- AJOUTS MANQUANTS (pour corriger ton erreur de build) ---
-import 'package:thix_id/presentation/thix_market/pages/wishlist_page.dart';
-import 'package:thix_id/presentation/thix_market/delivery/delivery_tracking_page.dart';
-// import 'package:thix_id/presentation/thix_market/pages/shop_history_page.dart';
 
 
 
@@ -548,16 +547,16 @@ GoRoute(path: '/agency/dashboard', name: 'agency-dashboard', pageBuilder: (_, __
 GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
 GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
 
-        //MARKET
-
-                GoRoute(
+        
+        // ============================================================
+// THIX MARKET - ROUTES COMPLÈTES & CORRIGÉES
+// ============================================================
+GoRoute(
   path: AppRoutes.thixMarket, // /market
   name: 'thixMarket',
   pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage()),
   routes: [
-    // ==========================================
-    // 1. ROUTES STATIQUES (SANS PARAMÈTRES)
-    // ==========================================
+    // 1. ROUTES STATIQUES (Déclarées en premier)
     GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
     GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => NoTransitionPage(child: const marketSearch.SearchPage())),
     GoRoute(path: 'shops', name: 'marketShops', pageBuilder: (_, __) => NoTransitionPage(child: const ShopsPage())),
@@ -565,42 +564,19 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'sell', name: 'marketSell', pageBuilder: (_, __) => NoTransitionPage(child: const SellPage())),
     GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
     GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
-    
-        // 👇 ROUTES RÉPARÉES ET AJOUTÉES ICI 👇
     GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
     GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
     GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
     GoRoute(path: 'checkout', name: 'marketCheckout', pageBuilder: (_, __) => const NoTransitionPage(child: CheckoutPage())),
+    
+    // 2. ROUTES AVEC PARAMÈTRES (Placées après pour ne pas créer de conflits)
     GoRoute(
-  path: 'tracking/:orderId', 
-  name: 'marketDeliveryTracking', 
-  pageBuilder: (_, state) => NoTransitionPage(
-    child: DeliveryTrackingPage(orderId: state.pathParameters['orderId'])
-  )
-),
-
-    // 👆 ================================= 👆
-
-
-
-    // --- Social, Utilisateur & Outils ---
-    GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
-    GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => NoTransitionPage(child: const NotificationPage())),
-    GoRoute(path: 'activity', name: 'marketActivity', pageBuilder: (_, __) => NoTransitionPage(child: const MyActivityPage())),
-    GoRoute(path: 'settings', name: 'marketSettings', pageBuilder: (_, __) => NoTransitionPage(child: const MarketSettingsPage())),
-    GoRoute(path: 'help', name: 'marketHelp', pageBuilder: (_, __) => NoTransitionPage(child: const HelpSupportPage())),
-
-    // --- Espace Vendeur ---
-    GoRoute(path: 'vendor/dashboard', name: 'vendorDashboard', pageBuilder: (_, __) => NoTransitionPage(child: const VendorDashboard())),
-    GoRoute(path: 'shop/create', name: 'marketCreateShop', pageBuilder: (_, __) => NoTransitionPage(child: const CreateShopPage())),
-    GoRoute(path: 'announcement/publish', name: 'marketPublishAnnouncement', pageBuilder: (_, __) => NoTransitionPage(child: const PublishAnnouncementPage())),
-    GoRoute(path: 'deliveries', name: 'deliveryManagement', pageBuilder: (_, __) => NoTransitionPage(child: const DeliveryManagementPage())),
-    GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => NoTransitionPage(child: const LivePage())),
-    GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => NoTransitionPage(child: const CreateLivePage())),
-
-        // ==========================================
-    // 2. ROUTES DYNAMIQUES (AVEC :id)
-    // ==========================================
+      path: 'tracking/:orderId', 
+      name: 'marketDeliveryTracking', 
+      pageBuilder: (_, state) => NoTransitionPage(
+        child: DeliveryTrackingPage(orderId: state.pathParameters['orderId']!) // ✅ Ajout du ! ici
+      )
+    ),
     GoRoute(path: 'shop/:shopId/manage', name: 'marketManageShop', pageBuilder: (_, state) => NoTransitionPage(child: ManageShopPage(shopId: state.pathParameters['shopId']!))),
     GoRoute(path: 'shop/:shopId/stats', name: 'marketShopStats', pageBuilder: (_, state) => NoTransitionPage(child: ShopStatisticsPage(shopId: state.pathParameters['shopId']!))),
     GoRoute(path: 'product/:productId', name: 'marketProductDetail', pageBuilder: (_, state) => NoTransitionPage(child: ProductDetailPage(productId: state.pathParameters['productId']!))),
@@ -617,8 +593,23 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
       return NoTransitionPage(child: ChatPage(conversationId: '', shopId: shopId, title: extra?['title'] ?? 'Vendeur', avatar: extra?['avatar']));
     }), 
     GoRoute(path: 'shop/:shopId', name: 'marketShopDetail', pageBuilder: (_, state) => NoTransitionPage(child: ShopDetailPage(shopId: state.pathParameters['shopId']!))),
+
+    // 3. SOCIAL, UTILISATEUR & VENDEUR
+    GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
+    GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => NoTransitionPage(child: const NotificationPage())),
+    GoRoute(path: 'activity', name: 'marketActivity', pageBuilder: (_, __) => NoTransitionPage(child: const MyActivityPage())),
+    GoRoute(path: 'settings', name: 'marketSettings', pageBuilder: (_, __) => NoTransitionPage(child: const MarketSettingsPage())),
+    GoRoute(path: 'help', name: 'marketHelp', pageBuilder: (_, __) => NoTransitionPage(child: const HelpSupportPage())),
+    GoRoute(path: 'vendor/dashboard', name: 'vendorDashboard', pageBuilder: (_, __) => NoTransitionPage(child: const VendorDashboard())),
+    GoRoute(path: 'shop/create', name: 'marketCreateShop', pageBuilder: (_, __) => NoTransitionPage(child: const CreateShopPage())),
+    GoRoute(path: 'announcement/publish', name: 'marketPublishAnnouncement', pageBuilder: (_, __) => NoTransitionPage(child: const PublishAnnouncementPage())),
+    GoRoute(path: 'deliveries', name: 'deliveryManagement', pageBuilder: (_, __) => NoTransitionPage(child: const DeliveryManagementPage())),
+    GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => NoTransitionPage(child: const LivePage())),
+    GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => NoTransitionPage(child: const CreateLivePage())),
   ],
 ),
+
+
 
         GoRoute(path: '/admin', builder: (context, state) => const thix_admin.AdminHomePage()),
         GoRoute(path: '/admin/articles', builder: (context, state) => const thix_admin_list.AdminArticlesListPage()),
