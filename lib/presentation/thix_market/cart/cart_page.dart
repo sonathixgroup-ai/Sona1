@@ -21,7 +21,13 @@ class CartPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: navy),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/market/buy'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.push('/market/buy');
+            }
+          },
         ),
         title: Consumer<CartProvider>(
           builder: (_, cart, __) => Text(
@@ -31,7 +37,7 @@ class CartPage extends StatelessWidget {
         ),
         actions: [
           Consumer<CartProvider>(
-            builder: (_, cart, __) => cart.cartItems.isEmpty // ✅ Modifié items -> cartItems
+            builder: (_, cart, __) => cart.cartItems.isEmpty 
                 ? const SizedBox.shrink()
                 : TextButton(
                     onPressed: () async {
@@ -63,7 +69,7 @@ class CartPage extends StatelessWidget {
           if (cart.isLoading) {
             return const Center(child: CircularProgressIndicator(color: navy));
           }
-          if (cart.cartItems.isEmpty) { // ✅ Modifié items -> cartItems
+          if (cart.cartItems.isEmpty) { 
             return _buildEmptyCart(context);
           }
 
@@ -72,9 +78,9 @@ class CartPage extends StatelessWidget {
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  itemCount: cart.cartItems.length, // ✅ Modifié items -> cartItems
+                  itemCount: cart.cartItems.length, 
                   itemBuilder: (context, index) {
-                    final cartItem = cart.cartItems[index]; // ✅ Modifié items -> cartItems
+                    final cartItem = cart.cartItems[index]; 
                     final product = cartItem['product'] as Map<String, dynamic>? ?? {};
                     
                     final realPrice = cart.getItemRealPrice(cartItem);
@@ -144,7 +150,12 @@ class CartPage extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 onPressed: () {
-                  context.go('/market/buy');
+                  // ✅ CORRECTION DU ROUTAGE : On retourne au produit s'il y en a un, sinon on push vers market/buy
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.push('/market/buy');
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD81E2C),
