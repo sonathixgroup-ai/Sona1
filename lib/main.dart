@@ -86,7 +86,7 @@ class AppConstants {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MAIN
+// MAIN : Ultra léger, lance Supabase une SEULE fois puis le Bootstrap
 // ═══════════════════════════════════════════════════════════════════════
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,6 +114,9 @@ Future<void> main() async {
     );
   };
 
+  // ✅ INITIALISATION UNIQUE DE SUPABASE ICI
+  await SupabaseConfig.initialize();
+
   runApp(const ProviderScope(child: BootstrapApp()));
 }
 
@@ -125,10 +128,22 @@ class BootstrapApp extends StatefulWidget {
 }
 
 class _BootstrapAppState extends State<BootstrapApp> {
-  late final Future<_BootstrapResult> _future = _bootstrap();
+  late Future<_BootstrapResult> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _bootstrap();
+  }
+
+  void _retryBootstrap() {
+    setState(() {
+      _future = _bootstrap();
+    });
+  }
 
   Future<_BootstrapResult> _bootstrap() async {
-    await SupabaseConfig.initialize();
+    // ❌ Ligne SupabaseConfig.initialize() retirée d'ici pour éviter le crash au "Réessayer"
 
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
@@ -196,9 +211,13 @@ class _BootstrapAppState extends State<BootstrapApp> {
                       const SizedBox(height: 16),
                       Text('Connexion impossible', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      const Text('Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.', textAlign: TextAlign.center),
+                      const Text('Vérifiez votre connexion internet.', textAlign: TextAlign.center),
                       const SizedBox(height: 24),
-                      ElevatedButton.icon(onPressed: () => runApp(const ProviderScope(child: BootstrapApp())), icon: const Icon(Icons.refresh), label: const Text('Réessayer')),
+                      ElevatedButton.icon(
+                        onPressed: _retryBootstrap, 
+                        icon: const Icon(Icons.refresh), 
+                        label: const Text('Réessayer')
+                      ),
                       if (kDebugMode) ...[
                         const SizedBox(height: 16),
                         Text('Erreur : ${snap.error}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, fontFamily: 'monospace'), textAlign: TextAlign.center),
@@ -327,15 +346,36 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final LocaleController _localeController;
   late final dynamic _router;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     _localeController = LocaleController()..init();
     _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('L\'application sort de veille (resumed). Reconnexion du Realtime...');
+      try {
+        // ✅ CORRECTION : Utilisation de reconnectRealtime() pour éviter de dupliquer les abonnements
+        widget.feed.reconnectRealtime();
+      } catch (e) {
+        debugPrint('Erreur lors de la reconnexion Realtime : $e');
+      }
+    }
   }
 
   @override
