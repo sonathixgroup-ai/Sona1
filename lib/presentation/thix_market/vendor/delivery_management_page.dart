@@ -1,112 +1,137 @@
-// lib/presentation/thix_market/vendor/vendor_dashboard.dart
+// lib/presentation/thix_market/vendor/delivery_management_page.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../providers/shop_provider.dart';
-import '../providers/sell_provider.dart';
 
-class VendorDashboard extends StatefulWidget {
-  const VendorDashboard({super.key});
-  @override State<VendorDashboard> createState() => _VendorDashboardState();
+class DeliveryManagementPage extends StatefulWidget {
+  const DeliveryManagementPage({super.key});
+
+  @override
+  State<DeliveryManagementPage> createState() => _DeliveryManagementPageState();
 }
 
-class _VendorDashboardState extends State<VendorDashboard> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final List<String> _tabs = ['pending','processing','shipped','delivered'];
-  final Map<String, String> _labels = {
-    'pending':'À traiter',
-    'processing':'Préparation',
-    'shipped':'Expédiées',
-    'delivered':'Terminées',
-  };
-  final Map<String, Color> _colors = {
-    'pending': Color(0xFFF59E0B),
-    'processing': Color(0xFF8B5CF6),
-    'shipped': Color(0xFF2D6CDF),
-    'delivered': Color(0xFF00B074),
-  };
+class _DeliveryManagementPageState extends State<DeliveryManagementPage> {
+  List<Map<String, dynamic>> _deliveries = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ShopProvider>().loadMyShops();
-      context.read<SellProvider>().loadOrders();
-      context.read<SellProvider>().loadMyAnnouncements();
-    });
+    _loadDeliveries();
   }
 
-  Future<void> _advance(String orderId, String next) async {
+  Future<void> _loadDeliveries() async {
+    setState(() => _isLoading = true);
     try {
-      String? note;
-      if(next=='cancelled'){
-        note = await _askCancelReason();
-        if(note==null) return;
-      }
-      await Supabase.instance.client.rpc('advance_order', params: {
-        'p_order_id': orderId,
-        'p_next_status': next,
-        'p_note': note,
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      // Récupérer les commandes avec statut de livraison (selon votre schéma)
+      final response = await Supabase.instance.client
+          .from('orders')
+          .select('id, total, status, delivery_status, created_at')
+          .eq('shop_id', userId) // à adapter si la colonne est 'seller_id' ou autre
+          .neq('delivery_status', 'delivered')
+          .order('created_at', ascending: false);
+      setState(() {
+        _deliveries = List<Map<String, dynamic>>.from(response);
+        _isLoading = false;
       });
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Commande passée en $next'), backgroundColor: _colors[next]??Color(0xFF0A1931)));
-        context.read<SellProvider>().loadOrders();
-      }
-    } catch(e){
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
+    } catch (e) {
+      debugPrint('Error loading deliveries: $e');
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<String?> _askCancelReason() {
-    final c = TextEditingController();
-    return showDialog<String>(context: context, builder: (_)=> AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Raison annulation', style: TextStyle(fontWeight: FontWeight.w900)),
-      content: TextField(controller: c, decoration: const InputDecoration(hintText: 'Rupture stock, etc.', border: OutlineInputBorder())),
-      actions: [
-        TextButton(onPressed: ()=> Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(onPressed: ()=> Navigator.pop(context, c.text.trim()), style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFD81E2C)), child: const Text('Confirmer', style: TextStyle(color: Colors.white))),
-      ],
-    ));
+  Future<void> _updateDeliveryStatus(String orderId, String newStatus) async {
+    try {
+      await Supabase.instance.client
+          .from('orders')
+          .update({'delivery_status': newStatus})
+          .eq('id', orderId);
+      await _loadDeliveries();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Statut de livraison mis à jour')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final shopProvider = context.watch<ShopProvider>();
-    final sellProvider = context.watch<SellProvider>();
-    final hasShop = shopProvider.myShops.isNotEmpty;
-    final shop = hasShop? shopProvider.myShops.first : null;
-    final orders = sellProvider.orders;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation:0,
-        title: const Text('Espace vendeur', style: TextStyle(color: Color(0xFF0A1931), fontWeight: FontWeight.w900, fontSize:18)),
-        actions: [IconButton(icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0A1931)), onPressed: ()=> sellProvider.loadOrders())],
-        bottom: hasShop? TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: Color(0xFF0A1931), unselectedLabelColor: Colors.grey,
-          indicatorColor: Color(0xFF0A1931), indicatorWeight: 3,
-          tabs: _tabs.map((k){
-            final count = orders.where((o)=> (o['status']??'').toString()==k).length;
-            return Tab(child: Row(children:[Text(_labels[k]!), if(count>0)...[SizedBox(width:6), Container(padding: EdgeInsets.symmetric(horizontal:6,vertical:2), decoration: BoxDecoration(color: _colors[k]!.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text('$count', style: TextStyle(fontSize:11, fontWeight: FontWeight.w800, color: _colors[k])))]]));
-          }).toList(),
-        ) : null,
+        title: const Text('Gestion des livraisons'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadDeliveries,
+          ),
+        ],
       ),
-      body:!hasShop? _buildNoShop(context) : Column(children:[
-        _buildHeader(shop!),
-        _buildKpis(orders),
-        Expanded(child: TabBarView(controller: _tabController, children: _tabs.map((k)=> _buildOrderList(orders.where((o)=> (o['status']??'')==k).toList(), k)).toList())),
-      ]),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _deliveries.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.local_shipping, size: 80, color: Colors.grey[300]),
+                      const SizedBox(height: 16),
+                      const Text('Aucune livraison en cours'),
+                      const SizedBox(height: 8),
+                      Text('Les livraisons apparaîtront ici',
+                          style: TextStyle(color: Colors.grey[600])),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _deliveries.length,
+                  itemBuilder: (context, index) {
+                    final delivery = _deliveries[index];
+                    final statusOptions = ['pending', 'shipped', 'in_transit', 'delivered'];
+                    final labels = {
+                      'pending': 'En attente',
+                      'shipped': 'Expédiée',
+                      'in_transit': 'En transit',
+                      'delivered': 'Livrée',
+                    };
+                    final currentStatus = delivery['delivery_status'] ?? 'pending';
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: Icon(
+                          currentStatus == 'pending' ? Icons.pending :
+                          currentStatus == 'shipped' ? Icons.local_shipping :
+                          currentStatus == 'in_transit' ? Icons.directions_car :
+                          Icons.check_circle,
+                          color: currentStatus == 'delivered' ? Colors.green : Colors.orange,
+                        ),
+                        title: Text('Commande #${delivery['id']}'),
+                        subtitle: Text('${delivery['total']?.toInt() ?? 0} FCFA - ${delivery['created_at'] ?? ''}'),
+                        trailing: DropdownButton<String>(
+                          value: currentStatus,
+                          items: statusOptions.map((status) {
+                            return DropdownMenuItem(
+                              value: status,
+                              child: Text(labels[status] ?? status),
+                            );
+                          }).toList(),
+                          onChanged: (newStatus) {
+                            if (newStatus != null) {
+                              _updateDeliveryStatus(delivery['id'], newStatus);
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
-
-  Widget _buildHeader(Map<String,dynamic> shop){
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF1A73E8), Color(0xFF0D47A1)]), borderRadius: BorderRadius
+}
