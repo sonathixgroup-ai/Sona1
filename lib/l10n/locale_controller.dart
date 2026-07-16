@@ -15,19 +15,7 @@ class LocaleController extends ChangeNotifier {
     Locale('sw'),
   ];
 
-  static const Map<String, String> nativeNames = {
-    'fr': 'Français',
-    'en': 'English',
-    'ar': 'العربية',
-    'zh': '中文',
-    'pt': 'Português',
-    'ln': 'Lingála',
-    'kg': 'Kikongo',
-    'sw': 'Kiswahili',
-  };
-
   Locale _locale = const Locale('fr');
-
   Locale get locale => _locale;
 
   Future<void> init() async {
@@ -41,37 +29,24 @@ class LocaleController extends ChangeNotifier {
     }
   }
 
-  Future<void> setLocale(Locale newLocale) async {
-    if (!supportedLocales.any(
-      (l) => l.languageCode == newLocale.languageCode,
-    )) {
+  Future<void> setLocale(Locale locale) async {
+    if (!supportedLocales.any((l) => l.languageCode == locale.languageCode)) {
       return;
     }
 
-    _locale = newLocale;
+    _locale = locale;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, newLocale.languageCode);
+    await prefs.setString(_key, locale.languageCode);
   }
 
-  /// Utilise la langue du système
+  /// Revenir à la langue du téléphone
   Future<void> setSystem() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Supprime la préférence enregistrée
     await prefs.remove(_key);
 
-    final systemLocale = WidgetsBinding.instance.platformDispatcher.locale;
-
-    if (supportedLocales.any(
-      (l) => l.languageCode == systemLocale.languageCode,
-    )) {
-      _locale = Locale(systemLocale.languageCode);
-    } else {
-      _locale = const Locale('fr');
-    }
-
+    _locale = const Locale('fr'); // ou utilise PlatformDispatcher.locale
     notifyListeners();
   }
 }
