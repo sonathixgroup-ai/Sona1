@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- C'est cet import qui manquait !
 
 // ============================================================
 // CHARTE GRAPHIQUE THIX MARKET
@@ -27,6 +28,7 @@ class ProductComparatorPage extends StatefulWidget {
 class _ProductComparatorPageState extends State<ProductComparatorPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _productsToCompare = [];
+  final List<String> _productIdsToCompare = []; // Laisse vide pour l'instant
 
   @override
   void initState() {
@@ -34,14 +36,9 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
     _loadComparisonData();
   }
 
-   // ============================================================
+  // ============================================================
   // LOGIQUE DE DONNÉES (100% SUPABASE)
   // ============================================================
-  
-  // Dans le futur, tu pourras passer cette liste d'IDs depuis un Provider
-  // Exemple: final idsToCompare = context.read<ComparatorProvider>().productIds;
-  final List<String> _productIdsToCompare = []; // Laisse vide si aucun produit n'est sélectionné
-  
   Future<void> _loadComparisonData() async {
     setState(() => _isLoading = true);
     
@@ -54,11 +51,10 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
     }
 
     try {
-      // Requête Supabase : on récupère uniquement les produits dont l'ID est dans notre liste
       final response = await Supabase.instance.client
           .from('products')
           .select('*, shop:shops(name)')
-          .inFilter('id', _productIdsToCompare); // "inFilter" cherche plusieurs IDs d'un coup
+          .inFilter('id', _productIdsToCompare); 
 
       setState(() {
         _productsToCompare = List<Map<String, dynamic>>.from(response);
@@ -77,11 +73,10 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
 
   void _removeProduct(String id) {
     setState(() {
-      _productIdsToCompare.remove(id); // On retire l'ID de notre liste locale
+      _productIdsToCompare.remove(id); 
       _productsToCompare.removeWhere((p) => p['id'] == id);
     });
   }
-
 
   // ============================================================
   // INTERFACE UTILISATEUR
@@ -97,11 +92,7 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
         iconTheme: const IconThemeData(color: _MarketColors.darkText),
         title: const Text(
           'Comparateur B2B',
-          style: TextStyle(
-            color: _MarketColors.darkText,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-          ),
+          style: TextStyle(color: _MarketColors.darkText, fontWeight: FontWeight.w900, fontSize: 18),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -114,9 +105,7 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: _MarketColors.red),
-      );
+      return const Center(child: CircularProgressIndicator(color: _MarketColors.red));
     }
 
     if (_productsToCompare.isEmpty || _productsToCompare.length < 2) {
@@ -126,9 +115,6 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
     return _buildComparisonTable();
   }
 
-  // ============================================================
-  // ÉTAT VIDE (Moins de 2 produits)
-  // ============================================================
   Widget _buildEmptyState() {
     final hasOneProduct = _productsToCompare.length == 1;
 
@@ -140,24 +126,13 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: _MarketColors.creamBg,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.compare_arrows_rounded,
-                size: 64,
-                color: _MarketColors.gold,
-              ),
+              decoration: const BoxDecoration(color: _MarketColors.creamBg, shape: BoxShape.circle),
+              child: const Icon(Icons.compare_arrows_rounded, size: 64, color: _MarketColors.gold),
             ),
             const SizedBox(height: 24),
             Text(
               hasOneProduct ? 'Ajoutez un autre produit' : 'Comparateur vide',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: _MarketColors.darkText,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _MarketColors.darkText),
             ),
             const SizedBox(height: 8),
             Text(
@@ -165,11 +140,7 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
                   ? 'Il vous faut au moins 2 produits pour lancer une comparaison.' 
                   : 'Sélectionnez des produits sur le marché et cliquez sur l\'icône de comparaison pour les analyser ici.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _MarketColors.mutedText,
-                height: 1.4,
-              ),
+              style: const TextStyle(fontSize: 13, color: _MarketColors.mutedText, height: 1.4),
             ),
             const SizedBox(height: 32),
             ElevatedButton(
@@ -177,19 +148,10 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _MarketColors.red,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 elevation: 0,
               ),
-              child: const Text(
-                'Explorer le marché',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
+              child: const Text('Explorer le marché', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
             ),
           ],
         ),
@@ -197,11 +159,7 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
     );
   }
 
-  // ============================================================
-  // TABLEAU DE COMPARAISON
-  // ============================================================
   Widget _buildComparisonTable() {
-    // Les caractéristiques que l'on veut comparer
     final features = [
       {'label': 'Prix', 'key': 'price'},
       {'label': 'Marque', 'key': 'brand'},
@@ -213,27 +171,18 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // En-tête : Images et Titres
           Container(
             color: _MarketColors.pureWhite,
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Row(
               children: [
-                // Colonne vide pour l'espacement des labels
                 const SizedBox(width: 80),
-                // Les produits
-                ..._productsToCompare.map((product) => Expanded(
-                      child: _buildProductHeader(product),
-                    )),
+                ..._productsToCompare.map((product) => Expanded(child: _buildProductHeader(product))),
               ],
             ),
           ),
-          
           const Divider(height: 1, color: _MarketColors.cardBorder),
-
-          // Lignes de caractéristiques
           ...features.map((feature) => _buildFeatureRow(feature)),
-
           const SizedBox(height: 30),
         ],
       ),
@@ -262,17 +211,12 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
                   ),
                 ),
               ),
-              // Bouton supprimer
               GestureDetector(
                 onTap: () => _removeProduct(product['id']),
                 child: Container(
                   margin: const EdgeInsets.all(4),
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                  ),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]),
                   child: const Icon(Icons.close_rounded, size: 14, color: _MarketColors.red),
                 ),
               ),
@@ -284,21 +228,12 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: _MarketColors.darkText,
-              height: 1.2,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _MarketColors.darkText, height: 1.2),
           ),
           const SizedBox(height: 12),
-          // Bouton Ajouter au panier
           ElevatedButton(
             onPressed: () {
-              // TODO: Logique d'ajout au panier
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Ajouté au panier !')),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté au panier !')));
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _MarketColors.red,
@@ -316,39 +251,27 @@ class _ProductComparatorPageState extends State<ProductComparatorPage> {
 
   Widget _buildFeatureRow(Map<String, String> feature) {
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _MarketColors.cardBorder)),
-      ),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _MarketColors.cardBorder))),
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         children: [
-          // Colonne Label
           SizedBox(
             width: 80,
             child: Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: Text(
-                feature['label']!,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: _MarketColors.mutedText,
-                ),
-              ),
+              child: Text(feature['label']!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _MarketColors.mutedText)),
             ),
           ),
-          // Valeurs pour chaque produit
           ..._productsToCompare.map((product) {
             final key = feature['key']!;
             String displayValue = '';
 
-            // Formatage spécial selon le type de donnée
             if (key == 'price') {
-              displayValue = '${product[key]} ${product['currency']}';
+              displayValue = '${product[key]} ${product['currency'] ?? 'FC'}';
             } else if (key == 'rating') {
               displayValue = '⭐ ${product[key]}';
             } else {
-              displayValue = product[key].toString();
+              displayValue = product[key]?.toString() ?? '-';
             }
 
             return Expanded(
