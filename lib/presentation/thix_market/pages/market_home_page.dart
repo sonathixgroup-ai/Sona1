@@ -1,4 +1,3 @@
-
 // lib/presentation/thix_market/pages/market_home_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -11,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/market_provider.dart';
 import '../providers/shop_provider.dart';
 import '../widgets/market/flash_sale_timer.dart';
+import '../widgets/products/wishlist_button.dart'; // <-- Import de ton bouton Wishlist fonctionnel
 
 // ============================================================
 // CHARTE GRAPHIQUE THIX MARKET — ROUGE & OR (fidèle à la maquette)
@@ -62,18 +62,19 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // NAVIGATION
-    // ============================================================
-  // NAVIGATION SÉCURISÉE (Routes nommées)
+  // NAVIGATION SÉCURISÉE
   // ============================================================
   void _goToVendor() => context.pushNamed('vendorDashboard');
   void _goToCart() => context.pushNamed('marketCart');
   void _goToWishlist() => context.pushNamed('marketWishlist');
-  void _goToShops() => context.pushNamed('marketShops');      // Nouveau
-  void _goToOrders() => context.pushNamed('marketOrders');    // Utilisé pour le suivi
-  void _goToProfile() => context.pushNamed('marketProfile'); // Assure-toi que cette route existe
+  void _goToOrders() => context.pushNamed('marketOrders');
+  void _goToPriceAlerts() => context.pushNamed('marketPriceAlerts');
+  void _goToActivity() => context.pushNamed('marketActivity');
   void _goToPriceComparator() => context.pushNamed('marketProductComparator');
   void _goToSearch() => context.pushNamed('marketSearch');
+  
+  // Pointe désormais vers le Dashboard Utilisateur comme demandé
+  void _goToUserDashboard() => context.push('/user/dashboard'); 
 
   void _onNavTap(int index) {
     setState(() => _selectedNavIndex = index);
@@ -82,23 +83,23 @@ class _MarketHomePageState extends State<MarketHomePage> {
       case 0: // Accueil
         _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
         break;
-      case 1: // Boutiques
-        _goToShops();
+      case 1: // Activité (A gauche)
+        _goToActivity();
         break;
       case 2: // Central : Panier
         _goToCart();
         break;
-      case 3: // Suivi
-        _goToOrders();
+      case 3: // Wishlist (A droite)
+        _goToWishlist();
         break;
-      case 4: // Profil
-        _goToProfile();
+      case 4: // Alertes Prix (A la place du profil)
+        _goToPriceAlerts();
         break;
     }
   }
 
   // ============================================================
-  // HELPERS (Inchangés mais conservés pour la cohérence)
+  // HELPERS
   // ============================================================
   Widget _networkImage(String? url, {BoxFit fit = BoxFit.cover}) {
     if (url == null || url.trim().isEmpty) {
@@ -144,10 +145,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-
-  // ============================================================
-  // HELPERS DONNÉES PRODUIT (100% Supabase, pas de mock)
-  // ============================================================
   String _shopName(Map<String, dynamic> product) {
     return (product['shop_name'] ??
             product['shops']?['name'] ??
@@ -204,7 +201,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
             SliverToBoxAdapter(child: _buildTrustBadges()),
             SliverToBoxAdapter(child: _buildSearchBar()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            
+            // LA NOUVELLE SECTION SUPERMARCHÉS EN NOIR
             SliverToBoxAdapter(child: _buildCategorySection()),
+            
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
             SliverToBoxAdapter(child: _buildPromoBannersRow()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
@@ -256,7 +256,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // TOP BAR (blanche, logo + titre + notifications + profil)
+  // TOP BAR
   // ============================================================
   Widget _buildTopBar() {
     return Container(
@@ -301,9 +301,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
             children: [
               _headerIconButton(Icons.notifications_none_rounded, () => context.push('/market/notifications'), outline: true),
               const SizedBox(width: 10),
+              // Pointé vers le User Dashboard
               InkWell(
                 borderRadius: BorderRadius.circular(20),
-                onTap: _goToProfile,
+                onTap: _goToUserDashboard,
                 child: Container(
                   width: 40,
                   height: 40,
@@ -338,10 +339,10 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // HERO BANNER — Carrousel auto-scroll (4 à 6 slides, style maquette)
+  // HERO BANNER
   // ============================================================
   Widget _buildHeroBannerCarousel(List<dynamic> banners, MarketProvider marketProvider) {
-    final slides = banners.isNotEmpty ? banners : const [null]; // fallback: 1 slide de bienvenue générée
+    final slides = banners.isNotEmpty ? banners : const [null];
 
     return Column(
       children: [
@@ -544,57 +545,45 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CATÉGORIES (fidèle à la maquette)
+  // NOUVELLE SECTION SUPERMARCHÉS EN NOIR
   // ============================================================
   Widget _buildCategorySection() {
-    final categories = [
-      {'icon': Icons.devices_rounded, 'label': 'Électronique', 'route': '/market/category/electronique'},
-      {'icon': Icons.checkroom_rounded, 'label': 'Mode & Fashion', 'route': '/market/category/mode'},
-      {'icon': Icons.house_rounded, 'label': 'Maison & Déco', 'route': '/market/category/maison'},
-      {'icon': Icons.spa_rounded, 'label': 'Beauté & Santé', 'route': '/market/category/beaute'},
-      {'icon': Icons.sports_soccer_rounded, 'label': 'Sports & Loisirs', 'route': '/market/category/sport'},
-      {'icon': Icons.apps_rounded, 'label': 'Plus', 'route': '/market/categories'},
-    ];
-
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: categories.map((cat) {
-          return InkWell(
-            onTap: () => context.push(cat['route'] as String),
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _MarketColors.pureWhite,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _MarketColors.cardBorder),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-                    ),
-                    child: Icon(cat['icon'] as IconData, color: _MarketColors.red, size: 24),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 62,
-                    child: Text(
-                      cat['label'] as String,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: const TextStyle(fontSize: 10, color: _MarketColors.darkText, fontWeight: FontWeight.w700, height: 1.15),
-                    ),
-                  ),
-                ],
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GestureDetector(
+        onTap: () => context.pushNamed('marketShops'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _MarketColors.darkText, // Fond noir élégant
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _MarketColors.pureWhite.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.white, size: 28),
               ),
-            ),
-          );
-        }).toList(),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Supermarchés', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    const Text('Faites vos courses au supermarché à domicile.', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -671,7 +660,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   Widget _buildB2BTools() {
     final tools = [
       {'icon': Icons.compare_arrows_rounded, 'label': 'Comparer', 'action': _goToPriceComparator},
-      {'icon': Icons.notifications_active_rounded, 'label': 'Alerte Prix', 'action': () => _showComingSoon('Alertes de Prix')},
+      {'icon': Icons.notifications_active_rounded, 'label': 'Alerte Prix', 'action': _goToPriceAlerts},
       {'icon': Icons.request_quote_rounded, 'label': 'Devis B2B', 'action': () => _showComingSoon('Demandes de devis')},
       {'icon': Icons.favorite_rounded, 'label': 'Wishlist', 'action': _goToWishlist},
     ];
@@ -709,13 +698,13 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // SUPERMARCHÉS & DISTRIBUTEURS (données Supabase réelles)
+  // SUPERMARCHÉS & DISTRIBUTEURS
   // ============================================================
   Widget _buildSupermarketsSection(List<dynamic> supermarkets) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('Supermarchés & Distributeurs', () => context.push('/market/supermarkets')),
+        _buildSectionHeader('Partenaires officiels', () => context.pushNamed('marketShops')),
         const SizedBox(height: 12),
         SizedBox(
           height: 120,
@@ -837,7 +826,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CARTE PRODUIT HORIZONTALE (Offres flash) — prix + boutique + lieu
+  // CARTE PRODUIT HORIZONTALE — INTÉGRATION WISHLIST FONCTIONNELLE
   // ============================================================
   Widget _buildProductHorizontalCard(Map<String, dynamic> product, {bool isFlash = false}) {
     final currency = product['currency'] ?? 'FC';
@@ -876,13 +865,19 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         child: Text('-${product['discount_percent'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
                       ),
                     ),
+                  // BOUTON WISHLIST FONCTIONNEL
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 4,
+                    right: 4,
                     child: Container(
-                      padding: const EdgeInsets.all(5),
+                      padding: const EdgeInsets.all(2),
                       decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Icon(Icons.favorite_border_rounded, size: 13, color: _MarketColors.red),
+                      child: WishlistButton(
+                        productId: product['id'].toString(),
+                        size: 20,
+                        activeColor: _MarketColors.red,
+                        inactiveColor: _MarketColors.mutedText,
+                      ),
                     ),
                   ),
                 ],
@@ -940,7 +935,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CARTE PRODUIT VERTICALE (Grille "Tous les produits")
+  // CARTE PRODUIT VERTICALE — INTÉGRATION WISHLIST FONCTIONNELLE
   // ============================================================
   Widget _buildProductCard(Map<String, dynamic> product) {
     final hasDiscount = product['discount_price'] != null && product['discount_price'] < product['price'];
@@ -980,6 +975,21 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         child: Text('-${((1 - price / originalPrice) * 100).round()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
                       ),
                     ),
+                  // BOUTON WISHLIST FONCTIONNEL
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: WishlistButton(
+                        productId: product['id'].toString(),
+                        size: 20,
+                        activeColor: _MarketColors.red,
+                        inactiveColor: _MarketColors.mutedText,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1048,7 +1058,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOTTOM NAV BAR — fidèle à la maquette (bouton central flottant rouge)
+  // BOTTOM NAV BAR (Mise à jour : Activité, Alertes, Panier, Wishlist)
   // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
@@ -1066,12 +1076,13 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _navItem(Icons.home_rounded, 'Accueil', 0),
-                  _navItem(Icons.grid_view_rounded, 'Catégories', 1),
-                  const SizedBox(width: 56), // espace pour le bouton central
-                  _navItem(Icons.receipt_long_rounded, 'Commandes', 3),
-                  _navItem(Icons.person_outline_rounded, 'Profil', 4),
+                  _navItem(Icons.history_rounded, 'Activité', 1), // A gauche : my activiter
+                  const SizedBox(width: 56), // espace pour le bouton central (Panier)
+                  _navItem(Icons.favorite_rounded, 'Wishlist', 3), // A droite : Wishlist
+                  _navItem(Icons.notifications_active_rounded, 'Alertes', 4), // A la place du profil : Prix alert
                 ],
               ),
+              // Au milieu : Panier
               Positioned(
                 top: -18,
                 child: GestureDetector(
