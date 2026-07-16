@@ -55,6 +55,8 @@ class DeliveryProvider extends ChangeNotifier {
     await loadAddresses();
   }
 
+
+  
   Future<void> _requestLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -94,6 +96,40 @@ class DeliveryProvider extends ChangeNotifier {
     } finally {
       _isLoadingAddresses = false;
       notifyListeners();
+    }
+  }
+
+  // Ajoute ceci à l'intérieur de ta classe DeliveryProvider
+  
+  // Méthode pour supprimer une adresse
+  Future<void> deleteAddress(String addressId) async {
+    try {
+      await Supabase.instance.client
+          .from('addresses')
+          .delete()
+          .eq('id', addressId);
+      
+      // Recharge la liste après suppression
+      await loadAddresses(); 
+    } catch (e) {
+      debugPrint('Erreur suppression adresse : $e');
+      rethrow;
+    }
+  }
+
+  // Méthode pour mettre à jour une adresse
+  Future<void> updateAddress(String addressId, Map<String, dynamic> data) async {
+    try {
+      await Supabase.instance.client
+          .from('addresses')
+          .update(data)
+          .eq('id', addressId);
+      
+      // Recharge la liste après mise à jour
+      await loadAddresses();
+    } catch (e) {
+      debugPrint('Erreur mise à jour adresse : $e');
+      rethrow;
     }
   }
 
