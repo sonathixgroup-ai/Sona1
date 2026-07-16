@@ -134,10 +134,11 @@ import 'package:thix_id/presentation/thix_market/pages/shop_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
 import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
 
-// --- AJOUTS MANQUANTS (pour corriger ton erreur de build) ---
-//import 'package:thix_id/presentation/thix_market/widgets/products/wishlist_page.dart';
-//import 'package:thix_id/presentation/thix_market/delivery/ordertracking';
-//import 'package:thix_id/presentation/thix_market/pages/shop_history_page.dart';
+/// --- AJOUTS MANQUANTS (pour corriger ton erreur de build) ---
+import 'package:thix_id/presentation/thix_market/widgets/products/wishlist_page.dart';
+import 'package:thix_id/presentation/thix_market/delivery/delivery_tracking_page.dart';
+// import 'package:thix_id/presentation/thix_market/pages/shop_history_page.dart';
+
 
 
 // THIX Info
@@ -284,8 +285,12 @@ class AppRouter {
           final qp = state.uri.queryParameters;
           return NoTransitionPage(child: ActivationReceiptPage(txRef: qp['txRef'], method: qp['method'], amount: qp['amount'], currency: qp['currency'], paidAt: DateTime.tryParse(qp['paidAt'] ?? '')));
         }),
-        GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
-        GoRoute(path: AppRoutes.userDashboard, name: 'userDashboard', pageBuilder: (_, __) => NoTransitionPage(child: UserDashboardPage())),
+                GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
+        
+        // 👇 ROUTE RÉPARÉE : Chemin explicite ajouté ici 👇
+        GoRoute(path: '/user/dashboard', name: 'userDashboard', pageBuilder: (_, __) => NoTransitionPage(child: UserDashboardPage())),
+        // 👆 =========================================== 👆
+        
         GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => NoTransitionPage(child: EnterpriseDashboardPage())),
         GoRoute(path: AppRoutes.enterprise, name: 'enterpriseEntry', redirect: (_, __) {
           if (!auth.isAuthenticated) return AppRoutes.login;
@@ -296,6 +301,7 @@ class AppRouter {
           GoRoute(path: 'dashboard/:section', name: 'enterprisePortalDashboard', pageBuilder: (_, state) => NoTransitionPage(child: EnterpriseDashboardShellPage(companySlug: state.pathParameters['slug']!, section: state.pathParameters['section'] ?? 'overview'))),
           GoRoute(path: 'dashboard', name: 'enterprisePortalDashboardRoot', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
         ]),
+
 
         // CHAT
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
@@ -560,11 +566,14 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
     GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
     
-    // 👇 ROUTES RÉPARÉES ET AJOUTÉES ICI 👇
-   // GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
+    //    // 👇 ROUTES RÉPARÉES ET AJOUTÉES ICI 👇
+    GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
     GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
     GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
+    GoRoute(path: 'checkout', name: 'marketCheckout', pageBuilder: (_, __) => const NoTransitionPage(child: CheckoutPage())),
+    GoRoute(path: 'delivery/tracking', name: 'marketDeliveryTracking', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryTrackingPage())),
     // 👆 ================================= 👆
+
 
     // --- Social, Utilisateur & Outils ---
     GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
