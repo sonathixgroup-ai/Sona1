@@ -571,7 +571,14 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
     GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
     GoRoute(path: 'checkout', name: 'marketCheckout', pageBuilder: (_, __) => const NoTransitionPage(child: CheckoutPage())),
-    GoRoute(path: 'delivery/tracking', name: 'marketDeliveryTracking', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryTrackingPage(orderId: 'THX-12345'))), // ✅ Ajout du orderId ici
+    GoRoute(
+  path: 'tracking/:orderId', 
+  name: 'marketDeliveryTracking', 
+  pageBuilder: (_, state) => NoTransitionPage(
+    child: DeliveryTrackingPage(orderId: state.pathParameters['orderId'])
+  )
+),
+
     // 👆 ================================= 👆
 
 
