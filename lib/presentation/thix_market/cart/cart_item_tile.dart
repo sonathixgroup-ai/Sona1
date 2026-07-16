@@ -1,267 +1,133 @@
-// lib/presentation/thix_market/cart/cart_item_tile.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class CartItemTile extends StatelessWidget {
   final Map<String, dynamic> cartItem;
+  final double realPrice;
+  final double oldPrice;
+  final int discountPercent;
+  final String currency;
   final Function(int) onQuantityChanged;
   final VoidCallback onRemove;
 
   const CartItemTile({
     super.key,
     required this.cartItem,
+    required this.realPrice,
+    required this.oldPrice,
+    required this.discountPercent,
+    required this.currency,
     required this.onQuantityChanged,
     required this.onRemove,
   });
 
-  // ============================================================
-  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
-  // ============================================================
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color primaryBlue = Color(0xFF2D6CDF);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color ivory = Color(0xFFF6F7FB);
-  static const Color cardWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color danger = Color(0xFFD64545);
-  static const Color hairline = Color(0xFFE7EAF3);
-
   @override
   Widget build(BuildContext context) {
-    final product = cartItem['product'] as Map<String, dynamic>;
-    final quantity = cartItem['quantity'] as int;
-    final price = (product['price'] as num).toDouble();
-    final discountPrice = product['discount_price'] as num?;
-    final finalPrice = discountPrice != null && discountPrice < price ? discountPrice.toDouble() : price;
-    final hasDiscount = discountPrice != null && discountPrice < price;
-    final totalPrice = finalPrice * quantity;
-    final images = product['images'];
-    final imageUrl = images is List && images.isNotEmpty ? images.first : product['image_url'];
+    final product = cartItem['product'] as Map<String, dynamic>??? {};
+    final shop = product['shop'] as Map<String, dynamic>??? {};
+    final qty = (cartItem['quantity'] as int?)?? 1;
 
-    final currency = product['currency'] ?? 'CDF';
-    final symbol = currency == 'USD' ? '\$' : 'FC';
-    final stock = product['stock'] ?? 0;
+    final hasDiscount = discountPercent > 0 && realPrice < oldPrice;
+
+    final shopName = shop['name']?? product['shop_name']?? 'ZANDO GLOBAL';
+    final city = shop['city']?? shop['ville']?? product['city']?? 'Kinshasa';
+
+    // ✅ Stock & Garantie
+    final stock = (product['stock']?? product['quantity']?? product['stock_quantity']?? 0) as int;
+    final warranty = product['warranty']?? product['garantie']?? '12 mois';
+    final inStock = stock > 0;
+    final lowStock = stock > 0 && stock <= 5;
+
+    String fmt(double v) => v.toInt().toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cardWhite,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: hairline),
-        boxShadow: [
-          BoxShadow(color: navyDeep.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 6)),
-        ],
+        border: Border.all(color: const Color(0xFFF0F0F0)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ============================================================
-            // IMAGE PRODUIT — coin arrondi, cadre or si remise
-            // ============================================================
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl ?? '',
-                    width: 84,
-                    height: 84,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      width: 84,
-                      height: 84,
-                      color: ivory,
-                      child: const Icon(Icons.image_rounded, color: mutedText),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      width: 84,
-                      height: 84,
-                      color: ivory,
-                      child: const Icon(Icons.broken_image_rounded, color: mutedText),
-                    ),
-                  ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: CachedNetworkImage(
+                  imageUrl: product['image_url']?? '',
+                  width: 88, height: 88, fit: BoxFit.cover,
+                  errorWidget: (_,__,___)=> Container(width:88,height:88,color: const Color(0xFFF7F7FA), child: const Icon(Icons.image_outlined)),
                 ),
-                if (hasDiscount)
-                  Positioned(
-                    top: 5,
-                    left: 5,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: gold,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '-${((1 - finalPrice / price) * 100).round()}%',
-                        style: const TextStyle(color: navyDeep, fontSize: 8, fontWeight: FontWeight.w800),
-                      ),
+              ),
+              if (hasDiscount)
+                Positioned(top: 6, left: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFF0A93B), borderRadius: BorderRadius.circular(8)), child: Text('-$discountPercent%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF5C0E12))))),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(product['title']?? product['name']?? 'Produit', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.2, color: Color(0xFF10192E), height: 1.2)),
+                const SizedBox(height: 5),
+
+                // Boutique • Lieu
+                Row(children: [
+                  const Icon(Icons.storefront_rounded, size: 11, color: Color(0xFFD81E2C)), const SizedBox(width: 4),
+                  Flexible(child: Text(shopName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF10192E)))),
+                  const SizedBox(width: 5), const Text('•', style: TextStyle(fontSize: 10, color: Color(0xFF8A8A8F))), const SizedBox(width: 5),
+                  const Icon(Icons.location_on_outlined, size: 11, color: Color(0xFF8A8A8F)), const SizedBox(width: 2),
+                  Expanded(child: Text(city, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A8F)))),
+                ]),
+                const SizedBox(height: 6),
+
+                // ✅ Stock + Garantie
+                Row(children: [
+                  // Stock
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color:!inStock? const Color(0xFFFFE8E8) : lowStock? const Color(0xFFFFF4CC) : const Color(0xFFE8FFF1),
+                      borderRadius: BorderRadius.circular(6),
                     ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(!inStock? Icons.close_rounded : lowStock? Icons.warning_amber_rounded : Icons.check_circle_rounded, size: 11, color:!inStock? const Color(0xFFD81E2C) : lowStock? const Color(0xFFB7791F) : const Color(0xFF00B074)),
+                      const SizedBox(width: 3),
+                      Text(!inStock? 'Rupture' : lowStock? 'Stock: $stock' : 'En stock', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color:!inStock? const Color(0xFFD81E2C) : lowStock? const Color(0xFFB7791F) : const Color(0xFF00B074))),
+                    ]),
                   ),
+                  const SizedBox(width: 6),
+                  // Garantie
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFE0E7FF))),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.verified_user_outlined, size: 11, color: Color(0xFF2D6CDF)), const SizedBox(width: 3),
+                      Text('Garantie $warranty', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF2D6CDF))),
+                    ]),
+                  ),
+                ]),
+
+                const SizedBox(height: 8),
+                Row(children: [
+                  Text('${fmt(realPrice)} $currency', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: Color(0xFF5C0E12))),
+                  if (hasDiscount)...[ const SizedBox(width: 6), Text('${fmt(oldPrice)} $currency', style: const TextStyle(fontSize: 11.5, color: Color(0xFF8A8A8F), decoration: TextDecoration.lineThrough))],
+                ]),
+                const SizedBox(height: 10),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Container(decoration: BoxDecoration(color: const Color(0xFF0A1931), borderRadius: BorderRadius.circular(20)), child: Row(children: [
+                    InkWell(onTap: () => onQuantityChanged(qty - 1), child: const Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Icon(Icons.remove, size: 16, color: Color(0xFFF0A93B)))),
+                    Text('$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    InkWell(onTap: () => onQuantityChanged(qty + 1), child: const Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Icon(Icons.add, size: 16, color: Color(0xFFF0A93B)))),
+                  ])),
+                  InkWell(onTap: onRemove, child: Container(padding: const EdgeInsets.all(7), decoration: const BoxDecoration(color: Color(0xFFFFF0F0), shape: BoxShape.circle), child: const Icon(Icons.delete_outline_rounded, size: 17, color: Color(0xFFD81E2C)))),
+                ])
               ],
             ),
-            const SizedBox(width: 13),
-
-            // ============================================================
-            // DÉTAILS PRODUIT
-            // ============================================================
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product['title'] ?? 'Produit',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: darkText),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      const Icon(Icons.store_rounded, size: 11, color: navy),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          product['shop']?['name'] ?? 'Boutique',
-                          style: const TextStyle(fontSize: 11, color: mutedText, fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (cartItem['variant'] != null || cartItem['color'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: ivory,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: hairline),
-                        ),
-                        child: Text(
-                          '${cartItem['variant'] ?? ''} ${cartItem['color'] ?? ''}'.trim(),
-                          style: const TextStyle(fontSize: 9.5, color: navy, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-
-                  // ============================================================
-                  // PRIX + STEPPER QUANTITÉ
-                  // ============================================================
-                  Row(
-                    children: [
-                      Text(
-                        '${finalPrice.toInt()} $symbol',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14.5,
-                          color: navy,
-                        ),
-                      ),
-                      if (hasDiscount)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Text(
-                            '${price.toInt()} $symbol',
-                            style: const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 11,
-                              color: mutedText,
-                            ),
-                          ),
-                        ),
-                      const Spacer(),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: navyDeep,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _stepperButton(
-                              icon: Icons.remove_rounded,
-                              onTap: () {
-                                if (quantity > 1) onQuantityChanged(quantity - 1);
-                              },
-                            ),
-                            SizedBox(
-                              width: 26,
-                              child: Text(
-                                '$quantity',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Colors.white),
-                              ),
-                            ),
-                            _stepperButton(
-                              icon: Icons.add_rounded,
-                              onTap: () {
-                                if (quantity < stock) onQuantityChanged(quantity + 1);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(height: 1, color: hairline),
-                  const SizedBox(height: 8),
-
-                  // ============================================================
-                  // TOTAL + SUPPRESSION
-                  // ============================================================
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.receipt_long_rounded, size: 13, color: gold),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Total : ${totalPrice.toInt()} $symbol',
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: navyDeep),
-                          ),
-                        ],
-                      ),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: onRemove,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: danger.withOpacity(0.08),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.delete_outline_rounded, size: 16, color: danger),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _stepperButton({required IconData icon, required VoidCallback onTap}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Container(
-        width: 26,
-        height: 26,
-        alignment: Alignment.center,
-        child: Icon(icon, size: 14, color: gold),
+          ),
+        ],
       ),
     );
   }
