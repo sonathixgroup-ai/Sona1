@@ -559,9 +559,12 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'sell', name: 'marketSell', pageBuilder: (_, __) => NoTransitionPage(child: const SellPage())),
     GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
     GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
+    
+    // 👇 ROUTES RÉPARÉES ET AJOUTÉES ICI 👇
    // GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
-  //  GoRoute(path: 'tracking/:trackingId', name: 'marketTracking', pageBuilder: (_, state) => NoTransitionPage(child: OrderTrackingPage(trackingId: state.pathParameters['trackingId']!))),
- //   GoRoute(path: 'shop/:shopId/history', name: 'marketShopHistory', pageBuilder: (_, state) => NoTransitionPage(child: ShopHistoryPage(shopId: state.pathParameters['shopId']!))),
+    GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
+    GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
+    // 👆 ================================= 👆
 
     // --- Social, Utilisateur & Outils ---
     GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
@@ -577,6 +580,29 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'deliveries', name: 'deliveryManagement', pageBuilder: (_, __) => NoTransitionPage(child: const DeliveryManagementPage())),
     GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => NoTransitionPage(child: const LivePage())),
     GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => NoTransitionPage(child: const CreateLivePage())),
+
+    // ==========================================
+    // 2. ROUTES DYNAMIQUES (AVEC :id)
+    // ==========================================
+    GoRoute(path: 'shop/:shopId/manage', name: 'marketManageShop', pageBuilder: (_, state) => NoTransitionPage(child: ManageShopPage(shopId: state.pathParameters['shopId']!))),
+    GoRoute(path: 'shop/:shopId/stats', name: 'marketShopStats', pageBuilder: (_, state) => NoTransitionPage(child: ShopStatisticsPage(shopId: state.pathParameters['shopId']!))),
+    GoRoute(path: 'product/:productId', name: 'marketProductDetail', pageBuilder: (_, state) => NoTransitionPage(child: ProductDetailPage(productId: state.pathParameters['productId']!))),
+    GoRoute(path: 'order/:orderId', name: 'marketOrderDetail', pageBuilder: (_, state) => NoTransitionPage(child: OrderDetailPage(orderId: state.pathParameters['orderId']!))),
+    GoRoute(path: 'auction/:auctionId', name: 'marketAuction', pageBuilder: (_, state) => NoTransitionPage(child: AuctionPage(auctionId: state.pathParameters['auctionId']!))),
+    GoRoute(path: 'dispute/:disputeId', name: 'marketDispute', pageBuilder: (_, state) => NoTransitionPage(child: DisputeDetailPage(disputeId: state.pathParameters['disputeId']!))),
+    GoRoute(path: 'announcement/:announcementId/edit', name: 'marketEditAnnouncement', pageBuilder: (_, state) => NoTransitionPage(child: EditAnnouncementPage(announcementId: state.pathParameters['announcementId']!))),
+    GoRoute(path: 'live/:liveId/replay', name: 'marketLiveReplay', pageBuilder: (_, state) => NoTransitionPage(child: LiveReplayPage(liveId: state.pathParameters['liveId']!))),
+    GoRoute(path: 'live/:liveId', name: 'marketLiveStream', pageBuilder: (_, state) => NoTransitionPage(child: LiveStreamPage(liveId: state.pathParameters['liveId']!))),
+    GoRoute(path: 'chat/:conversationId', name: 'marketChat', pageBuilder: (_, state) => NoTransitionPage(child: ChatPage(conversationId: state.pathParameters['conversationId']!))),
+    GoRoute(path: 'chat/seller/:shopId', name: 'marketChatSeller', pageBuilder: (_, state) {
+      final shopId = state.pathParameters['shopId']!;
+      final extra = state.extra as Map?;
+      return NoTransitionPage(child: ChatPage(conversationId: '', shopId: shopId, title: extra?['title'] ?? 'Vendeur', avatar: extra?['avatar']));
+    }),
+    GoRoute(path: 'shop/:shopId', name: 'marketShopDetail', pageBuilder: (_, state) => NoTransitionPage(child: ShopDetailPage(shopId: state.pathParameters['shopId']!))),
+  ],
+),
+
 
     // ==========================================
     // 2. ROUTES DYNAMIQUES (AVEC :id)
