@@ -135,7 +135,7 @@ import 'package:thix_id/presentation/thix_market/vendor/vendor_dashboard.dart';
 import 'package:thix_id/presentation/thix_market/vendor/delivery_management_page.dart';
 
 /// --- AJOUTS MANQUANTS (pour corriger ton erreur de build) ---
-import 'package:thix_id/presentation/thix_market/widgets/products/wishlist_page.dart';
+import 'package:thix_id/presentation/thix_market/pages/wishlist_page.dart';
 import 'package:thix_id/presentation/thix_market/delivery/delivery_tracking_page.dart';
 // import 'package:thix_id/presentation/thix_market/pages/shop_history_page.dart';
 
@@ -566,13 +566,14 @@ GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const
     GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
     GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
     
-    //    // 👇 ROUTES RÉPARÉES ET AJOUTÉES ICI 👇
+        // 👇 ROUTES RÉPARÉES ET AJOUTÉES ICI 👇
     GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
     GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
     GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
     GoRoute(path: 'checkout', name: 'marketCheckout', pageBuilder: (_, __) => const NoTransitionPage(child: CheckoutPage())),
-    GoRoute(path: 'delivery/tracking', name: 'marketDeliveryTracking', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryTrackingPage())),
+    GoRoute(path: 'delivery/tracking', name: 'marketDeliveryTracking', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryTrackingPage(orderId: 'THX-12345'))), // ✅ Ajout du orderId ici
     // 👆 ================================= 👆
+
 
 
     // --- Social, Utilisateur & Outils ---
