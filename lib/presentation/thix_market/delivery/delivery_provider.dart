@@ -5,39 +5,25 @@ import 'package:geolocator/geolocator.dart';
 class DeliveryProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // État des adresses
   List<Map<String, dynamic>> _addresses = [];
   Map<String, dynamic>? _selectedAddress;
   bool _isLoadingAddresses = false;
 
-  List<Map<String, dynamic>> _pickupPoints = [];
-  Map<String, dynamic>? _selectedPickupPoint;
-  bool _isLoadingPickupPoints = false;
-
-  List<Map<String, dynamic>> _availableSlots = [];
-  Map<String, dynamic>? _selectedSlot;
-  bool _isLoadingSlots = false;
-
+  // État du tracking
   Map<String, dynamic>? _currentTracking;
   bool _isLoadingTracking = false;
   String? _errorTracking;
 
-  Position? _currentPosition;
-  bool _hasLocationPermission = false;
-
+  // Getters
   List<Map<String, dynamic>> get addresses => _addresses;
   Map<String, dynamic>? get selectedAddress => _selectedAddress;
   bool get isLoadingAddresses => _isLoadingAddresses;
-  List<Map<String, dynamic>> get pickupPoints => _pickupPoints;
-  Map<String, dynamic>? get selectedPickupPoint => _selectedPickupPoint;
-  bool get isLoadingPickupPoints => _isLoadingPickupPoints;
-  List<Map<String, dynamic>> get availableSlots => _availableSlots;
-  Map<String, dynamic>? get selectedSlot => _selectedSlot;
-  bool get isLoadingSlots => _isLoadingSlots;
   Map<String, dynamic>? get currentTracking => _currentTracking;
   bool get isLoadingTracking => _isLoadingTracking;
   String? get errorTracking => _errorTracking;
 
-  // --- CETTE METHODE EST LA SEULE QUI COMPTE POUR TON BUG ---
+  // --- TRACKING (Version sécurisée) ---
   Future<void> trackDelivery(String orderId) async {
     _isLoadingTracking = true;
     _errorTracking = null;
@@ -72,21 +58,7 @@ class DeliveryProvider extends ChangeNotifier {
     }
   }
 
-  // --- LE RESTE NE CHANGE PAS ---
-  Future<void> _requestLocationPermission() async {
-    var p = await Geolocator.checkPermission();
-    if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
-    _hasLocationPermission = p == LocationPermission.always || p == LocationPermission.whileInUse;
-  }
-
-  Future<void> getCurrentLocation() async {
-    if (!_hasLocationPermission) await _requestLocationPermission();
-    try {
-      _currentPosition = await Geolocator.getCurrentPosition();
-      notifyListeners();
-    } catch (_) {}
-  }
-
+  // --- GESTION ADRESSES (Méthodes manquantes nécessaires au build) ---
   Future<void> loadAddresses() async {
     final uid = _supabase.auth.currentUser?.id;
     if (uid == null) return;
@@ -98,11 +70,35 @@ class DeliveryProvider extends ChangeNotifier {
       _isLoadingAddresses = false; notifyListeners();
     }
   }
-  void selectAddress(Map<String, dynamic> a){ _selectedAddress=a; notifyListeners(); }
-  Future<void> loadNearbyPickupPoints({double radiusKm=10}) async {}
-  void selectPickupPoint(Map<String, dynamic> p){ _selectedPickupPoint=p; notifyListeners(); }
-  Future<void> loadAvailableSlots({DateTime? date}) async {}
-  void selectSlot(Map<String, dynamic> s){ _selectedSlot=s; notifyListeners(); }
-  Future<double> estimateShippingCost({required double addressLat, required double addressLng, required String method}) async => 2500;
-  void reset(){ _selectedAddress=null; _selectedPickupPoint=null; _selectedSlot=null; _currentTracking=null; notifyListeners(); }
+
+  Future<void> addAddress(Map<String, dynamic> address) async {
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final res = await _supabase.from('addresses').insert({...address, 'user_id': uid}).select().single();
+      _addresses.insert(0, res);
+      notifyListeners();
+    } catch (e) { debugPrint('Error adding address: $e'); }
+  }
+
+  Future<void> deleteAddress(String addressId) async {
+    try {
+      await _supabase.from('addresses').delete().eq('id', addressId);
+      _addresses.removeWhere((a) => a['id'] == addressId);
+      notifyListeners();
+    } catch (e) { debugPrint('Error deleting address: $e'); }
+  }
+
+  Future<void> updateAddress(String id, Map<String, dynamic> data) async {
+    try {
+      await _supabase.from('addresses').update(data).eq('id', id);
+      await loadAddresses();
+    } catch (e) { debugPrint('Error updating address: $e'); }
+  }
+
+  void selectAddress(Map<String, dynamic> a) { _selectedAddress = a; notifyListeners(); }
+
+  // --- AUTRES HELPERS ---
+  Future<void> init() async { await loadAddresses(); }
+  void reset() { _selectedAddress = null; _currentTracking = null; notifyListeners(); }
 }
