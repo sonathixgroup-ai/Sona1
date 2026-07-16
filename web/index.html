@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 
-  <base href="/">
+  <!-- Flutter remplace automatiquement cette valeur au build -->
+  <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -15,7 +16,7 @@
       name="description"
       content="Application officielle THIX ID">
 
-  <!-- Anti-cache -->
+  <!-- Anti cache -->
   <meta http-equiv="Cache-Control"
         content="no-cache, no-store, must-revalidate">
 
@@ -27,9 +28,9 @@
 
   <!-- Android -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#0A0A0A">
+  <meta name="theme-color" content="#F7B500">
 
-  <!-- iOS -->
+  <!-- Apple -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="THIX ID">
@@ -44,84 +45,97 @@
 
   <title>THIX ID</title>
 
+  <style>
+
+    html,
+    body{
+      width:100%;
+      height:100%;
+      margin:0;
+      padding:0;
+      overflow:hidden;
+      background:#ffffff;
+      font-family:Arial,Helvetica,sans-serif;
+    }
+
+    #loading{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      background:#ffffff;
+      z-index:999999;
+    }
+
+    .loader{
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      border:4px solid #E5E5E5;
+      border-top:4px solid #F7B500;
+      animation:spin .9s linear infinite;
+      margin-bottom:18px;
+    }
+
+    @keyframes spin{
+      from{transform:rotate(0deg);}
+      to{transform:rotate(360deg);}
+    }
+
+  </style>
+
 </head>
 
 <body>
 
-  <style>
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #ffffff;
+<div id="loading">
+  <div class="loader"></div>
+  <div>Chargement sécurisé...</div>
+</div>
+
+<!-- Passkeys -->
+<script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
+
+<!-- Flutter -->
+<script src="flutter_bootstrap.js" async></script>
+
+<script>
+
+window.addEventListener("flutter-first-frame",function(){
+
+    const loader=document.getElementById("loading");
+
+    if(loader){
+        loader.remove();
     }
 
-    #loading {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      font-family: Arial, sans-serif;
-      color: #222;
-    }
+});
 
-    .loader {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      border: 4px solid #e5e5e5;
-      border-top-color: #F7B500;
-      animation: spin 1s linear infinite;
-      margin-bottom: 18px;
-    }
+window.addEventListener("pageshow",function(event){
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-  </style>
-
-  <div id="loading">
-    <div class="loader"></div>
-    <div>Chargement sécurisé...</div>
-  </div>
-
-  <!-- Passkeys -->
-  <script
-      src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js">
-  </script>
-
-  <!-- Flutter -->
-  <script src="flutter_bootstrap.js" async></script>
-
-  <script>
-    window.addEventListener("flutter-first-frame", function () {
-      const loading = document.getElementById("loading");
-      if (loading) {
-        loading.remove();
-      }
-    });
-
-    window.addEventListener("pageshow", function (event) {
-      if (event.persisted) {
+    if(event.persisted){
         window.location.reload();
-      }
-    });
+    }
 
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) {
-        if (!window.flutter) {
-          window.location.reload();
-        }
-      }
-    });
-  </script>
+});
+
+document.addEventListener("visibilitychange",function(){
+
+    if(document.hidden){
+        return;
+    }
+
+    if(!window.flutter){
+
+        window.location.reload();
+
+    }
+
+});
+
+</script>
 
 </body>
 </html>
