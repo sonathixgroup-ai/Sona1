@@ -39,25 +39,67 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     _loadOrderDetails();
   }
 
+  // ✅ CORRECTION : Méthode de chargement robuste (sans jointure SQL stricte)
   Future<void> _loadOrderDetails() async {
     setState(() => _isLoading = true);
     try {
-      final response = await Supabase.instance.client
+      final supabase = Supabase.instance.client;
+
+      // 1. Charger la commande principale uniquement
+      final orderResponse = await supabase
           .from('orders')
-          .select('''
-            *,
-            address:addresses(*),
-            items:order_items(*),
-            shop:shops(name, logo_url)
-          ''')
+          .select()
           .eq('id', widget.orderId)
           .single();
 
+      final orderData = Map<String, dynamic>.from(orderResponse);
+
+      // 2. Charger les articles (items) de cette commande
+      try {
+        final itemsResponse = await supabase
+            .from('order_items')
+            .select()
+            .eq('order_id', widget.orderId);
+        orderData['items'] = itemsResponse;
+      } catch (e) {
+        debugPrint('Erreur chargement items: $e');
+        orderData['items'] = [];
+      }
+
+      // 3. Charger l'adresse si un address_id est présent
+      if (orderData['address_id'] != null) {
+        try {
+          final addressResponse = await supabase
+              .from('addresses')
+              .select()
+              .eq('id', orderData['address_id'])
+              .maybeSingle();
+          orderData['address'] = addressResponse;
+        } catch (e) {
+          debugPrint('Erreur chargement adresse: $e');
+        }
+      }
+
+      // 4. Charger la boutique si un shop_id est présent
+      if (orderData['shop_id'] != null) {
+        try {
+          final shopResponse = await supabase
+              .from('shops')
+              .select('name, logo_url')
+              .eq('id', orderData['shop_id'])
+              .maybeSingle();
+          orderData['shop'] = shopResponse;
+        } catch (e) {
+          debugPrint('Erreur chargement boutique: $e');
+        }
+      }
+
       setState(() {
-        _order = response;
+        _order = orderData;
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('🚨 Erreur Fatale OrderDetail: $e');
       setState(() {
         _error = 'Impossible de charger les détails de la commande';
         _isLoading = false;
@@ -151,7 +193,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: _MarketColors.creamBg,
               shape: BoxShape.circle,
             ),
@@ -199,7 +241,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En‑tête : statut et date
+          // En-tête : statut et date
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -217,7 +259,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Commande #${order['id'].toString().substring(0, 8)}', // Affichage raccourci pour l'esthétique
+                      'Commande #${order['id'].toString().substring(0, 8)}',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText),
                     ),
                     const SizedBox(height: 6),
@@ -394,7 +436,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(address['address_line'] ?? '', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
-                  Text('${address['city']}, ${address['postal_code'] ?? ''}', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
+                  Text('${address['city'] ?? ''}, ${address['postal_code'] ?? ''}', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -431,7 +473,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             icon: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
             label: const Text('Retour à mes commandes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: _MarketColors.darkText, // Couleur sombre pour contraster avec le rouge
+              backgroundColor: _MarketColors.darkText, 
               minimumSize: const Size(double.infinity, 48),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
@@ -509,7 +551,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Annuler la commande', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         content: const Text(
-          'Êtes‑vous sûr de vouloir annuler cette commande ? Cette action est irréversible.',
+          'Êtes-vous sûr de vouloir annuler cette commande ? Cette action est irréversible.',
           style: TextStyle(fontSize: 14, color: _MarketColors.darkText),
         ),
         actions: [
