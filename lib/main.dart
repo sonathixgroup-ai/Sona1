@@ -20,6 +20,7 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 
 // ─── THIX MARKET ───
+import 'package:thix_id/presentation/thix_market/delivery/delivery_provider.dart';
 import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/activity_provider.dart';
 import 'package:thix_id/presentation/thix_market/providers/live_provider.dart';
@@ -51,7 +52,7 @@ import 'package:thix_id/services/event_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // THIX CHAT — Imports
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
@@ -62,7 +63,6 @@ import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 // ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
-import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // THIX RESERVATION BUS — SaaS Providers
@@ -157,7 +157,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
     final audioService = AudioService(SupabaseConfig.client);
     final groupService = GroupService(SupabaseConfig.client);
 
-    // Call signaling global
     final callSignaling = CallSignalingService();
 
     return _BootstrapResult(
@@ -197,7 +196,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
                       const SizedBox(height: 16),
                       Text('Connexion impossible', style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      Text('Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.', textAlign: TextAlign.center),
+                      const Text('Impossible de se connecter à Supabase.\nVérifiez votre connexion internet.', textAlign: TextAlign.center),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(onPressed: () => runApp(const ProviderScope(child: BootstrapApp())), icon: const Icon(Icons.refresh), label: const Text('Réessayer')),
                       if (kDebugMode) ...[
@@ -243,7 +242,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 }
 
-// ─── Résultat du bootstrap ────────────────────────────────────────────────
 class _BootstrapResult {
   final AuthController auth;
   final ProfileService profiles;
@@ -272,7 +270,6 @@ class _BootstrapResult {
   });
 }
 
-// ─── Écran de chargement ──────────────────────────────────────────────────
 class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
   @override
@@ -298,7 +295,6 @@ class _StartupLoadingPage extends StatelessWidget {
   }
 }
 
-// ─── Application principale ──────────────────────────────────────────────
 class MyApp extends StatefulWidget {
   final AuthController auth;
   final ProfileService profiles;
@@ -346,20 +342,13 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // AUTH & LANGUE
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
-
-        // SERVICES
         Provider<ProfileService>.value(value: widget.profiles),
         Provider<UserService>.value(value: widget.userService),
         Provider<NetworkService>.value(value: widget.network),
         Provider<CallSignalingService>.value(value: widget.callSignaling),
-
-        // CALL GLOBAL PROVIDER
         ChangeNotifierProvider<CallProvider>(create: (_) => CallProvider()),
-
-        // FEED / EVENT / NEWS
         ChangeNotifierProvider.value(value: widget.feed),
         ChangeNotifierProvider<EventProvider>(create: (_) => EventProvider(widget.eventService)),
         ChangeNotifierProvider<NewsProvider>(create: (_) => NewsProvider(NewsService(SupabaseConfig.client))),
@@ -377,6 +366,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<SellProvider>(create: (_) => SellProvider()),
         ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider<DeliveryProvider>(create: (_) => DeliveryProvider()),
 
         // EDUCATION
         ChangeNotifierProvider<EducationProvider>(create: (_) => EducationProvider(EducationService(SupabaseConfig.client))),
@@ -420,7 +410,6 @@ class _MyAppState extends State<MyApp> {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            // 👇 LISTENER GLOBAL D'APPELS
             builder: (context, child) {
               return GlobalCallListener(child: child ?? const SizedBox.shrink());
             },
