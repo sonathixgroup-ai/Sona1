@@ -58,50 +58,45 @@ class SellProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================================
-  // 2. CHARGEMENT DES COMMANDES (ROBUSTE)
+    // ============================================================
+  // 2. CHARGEMENT DES COMMANDES (VERSION LIAISON order_items)
   // ============================================================
   Future<void> loadOrders() async {
-  final userId = _supabase.auth.currentUser?.id;
-  if (userId == null) {
-    debugPrint("🚨 ERREUR: Utilisateur non connecté");
-    return;
-  }
-  
-  _isLoadingOrders = true;
-  notifyListeners();
-
-  try {
-    // Étape 1 : Récupérer les boutiques
-    final shopResponse = await _supabase.from('shops').select('id').eq('owner_id', userId);
-    debugPrint("DEBUG: Boutiques trouvées : $shopResponse");
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
     
-    final shopIds = shopResponse.map((e) => e['id']).toList();
-
-    if (shopIds.isEmpty) {
-      debugPrint("DEBUG: Aucune boutique trouvée pour cet utilisateur");
-      _orders = [];
-      return;
-    }
-
-    // Étape 2 : La requête de commande (avec un log complet de l'erreur)
-    final response = await _supabase
-        .from('orders')
-        .select('id, status, total, created_at, customer_name, customer_phone')
-        .inFilter('shop_id', shopIds); // C'est ici que ça peut coincer si shop_id n'existe pas
-
-    debugPrint("DEBUG: Réponse commandes brute : $response");
-    
-    _orders = List<Map<String, dynamic>>.from(response);
-    
-  } catch (e) {
-    // ICI, TU VAS VOIR LE VRAI MESSAGE D'ERREUR DANS TA CONSOLE
-    debugPrint("🚨 ERREUR CRITIQUE DANS LOADORDERS : ${e.toString()}");
-  } finally {
-    _isLoadingOrders = false;
+    _isLoadingOrders = true;
     notifyListeners();
+
+    try {
+      // Étape 1 : Récupérer les boutiques
+      final shopResponse = await _supabase.from('shops').select('id').eq('owner_id', userId);
+      final shopIds = shopResponse.map((e) => e['id']).toList();
+
+      if (shopIds.isEmpty) {
+        _orders = [];
+        return;
+      }
+
+      // Étape 2 : La requête avec jointure sur order_items
+      // On utilise !inner pour ne récupérer QUE les commandes ayant des produits de ces boutiques
+      final response = await _supabase
+          .from('orders')
+          .select('*, order_items!inner(shop_id)') 
+          .inFilter('order_items.shop_id', shopIds)
+          .order('created_at', ascending: false);
+
+      _orders = List<Map<String, dynamic>>.from(response);
+      debugPrint("✅ Commandes chargées : ${_orders.length}");
+      
+    } catch (e) {
+      debugPrint("🚨 ERREUR CRITIQUE DANS LOADORDERS : $e");
+      _orders = [];
+    } finally {
+      _isLoadingOrders = false;
+      notifyListeners();
+    }
   }
-}
 
 
   // ============================================================
