@@ -21,6 +21,12 @@ import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
 import 'package:thix_id/services/thix_id_service.dart';
 
+// ✅ Nouveaux imports pour la localisation et le sélecteur de langue.
+import 'package:thix_id/l10n/app_localizations.dart';
+import 'package:thix_id/widgets/language_sheet.dart';
+// TODO: adapte ce chemin si ton LocaleController vit ailleurs dans le projet.
+import 'package:thix_id/l10n/locale_controller.dart';
+
 // ============================================================================
 // CONSTANTES DE DESIGN
 // ============================================================================
@@ -217,6 +223,7 @@ class _HomePagePremiumState extends State<HomePagePremium>
     }
   }
 
+  // ✅ Connecté au dashboard utilisateur.
   void _onProfileTap() {
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
@@ -261,6 +268,14 @@ class _HomePagePremiumState extends State<HomePagePremium>
     } else {
       context.push(AppRoutes.login);
     }
+  }
+
+  void _openScanQr() => ThixIdentitySheets.showQrScanSheet(context);
+
+  void _openMiniApps() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Mini Apps — bientôt disponible.')),
+    );
   }
 
   Future<void> _handleRequestAccount(BuildContext context) async {
@@ -416,9 +431,9 @@ class _HomePagePremiumState extends State<HomePagePremium>
 
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
 
-              // ✅ "Mes services" — disposition radiale (constellation), sans
-              // cadre/contour, empreinte réduite. Filigrane filant animé
-              // circulant le long des branches vers chaque service.
+              // ✅ "Mes services" — le hub central porte maintenant le menu
+              // (Home / Mini Apps / Documents / Profil / Scan QR). Plus de
+              // bouton flottant séparé.
               SliverToBoxAdapter(
                 child: StreamBuilder<SectionBadgeCounts>(
                   stream: badgeCountsStream,
@@ -427,6 +442,11 @@ class _HomePagePremiumState extends State<HomePagePremium>
                     return _ServicesConstellation(
                       counts: counts,
                       onServiceTap: _handleServiceTap,
+                      onHomeTap: () => context.go(AppRoutes.home),
+                      onMiniAppsTap: _openMiniApps,
+                      onDocumentsTap: _openDocumentVault,
+                      onProfileTap: _onProfileTap,
+                      onScanTap: _openScanQr,
                     );
                   },
                 ),
@@ -450,7 +470,8 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 130)),
+              // ✅ Plus de FAB flottant : padding de fin réduit.
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 24)),
             ],
           ),
           if (_searching)
@@ -464,22 +485,6 @@ class _HomePagePremiumState extends State<HomePagePremium>
                 ),
               ),
             ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _ExpandableNavFab(
-              onScanTap: () => ThixIdentitySheets.showQrScanSheet(context),
-              onHomeTap: () => context.go(AppRoutes.home),
-              onMiniAppsTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Mini Apps — bientôt disponible.')),
-                );
-              },
-              onDocumentsTap: _openDocumentVault,
-              onProfileTap: _onProfileTap,
-            ),
-          ),
         ],
       ),
     );
@@ -645,6 +650,7 @@ class _PremiumHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // ✅ Salutation rotative RDC — conservée telle quelle (appréciée).
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,46 +681,32 @@ class _PremiumHeader extends StatelessWidget {
                 child: const Icon(Icons.search_rounded, color: AppColors.darkText, size: 18),
               ),
               const SizedBox(width: AppSpacing.s),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => NotificationsSheet.show(context),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.cardBorder, width: 0.5),
-                      boxShadow: AppShadows.secondary,
+
+              // ✅ Bouton notification remplacé par le globe de langue
+              // (code fourni intégré tel quel).
+              GestureDetector(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                     ),
-                    child: Stack(
-                      children: [
-                        const Center(
-                          child: Icon(
-                            Icons.notifications_none_rounded,
-                            color: AppColors.darkText,
-                            size: 18,
-                          ),
-                        ),
-                        Positioned(
-                          right: 7,
-                          top: 7,
-                          child: Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: AppColors.dangerRed,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    builder: (_) => const LanguageSheet(),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F0FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    context.watch<LocaleController>().locale.languageCode.toUpperCase(),
+                    style: const TextStyle(color: Color(0xFF3A5BA0), fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
+
               const SizedBox(width: AppSpacing.s),
               Material(
                 color: Colors.transparent,
@@ -986,6 +978,11 @@ class _PremiumStatusCard extends StatelessWidget {
   }
 }
 
+// ============================================================================
+// QUICK ACTIONS — restylées comme les icônes "Mes services" (fond blanc,
+// bordure colorée, icône colorée), taille identique 46px.
+// ============================================================================
+
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onScanTap;
   final VoidCallback onDocumentTap;
@@ -1001,16 +998,15 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Row(
       children: [
         Expanded(
           child: Center(
             child: _QuickActionItem(
               icon: Icons.smart_toy_rounded,
-              label: 'THIX IA',
-              backgroundColor: AppColors.goldBadge,
-              iconColor: AppColors.bottomNavCenterIcon,
-              labelColor: AppColors.darkText,
+              label: l10n.quickThixIA,
+              accent: AppColors.premiumAccent,
               onTap: onScanTap,
             ),
           ),
@@ -1019,10 +1015,8 @@ class _QuickActionsRow extends StatelessWidget {
           child: Center(
             child: _QuickActionItem(
               icon: Icons.folder_shared_rounded,
-              label: 'Document',
-              backgroundColor: AppColors.goldBadge,
-              iconColor: AppColors.bottomNavCenterIcon,
-              labelColor: AppColors.darkText,
+              label: l10n.quickDocument,
+              accent: AppColors.domainLearning,
               onTap: onDocumentTap,
             ),
           ),
@@ -1031,10 +1025,8 @@ class _QuickActionsRow extends StatelessWidget {
           child: Center(
             child: _QuickActionItem(
               icon: Icons.forum_rounded,
-              label: 'THIX CHAT',
-              backgroundColor: AppColors.goldBadge,
-              iconColor: AppColors.bottomNavCenterIcon,
-              labelColor: AppColors.darkText,
+              label: l10n.quickChat,
+              accent: AppColors.domainNetwork,
               onTap: onChatTap,
             ),
           ),
@@ -1043,10 +1035,8 @@ class _QuickActionsRow extends StatelessWidget {
           child: Center(
             child: _QuickActionItem(
               icon: Icons.emergency_rounded,
-              label: 'URGENCE',
-              backgroundColor: AppColors.dangerRed,
-              iconColor: AppColors.white,
-              labelColor: AppColors.dangerRed,
+              label: l10n.quickUrgence,
+              accent: AppColors.dangerRed,
               onTap: onSecurityTap,
             ),
           ),
@@ -1059,17 +1049,13 @@ class _QuickActionsRow extends StatelessWidget {
 class _QuickActionItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color backgroundColor;
-  final Color iconColor;
-  final Color labelColor;
+  final Color accent;
   final VoidCallback onTap;
 
   const _QuickActionItem({
     required this.icon,
     required this.label,
-    required this.backgroundColor,
-    required this.iconColor,
-    required this.labelColor,
+    required this.accent,
     required this.onTap,
   });
 
@@ -1078,36 +1064,38 @@ class _QuickActionItem extends StatelessWidget {
     return _PressableScale(
       onTap: onTap,
       child: SizedBox(
-        width: 78,
+        width: 64,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: backgroundColor,
+                color: AppColors.white,
                 shape: BoxShape.circle,
+                border: Border.all(color: accent.withValues(alpha: 0.35), width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.14),
-                    blurRadius: 14,
-                    offset: const Offset(0, 8),
+                    color: accent.withValues(alpha: 0.22),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: Icon(icon, size: 24, color: iconColor),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 20, color: accent),
             ),
-            const SizedBox(height: AppSpacing.s),
+            const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.1,
-                color: labelColor,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
+                color: accent == AppColors.dangerRed ? AppColors.dangerRed : AppColors.darkText,
+                height: 1.1,
               ),
               textAlign: TextAlign.center,
             ),
@@ -1159,9 +1147,9 @@ class _PressableScaleState extends State<_PressableScale> {
 }
 
 // ============================================================================
-// "MES SERVICES" — CONSTELLATION RADIALE (sans cadre, filigrane filant
-// circulant le long des branches). Inspiré du croquis fourni : un noyau
-// central relié par des branches à chaque service, disposées en étoile.
+// "MES SERVICES" — CONSTELLATION RADIALE.
+// Le hub central porte désormais le menu (Home / Mini Apps / Documents /
+// Profil / Scan QR) — plus de bouton flottant séparé.
 // ============================================================================
 
 class _ServiceNodeData {
@@ -1180,13 +1168,31 @@ class _ServiceNodeData {
   });
 }
 
+class _HubMenuItemData {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _HubMenuItemData({required this.icon, required this.label, required this.onTap});
+}
+
 class _ServicesConstellation extends StatefulWidget {
   final SectionBadgeCounts counts;
   final void Function(String key) onServiceTap;
+  final VoidCallback onHomeTap;
+  final VoidCallback onMiniAppsTap;
+  final VoidCallback onDocumentsTap;
+  final VoidCallback onProfileTap;
+  final VoidCallback onScanTap;
 
   const _ServicesConstellation({
     required this.counts,
     required this.onServiceTap,
+    required this.onHomeTap,
+    required this.onMiniAppsTap,
+    required this.onDocumentsTap,
+    required this.onProfileTap,
+    required this.onScanTap,
   });
 
   @override
@@ -1198,8 +1204,13 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
   late final AnimationController _shineController;
   late final AnimationController _pulseController;
 
-  // Hauteur réduite par rapport à l'ancienne grille encadrée.
+  bool _menuExpanded = false;
+  Timer? _collapseTimer;
+
   static const double _stageHeight = 360;
+  static const double _hubRadius = 34;
+  static const double _hubMenuRadius = 58;
+  static const double _hubMenuNodeSize = 30;
 
   @override
   void initState() {
@@ -1214,7 +1225,31 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
   void dispose() {
     _shineController.dispose();
     _pulseController.dispose();
+    _collapseTimer?.cancel();
     super.dispose();
+  }
+
+  void _armAutoCollapse() {
+    _collapseTimer?.cancel();
+    _collapseTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted) setState(() => _menuExpanded = false);
+    });
+  }
+
+  void _toggleHubMenu() {
+    HapticFeedback.mediumImpact();
+    setState(() => _menuExpanded = !_menuExpanded);
+    if (_menuExpanded) {
+      _armAutoCollapse();
+    } else {
+      _collapseTimer?.cancel();
+    }
+  }
+
+  void _runHubItem(VoidCallback action) {
+    _collapseTimer?.cancel();
+    setState(() => _menuExpanded = false);
+    action();
   }
 
   List<_ServiceNodeData> _nodes() {
@@ -1242,7 +1277,16 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final nodes = _nodes();
+
+    final hubItems = <_HubMenuItemData>[
+      _HubMenuItemData(icon: Icons.home_filled, label: 'Home', onTap: () => _runHubItem(widget.onHomeTap)),
+      _HubMenuItemData(icon: Icons.apps_rounded, label: 'Mini Apps', onTap: () => _runHubItem(widget.onMiniAppsTap)),
+      _HubMenuItemData(icon: Icons.folder_rounded, label: 'Documents', onTap: () => _runHubItem(widget.onDocumentsTap)),
+      _HubMenuItemData(icon: Icons.person_outline_rounded, label: 'Profil', onTap: () => _runHubItem(widget.onProfileTap)),
+      _HubMenuItemData(icon: Icons.qr_code_scanner_rounded, label: 'Scan QR', onTap: () => _runHubItem(widget.onScanTap)),
+    ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
@@ -1250,12 +1294,12 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.hub_rounded, size: 15, color: AppColors.textSecondary),
-              SizedBox(width: 6),
+            children: [
+              const Icon(Icons.hub_rounded, size: 15, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
               Text(
-                'Mes services',
-                style: TextStyle(
+                l10n.servicesTitle,
+                style: const TextStyle(
                   color: AppColors.darkText,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -1281,14 +1325,20 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
                   positions.add(_polar(center, angle, radius));
                 }
 
+                // Positions du mini-menu du hub (5 items, anneau serré).
+                final hubPositions = <Offset>[];
+                for (var i = 0; i < hubItems.length; i++) {
+                  final angle = -90.0 + (i * (360.0 / hubItems.length));
+                  hubPositions.add(_polar(center, angle, _hubMenuRadius));
+                }
+
                 return AnimatedBuilder(
                   animation: Listenable.merge([_shineController, _pulseController]),
                   builder: (context, _) {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Ambiance lumineuse douce derrière le noyau (pas de
-                        // cadre rectangulaire — juste un halo diffus).
+                        // Halo diffus derrière le hub (pas de cadre rectangulaire).
                         Positioned(
                           left: center.dx - 130,
                           top: center.dy - 130,
@@ -1320,42 +1370,6 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
                           ),
                         ),
 
-                        // Noyau central "THIX ID".
-                        Positioned(
-                          left: center.dx - 34,
-                          top: center.dy - 34,
-                          child: Transform.scale(
-                            scale: 1.0 + (_pulseController.value * 0.05),
-                            child: Container(
-                              width: 68,
-                              height: 68,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [AppColors.goldBadge, AppColors.premiumAccent],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.goldBadge.withValues(alpha: 0.45),
-                                    blurRadius: 22,
-                                    spreadRadius: 1,
-                                  ),
-                                  BoxShadow(
-                                    color: AppColors.premiumAccent.withValues(alpha: 0.35),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                                border: Border.all(color: Colors.white, width: 2.4),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(Icons.grid_view_rounded, color: Colors.white, size: 26),
-                            ),
-                          ),
-                        ),
-
                         // Nœuds de service.
                         for (var i = 0; i < nodes.length; i++)
                           Positioned(
@@ -1366,6 +1380,69 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
                               onTap: () => widget.onServiceTap(nodes[i].key),
                             ),
                           ),
+
+                        // Menu satellite du hub (Home / Mini Apps / Documents /
+                        // Profil / Scan QR) — apparaît autour du noyau central.
+                        for (var i = 0; i < hubItems.length; i++)
+                          Positioned(
+                            left: hubPositions[i].dx - (_hubMenuNodeSize / 2),
+                            top: hubPositions[i].dy - (_hubMenuNodeSize / 2),
+                            child: _HubSatelliteButton(
+                              visible: _menuExpanded,
+                              order: i,
+                              size: _hubMenuNodeSize,
+                              icon: hubItems[i].icon,
+                              label: hubItems[i].label,
+                              onTap: hubItems[i].onTap,
+                            ),
+                          ),
+
+                        // Noyau central — tap = ouvre/ferme le menu satellite.
+                        Positioned(
+                          left: center.dx - _hubRadius,
+                          top: center.dy - _hubRadius,
+                          child: GestureDetector(
+                            onTap: _toggleHubMenu,
+                            child: Transform.scale(
+                              scale: 1.0 + (_pulseController.value * 0.05),
+                              child: AnimatedRotation(
+                                turns: _menuExpanded ? 0.125 : 0,
+                                duration: const Duration(milliseconds: 220),
+                                child: Container(
+                                  width: _hubRadius * 2,
+                                  height: _hubRadius * 2,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [AppColors.goldBadge, AppColors.premiumAccent],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.goldBadge.withValues(alpha: 0.45),
+                                        blurRadius: 22,
+                                        spreadRadius: 1,
+                                      ),
+                                      BoxShadow(
+                                        color: AppColors.premiumAccent.withValues(alpha: 0.35),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
+                                    border: Border.all(color: Colors.white, width: 2.4),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    _menuExpanded ? Icons.close_rounded : Icons.grid_view_rounded,
+                                    color: Colors.white,
+                                    size: 26,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     );
                   },
@@ -1379,9 +1456,62 @@ class _ServicesConstellationState extends State<_ServicesConstellation>
   }
 }
 
+/// Petit bouton satellite du hub — apparaît/disparaît en fondu+scale autour
+/// du noyau central quand le menu est ouvert.
+class _HubSatelliteButton extends StatelessWidget {
+  final bool visible;
+  final int order;
+  final double size;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _HubSatelliteButton({
+    required this.visible,
+    required this.order,
+    required this.size,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: visible ? 1.0 : 0.4,
+      duration: Duration(milliseconds: 180 + order * 30),
+      curve: Curves.easeOutBack,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: Duration(milliseconds: 150 + order * 30),
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: Tooltip(
+            message: label,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.premiumAccent.withValues(alpha: 0.35), width: 1.2),
+                  boxShadow: AppShadows.secondary,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 15, color: AppColors.premiumAccent),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Dessine les branches noyau → service, avec un point lumineux ("filigrane
-/// filant") qui circule le long de chaque branche en continu, déphasé par
-/// nœud pour un effet de constellation vivante.
+/// filant") qui circule le long de chaque branche en continu.
 class _RadialBranchesPainter extends CustomPainter {
   final Offset center;
   final List<Offset> nodeOffsets;
@@ -1398,7 +1528,6 @@ class _RadialBranchesPainter extends CustomPainter {
     for (var i = 0; i < nodeOffsets.length; i++) {
       final end = nodeOffsets[i];
 
-      // Ligne de base (branche), dégradé or → bleu, très fine et discrète.
       final basePaint = Paint()
         ..shader = LinearGradient(
           colors: [
@@ -1411,12 +1540,10 @@ class _RadialBranchesPainter extends CustomPainter {
         ..style = PaintingStyle.stroke;
       canvas.drawLine(center, end, basePaint);
 
-      // Filigrane filant : déphasé par branche pour un effet "constellation".
       final phase = i / nodeOffsets.length;
       final t = (shineProgress + phase) % 1.0;
       final shinePos = Offset.lerp(center, end, t)!;
 
-      // Traînée (comète) : quelques points décroissants en amont.
       for (var trail = 1; trail <= 4; trail++) {
         final trailT = t - (trail * 0.03);
         if (trailT < 0) continue;
@@ -1429,7 +1556,6 @@ class _RadialBranchesPainter extends CustomPainter {
         );
       }
 
-      // Halo + noyau lumineux du filigrane.
       canvas.drawCircle(
         shinePos,
         7,
@@ -1589,7 +1715,6 @@ class _HeadlinesCarouselState extends State<_HeadlinesCarousel> {
     super.initState();
     final client = Supabase.instance.client;
 
-    // NOTE: adapte les noms de table/colonnes si ton schéma Supabase diffère.
     try {
       _articlesStream = client
           .from('thix_info_articles')
@@ -2027,215 +2152,6 @@ class _MiniRoundAction extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// BOUTON FLOTTANT UNIQUE — jaune, neutre à l'état initial. Tap simple =
-// ouvre les raccourcis (Home, Mini Apps, Documents, Profil, Scan QR).
-// ============================================================================
-
-class _NavSatelliteData {
-  final IconData icon;
-  final String label;
-  final VoidCallback Function(BuildContext) actionBuilder;
-
-  const _NavSatelliteData({
-    required this.icon,
-    required this.label,
-    required this.actionBuilder,
-  });
-}
-
-class _ExpandableNavFab extends StatefulWidget {
-  final VoidCallback onScanTap;
-  final VoidCallback onHomeTap;
-  final VoidCallback onMiniAppsTap;
-  final VoidCallback onDocumentsTap;
-  final VoidCallback onProfileTap;
-
-  const _ExpandableNavFab({
-    required this.onScanTap,
-    required this.onHomeTap,
-    required this.onMiniAppsTap,
-    required this.onDocumentsTap,
-    required this.onProfileTap,
-  });
-
-  @override
-  State<_ExpandableNavFab> createState() => _ExpandableNavFabState();
-}
-
-class _ExpandableNavFabState extends State<_ExpandableNavFab> {
-  bool _expanded = false;
-  Timer? _collapseTimer;
-
-  static const double _centralBottom = 14;
-  static const double _centralSize = 60;
-  static const double _satSize = 46;
-  static const double _satGap = 12;
-
-  @override
-  void dispose() {
-    _collapseTimer?.cancel();
-    super.dispose();
-  }
-
-  void _armAutoCollapse() {
-    _collapseTimer?.cancel();
-    _collapseTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted) setState(() => _expanded = false);
-    });
-  }
-
-  void _toggleExpand() {
-    HapticFeedback.mediumImpact();
-    setState(() => _expanded = !_expanded);
-    if (_expanded) {
-      _armAutoCollapse();
-    } else {
-      _collapseTimer?.cancel();
-    }
-  }
-
-  void _runSatellite(VoidCallback action) {
-    _collapseTimer?.cancel();
-    setState(() => _expanded = false);
-    action();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomSafe = MediaQuery.paddingOf(context).bottom;
-
-    final items = <_NavSatelliteData>[
-      _NavSatelliteData(icon: Icons.home_filled, label: 'Home', actionBuilder: (_) => widget.onHomeTap),
-      _NavSatelliteData(icon: Icons.apps_rounded, label: 'Mini Apps', actionBuilder: (_) => widget.onMiniAppsTap),
-      _NavSatelliteData(icon: Icons.folder_rounded, label: 'Documents', actionBuilder: (_) => widget.onDocumentsTap),
-      _NavSatelliteData(icon: Icons.person_outline_rounded, label: 'Profil', actionBuilder: (_) => widget.onProfileTap),
-      _NavSatelliteData(icon: Icons.qr_code_scanner_rounded, label: 'Scan QR', actionBuilder: (_) => widget.onScanTap),
-    ];
-
-    final totalHeight = _centralBottom +
-        _centralSize +
-        (items.length * (_satSize + _satGap)) +
-        bottomSafe +
-        30;
-
-    return SizedBox(
-      height: totalHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
-        children: [
-          for (var i = 0; i < items.length; i++)
-            _NavSatellite(
-              visible: _expanded,
-              bottomOffset:
-                  bottomSafe + _centralBottom + _centralSize + _satGap + i * (_satSize + _satGap),
-              order: i,
-              icon: items[i].icon,
-              label: items[i].label,
-              onTap: () => _runSatellite(items[i].actionBuilder(context)),
-            ),
-          Positioned(
-            bottom: bottomSafe + _centralBottom,
-            child: GestureDetector(
-              onTap: _toggleExpand,
-              child: AnimatedRotation(
-                turns: _expanded ? 0.125 : 0,
-                duration: const Duration(milliseconds: 220),
-                child: Container(
-                  width: _centralSize,
-                  height: _centralSize,
-                  decoration: BoxDecoration(
-                    color: AppColors.goldBadge,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.22),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _expanded ? Icons.close_rounded : Icons.apps_rounded,
-                    color: AppColors.bottomNavCenterIcon,
-                    size: 26,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavSatellite extends StatelessWidget {
-  final bool visible;
-  final double bottomOffset;
-  final int order;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _NavSatellite({
-    required this.visible,
-    required this.bottomOffset,
-    required this.order,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedPositioned(
-      duration: Duration(milliseconds: 200 + order * 40),
-      curve: Curves.easeOutBack,
-      bottom: visible ? bottomOffset : bottomOffset - 24,
-      child: AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: Duration(milliseconds: 160 + order * 40),
-        child: IgnorePointer(
-          ignoring: !visible,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.cardBorder, width: 0.6),
-                    boxShadow: AppShadows.main,
-                  ),
-                  child: Icon(icon, color: AppColors.premiumAccent, size: 20),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.darkNavy.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    label,
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
