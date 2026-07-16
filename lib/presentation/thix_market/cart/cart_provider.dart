@@ -68,11 +68,14 @@ class CartProvider extends ChangeNotifier {
   // ============================================================
   // CALCULS - CORRIGÉS
   // ============================================================
-  double get subtotal => _cartItems.fold(0.0, (sum, item) {
-    final product = Map<String, dynamic>.from(item['product'] as Map??? {});
-    final qty = (item['quantity']?? 0).toInt();
+  // CORRECTION : Remplace les ??? par ??
+double get subtotal => _cartItems.fold(0.0, (sum, item) {
+    // Si item['product'] est null, on utilise un Map vide {}
+    final product = Map<String, dynamic>.from(item['product'] as Map? ?? {});
+    final qty = (item['quantity'] ?? 0).toInt();
     return sum + (_getRealPrice(product) * qty);
-  });
+});
+
 
   double get originalSubtotal => _cartItems.fold(0.0, (sum, item) {
     final product = Map<String, dynamic>.from(item['product'] as Map??? {});
