@@ -21,12 +21,13 @@ class CartItemTile extends StatelessWidget {
     required this.onRemove,
   });
 
-  @override
+@override
   Widget build(BuildContext context) {
-    final product = cartItem['product'] as Map<String, dynamic>??? {};
-    final shop = product['shop'] as Map<String, dynamic>??? {};
-    final qty = (cartItem['quantity'] as int?)?? 1;
-
+    // 1. On utilise 'as Map<String, dynamic>? ?? {}' pour dire : 
+    // "Force en Map nullable, et si c'est null, remplace par un Map vide"
+    final product = (cartItem['product'] as Map<String, dynamic>?) ?? {};
+    final shop = (product['shop'] as Map<String, dynamic>?) ?? {};
+    final qty = (cartItem['quantity'] as int?) ?? 1;
     final hasDiscount = discountPercent > 0 && realPrice < oldPrice;
 
     final shopName = shop['name']?? product['shop_name']?? 'ZANDO GLOBAL';
