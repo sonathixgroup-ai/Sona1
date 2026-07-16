@@ -10,10 +10,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/market_provider.dart';
 import '../providers/shop_provider.dart';
 import '../widgets/market/flash_sale_timer.dart';
-import '../widgets/products/wishlist_button.dart'; // <-- Import de ton bouton Wishlist fonctionnel
+import '../widgets/products/wishlist_button.dart'; 
 
 // ============================================================
-// CHARTE GRAPHIQUE THIX MARKET — ROUGE & OR (fidèle à la maquette)
+// CHARTE GRAPHIQUE THIX MARKET — ROUGE & OR 
 // ============================================================
 class _MarketColors {
   static const Color redDark = Color(0xFF5C0E12);
@@ -67,13 +67,11 @@ class _MarketHomePageState extends State<MarketHomePage> {
   void _goToVendor() => context.pushNamed('vendorDashboard');
   void _goToCart() => context.pushNamed('marketCart');
   void _goToWishlist() => context.pushNamed('marketWishlist');
-  void _goToOrders() => context.pushNamed('marketOrders');
+  void _goToOrders() => context.pushNamed('marketOrders'); // Ouvre l'historique des commandes
   void _goToPriceAlerts() => context.pushNamed('marketPriceAlerts');
   void _goToActivity() => context.pushNamed('marketActivity');
   void _goToPriceComparator() => context.pushNamed('marketProductComparator');
   void _goToSearch() => context.pushNamed('marketSearch');
-  
-  // Pointe désormais vers le Dashboard Utilisateur comme demandé
   void _goToUserDashboard() => context.push('/user/dashboard'); 
 
   void _onNavTap(int index) {
@@ -83,16 +81,16 @@ class _MarketHomePageState extends State<MarketHomePage> {
       case 0: // Accueil
         _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
         break;
-      case 1: // Activité (A gauche)
-        _goToActivity();
+      case 1: // Commandes (A gauche, remplace Activité)
+        _goToOrders();
         break;
-      case 2: // Central : Panier
+      case 2: // Panier
         _goToCart();
         break;
       case 3: // Wishlist (A droite)
         _goToWishlist();
         break;
-      case 4: // Alertes Prix (A la place du profil)
+      case 4: // Alertes Prix
         _goToPriceAlerts();
         break;
     }
@@ -202,18 +200,15 @@ class _MarketHomePageState extends State<MarketHomePage> {
             SliverToBoxAdapter(child: _buildSearchBar()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
             
-            // LA NOUVELLE SECTION SUPERMARCHÉS EN NOIR
-            SliverToBoxAdapter(child: _buildCategorySection()),
+            // LA SECTION SUPERMARCHÉS (BANDE NOIRE + 4 LOGOS)
+            SliverToBoxAdapter(child: _buildSupermarketSection()),
             
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
             SliverToBoxAdapter(child: _buildPromoBannersRow()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
             SliverToBoxAdapter(child: _buildB2BTools()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            if (marketProvider.supermarkets.isNotEmpty) ...[
-              SliverToBoxAdapter(child: _buildSupermarketsSection(marketProvider.supermarkets)),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            ],
+            
             if (marketProvider.flashSales.isNotEmpty) ...[
               SliverToBoxAdapter(child: _buildFlashSaleSection(marketProvider.flashSales)),
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -301,7 +296,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
             children: [
               _headerIconButton(Icons.notifications_none_rounded, () => context.push('/market/notifications'), outline: true),
               const SizedBox(width: 10),
-              // Pointé vers le User Dashboard
               InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: _goToUserDashboard,
@@ -459,9 +453,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // BADGES DE CONFIANCE
-  // ============================================================
   Widget _buildTrustBadges() {
     final badges = [
       {'icon': Icons.lock_outline_rounded, 'label': 'Paiement sécurisé'},
@@ -494,9 +485,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // BARRE DE RECHERCHE
-  // ============================================================
   Widget _buildSearchBar() {
     return Container(
       color: _MarketColors.pureWhite,
@@ -545,45 +533,95 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // NOUVELLE SECTION SUPERMARCHÉS EN NOIR
+  // SECTION SUPERMARCHÉS : BANDE NOIRE + 4 LOGOS FICTIFS
   // ============================================================
-  Widget _buildCategorySection() {
+  Widget _buildSupermarketSection() {
+    final mockSupermarkets = [
+      {'name': 'Kin Marché', 'color': Colors.red.shade50, 'icon': Icons.shopping_basket_rounded, 'iconColor': Colors.red},
+      {'name': 'Super U', 'color': Colors.blue.shade50, 'icon': Icons.storefront_rounded, 'iconColor': Colors.blue},
+      {'name': 'Shoprite', 'color': Colors.green.shade50, 'icon': Icons.local_mall_rounded, 'iconColor': Colors.green},
+      {'name': 'Carrefour', 'color': Colors.orange.shade50, 'icon': Icons.shopping_cart_rounded, 'iconColor': Colors.orange},
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GestureDetector(
-        onTap: () => context.pushNamed('marketShops'),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _MarketColors.darkText, // Fond noir élégant
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _MarketColors.pureWhite.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.white, size: 28),
+      child: Column(
+        children: [
+          // La bande noire
+          GestureDetector(
+            onTap: () => context.pushNamed('marketShops'),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _MarketColors.darkText,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Supermarchés', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    const Text('Faites vos courses au supermarché à domicile.', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
-                  ],
-                ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _MarketColors.pureWhite.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Supermarchés', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                        const SizedBox(height: 4),
+                        const Text('Faites vos courses au supermarché à domicile.', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+                ],
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          // Les 4 logos fictifs en dessous
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: mockSupermarkets.map((store) {
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => context.pushNamed('marketShops'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: store['color'] as Color,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(store['icon'] as IconData, color: store['iconColor'] as Color, size: 26),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          store['name'] as String,
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: _MarketColors.darkText),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -654,9 +692,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // OUTILS B2B — Comparateur connecté
-  // ============================================================
   Widget _buildB2BTools() {
     final tools = [
       {'icon': Icons.compare_arrows_rounded, 'label': 'Comparer', 'action': _goToPriceComparator},
@@ -697,81 +732,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
     );
   }
 
-  // ============================================================
-  // SUPERMARCHÉS & DISTRIBUTEURS
-  // ============================================================
-  Widget _buildSupermarketsSection(List<dynamic> supermarkets) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('Partenaires officiels', () => context.pushNamed('marketShops')),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 120,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: supermarkets.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) {
-              final p = supermarkets[i] as Map<String, dynamic>;
-              return GestureDetector(
-                onTap: () => context.push('/market/shop/${p['id']}'),
-                child: Container(
-                  width: 200,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _MarketColors.pureWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _MarketColors.cardBorder),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(width: 50, height: 50, child: _networkImage(p['logo_url'])),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.verified_rounded, color: _MarketColors.red, size: 12),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(p['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: _MarketColors.darkText), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(p['category'] ?? 'Supermarché', style: const TextStyle(fontSize: 10, color: _MarketColors.mutedText, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(color: _MarketColors.creamBg, borderRadius: BorderRadius.circular(6)),
-                              child: const Text('Visiter la boutique', style: TextStyle(fontSize: 9, color: _MarketColors.redDark, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // OFFRES FLASH
-  // ============================================================
   Widget _buildFlashSaleSection(List<dynamic> flashSales) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -826,7 +786,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CARTE PRODUIT HORIZONTALE — INTÉGRATION WISHLIST FONCTIONNELLE
+  // CARTE PRODUIT HORIZONTALE 
   // ============================================================
   Widget _buildProductHorizontalCard(Map<String, dynamic> product, {bool isFlash = false}) {
     final currency = product['currency'] ?? 'FC';
@@ -865,7 +825,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         child: Text('-${product['discount_percent'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
                       ),
                     ),
-                  // BOUTON WISHLIST FONCTIONNEL
                   Positioned(
                     top: 4,
                     right: 4,
@@ -935,7 +894,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // CARTE PRODUIT VERTICALE — INTÉGRATION WISHLIST FONCTIONNELLE
+  // CARTE PRODUIT VERTICALE 
   // ============================================================
   Widget _buildProductCard(Map<String, dynamic> product) {
     final hasDiscount = product['discount_price'] != null && product['discount_price'] < product['price'];
@@ -975,7 +934,6 @@ class _MarketHomePageState extends State<MarketHomePage> {
                         child: Text('-${((1 - price / originalPrice) * 100).round()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
                       ),
                     ),
-                  // BOUTON WISHLIST FONCTIONNEL
                   Positioned(
                     top: 6,
                     right: 6,
@@ -1058,7 +1016,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
   }
 
   // ============================================================
-  // BOTTOM NAV BAR (Mise à jour : Activité, Alertes, Panier, Wishlist)
+  // BOTTOM NAV BAR (CORRIGÉE : Panier, Commandes, Wishlist)
   // ============================================================
   Widget _buildBottomNavBar() {
     return Container(
@@ -1076,17 +1034,19 @@ class _MarketHomePageState extends State<MarketHomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _navItem(Icons.home_rounded, 'Accueil', 0),
-                  _navItem(Icons.history_rounded, 'Activité', 1), // A gauche : my activiter
-                  const SizedBox(width: 56), // espace pour le bouton central (Panier)
-                  _navItem(Icons.favorite_rounded, 'Wishlist', 3), // A droite : Wishlist
-                  _navItem(Icons.notifications_active_rounded, 'Alertes', 4), // A la place du profil : Prix alert
+                  // Remplacement de Activité par Commandes
+                  _navItem(Icons.receipt_long_rounded, 'Commandes', 1), 
+                  const SizedBox(width: 56), 
+                  _navItem(Icons.favorite_rounded, 'Wishlist', 3), 
+                  _navItem(Icons.notifications_active_rounded, 'Alertes', 4), 
                 ],
               ),
-              // Au milieu : Panier
+              // Bouton Panier Central (Forcé pour réagir au clic direct)
               Positioned(
                 top: -18,
                 child: GestureDetector(
-                  onTap: () => _onNavTap(2),
+                  onTap: _goToCart, // ✅ Appelle directement la fonction du panier
+                  behavior: HitTestBehavior.opaque, // ✅ Assure que le clic est toujours détecté
                   child: Container(
                     width: 58,
                     height: 58,
