@@ -61,7 +61,7 @@ class SellProvider extends ChangeNotifier {
     // ============================================================
   // 2. CHARGEMENT DES COMMANDES (VERSION LIAISON order_items)
   // ============================================================
-  Future<void> loadOrders() async {
+    Future<void> loadOrders() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
     
@@ -69,28 +69,36 @@ class SellProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Étape 1 : Récupérer les boutiques
+      // 1. Mes boutiques
       final shopResponse = await _supabase.from('shops').select('id').eq('owner_id', userId);
-      final shopIds = shopResponse.map((e) => e['id']).toList();
+      final shopIds = shopResponse.map((e) => e['id'].toString()).toList();
+
+      debugPrint("🛍️ Mes shops: $shopIds");
 
       if (shopIds.isEmpty) {
         _orders = [];
         return;
       }
 
-      // Étape 2 : La requête avec jointure sur order_items
-      // On utilise !inner pour ne récupérer QUE les commandes ayant des produits de ces boutiques
+      // 2. Les commandes où orders.shop_id est dans mes shops
       final response = await _supabase
           .from('orders')
-          .select('*, order_items!inner(shop_id)') 
-          .inFilter('order_items.shop_id', shopIds)
+          .select('''
+            *,
+            order_items(
+              *,
+              products(name, image_url, price)
+            )
+          ''')
+          .inFilter('shop_id', shopIds)
           .order('created_at', ascending: false);
 
       _orders = List<Map<String, dynamic>>.from(response);
-      debugPrint("✅ Commandes chargées : ${_orders.length}");
-      
-    } catch (e) {
-      debugPrint("🚨 ERREUR CRITIQUE DANS LOADORDERS : $e");
+      debugPrint("✅ Commandes vendeur trouvées : ${_orders.length}");
+
+    } catch (e, stack) {
+      debugPrint("🚨 ERREUR loadOrders: $e");
+      debugPrint("$stack");
       _orders = [];
     } finally {
       _isLoadingOrders = false;
