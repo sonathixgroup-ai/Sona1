@@ -1,10 +1,11 @@
 // Route: lib/presentation/chat/chat_screen.dart
-// Version ULTRA COMPLÈTE - Aucune coupe - Avec Appel Audio/Video Agora
+// Version ULTRA COMPLÈTE - Aucune coupe - Avec Appel Audio/Video Agora + Menu Actions Message
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
@@ -113,6 +114,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   static const Color danger = Color(0xFFD64545);
   static const Color hairline = Color(0xFFE7EAF3);
 
+  // Réactions rapides (menu action message)
+  static const List<String> _quickReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
+
   // ============================================================
   // CYCLE DE VIE
   // ============================================================
@@ -143,7 +147,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadUserRole() async {
     final user = _chatService.currentUser;
-    if (user!= null) {
+    if (user != null) {
       _isAgent = user.role == 'agent' || user.role == 'admin' || user.role == 'support';
       setState(() {});
     }
@@ -173,7 +177,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadMessages({bool loadMore = false}) async {
     if (loadMore) {
-      if (_isLoadingMore ||!_hasMoreMessages) return;
+      if (_isLoadingMore || !_hasMoreMessages) return;
       setState(() => _isLoadingMore = true);
     } else {
       setState(() => _isLoading = true);
@@ -189,7 +193,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         if (loadMore) {
-          _messages = [...msgs.reversed,..._messages];
+          _messages = [...msgs.reversed, ..._messages];
           _hasMoreMessages = msgs.length >= _pageSize;
         } else {
           _messages = msgs;
@@ -222,7 +226,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.addListener(() {
       final position = _scrollController.position;
       if (position.pixels >= position.maxScrollExtent - 200) {
-        if (_hasMoreMessages &&!_isLoadingMore) {
+        if (_hasMoreMessages && !_isLoadingMore) {
           _page++;
           _loadMessages(loadMore: true);
         }
@@ -251,12 +255,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
     final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id!= _chatService.currentUserId,
+      (id) => id != _chatService.currentUserId,
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
       _presenceStream = _chatService.subscribeToPresence([otherId]).map(
-        (list) => list.isNotEmpty? list.first : null,
+        (list) => list.isNotEmpty ? list.first : null,
       );
       _presenceStream?.listen((status) {
         if (mounted) setState(() => _otherParticipant = status);
@@ -267,7 +271,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _getParticipantInfo() async {
     if (widget.conversation.isGroup) return;
     final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id!= _chatService.currentUserId,
+      (id) => id != _chatService.currentUserId,
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
@@ -282,13 +286,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _subscribeToRealtimeMessages() {
     _messageSubscription = _chatService
-       .subscribeToMessages(widget.conversationId)
-       .listen((updatedMsgs) {
+        .subscribeToMessages(widget.conversationId)
+        .listen((updatedMsgs) {
       if (!mounted) return;
       setState(() {
         for (var msg in updatedMsgs) {
           final index = _messages.indexWhere((m) => m.id == msg.id);
-          if (index!= -1) {
+          if (index != -1) {
             if (msg.isDeleted) {
               _messages.removeAt(index);
             } else {
@@ -308,50 +312,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ============================================================
 
   void _subscribeToTypingChannel() {
-  final currentUserId = _chatService.currentUserId;
+    final currentUserId = _chatService.currentUserId;
 
-  _typingChannel = Supabase.instance.client
-      .channel('typing:${widget.conversationId}')
-      .onBroadcast(
-        event: 'typing',
-        callback: (payload) {
-          final senderId = payload['senderId'] as String?;
-          final isTyping = (payload['isTyping'] as bool?) ?? false;
+    _typingChannel = Supabase.instance.client
+        .channel('typing:${widget.conversationId}')
+        .onBroadcast(
+          event: 'typing',
+          callback: (payload) {
+            final senderId = payload['senderId'] as String?;
+            final isTyping = (payload['isTyping'] as bool?) ?? false;
 
-          if (senderId != null &&
-              senderId != currentUserId &&
-              mounted) {
-            setState(() => _otherUserTyping = isTyping);
-          }
-        },
-      )
-      .subscribe();
-}
+            if (senderId != null && senderId != currentUserId && mounted) {
+              setState(() => _otherUserTyping = isTyping);
+            }
+          },
+        )
+        .subscribe();
+  }
 
-void _sendTypingStatus(bool typing) {
-  final currentUserId = _chatService.currentUserId;
+  void _sendTypingStatus(bool typing) {
+    final currentUserId = _chatService.currentUserId;
 
-  if (currentUserId == null || _typingChannel == null) return;
+    if (currentUserId == null || _typingChannel == null) return;
 
-  _typingChannel!.sendBroadcastMessage(
-    event: 'typing',
-    payload: {
-      'senderId': currentUserId,
-      'isTyping': typing,
-    },
-  );
-}
+    _typingChannel!.sendBroadcastMessage(
+      event: 'typing',
+      payload: {
+        'senderId': currentUserId,
+        'isTyping': typing,
+      },
+    );
+  }
 
   // ============================================================
-  // APPEL AUDIO / VIDEO - NOUVEAU - NE SUPPRIME RIEN
+  // APPEL AUDIO / VIDEO - AGORA
   // ============================================================
 
   void _startCall(CallType type) {
     final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id!= _chatService.currentUserId,
+      (id) => id != _chatService.currentUserId,
       orElse: () => '',
     );
-    if (otherId.isEmpty &&!widget.conversation.isGroup) {
+    if (otherId.isEmpty && !widget.conversation.isGroup) {
       _showSnackBar('Participant introuvable', danger);
       return;
     }
@@ -393,9 +395,9 @@ void _sendTypingStatus(bool typing) {
       final msg = await _chatService.sendMessage(
         conversationId: widget.conversationId,
         content: text,
-        replyToId: _replyToId.isEmpty? null : _replyToId,
+        replyToId: _replyToId.isEmpty ? null : _replyToId,
         isEphemeral: _isEphemeral,
-        ephemeralDuration: _isEphemeral? _ephemeralDuration : null,
+        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
       );
 
       setState(() {
@@ -424,8 +426,8 @@ void _sendTypingStatus(bool typing) {
         audioData: Uint8List.fromList(bytes),
         duration: duration,
         isEphemeral: _isEphemeral,
-        ephemeralDuration: _isEphemeral? _ephemeralDuration : null,
-        replyToId: _replyToId.isEmpty? null : _replyToId,
+        ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        replyToId: _replyToId.isEmpty ? null : _replyToId,
       );
       setState(() {
         _messages.add(msg);
@@ -593,10 +595,10 @@ void _sendTypingStatus(bool typing) {
                   await _chatService.sendMessage(
                     conversationId: widget.conversationId,
                     content: encrypted,
-                    replyToId: _replyToId.isEmpty? null : _replyToId,
+                    replyToId: _replyToId.isEmpty ? null : _replyToId,
                     isEphemeral: _isEphemeral,
                     ephemeralDuration:
-                        _isEphemeral? _ephemeralDuration : null,
+                        _isEphemeral ? _ephemeralDuration : null,
                   );
                   if (context.mounted) Navigator.pop(ctx);
                 } catch (e) {
@@ -614,7 +616,7 @@ void _sendTypingStatus(bool typing) {
   }
 
   // ============================================================
-  // MÉNU ÉPHÉMÈRE
+  // MENU ÉPHÉMÈRE
   // ============================================================
 
   void _showEphemeralTimerDialog() {
@@ -699,17 +701,17 @@ void _sendTypingStatus(bool typing) {
     return ListTile(
       leading: Icon(
         Icons.timer_rounded,
-        color: isSelected? navy : darkText,
+        color: isSelected ? navy : darkText,
       ),
       title: Text(
         label,
         style: TextStyle(
-          fontWeight: isSelected? FontWeight.w800 : FontWeight.w500,
-          color: isSelected? navy : darkText,
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+          color: isSelected ? navy : darkText,
         ),
       ),
       trailing: isSelected
-         ? const Icon(Icons.check_circle_rounded, color: gold)
+          ? const Icon(Icons.check_circle_rounded, color: gold)
           : null,
       onTap: () {
         setState(() {
@@ -726,7 +728,7 @@ void _sendTypingStatus(bool typing) {
   // ============================================================
 
   void _onTypingChanged(String text) {
-    if (text.isNotEmpty &&!_isTyping) {
+    if (text.isNotEmpty && !_isTyping) {
       _isTyping = true;
       _sendTypingStatus(true);
     } else if (text.isEmpty && _isTyping) {
@@ -748,6 +750,226 @@ void _sendTypingStatus(bool typing) {
   // ============================================================
 
   void _cancelReply() => setState(() => _replyToId = '');
+
+  // ============================================================
+  // MENU D'ACTIONS SUR UN MESSAGE (long-press) — style capture
+  // ============================================================
+
+  void _showMessageActions(ChatMessage msg, bool isOwn) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.35,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: pureWhite,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: hairline,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    // Aperçu de la bulle du message concerné
+                    Align(
+                      alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isOwn ? primaryBlue : ivory,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(18),
+                            topRight: const Radius.circular(18),
+                            bottomLeft: Radius.circular(isOwn ? 18 : 4),
+                            bottomRight: Radius.circular(isOwn ? 4 : 18),
+                          ),
+                        ),
+                        child: Text(
+                          msg.content,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.3,
+                            fontWeight: FontWeight.w500,
+                            color: isOwn ? Colors.white : darkText,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    const Text(
+                      'React',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: darkText),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: _quickReactions.map((emoji) {
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            _chatService.toggleReaction(msg.id, emoji);
+                            Navigator.pop(ctx);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 1, color: hairline),
+                    _actionTile(
+                      icon: Icons.reply_rounded,
+                      label: 'Reply',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        setState(() => _replyToId = msg.id);
+                        _inputFocus.requestFocus();
+                      },
+                    ),
+                    Container(height: 1, color: hairline),
+                    _actionTile(
+                      icon: Icons.forward_rounded,
+                      label: 'Forward',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _forwardMessage(msg);
+                      },
+                    ),
+                    Container(height: 1, color: hairline),
+                    _actionTile(
+                      icon: Icons.copy_rounded,
+                      label: 'Copy',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Clipboard.setData(ClipboardData(text: msg.content));
+                        _showSnackBar('Message copié', navy);
+                      },
+                    ),
+                    Container(height: 1, color: hairline),
+                    _actionTile(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: danger,
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        setState(() => _messages.removeWhere((m) => m.id == msg.id));
+                        if (isOwn) {
+                          try {
+                            await _chatService.deleteMessage(msg.id);
+                          } catch (_) {}
+                        }
+                      },
+                    ),
+                    Container(height: 1, color: hairline),
+                    _actionTile(
+                      icon: Icons.more_horiz_rounded,
+                      label: 'More..',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showMoreMessageOptions(msg, isOwn);
+                      },
+                      showDivider: false,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = darkText,
+    bool showDivider = true,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color),
+            ),
+            Icon(icon, size: 20, color: color == danger ? danger : mutedText),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _forwardMessage(ChatMessage msg) {
+    // Ouvre la sélection de conversation pour transférer.
+    Navigator.pushNamed(
+      context,
+      '/chat/forward',
+      arguments: {'messageId': msg.id, 'content': msg.content},
+    );
+  }
+
+  void _showMoreMessageOptions(ChatMessage msg, bool isOwn) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline_rounded, color: navy),
+              title: const Text('Détails du message'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+            if (_isAgent)
+              ListTile(
+                leading: const Icon(Icons.sticky_note_2_outlined, color: Colors.orange),
+                title: const Text('Marquer comme note interne'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   // ============================================================
   // GESTION DES MÉDIAS — MENU D'ATTACHEMENT
@@ -855,7 +1077,7 @@ void _sendTypingStatus(bool typing) {
   }
 
   // ============================================================
-  // GESTION DES FICHIERS - INTEGRLA - AUCUNE COUPE
+  // GESTION DES FICHIERS - INTEGRAL - AUCUNE COUPE
   // ============================================================
 
   Future<void> _pickFile({FileType type = FileType.any}) async {
@@ -868,8 +1090,8 @@ void _sendTypingStatus(bool typing) {
       if (result == null || result.files.isEmpty) return;
 
       final file = result.files.first;
-      final bytes = file.bytes?? await File(file.path!).readAsBytes();
-      final extension = file.extension?? 'file';
+      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final extension = file.extension ?? 'file';
       final size = file.size;
 
       String mimeType = _getMimeType(extension);
@@ -883,7 +1105,7 @@ void _sendTypingStatus(bool typing) {
         extension: extension,
       );
 
-      if (confirmed!= true) return;
+      if (confirmed != true) return;
 
       final url = await _chatService.uploadFileWithUniqueName(
         'chat-media',
@@ -892,7 +1114,7 @@ void _sendTypingStatus(bool typing) {
         extension,
       );
 
-      if (url!= null) {
+      if (url != null) {
         await _chatService.sendMessage(
           conversationId: widget.conversationId,
           content: '📎 ${file.name}',
@@ -902,7 +1124,7 @@ void _sendTypingStatus(bool typing) {
           mediaSize: size,
           mimeType: mimeType,
           isEphemeral: _isEphemeral,
-          ephemeralDuration: _isEphemeral? _ephemeralDuration : null,
+          ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
         );
         _scrollToBottom();
       }
@@ -1205,19 +1427,19 @@ void _sendTypingStatus(bool typing) {
       'chatEscalate',
       pathParameters: {'conversationId': widget.conversationId},
       queryParameters: {
-        'agentId': _chatService.currentUserId?? '',
-        'agentName': _chatService.currentUser?.userMetadata?['full_name']?? 'Agent',
+        'agentId': _chatService.currentUserId ?? '',
+        'agentName': _chatService.currentUser?.userMetadata?['full_name'] ?? 'Agent',
       },
     );
   }
 
   void _toggleInternalNoteMode() {
     setState(() {
-      _isInternalNoteMode =!_isInternalNoteMode;
+      _isInternalNoteMode = !_isInternalNoteMode;
     });
     _showSnackBar(
-      _isInternalNoteMode? 'Mode note interne activé' : 'Mode note interne désactivé',
-      _isInternalNoteMode? Colors.orange : mutedText,
+      _isInternalNoteMode ? 'Mode note interne activé' : 'Mode note interne désactivé',
+      _isInternalNoteMode ? Colors.orange : mutedText,
     );
   }
 
@@ -1253,11 +1475,10 @@ void _sendTypingStatus(bool typing) {
               onLeaveGroup: _leaveGroup,
               onDeleteGroup: _deleteGroup,
             ),
-          if (_isConversationEscalated)
-            _buildEscalationIndicator(),
+          if (_isConversationEscalated) _buildEscalationIndicator(),
           Expanded(
             child: _isLoading
-               ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+                ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                 : _buildMessageList(),
           ),
           if (_replyToId.isNotEmpty) _buildReplyIndicator(),
@@ -1272,7 +1493,7 @@ void _sendTypingStatus(bool typing) {
             onEphemeralToggle: _showEphemeralTimerDialog,
             isEphemeral: _isEphemeral,
             onTyping: _onTypingChanged,
-            onInternalNoteToggle: _isAgent? _toggleInternalNoteMode : null,
+            onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null,
             isInternalNote: _isInternalNoteMode,
           ),
         ],
@@ -1287,7 +1508,7 @@ void _sendTypingStatus(bool typing) {
           controller: _scrollController,
           reverse: true,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          itemCount: _messages.length + (_isLoadingMore? 1 : 0),
+          itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
           itemBuilder: (ctx, index) {
             if (index == _messages.length && _isLoadingMore) {
               return const Padding(
@@ -1300,28 +1521,31 @@ void _sendTypingStatus(bool typing) {
             final msg = _messages[_messages.length - 1 - index];
             final isOwn = msg.senderId == _chatService.currentUserId;
 
-            return ChatMessageBubble(
-              message: msg,
-              isOwn: isOwn,
-              onReply: () => setState(() => _replyToId = msg.id),
-              onDelete: () async {
-                setState(() => _messages.removeWhere((m) => m.id == msg.id));
-                if (isOwn) {
-                  try {
-                    await _chatService.deleteMessage(msg.id);
-                  } catch (_) {}
-                }
-              },
-              onReaction: (r) => _chatService.toggleReaction(msg.id, r),
-              replyToMessage: msg.replyToId!= null
-                 ? _messages.firstWhere(
-                      (m) => m.id == msg.replyToId,
-                      orElse: () => msg,
-                    )
-                  : null,
-              isEphemeralActive: msg.isEphemeral,
-              isInternalNote: msg.isInternalNote?? false,
-              isAgentView: _isAgent,
+            return GestureDetector(
+              onLongPress: () => _showMessageActions(msg, isOwn),
+              child: ChatMessageBubble(
+                message: msg,
+                isOwn: isOwn,
+                onReply: () => setState(() => _replyToId = msg.id),
+                onDelete: () async {
+                  setState(() => _messages.removeWhere((m) => m.id == msg.id));
+                  if (isOwn) {
+                    try {
+                      await _chatService.deleteMessage(msg.id);
+                    } catch (_) {}
+                  }
+                },
+                onReaction: (r) => _chatService.toggleReaction(msg.id, r),
+                replyToMessage: msg.replyToId != null
+                    ? _messages.firstWhere(
+                        (m) => m.id == msg.replyToId,
+                        orElse: () => msg,
+                      )
+                    : null,
+                isEphemeralActive: msg.isEphemeral,
+                isInternalNote: msg.isInternalNote ?? false,
+                isAgentView: _isAgent,
+              ),
             );
           },
         ),
@@ -1350,7 +1574,7 @@ void _sendTypingStatus(bool typing) {
   }
 
   // ============================================================
-  // APP BAR - AVEC CALLS BRANCHES
+  // APP BAR - AVEC CALLS BRANCHÉS
   // ============================================================
 
   PreferredSizeWidget _buildAppBar() {
@@ -1382,10 +1606,10 @@ void _sendTypingStatus(bool typing) {
               radius: 19,
               backgroundColor: navy,
               backgroundImage: widget.conversation.isGroup
-                 ? null
+                  ? null
                   : const NetworkImage('https://i.pravatar.cc/150?img=11'),
               child: widget.conversation.isGroup
-                 ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18)
+                  ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18)
                   : null,
             ),
           ),
@@ -1400,7 +1624,7 @@ void _sendTypingStatus(bool typing) {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (!widget.conversation.isGroup && _otherParticipant!= null)
+                if (!widget.conversation.isGroup && _otherParticipant != null)
                   Row(
                     children: [
                       Container(
@@ -1408,16 +1632,14 @@ void _sendTypingStatus(bool typing) {
                         height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: (_otherParticipant!.status == 'online')
-                             ? success
-                              : Colors.white38,
+                          color: (_otherParticipant!.status == 'online') ? success : Colors.white38,
                         ),
                       ),
                       const SizedBox(width: 5),
                       Text(
                         (_otherParticipant!.status == 'online')
-                           ? 'En ligne'
-                            : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt?? DateTime.now())}',
+                            ? 'En ligne'
+                            : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}',
                         style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -1519,9 +1741,7 @@ void _sendTypingStatus(bool typing) {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  reply.senderId == _chatService.currentUserId
-                     ? 'Vous'
-                      : reply.senderName,
+                  reply.senderId == _chatService.currentUserId ? 'Vous' : reply.senderName,
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: navy),
                 ),
                 Text(
@@ -1624,7 +1844,7 @@ class _TypingDotsState extends State<_TypingDots>
           builder: (context, child) {
             double offset = (index * 0.2);
             double value = (_controller.value + offset) % 1.0;
-            double opacity = value < 0.5? value * 2 : 1 - ((value - 0.5) * 2);
+            double opacity = value < 0.5 ? value * 2 : 1 - ((value - 0.5) * 2);
             return Opacity(
               opacity: opacity,
               child: Container(
