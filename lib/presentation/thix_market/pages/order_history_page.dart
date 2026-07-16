@@ -15,9 +15,8 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   bool _isLoading = true;
   String? _error;
   String _filter = 'all';
-
+  
   static const Color primaryBlue = Color(0xFF1A73E8);
-  static const Color bgLight = Color(0xFFF8F9FA);
 
   @override
   void initState() {
@@ -26,100 +25,107 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   }
 
   Future<void> _loadOrders() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() => _isLoading = true);
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) { setState(() { _orders = []; _isLoading = false; }); return; }
+      final uid = supabase.auth.currentUser!.id;
+      
+      var q = supabase.from('orders').select().eq('user_id', uid);
+      if (_filter != 'all') q = q.eq('status', _filter);
+      
+      final res = await q.order('created_at', ascending: false);
+      final List<Map<String, dynamic>> ordersList = List<Map<String, dynamic>>.from(res as List);
 
-      // 1. On charge les commandes SANS jointure
-      var query = supabase.from('orders').select().eq('user_id', userId);
-      if (_filter!= 'all') query = query.eq('status', _filter);
-      final ordersRes = await query.order('created_at', ascending: false);
-      final ordersList = List<Map<String, dynamic>>.from(ordersRes as List);
-
-      // 2. Pour chaque commande, on charge ses items et sa boutique séparément
       final List<Map<String, dynamic>> fullOrders = [];
-      for (var order in ordersList) {
-        final orderId = order['id'];
-        Map<String, dynamic>? shopData;
-        List<Map<String, dynamic>> itemsData = [];
-
-        try {
-          itemsData = List<Map<String, dynamic>>.from(
-            await supabase.from('order_items').select().eq('order_id', orderId)
-          );
-        } catch (e) { debugPrint('items error $orderId: $e'); }
-
-        try {
-          final shopId = order['shop_id'];
-          if (shopId!= null) {
-            final s = await supabase.from('shops').select('name, logo_url').eq('id', shopId).maybeSingle();
-            if (s!= null) shopData = Map<String, dynamic>.from(s);
+      for (var o in ordersList) {
+        final items = List<Map<String, dynamic>>.from(
+          await supabase.from('order_items').select().eq('order_id', o['id'])
+        );
+        
+        Map<String, dynamic>? shop;
+        if (o['shop_id'] != null) {
+          shop = await supabase.from('shops').select('name, logo_url, owner_id').eq('id', o['shop_id']).maybeSingle();
+          if (shop != null && shop['owner_id'] != null) {
+            final prof = await supabase.from('profiles').select('full_name').eq('id', shop['owner_id']).maybeSingle();
+            if (prof != null) shop['vendor_name'] = prof['full_name'];
           }
-        } catch (e) { debugPrint('shop error: $e'); }
-
-        fullOrders.add({
-         ...order,
-          'items': itemsData,
-          'shop': shopData,
-        });
+        }
+        fullOrders.add({...o, 'items': items, 'shop': shop});
       }
-
-      setState(() { _orders = fullOrders; _isLoading = false; });
-    } catch (e, st) {
-      debugPrint('🚨 Erreur commandes: $e\n$st');
-      setState(() { _error = e.toString(); _isLoading = false; });
+      if (mounted) setState(() { _orders = fullOrders; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
 
-  String _formatDate(String? d){ if(d==null) return ''; try{return DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(d));}catch(_){return d;}}
-  Color _getStatusColor(String s){ switch(s){case 'pending':return Colors.orange;case 'processing':return Colors.blue;case 'shipped':return Colors.purple;case 'delivered':return Colors.green;case 'cancelled':return Colors.red;default:return Colors.grey;}}
-  String _getStatusLabel(String s){ switch(s){case 'pending':return 'En attente';case 'processing':return 'Préparation';case 'shipped':return 'Expédiée';case 'delivered':return 'Livrée';case 'cancelled':return 'Annulée';default:return s;}}
+  Future<void> _cancelOrder(String orderId) async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Annuler la commande ?'),
+      content: const Text('Cette action est irréversible.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Non')),
+        ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(context, true), child: const Text('Oui', style: TextStyle(color: Colors.white)))
+      ],
+    ));
+    if (confirm != true) return;
+    try {
+      await Supabase.instance.client.from('orders').update({'status': 'cancelled'}).eq('id', orderId);
+      _loadOrders();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Commande annulée')));
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'))); }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgLight,
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Historique des commandes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87)),
-        backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black87), onPressed: () => context.pop()),
-        actions: [IconButton(icon: const Icon(Icons.refresh, color: Colors.black87), onPressed: _loadOrders)],
-        bottom: PreferredSize(preferredSize: const Size.fromHeight(48), child: _buildFilterChips()),
+        title: const Text('Historique', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white, elevation: 0.5,
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loadOrders)],
+        bottom: PreferredSize(preferredSize: const Size.fromHeight(50), child: _buildFilters()),
       ),
-      body: _isLoading? const Center(child: CircularProgressIndicator(color: primaryBlue))
-          : _error!= null? _buildErrorState()
-          : _orders.isEmpty? _buildEmptyState()
-          : RefreshIndicator(onRefresh: _loadOrders, color: primaryBlue,
-              child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: _orders.length, itemBuilder: (_, i) => _buildOrderCard(_orders[i]))),
+      body: _isLoading ? const Center(child: CircularProgressIndicator()) 
+            : _orders.isEmpty ? const Center(child: Text('Aucune commande')) 
+            : RefreshIndicator(onRefresh: _loadOrders, child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: _orders.length, itemBuilder: (_, i) => _card(_orders[i]))),
     );
   }
 
-  Widget _buildFilterChips(){
-    final filters=[{'key':'all','label':'Tous'},{'key':'pending','label':'En attente'},{'key':'processing','label':'Préparation'},{'key':'shipped','label':'Expédiée'},{'key':'delivered','label':'Livrée'},{'key':'cancelled','label':'Annulée'}];
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-        child: Row(children: filters.map((f){ final sel=_filter==f['key']; return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(f['label'] as String), selected: sel, onSelected: (_){setState(()=>_filter=f['key'] as String);_loadOrders();}, selectedColor: primaryBlue, labelStyle: TextStyle(color: sel?Colors.white:Colors.black87, fontWeight: sel?FontWeight.w600:FontWeight.w400), backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: sel?primaryBlue:Colors.grey[300]!)), showCheckmark: false));}).toList())));
+  Widget _buildFilters() {
+    final f = [{'k':'all','l':'Tous'},{'k':'pending','l':'En attente'},{'k':'processing','l':'Préparation'},{'k':'shipped','l':'Expédiée'},{'k':'delivered','l':'Livrée'}];
+    return SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+      child: Row(children: f.map((e){ final sel=_filter==e['k']; return Padding(padding: const EdgeInsets.only(right:8), child: ChoiceChip(label: Text(e['l']!), selected: sel, selectedColor: primaryBlue, onSelected: (_){ setState(()=> _filter=e['k']!); _loadOrders(); })); }).toList()));
   }
 
-  Widget _buildOrderCard(Map<String, dynamic> order){
-    final status=order['status']??'pending'; final total=(order['total'] as num?)?.toDouble()??0; final createdAt=_formatDate(order['created_at']);
-    final items=List<Map<String,dynamic>>.from(order['items']??[]); final shop=order['shop'] as Map?; final statusColor=_getStatusColor(status);
-    final String currency=order['currency']??(items.isNotEmpty?items.first['currency']:null)??'FCFA';
-    return Card(margin: const EdgeInsets.only(bottom:12), elevation:0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey[200]!)),
-      child: InkWell(onTap: ()=>context.pushNamed('marketOrderDetail', pathParameters:{'orderId':order['id'].toString()}), borderRadius: BorderRadius.circular(12),
-        child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children:[Expanded(child: Text('Commande #${order['id'].toString().substring(0,8)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize:16), overflow: TextOverflow.ellipsis)), Container(padding: const EdgeInsets.symmetric(horizontal:10,vertical:4), decoration: BoxDecoration(color: statusColor.withValues(alpha:0.1), borderRadius: BorderRadius.circular(12)), child: Text(_getStatusLabel(status), style: TextStyle(color: statusColor, fontWeight: FontWeight.w600, fontSize:12))) ] ),
-          const SizedBox(height:8), Row(children:[Icon(Icons.access_time,size:14,color:Colors.grey[500]), const SizedBox(width:4), Text(createdAt, style:TextStyle(fontSize:12,color:Colors.grey[500]))]),
-          const SizedBox(height:12),
-          if(shop!=null) Row(children:[CircleAvatar(radius:14, backgroundImage: shop['logo_url']!=null?CachedNetworkImageProvider(shop['logo_url']):null, child: shop['logo_url']==null?const Icon(Icons.store,size:14):null), const SizedBox(width:8), Expanded(child: Text(shop['name']??'Boutique', style: const TextStyle(fontWeight: FontWeight.w500)))]),
-          const SizedBox(height:12),
-          if(items.isNotEmpty)...[...items.take(2).map((item){ final p=(item['price'] as num?)?.toDouble()??0; final ic=item['currency']??currency; return Padding(padding: const EdgeInsets.only(bottom:6), child: Row(children:[ClipRRect(borderRadius: BorderRadius.circular(6), child: item['product_image']!=null?CachedNetworkImage(imageUrl:item['product_image'], width:40, height:40, fit:BoxFit.cover, errorWidget:(_,__,___)=>_buildFallbackImage()):_buildFallbackImage()), const SizedBox(width:10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[Text(item['product_name']??'Produit', style: const TextStyle(fontWeight:FontWeight.w500), maxLines:1, overflow:TextOverflow.ellipsis), Text('${item['quantity']} x ${p.toStringAsFixed(p.truncateToDouble()==p?0:2)} $ic', style:TextStyle(fontSize:12,color:Colors.grey[600]))]))]));}), if(items.length>2) Padding(padding: const EdgeInsets.only(top:4), child: Text('et ${items.length-2} autre(s) article(s)', style:TextStyle(fontSize:12,color:Colors.grey[600])))],
-          const Divider(height:24), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children:[const Text('Total', style:TextStyle(fontWeight:FontWeight.bold)), Text('${total.toStringAsFixed(total.truncateToDouble()==total?0:2)} $currency', style: const TextStyle(fontWeight:FontWeight.bold,fontSize:18,color:primaryBlue))])
+  Widget _card(Map<String, dynamic> o) {
+    final status = o['status'] ?? 'pending';
+    final total = (o['total'] as num?)?.toDouble() ?? 0;
+    final items = List<Map<String, dynamic>>.from(o['items'] ?? []);
+    final shop = o['shop'] as Map?;
+    final currency = o['currency'] ?? 'XOF';
+
+    return Card(margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(onTap: () => context.pushNamed('marketOrderDetail', pathParameters: {'orderId': o['id'].toString()}), borderRadius: BorderRadius.circular(12),
+        child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Commande #${o['id'].toString().substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(status.toUpperCase(), style: TextStyle(color: status=='delivered'?Colors.green:Colors.orange, fontWeight: FontWeight.bold, fontSize: 12))
+          ]),
+          const SizedBox(height: 10),
+          if(shop != null) Text('Vendeur: ${shop['vendor_name'] ?? shop['name']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ...items.take(1).map((it) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: ClipRRect(borderRadius: BorderRadius.circular(4), child: CachedNetworkImage(imageUrl: it['product_image'] ?? '', width: 40, height: 40, fit: BoxFit.cover)),
+            title: Text(it['product_name'] ?? 'Produit', style: const TextStyle(fontSize: 14)),
+            subtitle: Text('${it['quantity']} x ${it['price']} $currency'),
+          )),
+          const Divider(),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('${total.toInt()} $currency', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryBlue))
+          ]),
+          if(status == 'pending') OutlinedButton(onPressed: () => _cancelOrder(o['id']), child: const Text('Annuler'))
         ]))));
   }
-  Widget _buildFallbackImage()=>Container(width:40,height:40,color:Colors.grey[200],child: const Icon(Icons.image,size:20,color:Colors.grey));
-  Widget _buildErrorState()=>Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children:[Icon(Icons.error_outline,size:60,color:Colors.grey[400]), const SizedBox(height:16), Padding(padding: const EdgeInsets.symmetric(horizontal:24), child: Text(_error??'Erreur', textAlign:TextAlign.center, style: const TextStyle(fontSize:14,color:Colors.grey))), const SizedBox(height:16), ElevatedButton(onPressed:_loadOrders, style:ElevatedButton.styleFrom(backgroundColor:primaryBlue, shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20))), child: const Text('Réessayer', style:TextStyle(color:Colors.white)))]));
-  Widget _buildEmptyState()=>Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children:[Icon(Icons.shopping_bag_outlined,size:60,color:Colors.grey[300]), const SizedBox(height:16), const Text('Aucune commande', style:TextStyle(fontSize:18,fontWeight:FontWeight.bold)), const SizedBox(height:8), Text('Vos commandes apparaîtront ici', style:TextStyle(color:Colors.grey[500])), const SizedBox(height:24), ElevatedButton(onPressed:()=>context.pushNamed('marketBuy'), style:ElevatedButton.styleFrom(backgroundColor:primaryBlue, shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(24)), padding: const EdgeInsets.symmetric(horizontal:24,vertical:12)), child: const Text('Découvrir des produits', style:TextStyle(color:Colors.white,fontWeight:FontWeight.bold)))]));
 }
