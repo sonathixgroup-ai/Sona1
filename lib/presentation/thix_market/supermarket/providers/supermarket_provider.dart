@@ -1,85 +1,155 @@
 // lib/presentation/thix_market/supermarket/providers/supermarket_provider.dart
-// PROVIDER UNIQUE SUPERMARKET - Réutilise ShopService / ProductService / OrderService existants
-// Pas de duplication de Model, on travaille avec Map<String,dynamic> venant de Supabase
+// Provider unique supermarket - alimente home + detail + product + cart
+// Réutilise ton Supabase existant, pas de nouveau Service
 
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupermarketProvider extends ChangeNotifier {
-  // --- DEPENDANCES ---
+  // --- Deps ---
   final _supa = Supabase.instance.client;
 
-  // --- ETAT CLIENT ---
-  List<Map<String, dynamic>> shops = []; // liste Freshia, MegaStore...
-  List<Map<String, dynamic>> aisles = []; // rayons du shop ouvert
-  List<Map<String, dynamic>> products = []; // produits du shop ouvert
-  Map<String, int> cartQty = {}; // productId -> quantité (panier rapide)
+  // --- State Home ---
+  List<Map<String, dynamic>> shops = [];
+  bool isLoadingShops = false;
+
+  // --- State Detail ---
+  List<Map<String, dynamic>> aisles = [];
+  List<Map<String, dynamic>> products = [];
+  Map<String, int> cartQty = {}; // productId -> qty panier rapide
 
   String? currentShopId;
   String selectedAisle = 'Tous';
-  bool loading = true;
+  bool isLoadingDetail = false;
+  bool isLoadingMore = false;
+  bool hasMore = true;
+  String? errorMessage;
 
-  // --- REALTIME ---
+  // --- Pagination ---
+  int _page = 0;
+  static const int _pageSize = 30;
+
+  // --- Realtime ---
   RealtimeChannel? _stockChannel;
 
   // ===========================================================
-  // LOAD SUPERMARCHES (HOME)
+  // 1. HOME: charge Freshia, MegaStore, CityMart, DailyDrop
   // ===========================================================
   Future<void> loadSupermarkets() async {
-    // Charge uniquement les boutiques vérifiées de type supermarket
-    loading = true;
-    notifyListeners();
+    try {
+      isLoadingShops = true;
+      errorMessage = null;
+      notifyListeners();
 
-    final res = await _supa
-       .from('shops')
-       .select('*')
-       .eq('vendor_type', 'supermarket')
-       .eq('is_verified', true)
-       .order('created_at');
+      // vendor_type = supermarket, table existante shops
+      final res = await _supa
+        .from('shops')
+        .select('id, name, logo_url, cover_url, delivery_eta, delivery_fee, min_order, vendor_type')
+        .eq('vendor_type', 'supermarket')
+        .eq('is_verified', true)
+        .order('created_at', ascending: false);
 
-    shops = List<Map<String, dynamic>>.from(res);
-    loading = false;
-    notifyListeners();
+      shops = List<Map<String, dynamic>>.from(res);
+    } catch (e, st) {
+      debugPrint('loadSupermarkets ERROR $e $st');
+      errorMessage = 'Impossible de charger les supermarchés';
+    } finally {
+      isLoadingShops = false;
+      notifyListeners();
+    }
   }
 
   // ===========================================================
-  // LOAD DETAIL D'UN SUPERMARCHE
+  // 2. DETAIL: rayons + produits d'un shop
   // ===========================================================
   Future<void> loadShopDetail(String shopId) async {
     currentShopId = shopId;
-    loading = true;
-    notifyListeners();
-
-    // On charge en parallèle: rayons + produits
-    final results = await Future.wait([
-      _supa.from('supermarket_aisles').select('*').eq('shop_id', shopId).order('sort'),
-      _supa.from('products').select('*').eq('shop_id', shopId).eq('is_active', true).order('created_at', ascending: false).limit(100),
-    ]);
-
-    // On ajoute manuellement "Tous" en première position
-    aisles = [
-      {'id': 'all', 'name': 'Tous', 'icon': 'apps'},
-     ...List<Map<String, dynamic>>.from(results[0] as List)
-    ];
-    products = List<Map<String, dynamic>>.from(results[1] as List);
+    _page = 0;
+    hasMore = true;
+    products = [];
     selectedAisle = 'Tous';
-
-    loading = false;
+    isLoadingDetail = true;
+    errorMessage = null;
     notifyListeners();
 
-    // Ecoute stock en live pour ne pas vendre en rupture
-    _listenStock(shopId);
+    try {
+      // Charge en parallèle: rayons + première page produits
+      final results = await Future.wait([
+        _supa.from('supermarket_aisles').select('*').eq('shop_id', shopId).order('sort'),
+        _supa.from('products').select('*').eq('shop_id', shopId).eq('is_active', true).order('created_at', ascending: false).range(0, _pageSize - 1),
+      ]);
+
+      final aisleRes = results[0] as List;
+      final productRes = results[1] as List;
+
+      aisles = [
+        {'id': 'all', 'name': 'Tous', 'icon': 'apps'},
+      ...List<Map<String, dynamic>>.from(aisleRes),
+      ];
+
+      products = List<Map<String, dynamic>>.from(productRes);
+      if (products.length < _pageSize) hasMore = false;
+      _page = 1;
+
+      _listenStock(shopId);
+    } catch (e) {
+      errorMessage = 'Erreur chargement boutique';
+      debugPrint('loadShopDetail $e');
+    }
+
+    isLoadingDetail = false;
+    notifyListeners();
   }
 
   // ===========================================================
-  // FILTRES & PANIER RAPIDE
+  // 3. PAGINATION infinie
+  // ===========================================================
+  Future<void> _fetchNextPage() async {
+    if (isLoadingMore ||!hasMore || currentShopId == null) return;
+
+    isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final from = _page * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final res = await _supa
+        .from('products')
+        .select('*')
+        .eq('shop_id', currentShopId!)
+        .eq('is_active', true)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+      final fetched = List<Map<String, dynamic>>.from(res);
+      if (fetched.length < _pageSize) hasMore = false;
+
+      products.addAll(fetched);
+      _page++;
+    } catch (e) {
+      debugPrint('pagination error $e');
+    }
+
+    isLoadingMore = false;
+    notifyListeners();
+  }
+
+  void loadMoreIfNeeded(int index) {
+    // Précharge 6 items avant la fin
+    if (index >= products.length - 6) {
+      _fetchNextPage();
+    }
+  }
+
+  // ===========================================================
+  // 4. FILTRE + PANIER RAPIDE
   // ===========================================================
   List<Map<String, dynamic>> get filteredProducts {
-    // Si "Tous" on retourne tout, sinon filtre par aisle_id ou nom aisle
     if (selectedAisle == 'Tous') return products;
     final aisleObj = aisles.firstWhere((a) => a['name'] == selectedAisle, orElse: () => {'id': ''});
-    return products.where((p) => p['aisle_id'] == aisleObj['id'] || (p['aisle']?? '') == selectedAisle).toList();
+    return products.where((p) => p['aisle_id'] == aisleObj['id']).toList();
   }
 
   void setAisle(String name) {
@@ -88,14 +158,23 @@ class SupermarketProvider extends ChangeNotifier {
   }
 
   void add(String productId, int delta) {
-    // Gestion quantité panier sans aller en négatif
     final current = cartQty[productId]?? 0;
     final next = current + delta;
+
     if (next <= 0) {
       cartQty.remove(productId);
     } else {
+      // Bloque si dépasse stock réel Supabase
+      final p = products.firstWhere((e) => e['id'] == productId, orElse: () => {'stock': 999});
+      final stock = (p['stock']?? 999) as int;
+      if (next > stock) return;
       cartQty[productId] = next;
     }
+    notifyListeners();
+  }
+
+  void clearCart() {
+    cartQty.clear();
     notifyListeners();
   }
 
@@ -110,28 +189,35 @@ class SupermarketProvider extends ChangeNotifier {
     return sum;
   }
 
+  // Prix en dollars pour UI capture ($2.29)
+  double get totalPriceDollars => totalPrice / 100;
+
   // ===========================================================
-  // REALTIME STOCK
+  // 5. REALTIME STOCK: ne pas vendre en rupture
   // ===========================================================
   void _listenStock(String shopId) {
     _stockChannel?.unsubscribe();
     _stockChannel = _supa
-       .channel('sm-stock-$shopId')
-       .onPostgresChanges(
+      .channel('sm-stock-prod-$shopId')
+      .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'products',
           filter: PostgresChangeFilter(column: 'shop_id', value: shopId),
           callback: (payload) {
-            // Mise à jour locale du stock sans recharger toute la liste
             final idx = products.indexWhere((e) => e['id'] == payload.newRecord['id']);
             if (idx!= -1) {
               products[idx]['stock'] = payload.newRecord['stock'];
+              products[idx]['price'] = payload.newRecord['price'];
+              // Si produit en rupture et dans panier -> retire
+              if ((payload.newRecord['stock']?? 0) == 0) {
+                cartQty.remove(payload.newRecord['id']);
+              }
               notifyListeners();
             }
           },
         )
-       .subscribe();
+      .subscribe();
   }
 
   @override
