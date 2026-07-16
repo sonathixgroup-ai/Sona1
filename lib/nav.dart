@@ -213,7 +213,18 @@ class AppRoutes {
   static const String callHistoryName = 'callHistory';
 
   static String callWithUser(String userId) => '/call/$userId';
+  // ═══════════════════════════════════════
+  // ─── THIX MARKET - Routes ───
+  // ═══════════════════════════════════════
+  static const String marketHome = '/market/home';
+  static const String marketSearch = '/market/search';
+  static const String marketCart = '/market/cart';
+  static const String marketOrders = '/market/orders';
+  static const String marketWishlist = '/market/wishlist';      // <--- AJOUTÉ
+  static const String marketCheckout = '/market/checkout';    // <--- AJOUTÉ
+  static const String marketDeliveryTracking = '/market/tracking/:orderId'; // <--- AJOUTÉ
 
+  
   // ─── CALL CONST PROD ───
   static const String agoraAppIdKey = 'AGORA_APP_ID';
   static const int agoraTokenExpireSec = 3600;
