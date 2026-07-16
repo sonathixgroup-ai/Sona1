@@ -21,13 +21,8 @@ class CartPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: navy),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.push('/market/buy');
-            }
-          },
+          // ✅ CORRECTION : Retour direct et simple à la page précédente (le produit)
+          onPressed: () => context.pop(),
         ),
         title: Consumer<CartProvider>(
           builder: (_, cart, __) => Text(
@@ -149,14 +144,8 @@ class CartPage extends StatelessWidget {
             SizedBox(
               height: 48,
               child: ElevatedButton(
-                onPressed: () {
-                  // ✅ CORRECTION DU ROUTAGE : On retourne au produit s'il y en a un, sinon on push vers market/buy
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.push('/market/buy');
-                  }
-                },
+                // ✅ CORRECTION : Exactement comme dans ton ancien code
+                onPressed: () => context.push('/market/buy'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD81E2C),
                   foregroundColor: Colors.white,
