@@ -16,12 +16,12 @@ class _ChatColors {
   static const cardBlueDark = Color(0xFF2D6CDF);
   static const navy = Color(0xFF0A1F44);
   static const surface = Colors.white;
-  static const textDark = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
+  static const textDark = Color(0xFF0B1220); // contraste renforcé
+  static const textMuted = Color(0xFF5B6B85); // plus lisible que #64748B
   static const primary = Color(0xFF2D6CDF);
-  static const border = Color(0xFFE7EEFB);
-  static const online = Color(0xFF22C55E);
-  static const alert = Color(0xFFEF4444);
+  static const border = Color(0xFFDCE6F7);
+  static const online = Color(0xFF16A34A);
+  static const alert = Color(0xFFDC2626);
 }
 
 class ChatListPage extends StatefulWidget {
@@ -162,20 +162,20 @@ class _ChatListPageState extends State<ChatListPage> {
                         children: [
                           _buildHeader(),
                           _buildTopCard(),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
                           _buildCompactFilters(groupCount, unreadCount),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
                           if (pinned.isNotEmpty) ...[
                             _sectionTitle('Épinglés', pinned.length),
                             ...pinned.map((c) => _chatTile(c)),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                           ],
                           _sectionTitle('Discussions', rest.length),
                         ],
                       ),
                     ),
                     _buildChatList(rest),
-                    const SliverToBoxAdapter(child: SizedBox(height: 110)),
+                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
                   ],
                 ),
               ),
@@ -186,64 +186,67 @@ class _ChatListPageState extends State<ChatListPage> {
   // ---------- HEADER ----------
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
           const Expanded(
             child: Text(
               'THIX CHAT.',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: _ChatColors.navy,
-                letterSpacing: -0.5,
+                letterSpacing: -0.4,
               ),
             ),
           ),
           Stack(
             clipBehavior: Clip.none,
             children: [
+              // Icône Escalade : deux flèches entrant/sortant dans un cercle
               InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 onTap: () => context.pushNamed('chatEscalationReceived'),
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: _ChatColors.surface,
-                    borderRadius: BorderRadius.circular(16),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _ChatColors.border, width: 1.2),
                     boxShadow: [
                       BoxShadow(
-                        color: _ChatColors.navy.withOpacity(0.06),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+                        color: _ChatColors.navy.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: const Icon(
-                    Icons.notifications_rounded,
-                    size: 21,
+                    Icons.compare_arrows_rounded,
+                    size: 18,
                     color: _ChatColors.navy,
                   ),
                 ),
               ),
               if (_pendingEscalationsCount > 0)
                 Positioned(
-                  right: -3,
-                  top: -3,
+                  right: -2,
+                  top: -2,
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: const BoxDecoration(
+                    constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1.5),
+                    decoration: BoxDecoration(
                       color: _ChatColors.alert,
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.4),
                     ),
                     child: Text(
                       '$_pendingEscalationsCount',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 9.5,
+                        fontSize: 8.5,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -261,21 +264,21 @@ class _ChatListPageState extends State<ChatListPage> {
     final quickAccess = _all.take(8).toList();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [_ChatColors.cardBlueLight, _ChatColors.cardBlueDark],
           ),
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: _ChatColors.cardBlueDark.withOpacity(0.35),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
+              color: _ChatColors.cardBlueDark.withOpacity(0.30),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -285,46 +288,45 @@ class _ChatListPageState extends State<ChatListPage> {
             const Text(
               'Accès rapide',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 74,
+              height: 64,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: quickAccess.length + 1,
                 itemBuilder: (context, i) {
                   if (i == 0) {
                     return Padding(
-                      padding: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.only(right: 10),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           InkWell(
-                            borderRadius: BorderRadius.circular(30),
+                            borderRadius: BorderRadius.circular(26),
                             onTap: _showCreateMenu,
                             child: Container(
-                              width: 52,
-                              height: 52,
+                              width: 44,
+                              height: 44,
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.18),
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.8),
-                                  width: 1.4,
-                                  style: BorderStyle.solid,
+                                  color: Colors.white.withOpacity(0.85),
+                                  width: 1.3,
                                 ),
                               ),
-                              child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
+                              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           const Text(
                             'Nouveau',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
                           ),
                         ],
                       ),
@@ -332,7 +334,7 @@ class _ChatListPageState extends State<ChatListPage> {
                   }
                   final conv = quickAccess[i - 1];
                   return Padding(
-                    padding: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.only(right: 10),
                     child: GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -344,12 +346,12 @@ class _ChatListPageState extends State<ChatListPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 52,
-                            height: 52,
+                            width: 44,
+                            height: 44,
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border: Border.all(color: Colors.white, width: 1.8),
                             ),
                             child: CircleAvatar(
                               backgroundColor: Colors.white24,
@@ -358,20 +360,20 @@ class _ChatListPageState extends State<ChatListPage> {
                               child: conv.displayAvatar == null
                                   ? Text(
                                       conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
                                     )
                                   : null,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           SizedBox(
-                            width: 56,
+                            width: 50,
                             child: Text(
                               conv.displayName.split(' ').first,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white),
                             ),
                           ),
                         ],
@@ -381,34 +383,34 @@ class _ChatListPageState extends State<ChatListPage> {
                 },
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Container(
-              height: 46,
+              height: 42,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: _onSearch,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: _ChatColors.textDark),
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _ChatColors.textDark),
                 decoration: InputDecoration(
                   hintText: 'Rechercher un chat...',
-                  hintStyle: const TextStyle(fontSize: 13, color: _ChatColors.textMuted, fontWeight: FontWeight.w500),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: _ChatColors.primary),
+                  hintStyle: const TextStyle(fontSize: 12, color: _ChatColors.textMuted, fontWeight: FontWeight.w500),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18, color: _ChatColors.primary),
                   suffixIcon: Container(
-                    margin: const EdgeInsets.all(6),
+                    margin: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       color: _ChatColors.primary,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(9),
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.tune_rounded, size: 17, color: Colors.white),
+                      icon: const Icon(Icons.tune_rounded, size: 15, color: Colors.white),
                       onPressed: () {},
                     ),
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
             ),
@@ -424,7 +426,7 @@ class _ChatListPageState extends State<ChatListPage> {
     final counts = <int?>[_all.length, groupCount, _all.length - groupCount, unreadCount, null];
 
     return SizedBox(
-      height: 38,
+      height: 32,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -432,19 +434,19 @@ class _ChatListPageState extends State<ChatListPage> {
         itemBuilder: (context, i) {
           final sel = _selectedFilter == i;
           return Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 7),
             child: InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
               onTap: () {
                 setState(() => _selectedFilter = i);
                 _applyFilter();
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                 decoration: BoxDecoration(
                   color: sel ? _ChatColors.navy : _ChatColors.surface,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: sel ? _ChatColors.navy : _ChatColors.border),
                 ),
                 child: Row(
@@ -453,23 +455,23 @@ class _ChatListPageState extends State<ChatListPage> {
                     Text(
                       tabs[i],
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
                         color: sel ? Colors.white : _ChatColors.textDark,
                       ),
                     ),
                     if (counts[i] != null) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: sel ? Colors.white.withOpacity(0.2) : _ChatColors.primary.withOpacity(0.1),
+                          color: sel ? Colors.white.withOpacity(0.22) : _ChatColors.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           '${counts[i]}',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: FontWeight.w800,
                             color: sel ? Colors.white : _ChatColors.primary,
                           ),
@@ -488,23 +490,23 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Widget _sectionTitle(String title, int count) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
       child: Row(
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ChatColors.textDark),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ChatColors.textDark),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
             decoration: BoxDecoration(
               color: _ChatColors.navy,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               '$count',
-              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white),
+              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.white),
             ),
           ),
         ],
@@ -517,11 +519,11 @@ class _ChatListPageState extends State<ChatListPage> {
     if (data.isEmpty) {
       return const SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.all(36),
+          padding: EdgeInsets.all(32),
           child: Center(
             child: Text(
               'Aucune conversation trouvée.',
-              style: TextStyle(color: _ChatColors.textMuted, fontSize: 13),
+              style: TextStyle(color: _ChatColors.textMuted, fontSize: 12),
             ),
           ),
         ),
@@ -543,9 +545,9 @@ class _ChatListPageState extends State<ChatListPage> {
     final isUnread = unread > 0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -553,31 +555,31 @@ class _ChatListPageState extends State<ChatListPage> {
           ),
         ),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: _ChatColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: _ChatColors.navy.withOpacity(0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: _ChatColors.navy.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
-            border: isUnread ? Border.all(color: _ChatColors.primary.withOpacity(0.18)) : null,
+            border: isUnread ? Border.all(color: _ChatColors.primary.withOpacity(0.22)) : null,
           ),
           child: Row(
             children: [
               Stack(
                 children: [
                   CircleAvatar(
-                    radius: 24,
+                    radius: 21,
                     backgroundColor: _ChatColors.border,
                     backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
                     child: conv.displayAvatar == null
                         ? Text(
                             conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?',
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: _ChatColors.primary, fontSize: 16),
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: _ChatColors.primary, fontSize: 14),
                           )
                         : null,
                   ),
@@ -586,19 +588,19 @@ class _ChatListPageState extends State<ChatListPage> {
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        width: 17,
-                        height: 17,
+                        width: 15,
+                        height: 15,
                         decoration: BoxDecoration(
                           color: _ChatColors.surface,
                           shape: BoxShape.circle,
                           border: Border.all(color: _ChatColors.border, width: 1),
                         ),
-                        child: const Icon(Icons.groups_rounded, size: 10, color: _ChatColors.navy),
+                        child: const Icon(Icons.groups_rounded, size: 9, color: _ChatColors.navy),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -608,18 +610,18 @@ class _ChatListPageState extends State<ChatListPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 14.5,
+                        fontSize: 13.5,
                         fontWeight: isUnread ? FontWeight.w800 : FontWeight.w700,
                         color: _ChatColors.textDark,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       last?.content ?? 'Commencez à discuter...',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 11.5,
                         fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
                         color: isUnread ? _ChatColors.textDark : _ChatColors.textMuted,
                       ),
@@ -627,33 +629,33 @@ class _ChatListPageState extends State<ChatListPage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
                     _fmt(time),
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 9.5,
                       fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
                       color: isUnread ? _ChatColors.primary : _ChatColors.textMuted,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 6),
                   if (isUnread)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                       decoration: BoxDecoration(
                         color: _ChatColors.primary,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         '$unread',
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
+                        style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w800),
                       ),
                     )
                   else
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                 ],
               ),
             ],
@@ -666,22 +668,22 @@ class _ChatListPageState extends State<ChatListPage> {
   // ---------- BOTTOM NAV ----------
   Widget _buildBottomNav(int unreadCount) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       decoration: BoxDecoration(
         color: _ChatColors.surface,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: _ChatColors.navy.withOpacity(0.10),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
+            blurRadius: 18,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -690,8 +692,8 @@ class _ChatListPageState extends State<ChatListPage> {
               GestureDetector(
                 onTap: _showCreateMenu,
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [_ChatColors.cardBlueLight, _ChatColors.cardBlueDark],
@@ -700,12 +702,12 @@ class _ChatListPageState extends State<ChatListPage> {
                     boxShadow: [
                       BoxShadow(
                         color: _ChatColors.primary.withOpacity(0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+                  child: const Icon(Icons.add_rounded, color: Colors.white, size: 25),
                 ),
               ),
               _navIcon(Icons.workspaces_rounded, 'Spaces', 2),
@@ -724,7 +726,7 @@ class _ChatListPageState extends State<ChatListPage> {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       child: SizedBox(
-        width: 56,
+        width: 52,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -733,31 +735,31 @@ class _ChatListPageState extends State<ChatListPage> {
               children: [
                 Icon(
                   icon,
-                  size: 23,
-                  color: sel ? _ChatColors.primary : _ChatColors.textMuted.withOpacity(0.7),
+                  size: 21,
+                  color: sel ? _ChatColors.primary : _ChatColors.textMuted,
                 ),
                 if (badge > 0)
                   Positioned(
-                    right: -7,
-                    top: -5,
+                    right: -6,
+                    top: -4,
                     child: Container(
-                      padding: const EdgeInsets.all(3),
+                      padding: const EdgeInsets.all(2.5),
                       decoration: const BoxDecoration(color: _ChatColors.alert, shape: BoxShape.circle),
                       child: Text(
                         '$badge',
-                        style: const TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.w800),
+                        style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 9.5,
+                fontSize: 9,
                 fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
-                color: sel ? _ChatColors.primary : _ChatColors.textMuted.withOpacity(0.76),
+                color: sel ? _ChatColors.primary : _ChatColors.textMuted,
               ),
             ),
           ],
@@ -772,32 +774,32 @@ class _ChatListPageState extends State<ChatListPage> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(
           color: _ChatColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36,
+              width: 34,
               height: 4,
               decoration: BoxDecoration(color: _ChatColors.border, borderRadius: BorderRadius.circular(2)),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             _sheetOpt(
               Icons.chat_bubble_rounded,
               'Nouvelle discussion',
               () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage())),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _sheetOpt(
               Icons.group_add_rounded,
               'Nouveau groupe',
               () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage())),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
           ],
         ),
       ),
@@ -810,28 +812,28 @@ class _ChatListPageState extends State<ChatListPage> {
         Navigator.pop(context);
         tap();
       },
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: _ChatColors.border),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(colors: [_ChatColors.cardBlueLight, _ChatColors.cardBlueDark]),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 19, color: Colors.white),
+              child: Icon(icon, size: 17, color: Colors.white),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Text(
               title,
-              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ChatColors.textDark),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ChatColors.textDark),
             ),
           ],
         ),
