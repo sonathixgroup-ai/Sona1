@@ -186,25 +186,52 @@ class DeliveryProvider extends ChangeNotifier {
   void selectSlot(Map<String, dynamic> slot) { _selectedSlot = slot; notifyListeners(); }
 
   Future<void> trackDelivery(String orderId) async {
-    _isLoadingTracking = true;
-    _errorTracking = null;
-    notifyListeners();
-    try {
-      final response = await _supabase
-         .from('delivery_tracking')
-         .select('*, driver:drivers(name, phone, vehicle, current_lat, current_lng)')
-         .eq('order_id', orderId)
-         .maybeSingle(); // FIX: ne throw plus si pas trouvé
-      _currentTracking = response;
-    } catch (e, s) {
-      debugPrint('Error tracking delivery: $e\n$s');
-      _errorTracking = e.toString();
+  _isLoadingTracking = true;
+  _errorTracking = null;
+  notifyListeners();
+  try {
+    // 1. On récupère le tracking seul
+    final tracking = await _supabase
+        .from('delivery_tracking')
+        .select()
+        .eq('order_id', orderId)
+        .maybeSingle();
+
+    if (tracking == null) {
       _currentTracking = null;
-    } finally {
-      _isLoadingTracking = false;
-      notifyListeners();
+      return;
     }
+
+    // 2. Si il y a un driver_id, on va chercher le driver à part
+    Map<String, dynamic>? driverData;
+    final driverId = tracking['driver_id'];
+    if (driverId != null) {
+      try {
+        driverData = await _supabase
+            .from('drivers')
+            .select('name, phone, vehicle, current_lat, current_lng')
+            .eq('id', driverId)
+            .maybeSingle();
+      } catch (e) {
+        debugPrint('Driver not found: $e');
+      }
+    }
+
+    // 3. On fusionne pour que ta page garde le même format
+    _currentTracking = {
+      ...tracking,
+      'driver': driverData,
+    };
+
+  } catch (e, s) {
+    debugPrint('Error tracking delivery: $e\n$s');
+    _errorTracking = e.toString();
+    _currentTracking = null;
+  } finally {
+    _isLoadingTracking = false;
+    notifyListeners();
   }
+}
 
   Future<double> estimateShippingCost({required double addressLat, required double addressLng, required String method}) async {
     if (_currentPosition == null) return 2500;
