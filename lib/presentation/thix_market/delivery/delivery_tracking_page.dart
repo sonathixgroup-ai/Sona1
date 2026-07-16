@@ -97,13 +97,19 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 12),
-                  Text('Erreur: ${provider.errorTracking}', textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  ElevatedButton(onPressed: () => provider.trackDelivery(widget.orderId), child: const Text('Réessayer')),
-                ]),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 12),
+                    Text('Erreur: ${provider.errorTracking}', textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => provider.trackDelivery(widget.orderId),
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -132,18 +138,34 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -5))],
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -5)),
+                    ],
                   ),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const SizedBox(height: 12),
-                    Container(width: 48, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
-                    const SizedBox(height: 16),
-                    if (tracking['driver']!= null)
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: _buildDriverCard(tracking['driver'] as Map<String, dynamic>)),
-                    if (tracking['driver']!= null)
-                      const Padding(padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8), child: Divider(height: 1)),
-                    Expanded(child: SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), child: _buildStatusTimeline(tracking))),
-                  ]),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 12),
+                      Container(width: 48, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+                      const SizedBox(height: 16),
+                      if (tracking['driver']!= null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildDriverCard(tracking['driver'] as Map<String, dynamic>),
+                        ),
+                      if (tracking['driver']!= null)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          child: Divider(height: 1),
+                        ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: _buildStatusTimeline(tracking),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -156,17 +178,42 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
   Widget _buildDriverCard(Map<String, dynamic> driver) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: thixOrange.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: thixOrange.withValues(alpha: 0.2))),
-      child: Row(children: [
-        Container(width: 50, height: 50, decoration: BoxDecoration(color: thixOrange.withValues(alpha: 0.2), shape: BoxShape.circle), child: const Icon(Icons.person, color: thixOrange, size: 28)),
-        const SizedBox(width: 16),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(driver['name']?.toString()?? 'Livreur', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
-          const SizedBox(height: 4),
-          Row(children: [const Icon(Icons.directions_car_rounded, size: 14, color: mutedText), const SizedBox(width: 4), Text(driver['vehicle']?.toString()?? 'Véhicule THIX', style: const TextStyle(fontSize: 13, color: mutedText))]),
-        ])),
-        Container(decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(16)), child: IconButton(icon: const Icon(Icons.phone_rounded, color: Colors.white), onPressed: () {})),
-      ]),
+      decoration: BoxDecoration(
+        color: thixOrange.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: thixOrange.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(color: thixOrange.withValues(alpha: 0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.person, color: thixOrange, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(driver['name']?.toString()?? 'Livreur', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: darkText)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.directions_car_rounded, size: 14, color: mutedText),
+                    const SizedBox(width: 4),
+                    Text(driver['vehicle']?.toString()?? 'Véhicule THIX', style: const TextStyle(fontSize: 13, color: mutedText)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(16)),
+            child: IconButton(icon: const Icon(Icons.phone_rounded, color: Colors.white), onPressed: () {}),
+          ),
+        ],
+      ),
     );
   }
 
@@ -178,45 +225,83 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       {'key': 'out_for_delivery', 'label': 'En approche', 'desc': 'Le livreur est proche', 'icon': Icons.location_on_rounded},
       {'key': 'delivered', 'label': 'Livré', 'desc': 'Commande remise avec succès', 'icon': Icons.check_circle_rounded},
     ];
-    final currentStatus = tracking['status'] as String??? 'preparing';
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Détails de la livraison', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText)),
-      const SizedBox(height: 24),
-     ...List.generate(statuses.length, (i) {
-        final s = statuses[i];
-        final k = s['key'] as String;
-        return _buildTimelineItem(status: s, isCompleted: _isCompleted(currentStatus, k), isCurrent: currentStatus == k, isLast: i == statuses.length - 1);
-      }),
-    ]);
+    final currentStatus = (tracking['status'] as String?)?? 'preparing';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Détails de la livraison', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: darkText)),
+        const SizedBox(height: 24),
+       ...List.generate(statuses.length, (i) {
+          final s = statuses[i];
+          final k = s['key'] as String;
+          return _buildTimelineItem(status: s, isCompleted: _isCompleted(currentStatus, k), isCurrent: currentStatus == k, isLast: i == statuses.length - 1);
+        }),
+      ],
+    );
   }
 
   Widget _buildTimelineItem({required Map<String, dynamic> status, required bool isCompleted, required bool isCurrent, required bool isLast}) {
     final activeColor = isCompleted? Colors.green : (isCurrent? thixOrange : Colors.grey[300]!);
     final iconColor = (isCompleted || isCurrent)? Colors.white : Colors.grey[500]!;
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Column(children: [
-        Container(width: 40, height: 40, decoration: BoxDecoration(color: activeColor, shape: BoxShape.circle, boxShadow: isCurrent? [BoxShadow(color: thixOrange.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))] : []), child: Icon(status['icon'] as IconData, color: iconColor, size: 20)),
-        if (!isLast) Container(width: 3, height: 40, margin: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: isCompleted? Colors.green : Colors.grey[200], borderRadius: BorderRadius.circular(2))),
-      ]),
-      const SizedBox(width: 16),
-      Expanded(child: Container(margin: const EdgeInsets.only(top: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(status['label'] as String, style: TextStyle(fontWeight: isCurrent? FontWeight.w800 : FontWeight.w600, fontSize: 16, color: (isCompleted || isCurrent)? darkText : Colors.grey[500])),
-        const SizedBox(height: 4),
-        Text(status['desc'] as String, style: TextStyle(fontSize: 13, color: isCurrent? mutedText : Colors.grey[400])),
-        if (!isLast) const SizedBox(height: 24),
-      ]))),
-    ]);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: activeColor,
+                shape: BoxShape.circle,
+                boxShadow: isCurrent? [BoxShadow(color: thixOrange.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))] : [],
+              ),
+              child: Icon(status['icon'] as IconData, color: iconColor, size: 20),
+            ),
+            if (!isLast)
+              Container(
+                width: 3,
+                height: 40,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(color: isCompleted? Colors.green : Colors.grey[200], borderRadius: BorderRadius.circular(2)),
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(top: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(status['label'] as String, style: TextStyle(fontWeight: isCurrent? FontWeight.w800 : FontWeight.w600, fontSize: 16, color: (isCompleted || isCurrent)? darkText : Colors.grey[500])),
+                const SizedBox(height: 4),
+                Text(status['desc'] as String, style: TextStyle(fontSize: 13, color: isCurrent? mutedText : Colors.grey[400])),
+                if (!isLast) const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildEmptyState() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-    Icon(Icons.location_off_rounded, size: 80, color: Colors.grey[300]),
-    const SizedBox(height: 16),
-    const Text('Suivi indisponible', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText)),
-    const SizedBox(height: 8),
-    Text('Les informations de suivi pour cette\ncommande ne sont pas encore prêtes.', textAlign: TextAlign.center, style: TextStyle(color: mutedText)),
-    const SizedBox(height: 16),
-    ElevatedButton(onPressed: () => context.read<DeliveryProvider>().trackDelivery(widget.orderId), child: const Text('Actualiser')),
-  ]));
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.location_off_rounded, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          const Text('Suivi indisponible', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkText)),
+          const SizedBox(height: 8),
+          Text('Les informations de suivi pour cette\ncommande ne sont pas encore prêtes.', textAlign: TextAlign.center, style: TextStyle(color: mutedText)),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: () => context.read<DeliveryProvider>().trackDelivery(widget.orderId), child: const Text('Actualiser')),
+        ],
+      ),
+    );
+  }
 
   bool _isCompleted(String current, String key) {
     const order = ['preparing', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'];
