@@ -62,72 +62,47 @@ class SellProvider extends ChangeNotifier {
   // 2. CHARGEMENT DES COMMANDES (ROBUSTE)
   // ============================================================
   Future<void> loadOrders() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
-    
-    _isLoadingOrders = true;
-    notifyListeners();
-
-    try {
-      final shopResponse = await _supabase.from('shops').select('id').eq('owner_id', userId);
-      final shopIds = shopResponse.map((e) => e['id']).toList();
-
-      if (shopIds.isEmpty) {
-        _orders = [];
-        _stats = {};
-        _isLoadingOrders = false;
-        notifyListeners();
-        return;
-      }
-
-      // Requête sécurisée sans jointure risquée
-      final response = await _supabase
-          .from('orders')
-          .select('id, status, total, created_at, customer_name, customer_phone, shipping_address')
-          .inFilter('shop_id', shopIds)
-          .order('created_at', ascending: false);
-
-      final list = List<Map<String, dynamic>>.from(response);
-      final fullOrders = [];
-
-      // Boucle de récupération des articles sécurisée
-      for (var order in list) {
-        int itemsCount = 0;
-        List items = [];
-        try {
-          items = await _supabase.from('order_items').select('*').eq('order_id', order['id']);
-          itemsCount = items.length;
-        } catch (_) {}
-
-        fullOrders.add({
-          ...order,
-          'date': (order['created_at'] ?? '').toString().split('T').first,
-          'items_count': itemsCount,
-          'items': items, // Nécessaire pour l'affichage de ta tile
-        });
-      }
-
-      _orders = List<Map<String, dynamic>>.from(fullOrders);
-
-      // Calcul stats
-      final totalSales = _orders.length;
-      final revenue = _orders.fold<num>(0, (sum, o) => sum + ((o['total'] ?? 0) as num));
-      
-      _stats = {
-        'total_sales': totalSales,
-        'revenue': revenue,
-        'total_views': _announcements.fold<num>(0, (sum, i) => sum + ((i['views'] ?? 0) as num)),
-        'sales_data': _generateSalesData(),
-      };
-
-    } catch (e) {
-      debugPrint('🚨 Erreur Commandes: $e');
-      _orders = [];
-    } finally {
-      _isLoadingOrders = false;
-      notifyListeners();
-    }
+  final userId = _supabase.auth.currentUser?.id;
+  if (userId == null) {
+    debugPrint("🚨 ERREUR: Utilisateur non connecté");
+    return;
   }
+  
+  _isLoadingOrders = true;
+  notifyListeners();
+
+  try {
+    // Étape 1 : Récupérer les boutiques
+    final shopResponse = await _supabase.from('shops').select('id').eq('owner_id', userId);
+    debugPrint("DEBUG: Boutiques trouvées : $shopResponse");
+    
+    final shopIds = shopResponse.map((e) => e['id']).toList();
+
+    if (shopIds.isEmpty) {
+      debugPrint("DEBUG: Aucune boutique trouvée pour cet utilisateur");
+      _orders = [];
+      return;
+    }
+
+    // Étape 2 : La requête de commande (avec un log complet de l'erreur)
+    final response = await _supabase
+        .from('orders')
+        .select('id, status, total, created_at, customer_name, customer_phone')
+        .inFilter('shop_id', shopIds); // C'est ici que ça peut coincer si shop_id n'existe pas
+
+    debugPrint("DEBUG: Réponse commandes brute : $response");
+    
+    _orders = List<Map<String, dynamic>>.from(response);
+    
+  } catch (e) {
+    // ICI, TU VAS VOIR LE VRAI MESSAGE D'ERREUR DANS TA CONSOLE
+    debugPrint("🚨 ERREUR CRITIQUE DANS LOADORDERS : ${e.toString()}");
+  } finally {
+    _isLoadingOrders = false;
+    notifyListeners();
+  }
+}
+
 
   // ============================================================
   // 3. CHARGEMENT DES LIVES
