@@ -1,80 +1,166 @@
-// lib/presentation/thix_market/cart/cart_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/presentation/thix_market/cart/cart_provider.dart';
-import 'cart_item_tile.dart';
-import 'cart_summary_widget.dart';
-
-class _MarketColors {
-  static const redDark = Color(0xFF5C0E12);
-  static const red = Color(0xFFD81E2C);
-  static const gold = Color(0xFFF0A93B);
-  static const creamBg = Color(0xFFFCEFDA);
-  static const lightBg = Color(0xFFF7FAFF);
-  static const darkText = Color(0xFF10192E);
-  static const mutedText = Color(0xFF7386A8);
-}
+import 'package:thix_id/presentation/thix_market/cart/cart_summary_widget.dart';
+import 'package:thix_id/presentation/thix_market/cart/cart_item_tile.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
 
+  static const navy = Color(0xFF0A1931);
+  static const bg = Color(0xFFF7F8FC);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _MarketColors.lightBg,
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('Mon panier', style: TextStyle(fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
-        backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: _MarketColors.darkText), onPressed: ()=> context.pop()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: navy),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/market/buy'),
+        ),
+        title: Consumer<CartProvider>(
+          builder: (_, cart, __) => Text(
+            'Mon panier (${cart.totalQuantity})',
+            style: const TextStyle(fontWeight: FontWeight.w900, color: navy, fontSize: 18),
+          ),
+        ),
         actions: [
-          Consumer<CartProvider>(builder: (_, cart, __) => cart.itemCount>0
-           ? TextButton(onPressed: ()=> _showClearDialog(context), child: const Text('Vider', style: TextStyle(color: Color(0xFFFF5B3D), fontWeight: FontWeight.w700)))
-            : const SizedBox()),
+          Consumer<CartProvider>(
+            builder: (_, cart, __) => cart.items.isEmpty
+                ? const SizedBox.shrink()
+                : TextButton(
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Text('Vider le panier ?', style: TextStyle(fontWeight: FontWeight.w800)),
+                          content: const Text('Tous les articles seront supprimés.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD81E2C)),
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Vider', style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok == true) cart.clearCart();
+                    },
+                    child: const Text('Vider', style: TextStyle(color: Color(0xFFD81E2C), fontWeight: FontWeight.w700)),
+                  ),
+          ),
         ],
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
-          if (cart.isLoading) return const Center(child: CircularProgressIndicator(color: _MarketColors.red));
-          if (cart.cartItems.isEmpty) return _empty(context);
-          return Column(children:[
-            Expanded(child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: cart.cartItems.length, itemBuilder: (c,i){
-              final item = cart.cartItems[i];
-              return CartItemTile(
-                cartItem: item,
-                realPrice: cart.getItemRealPrice(item),
-                oldPrice: cart.getItemOldPrice(item),
-                discountPercent: cart.getItemDiscountPercent(item),
-                currency: cart.currencyForItem(item),
-                onQuantityChanged: (q)=> cart.updateQuantity(item['id'], q),
-                onRemove: ()=> cart.removeFromCart(item['id']),
-              );
-            })),
-            CartSummaryWidget(
-              subtotal: cart.subtotal,
-              originalSubtotal: cart.originalSubtotal,
-              discount: cart.totalDiscount,
-              shippingCost: cart.shippingCost,
-              total: cart.total,
-              itemCount: cart.totalQuantity,
-              currency: cart.currency,
-            ),
-          ]);
+          if (cart.isLoading) {
+            return const Center(child: CircularProgressIndicator(color: navy));
+          }
+          if (cart.items.isEmpty) {
+            return _buildEmptyCart(context);
+          }
+
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  itemCount: cart.items.length,
+                  itemBuilder: (context, index) {
+                    final cartItem = cart.items[index];
+                    final product = cartItem['product'] as Map<String, dynamic>? ?? {};
+                    
+                    // ✅ UTILISATION DES MÉTHODES DU PROVIDER (La Source de Vérité)
+                    final realPrice = cart.getItemRealPrice(cartItem);
+                    final oldPrice = cart.getItemOldPrice(cartItem);
+                    final discount = cart.getItemDiscountPercent(cartItem);
+                    final cur = cart.currencyForItem(cartItem);
+                    
+                    // ID unique de la ligne dans la table 'cart' (vital pour supprimer/modifier)
+                    final cartRowId = cartItem['id']; 
+
+                    return CartItemTile(
+                      cartItem: cartItem,
+                      realPrice: realPrice,
+                      oldPrice: oldPrice,
+                      discountPercent: discount,
+                      currency: cur,
+                      onQuantityChanged: (newQty) {
+                        if (newQty <= 0) {
+                          cart.removeFromCart(cartRowId); // ✅ Utilisation du bon ID
+                        } else {
+                          final stock = (product['stock'] ?? 9999) as int;
+                          if (newQty > stock) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Stock limité à $stock')));
+                            return;
+                          }
+                          cart.updateQuantity(cartRowId, newQty); // ✅ Utilisation du bon ID
+                        }
+                      },
+                      onRemove: () => cart.removeFromCart(cartRowId), // ✅ Utilisation du bon ID
+                    );
+                  },
+                ),
+              ),
+              CartSummaryWidget(
+                subtotal: cart.subtotal,
+                originalSubtotal: cart.originalSubtotal,
+                discount: cart.totalDiscount,
+                shippingCost: cart.shippingCost,
+                total: cart.total,
+                itemCount: cart.totalQuantity,
+                currency: cart.currency == 'XOF' ? 'FC' : cart.currency,
+              ),
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _empty(BuildContext context)=> Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children:[
-    Container(padding: const EdgeInsets.all(24), decoration: const BoxDecoration(color: Color(0xFFEFF5FF), shape: BoxShape.circle), child: const Icon(Icons.shopping_cart_outlined, size: 72, color: _MarketColors.mutedText)),
-    const SizedBox(height:16), const Text('Votre panier est vide', style: TextStyle(fontSize:18, fontWeight: FontWeight.w900, color: _MarketColors.darkText)),
-    const SizedBox(height:8), const Text('Ajoutez des produits pour continuer', style: TextStyle(color: _MarketColors.mutedText)),
-    const SizedBox(height:24),
-    ElevatedButton(onPressed: ()=> context.go('/market'), style: ElevatedButton.styleFrom(backgroundColor: _MarketColors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), padding: const EdgeInsets.symmetric(horizontal:32,vertical:14)), child: const Text('Découvrir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
-  ]));
-
-  void _showClearDialog(BuildContext context)=> showDialog(context: context, builder: (_)=> AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Vider le panier'), content: const Text('Supprimer tous les articles?'), actions:[
-    TextButton(onPressed: ()=> Navigator.pop(context), child: const Text('Annuler')), TextButton(onPressed: (){ Navigator.pop(context); context.read<CartProvider>().clearCart(); }, child: const Text('Vider', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
-  ]));
+  Widget _buildEmptyCart(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120, height: 120,
+              decoration: BoxDecoration(color: const Color(0xFFEFF5FF), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16)]),
+              child: const Icon(Icons.shopping_cart_outlined, size: 56, color: Color(0xFF7386A8)),
+            ),
+            const SizedBox(height: 20),
+            const Text('Votre panier est vide', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: navy)),
+            const SizedBox(height: 8),
+            const Text('Ajoutez des produits pour continuer', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
+            const SizedBox(height: 28),
+            SizedBox(
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () {
+                  context.go('/market/buy');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD81E2C),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                  elevation: 0,
+                ),
+                child: const Text('Découvrir', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
