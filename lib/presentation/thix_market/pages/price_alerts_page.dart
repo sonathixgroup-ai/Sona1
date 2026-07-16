@@ -34,58 +34,94 @@ class _PriceAlertsPageState extends State<PriceAlertsPage> {
     _loadAlerts();
   }
 
-  // ============================================================
-  // LOGIQUE DE DONNÉES (À relier à Supabase plus tard)
+    // ============================================================
+  // LOGIQUE DE DONNÉES (100% SUPABASE)
   // ============================================================
   Future<void> _loadAlerts() async {
-    // TODO: Remplacer par un appel Supabase réel
-    // Exemple : final data = await Supabase.instance.client.from('price_alerts').select('*, products(*)').eq('user_id', currentUser);
-    
-    // Simulation d'un chargement réseau
-    await Future.delayed(const Duration(milliseconds: 1200));
+    setState(() => _isLoading = true);
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      
+      if (userId == null) {
+        setState(() {
+          _alerts = [];
+          _isLoading = false;
+        });
+        return;
+      }
 
-    // Données de démonstration pour visualiser le design
-    setState(() {
-      _alerts = [
-        {
-          'id': '1',
-          'product_id': 'prod_123',
-          'title': 'iPhone 15 Pro Max - 256Go',
-          'image_url': 'https://store.storeimages.cdn-apple.com/4668/as-images.apple.com/is/iphone-15-pro-max-blue-titanium-select?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692846360618',
-          'shop_name': 'Apple Store Kin',
-          'current_price': 1100,
-          'target_price': 1050,
-          'currency': '\$',
-        },
-        {
-          'id': '2',
-          'product_id': 'prod_456',
-          'title': 'Smart TV Samsung 55" 4K',
-          'image_url': 'https://images.samsung.com/is/image/samsung/p6pim/fr/ue55cu7105kxxc/gallery/fr-crystal-uhd-cu7000-ue55cu7105kxxc-535948332?$650_519_PNG$',
-          'shop_name': 'MegaStore',
-          'current_price': 450,
-          'target_price': 480, // Le prix a baissé sous la cible !
-          'currency': '\$',
-        }
-      ];
-      _isLoading = false;
-    });
+      // Requête Supabase : on récupère l'alerte + les infos du produit + la boutique
+      final response = await Supabase.instance.client
+          .from('price_alerts')
+          .select('''
+            id,
+            target_price,
+            product_id,
+            products (
+              title,
+              image_url,
+              price,
+              currency,
+              shop:shops(name)
+            )
+          ''')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      // On formate la réponse pour l'interface
+      final List<Map<String, dynamic>> formattedAlerts = (response as List).map((alert) {
+        final product = alert['products'] as Map<String, dynamic>? ?? {};
+        final shop = product['shop'] as Map<String, dynamic>? ?? {};
+        
+        return {
+          'id': alert['id'].toString(),
+          'product_id': alert['product_id'].toString(),
+          'title': product['title'] ?? 'Produit inconnu',
+          'image_url': product['image_url'] ?? '',
+          'shop_name': shop['name'] ?? 'Boutique',
+          'current_price': product['price'] ?? 0,
+          'target_price': alert['target_price'] ?? 0,
+          'currency': product['currency'] ?? 'FC',
+        };
+      }).toList();
+
+      setState(() {
+        _alerts = formattedAlerts;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur Supabase (Alertes) : $e');
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de charger vos alertes'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _deleteAlert(String alertId) async {
-    // TODO: Supprimer l'alerte dans Supabase
-    // await Supabase.instance.client.from('price_alerts').delete().eq('id', alertId);
-    
-    setState(() {
-      _alerts.removeWhere((alert) => alert['id'] == alertId);
-    });
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alerte supprimée avec succès')),
-      );
+    try {
+      await Supabase.instance.client
+          .from('price_alerts')
+          .delete()
+          .eq('id', alertId);
+          
+      setState(() {
+        _alerts.removeWhere((alert) => alert['id'] == alertId);
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Alerte supprimée'), backgroundColor: _MarketColors.successGreen),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur suppression alerte : $e');
     }
   }
+
+    
 
   // ============================================================
   // INTERFACE UTILISATEUR
