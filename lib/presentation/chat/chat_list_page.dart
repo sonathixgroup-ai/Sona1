@@ -10,15 +10,12 @@ import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 
-// 🎨 PALETTE DUOTONE 3.0 - COMPACT
+// 🎨 PALETTE DUO-TONE ULTRA-COMPACTE
 class _C {
-  static const bg = Color(0xFFF6F7F9);
-  static const surface = Colors.white;
-  static const dark = Color(0xFF0F172A);
-  static const muted = Color(0xFF94A3B8);
-  static const primary = Color(0xFF4F46E5);
-  static const line = Color(0xFFE2E8F0);
-  static const unreadBg = Color(0xFFEEF2FF);
+  static const bg = Colors.white; // Fond pur
+  static const ink = Color(0xFF0F172A); // Noir/Gris très profond pour le texte et les icônes
+  static const accent = Color(0xFF2563EB); // Bleu Électrique unique pour TOUT ce qui est actif
+  static const surface = Color(0xFFF8FAFC); // Gris très léger pour délimiter sans alourdir
 }
 
 class ChatListPage extends StatefulWidget {
@@ -34,9 +31,10 @@ class _ChatListPageState extends State<ChatListPage> {
   List<ChatConversation> _filtered = [];
   bool _isLoading = true;
   final _searchCtrl = TextEditingController();
-
+  
   int _selectedFilter = 0;
   int _pendingEscalationsCount = 0;
+  int _selectedNav = 1;
 
   @override
   void initState() {
@@ -53,12 +51,15 @@ class _ChatListPageState extends State<ChatListPage> {
       final convs = await _chatService.getConversations();
       final user = Supabase.instance.client.auth.currentUser;
       int pending = 0;
-      if (user!= null) {
+      if (user != null) {
         try {
           final res = await Supabase.instance.client
-             .from('escalation_steps').select('id')
-             .eq('to_agent_id', user.id).eq('status', 0).count();
-          pending = (res.count as int?)?? 0;
+              .from('escalation_steps')
+              .select('id')
+              .eq('to_agent_id', user.id)
+              .eq('status', 0)
+              .count();
+          pending = (res.count as int?) ?? 0;
         } catch (_) {}
       }
       if (!mounted) return;
@@ -70,35 +71,36 @@ class _ChatListPageState extends State<ChatListPage> {
       });
       _applyFilter();
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _onSearch(String v) {
     final q = v.toLowerCase();
-    final base = _all.where((c) =>
-      c.displayName.toLowerCase().contains(q) ||
-      (c.lastMessage?.content?? '').toLowerCase().contains(q)
-    ).toList();
-    setState(() => _filtered = base);
-    _applyFilter(searchOnly: true);
+    setState(() {
+      _filtered = _all.where((c) => 
+        c.displayName.toLowerCase().contains(q) || 
+        (c.lastMessage?.content ?? '').toLowerCase().contains(q)
+      ).toList();
+    });
+    _applyFilter();
   }
 
-  void _applyFilter({bool searchOnly = false}) {
-    if (searchOnly && _selectedFilter == 0) return;
-    List<ChatConversation> base = _filtered;
-    // si pas de recherche, on repart de _all
-    if (_searchCtrl.text.isEmpty) base = _all;
-
+  void _applyFilter() {
+    List<ChatConversation> base = _searchCtrl.text.isEmpty ? _all : _filtered;
     List<ChatConversation> result;
     switch (_selectedFilter) {
       case 1: result = base.where((c) => c.isGroup).toList(); break;
+      case 2: result = []; break;
       case 3: result = base.where((c) => c.unreadCount > 0).toList(); break;
-      case 2: result = []; break; // Appels
-      case 4: result = base; break; // Rdv
+      case 4: result = base; break;
       default: result = base;
     }
-    setState(() => _filtered = result);
+    setState(() => _filtered = _searchCtrl.text.isEmpty && _selectedFilter == 0 ? _all : result);
+    if(_searchCtrl.text.isNotEmpty){
+      result = _filtered.where((c) => _selectedFilter == 0 || (_selectedFilter == 1 && c.isGroup) || (_selectedFilter == 3 && c.unreadCount > 0)).toList();
+      if(_selectedFilter != 0 && _selectedFilter != 1 && _selectedFilter != 3) result = _filtered;
+    }
   }
 
   @override
@@ -110,221 +112,386 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalUnread = _all.fold(0, (s,c) => s + c.unreadCount);
+    final enLigne = _all.where((c) => !c.isGroup).length;
+    final nouveauxMsg = _all.fold(0, (s,c) => s + c.unreadCount);
 
     return Scaffold(
       backgroundColor: _C.bg,
-      body: Stack(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: _C.accent, strokeWidth: 2))
+        : Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: _load,
+                color: _C.accent,
+                backgroundColor: _C.bg,
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  slivers: [
+                    _buildCompactHeader(),
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildCompactSearchAndStats(enLigne, nouveauxMsg),
+                          _buildTinyStories(),
+                          _buildMinimalFilters(),
+                          const Divider(height: 1, thickness: 1, color: _C.surface),
+                        ],
+                      ),
+                    ),
+                    _buildDenseChatList(),
+                    const SliverToBoxAdapter(child: SizedBox(height: 100)), // Espace pour la nav flottante
+                  ],
+                ),
+              ),
+              _buildFloatingPillNav(),
+            ],
+          ),
+    );
+  }
+
+  // =========================================================================
+  // 1. HEADER COMPACT (Titre + Escalade)
+  // =========================================================================
+  Widget _buildCompactHeader() {
+    return SliverAppBar(
+      pinned: true,
+      elevation: 0,
+      expandedHeight: 60,
+      backgroundColor: _C.bg,
+      surfaceTintColor: _C.bg,
+      automaticallyImplyLeading: false,
+      flexibleSpace: FlexibleSpaceBar(
+        background: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Discussions', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _C.ink, letterSpacing: -0.5)),
+                GestureDetector(
+                  onTap: () => context.pushNamed('chatEscalationReceived'),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.swap_vert_rounded, color: _C.ink, size: 28),
+                      if (_pendingEscalationsCount > 0)
+                        Positioned(
+                          right: -4, top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(color: _C.accent, shape: BoxShape.circle),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            child: Text('$_pendingEscalationsCount', style: const TextStyle(color: _C.bg, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 2. RECHERCHE & STATS FUSIONNÉES (Gain de place énorme)
+  // =========================================================================
+  Widget _buildCompactSearchAndStats(int enLigne, int nouveaux) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
         children: [
-          // CONTENU SCROLLABLE
-          _isLoading
-         ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary)))
-          : RefreshIndicator(
-              color: _C.primary,
-              onRefresh: _load,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                slivers: [
-                  SliverToBoxAdapter(child: _buildCompactHeader(totalUnread)),
-                  SliverToBoxAdapter(child: _buildSearchAndChips()),
-                  if(_all.isNotEmpty) SliverToBoxAdapter(child: _buildAvatarsRow()),
-                  SliverToBoxAdapter(child: const SizedBox(height: 8)),
-                  _buildCompactList(),
-                  const SliverToBoxAdapter(child: SizedBox(height: 110)),
-                ],
+          Container(
+            height: 38, // Très fin
+            decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(8)),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _onSearch,
+              style: const TextStyle(fontSize: 13, color: _C.ink),
+              decoration: const InputDecoration(
+                hintText: 'Rechercher...',
+                hintStyle: TextStyle(fontSize: 13, color: Colors.black38),
+                prefixIcon: Icon(Icons.search, size: 18, color: Colors.black38),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
               ),
             ),
-          // BOTTOM NAV CAPSULE FLOTTANTE
-          Positioned(left: 16, right: 16, bottom: 16, child: _buildCapsuleNav(totalUnread)),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _microStat('$enLigne en ligne', true),
+              const SizedBox(width: 12),
+              _microStat('$nouveaux non lus', false),
+              const SizedBox(width: 12),
+              _microStat('12 réunions', false),
+            ],
+          )
         ],
       ),
     );
   }
 
-  // --- HEADER MINI 40px ---
-  Widget _buildCompactHeader(int unread) {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-        child: Row(
-          children: [
-            const Text('Messages', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: _C.dark)),
-            Container(margin: const EdgeInsets.only(left: 8), padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(color: _C.dark, borderRadius: BorderRadius.circular(8)),
-              child: Text('${_all.length}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+  Widget _microStat(String text, bool isActive) {
+    return Row(
+      children: [
+        Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: isActive ? _C.accent : Colors.black26)),
+        const SizedBox(width: 4),
+        Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
+      ],
+    );
+  }
+
+  // =========================================================================
+  // 3. STORIES MINIATURES (36px max)
+  // =========================================================================
+  Widget _buildTinyStories() {
+    final contacts = _all.where((c) => !c.isGroup).take(10).toList();
+    return SizedBox(
+      height: 60,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        scrollDirection: Axis.horizontal,
+        itemCount: contacts.length + 1,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(border: Border.all(color: Colors.black12), shape: BoxShape.circle),
+                child: const Icon(Icons.add, color: _C.ink, size: 20),
+              ),
+            );
+          }
+          final conv = contacts[i - 1];
+          return Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.accent, width: 1.5)),
+                child: CircleAvatar(
+                  radius: 18, // Très petit
+                  backgroundColor: _C.surface,
+                  backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
+                  child: conv.displayAvatar == null ? Text(conv.displayName[0], style: const TextStyle(fontWeight: FontWeight.bold, color: _C.ink, fontSize: 12)) : null,
+                ),
+              ),
             ),
-            const Spacer(),
-            _iconBtn(Icons.swap_vert_rounded, hasBadge: _pendingEscalationsCount > 0, count: _pendingEscalationsCount, onTap: () => context.pushNamed('chatEscalationReceived')),
-            const SizedBox(width: 8),
-            _iconBtn(Icons.more_horiz_rounded, onTap: () {}),
+          );
+        },
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 4. FILTRES TEXTUELS (Minimalistes)
+  // =========================================================================
+  Widget _buildMinimalFilters() {
+    final tabs = ['Tous', 'Équipes', 'Appels', 'Favoris', 'Rendez-vous'];
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: tabs.length,
+        itemBuilder: (context, i) {
+          final sel = _selectedFilter == i;
+          return GestureDetector(
+            onTap: () { setState(() => _selectedFilter = i); _applyFilter(); },
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: sel ? const Border(bottom: BorderSide(color: _C.accent, width: 2)) : null,
+              ),
+              child: Text(tabs[i], style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.bold : FontWeight.w500, color: sel ? _C.accent : Colors.black45)),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 5. LISTE DENSE (Plus d'infos, moins de vide)
+  // =========================================================================
+  Widget _buildDenseChatList() {
+    final list = _filtered;
+    if (list.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Aucun résultat.', style: TextStyle(color: Colors.black38, fontSize: 13)))));
+    
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, idx) {
+          final conv = list[idx];
+          final last = conv.lastMessage;
+          final time = last != null ? last.createdAt : conv.updatedAt;
+          final unread = conv.unreadCount;
+          final isUnread = unread > 0;
+
+          return InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Padding réduit
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 22, // Plus petit
+                        backgroundColor: _C.surface,
+                        backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
+                        child: conv.displayAvatar == null ? Text(conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: _C.ink, fontSize: 14)) : null,
+                      ),
+                      if(conv.isGroup) Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: _C.bg, shape: BoxShape.circle), child: const Icon(Icons.groups, size: 10, color: _C.ink)))
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: isUnread ? FontWeight.bold : FontWeight.w600, color: _C.ink)),
+                        const SizedBox(height: 2),
+                        Text(last?.content ?? 'Nouveau chat...', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: isUnread ? _C.ink : Colors.black54, fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_fmt(time), style: TextStyle(fontSize: 10, fontWeight: isUnread ? FontWeight.bold : FontWeight.w500, color: isUnread ? _C.accent : Colors.black38)),
+                      const SizedBox(height: 4),
+                      if (isUnread) Container(padding: const EdgeInsets.all(5), decoration: const BoxDecoration(color: _C.accent, shape: BoxShape.circle), child: Text('$unread', style: const TextStyle(color: _C.bg, fontSize: 9, fontWeight: FontWeight.bold)))
+                      else const SizedBox(height: 18), // Maintien l'alignement
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        childCount: list.length,
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 6. BOTTOM NAV : LA PILULE FLOTTANTE (Design Radical)
+  // =========================================================================
+  Widget _buildFloatingPillNav() {
+    return Positioned(
+      bottom: 24, left: 24, right: 24,
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: _C.ink, // Fond noir profond
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 15, offset: const Offset(0, 8))],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _pillIcon(Icons.home_filled, 0),
+            _pillIcon(Icons.chat_bubble_rounded, 1, badge: _all.fold(0,(s,c)=>s+c.unreadCount)),
+            
+            // BOUTON ACTION CENTRAL (Bleu Électrique)
+            GestureDetector(
+              onTap: _showCreateMenu,
+              child: Container(
+                height: 40, width: 40,
+                decoration: const BoxDecoration(color: _C.accent, shape: BoxShape.circle),
+                child: const Icon(Icons.add, color: _C.bg, size: 24),
+              ),
+            ),
+
+            _pillIcon(Icons.workspaces_filled, 2),
+            _pillIcon(Icons.person, 3),
           ],
         ),
       ),
     );
   }
 
-  Widget _iconBtn(IconData icon, {bool hasBadge=false, int count=0, VoidCallback? onTap}) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(width: 34, height: 34, decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.line)),
-            child: Icon(icon, size: 18, color: _C.dark)),
+  Widget _pillIcon(IconData icon, int idx, {int badge=0}) {
+    final sel = _selectedNav == idx;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedNav = idx),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Icon(icon, size: 22, color: sel ? _C.bg : Colors.white38),
+            if(badge > 0) Positioned(
+              right: -6, top: -6, 
+              child: Container(
+                padding: const EdgeInsets.all(4), 
+                decoration: const BoxDecoration(color: _C.accent, shape: BoxShape.circle), 
+                child: Text('$badge', style: const TextStyle(fontSize: 8, color: _C.bg, fontWeight: FontWeight.bold))
+              )
+            ),
+          ],
         ),
-        if(hasBadge) Positioned(right: -3, top: -3, child: Container(padding: const EdgeInsets.all(3.5), decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle),
-          child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)))),
-      ],
-    );
-  }
-
-  // --- SEARCH + FILTERS SUR UNE SEULE LIGNE ---
-  Widget _buildSearchAndChips() {
-    final tabs = ['Tous', 'Équipes', 'Non lus', 'Appels'];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 0),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Container(height: 38, decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(11), border: Border.all(color: _C.line)),
-                  child: TextField(controller: _searchCtrl, onChanged: _onSearch,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(hintText: 'Rechercher', hintStyle: TextStyle(fontSize: 13, color: _C.muted, fontWeight: FontWeight.w500),
-                      prefixIcon: Icon(Icons.search_rounded, size: 16, color: _C.muted), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 10)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Filtres horizontaux
-              SizedBox(height: 38, child: ListView.separated(padding: const EdgeInsets.only(right: 16), scrollDirection: Axis.horizontal, itemCount: tabs.length,
-                separatorBuilder: (_,__)=> const SizedBox(width: 6),
-                itemBuilder: (c,i){
-                  final sel = _selectedFilter == i;
-                  return GestureDetector(onTap: (){ setState(()=>_selectedFilter=i); _applyFilter(); },
-                    child: Container(padding: const EdgeInsets.symmetric(horizontal: 12), alignment: Alignment.center,
-                      decoration: BoxDecoration(color: sel? _C.dark : _C.surface, borderRadius: BorderRadius.circular(11), border: Border.all(color: sel? _C.dark : _C.line)),
-                      child: Text(tabs[i], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sel? Colors.white : _C.muted)),
-                    ),
-                  );
-                }
-              )),
-            ],
-          ),
-        ],
       ),
     );
   }
 
-  // --- AVATARS 44px COMPACT ---
-  Widget _buildAvatarsRow() {
-    final contacts = _all.where((c) =>!c.isGroup).take(10).toList();
-    return SizedBox(height: 68, child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 14, 0, 0), scrollDirection: Axis.horizontal, itemCount: contacts.length + 1,
-      itemBuilder: (context,i){
-        if(i==0){
-          return Padding(padding: const EdgeInsets.only(right: 14),
-            child: Column(children: [
-              InkWell(onTap: _showCreateMenu, child: Container(width: 42, height: 42, decoration: BoxDecoration(color: _C.surface, shape: BoxShape.circle, border: Border.all(color: _C.line, width: 1.2,)), child: const Icon(Icons.add, size: 18, color: _C.dark))),
-              const SizedBox(height: 5), const Text('Créer', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.muted))
-            ]),
-          );
-        }
-        final conv = contacts[i-1];
-        return Padding(padding: const EdgeInsets.only(right: 14),
-          child: GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
-            child: Column(children: [
-              Stack(children: [
-                Container(padding: const EdgeInsets.all(1.5), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.primary.withOpacity(0.3), width: 1.5)),
-                  child: CircleAvatar(radius: 19, backgroundColor: _C.line, backgroundImage: conv.displayAvatar!= null? NetworkImage(conv.displayAvatar!) : null,
-                    child: conv.displayAvatar==null? Text(conv.displayName[0].toUpperCase(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _C.dark)) : null)),
-                if(conv.unreadCount>0) Positioned(right: 0, top: 0, child: Container(width: 10, height: 10, decoration: BoxDecoration(color: _C.primary, shape: BoxShape.circle, border: Border.all(color: _C.bg, width: 1.5))))
-              ]),
-              const SizedBox(height: 5), SizedBox(width: 46, child: Text(conv.displayName.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.dark)))
-            ]),
-          ),
-        );
-      }
-    ));
-  }
-
-  // --- LISTE COMPACTE CARTE SUR CARTE ---
-  Widget _buildCompactList() {
-    if(_filtered.isEmpty) return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(32), child: Center(child: Text('Aucun chat', style: TextStyle(fontSize: 12, color: _C.muted)))));
-    return SliverList.builder(itemCount: _filtered.length, itemBuilder: (c,idx){
-      final conv = _filtered[idx];
-      final last = conv.lastMessage;
-      final unread = conv.unreadCount;
-      final isUnread = unread>0;
-      return InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
-        child: Container(margin: EdgeInsets.fromLTRB(12, idx==0?8:0, 12, 6), padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: isUnread? _C.unreadBg : _C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: isUnread? _C.primary.withOpacity(0.12) : _C.line)),
-          child: Row(children: [
-            CircleAvatar(radius: 20, backgroundColor: _C.bg, backgroundImage: conv.displayAvatar!=null?NetworkImage(conv.displayAvatar!):null,
-              child: conv.displayAvatar==null?Text(conv.displayName[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _C.dark)):null),
-            const SizedBox(width: 10),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text(conv.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: isUnread?FontWeight.w800:FontWeight.w700, color: _C.dark))),
-                Text(_fmt(last?.createdAt?? conv.updatedAt), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isUnread? _C.primary : _C.muted)),
-              ]),
-              const SizedBox(height: 2),
-              Row(children: [
-                Expanded(child: Text(last?.content?? 'Nouvelle conversation', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: isUnread?FontWeight.w600:FontWeight.w500, color: isUnread? _C.dark.withOpacity(0.8) : _C.muted))),
-                const SizedBox(width: 8),
-                if(isUnread) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5), decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(20)), child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)))
-                else if(conv.isGroup) const Icon(Icons.push_pin_rounded, size: 12, color: _C.muted)
-              ])
-            ]))
-          ]),
-        ),
-      );
-    });
-  }
-
-  // --- BOTTOM NAV CAPSULE ---
-  Widget _buildCapsuleNav(int badge) {
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(color: _C.dark, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: _C.dark.withOpacity(0.25), blurRadius: 20, offset: const Offset(0, 8))]),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        _capsuleItem(Icons.grid_view_rounded, false, (){}),
-        _capsuleItem(Icons.chat_bubble_rounded, true, (){}, badge: badge),
-        // Bouton central intégré dans la capsule
-        GestureDetector(onTap: _showCreateMenu, child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle), child: const Icon(Icons.add_rounded, color: Colors.white, size: 20))),
-        _capsuleItem(Icons.layers_rounded, false, (){}),
-        _capsuleItem(Icons.person_rounded, false, (){}),
-      ]),
+  void _showCreateMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(24)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 32, height: 4, decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            _sheetOpt(Icons.person_add_alt_1_rounded, 'Nouvelle discussion', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))),
+            _sheetOpt(Icons.group_add_rounded, 'Nouveau groupe', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()))),
+            const SizedBox(height: 8),
+          ]
+        )
+      )
     );
   }
 
-  Widget _capsuleItem(IconData icon, bool sel, VoidCallback tap, {int badge=0}){
-    return InkWell(onTap: tap, borderRadius: BorderRadius.circular(12), child: Container(width: 44, height: 36, alignment: Alignment.center,
-      child: Stack(clipBehavior: Clip.none, children: [
-        Icon(icon, size: 20, color: sel? Colors.white : Colors.white.withOpacity(0.45)),
-        if(badge>0) Positioned(right: -8, top: -2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(10)), child: Text('$badge', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800))))
-      ]),
-    ));
+  Widget _sheetOpt(IconData i, String t, VoidCallback tap){ 
+    return InkWell(
+      onTap: (){ Navigator.pop(context); tap(); }, 
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), 
+        child: Row(children: [
+          Icon(i, size: 20, color: _C.ink), 
+          const SizedBox(width: 16), 
+          Text(t, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _C.ink))
+        ])
+      )
+    ); 
   }
 
-  void _showCreateMenu() {
-    showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (ctx) => Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), decoration: const BoxDecoration(color: _C.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 28, height: 3, decoration: BoxDecoration(color: _C.line, borderRadius: BorderRadius.circular(2))), margin: const EdgeInsets.only(bottom: 16)),
-        _sheetRow(Icons.chat_rounded, 'Nouveau message', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewConversationPage()))),
-        const SizedBox(height: 8),
-        _sheetRow(Icons.group_add_rounded, 'Créer un groupe', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupCreatePage()))),
-      ]),
-    ));
+  String _fmt(DateTime t){ 
+    final now=DateTime.now(); 
+    final d=DateTime(t.year,t.month,t.day); 
+    final today=DateTime(now.year,now.month,now.day); 
+    if(d==today) return DateFormat('HH:mm').format(t); 
+    if(d==today.subtract(const Duration(days:1))) return 'Hier'; 
+    if(now.difference(t).inDays<7) return DateFormat('E','fr_FR').format(t); 
+    return DateFormat('dd/MM').format(t); 
   }
-
-  Widget _sheetRow(IconData i, String t, VoidCallback tap){
-    return InkWell(onTap: (){ Navigator.pop(context); tap(); }, borderRadius: BorderRadius.circular(12),
-      child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), decoration: BoxDecoration(border: Border.all(color: _C.line), borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [Container(width: 32, height: 32, decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(8)), child: Icon(i, size: 16, color: _C.dark)), const SizedBox(width: 10), Text(t, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _C.dark))])));
-  }
-
-  String _fmt(DateTime t){ final now=DateTime.now(); final d=DateTime(t.year,t.month,t.day); final today=DateTime(now.year,now.month,now.day); if(d==today) return DateFormat('HH:mm').format(t); if(d==today.subtract(const Duration(days:1))) return 'Hier'; return DateFormat('dd/MM').format(t); }
 }
