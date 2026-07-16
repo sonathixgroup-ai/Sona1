@@ -17,28 +17,28 @@ class CartProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSyncing => _isSyncing;
   int get itemCount => _cartItems.length;
-  int get totalQuantity => _cartItems.fold<int>(0, (sum, item) => sum + ((item['quantity'] as int?)?? 0));
+  int get totalQuantity => _cartItems.fold<int>(0, (sum, item) => sum + ((item['quantity'] as int?) ?? 0));
 
   // ============================================================
   // LOGIQUE PRIX UNIQUE - CORRIGE LE DEPHASAGE
   // ============================================================
   double _getRealPrice(Map<String, dynamic> product) {
-    final raw = (product['price'] as num?)?.toDouble()?? 0;
-    final sale = (product['sale_price'] as num?)?.toDouble()?? (product['discount_price'] as num?)?.toDouble();
-    final percent = (product['discount_percent'] as num?)?.toDouble()?? 0;
-    final original = (product['original_price'] as num?)?.toDouble()?? raw;
+    final raw = (product['price'] as num?)?.toDouble() ?? 0;
+    final sale = (product['sale_price'] as num?)?.toDouble() ?? (product['discount_price'] as num?)?.toDouble();
+    final percent = (product['discount_percent'] as num?)?.toDouble() ?? 0;
+    final original = (product['original_price'] as num?)?.toDouble() ?? raw;
 
-    if (sale!= null && sale > 0 && sale < raw) return sale;
-    if (sale!= null && sale > 0 && original > 0 && sale < original) return sale;
+    if (sale != null && sale > 0 && sale < raw) return sale;
+    if (sale != null && sale > 0 && original > 0 && sale < original) return sale;
     if (percent > 0) return raw * (1 - percent / 100);
     return raw;
   }
 
   double _getOldPrice(Map<String, dynamic> product) {
-    final raw = (product['price'] as num?)?.toDouble()?? 0;
-    final original = (product['original_price'] as num?)?.toDouble()?? raw;
+    final raw = (product['price'] as num?)?.toDouble() ?? 0;
+    final original = (product['original_price'] as num?)?.toDouble() ?? raw;
     final sale = (product['sale_price'] as num?)?.toDouble();
-    if (sale!= null && sale < raw) return raw;
+    if (sale != null && sale < raw) return raw;
     return original;
   }
 
@@ -49,18 +49,18 @@ class CartProvider extends ChangeNotifier {
     if (_cartItems.isEmpty) return 'FC';
     final p = _cartItems.first['product'] as Map?;
     // Nettoie : CDF -> FC, XOF -> FC, USD reste USD
-    final raw = (p?['currency']?? 'FC').toString().toUpperCase();
+    final raw = (p?['currency'] ?? 'FC').toString().toUpperCase();
     if (raw == 'CDF' || raw == 'XOF' || raw == 'FC') return 'FC';
     if (raw == 'USD' || raw == '\$') return 'USD';
     return 'FC'; // par défaut franc congolais
   }
 
-  String get currencySymbol => currency == 'USD'? '\$' : 'FC';
+  String get currencySymbol => currency == 'USD' ? '\$' : 'FC';
 
   // Pour chaque item, sa devise réelle (si panier mixte USD + FC)
   String currencyForItem(Map<String, dynamic> item) {
     final p = item['product'] as Map?;
-    final raw = (p?['currency']?? currency).toString().toUpperCase();
+    final raw = (p?['currency'] ?? currency).toString().toUpperCase();
     if (raw == 'USD' || raw == '\$') return 'USD';
     return 'FC';
   }
@@ -68,33 +68,38 @@ class CartProvider extends ChangeNotifier {
   // ============================================================
   // CALCULS - CORRIGÉS
   // ============================================================
-  // CORRECTION : Remplace les ??? par ??
-double get subtotal => _cartItems.fold(0.0, (sum, item) {
-    // Si item['product'] est null, on utilise un Map vide {}
-    final product = Map<String, dynamic>.from(item['product'] as Map? ?? {});
+  
+  double get subtotal => _cartItems.fold(0.0, (sum, item) {
+    final product = Map<String, dynamic>.from((item['product'] as Map?) ?? {});
     final qty = (item['quantity'] ?? 0).toInt();
     return sum + (_getRealPrice(product) * qty);
-});
-
+  });
 
   double get originalSubtotal => _cartItems.fold(0.0, (sum, item) {
-    final product = Map<String, dynamic>.from(item['product'] as Map??? {});
-    final qty = (item['quantity']?? 0).toInt();
+    final product = Map<String, dynamic>.from((item['product'] as Map?) ?? {});
+    final qty = (item['quantity'] ?? 0).toInt();
     return sum + (_getOldPrice(product) * qty);
   });
 
   double get totalDiscount => originalSubtotal - subtotal;
 
   // LIVRAISON = 0 au début, sera fixée par le vendeur qui reçoit la commande
-  // Tu avais 2500 FC fixe, ça créait le 165000 vs 170000
-  double get shippingCost => 0; // En attente du vendeur
+  double get shippingCost => 0; 
   String get shippingSymbol => 'FC';
 
   double get total => subtotal + shippingCost;
 
   // Pour affichage détaillé
-  double getItemRealPrice(Map<String, dynamic> item) => _getRealPrice(Map<String, dynamic>.from(item['product'] as Map??? {}));
-  double getItemOldPrice(Map<String, dynamic> item) => _getOldPrice(Map<String, dynamic>.from(item['product'] as Map??? {}));
+  double getItemRealPrice(Map<String, dynamic> item) {
+    final product = Map<String, dynamic>.from((item['product'] as Map?) ?? {});
+    return _getRealPrice(product);
+  }
+
+  double getItemOldPrice(Map<String, dynamic> item) {
+    final product = Map<String, dynamic>.from((item['product'] as Map?) ?? {});
+    return _getOldPrice(product);
+  }
+
   int getItemDiscountPercent(Map<String, dynamic> item) {
     final oldP = getItemOldPrice(item);
     final real = getItemRealPrice(item);
@@ -109,10 +114,10 @@ double get subtotal => _cartItems.fold(0.0, (sum, item) {
 
   void _init() {
     _currentUserId = _supabase.auth.currentUser?.id;
-    if (_currentUserId!= null) { _setupRealtimeSubscription(); loadCart(); }
+    if (_currentUserId != null) { _setupRealtimeSubscription(); loadCart(); }
     _supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
-      if (session!= null) { _currentUserId = session.user.id; _setupRealtimeSubscription(); loadCart(); }
+      if (session != null) { _currentUserId = session.user.id; _setupRealtimeSubscription(); loadCart(); }
       else { _currentUserId = null; _cartItems.clear(); _cartStream = null; notifyListeners(); }
     });
   }
@@ -130,9 +135,9 @@ double get subtotal => _cartItems.fold(0.0, (sum, item) {
       final List<Map<String, dynamic>> enriched = [];
       for (var cartItem in cartRecords) {
         final productId = cartItem['product_id'];
-        if (productId!= null) {
+        if (productId != null) {
           final product = await _supabase.from('products').select('*, shop:shops(name, logo_url)').eq('id', productId).maybeSingle();
-          if (product!= null) { enriched.add({...cartItem, 'product': product}); }
+          if (product != null) { enriched.add({...cartItem, 'product': product}); }
           else { await removeFromCart(cartItem['id']); }
         }
       }
@@ -155,7 +160,7 @@ double get subtotal => _cartItems.fold(0.0, (sum, item) {
     if (_currentUserId == null) throw Exception('Veuillez vous connecter');
     try {
       final existing = _cartItems.firstWhere((i) => i['product_id'] == productId && i['variant'] == variant && i['color'] == color, orElse: () => {});
-      if (existing.isNotEmpty) { await updateQuantity(existing['id'], (existing['quantity']?? 0) + quantity); }
+      if (existing.isNotEmpty) { await updateQuantity(existing['id'], (existing['quantity'] ?? 0) + quantity); }
       else { await _supabase.from('cart').insert({'user_id': _currentUserId, 'product_id': productId, 'quantity': quantity, 'variant': variant, 'color': color, 'created_at': DateTime.now().toIso8601String()}); }
       await loadCart();
     } catch (e) { debugPrint('Error adding: $e'); rethrow; }
@@ -166,7 +171,7 @@ double get subtotal => _cartItems.fold(0.0, (sum, item) {
     try {
       await _supabase.from('cart').update({'quantity': newQuantity}).eq('id', cartItemId);
       final idx = _cartItems.indexWhere((i) => i['id'] == cartItemId);
-      if (idx!= -1) { _cartItems[idx]['quantity'] = newQuantity; notifyListeners(); }
+      if (idx != -1) { _cartItems[idx]['quantity'] = newQuantity; notifyListeners(); }
     } catch (e) { debugPrint('Error update qty: $e'); rethrow; }
   }
 
