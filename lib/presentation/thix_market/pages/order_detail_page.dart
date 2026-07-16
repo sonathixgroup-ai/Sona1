@@ -4,6 +4,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
+// ============================================================
+// CHARTE GRAPHIQUE THIX MARKET
+// ============================================================
+class _MarketColors {
+  static const Color red = Color(0xFFD81E2C);
+  static const Color gold = Color(0xFFF0A93B);
+  static const Color lightBg = Color(0xFFF7F7FA);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF1A1A1A);
+  static const Color mutedText = Color(0xFF8A8A8F);
+  static const Color cardBorder = Color(0xFFF0F0F0);
+  static const Color successGreen = Color(0xFF00B074);
+  static const Color creamBg = Color(0xFFFCEFDA);
+}
+
 class OrderDetailPage extends StatefulWidget {
   final String orderId;
 
@@ -63,17 +78,17 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Color _statusColor(String status) {
     switch (status) {
       case 'pending':
-        return Colors.orange;
+        return _MarketColors.gold;
       case 'processing':
         return Colors.blue;
       case 'shipped':
         return Colors.purple;
       case 'delivered':
-        return Colors.green;
+        return _MarketColors.successGreen;
       case 'cancelled':
-        return Colors.red;
+        return _MarketColors.red;
       default:
-        return Colors.grey;
+        return _MarketColors.mutedText;
     }
   }
 
@@ -97,21 +112,30 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: _MarketColors.lightBg,
       appBar: AppBar(
         title: const Text(
           'Détail de la commande',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: _MarketColors.darkText,
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+          ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: _MarketColors.pureWhite,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _MarketColors.darkText, size: 20),
           onPressed: () => context.pop(),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: _MarketColors.cardBorder, height: 1),
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: _MarketColors.red))
           : _error != null
               ? _buildErrorState()
               : _order == null
@@ -125,19 +149,34 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 60, color: Colors.grey[400]),
-          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _MarketColors.creamBg,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.error_outline_rounded, size: 64, color: _MarketColors.gold),
+          ),
+          const SizedBox(height: 24),
           Text(
             _error!,
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadOrderDetails,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE5592F),
+            style: const TextStyle(
+              color: _MarketColors.darkText,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
             ),
-            child: const Text('Réessayer'),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _loadOrderDetails,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            label: const Text('Réessayer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _MarketColors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
           ),
         ],
       ),
@@ -151,6 +190,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final shop = order['shop'] as Map?;
     final status = order['status'] ?? 'pending';
     final total = (order['total'] as num?)?.toDouble() ?? 0;
+    final currency = order['currency'] ?? 'FC'; 
     final createdAt = _formatDate(order['created_at']);
     final paymentStatus = order['payment_status'] ?? 'pending';
 
@@ -163,14 +203,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              color: _MarketColors.pureWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _MarketColors.cardBorder),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
               ],
             ),
             child: Row(
@@ -180,16 +217,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Commande #${order['id']}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      'Commande #${order['id'].toString().substring(0, 8)}', // Affichage raccourci pour l'esthétique
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _MarketColors.darkText),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Passée le $createdAt',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded, size: 12, color: _MarketColors.mutedText),
+                        const SizedBox(width: 4),
+                        Text(
+                          createdAt,
+                          style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -197,13 +237,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: _statusColor(status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     _statusLabel(status),
                     style: TextStyle(
                       color: _statusColor(status),
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -217,35 +258,43 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: _MarketColors.pureWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _MarketColors.cardBorder),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundImage: shop['logo_url'] != null
-                        ? CachedNetworkImageProvider(shop['logo_url'])
-                        : null,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _MarketColors.lightBg,
+                      shape: BoxShape.circle,
+                      image: shop['logo_url'] != null
+                          ? DecorationImage(image: CachedNetworkImageProvider(shop['logo_url']), fit: BoxFit.cover)
+                          : null,
+                    ),
                     child: shop['logo_url'] == null
-                        ? const Icon(Icons.store, size: 20)
+                        ? const Icon(Icons.storefront_rounded, size: 20, color: _MarketColors.mutedText)
                         : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      shop['name'] ?? 'Boutique',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Vendu par', style: TextStyle(fontSize: 10, color: _MarketColors.mutedText, fontWeight: FontWeight.w600)),
+                        Text(
+                          shop['name'] ?? 'Boutique',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _MarketColors.darkText),
+                        ),
+                      ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _MarketColors.mutedText),
                 ],
               ),
             ),
@@ -255,56 +304,55 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              color: _MarketColors.pureWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _MarketColors.cardBorder),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Articles',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  'Articles commandés',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _MarketColors.darkText),
                 ),
-                const SizedBox(height: 12),
-                ...items.map((item) => _buildItemTile(item)),
-                const Divider(height: 24),
+                const SizedBox(height: 16),
+                ...items.map((item) => _buildItemTile(item, currency)),
+                const Divider(height: 32, color: _MarketColors.cardBorder),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      'Total payé',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _MarketColors.darkText),
                     ),
                     Text(
-                      '${total.toInt()} FCFA',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFFE5592F),
-                      ),
+                      '${total.toInt()} $currency',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _MarketColors.red),
                     ),
                   ],
                 ),
                 if (paymentStatus == 'paid')
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Icon(Icons.check_circle, size: 16, color: Colors.green),
-                        SizedBox(width: 4),
-                        Text(
-                          'Payée',
-                          style: TextStyle(color: Colors.green, fontSize: 13),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _MarketColors.successGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.check_circle_rounded, size: 12, color: _MarketColors.successGreen),
+                              SizedBox(width: 4),
+                              Text('Paiement validé', style: TextStyle(color: _MarketColors.successGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -319,78 +367,82 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: _MarketColors.pureWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _MarketColors.cardBorder),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 18, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      const Text(
+                    children: const [
+                      Icon(Icons.location_on_rounded, size: 18, color: _MarketColors.gold),
+                      SizedBox(width: 8),
+                      Text(
                         'Adresse de livraison',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _MarketColors.darkText),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(address['full_name'] ?? ''),
-                  Text(address['address_line'] ?? ''),
-                  Text('${address['city']}, ${address['postal_code'] ?? ''}'),
-                  Text('Tél: ${address['phone'] ?? ''}'),
+                  const SizedBox(height: 12),
+                  Text(
+                    address['full_name'] ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: _MarketColors.darkText, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(address['address_line'] ?? '', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
+                  Text('${address['city']}, ${address['postal_code'] ?? ''}', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_rounded, size: 12, color: _MarketColors.mutedText),
+                      const SizedBox(width: 4),
+                      Text(address['phone'] ?? '', style: const TextStyle(color: _MarketColors.mutedText, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                 ],
               ),
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
           // Actions
           if (status == 'pending' || status == 'processing')
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showCancelConfirmDialog(),
-                    icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                    label: const Text(
-                      'Annuler la commande',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
-                    ),
+                OutlinedButton.icon(
+                  onPressed: () => _showCancelConfirmDialog(),
+                  icon: const Icon(Icons.cancel_outlined, color: _MarketColors.red, size: 18),
+                  label: const Text('Annuler la commande', style: TextStyle(color: _MarketColors.red, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    side: const BorderSide(color: _MarketColors.red),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => context.push('/market/orders'),
-                    icon: const Icon(Icons.history),
-                    label: const Text('Voir mes commandes'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE5592F),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 12),
               ],
             ),
+            
+          ElevatedButton.icon(
+            onPressed: () => context.push('/market/orders'),
+            icon: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
+            label: const Text('Retour à mes commandes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _MarketColors.darkText, // Couleur sombre pour contraster avec le rouge
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildItemTile(Map<String, dynamic> item) {
+  Widget _buildItemTile(Map<String, dynamic> item, String currency) {
     final name = item['product_name'] ?? 'Produit';
     final quantity = item['quantity'] ?? 1;
     final price = (item['price'] as num?)?.toDouble() ?? 0;
@@ -399,33 +451,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: imageUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      width: 50,
-                      height: 50,
-                      color: Colors.grey[200],
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      width: 50,
-                      height: 50,
-                      color: Colors.grey[200],
-                      child: const Icon(Icons.image, size: 24),
-                    ),
-                  )
-                : Container(
-                    width: 50,
-                    height: 50,
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.image, size: 24),
-                  ),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 56,
+              height: 56,
+              color: _MarketColors.lightBg,
+              child: imageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: _MarketColors.red)),
+                      errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: _MarketColors.mutedText),
+                    )
+                  : const Icon(Icons.image_outlined, color: _MarketColors.mutedText),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -434,20 +476,26 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: _MarketColors.darkText, fontSize: 13),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  '$quantity x ${price.toInt()} FCFA',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  'Qté: $quantity  •  ${price.toInt()} $currency/u',
+                  style: const TextStyle(color: _MarketColors.mutedText, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
-          Text(
-            '${(price * quantity).toInt()} FCFA',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${(price * quantity).toInt()} $currency',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _MarketColors.darkText),
+              ),
+            ],
           ),
         ],
       ),
@@ -458,14 +506,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Annuler la commande'),
-        content: const Text('Êtes‑vous sûr de vouloir annuler cette commande ?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Annuler la commande', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        content: const Text(
+          'Êtes‑vous sûr de vouloir annuler cette commande ? Cette action est irréversible.',
+          style: TextStyle(fontSize: 14, color: _MarketColors.darkText),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Non'),
+            child: const Text('Non, garder', style: TextStyle(color: _MarketColors.mutedText, fontWeight: FontWeight.bold)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               try {
@@ -475,20 +527,30 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     .eq('id', widget.orderId);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Commande annulée')),
+                    const SnackBar(
+                      content: Text('Commande annulée avec succès'),
+                      backgroundColor: _MarketColors.successGreen,
+                    ),
                   );
                   _loadOrderDetails();
                 }
               } catch (_) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Erreur lors de l’annulation')),
+                    const SnackBar(
+                      content: Text('Erreur lors de l’annulation'),
+                      backgroundColor: _MarketColors.red,
+                    ),
                   );
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Oui, annuler'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _MarketColors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            child: const Text('Oui, annuler', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
