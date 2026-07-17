@@ -48,15 +48,22 @@ class NetworkStory {
     );
   }
 
-  // Déserialisation depuis la réponse Supabase
+  // Déserialisation depuis la réponse Supabase (vue active_stories ou jointure)
   factory NetworkStory.fromJson(Map<String, dynamic> json) {
+    // Supporte à la fois l'ancienne jointure 'profiles' et les champs plats de la vue
     final profiles = json['profiles'] as Map<String, dynamic>?;
+    
     return NetworkStory(
       id: json['id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
-      userName: profiles?['display_name']?.toString() ?? 'Utilisateur',
-      userAvatar: profiles?['avatar_url']?.toString(),
-      userTitle: profiles?['title']?.toString() ?? 'Membre THIX',
+      userName: profiles?['display_name']?.toString() 
+                ?? json['user_name']?.toString() 
+                ?? 'Utilisateur',
+      userAvatar: profiles?['avatar_url']?.toString() 
+                  ?? json['user_avatar']?.toString(),
+      userTitle: profiles?['title']?.toString() 
+                ?? json['user_title']?.toString() 
+                ?? 'Membre THIX',
       imageUrl: json['image_url']?.toString() ?? '',
       duration: (json['duration'] as int?) ?? 24, // heures
       createdAt: json['created_at'] != null
@@ -80,7 +87,7 @@ class NetworkStory {
 
   // Getters métier
   bool get isExpired => DateTime.now().isAfter(expiresAt);
-  bool get isActive => !isExpired; // on n'utilise plus de champ is_active externe
+  bool get isActive => !isExpired; // plus besoin de colonne is_active
   bool get hasUserAvatar => userAvatar != null && userAvatar!.isNotEmpty;
   String get avatarUrl => userAvatar ?? '';
   String get userInitial => userName.isNotEmpty ? userName[0].toUpperCase() : '?';
@@ -159,7 +166,7 @@ class NetworkStory {
       'NetworkStory(id: $id, user: $userName, expired: $isExpired)';
 }
 
-// Extension sur liste de stories (inchangée)
+// Extension sur liste de stories
 extension NetworkStoryListExtension on List<NetworkStory> {
   List<NetworkStory> get active => where((s) => !s.isExpired).toList();
   List<NetworkStory> get expired => where((s) => s.isExpired).toList();
@@ -175,6 +182,4 @@ extension NetworkStoryListExtension on List<NetworkStory> {
     }
     return map;
   }
-  // Suppression des extensions `currentUserStories` / `otherUserStories` 
-  // car elles dépendaient de la statique `_currentUserId`.
 }
