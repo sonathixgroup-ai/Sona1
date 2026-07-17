@@ -15,6 +15,9 @@ class ChatSettingsProvider extends ChangeNotifier {
   ChatSettings? _settings;
   bool _isLoading = false;
   String? _error;
+  
+  // NOUVEAU : On stocke l'ID de l'utilisateur pour ne pas dépendre de _chatUser
+  String? _currentUserId; 
 
   // Getters
   ChatUser? get chatUser => _chatUser;
@@ -24,6 +27,7 @@ class ChatSettingsProvider extends ChangeNotifier {
 
   // Charger toutes les données
   Future<void> load(String userId) async {
+    _currentUserId = userId; // On sauvegarde l'ID ici
     _setLoading(true);
     _error = null;
 
@@ -41,11 +45,11 @@ class ChatSettingsProvider extends ChangeNotifier {
 
   // Mettre à jour le profil chat
   Future<bool> updateChatUser(ChatUser user) async {
-    if (_chatUser == null) return false;
+    if (_currentUserId == null) return false; // Sécurité renforcée
     _setLoading(true);
 
     try {
-      await _service.updateChatUser(_chatUser!.id, user);
+      await _service.updateChatUser(_currentUserId!, user);
       _chatUser = user;
       _setLoading(false);
       return true;
@@ -58,11 +62,11 @@ class ChatSettingsProvider extends ChangeNotifier {
 
   // Uploader un avatar
   Future<String?> uploadAvatar(File image) async {
-    if (_chatUser == null) return null;
+    if (_currentUserId == null || _chatUser == null) return null;
     _setLoading(true);
 
     try {
-      final url = await _service.uploadAvatar(_chatUser!.id, image);
+      final url = await _service.uploadAvatar(_currentUserId!, image);
       _chatUser = _chatUser!.copyWith(avatarUrl: url);
       _setLoading(false);
       return url;
@@ -75,11 +79,11 @@ class ChatSettingsProvider extends ChangeNotifier {
 
   // Mettre à jour les réglages
   Future<bool> updateSettings(ChatSettings settings) async {
-    if (_chatUser == null) return false;
+    if (_currentUserId == null) return false; // Ne dépend plus de _chatUser
     _setLoading(true);
 
     try {
-      await _service.updateSettings(_chatUser!.id, settings);
+      await _service.updateSettings(_currentUserId!, settings);
       _settings = settings;
       _setLoading(false);
       return true;
