@@ -1,5 +1,5 @@
 // Route: lib/presentation/chat/chat_screen.dart
-// Version ULTRA COMPLÈTE - Mise à jour Design (Header Bleu, Sheet 22px, Big Password Input, Full Image)
+// Version ULTRA COMPLÈTE - AUCUNE COUPE - Nouveau Design Appliqué
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
@@ -57,11 +57,13 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+  // Services
   late ChatService _chatService;
   late PresenceService _presenceService;
   late AudioService _audioService;
   late GroupService _groupService;
 
+  // Messages
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -70,33 +72,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _page = 0;
   static const int _pageSize = 30;
 
+  // Contrôleurs
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
+  // Participants
   UserStatus? _otherParticipant;
   List<GroupMember> _groupMembers = [];
 
+  // État du message
   String _replyToId = '';
   bool _isEphemeral = false;
   int? _ephemeralDuration;
 
+  // === TYPING INDICATOR ===
   bool _isTyping = false;
   bool _otherUserTyping = false;
   Timer? _typingTimer;
   RealtimeChannel? _typingChannel;
 
+  // === ESCALADE ET NOTES INTERNES ===
   bool _isAgent = false;
   bool _isInternalNoteMode = false;
   bool _isConversationEscalated = false;
 
+  // Streams
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
   Stream<UserStatus?>? _presenceStream;
 
-  // Couleurs mises à jour selon la maquette
-  static const Color primaryBlue = Color(0xFF4A8BFF); // Bleu vif du header
-  static const Color leftBubbleColor = Color(0xFFE9F0FF); // Bleu clair à gauche
-  static const Color dividerColor = Color(0xFFE2E8F0); // Couleur du divider
+  // === COULEURS DU NOUVEAU DESIGN ===
+  static const Color primaryBlue = Color(0xFF4A8BFF);
+  static const Color leftBubbleColor = Color(0xFFE9F0FF);
+  static const Color dividerColor = Color(0xFFE2E8F0);
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color gold = Color(0xFFE3B23C);
@@ -108,7 +116,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   static const Color danger = Color(0xFFD64545);
   static const Color hairline = Color(0xFFE7EAF3);
 
+  // Réactions rapides (menu action message)
   static const List<String> _quickReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
+
+  // ============================================================
+  // CYCLE DE VIE
+  // ============================================================
 
   @override
   void initState() {
@@ -120,6 +133,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _groupService = GroupService(client);
 
     _loadUserRole();
+
     WidgetsBinding.instance.addObserver(this);
 
     _loadMessages();
@@ -133,7 +147,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _checkMicrophonePermission();
   }
 
-  // ... (Garde toutes tes méthodes de chargement, présence, Realtime et Agora intactes)
   Future<void> _loadUserRole() async {
     final user = _chatService.currentUser;
     if (user != null) {
@@ -144,7 +157,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _checkMicrophonePermission() async {
     final status = await Permission.microphone.status;
-    debugPrint('🎙 Statut permission: $status');
+    debugPrint('🎙 Statut permission microphone au chargement: $status');
   }
 
   @override
@@ -160,6 +173,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // ============================================================
+  // CHARGEMENT DES DONNÉES
+  // ============================================================
+
   Future<void> _loadMessages({bool loadMore = false}) async {
     if (loadMore) {
       if (_isLoadingMore || !_hasMoreMessages) return;
@@ -168,8 +185,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() => _isLoading = true);
       _page = 0;
     }
+
     try {
-      final msgs = await _chatService.getMessages(widget.conversationId, limit: _pageSize, offset: _page * _pageSize);
+      final msgs = await _chatService.getMessages(
+        widget.conversationId,
+        limit: _pageSize,
+        offset: _page * _pageSize,
+      );
+
       setState(() {
         if (loadMore) {
           _messages = [...msgs.reversed, ..._messages];
@@ -181,9 +204,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _isLoading = false;
         _isLoadingMore = false;
       });
+
       if (!loadMore) _scrollToBottom();
     } catch (e) {
-      setState(() { _isLoading = false; _isLoadingMore = false; });
+      setState(() {
+        _isLoading = false;
+        _isLoadingMore = false;
+      });
     }
   }
 
@@ -192,7 +219,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     try {
       final members = await _chatService.getGroupMembers(widget.conversationId);
       setState(() => _groupMembers = members);
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('❌ Erreur chargement membres: $e');
+    }
   }
 
   void _setupScrollListener() {
@@ -213,15 +242,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
+  // ============================================================
+  // PRÉSENCE
+  // ============================================================
+
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
-    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id != _chatService.currentUserId,
+      orElse: () => '',
+    );
     if (otherId.isNotEmpty) {
-      _presenceStream = _chatService.subscribeToPresence([otherId]).map((list) => list.isNotEmpty ? list.first : null);
+      _presenceStream = _chatService.subscribeToPresence([otherId]).map(
+        (list) => list.isNotEmpty ? list.first : null,
+      );
       _presenceStream?.listen((status) {
         if (mounted) setState(() => _otherParticipant = status);
       });
@@ -230,22 +272,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _getParticipantInfo() async {
     if (widget.conversation.isGroup) return;
-    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id != _chatService.currentUserId,
+      orElse: () => '',
+    );
     if (otherId.isNotEmpty) {
       final participant = await _chatService.getUserPresence(otherId);
       if (mounted) setState(() => _otherParticipant = participant);
     }
   }
 
+  // ============================================================
+  // REALTIME - MESSAGES
+  // ============================================================
+
   void _subscribeToRealtimeMessages() {
-    _messageSubscription = _chatService.subscribeToMessages(widget.conversationId).listen((updatedMsgs) {
+    _messageSubscription = _chatService
+        .subscribeToMessages(widget.conversationId)
+        .listen((updatedMsgs) {
       if (!mounted) return;
       setState(() {
         for (var msg in updatedMsgs) {
           final index = _messages.indexWhere((m) => m.id == msg.id);
           if (index != -1) {
-            if (msg.isDeleted) _messages.removeAt(index);
-            else _messages[index] = msg;
+            if (msg.isDeleted) {
+              _messages.removeAt(index);
+            } else {
+              _messages[index] = msg;
+            }
           } else if (!msg.isDeleted) {
             _messages.add(msg);
           }
@@ -255,36 +309,81 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
+  // ============================================================
+  // REALTIME - TYPING INDICATOR
+  // ============================================================
+
   void _subscribeToTypingChannel() {
     final currentUserId = _chatService.currentUserId;
-    _typingChannel = Supabase.instance.client.channel('typing:${widget.conversationId}').onBroadcast(
-      event: 'typing',
-      callback: (payload) {
-        final senderId = payload['senderId'] as String?;
-        final isTyping = (payload['isTyping'] as bool?) ?? false;
-        if (senderId != null && senderId != currentUserId && mounted) {
-          setState(() => _otherUserTyping = isTyping);
-        }
-      },
-    ).subscribe();
+
+    _typingChannel = Supabase.instance.client
+        .channel('typing:${widget.conversationId}')
+        .onBroadcast(
+          event: 'typing',
+          callback: (payload) {
+            final senderId = payload['senderId'] as String?;
+            final isTyping = (payload['isTyping'] as bool?) ?? false;
+
+            if (senderId != null && senderId != currentUserId && mounted) {
+              setState(() => _otherUserTyping = isTyping);
+            }
+          },
+        )
+        .subscribe();
   }
 
   void _sendTypingStatus(bool typing) {
     final currentUserId = _chatService.currentUserId;
+
     if (currentUserId == null || _typingChannel == null) return;
-    _typingChannel!.sendBroadcastMessage(event: 'typing', payload: {'senderId': currentUserId, 'isTyping': typing});
+
+    _typingChannel!.sendBroadcastMessage(
+      event: 'typing',
+      payload: {
+        'senderId': currentUserId,
+        'isTyping': typing,
+      },
+    );
   }
 
+  // ============================================================
+  // APPEL AUDIO / VIDEO - AGORA
+  // ============================================================
+
   void _startCall(CallType type) {
-    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
-    if (otherId.isEmpty && !widget.conversation.isGroup) return;
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id != _chatService.currentUserId,
+      orElse: () => '',
+    );
+    if (otherId.isEmpty && !widget.conversation.isGroup) {
+      _showSnackBar('Participant introuvable', danger);
+      return;
+    }
     final prov = context.read<CallProvider>();
-    prov.start(channel: widget.conversationId, calleeId: otherId, callType: type);
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true)));
+    prov.start(
+      channel: widget.conversationId,
+      calleeId: otherId,
+      callType: type,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CallPage(
+          channel: widget.conversationId,
+          name: widget.conversation.displayName,
+          type: type,
+          isCaller: true,
+        ),
+      ),
+    );
   }
 
   void _startAudioCall() => _startCall(CallType.audio);
   void _startVideoCall() => _startCall(CallType.video);
+
+  // ============================================================
+  // ENVOI DE MESSAGES
+  // ============================================================
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
@@ -304,11 +403,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
       setState(() {
-        if (!_messages.any((m) => m.id == msg.id)) _messages.add(msg);
+        if (!_messages.any((m) => m.id == msg.id)) {
+          _messages.add(msg);
+        }
         _inputController.clear();
         _replyToId = '';
         _isSending = false;
-        if (_isInternalNoteMode) _isInternalNoteMode = false;
+        if (_isInternalNoteMode) {
+          _isInternalNoteMode = false;
+        }
       });
       _scrollToBottom();
     } catch (e) {
@@ -331,6 +434,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {
         _messages.add(msg);
         _replyToId = '';
+        if (_isInternalNoteMode) _isInternalNoteMode = false;
       });
       _scrollToBottom();
     } catch (e) {
@@ -338,22 +442,78 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  // ============================================================
+  // AUDIO RECORDING
+  // ============================================================
+
   void _startAudioRecording() async {
     final status = await Permission.microphone.request();
     if (status.isGranted) {
       _openAudioRecorderSheet();
       return;
     }
-    _showSnackBar('❌ Permission microphone refusée.', danger);
+    if (status.isPermanentlyDenied) {
+      _showMicPermissionDeniedDialog();
+      return;
+    }
+    _showSnackBar(
+      '❌ Permission microphone refusée. Veuillez autoriser dans les paramètres.',
+      danger,
+    );
+  }
+
+  void _showMicPermissionDeniedDialog() {
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.mic_off_rounded, color: danger),
+            SizedBox(width: 8),
+            Text('Microphone désactivé',
+                style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          "L'accès au microphone est bloqué pour THIX CHAT. Active-le dans les paramètres de ton téléphone pour envoyer des messages vocaux.",
+          style: TextStyle(color: mutedText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler', style: TextStyle(color: mutedText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: navyDeep,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+            child: const Text('Ouvrir les paramètres', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openAudioRecorderSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
         padding: const EdgeInsets.all(20),
         child: AudioRecorderWidget(
           audioService: _audioService,
@@ -369,7 +529,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // CHIFFREMENT (MISE À JOUR CADRANT LARGE + RADIUS 16)
+  // CHIFFREMENT (GRAND INPUT + BORDURE 16)
   // ============================================================
 
   void _showPasswordProtectDialog() {
@@ -380,7 +540,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // Radius 16 demandé
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // Radius 16
         title: Row(
           children: const [
             Icon(Icons.lock_rounded, color: primaryBlue),
@@ -393,7 +553,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Grand espace pour écrire
               TextField(
                 controller: msgController,
                 maxLines: 6,
@@ -412,7 +571,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(height: 16),
-              // Champ mot de passe
               TextField(
                 controller: passController,
                 obscureText: true,
@@ -472,7 +630,143 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ============================================================
-  // MENU D'ACTIONS SUR UN MESSAGE (MISE À JOUR DIVIDER E2E8F0)
+  // MENU ÉPHÉMÈRE
+  // ============================================================
+
+  void _showEphemeralTimerDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    decoration: BoxDecoration(
+                        color: hairline, borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                            color: primaryBlue, borderRadius: BorderRadius.circular(10)),
+                        child:
+                            const Icon(Icons.timer_rounded, size: 16, color: pureWhite),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Délai d'autodestruction",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: darkText),
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  leading:
+                      const Icon(Icons.timer_off_rounded, color: mutedText),
+                  title: const Text(
+                    "Désactiver l'autodestruction",
+                    style: TextStyle(color: mutedText, fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _isEphemeral = false;
+                      _ephemeralDuration = null;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                ),
+                Container(
+                    height: 1,
+                    color: hairline,
+                    margin: const EdgeInsets.symmetric(horizontal: 16)),
+                _buildTimeOption(ctx, 10, '10 secondes'),
+                _buildTimeOption(ctx, 30, '30 secondes'),
+                _buildTimeOption(ctx, 60, '1 minute'),
+                _buildTimeOption(ctx, 300, '5 minutes'),
+                _buildTimeOption(ctx, 3600, '1 heure'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeOption(BuildContext ctx, int seconds, String label) {
+    final isSelected = _isEphemeral && _ephemeralDuration == seconds;
+    return ListTile(
+      leading: Icon(
+        Icons.timer_rounded,
+        color: isSelected ? primaryBlue : darkText,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+          color: isSelected ? primaryBlue : darkText,
+        ),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle_rounded, color: primaryBlue)
+          : null,
+      onTap: () {
+        setState(() {
+          _isEphemeral = true;
+          _ephemeralDuration = seconds;
+        });
+        Navigator.pop(ctx);
+      },
+    );
+  }
+
+  // ============================================================
+  // TYPING INDICATOR
+  // ============================================================
+
+  void _onTypingChanged(String text) {
+    if (text.isNotEmpty && !_isTyping) {
+      _isTyping = true;
+      _sendTypingStatus(true);
+    } else if (text.isEmpty && _isTyping) {
+      _isTyping = false;
+      _sendTypingStatus(false);
+    }
+
+    _typingTimer?.cancel();
+    _typingTimer = Timer(const Duration(seconds: 2), () {
+      if (_isTyping) {
+        _isTyping = false;
+        _sendTypingStatus(false);
+      }
+    });
+  }
+
+  // ============================================================
+  // RÉPONSE
+  // ============================================================
+
+  void _cancelReply() => setState(() => _replyToId = '');
+
+  // ============================================================
+  // MENU D'ACTIONS SUR UN MESSAGE (Avec DIVIDER E2E8F0)
   // ============================================================
 
   void _showMessageActions(ChatMessage msg, bool isOwn) {
@@ -503,7 +797,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         width: 40,
                         height: 4,
                         margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
+                        decoration: BoxDecoration(
+                          color: hairline,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                     ),
                     // Aperçu de la bulle
@@ -533,7 +830,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    const Text('React', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: darkText)),
+                    const Text(
+                      'React',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: darkText),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -552,7 +852,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       }).toList(),
                     ),
                     const SizedBox(height: 8),
-                    Container(height: 1, color: dividerColor), // Divider mis à jour
+                    Container(height: 1, color: dividerColor),
                     _actionTile(
                       icon: Icons.reply_rounded,
                       label: 'Reply',
@@ -590,7 +890,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         Navigator.pop(ctx);
                         setState(() => _messages.removeWhere((m) => m.id == msg.id));
                         if (isOwn) {
-                          try { await _chatService.deleteMessage(msg.id); } catch (_) {}
+                          try {
+                            await _chatService.deleteMessage(msg.id);
+                          } catch (_) {}
                         }
                       },
                     ),
@@ -600,6 +902,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       label: 'More..',
                       onTap: () {
                         Navigator.pop(ctx);
+                        _showMoreMessageOptions(msg, isOwn);
                       },
                       showDivider: false,
                     ),
@@ -613,7 +916,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _actionTile({required IconData icon, required String label, required VoidCallback onTap, Color color = darkText, bool showDivider = true}) {
+  Widget _actionTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = darkText,
+    bool showDivider = true,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -621,7 +930,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color),
+            ),
             Icon(icon, size: 20, color: color == danger ? danger : mutedText),
           ],
         ),
@@ -630,29 +942,529 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _forwardMessage(ChatMessage msg) {
-    Navigator.pushNamed(context, '/chat/forward', arguments: {'messageId': msg.id, 'content': msg.content});
+    Navigator.pushNamed(
+      context,
+      '/chat/forward',
+      arguments: {'messageId': msg.id, 'content': msg.content},
+    );
   }
 
-  // (Les autres méthodes utilitaires, Ephémère, Pièces jointes restent identiques - non coupées pour faire court ici)
-  void _onTypingChanged(String text) {
-    if (text.isNotEmpty && !_isTyping) {
-      _isTyping = true;
-      _sendTypingStatus(true);
-    } else if (text.isEmpty && _isTyping) {
-      _isTyping = false;
-      _sendTypingStatus(false);
+  void _showMoreMessageOptions(ChatMessage msg, bool isOwn) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline_rounded, color: primaryBlue),
+              title: const Text('Détails du message'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+            if (_isAgent)
+              ListTile(
+                leading: const Icon(Icons.sticky_note_2_outlined, color: Colors.orange),
+                title: const Text('Marquer comme note interne'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // GESTION DES MÉDIAS — MENU D'ATTACHEMENT
+  // ============================================================
+
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    decoration: BoxDecoration(
+                        color: hairline, borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.attach_file_rounded, color: primaryBlue),
+                      SizedBox(width: 10),
+                      Text(
+                        'Envoyer une pièce jointe',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: darkText),
+                      ),
+                    ],
+                  ),
+                ),
+                _attachmentOption(
+                  ctx,
+                  icon: Icons.image_rounded,
+                  label: 'Photo',
+                  color: gold,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(type: FileType.image);
+                  },
+                ),
+                _attachmentOption(
+                  ctx,
+                  icon: Icons.videocam_rounded,
+                  label: 'Vidéo',
+                  color: primaryBlue,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(type: FileType.video);
+                  },
+                ),
+                _attachmentOption(
+                  ctx,
+                  icon: Icons.insert_drive_file_rounded,
+                  label: 'Document',
+                  color: navyDeep,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(type: FileType.any);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _attachmentOption(
+    BuildContext ctx, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600, color: darkText),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // ============================================================
+  // GESTION DES FICHIERS
+  // ============================================================
+
+  Future<void> _pickFile({FileType type = FileType.any}) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: type,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final extension = file.extension ?? 'file';
+      final size = file.size;
+
+      String mimeType = _getMimeType(extension);
+      String mediaType = _getMediaType(extension);
+
+      final confirmed = await _showFilePreviewDialog(
+        fileName: file.name,
+        fileSize: size,
+        fileBytes: Uint8List.fromList(bytes),
+        mimeType: mimeType,
+        extension: extension,
+      );
+
+      if (confirmed != true) return;
+
+      final url = await _chatService.uploadFileWithUniqueName(
+        'chat-media',
+        'messages/${widget.conversationId}',
+        Uint8List.fromList(bytes),
+        extension,
+      );
+
+      if (url != null) {
+        await _chatService.sendMessage(
+          conversationId: widget.conversationId,
+          content: '📎 ${file.name}',
+          mediaUrl: url,
+          mediaType: mediaType,
+          mediaName: file.name,
+          mediaSize: size,
+          mimeType: mimeType,
+          isEphemeral: _isEphemeral,
+          ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
+        );
+        _scrollToBottom();
+      }
+    } catch (e) {
+      _showSnackBar('Erreur fichier: $e', danger);
     }
   }
 
-  void _cancelReply() => setState(() => _replyToId = '');
+  String _getMimeType(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'ppt':
+        return 'application/vnd.ms-powerpoint';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'txt':
+        return 'text/plain';
+      case 'zip':
+        return 'application/zip';
+      case 'rar':
+        return 'application/x-rar-compressed';
+      default:
+        return 'application/octet-stream';
+    }
+  }
 
-  void _showEphemeralTimerDialog() {} // Gardé intact
-  void _showAttachmentMenu() {} // Gardé intact
-  void _toggleInternalNoteMode() {} // Gardé intact
+  String _getMediaType(String extension) {
+    const imageExt = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'};
+    const videoExt = {'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv'};
+    const audioExt = {'mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a'};
+    const docExt = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'};
+
+    final ext = extension.toLowerCase();
+    if (imageExt.contains(ext)) return 'image';
+    if (videoExt.contains(ext)) return 'video';
+    if (audioExt.contains(ext)) return 'audio';
+    if (docExt.contains(ext)) return 'document';
+    return 'file';
+  }
+
+  Future<bool?> _showFilePreviewDialog({
+    required String fileName,
+    required int fileSize,
+    required Uint8List fileBytes,
+    required String mimeType,
+    required String extension,
+  }) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.attach_file, color: primaryBlue),
+            const SizedBox(width: 8),
+            const Text('Aperçu du fichier'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildFilePreviewThumbnail(fileBytes, mimeType, extension),
+            const SizedBox(height: 12),
+            Text(
+              'Nom : $fileName',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            Text(
+              'Taille : ${_formatFileSize(fileSize)}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            Text(
+              'Type : $mimeType',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilePreviewThumbnail(Uint8List bytes, String mimeType, String extension) {
+    if (mimeType.startsWith('image/')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.memory(
+          bytes,
+          height: 150,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 60),
+        ),
+      );
+    }
+    if (mimeType.startsWith('video/')) {
+      return Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Icon(Icons.play_circle_filled, size: 60, color: Colors.blue),
+        ),
+      );
+    }
+    if (mimeType.startsWith('audio/')) {
+      return Container(
+        height: 80,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Icon(Icons.audiotrack, size: 40, color: Colors.grey),
+        ),
+      );
+    }
+    return Container(
+      height: 80,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(_getFileIcon(extension), size: 40, color: Colors.blue),
+            const SizedBox(height: 4),
+            Text(
+              extension.toUpperCase(),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getFileIcon(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      case 'ppt':
+      case 'pptx':
+        return Icons.slideshow;
+      case 'zip':
+      case 'rar':
+        return Icons.folder_zip;
+      case 'txt':
+        return Icons.text_snippet;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  // ============================================================
+  // GROUPES
+  // ============================================================
+
+  void _navigateToGroupInfo() {
+    Navigator.pushNamed(
+      context,
+      '/group/info',
+      arguments: widget.conversationId,
+    );
+  }
+
+  void _navigateToGroupSettings() {
+    Navigator.pushNamed(
+      context,
+      '/group/settings',
+      arguments: widget.conversationId,
+    );
+  }
+
+  Future<void> _leaveGroup() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quitter le groupe'),
+        content: const Text('Êtes-vous sûr de vouloir quitter ce groupe?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: danger),
+            child: const Text('Quitter'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _groupService.leaveGroup(widget.conversationId);
+        if (context.mounted) Navigator.pop(context);
+        _showSnackBar('Vous avez quitté le groupe', success);
+      } catch (e) {
+        _showSnackBar('Erreur: $e', danger);
+      }
+    }
+  }
+
+  Future<void> _deleteGroup() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer le groupe'),
+        content: const Text(
+            'Cette action est irréversible. Tous les messages seront perdus.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: danger),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _groupService.deleteGroup(widget.conversationId);
+        if (context.mounted) Navigator.pop(context);
+        _showSnackBar('Groupe supprimé', success);
+      } catch (e) {
+        _showSnackBar('Erreur: $e', danger);
+      }
+    }
+  }
+
+  // ============================================================
+  // ESCALADE
+  // ============================================================
+
+  void _escalateConversation() {
+    context.pushNamed(
+      'chatEscalate',
+      pathParameters: {'conversationId': widget.conversationId},
+      queryParameters: {
+        'agentId': _chatService.currentUserId ?? '',
+        'agentName': _chatService.currentUser?.userMetadata?['full_name'] ?? 'Agent',
+      },
+    );
+  }
+
+  void _toggleInternalNoteMode() {
+    setState(() {
+      _isInternalNoteMode = !_isInternalNoteMode;
+    });
+    _showSnackBar(
+      _isInternalNoteMode ? 'Mode note interne activé' : 'Mode note interne désactivé',
+      _isInternalNoteMode ? Colors.orange : mutedText,
+    );
+  }
+
+  // ============================================================
+  // UTILITAIRES
+  // ============================================================
 
   void _showSnackBar(String message, Color color) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: color),
+      );
     }
   }
 
@@ -682,17 +1494,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     children: [
                       if (widget.conversation.isGroup)
                         GroupInfoPanel(
-                          conversation: widget.conversation, members: _groupMembers,
-                          onViewAllMembers: () {}, onEditGroup: () {}, onLeaveGroup: () async {}, onDeleteGroup: () async {},
+                          conversation: widget.conversation,
+                          members: _groupMembers,
+                          onViewAllMembers: _navigateToGroupInfo,
+                          onEditGroup: _navigateToGroupSettings,
+                          onLeaveGroup: _leaveGroup,
+                          onDeleteGroup: _deleteGroup,
                         ),
-                      if (_isConversationEscalated) Container(), // Placeholder escalade
+                      if (_isConversationEscalated) _buildEscalationIndicator(),
                       Expanded(
                         child: _isLoading
                             ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                             : _buildMessageList(),
                       ),
                       if (_replyToId.isNotEmpty) _buildReplyIndicator(),
-                      ChatInputBar( // Input large géré dans ton widget ChatInputBar
+                      ChatInputBar(
                         controller: _inputController,
                         focusNode: _inputFocus,
                         onSend: _sendMessage,
@@ -727,7 +1543,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           itemCount: _messages.length + (_isLoadingMore ? 1 : 0),
           itemBuilder: (ctx, index) {
             if (index == _messages.length && _isLoadingMore) {
-              return const Padding(padding: EdgeInsets.all(8.0), child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue)));
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Center(
+                  child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue),
+                ),
+              );
             }
             final msg = _messages[_messages.length - 1 - index];
             final isOwn = msg.senderId == _chatService.currentUserId;
@@ -738,9 +1559,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 message: msg,
                 isOwn: isOwn,
                 onReply: () => setState(() => _replyToId = msg.id),
-                onDelete: () async {},
+                onDelete: () async {
+                  setState(() => _messages.removeWhere((m) => m.id == msg.id));
+                  if (isOwn) {
+                    try {
+                      await _chatService.deleteMessage(msg.id);
+                    } catch (_) {}
+                  }
+                },
                 onReaction: (r) => _chatService.toggleReaction(msg.id, r),
-                replyToMessage: msg.replyToId != null ? _messages.firstWhere((m) => m.id == msg.replyToId, orElse: () => msg) : null,
+                replyToMessage: msg.replyToId != null
+                    ? _messages.firstWhere(
+                        (m) => m.id == msg.replyToId,
+                        orElse: () => msg,
+                      )
+                    : null,
                 isEphemeralActive: msg.isEphemeral,
                 isInternalNote: msg.isInternalNote ?? false,
                 isAgentView: _isAgent,
@@ -750,6 +1583,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
         if (_otherUserTyping) _buildTypingIndicator(),
       ],
+    );
+  }
+
+  Widget _buildEscalationIndicator() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      color: Colors.orange.shade100,
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Cette conversation est en cours d\'escalade vers un niveau supérieur.',
+              style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -767,10 +1619,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           CircleAvatar(
             radius: 19,
             backgroundColor: Colors.white.withOpacity(0.2),
-            backgroundImage: widget.conversation.isGroup ? null : const NetworkImage('https://i.pravatar.cc/150?img=11'),
+            backgroundImage: widget.conversation.isGroup
+                ? null
+                : const NetworkImage('https://i.pravatar.cc/150?img=11'),
             child: widget.conversation.isGroup
                 ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18)
-                : null, // Tu peux aussi utiliser un Text(initials) ici
+                : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -783,6 +1637,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (!widget.conversation.isGroup && _otherParticipant != null)
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: (_otherParticipant!.status == 'online') ? success : Colors.white38,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        (_otherParticipant!.status == 'online')
+                            ? 'En ligne'
+                            : 'Vu ${_formatLastSeen(_otherParticipant!.lastSeenAt ?? DateTime.now())}',
+                        style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -791,8 +1665,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       actions: [
         _appBarIconButton(Icons.videocam_rounded, _startVideoCall),
         _appBarIconButton(Icons.call_rounded, _startAudioCall),
-        IconButton(icon: const Icon(Icons.more_vert_rounded, color: Colors.white), onPressed: () {}),
+        if (widget.conversation.isGroup)
+          _appBarIconButton(Icons.info_outline_rounded, _navigateToGroupInfo),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+          onSelected: (value) {
+            if (value == 'escalate') _escalateConversation();
+            else if (value == 'history') _viewEscalationHistory();
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem<String>(
+              value: 'escalate',
+              child: Row(
+                children: [
+                  Icon(Icons.arrow_upward, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Escalader'),
+                ],
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'history',
+              child: Row(
+                children: [
+                  Icon(Icons.history, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('Historique escalades'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 4),
       ],
+    );
+  }
+
+  void _viewEscalationHistory() {
+    context.pushNamed(
+      'chatEscalationHistory',
+      pathParameters: {'conversationId': widget.conversationId},
     );
   }
 
@@ -804,10 +1716,151 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildReplyIndicator() {
-    return Container(); // Reste inchangé (ta logique existante)
+    final reply = _messages.firstWhere(
+      (m) => m.id == _replyToId,
+      orElse: () => _messages.first,
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        border: Border(top: BorderSide(color: hairline, width: 1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              color: primaryBlue,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  reply.senderId == _chatService.currentUserId ? 'Vous' : reply.senderName,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: primaryBlue),
+                ),
+                Text(
+                  reply.content,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12.5, color: darkText),
+                ),
+              ],
+            ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _cancelReply,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: const BoxDecoration(color: ivory, shape: BoxShape.circle),
+              child: const Icon(Icons.close_rounded, size: 15, color: mutedText),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTypingIndicator() {
-    return Container(); // Reste inchangé
+    return Positioned(
+      bottom: 8,
+      left: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: leftBubbleColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: primaryBlue.withOpacity(0.10),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              "En train d'écrire",
+              style: TextStyle(fontSize: 11.5, color: primaryBlue, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+            ),
+            SizedBox(width: 8),
+            _TypingDots(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final diff = now.difference(lastSeen);
+    if (diff.inDays == 0) {
+      return 'à ${DateFormat('HH:mm').format(lastSeen)}';
+    } else if (diff.inDays == 1) {
+      return 'hier à ${DateFormat('HH:mm').format(lastSeen)}';
+    } else {
+      return 'le ${DateFormat('dd/MM/yyyy').format(lastSeen)}';
+    }
+  }
+}
+
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) {
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            double offset = (index * 0.2);
+            double value = (_controller.value + offset) % 1.0;
+            double opacity = value < 0.5 ? value * 2 : 1 - ((value - 0.5) * 2);
+            return Opacity(
+              opacity: opacity,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 5,
+                height: 5,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4A8BFF), // primaryBlue
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          },
+        );
+      }),
+    );
   }
 }
