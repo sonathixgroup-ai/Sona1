@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/comment.dart';
@@ -27,7 +26,7 @@ class _CommentsPageState extends State<CommentsPage> {
   List<Comment> _comments = [];
   bool _isLoading = true;
   bool _isSubmitting = false;
-  String? _replyingTo; // id du commentaire parent
+  String? _replyingTo;
   String? _replyingToName;
 
   @override
@@ -71,38 +70,38 @@ class _CommentsPageState extends State<CommentsPage> {
         text,
         parentId: parentId,
       );
-      // Ajout local pour un rendu instantané
       setState(() {
         if (parentId == null) {
           _comments.insert(0, newComment);
         } else {
-          // Trouver le commentaire parent et ajouter la réponse
           _addReplyTo(_comments, parentId, newComment);
         }
       });
       _controller.clear();
       _clearReply();
-      // Scroll en haut pour voir le nouveau commentaire
-      _scrollController.animateTo(0, duration: Duration(milliseconds: 300), curve: Curves.easeOut);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+      _scrollController.animateTo(
+        0,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut,
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  // Fonction récursive pour ajouter une réponse
   bool _addReplyTo(List<Comment> comments, String parentId, Comment reply) {
     for (int i = 0; i < comments.length; i++) {
       if (comments[i].id == parentId) {
         comments[i].replies.insert(0, reply);
         return true;
       }
-      if (_addReplyTo(comments[i].replies, parentId, reply)) {
-        return true;
-      }
+      if (_addReplyTo(comments[i].replies, parentId, reply)) return true;
     }
     return false;
   }
@@ -115,7 +114,6 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   Future<void> _toggleLikeComment(Comment comment) async {
-    // Optimistic update
     final oldLiked = comment.isLiked;
     final oldCount = comment.likesCount;
     setState(() {
@@ -129,7 +127,6 @@ class _CommentsPageState extends State<CommentsPage> {
         await context.read<NetworkService>().unlikeComment(comment.id);
       }
     } catch (e) {
-      // Rollback
       setState(() {
         comment.isLiked = oldLiked;
         comment.likesCount = oldCount;
@@ -150,8 +147,6 @@ class _CommentsPageState extends State<CommentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -171,47 +166,51 @@ class _CommentsPageState extends State<CommentsPage> {
               ? Center(child: Text('Post introuvable', style: TextStyle(color: Colors.grey)))
               : Column(
                   children: [
-                    // ─── POST (dynamique avec hauteur adaptable) ───
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: PostCard(
-                        post: _post!,
-                        currentProfileId: widget.currentProfileId,
-                        onTap: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const Divider(height: 1, thickness: 1),
-
-                    // ─── LISTE DES COMMENTAIRES ───
+                    // ─── ZONE SCROLLABLE : Post + Commentaires ───
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: _loadData,
-                        child: _comments.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.comment_outlined, size: 60, color: Colors.grey[300]),
-                                    const SizedBox(height: 12),
-                                    Text('Aucun commentaire', style: TextStyle(color: Colors.grey[600])),
-                                    const SizedBox(height: 8),
-                                    Text('Soyez le premier à réagir !', style: TextStyle(color: Colors.grey[400])),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                itemCount: _comments.length,
-                                itemBuilder: (context, index) {
-                                  return _buildCommentTile(_comments[index], isRoot: true);
-                                },
+                        child: CustomScrollView(
+                          controller: _scrollController,
+                          slivers: [
+                            // Post dans le scroll
+                            SliverToBoxAdapter(
+                              child: PostCard(
+                                post: _post!,
+                                currentProfileId: widget.currentProfileId,
+                                onTap: () => Navigator.pop(context),
+                                onRefresh: _loadData, // pour rafraîchir après like
                               ),
+                            ),
+                            // Commentaires
+                            _comments.isEmpty
+                                ? SliverFillRemaining(
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.comment_outlined, size: 60, color: Colors.grey[300]),
+                                          const SizedBox(height: 12),
+                                          Text('Aucun commentaire', style: TextStyle(color: Colors.grey[600])),
+                                          const SizedBox(height: 8),
+                                          Text('Soyez le premier à réagir !', style: TextStyle(color: Colors.grey[400])),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        return _buildCommentTile(_comments[index], isRoot: true);
+                                      },
+                                      childCount: _comments.length,
+                                    ),
+                                  ),
+                          ],
+                        ),
                       ),
                     ),
-
-                    // ─── ZONE DE SAISIE ───
+                    // ─── BARRE DE SAISIE FIXE ───
                     _buildInputBar(),
                   ],
                 ),
@@ -240,7 +239,6 @@ class _CommentsPageState extends State<CommentsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── En‑tête ──
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               leading: CircleAvatar(
@@ -268,7 +266,7 @@ class _CommentsPageState extends State<CommentsPage> {
               trailing: PopupMenuButton(
                 icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
                 onSelected: (value) {
-                  // Implémenter modifier/supprimer si isOwn
+                  // Actions déjà présentes (supprimer, signaler)
                 },
                 itemBuilder: (context) => [
                   if (isOwn)
@@ -295,7 +293,6 @@ class _CommentsPageState extends State<CommentsPage> {
                 ],
               ),
             ),
-            // ── Contenu ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
@@ -303,7 +300,6 @@ class _CommentsPageState extends State<CommentsPage> {
                 style: const TextStyle(fontSize: 14, height: 1.4),
               ),
             ),
-            // ── Actions ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
@@ -333,7 +329,6 @@ class _CommentsPageState extends State<CommentsPage> {
                 ],
               ),
             ),
-            // ── Réponses (sous‑commentaires) ──
             if (hasReplies) ...[
               Divider(height: 1, thickness: 0.8, color: Colors.grey[200]),
               Padding(
@@ -406,7 +401,6 @@ class _CommentsPageState extends State<CommentsPage> {
     }
   }
 
-  // ─── BARRE DE SAISIE (avec indicateur de réponse) ───
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
