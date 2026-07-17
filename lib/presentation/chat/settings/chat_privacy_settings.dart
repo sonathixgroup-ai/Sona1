@@ -16,6 +16,14 @@ class ChatPrivacySettings extends StatelessWidget {
   static const Color darkText = Color(0xFF10182B);
   static const Color mutedText = Color(0xFF6B7690);
 
+  void _showError(BuildContext context) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de la sauvegarde'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ChatSettingsProvider>();
@@ -24,12 +32,7 @@ class ChatPrivacySettings extends StatelessWidget {
     if (provider.isLoading && settings == null) {
       return Scaffold(
         backgroundColor: ivory,
-        appBar: AppBar(
-          title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), 
-          backgroundColor: navyDeep, 
-          foregroundColor: Colors.white, 
-          elevation: 0
-        ),
+        appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
         body: const Center(child: CircularProgressIndicator(color: primaryBlue)),
       );
     }
@@ -37,12 +40,7 @@ class ChatPrivacySettings extends StatelessWidget {
     if (settings == null) {
       return Scaffold(
         backgroundColor: ivory,
-        appBar: AppBar(
-          title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), 
-          backgroundColor: navyDeep, 
-          foregroundColor: Colors.white, 
-          elevation: 0
-        ),
+        appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
         body: const Center(child: Text('Impossible de charger les réglages', style: TextStyle(color: mutedText))),
       );
     }
@@ -75,9 +73,11 @@ class ChatPrivacySettings extends StatelessWidget {
                   DropdownMenuItem(value: 'contacts', child: Text('Mes contacts')),
                   DropdownMenuItem(value: 'nobody', child: Text('Personne')),
                 ],
-                onChanged: (val) async {
+                onChanged: (val) {
                   if (val != null) {
-                    await provider.updateSettings(settings.copyWith(lastSeenVisibility: val));
+                    provider.updateSettings(settings.copyWith(lastSeenVisibility: val)).then((success) {
+                      if (!success) _showError(context);
+                    });
                   }
                 },
               ),
@@ -96,9 +96,11 @@ class ChatPrivacySettings extends StatelessWidget {
                   DropdownMenuItem(value: 'contacts', child: Text('Mes contacts')),
                   DropdownMenuItem(value: 'nobody', child: Text('Personne')),
                 ],
-                onChanged: (val) async {
+                onChanged: (val) {
                   if (val != null) {
-                    await provider.updateSettings(settings.copyWith(profilePhotoVisibility: val));
+                    provider.updateSettings(settings.copyWith(profilePhotoVisibility: val)).then((success) {
+                      if (!success) _showError(context);
+                    });
                   }
                 },
               ),
@@ -112,7 +114,9 @@ class ChatPrivacySettings extends StatelessWidget {
               subtitle: 'Afficher quand vous lisez un message',
               value: readReceipts,
               onChanged: (val) {
-                provider.updateSettings(settings.copyWith(readReceipts: val));
+                provider.updateSettings(settings.copyWith(readReceipts: val)).then((success) {
+                  if (!success) _showError(context);
+                });
               },
             ),
           ),
@@ -124,7 +128,9 @@ class ChatPrivacySettings extends StatelessWidget {
               subtitle: 'Afficher quand vous tapez un message',
               value: typingIndicator,
               onChanged: (val) {
-                provider.updateSettings(settings.copyWith(typingIndicator: val));
+                provider.updateSettings(settings.copyWith(typingIndicator: val)).then((success) {
+                  if (!success) _showError(context);
+                });
               },
             ),
           ),
