@@ -16,38 +16,43 @@ class ChatSettingsProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   
-  // NOUVEAU : On stocke l'ID de l'utilisateur pour ne pas dépendre de _chatUser
   String? _currentUserId; 
 
-  // Getters
   ChatUser? get chatUser => _chatUser;
   ChatSettings? get settings => _settings;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Charger toutes les données
+  // Charger toutes les données (VERSION ANTI-CRASH)
   Future<void> load(String userId) async {
-    _currentUserId = userId; // On sauvegarde l'ID ici
+    _currentUserId = userId; 
     _setLoading(true);
     _error = null;
 
+    // 1. Tenter de charger le profil
     try {
-      final user = await _service.getChatUser(userId);
-      final settings = await _service.getSettings(userId);
-      _chatUser = user;
-      _settings = settings;
-      _setLoading(false);
+      _chatUser = await _service.getChatUser(userId);
     } catch (e) {
-      _error = e.toString();
-      _setLoading(false);
+      print('⚠️ Erreur Supabase (getChatUser) : $e');
+      _error = 'Erreur Profil: $e';
     }
+
+    // 2. Tenter de charger les paramètres (Même si le profil a échoué)
+    try {
+      _settings = await _service.getSettings(userId);
+    } catch (e) {
+      print('⚠️ Erreur Supabase (getSettings) : $e');
+      _error = 'Erreur Settings: $e';
+      // Fallback : On crée des paramètres par défaut vides pour débloquer l'interface
+      _settings = ChatSettings.fromJson({});
+    }
+
+    _setLoading(false);
   }
 
-  // Mettre à jour le profil chat
   Future<bool> updateChatUser(ChatUser user) async {
-    if (_currentUserId == null) return false; // Sécurité renforcée
+    if (_currentUserId == null) return false;
     _setLoading(true);
-
     try {
       await _service.updateChatUser(_currentUserId!, user);
       _chatUser = user;
@@ -60,11 +65,9 @@ class ChatSettingsProvider extends ChangeNotifier {
     }
   }
 
-  // Uploader un avatar
   Future<String?> uploadAvatar(File image) async {
     if (_currentUserId == null || _chatUser == null) return null;
     _setLoading(true);
-
     try {
       final url = await _service.uploadAvatar(_currentUserId!, image);
       _chatUser = _chatUser!.copyWith(avatarUrl: url);
@@ -77,11 +80,9 @@ class ChatSettingsProvider extends ChangeNotifier {
     }
   }
 
-  // Mettre à jour les réglages
   Future<bool> updateSettings(ChatSettings settings) async {
-    if (_currentUserId == null) return false; // Ne dépend plus de _chatUser
+    if (_currentUserId == null) return false;
     _setLoading(true);
-
     try {
       await _service.updateSettings(_currentUserId!, settings);
       _settings = settings;
