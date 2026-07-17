@@ -1,7 +1,9 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:thix_id/services/network_service.dart';
 
 class CreateStoryDialog extends StatefulWidget {
@@ -15,13 +17,17 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
   Uint8List? _selectedImageBytes;
   String? _selectedImageExtension;
   bool _isUploading = false;
-  late NetworkService _networkService;
   int _duration = 24;
 
-  @override
-  void initState() {
-    super.initState();
-    _networkService = NetworkService(Supabase.instance.client);
+  // Compression exécutée dans un Isolate
+  static Future<Uint8List> compressImageBytes(Uint8List bytes) async {
+    return FlutterImageCompress.compressWithList(
+      bytes,
+      minHeight: 1080,
+      minWidth: 1080,
+      quality: 85,
+      rotate: 0,
+    );
   }
 
   Future<void> _pickImage() async {
@@ -29,13 +35,22 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
-        withData: true,
+        withData: true, // fonctionne sur toutes les plateformes
       );
-      
+
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        final size = file.bytes?.length ?? file.size;
-        
+        if (file.bytes == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible de lire le fichier'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        final size = file.bytes!.length;
         if (size > 10 * 1024 * 1024) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -45,7 +60,7 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
           );
           return;
         }
-        
+
         setState(() {
           _selectedImageBytes = file.bytes;
           _selectedImageExtension = file.extension ?? 'jpg';
@@ -70,23 +85,28 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
     setState(() => _isUploading = true);
 
     try {
-      // 1. Upload de l'image vers Supabase Storage (bucket 'stories')
-      final imageUrl = await _networkService.uploadImageBytes(
-        _selectedImageBytes!,
+      final networkService = Provider.of<NetworkService>(context, listen: false);
+
+      // 1. Compression de l'image (dans un Isolate pour ne pas bloquer l'UI)
+      final compressed = await compute(compressImageBytes, _selectedImageBytes!);
+
+      // 2. Upload vers le bucket "stories"
+      final imageUrl = await networkService.uploadImageBytes(
+        compressed,
         fileExtension: _selectedImageExtension!,
-        bucket: 'stories', // Assurez-vous que ce bucket existe
+        bucket: 'stories', // Assurez-vous que ce bucket existe dans Supabase
       );
 
       if (imageUrl == null) {
         throw Exception('Échec de l\'upload de l\'image');
       }
 
-      // 2. Création de la story
-      await _networkService.createStory(
+      // 3. Création de la story
+      await networkService.createStory(
         imageUrl,
         duration: _duration,
       );
-      
+
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -190,7 +210,6 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
                   child: hasImage
                       ? Stack(
                           children: [
-                            // Bouton supprimer
                             Positioned(
                               top: 8,
                               right: 8,
@@ -210,7 +229,6 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
                                 ),
                               ),
                             ),
-                            // Indicateur "Story"
                             Positioned(
                               bottom: 8,
                               left: 8,
