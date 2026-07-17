@@ -60,7 +60,6 @@ import 'package:thix_id/services/chat/group_service.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
 import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 import 'package:thix_id/services/chat/connection_service.dart';
-import 'package:provider/provider.dart';
 // ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
@@ -75,7 +74,7 @@ import 'package:thix_id/presentation/thix_reservation/bus/providers/agency_dashb
 
 // ═══════════════════════════════════════════════════════════════════════
 // STATIC CONST GLOBALES
-// ═══════════════════════════════════════
+// ═══════════════════════════════════
 class AppConstants {
   static const String appName = 'THIX ID';
   static const String agoraAppIdKey = 'AGORA_APP_ID';
@@ -87,7 +86,7 @@ class AppConstants {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MAIN : Ultra léger, lance Supabase une SEULE fois puis le Bootstrap
+// MAIN
 // ═══════════════════════════════════════════════════════════════════════
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -115,7 +114,6 @@ Future<void> main() async {
     );
   };
 
-  // ✅ INITIALISATION UNIQUE DE SUPABASE ICI
   await SupabaseConfig.initialize();
 
   runApp(const ProviderScope(child: BootstrapApp()));
@@ -144,8 +142,6 @@ class _BootstrapAppState extends State<BootstrapApp> {
   }
 
   Future<_BootstrapResult> _bootstrap() async {
-    // ❌ Ligne SupabaseConfig.initialize() retirée d'ici pour éviter le crash au "Réessayer"
-
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
 
@@ -371,7 +367,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       debugPrint('L\'application sort de veille (resumed). Reconnexion du Realtime...');
       try {
-        // ✅ CORRECTION : Utilisation de reconnectRealtime() pour éviter de dupliquer les abonnements
         widget.feed.reconnectRealtime();
       } catch (e) {
         debugPrint('Erreur lors de la reconnexion Realtime : $e');
@@ -383,6 +378,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ─── AUTH ───
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
@@ -394,7 +390,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider<EventProvider>(create: (_) => EventProvider(widget.eventService)),
         ChangeNotifierProvider<NewsProvider>(create: (_) => NewsProvider(NewsService(SupabaseConfig.client))),
 
-        // THIX MARKET
+        // ─── THIX MARKET ───
         ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
         ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
         ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
@@ -409,27 +405,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
         ChangeNotifierProvider<DeliveryProvider>(create: (_) => DeliveryProvider()),
 
-        // EDUCATION
+        // ─── EDUCATION ───
         ChangeNotifierProvider<EducationProvider>(create: (_) => EducationProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ProgressProvider>(create: (_) => ProgressProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<CertificateProvider>(create: (_) => CertificateProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ForumProvider>(create: (_) => ForumProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<RecommendationProvider>(create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client))),
 
-        // MODERATEUR
+        // ─── MODERATEUR ───
         ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider(SupabaseConfig.client)),
         ChangeNotifierProvider<ModeratorProvider>(create: (_) => ModeratorProvider(widget.eventService)),
 
-        // THIX CHAT
+        // ─── THIX CHAT ───
         Provider<ChatService>.value(value: widget.chatService),
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
-         MultiProvider(
-  providers: [
-    ChangeNotifierProvider(create: (_) => ConnectionService()),
-        // BUS
+
+        // ✅ PROVIDER DE CONNEXION (ajout direct ici, sans MultiProvider imbriqué)
+        ChangeNotifierProvider<ConnectionService>(create: (_) => ConnectionService()),
+
+        // ─── THIX RESERVATION BUS ───
         ChangeNotifierProvider<BusSearchProvider>(create: (_) => BusSearchProvider()),
         ChangeNotifierProvider<SeatSelectionProvider>(create: (_) => SeatSelectionProvider()),
         ChangeNotifierProvider<BookingProvider>(create: (_) => BookingProvider()),
