@@ -204,18 +204,17 @@ class _PostCardState extends State<PostCard> {
 
   String _getTimeAgo(DateTime dateTime) => timeago.format(dateTime, locale: 'fr');
 
-  Widget _buildNetworkImage(String url, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+  Widget _buildNetworkImage(String url, {double? width, BoxFit fit = BoxFit.cover}) {
     return CachedNetworkImage(
       imageUrl: url,
-      height: height,
       width: width,
       fit: fit,
       placeholder: (_, __) => Container(
-        height: height ?? 200, width: width, color: _PostColors.softBlue,
+        height: 200, width: width, color: _PostColors.softBlue,
         child: const Center(child: CircularProgressIndicator(color: _PostColors.primary)),
       ),
       errorWidget: (_, __, ___) => Container(
-        height: height ?? 200, width: width, color: _PostColors.softBlue,
+        height: 200, width: width, color: _PostColors.softBlue,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -230,35 +229,48 @@ class _PostCardState extends State<PostCard> {
 
   Widget _buildImageGrid(List<String> urls) {
     if (urls.isEmpty) return const SizedBox.shrink();
+
     if (urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: _buildNetworkImage(urls.first, height: 250, width: double.infinity),
+        child: _buildNetworkImage(
+          urls.first,
+          width: double.infinity,
+          fit: BoxFit.fitWidth,
+        ),
       );
     }
-    final displayCount = urls.length > 4 ? 4 : urls.length;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 4, mainAxisSpacing: 4),
-      itemCount: displayCount,
-      itemBuilder: (context, index) {
-        if (index == 3 && urls.length > 4) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildNetworkImage(urls[index], fit: BoxFit.cover),
-              Container(
-                color: Colors.black45,
-                child: Center(
-                  child: Text('+${urls.length - 4}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          );
-        }
-        return ClipRRect(borderRadius: BorderRadius.circular(12), child: _buildNetworkImage(urls[index], fit: BoxFit.cover));
-      },
+
+    return Column(
+      children: urls.asMap().entries.map((entry) {
+        final index = entry.key;
+        final url = entry.value;
+        if (index >= 4) return const SizedBox.shrink();
+        final bool isLastWithCount = (urls.length > 4 && index == 3);
+
+        return Padding(
+          padding: EdgeInsets.only(top: index == 0 ? 0 : 6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _buildNetworkImage(url, width: double.infinity, fit: BoxFit.fitWidth),
+                if (isLastWithCount)
+                  Container(
+                    color: Colors.black45,
+                    child: Center(
+                      child: Text(
+                        '+${urls.length - 4}',
+                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -633,77 +645,108 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  // ─── BARRE D'ACTIONS : Like, Comment, Repost, Share ───
   Widget _buildActions() {
-    return Row(children: [
-      Semantics(
-        label: _post.isLiked ? 'Retirer le like' : 'Aimer',
-        child: InkWell(
-          onTap: _toggleLike, borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(children: [
-              AnimatedScale(
-                scale: _isLikedAnimating ? 1.3 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  _post.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  color: _post.isLiked ? _PostColors.red : _PostColors.textSecondary, size: 19,
-                ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          // Like
+          Semantics(
+            label: _post.isLiked ? 'Retirer le like' : 'Aimer',
+            child: InkWell(
+              onTap: _toggleLike,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  AnimatedScale(
+                    scale: _isLikedAnimating ? 1.3 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      _post.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: _post.isLiked ? _PostColors.red : _PostColors.textSecondary,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _formatCount(_post.likesCount),
+                    style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                ]),
               ),
-              const SizedBox(width: 5),
-              Text(_formatCount(_post.likesCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ),
-      ),
-      const SizedBox(width: 18),
-      Semantics(
-        label: 'Commenter',
-        child: InkWell(
-          onTap: widget.onComment ?? () {}, borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(children: [
-              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary),
-              const SizedBox(width: 5),
-              Text(_formatCount(_post.commentsCount), style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ),
-      ),
-      const SizedBox(width: 18),
-      Semantics(
-        label: 'Partager',
-        child: InkWell(
-          onTap: widget.onShare ?? () {}, borderRadius: BorderRadius.circular(20),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
-            child: Row(children: [
-              Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary),
-              SizedBox(width: 5),
-              Text('Partager', style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ),
-      ),
-      const Spacer(),
-      Semantics(
-        label: _post.isSaved ? 'Retirer des favoris' : 'Sauvegarder',
-        child: InkWell(
-          onTap: _toggleSave, borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _post.isSaved ? _PostColors.softBlue : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              _post.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-              size: 19, color: _post.isSaved ? _PostColors.gold : _PostColors.textSecondary,
             ),
           ),
-        ),
+          const SizedBox(width: 18),
+
+          // Comment
+          Semantics(
+            label: 'Commenter',
+            child: InkWell(
+              onTap: widget.onComment ?? () {},
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: _PostColors.textSecondary),
+                  const SizedBox(width: 5),
+                  Text(
+                    _formatCount(_post.commentsCount),
+                    style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 18),
+
+          // Repost
+          Semantics(
+            label: 'Reposter',
+            child: InkWell(
+              onTap: _repost,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  Icon(
+                    _post.isReposted ? Icons.repeat_rounded : Icons.repeat_rounded,
+                    size: 18,
+                    color: _post.isReposted ? _PostColors.green : _PostColors.textSecondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _formatCount(_post.repostsCount),
+                    style: const TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 18),
+
+          // Share
+          Semantics(
+            label: 'Partager',
+            child: InkWell(
+              onTap: widget.onShare ?? () {},
+              borderRadius: BorderRadius.circular(20),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  Icon(Icons.share_rounded, size: 18, color: _PostColors.textSecondary),
+                  SizedBox(width: 5),
+                  Text(
+                    'Partager',
+                    style: TextStyle(fontSize: 12, color: _PostColors.textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ],
       ),
-    ]);
+    );
   }
 }
