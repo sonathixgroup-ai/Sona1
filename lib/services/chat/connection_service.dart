@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ============================================================
@@ -8,7 +9,7 @@ class ConnectionRequest {
   final String id;
   final String senderId;
   final String receiverId;
-  final String status; // pending, accepted, rejected, blocked
+  final String status;
   final String? message;
   final DateTime createdAt;
   final DateTime? respondedAt;
@@ -80,74 +81,47 @@ class Connection {
 }
 
 // ============================================================
-// SERVICE
+// SERVICE (ChangeNotifier)
 // ============================================================
 
-class ConnectionService {
+class ConnectionService extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Envoyer une demande de connexion
-  Future<ConnectionRequest> sendRequest({
-    required String senderId,
-    required String receiverId,
-    String? message,
-  }) async {
-    final data = {
-      'sender_id': senderId,
-      'receiver_id': receiverId,
-      'message': message,
-      'status': 'pending',
-    };
-    final response = await _supabase
-        .from('connection_requests')
-        .insert(data)
-        .select()
-        .single();
-    return ConnectionRequest.fromJson(response);
+  // État
+  List<ConnectionRequest> _sentRequests = [];
+  List<ConnectionRequest> _receivedRequests = [];
+  List<Map<String, dynamic>> _connections = [];
+  bool _isLoading = false;
+  String? _error;
+
+  // Getters
+  List<ConnectionRequest> get sentRequests => _sentRequests;
+  List<ConnectionRequest> get receivedRequests => _receivedRequests;
+  List<Map<String, dynamic>> get connections => _connections;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  // Charger toutes les données
+  Future<void> loadData(String userId) async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      final sent = await _getSentRequests(userId);
+      final received = await _getPendingRequests(userId);
+      final active = await _getActiveConnections(userId);
+
+      _sentRequests = sent;
+      _receivedRequests = received;
+      _connections = active;
+      _setLoading(false);
+    } catch (e) {
+      _error = e.toString();
+      _setLoading(false);
+    }
   }
 
-  // Accepter une demande
-  Future<Connection> acceptRequest(String requestId) async {
-    // 1. Mettre à jour le statut de la demande
-    final requestResponse = await _supabase
-        .from('connection_requests')
-        .update({
-          'status': 'accepted',
-          'responded_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', requestId)
-        .select()
-        .single();
-
-    final request = ConnectionRequest.fromJson(requestResponse);
-
-    // 2. Créer la connexion
-    final connectionData = {
-      'user1_id': request.senderId,
-      'user2_id': request.receiverId,
-    };
-    final connectionResponse = await _supabase
-        .from('connections')
-        .insert(connectionData)
-        .select()
-        .single();
-
-    return Connection.fromJson(connectionResponse);
-  }
-
-  // Refuser une demande
-  Future<void> rejectRequest(String requestId) async {
-    await _supabase
-        .from('connection_requests')
-        .update({
-          'status': 'rejected',
-          'responded_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', requestId);
-  }
-
-  // Obtenir les demandes en attente (reçues)
-  Future<List<ConnectionRequest>> getPendingRequests(String userId) async {
+  Future<List<ConnectionRequest>> _getPendingRequests(String userId) async {
     final response = await _supabase
         .from('connection_requests')
         .select('*, sender:profiles!sender_id(id, display_name, username, avatar_url)')
@@ -157,35 +131,137 @@ class ConnectionService {
     return response.map((json) => ConnectionRequest.fromJson(json)).toList();
   }
 
-  // Obtenir les demandes envoyées
-  Future<List<ConnectionRequest>> getSentRequests(String userId) async {
+  Future<List<ConnectionRequest>> _getSentRequests(String userId) async {
     final response = await _supabase
         .from('connection_requests')
         .select('*, receiver:profiles!receiver_id(id, display_name, username, avatar_url)')
         .eq('sender_id', userId)
+        .eq('status', 'pending')
         .order('created_at', ascending: false);
     return response.map((json) => ConnectionRequest.fromJson(json)).toList();
   }
 
-  // Vérifier si une connexion existe entre deux utilisateurs
-  Future<bool> checkConnection(String userId1, String userId2) async {
+  Future<List<Map<String, dynamic>>> _getActiveConnections(String userId) async {
     final response = await _supabase
+        .from('connections')
+        .select('''
+          id,
+          user1_id,
+          user2_id,
+          user1:profiles!connections_user1_id_fkey(id, display_name, username, avatar_url),
+          user2:profiles!connections_user2_id_fkey(id, display_name, username, avatar_url)
+        ''')
+        .or('user1_id.eq.$userId,user2_id.eq.$userId');
+
+    final List<Map<String, dynamic>> connections = [];
+    for (var row in response) {
+      final isUser1 = row['user1_id'] == userId;
+      final other = isUser1 ? row['user2'] : row['user1'];
+      if (other != null) {
+        connections.add({
+          'id': row['id'],
+          'user_id': other['id'],
+          'display_name': other['display_name'] ?? 'Inconnu',
+          'username': other['username'],
+          'avatar_url': other['avatar_url'],
+        });
+      }
+    }
+    return connections;
+  }
+
+  // Envoyer une demande
+  Future<bool> sendRequest({
+    required String senderId,
+    required String receiverId,
+    String? message,
+  }) async {
+    try {
+      final data = {
+        'sender_id': senderId,
+        'receiver_id': receiverId,
+        'message': message,
+        'status': 'pending',
+      };
+      await _supabase
+          .from('connection_requests')
+          .insert(data)
+          .select()
+          .single();
+      await loadData(senderId); // Recharger
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Accepter une demande
+  Future<bool> acceptRequest(String requestId, String userId) async {
+    try {
+      await _supabase
+          .from('connection_requests')
+          .update({
+            'status': 'accepted',
+            'responded_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', requestId);
+      await loadData(userId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Refuser une demande
+  Future<bool> rejectRequest(String requestId, String userId) async {
+    try {
+      await _supabase
+          .from('connection_requests')
+          .update({
+            'status': 'rejected',
+            'responded_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', requestId);
+      await loadData(userId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Annuler une demande envoyée
+  Future<bool> cancelRequest(String requestId, String userId) async {
+    try {
+      await _supabase
+          .from('connection_requests')
+          .delete()
+          .eq('id', requestId);
+      await loadData(userId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Vérifier le statut entre deux utilisateurs
+  Future<String> getStatusBetween(String userId1, String userId2) async {
+    // Vérifier si une connexion existe
+    final connected = await _supabase
         .from('connections')
         .select('id')
         .or('user1_id.eq.$userId1,user2_id.eq.$userId1')
         .or('user1_id.eq.$userId2,user2_id.eq.$userId2')
         .maybeSingle();
-    return response != null;
-  }
+    if (connected != null) return 'connected';
 
-  // ✅ Obtenir le statut de connexion entre deux utilisateurs
-  // Retourne : 'connected', 'pending', 'rejected', 'none'
-  Future<String> getStatusBetween(String userId1, String userId2) async {
-    // Vérifier si une connexion existe
-    final isConnected = await checkConnection(userId1, userId2);
-    if (isConnected) return 'connected';
-
-    // Vérifier s'il y a une demande en attente
     final pending = await _supabase
         .from('connection_requests')
         .select('status')
@@ -195,7 +271,6 @@ class ConnectionService {
         .maybeSingle();
     if (pending != null) return 'pending';
 
-    // Vérifier s'il y a une demande rejetée
     final rejected = await _supabase
         .from('connection_requests')
         .select('status')
@@ -208,8 +283,19 @@ class ConnectionService {
     return 'none';
   }
 
-  // Bloquer un utilisateur
-  Future<void> blockUser(String userId, String blockedId) async {
-    // À implémenter selon votre modèle
+  // Vérifier si une connexion existe
+  Future<bool> checkConnection(String userId1, String userId2) async {
+    final response = await _supabase
+        .from('connections')
+        .select('id')
+        .or('user1_id.eq.$userId1,user2_id.eq.$userId1')
+        .or('user1_id.eq.$userId2,user2_id.eq.$userId2')
+        .maybeSingle();
+    return response != null;
+  }
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
   }
 }
