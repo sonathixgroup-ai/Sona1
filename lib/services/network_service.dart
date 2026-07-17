@@ -5,7 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/network_post.dart';
 import '../models/network_connection.dart';
 import '../models/network_community.dart';
+import '../models/network_message.dart';
+import '../models/network_notification.dart';
 import '../models/network_story.dart';
+import '../models/comment.dart';
 
 class NetworkService extends ChangeNotifier {
   final SupabaseClient _supabase;
@@ -16,36 +19,48 @@ class NetworkService extends ChangeNotifier {
 
   static List<String> _imageUrlsFromRow(Map<String, dynamic> row) {
     if (row['image_urls'] is List) return List<String>.from(row['image_urls']);
+    if (row['media_urls'] is List) return List<String>.from(row['media_urls']);
     final url = row['media_url'] as String?;
     return url!= null && url.isNotEmpty? [url] : [];
   }
 
-  // ─── FEED ───
+  // ─────────────────────────────────────────────
+  // FEED - VERSION SCALABLE 1 REQUÊTE
+  // ─────────────────────────────────────────────
   Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0, String feedType = 'smart'}) async {
     final uid = currentUserId;
     if (uid.isEmpty) return [];
 
     if (feedType == 'smart') {
-      final res = await _supabase.rpc('get_smart_feed', params: {'p_user_id': uid, 'p_limit': limit, 'p_offset': offset});
+      final res = await _supabase.rpc('get_smart_feed', params: {
+        'p_user_id': uid,
+        'p_limit': limit,
+        'p_offset': offset,
+      });
       return (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).toList();
     }
 
-    final hiddenIds = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
-    final hiddenSet = (hiddenIds as List).map((e) => e['post_id'] as String).toSet();
+    // Pour network / popular / recent
+    final hiddenRes = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
+    final hiddenSet = (hiddenRes as List).map((e) => e['post_id'] as String).toSet();
 
-    var builder = _supabase.from('posts_view').select().eq('is_public', true).order('created_at', ascending: false).range(offset, offset + limit - 1);
+    var query = _supabase.from('posts_view').select();
 
     if (feedType == 'network') {
       final connIds = await _getConnectionIds();
       if (connIds.isEmpty) return [];
-      builder = _supabase.from('posts_view').select().eq('is_public', true).inFilter('user_id', connIds.toList()).order('created_at', ascending: false).range(offset, offset + limit - 1);
+      query = query.inFilter('user_id', connIds.toList());
     } else if (feedType == 'popular') {
-      builder = _supabase.from('posts_view').select().eq('is_public', true).gte('created_at', DateTime.now().subtract(const Duration(days: 7)).toIso8601String()).order('likes_count', ascending: false).range(offset, offset + limit - 1);
+      query = query.gte('created_at', DateTime.now().subtract(const Duration(days: 7)).toIso8601String()).order('likes_count', ascending: false);
+    } else {
+      query = query.eq('is_public', true).order('created_at', ascending: false);
     }
 
-    final res = await builder;
-    final list = (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).where((p) =>!hiddenSet.contains(p.id)).toList();
-    return list;
+    final res = await query.range(offset, offset + limit - 1);
+    return (res as List)
+       .map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)}))
+       .where((p) =>!hiddenSet.contains(p.id))
+       .toList();
   }
 
   Future<Set<String>> _getConnectionIds() async {
@@ -53,152 +68,253 @@ class NetworkService extends ChangeNotifier {
     return (res as List).map((e) => e['connection_id'] as String).toSet();
   }
 
-  // ─── POSTS ───
-  Future<String> createPost(String content, List<String> images) async {
-    final res = await _supabase.from('posts').insert({
-      'user_id': currentUserId, 'content': content.trim(),
-      'image_urls': images, 'media_url': images.isNotEmpty? images.first : null,
-    }).select('id').single();
-    notifyListeners();
-    return res['id'] as String;
-  }
-  Future<void> deletePost(String id) async { await _supabase.from('posts').delete().eq('id', id); notifyListeners(); }
-  Future<void> updatePost(String id, String c) async { await _supabase.from('posts').update({'content': c.trim()}).eq('id', id); notifyListeners(); }
-  Future<void> hidePost(String id) async { await _supabase.from('hidden_posts').upsert({'post_id': id, 'user_id': currentUserId}, onConflict: 'post_id,user_id'); notifyListeners(); }
-  Future<void> likePost(String id) async { await _supabase.from('post_likes').upsert({'post_id': id, 'user_id': currentUserId}, onConflict: 'post_id,user_id'); notifyListeners(); }
-  Future<void> unlikePost(String id) async { await _supabase.from('post_likes').delete().eq('post_id', id).eq('user_id', currentUserId); notifyListeners(); }
-  Future<void> sharePost(String id) async { await _supabase.rpc('increment_share', params: {'p_post_id': id}); }
-
-  // ─── STORIES ───
-  Future<List<NetworkStory>> getActiveStories() async {
-    final res = await _supabase.from('stories').select('*, profiles!user_id(display_name, avatar_url)').eq('is_active', true).gte('expires_at', DateTime.now().toIso8601String()).order('created_at', ascending: false).limit(30);
-    return (res as List).map((e) => NetworkStory.fromJson({...e, 'image_url': e['media_url']?? '', 'userName': e['profiles']?['display_name'], 'userAvatar': e['profiles']?['avatar_url']})).toList();
-  }
-  Future<void> createStory(String mediaUrl, {String mediaType = 'image', int duration = 24}) async {
-    await _supabase.from('stories').insert({
-      'user_id': currentUserId, 'media_url': mediaUrl, 'media_type': mediaType, 'is_active': true,
-      'created_at': DateTime.now().toIso8601String(),
-      'expires_at': DateTime.now().add(Duration(hours: duration.clamp(6, 48))).toIso8601String(),
-    }); notifyListeners();
-  }
-
-  // ─── SAVE / REPOST / PIN / REPORT ───
-  Future<void> savePost(String postId) async { await _supabase.from('saved_posts').upsert({'post_id': postId, 'user_id': currentUserId, 'saved_at': DateTime.now().toIso8601String()}, onConflict: 'post_id,user_id'); notifyListeners(); }
-  Future<void> unsavePost(String postId) async { await _supabase.from('saved_posts').delete().eq('post_id', postId).eq('user_id', currentUserId); notifyListeners(); }
-  Future<void> repost(String originalPostId, String? quote) async { await _supabase.from('reposts').insert({'original_post_id': originalPostId, 'user_id': currentUserId, 'quote': quote, 'created_at': DateTime.now().toIso8601String()}); notifyListeners(); }
-  Future<void> pinPost(String postId) async { await _supabase.from('posts').update({'is_pinned': false}).eq('user_id', currentUserId).eq('is_pinned', true); await _supabase.from('posts').update({'is_pinned': true}).eq('id', postId); notifyListeners(); }
-  Future<void> reportPost(String postId, String reason) async { await _supabase.from('reported_posts').insert({'post_id': postId, 'user_id': currentUserId, 'reason': reason, 'reported_at': DateTime.now().toIso8601String()}); }
-
-  Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async {
-    try { final name='${DateTime.now().millisecondsSinceEpoch}.$fileExtension'; final path='$currentUserId/$name'; await _supabase.storage.from(bucket).uploadBinary(path, bytes, fileOptions: FileOptions(contentType: 'image/$fileExtension', upsert: true)); return _supabase.storage.from(bucket).getPublicUrl(path); } catch (e){ debugPrint('upload $e'); return null; }
-  }
-
-  // ─── USERS ───
-  Future<List<Map<String,dynamic>>> searchUsers(String query) async {
-    if (query.trim().isEmpty) return [];
-    final res = await _supabase.from('profiles').select('id, display_name, avatar_url, email').ilike('display_name', '%$query%').limit(10);
-    return List<Map<String,dynamic>>.from(res as List);
-  }
-
-  // ─── COMMENTS - MANQUAIENT = BUILD FAIL ───
-  Future<Map<String,dynamic>?> addComment(String postId, String content, {String? parentId}) async {
-    if (_uid == null) return null;
-    final res = await _supabase.from('comments').insert({
-      'post_id': postId, 'user_id': _uid, 'content': content.trim(), 'parent_id': parentId,
-      'created_at': DateTime.now().toIso8601String(),
-    }).select('*, profiles!inner(display_name,avatar_url)').single();
-    notifyListeners(); return res;
-  }
-    // ─── MÉTHODES RESTAURÉES POUR COMPATIBILITÉ ───
-
   Future<NetworkPost?> getPostById(String postId) async {
     try {
-      final response = await _supabase
-          .from('posts_view') // Utilise votre vue optimisée
-          .select()
-          .eq('id', postId)
-          .maybeSingle();
-      if (response == null) return null;
-      return NetworkPost.fromJson({...response, 'image_urls': _imageUrlsFromRow(response)});
+      final res = await _supabase.from('posts_view').select().eq('id', postId).maybeSingle();
+      if (res == null) return null;
+      return NetworkPost.fromJson({...res, 'image_urls': _imageUrlsFromRow(res)});
     } catch (e) {
-      debugPrint('❌ getPostById: $e');
+      debugPrint('getPostById: $e');
       return null;
     }
   }
 
+  // ─────────────────────────────────────────────
+  // POSTS CRUD
+  // ─────────────────────────────────────────────
+  Future<String> createPost(String content, List<String> images) async {
+    final res = await _supabase.from('posts').insert({
+      'user_id': currentUserId,
+      'content': content.trim(),
+      'image_urls': images,
+      'media_url': images.isNotEmpty? images.first : null,
+      'is_public': true,
+    }).select('id').single();
+    notifyListeners();
+    return res['id'] as String;
+  }
+
+  Future<String> createCommunityPost({required String communityId, required String content, List<String> images = const []}) async {
+    final res = await _supabase.from('posts').insert({
+      'user_id': currentUserId,
+      'community_id': communityId,
+      'content': content.trim(),
+      'image_urls': images,
+      'media_url': images.isNotEmpty? images.first : null,
+    }).select('id').single();
+    notifyListeners();
+    return res['id'] as String;
+  }
+
+  Future<void> updatePost(String id, String c) async {
+    await _supabase.from('posts').update({'content': c.trim(), 'updated_at': DateTime.now().toIso8601String()}).eq('id', id);
+    notifyListeners();
+  }
+
+  Future<void> deletePost(String id) async {
+    await _supabase.from('posts').delete().eq('id', id);
+    notifyListeners();
+  }
+
+  Future<void> hidePost(String id) async {
+    await _supabase.from('hidden_posts').upsert({'post_id': id, 'user_id': currentUserId, 'hidden_at': DateTime.now().toIso8601String()}, onConflict: 'post_id,user_id');
+    notifyListeners();
+  }
+
+  Future<void> reportPost(String postId, String reason) async {
+    await _supabase.from('reported_posts').insert({'post_id': postId, 'user_id': currentUserId, 'reason': reason, 'reported_at': DateTime.now().toIso8601String()});
+  }
+
+  Future<void> pinPost(String postId) async {
+    await _supabase.from('posts').update({'is_pinned': false}).eq('user_id', currentUserId).eq('is_pinned', true);
+    await _supabase.from('posts').update({'is_pinned': true}).eq('id', postId);
+    notifyListeners();
+  }
+
+  Future<void> unpinPost(String postId) async {
+    await _supabase.from('posts').update({'is_pinned': false}).eq('id', postId);
+    notifyListeners();
+  }
+
+  Future<NetworkPost?> getPinnedPost(String userId) async {
+    final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).maybeSingle();
+    return res == null? null : NetworkPost.fromJson({...res, 'image_urls': _imageUrlsFromRow(res)});
+  }
+
+  Future<List<NetworkPost>> getPinnedPosts(String userId) async {
+    final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).order('created_at', ascending: false);
+    return (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).toList();
+  }
+
+  // ─────────────────────────────────────────────
+  // INTERACTIONS ATOMIQUES
+  // ─────────────────────────────────────────────
+  Future<void> likePost(String id) async {
+    await _supabase.from('post_likes').upsert({'post_id': id, 'user_id': currentUserId}, onConflict: 'post_id,user_id', ignoreDuplicates: true);
+    final owner = await _getPostOwnerId(id);
+    if (owner!= currentUserId) unawaited(_createNotification(userId: owner, type: 'like', postId: id));
+    notifyListeners();
+  }
+
+  Future<void> unlikePost(String id) async {
+    await _supabase.from('post_likes').delete().eq('post_id', id).eq('user_id', currentUserId);
+    notifyListeners();
+  }
+
+  Future<void> sharePost(String id) async {
+    await _supabase.rpc('increment_share', params: {'p_post_id': id});
+  }
+
+  Future<void> savePost(String postId) async {
+    await _supabase.from('saved_posts').upsert({'post_id': postId, 'user_id': currentUserId, 'saved_at': DateTime.now().toIso8601String()}, onConflict: 'post_id,user_id');
+    notifyListeners();
+  }
+
+  Future<void> unsavePost(String postId) async {
+    await _supabase.from('saved_posts').delete().eq('post_id', postId).eq('user_id', currentUserId);
+    notifyListeners();
+  }
+
+  Future<List<NetworkPost>> getSavedPosts() async {
+    final res = await _supabase.from('saved_posts').select('post:post_id(*, profiles:user_id(display_name, avatar_url, profession))').eq('user_id', currentUserId).order('saved_at', ascending: false);
+    return (res as List).map((e) {
+      final post = e['post'] as Map<String, dynamic>;
+      return NetworkPost.fromJson({...post, 'author_name': post['profiles']?['display_name'], 'author_avatar': post['profiles']?['avatar_url'], 'author_title': post['profiles']?['profession'], 'image_urls': _imageUrlsFromRow(post)});
+    }).toList();
+  }
+
+  Future<void> repost(String originalPostId, String? quote) async {
+    await _supabase.from('reposts').insert({'original_post_id': originalPostId, 'user_id': currentUserId, 'quote': quote});
+    notifyListeners();
+  }
+
+  Future<List<NetworkPost>> getUserReposts(String userId) async {
+    final res = await _supabase.from('reposts').select('post:original_post_id(*)').eq('user_id', userId).order('created_at', ascending: false);
+    return (res as List).map((e) => NetworkPost.fromJson({...e['post'], 'image_urls': _imageUrlsFromRow(e['post'])} ) ).toList();
+  }
+
+  // ─────────────────────────────────────────────
+  // COMMENTS - FIX DU BUG MUTABLE
+  // ─────────────────────────────────────────────
   Future<List<Comment>> getCommentsWithReplies(String postId) async {
     try {
-      final response = await _supabase
-          .from('comments')
-          .select('*, profiles!user_id(display_name, avatar_url)')
-          .eq('post_id', postId)
-          .order('created_at', ascending: false);
-      
-      final List<dynamic> data = response as List;
-      final Map<String, Comment> commentMap = {};
-      
-      // Conversion en objets Comment
-      final comments = data.map((json) => Comment.fromJson(json)).toList();
-      for (var c in comments) {
-        commentMap[c.id] = c;
-      }
-      
-      final List<Comment> root = [];
-      for (var c in commentMap.values) {
-        if (c.parentId == null || c.parentId!.isEmpty) {
-          root.add(c);
+      final res = await _supabase.from('comments').select('*, profiles!user_id(display_name, avatar_url)').eq('post_id', postId).order('created_at', ascending: true);
+      final Map<String, Comment> map = { for (var j in res as List) j['id']: Comment.fromJson(j) };
+      final List<Comment> roots = [];
+      final Map<String, List<Comment>> childrenMap = {};
+
+      for (var c in map.values) {
+        if (c.parentId == null || c.parentId!.isEmpty ||!map.containsKey(c.parentId)) {
+          roots.add(c);
         } else {
-          final parent = commentMap[c.parentId];
-          if (parent != null) parent.replies.add(c);
-          else root.add(c);
+          childrenMap.putIfAbsent(c.parentId!, () => []).add(c);
         }
       }
-      return root;
+      // Reconstruction immuable pour éviter le crash const []
+      return roots.map((r) => r.copyWith(replies: childrenMap[r.id]?? [])).toList();
     } catch (e) {
-      debugPrint('❌ getCommentsWithReplies: $e');
+      debugPrint('getCommentsWithReplies: $e');
       return [];
     }
   }
 
-  // Assurez-vous que cette version est utilisée pour que comments_page reçoive un objet Comment
-  @override 
   Future<Comment> addComment(String postId, String content, {String? parentId}) async {
-    final uid = currentUserId;
-    if (uid.isEmpty) throw Exception('Not logged in');
-    final response = await _supabase.from('comments').insert({
-      'post_id': postId,
-      'user_id': uid,
-      'content': content,
-      'parent_id': parentId,
-      'created_at': DateTime.now().toIso8601String(),
+    final res = await _supabase.from('comments').insert({
+      'post_id': postId, 'user_id': currentUserId, 'content': content.trim(), 'parent_id': parentId,
     }).select('*, profiles!user_id(display_name, avatar_url)').single();
-    
-    return Comment.fromJson(response);
+    final owner = await _getPostOwnerId(postId);
+    if (parentId == null && owner!= currentUserId) unawaited(_createNotification(userId: owner, type: 'comment', postId: postId));
+    notifyListeners();
+    return Comment.fromJson(res);
+  }
+
+  Future<bool> addCommentToPost(String postId, String comment) async {
+    try { await addComment(postId, comment); return true; } catch (_) { return false; }
+  }
+
+  Future<List<Map<String, dynamic>>> getComments(String postId) async {
+    final res = await _supabase.from('comments').select('*, profiles!user_id(display_name, avatar_url)').eq('post_id', postId).order('created_at', ascending: true);
+    return (res as List).map((e) => {'id': e['id'], 'user_id': e['user_id'], 'user_name': e['profiles']?['display_name'], 'user_avatar': e['profiles']?['avatar_url'], 'content': e['content'], 'created_at': e['created_at']}).toList();
   }
 
   Future<bool> updateComment(String commentId, String newContent) async {
-    try { await _supabase.from('comments').update({'content': newContent.trim(),'is_edited': true,'updated_at': DateTime.now().toIso8601String()}).eq('id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch(e){ return false; }
+    try { await _supabase.from('comments').update({'content': newContent.trim(), 'is_edited': true}).eq('id', commentId); notifyListeners(); return true; } catch (_) { return false; }
   }
-  Future<bool> deleteComment(String commentId) async { try{ await _supabase.from('comments').delete().eq('id', commentId); notifyListeners(); return true; }catch(_){ return false; } }
-  Future<bool> likeComment(String commentId) async {
-    if (_uid==null) return false;
-    try{ await _supabase.from('comment_likes').upsert({'comment_id': commentId,'user_id': _uid,'created_at': DateTime.now().toIso8601String()}, onConflict: 'comment_id,user_id'); notifyListeners(); return true; }catch(e){ return false; }
-  }
-  Future<bool> unlikeComment(String commentId) async { try{ await _supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', _uid!); notifyListeners(); return true; }catch(_){ return false; } }
 
-  // ─── RESTE ───
-  Future<List<NetworkConnection>> getSuggestedConnections({int limit = 5}) async {
-    final res = await _supabase.rpc('get_suggested_connections', params: {'p_user_id': currentUserId, 'p_limit': limit});
-    return (res as List).map((e) => NetworkConnection(id: e['id'], name: e['display_name'], avatar: e['avatar_url'], title: e['profession'], mutualConnections: e['mutual_count']??0)).toList();
+  Future<bool> deleteComment(String commentId) async {
+    try { await _supabase.from('comments').delete().eq('id', commentId); notifyListeners(); return true; } catch (_) { return false; }
   }
-  Future<List<NetworkCommunity>> getAllCommunities({int limit = 20}) async {
-    final res = await _supabase.from('communities_with_membership').select().eq('current_user_id', currentUserId).order('members_count', ascending: false).limit(limit);
-    return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList();
+
+  Future<bool> likeComment(String commentId) async {
+    if (_uid == null) return false;
+    try { await _supabase.from('comment_likes').upsert({'comment_id': commentId, 'user_id': _uid}, onConflict: 'comment_id,user_id', ignoreDuplicates: true); notifyListeners(); return true; } catch (_) { return false; }
   }
-  Future<void> sendConnectionRequest(String targetId) async {
-    await _supabase.from('connection_requests').upsert({
-      'sender_id': currentUserId, 
-      'receiver_id': targetId
-    }, onConflict: 'sender_id,receiver_id');
-  } 
+
+  Future<bool> unlikeComment(String commentId) async {
+    try { await _supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch (_) { return false; }
+  }
+
+  // ─────────────────────────────────────────────
+  // STORIES
+  // ─────────────────────────────────────────────
+  Future<List<NetworkStory>> getActiveStories() async {
+    try {
+      final uid = currentUserId;
+      final res = await _supabase.from('stories').select('*, profiles!user_id(display_name, avatar_url, profession)').eq('is_active', true).gte('expires_at', DateTime.now().toIso8601String()).order('created_at', ascending: false).limit(30);
+      return (res as List).map((e) => NetworkStory.fromJson({...e, 'image_url': e['image_url']?? e['media_url']?? ''}, currentUserId: uid)).toList();
+    } catch (e) { debugPrint('getActiveStories: $e'); return []; }
+  }
+
+  Future<void> createStory(String mediaUrl, {String mediaType = 'image', int duration = 24}) async {
+    await _supabase.from('stories').insert({'user_id': currentUserId, 'media_url': mediaUrl, 'media_type': mediaType, 'is_active': true, 'expires_at': DateTime.now().add(Duration(hours: duration.clamp(6, 48))).toIso8601String()});
+    notifyListeners();
+  }
+
+  Future<void> deleteStory(String storyId) async { await _supabase.from('stories').delete().eq('id', storyId).eq('user_id', currentUserId); notifyListeners(); }
+  Future<void> markStoryAsViewed(String storyId) async { await _supabase.from('story_views').upsert({'story_id': storyId, 'user_id': currentUserId}, onConflict: 'story_id,user_id', ignoreDuplicates: true); }
+
+  Future<List<Highlight>> getUserHighlights(String userId) async {
+    final res = await _supabase.from('story_highlights').select().eq('user_id', userId).order('created_at', ascending: false);
+    return (res as List).map((e) => Highlight(id: e['id'], name: e['name'], coverImage: e['cover_image'], storyIds: List<String>.from(e['story_ids']?? []), createdAt: DateTime.parse(e['created_at']))).toList();
+  }
+  Future<void> createHighlight(String name, List<String> storyIds, String? coverImage) async { await _supabase.from('story_highlights').insert({'user_id': currentUserId, 'name': name, 'cover_image': coverImage, 'story_ids': storyIds}); }
+
+  // ─────────────────────────────────────────────
+  // RESTE (communautés, connexions, messages, etc) - GARDÉ
+  // ─────────────────────────────────────────────
+  Future<List<NetworkConnection>> getSuggestedConnections({int limit = 10}) async {
+    try { final res = await _supabase.rpc('get_suggested_connections', params: {'p_user_id': currentUserId, 'p_limit': limit}); return (res as List).map((e) => NetworkConnection(id: e['id'], name: e['display_name']?? 'Utilisateur', avatar: e['avatar_url'], title: e['profession']?? 'Membre', mutualConnections: (e['mutual_count'] as num?)?.toInt()?? 0)).toList(); } catch (e) { debugPrint('getSuggestedConnections: $e'); return []; }
+  }
+  Future<void> sendConnectionRequest(String targetId) async { await _supabase.from('connection_requests').upsert({'sender_id': currentUserId, 'receiver_id': targetId, 'status': 'pending'}, onConflict: 'sender_id,receiver_id'); if (targetId!= currentUserId) unawaited(_createNotification(userId: targetId, type: 'connection')); }
+  Future<void> acceptConnectionRequest(String requestId) async { await _supabase.from('connection_requests').update({'status': 'accepted'}).eq('id', requestId); final req = await _supabase.from('connection_requests').select('sender_id, receiver_id').eq('id', requestId).single(); await _supabase.from('connections').upsert([{'user_id': req['sender_id'], 'connection_id': req['receiver_id'], 'status': 'accepted'}, {'user_id': req['receiver_id'], 'connection_id': req['sender_id'], 'status': 'accepted'}], onConflict: 'user_id,connection_id'); }
+  Future<List<NetworkCommunity>> getAllCommunities({int limit = 50}) async { try { final res = await _supabase.from('communities_with_membership').select().eq('current_user_id', currentUserId).order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); } catch (_) { final res = await _supabase.from('communities').select().order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); } }
+  Future<List<NetworkCommunity>> getSuggestedCommunities({int limit = 10}) async { final res = await _supabase.from('communities').select().order('members_count', ascending: false).limit(limit); return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList(); }
+  Future<List<NetworkCommunity>> getMyCommunities() async { final res = await _supabase.from('community_members').select('communities(*)').eq('user_id', currentUserId); return (res as List).map((e) => NetworkCommunity.fromJson({...e['communities'], 'is_member': true})).toList(); }
+  Future<NetworkCommunity?> getCommunityById(String id) async { final res = await _supabase.from('communities').select().eq('id', id).maybeSingle(); return res == null? null : NetworkCommunity.fromJson(res); }
+  Future<void> joinCommunity(String id) async { await _supabase.from('community_members').upsert({'community_id': id, 'user_id': currentUserId, 'role': 'member'}, onConflict: 'community_id,user_id', ignoreDuplicates: true); }
+  Future<void> leaveCommunity(String id) async { await _supabase.from('community_members').delete().eq('community_id', id).eq('user_id', currentUserId); }
+  Future<List<Map<String, dynamic>>> searchUsers(String q) async { if (q.trim().isEmpty) return []; final r = await _supabase.from('profiles').select('id, display_name, avatar_url, profession').ilike('display_name', '%$q%').limit(20); return List<Map<String, dynamic>>.from(r as List); }
+  Future<List<Map<String, dynamic>>> searchPosts(String q) async { final r = await _supabase.from('posts_view').select('id, content, created_at, author_name, author_avatar').ilike('content', '%$q%').limit(20); return List<Map<String, dynamic>>.from(r as List); }
+  Future<List<NetworkCommunity>> searchCommunities(String q) async { final r = await _supabase.from('communities').select().ilike('name', '%$q%').limit(20); return (r as List).map((e) => NetworkCommunity.fromJson(e)).toList(); }
+  Future<List<Conversation>> getConversations() async { try { final uid = currentUserId; final res = await _supabase.from('messages').select('sender_id, receiver_id, content, created_at, is_read, sender:profiles!messages_sender_id_fkey(display_name, avatar_url), receiver:profiles!messages_receiver_id_fkey(display_name, avatar_url)').or('sender_id.eq.$uid,receiver_id.eq.$uid').order('created_at', ascending: false).limit(100); final Map<String, Conversation> map = {}; for (var m in res as List) { final otherId = m['sender_id'] == uid? m['receiver_id'] : m['sender_id']; if (!map.containsKey(otherId)) { final other = m['sender_id'] == uid? m['receiver'] : m['sender']; map[otherId] = Conversation(id: otherId, otherUserId: otherId, otherUserName: other?['display_name']?? 'Utilisateur', otherUserAvatar: other?['avatar_url'], lastMessage: m['content'], lastMessageAt: DateTime.parse(m['created_at']), lastMessageIsFromMe: m['sender_id'] == uid, unreadCount: (m['is_read'] == false && m['receiver_id'] == uid)? 1 : 0); } } return map.values.toList(); } catch (e) { debugPrint('getConversations: $e'); return []; } }
+  Future<List<Map<String, dynamic>>> getMessages(String otherId) async { final uid = currentUserId; final res = await _supabase.from('messages').select().or('and(sender_id.eq.$uid,receiver_id.eq.$otherId),and(sender_id.eq.$otherId,receiver_id.eq.$uid)').order('created_at', ascending: true).limit(100); return (res as List).map((e) => {'id': e['id'], 'content': e['content'], 'is_sent_by_me': e['sender_id'] == uid, 'created_at': DateTime.parse(e['created_at'])}).toList(); }
+  Future<Map<String, dynamic>> sendMessage(String receiverId, String content) async { final res = await _supabase.from('messages').insert({'sender_id': currentUserId, 'receiver_id': receiverId, 'content': content.trim(), 'is_read': false}).select().single(); return {'id': res['id'], 'content': res['content'], 'is_sent_by_me': true, 'created_at': DateTime.parse(res['created_at'])}; }
+  Future<void> markMessagesAsRead(String otherId) async { await _supabase.from('messages').update({'is_read': true}).eq('receiver_id', currentUserId).eq('sender_id', otherId); }
+  Future<List<NetworkNotification>> getNotifications() async { final res = await _supabase.from('notifications').select('*, profiles!sender_id(display_name, avatar_url)').eq('user_id', currentUserId).order('created_at', ascending: false).limit(50); return (res as List).map((e) => NetworkNotification.fromJson(e)).toList(); }
+  Future<int> getUnreadNotificationsCount() async { final res = await _supabase.from('notifications').select('id', const FetchOptions(count: CountOption.exact)).eq('user_id', currentUserId).eq('is_read', false); return res.count; }
+  Future<int> getUnreadMessagesCount() async { final res = await _supabase.from('messages').select('id', const FetchOptions(count: CountOption.exact)).eq('receiver_id', currentUserId).eq('is_read', false); return res.count; }
+  Future<void> markAllNotificationsAsRead() async { await _supabase.from('notifications').update({'is_read': true}).eq('user_id', currentUserId).eq('is_read', false); }
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async { final res = await _supabase.from('profiles').select('id, display_name, avatar_url, profession, bio').eq('id', userId).maybeSingle(); if (res == null) return null; final posts = await _supabase.from('posts').select('id', const FetchOptions(count: CountOption.exact, head: true)).eq('user_id', userId); return {...res, 'posts_count': posts.count}; }
+  Future<List<NetworkPost>> getUserPosts(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).order('created_at', ascending: false).limit(20); return (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).toList(); }
+  Future<void> markEventInterest(String id) async { await _supabase.from('event_interests').upsert({'event_id': id, 'user_id': currentUserId}, onConflict: 'event_id,user_id', ignoreDuplicates: true); }
+  Future<bool> hasEventInterest(String id) async { final r = await _supabase.from('event_interests').select('id').eq('event_id', id).eq('user_id', currentUserId).maybeSingle(); return r!= null; }
+  Future<Map<String, int>> getRecommendationsCount() async { return {'people': 5, 'opportunities': 0, 'communities': 5}; }
+  Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async { try { final name = '${DateTime.now().millisecondsSinceEpoch}.$fileExtension'; final path = '$currentUserId/$name'; await _supabase.storage.from(bucket).uploadBinary(path, bytes, fileOptions: FileOptions(contentType: 'image/$fileExtension', upsert: true)); return _supabase.storage.from(bucket).getPublicUrl(path); } catch (e) { debugPrint('upload: $e'); return null; } }
+
+  Future<String> _getPostOwnerId(String postId) async { final r = await _supabase.from('posts').select('user_id').eq('id', postId).maybeSingle(); return r?['user_id']?? ''; }
+  Future<void> _createNotification({required String userId, required String type, String? postId}) async { if (userId.isEmpty || userId == currentUserId) return; await _supabase.from('notifications').insert({'user_id': userId, 'type': type, 'sender_id': currentUserId, 'post_id': postId, 'is_read': false}); }
 }
+
+// CLASSES AUX
+class Highlight { final String id, name; final String? coverImage; final List<String> storyIds; final DateTime createdAt; Highlight({required this.id, required this.name, this.coverImage, required this.storyIds, required this.createdAt}); }
+class Conversation { final String id, otherUserId, otherUserName, lastMessage; final String? otherUserAvatar; final DateTime lastMessageAt; final bool lastMessageIsFromMe; final int unreadCount; Conversation({required this.id, required this.otherUserId, required this.otherUserName, this.otherUserAvatar, required this.lastMessage, required this.lastMessageAt, required this.lastMessageIsFromMe, required this.unreadCount}); }
