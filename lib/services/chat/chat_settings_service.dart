@@ -10,17 +10,16 @@ import '../../models/chat/chat_settings.dart';
 class ChatSettingsService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Récupérer le profil chat
   Future<ChatUser> getChatUser(String userId) async {
     final response = await _supabase
         .from('profiles')
+        // Si Supabase crash ici, c'est qu'une de ces colonnes manque dans ta DB !
         .select('id, display_name, username, avatar_url, chat_display_name, chat_avatar, chat_status, last_seen_at, is_online')
         .eq('id', userId)
         .single();
     return ChatUser.fromJson(response);
   }
 
-  // Mettre à jour le profil chat
   Future<void> updateChatUser(String userId, ChatUser user) async {
     await _supabase
         .from('profiles')
@@ -32,7 +31,6 @@ class ChatSettingsService {
         .eq('id', userId);
   }
 
-  // Uploader un avatar
   Future<String> uploadAvatar(String userId, File image) async {
     final bytes = await image.readAsBytes();
     final ext = image.path.split('.').last;
@@ -47,19 +45,21 @@ class ChatSettingsService {
     return publicUrl;
   }
 
-  // Récupérer les réglages chat
   Future<ChatSettings> getSettings(String userId) async {
     final response = await _supabase
         .from('profiles')
         .select('chat_settings')
         .eq('id', userId)
-        .single();
+        .maybeSingle(); // Utilisation de maybeSingle pour éviter le crash si la ligne n'existe pas
+        
+    if (response == null || response['chat_settings'] == null) {
+      return ChatSettings.fromJson({}); // Si vide, retourne les valeurs par défaut
+    }
 
-    final raw = response['chat_settings'] as Map<String, dynamic>? ?? {};
+    final raw = response['chat_settings'] as Map<String, dynamic>;
     return ChatSettings.fromJson(raw);
   }
 
-  // Mettre à jour les réglages chat
   Future<void> updateSettings(String userId, ChatSettings settings) async {
     await _supabase
         .from('profiles')
