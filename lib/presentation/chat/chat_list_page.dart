@@ -272,11 +272,11 @@ class _ChatListPageState extends State<ChatListPage> {
       decoration:BoxDecoration(color:_C.white,borderRadius:BorderRadius.circular(28),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.07),blurRadius:18,offset:const Offset(0,6))],border:Border.all(color:_C.border)),
       child: Stack(clipBehavior:Clip.none, alignment:Alignment.topCenter, children:[
         Row(mainAxisAlignment:MainAxisAlignment.spaceAround, children:[
-          // ✅ Ici : remplacement du bouton Accueil par Connexions
           _navItem(Icons.people_rounded,'Connexions',0,false),
           _navItem(Icons.chat_bubble_rounded,'Chats',1,unread>0,badge:unread),
           const SizedBox(width:56),
           _navItem(Icons.workspaces_rounded,'Spaces',2,false),
+          // ✅ Le bouton "Profil" redirige maintenant vers les paramètres du chat
           _navItem(Icons.person_rounded,'Profil',3,false),
         ]),
         Positioned(top:-14, child: GestureDetector(onTap:_showCreateMenu, child: Container(width:54,height:54,decoration:BoxDecoration(gradient:const LinearGradient(colors:[_C.blueLight,_C.blue]),shape:BoxShape.circle,boxShadow:[BoxShadow(color:_C.blue.withOpacity(.32),blurRadius:12,offset:const Offset(0,5))],border:Border.all(color:Colors.white,width:3)),child:const Icon(Icons.add_rounded,color:Colors.white,size:28)))),
@@ -284,14 +284,17 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // ✅ Modification du _navItem pour gérer le clic sur Connexions
+  // ✅ Modification du _navItem : gestion des clics avec redirection vers les paramètres pour "Profil"
   Widget _navItem(IconData ic,String lb,int idx,bool hasBadge,{int badge=0}){
     final sel=_selectedNav==idx;
     return InkWell(
       onTap:(){
         if(idx == 0) {
-          // Redirection vers la page des connexions
+          // Connexions
           context.pushNamed('connections');
+        } else if(idx == 3) {
+          // Profil → Paramètres du chat
+          context.pushNamed('chatSettings');
         } else {
           setState(()=>_selectedNav=idx);
         }
