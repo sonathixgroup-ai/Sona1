@@ -264,7 +264,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
 
-  // BOTTOM BARRE TYPE PHOTO 2 avec notch
+  // BOTTOM BARRE avec NOTCH : remplacement du bouton Accueil par Connexions
   Widget _bottomNotchPro(int unread){
     return Container(
       margin:const EdgeInsets.fromLTRB(10,0,10,10),
@@ -272,7 +272,8 @@ class _ChatListPageState extends State<ChatListPage> {
       decoration:BoxDecoration(color:_C.white,borderRadius:BorderRadius.circular(28),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.07),blurRadius:18,offset:const Offset(0,6))],border:Border.all(color:_C.border)),
       child: Stack(clipBehavior:Clip.none, alignment:Alignment.topCenter, children:[
         Row(mainAxisAlignment:MainAxisAlignment.spaceAround, children:[
-          _navItem(Icons.home_rounded,'Accueil',0,false),
+          // ✅ Ici : remplacement du bouton Accueil par Connexions
+          _navItem(Icons.people_rounded,'Connexions',0,false),
           _navItem(Icons.chat_bubble_rounded,'Chats',1,unread>0,badge:unread),
           const SizedBox(width:56),
           _navItem(Icons.workspaces_rounded,'Spaces',2,false),
@@ -282,7 +283,35 @@ class _ChatListPageState extends State<ChatListPage> {
       ]),
     );
   }
-  Widget _navItem(IconData ic,String lb,int idx,bool hasBadge,{int badge=0}){ final sel=_selectedNav==idx; return InkWell(onTap:()=>setState(()=>_selectedNav=idx), child:SizedBox(width:56,child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Stack(clipBehavior:Clip.none,children:[Icon(ic,size:20,color:sel?_C.blue:_C.textMuted),if(hasBadge)Positioned(right:-6,top:-4,child:Container(width:8,height:8,decoration:const BoxDecoration(color:Color(0xFFEF4444),shape:BoxShape.circle)))]),const SizedBox(height:3),Text(lb,style:TextStyle(fontSize:9,fontWeight:sel?FontWeight.w800:FontWeight.w600,color:sel?_C.blue:_C.textMuted))]))); }
+
+  // ✅ Modification du _navItem pour gérer le clic sur Connexions
+  Widget _navItem(IconData ic,String lb,int idx,bool hasBadge,{int badge=0}){
+    final sel=_selectedNav==idx;
+    return InkWell(
+      onTap:(){
+        if(idx == 0) {
+          // Redirection vers la page des connexions
+          context.pushNamed('connections');
+        } else {
+          setState(()=>_selectedNav=idx);
+        }
+      },
+      child:SizedBox(
+        width:56,
+        child:Column(
+          mainAxisAlignment:MainAxisAlignment.center,
+          children:[
+            Stack(clipBehavior:Clip.none,children:[
+              Icon(ic,size:20,color:sel?_C.blue:_C.textMuted),
+              if(hasBadge)Positioned(right:-6,top:-4,child:Container(width:8,height:8,decoration:const BoxDecoration(color:Color(0xFFEF4444),shape:BoxShape.circle)))
+            ]),
+            const SizedBox(height:3),
+            Text(lb,style:TextStyle(fontSize:9,fontWeight:sel?FontWeight.w800:FontWeight.w600,color:sel?_C.blue:_C.textMuted))
+          ]
+        )
+      )
+    );
+  }
 
   void _showCreateMenu(){ showModalBottomSheet(context:context,backgroundColor:Colors.transparent,builder:(ctx)=>Container(padding:const EdgeInsets.all(16),decoration:const BoxDecoration(color:_C.white,borderRadius:BorderRadius.vertical(top:Radius.circular(22))),child:Column(mainAxisSize:MainAxisSize.min,children:[Container(width:32,height:4,decoration:BoxDecoration(color:_C.border,borderRadius:BorderRadius.circular(2))),const SizedBox(height:14),_sheetOpt(Icons.chat_bubble_rounded,'Nouvelle discussion',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NewConversationPage()))),const SizedBox(height:8),_sheetOpt(Icons.group_add_rounded,'Nouveau groupe',()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const GroupCreatePage())))]))); }
   Widget _sheetOpt(IconData i,String t,VoidCallback tap)=>InkWell(onTap:(){Navigator.pop(context);tap();},borderRadius:BorderRadius.circular(12),child:Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(border:Border.all(color:_C.border),borderRadius:BorderRadius.circular(12)),child:Row(children:[Container(width:32,height:32,decoration:BoxDecoration(color:_C.blue,borderRadius:BorderRadius.circular(9)),child:Icon(i,size:16,color:Colors.white)),const SizedBox(width:10),Text(t,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w700,color:_C.textDark))])));
