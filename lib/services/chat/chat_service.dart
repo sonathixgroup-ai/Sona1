@@ -40,6 +40,7 @@ class ChatService {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
+      // 1. Récupérer les IDs de toutes les conversations de l'utilisateur
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -51,6 +52,7 @@ class ChatService {
           .map((e) => e['conversation_id'] as String)
           .toList();
 
+      // 2. Récupérer les données de toutes ces conversations
       final response = await _supabase
           .from('conversations')
           .select('''
@@ -68,9 +70,24 @@ class ChatService {
           .inFilter('id', conversationIds)
           .order('updated_at', ascending: false);
 
-      final conversations = <ChatConversation>[];
+      // 🔥 OPTIMISATION 1 : Récupérer TOUS les messages non lus en UNE SEULE requête
+      final unreadResponse = await _supabase
+          .from('messages')
+          .select('id, conversation_id')
+          .inFilter('conversation_id', conversationIds)
+          .eq('is_read', false)
+          .neq('sender_id', uid);
 
-      for (var conv in response as List) {
+      // Grouper les compteurs de non-lus par conversation en local
+      final unreadCounts = <String, int>{};
+      for (var msg in unreadResponse as List) {
+        final cid = msg['conversation_id'] as String;
+        unreadCounts[cid] = (unreadCounts[cid] ?? 0) + 1;
+      }
+
+      // 🔥 OPTIMISATION 2 : Exécuter la récupération des derniers messages EN PARALLÈLE
+      final futures = (response as List).map((conv) async {
+        final cid = conv['id'] as String;
         final participants = conv['conversation_participants'] as List;
         final participantIds = participants
             .map((p) => p['user_id'] as String)
@@ -91,6 +108,7 @@ class ChatService {
           }
         }
 
+        // Requête pour le dernier message (exécutée en même temps pour toutes les convs)
         final lastMsg = await _supabase
             .from('messages')
             .select('''
@@ -101,7 +119,7 @@ class ChatService {
                 avatar_url
               )
             ''')
-            .eq('conversation_id', conv['id'])
+            .eq('conversation_id', cid)
             .eq('is_deleted', false)
             .order('created_at', ascending: false)
             .limit(1)
@@ -115,15 +133,8 @@ class ChatService {
           lastMessage = ChatMessage.fromJson(lastMsg);
         }
 
-        final unread = await _supabase
-            .from('messages')
-            .select('id')
-            .eq('conversation_id', conv['id'])
-            .eq('is_read', false)
-            .neq('sender_id', uid);
-
-        conversations.add(ChatConversation(
-          id: conv['id'],
+        return ChatConversation(
+          id: cid,
           isGroup: conv['is_group'] ?? false,
           groupName: conv['group_name'],
           groupAvatar: conv['group_avatar'],
@@ -131,11 +142,17 @@ class ChatService {
           otherParticipantName: otherParticipantName ?? 'Utilisateur inconnu',
           otherParticipantAvatar: otherParticipantAvatar,
           lastMessage: lastMessage,
-          unreadCount: (unread as List).length,
+          unreadCount: unreadCounts[cid] ?? 0, // Utilisation du compteur pré-calculé ultra rapide
           updatedAt: DateTime.parse(conv['updated_at']),
           isPinned: conv['is_pinned'] ?? false,
-        ));
-      }
+        );
+      });
+
+      // On attend que toutes les tâches parallèles soient finies (quelques millisecondes)
+      final conversations = await Future.wait(futures);
+
+      // On s'assure que le tri est parfait
+      conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
       return conversations;
     } catch (e) {
@@ -280,13 +297,11 @@ class ChatService {
         .eq('id', conversationId);
   }
 
-  // ✅ CORRIGÉ : Supporte les conversations escaladées où tu n'es pas encore participant
   Future<ChatConversation?> getConversation(String conversationId) async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return null;
 
-      // FIX 1: On enlève le !inner qui bloquait tout si tu n'es pas dans conversation_participants
       final response = await _supabase
           .from('conversations')
           .select('''
@@ -305,7 +320,7 @@ class ChatService {
           .maybeSingle();
 
       if (response == null) {
-        debugPrint('❌ getConversation: conversation $conversationId introuvable (RLS ou id invalide)');
+        debugPrint('❌ getConversation: conversation $conversationId introuvable');
         return null;
       }
 
@@ -315,7 +330,6 @@ class ChatService {
       String? otherParticipantName;
       String? otherParticipantAvatar;
 
-      // FIX 2: Gestion du cas où la liste des participants est vide (escalade non acceptée)
       if (!(response['is_group'] ?? false)) {
         if (participants.isNotEmpty) {
           final other = participants.firstWhere(
@@ -328,8 +342,6 @@ class ChatService {
             otherParticipantAvatar = profile?['avatar_url'] as String?;
           }
         } else {
-          // Cas escalade : on n'a pas les participants, on affiche un nom générique
-          // On peut essayer de récupérer le customer via assigned_agent_id ou autre logique
           otherParticipantName = 'Client (escalade)';
         }
       }
@@ -731,7 +743,7 @@ class ChatService {
       schema: 'public',
       table: 'messages',
       filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
+        type: PostgresChangeFilterType.eq, // ✅ Correction que nous avions faite précédemment
         column: 'conversation_id',
         value: conversationId,
       ),
