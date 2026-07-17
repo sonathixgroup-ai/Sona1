@@ -17,33 +17,27 @@ class NetworkService extends ChangeNotifier {
   String get currentUserId => _supabase.auth.currentUser?.id ?? '';
   String? get _uid => _supabase.auth.currentUser?.id;
 
-  static List<String> _imageUrlsFromRow(Map<String, dynamic> row) {
-    if (row['image_urls'] is List) return List<String>.from(row['image_urls']);
-    if (row['media_urls'] is List) return List<String>.from(row['media_urls']);
-    final url = row['media_url'] as String?;
-    return url != null && url.isNotEmpty ? [url] : [];
-  }
-
-    // ─────────────────────────────────────────────
-  // FEED - VERSION SCALABLE 1 REQUÊTE (CORRIGÉE)
+  // ─────────────────────────────────────────────
+  // FEED - SCALABLE & TYPAGE STRICT
   // ─────────────────────────────────────────────
   Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0, String feedType = 'smart'}) async {
     final uid = currentUserId;
     if (uid.isEmpty) return [];
 
+    // Smart Feed (RPC)
     if (feedType == 'smart') {
       final res = await _supabase.rpc('get_smart_feed', params: {
         'p_user_id': uid,
         'p_limit': limit,
         'p_offset': offset,
       });
-      return (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).toList();
+      return (res as List).map((e) => NetworkPost.fromJson(e)).toList();
     }
 
     final hiddenRes = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
     final hiddenSet = (hiddenRes as List).map((e) => e['post_id'] as String).toSet();
 
-    // 1. On définit uniquement les filtres ici
+    // Typage explicite pour séparer les filtres des transformations (évite l'erreur de build)
     PostgrestFilterBuilder query = _supabase.from('posts_view').select();
 
     if (feedType == 'network') {
@@ -56,7 +50,6 @@ class NetworkService extends ChangeNotifier {
       query = query.eq('is_public', true);
     }
 
-    // 2. On applique les tris (order) et la pagination (range) tout à la fin
     final builder = feedType == 'popular'
         ? query.order('likes_count', ascending: false).range(offset, offset + limit - 1)
         : query.order('created_at', ascending: false).range(offset, offset + limit - 1);
@@ -64,9 +57,9 @@ class NetworkService extends ChangeNotifier {
     final res = await builder;
 
     return (res as List)
-       .map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)}))
-       .where((p) => !hiddenSet.contains(p.id))
-       .toList();
+        .map((e) => NetworkPost.fromJson(e))
+        .where((p) => !hiddenSet.contains(p.id))
+        .toList();
   }
 
   Future<Set<String>> _getConnectionIds() async {
@@ -78,7 +71,7 @@ class NetworkService extends ChangeNotifier {
     try {
       final res = await _supabase.from('posts_view').select().eq('id', postId).maybeSingle();
       if (res == null) return null;
-      return NetworkPost.fromJson({...res, 'image_urls': _imageUrlsFromRow(res)});
+      return NetworkPost.fromJson(res);
     } catch (e) {
       debugPrint('getPostById: $e');
       return null;
@@ -112,7 +105,7 @@ class NetworkService extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────
-  // POSTS CRUD
+  // POSTS CRUD & ACTIONS
   // ─────────────────────────────────────────────
   Future<String> createPost(String content, List<String> images) async {
     final res = await _supabase.from('posts').insert({
@@ -170,16 +163,16 @@ class NetworkService extends ChangeNotifier {
 
   Future<NetworkPost?> getPinnedPost(String userId) async {
     final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).maybeSingle();
-    return res == null ? null : NetworkPost.fromJson({...res, 'image_urls': _imageUrlsFromRow(res)});
+    return res == null ? null : NetworkPost.fromJson(res);
   }
 
   Future<List<NetworkPost>> getPinnedPosts(String userId) async {
     final res = await _supabase.from('posts_view').select().eq('user_id', userId).eq('is_pinned', true).order('created_at', ascending: false);
-    return (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).toList();
+    return (res as List).map((e) => NetworkPost.fromJson(e)).toList();
   }
 
   // ─────────────────────────────────────────────
-  // INTERACTIONS ATOMIQUES
+  // INTERACTIONS (LIKE, SAVE, REPOST)
   // ─────────────────────────────────────────────
   Future<void> likePost(String id) async {
     await _supabase.from('post_likes').upsert({'post_id': id, 'user_id': currentUserId}, onConflict: 'post_id,user_id', ignoreDuplicates: true);
@@ -209,10 +202,7 @@ class NetworkService extends ChangeNotifier {
 
   Future<List<NetworkPost>> getSavedPosts() async {
     final res = await _supabase.from('saved_posts').select('post:post_id(*, profiles:user_id(display_name, avatar_url, profession))').eq('user_id', currentUserId).order('saved_at', ascending: false);
-    return (res as List).map((e) {
-      final post = e['post'] as Map<String, dynamic>;
-      return NetworkPost.fromJson({...post, 'author_name': post['profiles']?['display_name'], 'author_avatar': post['profiles']?['avatar_url'], 'author_title': post['profiles']?['profession'], 'image_urls': _imageUrlsFromRow(post)});
-    }).toList();
+    return (res as List).map((e) => NetworkPost.fromJson(e['post'] as Map<String, dynamic>)).toList();
   }
 
   Future<void> repost(String originalPostId, String? quote) async {
@@ -222,11 +212,11 @@ class NetworkService extends ChangeNotifier {
 
   Future<List<NetworkPost>> getUserReposts(String userId) async {
     final res = await _supabase.from('reposts').select('post:original_post_id(*)').eq('user_id', userId).order('created_at', ascending: false);
-    return (res as List).map((e) => NetworkPost.fromJson({...e['post'], 'image_urls': _imageUrlsFromRow(e['post'])} ) ).toList();
+    return (res as List).map((e) => NetworkPost.fromJson(e['post'] as Map<String, dynamic>)).toList();
   }
 
-    // ─────────────────────────────────────────────
-  // COMMENTS - CORRIGÉ
+  // ─────────────────────────────────────────────
+  // COMMENTS - ARBRE IMMUABLE
   // ─────────────────────────────────────────────
   Future<List<Comment>> getCommentsWithReplies(String postId) async {
     try {
@@ -234,17 +224,21 @@ class NetworkService extends ChangeNotifier {
       
       final Map<String, Comment> map = { for (var j in res as List) j['id']: Comment.fromJson(j) };
       final List<Comment> roots = [];
+      final Map<String, List<Comment>> childrenMap = {};
 
-      // Construction de l'arbre sans utiliser copyWith
       for (var c in map.values) {
         if (c.parentId == null || c.parentId!.isEmpty || !map.containsKey(c.parentId)) {
           roots.add(c);
         } else {
-          final parent = map[c.parentId];
-          if (parent != null) parent.replies.add(c);
+          childrenMap.putIfAbsent(c.parentId!, () => []).add(c);
         }
       }
-      return roots;
+      
+      return roots.map((root) {
+        final replies = childrenMap[root.id] ?? [];
+        return root.copyWith(replies: replies); // Respecte le modèle immuable
+      }).toList();
+
     } catch (e) {
       debugPrint('getCommentsWithReplies: $e');
       return [];
@@ -287,17 +281,13 @@ class NetworkService extends ChangeNotifier {
     try { await _supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch (_) { return false; }
   }
 
-
   // ─────────────────────────────────────────────
-  // STORIES
+  // STORIES & HIGHLIGHTS
   // ─────────────────────────────────────────────
   Future<List<NetworkStory>> getActiveStories() async {
     try {
       final res = await _supabase.from('stories').select('*, profiles!user_id(display_name, avatar_url, profession)').eq('is_active', true).gte('expires_at', DateTime.now().toIso8601String()).order('created_at', ascending: false).limit(30);
-      return (res as List).map<NetworkStory>((e) => NetworkStory.fromJson({
-        ...e, 
-        'image_url': e['image_url'] ?? e['media_url'] ?? ''
-      })).toList();
+      return (res as List).map((e) => NetworkStory.fromJson(e)).toList();
     } catch (e) { debugPrint('getActiveStories: $e'); return []; }
   }
 
@@ -316,7 +306,7 @@ class NetworkService extends ChangeNotifier {
   Future<void> createHighlight(String name, List<String> storyIds, String? coverImage) async { await _supabase.from('story_highlights').insert({'user_id': currentUserId, 'name': name, 'cover_image': coverImage, 'story_ids': storyIds}); }
 
   // ─────────────────────────────────────────────
-  // RESTE (communautés, connexions, messages, notifications, users)
+  // CONNEXIONS, MESSAGES ET AUTRES
   // ─────────────────────────────────────────────
   Future<List<NetworkConnection>> getSuggestedConnections({int limit = 10}) async {
     try { final res = await _supabase.rpc('get_suggested_connections', params: {'p_user_id': currentUserId, 'p_limit': limit}); return (res as List).map((e) => NetworkConnection(id: e['id'], name: e['display_name'] ?? 'Utilisateur', avatar: e['avatar_url'], title: e['profession'] ?? 'Membre', mutualConnections: (e['mutual_count'] as num?)?.toInt() ?? 0)).toList(); } catch (e) { debugPrint('getSuggestedConnections: $e'); return []; }
@@ -342,7 +332,6 @@ class NetworkService extends ChangeNotifier {
   
   Future<List<NetworkNotification>> getNotifications() async { final res = await _supabase.from('notifications').select('*, profiles!sender_id(display_name, avatar_url)').eq('user_id', currentUserId).order('created_at', ascending: false).limit(50); return (res as List).map((e) => NetworkNotification.fromJson(e)).toList(); }
   
-  // Correction des requêtes count pour éviter l'erreur SDK (FetchOptions invalide)
   Future<int> getUnreadNotificationsCount() async {
     final res = await _supabase.from('notifications').select('id').eq('user_id', currentUserId).eq('is_read', false);
     return (res as List).length; 
@@ -355,7 +344,6 @@ class NetworkService extends ChangeNotifier {
   
   Future<void> markAllNotificationsAsRead() async { await _supabase.from('notifications').update({'is_read': true}).eq('user_id', currentUserId).eq('is_read', false); }
   
-  // Correction de la requête count pour getUserProfile
   Future<Map<String, dynamic>?> getUserProfile(String userId) async { 
     final res = await _supabase.from('profiles').select('id, display_name, avatar_url, profession, bio').eq('id', userId).maybeSingle(); 
     if (res == null) return null; 
@@ -363,7 +351,7 @@ class NetworkService extends ChangeNotifier {
     return {...res, 'posts_count': (posts as List).length}; 
   }
   
-  Future<List<NetworkPost>> getUserPosts(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).order('created_at', ascending: false).limit(20); return (res as List).map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)})).toList(); }
+  Future<List<NetworkPost>> getUserPosts(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).order('created_at', ascending: false).limit(20); return (res as List).map((e) => NetworkPost.fromJson(e)).toList(); }
   
   Future<void> markEventInterest(String id) async { await _supabase.from('event_interests').upsert({'event_id': id, 'user_id': currentUserId}, onConflict: 'event_id,user_id', ignoreDuplicates: true); }
   Future<bool> hasEventInterest(String id) async { final r = await _supabase.from('event_interests').select('id').eq('event_id', id).eq('user_id', currentUserId).maybeSingle(); return r != null; }
@@ -375,7 +363,9 @@ class NetworkService extends ChangeNotifier {
   Future<void> _createNotification({required String userId, required String type, String? postId}) async { if (userId.isEmpty || userId == currentUserId) return; await _supabase.from('notifications').insert({'user_id': userId, 'type': type, 'sender_id': currentUserId, 'post_id': postId, 'is_read': false}); }
 }
 
+// ─────────────────────────────────────────────
 // CLASSES AUXILIAIRES
+// ─────────────────────────────────────────────
 class Highlight { 
   final String id, name; 
   final String? coverImage; 
