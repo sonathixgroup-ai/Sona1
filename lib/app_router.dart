@@ -195,6 +195,8 @@ import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/incoming_call_page.dart';
 import 'package:thix_id/models/chat/call_invite.dart';
 import 'package:thix_id/models/chat/call_status.dart';
+Dans la section des routes
+import 'package:thix_id/presentation/chat/connections_page.dart';
 
 // MON PAYS
 import 'presentation/mon_pays/mon_pays_page.dart';
@@ -303,6 +305,13 @@ class AppRouter {
 
 
         // CHAT
+        GoRoute(
+  path: '/connections',
+  name: 'connections',
+  pageBuilder: (context, state) => const NoTransitionPage(
+    child: ConnectionsPage(),
+  ),
+),
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
         GoRoute(path: AppRoutes.chatNew, name: 'chat_new', pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage())),
         GoRoute(path: AppRoutes.chatConversation, name: 'chat_conversation', pageBuilder: (_, state) {
