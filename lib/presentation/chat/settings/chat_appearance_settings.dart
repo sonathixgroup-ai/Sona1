@@ -21,8 +21,8 @@ class ChatAppearanceSettings extends StatelessWidget {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
-    // ✅ NOUVEAU COMPORTEMENT: On tourne SEULEMENT si ça charge vraiment
-    if (provider.isLoading) {
+    // On affiche le chargement SEULEMENT quand ça charge vraiment
+    if (provider.isLoading && settings == null) {
       return Scaffold(
         backgroundColor: ivory,
         appBar: AppBar(title: const Text('Apparence', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
@@ -30,14 +30,10 @@ class ChatAppearanceSettings extends StatelessWidget {
       );
     }
 
-    // ✅ Si ça ne charge pas mais qu'il n'y a pas de donnée, on affiche un message (pas de boucle infinie)
-    if (settings == null) {
-      return Scaffold(
-        backgroundColor: ivory,
-        appBar: AppBar(title: const Text('Apparence', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
-        body: const Center(child: Text('Impossible de charger les réglages', style: TextStyle(color: mutedText))),
-      );
-    }
+    // VALEURS PAR DÉFAUT (Si l'utilisateur n'a pas encore de paramètres dans Supabase)
+    final currentTheme = settings?.theme ?? 'system';
+    final currentFontSize = settings?.fontSize ?? 16.0;
+    final isRounded = (settings?.bubbleStyle ?? 'rounded') == 'rounded';
 
     return Scaffold(
       backgroundColor: ivory,
@@ -55,14 +51,15 @@ class ChatAppearanceSettings extends StatelessWidget {
             child: ListTile(
               title: const Text('Thème', style: TextStyle(fontWeight: FontWeight.bold, color: darkText)),
               trailing: DropdownButton<String>(
-                value: settings.theme,
+                value: currentTheme,
                 underline: const SizedBox(),
                 items: const [
                   DropdownMenuItem(value: 'light', child: Text('Clair')),
                   DropdownMenuItem(value: 'dark', child: Text('Sombre')),
                   DropdownMenuItem(value: 'system', child: Text('Système')),
                 ],
-                onChanged: (val) async {
+                // Si 'settings' est null, on désactive le bouton pour éviter un crash
+                onChanged: settings == null ? null : (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(theme: val));
                   }
@@ -76,7 +73,7 @@ class ChatAppearanceSettings extends StatelessWidget {
             child: ListTile(
               title: const Text('Taille de police', style: TextStyle(fontWeight: FontWeight.bold, color: darkText)),
               trailing: DropdownButton<double>(
-                value: settings.fontSize,
+                value: currentFontSize,
                 underline: const SizedBox(),
                 items: const [
                   DropdownMenuItem(value: 12.0, child: Text('Très petite')),
@@ -85,7 +82,7 @@ class ChatAppearanceSettings extends StatelessWidget {
                   DropdownMenuItem(value: 18.0, child: Text('Grande')),
                   DropdownMenuItem(value: 20.0, child: Text('Très grande')),
                 ],
-                onChanged: (val) async {
+                onChanged: settings == null ? null : (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(fontSize: val));
                   }
@@ -99,8 +96,8 @@ class ChatAppearanceSettings extends StatelessWidget {
             child: ChatSettingsSwitch(
               title: 'Style des bulles',
               subtitle: 'Arrondies ou carrées',
-              value: settings.bubbleStyle == 'rounded',
-              onChanged: (val) async {
+              value: isRounded,
+              onChanged: settings == null ? null : (val) async {
                 await provider.updateSettings(settings.copyWith(bubbleStyle: val ? 'rounded' : 'square'));
               },
             ),
