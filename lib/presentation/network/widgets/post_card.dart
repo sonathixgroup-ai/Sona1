@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/auth/auth_controller.dart';
+import 'package:thix_id/presentation/network/post_detail_page.dart';
 
 class _PostColors {
   static const Color background = Color(0xFFF6F9FF);
@@ -210,11 +211,15 @@ class _PostCardState extends State<PostCard> {
   }
 
   void _openPostDetails() {
-    try {
-      Navigator.pushNamed(context, '/post/${_post.id}');
-    } catch (e) {
-      _showNavigationError('détails du post');
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostDetailPage(
+          postId: _post.id,
+          currentProfileId: widget.currentProfileId,
+        ),
+      ),
+    ).then((_) => widget.onRefresh?.call());
   }
 
   void _showNavigationError(String page) {
@@ -798,7 +803,7 @@ class _PostCardState extends State<PostCard> {
           Semantics(
             label: 'Commenter',
             child: InkWell(
-              onTap: widget.onComment ?? () {},
+              onTap: widget.onComment ?? _openPostDetails,
               borderRadius: BorderRadius.circular(20),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
