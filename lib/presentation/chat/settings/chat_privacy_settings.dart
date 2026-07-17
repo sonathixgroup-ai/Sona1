@@ -29,7 +29,6 @@ class ChatPrivacySettings extends StatelessWidget {
       );
     }
 
-    // VALEURS PAR DÉFAUT
     final lastSeen = settings?.lastSeenVisibility ?? 'everyone';
     final profilePhoto = settings?.profilePhotoVisibility ?? 'everyone';
     final readReceipts = settings?.readReceipts ?? true;
@@ -94,8 +93,9 @@ class ChatPrivacySettings extends StatelessWidget {
               title: 'Confirmations de lecture',
               subtitle: 'Afficher quand vous lisez un message',
               value: readReceipts,
-              onChanged: settings == null ? null : (val) async {
-                await provider.updateSettings(settings.copyWith(readReceipts: val));
+              // CORRECTION: Retrait du 'async' et 'await'
+              onChanged: settings == null ? null : (val) {
+                provider.updateSettings(settings.copyWith(readReceipts: val));
               },
             ),
           ),
@@ -106,8 +106,9 @@ class ChatPrivacySettings extends StatelessWidget {
               title: 'Indicateur de saisie',
               subtitle: 'Afficher quand vous tapez un message',
               value: typingIndicator,
-              onChanged: settings == null ? null : (val) async {
-                await provider.updateSettings(settings.copyWith(typingIndicator: val));
+              // CORRECTION: Retrait du 'async' et 'await'
+              onChanged: settings == null ? null : (val) {
+                provider.updateSettings(settings.copyWith(typingIndicator: val));
               },
             ),
           ),
