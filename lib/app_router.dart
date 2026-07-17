@@ -305,13 +305,7 @@ class AppRouter {
 
 
         // CHAT
-        GoRoute(
-  path: '/connections',
-  name: 'connections',
-  pageBuilder: (context, state) => const NoTransitionPage(
-    child: ConnectionsPage(),
-  ),
-),
+        
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
         GoRoute(path: AppRoutes.chatNew, name: 'chat_new', pageBuilder: (_, __) => const NoTransitionPage(child: NewConversationPage())),
         GoRoute(path: AppRoutes.chatConversation, name: 'chat_conversation', pageBuilder: (_, state) {
@@ -342,6 +336,13 @@ GoRoute(
     );
   },
 ),
+ GoRoute(
+  path: '/connections',
+  name: 'connections',
+  pageBuilder: (context, state) => const NoTransitionPage(
+    child: ConnectionsPage(),
+  ),
+),        
 GoRoute(
   path: AppRoutes.chatEscalationHandle,
   name: 'chatEscalationHandle',
