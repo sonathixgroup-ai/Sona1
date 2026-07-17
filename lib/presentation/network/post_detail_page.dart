@@ -1,537 +1,591 @@
+
+// lib/presentation/network/post_detail_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import 'package:thix_id/models/network_post.dart';
-import 'package:thix_id/models/comment.dart';
-import 'package:thix_id/services/network_service.dart';
-import 'package:thix_id/presentation/network/widgets/post_card.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/models/network_post.dart';
+import 'widgets/report_dialog.dart';
 
 class PostDetailPage extends StatefulWidget {
   final String postId;
-  final String currentProfileId;
-
-  const PostDetailPage({
-    super.key,
-    required this.postId,
-    required this.currentProfileId,
-  });
+  const PostDetailPage({super.key, required this.postId});
 
   @override
   State<PostDetailPage> createState() => _PostDetailPageState();
 }
 
 class _PostDetailPageState extends State<PostDetailPage> {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final FocusNode _focusNode = FocusNode();
-
+  late NetworkService _networkService;
   NetworkPost? _post;
-  List<Comment> _comments = [];
-  bool _isLoading = true;
-  bool _isSubmitting = false;
-  String? _replyingTo;
-  String? _replyingToName;
+  List<Map<String, dynamic>> _comments = [];
+  bool _loading = true;
+  final TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    debugPrint('🔍 PostDetailPage - postId reçu: ${widget.postId}');
+    _networkService = NetworkService(Supabase.instance.client);
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() => _loading = true);
     try {
-      final networkService = context.read<NetworkService>();
-      final post = await networkService.getPostById(widget.postId);
-      final comments = await networkService.getCommentsWithReplies(widget.postId);
-      if (mounted) {
-        setState(() {
-          _post = post;
-          _comments = comments;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur de chargement : $e'), backgroundColor: Colors.red),
-        );
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _submitComment({String? parentId}) async {
-    final text = _controller.text.trim();
-    if (text.isEmpty || _isSubmitting) return;
-
-    setState(() => _isSubmitting = true);
-    try {
-      final networkService = context.read<NetworkService>();
-      final newComment = await networkService.addComment(
-        widget.postId,
-        text,
-        parentId: parentId,
-      );
-      setState(() {
-        if (parentId == null) {
-          _comments.insert(0, newComment);
-        } else {
-          _addReplyTo(_comments, parentId, newComment);
-        }
-      });
-      _controller.clear();
-      _clearReply();
-      _scrollController.animateTo(
-        0,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  bool _addReplyTo(List<Comment> comments, String parentId, Comment reply) {
-    for (int i = 0; i < comments.length; i++) {
-      if (comments[i].id == parentId) {
-        comments[i].replies.insert(0, reply);
-        return true;
-      }
-      if (_addReplyTo(comments[i].replies, parentId, reply)) return true;
-    }
-    return false;
-  }
-
-  void _clearReply() {
-    setState(() {
-      _replyingTo = null;
-      _replyingToName = null;
-    });
-  }
-
-  Future<void> _toggleLikeComment(Comment comment) async {
-    final oldLiked = comment.isLiked;
-    final oldCount = comment.likesCount;
-    setState(() {
-      comment.isLiked = !oldLiked;
-      comment.likesCount = oldLiked ? oldCount - 1 : oldCount + 1;
-    });
-    try {
-      if (comment.isLiked) {
-        await context.read<NetworkService>().likeComment(comment.id);
+      debugPrint('🔍 Chargement post: ${widget.postId}');
+      final post = await _networkService.getPostById(widget.postId);
+      debugPrint('🔍 Post chargé: ${post != null}');
+      if (post != null) {
+        debugPrint('🔍 Contenu du post: ${post.content}');
+        debugPrint('🔍 Auteur du post: ${post.authorName}');
       } else {
-        await context.read<NetworkService>().unlikeComment(comment.id);
+        debugPrint('❌ Post est NULL! Vérifie l\'ID: ${widget.postId}');
       }
-    } catch (e) {
+      final comments = await _networkService.getComments(widget.postId);
+      debugPrint('🔍 Commentaires chargés: ${comments.length}');
       setState(() {
-        comment.isLiked = oldLiked;
-        comment.likesCount = oldCount;
+        _post = post;
+        _comments = comments;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-        );
-      }
+    } catch (e) {
+      debugPrint('❌ Error loading post: $e');
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
-  void _startReply(String userName, String commentId) {
-    setState(() {
-      _replyingTo = commentId;
-      _replyingToName = userName;
-    });
-    _focusNode.requestFocus();
+  Future<void> _addComment() async {
+    final content = _commentController.text.trim();
+    if (content.isEmpty) return;
+
+    _commentController.clear();
+    await _networkService.addComment(widget.postId, content);
+    await _loadData();
   }
 
-  Future<void> _editComment(Comment comment) async {
-    final controller = TextEditingController(text: comment.content);
+  // ⭐ CORRIGÉ - Utilisation dynamique pour isLikedByCurrentUser
+  Future<void> _toggleLike() async {
+    if (_post == null) return;
+    final dynamicPost = _post as dynamic;
+    final isLiked = dynamicPost.isLikedByCurrentUser ?? false;
+    
+    if (isLiked) {
+      await _networkService.unlikePost(widget.postId);
+    } else {
+      await _networkService.likePost(widget.postId);
+    }
+    await _loadData();
+  }
+
+  // ==================== GESTION DU POST ====================
+
+  Future<void> _editPost() async {
+    final controller = TextEditingController(text: _post?.content);
     final newContent = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Modifier le commentaire'),
+      builder: (context) => AlertDialog(
+        title: const Text('Modifier la publication'),
         content: TextField(
           controller: controller,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: 'Modifiez votre commentaire...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'Modifiez votre publication...',
+            border: OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            onPressed: () => Navigator.pop(context, controller.text),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
             child: const Text('Enregistrer'),
           ),
         ],
       ),
     );
-    if (newContent != null && newContent != comment.content) {
-      try {
-        await context.read<NetworkService>().updateComment(comment.id, newContent);
-        setState(() => comment.content = newContent);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-          );
-        }
+    
+    if (newContent != null && newContent != _post?.content) {
+      await _networkService.updatePost(widget.postId, newContent);
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Publication modifiée'), backgroundColor: Colors.green),
+        );
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Détail de la publication', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: _loadData,
-            icon: const Icon(Icons.refresh_rounded, color: Colors.grey),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _post == null
-              ? Center(
-                  child: Text('Publication introuvable', style: TextStyle(color: Colors.grey)),
-                )
-              : Column(
-                  children: [
-                    // Zone scrollable : post + commentaires
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: CustomScrollView(
-                          controller: _scrollController,
-                          slivers: [
-                            // Post en haut, défilant avec le reste
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
-                                child: PostCard(
-                                  post: _post!,
-                                  currentProfileId: widget.currentProfileId,
-                                  onRefresh: _loadData,
-                                ),
-                              ),
-                            ),
-                            // Séparation
-                            SliverToBoxAdapter(
-                              child: Divider(height: 1, thickness: 1, color: Colors.grey[300]),
-                            ),
-                            // Commentaires
-                            if (_comments.isEmpty)
-                              SliverFillRemaining(
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.comment_outlined, size: 60, color: Colors.grey[300]),
-                                      const SizedBox(height: 12),
-                                      Text('Aucun commentaire', style: TextStyle(color: Colors.grey[600])),
-                                      const SizedBox(height: 8),
-                                      Text('Soyez le premier à réagir !', style: TextStyle(color: Colors.grey[400])),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            else
-                              SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                    return _buildCommentTile(_comments[index], isRoot: true);
-                                  },
-                                  childCount: _comments.length,
-                                ),
-                              ),
-                            // Espacement en bas pour éviter que la barre de saisie cache le dernier élément
-                            const SliverToBoxAdapter(child: SizedBox(height: 80)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Barre de saisie fixe en bas
-                    _buildInputBar(),
-                  ],
-                ),
-    );
-  }
-
-  Widget _buildCommentTile(Comment comment, {bool isRoot = true}) {
-    final auth = context.read<AuthController>();
-    final isOwn = comment.userId == auth.currentUser?.id;
-    final hasReplies = comment.replies.isNotEmpty;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isRoot ? 16 : 24,
-        right: 16,
-        bottom: 6,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: Offset(0, 2)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              leading: CircleAvatar(
-                radius: 18,
-                backgroundImage: comment.userAvatar != null && comment.userAvatar!.isNotEmpty
-                    ? NetworkImage(comment.userAvatar!)
-                    : null,
-                child: comment.userAvatar == null || comment.userAvatar!.isEmpty
-                    ? Icon(Icons.person, size: 18, color: Colors.grey[600])
-                    : null,
-              ),
-              title: Row(
-                children: [
-                  Text(comment.userName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  const SizedBox(width: 6),
-                  Text(
-                    timeago.format(comment.createdAt, locale: 'fr'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
-                  ),
-                ],
-              ),
-              trailing: PopupMenuButton(
-                icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
-                onSelected: (value) {
-                  if (value == 'delete') {
-                    _deleteComment(comment);
-                  } else if (value == 'report') {
-                    // Implémentez la logique de signalement
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (isOwn)
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                          SizedBox(width: 8),
-                          Text('Supprimer', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  const PopupMenuItem(
-                    value: 'report',
-                    child: Row(
-                      children: [
-                        Icon(Icons.flag_outlined, color: Colors.orange, size: 18),
-                        SizedBox(width: 8),
-                        Text('Signaler'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(comment.content, style: const TextStyle(fontSize: 14, height: 1.4)),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                children: [
-                  _actionButton(
-                    icon: comment.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    iconColor: comment.isLiked ? Colors.red : Colors.grey[600]!,
-                    label: comment.likesCount > 0 ? '${comment.likesCount}' : '',
-                    onTap: () => _toggleLikeComment(comment),
-                  ),
-                  const SizedBox(width: 12),
-                  _actionButton(
-                    icon: Icons.reply_rounded,
-                    iconColor: Colors.grey[600]!,
-                    label: 'Répondre',
-                    onTap: () => _startReply(comment.userName, comment.id),
-                  ),
-                  if (isOwn) ...[
-                    const SizedBox(width: 12),
-                    _actionButton(
-                      icon: Icons.edit_outlined,
-                      iconColor: Colors.grey[600]!,
-                      label: 'Modifier',
-                      onTap: () => _editComment(comment),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (hasReplies) ...[
-              Divider(height: 1, thickness: 0.8, color: Colors.grey[200]),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Column(
-                  children: comment.replies.map((reply) => _buildCommentTile(reply, isRoot: false)).toList(),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionButton({
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: iconColor),
-            if (label.isNotEmpty) ...[
-              const SizedBox(width: 4),
-              Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _deleteComment(Comment comment) async {
+  Future<void> _deletePost() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer le commentaire'),
-        content: const Text('Voulez-vous vraiment supprimer ce commentaire ?'),
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la publication'),
+        content: const Text('Voulez-vous vraiment supprimer cette publication ? Cette action est irréversible.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Supprimer'),
           ),
         ],
       ),
     );
+    
     if (confirm == true) {
-      try {
-        await context.read<NetworkService>().deleteComment(comment.id);
-        setState(() {
-          _comments.removeWhere((c) => c.id == comment.id);
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Commentaire supprimé'), backgroundColor: Colors.green),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-          );
-        }
+      await _networkService.deletePost(widget.postId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Publication supprimée'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context);
       }
     }
   }
 
-  Widget _buildInputBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: Offset(0, -2),
+  Future<void> _hidePost() async {
+    await _networkService.hidePost(widget.postId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Publication masquée'), backgroundColor: Colors.orange),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  void _reportPost() {
+    showDialog(
+      context: context,
+      builder: (_) => ReportDialog(
+        contentType: 'post',
+        contentId: widget.postId,
+        reportedUserId: _post?.userId,
+        postId: widget.postId,
+      ),
+    );
+  }
+
+  // ==================== GESTION DES COMMENTAIRES ====================
+
+  Future<void> _deleteComment(String commentId, String commentUserId) async {
+    final auth = Provider.of<AuthController>(context, listen: false);
+    final isOwner = auth.currentUser?.id == commentUserId;
+    
+    if (!isOwner) return;
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer le commentaire'),
+        content: const Text('Voulez-vous vraiment supprimer ce commentaire ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_replyingTo != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(20),
+    );
+    
+    if (confirm == true) {
+      await _networkService.deleteComment(commentId);
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Commentaire supprimé'), backgroundColor: Colors.green),
+        );
+      }
+    }
+  }
+
+  void _reportComment(Map<String, dynamic> comment) {
+    showDialog(
+      context: context,
+      builder: (_) => ReportDialog(
+        contentType: 'comment',
+        contentId: comment['id'],
+        reportedUserId: comment['user_id'],
+        postId: widget.postId,
+      ),
+    );
+  }
+
+  // ==================== OPTIONS ====================
+
+  void _showPostOptions() {
+    final auth = Provider.of<AuthController>(context, listen: false);
+    final isOwner = auth.currentUser?.id == _post?.userId;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            if (isOwner) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Gérer ma publication', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.reply_rounded, size: 14, color: Colors.blue[700]),
-                  const SizedBox(width: 6),
-                  Text('Réponse à $_replyingToName', style: TextStyle(fontSize: 12, color: Colors.blue[700])),
-                  const Spacer(),
-                  InkWell(onTap: _clearReply, child: const Icon(Icons.close, size: 16, color: Colors.grey)),
-                ],
+              ListTile(
+                leading: const Icon(Icons.edit, color: Colors.blue),
+                title: const Text('Modifier'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editPost();
+                },
               ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deletePost();
+                },
+              ),
+              const Divider(),
+            ],
+            ListTile(
+              leading: const Icon(Icons.visibility_off, color: Colors.orange),
+              title: const Text('Masquer cette publication'),
+              onTap: () {
+                Navigator.pop(context);
+                _hidePost();
+              },
             ),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.red),
+              title: const Text('Signaler', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _reportPost();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== UI ====================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Publication', style: TextStyle(color: Color(0xFF0B1B3D), fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Color(0xFF0B1B3D)),
+            onPressed: _showPostOptions,
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _post == null
+              ? const Center(child: Text('Publication non trouvée'))
+              : Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildPostCard(),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Commentaires (${_comments.length})',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 12),
+                            ..._comments.map((c) => _buildCommentCard(c)),
+                            if (_comments.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.all(32),
+                                child: Center(child: Text('Aucun commentaire pour le moment')),
+                              ),
+                            const SizedBox(height: 80),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _buildCommentInput(),
+                  ],
+                ),
+    );
+  }
+
+  // ⭐ CORRIGÉ - Utilisation dynamique pour toutes les propriétés
+  Widget _buildPostCard() {
+    final dynamicPost = _post as dynamic;
+    
+    // Récupération sécurisée des propriétés manquantes
+    final mediaUrl = dynamicPost.mediaUrl;
+    final isLikedByCurrentUser = dynamicPost.isLikedByCurrentUser ?? false;
+    final sharesCount = dynamicPost.sharesCount ?? 0;
+    
+    final hasImage = mediaUrl != null && mediaUrl.toString().isNotEmpty;
+    final hasContent = _post!.content != null && _post!.content!.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
           Row(
             children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundImage: _post!.authorAvatar != null && _post!.authorAvatar!.isNotEmpty
+                    ? NetworkImage(_post!.authorAvatar!)
+                    : null,
+                child: _post!.authorAvatar == null || _post!.authorAvatar!.isEmpty
+                    ? const Icon(Icons.person, size: 24)
+                    : null,
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  onSubmitted: (_) => _submitComment(parentId: _replyingTo),
-                  decoration: InputDecoration(
-                    hintText: _replyingTo != null ? 'Écrire une réponse...' : 'Écrire un commentaire...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_post!.authorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    if (_post!.authorTitle != null && _post!.authorTitle!.isNotEmpty)
+                      Text(_post!.authorTitle!, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+              Text(_formatTime(_post!.createdAt), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Contenu
+          if (hasContent)
+            Text(_post!.content!, style: const TextStyle(fontSize: 15, height: 1.4)),
+          
+          // Image
+          if (hasImage) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                mediaUrl.toString(),
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 250,
+                    color: Colors.grey.shade200,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 250,
+                  color: Colors.grey.shade200,
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text('Image non disponible', style: TextStyle(color: Colors.grey)),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: Colors.blue,
-                child: IconButton(
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                  onPressed: _isSubmitting ? null : () => _submitComment(parentId: _replyingTo),
-                ),
+            ),
+          ],
+          
+          const SizedBox(height: 12),
+          
+          // Actions
+          Row(
+            children: [
+              _buildActionButton(
+                icon: isLikedByCurrentUser ? Icons.favorite : Icons.favorite_border,
+                label: _formatCount(_post!.likesCount),
+                color: isLikedByCurrentUser ? Colors.red : null,
+                onTap: _toggleLike,
+              ),
+              const SizedBox(width: 24),
+              _buildActionButton(
+                icon: Icons.comment_outlined,
+                label: _formatCount(_post!.commentsCount),
+                onTap: () {},
+              ),
+              const SizedBox(width: 24),
+              _buildActionButton(
+                icon: Icons.share_outlined,
+                label: _formatCount(sharesCount),
+                onTap: () {},
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildCommentCard(Map<String, dynamic> comment) {
+    final auth = Provider.of<AuthController>(context, listen: false);
+    final isOwner = auth.currentUser?.id == comment['user_id'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundImage: comment['user_avatar'] != null 
+                ? NetworkImage(comment['user_avatar'])
+                : null,
+            child: comment['user_avatar'] == null 
+                ? const Icon(Icons.person, size: 16) 
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(comment['user_name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text(_formatTime(DateTime.parse(comment['created_at'])), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(comment['content'], style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          PopupMenuButton(
+            icon: const Icon(Icons.more_horiz, size: 18, color: Colors.grey),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag, size: 18), SizedBox(width: 8), Text('Signaler')])),
+              if (isOwner) const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Supprimer', style: TextStyle(color: Colors.red))])),
+            ],
+            onSelected: (value) {
+              if (value == 'report') {
+                _reportComment(comment);
+              } else if (value == 'delete') {
+                _deleteComment(comment['id'], comment['user_id']);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color ?? Colors.grey.shade600),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentInput() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, -2))],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              decoration: InputDecoration(
+                hintText: 'Écrire un commentaire...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _addComment,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(color: Color(0xFFD4AF37), shape: BoxShape.circle),
+              child: const Icon(Icons.send, size: 20, color: Color(0xFF0B1B3D)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 0) return 'il y a ${diff.inDays}j';
+    if (diff.inHours > 0) return 'il y a ${diff.inHours}h';
+    if (diff.inMinutes > 0) return 'il y a ${diff.inMinutes}min';
+    return 'à l\'instant';
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
   }
 }
