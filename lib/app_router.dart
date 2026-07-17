@@ -194,6 +194,15 @@ import 'package:thix_id/presentation/chat/call/incoming_call_page.dart';
 import 'package:thix_id/models/chat/call_invite.dart';
 import 'package:thix_id/models/chat/call_status.dart';
 import 'package:thix_id/presentation/chat/connections_page.dart';
+// ============================================================
+// 📁 BLOC 1 : IMPORTS (à ajouter en haut de app_router.dart ou nav.dart)
+// ============================================================
+import 'package:thix_id/presentation/chat/profile/chat_profile_page.dart';
+import 'package:thix_id/presentation/chat/settings/chat_settings_page.dart';
+import 'package:thix_id/presentation/chat/settings/chat_appearance_settings.dart';
+import 'package:thix_id/presentation/chat/settings/chat_privacy_settings.dart';
+import 'package:thix_id/presentation/chat/settings/chat_notification_settings.dart';
+import 'package:thix_id/presentation/chat/settings/chat_data_settings.dart';
 
 // MON PAYS
 import 'presentation/mon_pays/mon_pays_page.dart';
@@ -316,7 +325,46 @@ class AppRouter {
         GoRoute(path: AppRoutes.groupCreate, name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
         GoRoute(path: AppRoutes.groupInfo, name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
         GoRoute(path: AppRoutes.groupSettings, name: 'group_settings', pageBuilder: (_, state) => NoTransitionPage(child: GroupSettingsPage(groupId: state.pathParameters['groupId']!))),
-// ==================== CHAT ESCALATION ====================
+
+        // ============================================================
+// 📁 BLOC 3 : ROUTES (à ajouter dans AppRouter.create)
+// ============================================================
+
+GoRoute(
+  path: AppRoutes.chatProfile,
+  name: 'chatProfile',
+  pageBuilder: (context, state) {
+    final userId = state.pathParameters['userId']!;
+    return NoTransitionPage(child: ChatProfilePage(userId: userId));
+  },
+),
+GoRoute(
+  path: AppRoutes.chatSettings,
+  name: 'chatSettings',
+  pageBuilder: (context, state) => const NoTransitionPage(child: ChatSettingsPage()),
+),
+GoRoute(
+  path: AppRoutes.chatAppearance,
+  name: 'chatAppearance',
+  pageBuilder: (context, state) => const NoTransitionPage(child: ChatAppearanceSettings()),
+),
+GoRoute(
+  path: AppRoutes.chatPrivacy,
+  name: 'chatPrivacy',
+  pageBuilder: (context, state) => const NoTransitionPage(child: ChatPrivacySettings()),
+),
+GoRoute(
+  path: AppRoutes.chatNotifications,
+  name: 'chatNotifications',
+  pageBuilder: (context, state) => const NoTransitionPage(child: ChatNotificationSettings()),
+),
+GoRoute(
+  path: AppRoutes.chatData,
+  name: 'chatData',
+  pageBuilder: (context, state) => const NoTransitionPage(child: ChatDataSettings()),
+),
+        
+        // ==================== CHAT ESCALATION ====================
 GoRoute(
   path: AppRoutes.chatEscalate,
   name: 'chatEscalate',
