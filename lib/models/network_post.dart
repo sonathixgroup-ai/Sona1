@@ -64,7 +64,6 @@ class NetworkPost {
 
   // ─── Méthodes de détection de type (Supabase-proof) ───
   static bool _hasExtension(String url, List<String> extensions) {
-    // Retire les query parameters (?token=...) et les fragments (#...)
     final cleanUrl = url.split('?').first.split('#').first.toLowerCase();
     return extensions.any((ext) => cleanUrl.endsWith(ext));
   }
@@ -72,9 +71,9 @@ class NetworkPost {
   static bool _isImage(String url) => _hasExtension(url, ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']);
   static bool _isVideo(String url) => _hasExtension(url, ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v']);
 
-  // ─── Getters (Zéro allocation mémoire inutile) ───
-  Iterable<String> get imageUrls => mediaUrls.where(_isImage);
-  Iterable<String> get videoUrls => mediaUrls.where(_isVideo);
+  // ─── Getters (Retournent une List pour compatibilité avec les widgets) ───
+  List<String> get imageUrls => mediaUrls.where(_isImage).toList();
+  List<String> get videoUrls => mediaUrls.where(_isVideo).toList();
 
   bool get hasImages => imageUrls.isNotEmpty;
   bool get hasVideos => videoUrls.isNotEmpty;
@@ -98,7 +97,6 @@ class NetworkPost {
     return NetworkPost(
       id: json['id'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
-      // CORRECTION : 'profiles' au lieu de 'users' et 'profession' au lieu de 'title'
       authorName: json['author_name'] as String? ??
           json['profiles']?['display_name'] as String? ??
           'Utilisateur',
@@ -154,7 +152,7 @@ class NetworkPost {
     };
   }
 
-  // ─── CopyWith (pour les mises à jour locales) ───
+  // ─── CopyWith ───
   NetworkPost copyWith({
     String? id,
     String? userId,
