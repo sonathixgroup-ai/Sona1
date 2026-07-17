@@ -210,6 +210,15 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  // ─── NAVIGATION VERS LE PROFIL DE L'AUTEUR (avatar / nom) ───
+  void _navigateToAuthorProfile() {
+    try {
+      Navigator.pushNamed(context, '/profile/${_post.userId}');
+    } catch (e) {
+      _showNavigationError('profil de ${_post.authorName}');
+    }
+  }
+
   void _openPostDetails() {
     Navigator.push(
       context,
@@ -220,6 +229,25 @@ class _PostCardState extends State<PostCard> {
         ),
       ),
     ).then((_) => widget.onRefresh?.call());
+  }
+
+  // ─── OUVRIR LA VISIONNEUSE PLEIN ÉCRAN ───
+  void _openFullScreenGallery(int initialIndex) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        transitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (_, animation, __) => FadeTransition(
+          opacity: animation,
+          child: _FullScreenGallery(
+            imageUrls: _post.imageUrls,
+            initialIndex: initialIndex,
+          ),
+        ),
+      ),
+    );
   }
 
   void _showNavigationError(String page) {
@@ -257,6 +285,18 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
+  // Enveloppe une vignette avec un tap dédié vers la visionneuse plein écran
+  Widget _tappableImage(String url, int index, {required double height, BoxFit fit = BoxFit.cover}) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openFullScreenGallery(index),
+      child: Hero(
+        tag: 'post_${_post.id}_image_$index',
+        child: _buildNetworkImage(url, width: double.infinity, height: height, fit: fit),
+      ),
+    );
+  }
+
   // ─── GRILLE DE PHOTOS STYLE FACEBOOK ───
   Widget _buildImageGrid(List<String> urls) {
     if (urls.isEmpty) return const SizedBox.shrink();
@@ -268,7 +308,7 @@ class _PostCardState extends State<PostCard> {
     if (urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: _buildNetworkImage(urls.first, width: double.infinity, height: 280),
+        child: _tappableImage(urls[0], 0, height: 280),
       );
     }
 
@@ -277,9 +317,9 @@ class _PostCardState extends State<PostCard> {
       return SizedBox(
         height: 200,
         child: Row(children: [
-          Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 200))),
+          Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 200))),
           const SizedBox(width: spacing),
-          Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 200))),
+          Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 200))),
         ]),
       );
     }
@@ -291,15 +331,15 @@ class _PostCardState extends State<PostCard> {
         child: Row(children: [
           Expanded(
             flex: 3,
-            child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 240)),
+            child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 240)),
           ),
           const SizedBox(width: spacing),
           Expanded(
             flex: 2,
             child: Column(children: [
-              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 118))),
               const SizedBox(height: spacing),
-              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[2], width: double.infinity, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 118))),
             ]),
           ),
         ]),
@@ -313,17 +353,17 @@ class _PostCardState extends State<PostCard> {
         child: Column(children: [
           Expanded(
             child: Row(children: [
-              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 118))),
               const SizedBox(width: spacing),
-              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 118))),
             ]),
           ),
           const SizedBox(height: spacing),
           Expanded(
             child: Row(children: [
-              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[2], width: double.infinity, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 118))),
               const SizedBox(width: spacing),
-              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[3], width: double.infinity, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, height: 118))),
             ]),
           ),
         ]),
@@ -338,33 +378,40 @@ class _PostCardState extends State<PostCard> {
         Expanded(
           flex: 3,
           child: Row(children: [
-            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 150))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 150))),
             const SizedBox(width: spacing),
-            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 150))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 150))),
           ]),
         ),
         const SizedBox(height: spacing),
         Expanded(
           flex: 2,
           child: Row(children: [
-            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[2], width: double.infinity, height: 100))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 100))),
             const SizedBox(width: spacing),
-            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[3], width: double.infinity, height: 100))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, height: 100))),
             const SizedBox(width: spacing),
             Expanded(
               child: ClipRRect(
                 borderRadius: radius,
-                child: Stack(alignment: Alignment.center, children: [
-                  _buildNetworkImage(urls[4], width: double.infinity, height: 100),
-                  if (remaining > 0)
-                    Container(
-                      color: Colors.black54,
-                      child: Center(
-                        child: Text('+$remaining',
-                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                      ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _openFullScreenGallery(4),
+                  child: Stack(alignment: Alignment.center, children: [
+                    Hero(
+                      tag: 'post_${_post.id}_image_4',
+                      child: _buildNetworkImage(urls[4], width: double.infinity, height: 100),
                     ),
-                ]),
+                    if (remaining > 0)
+                      Container(
+                        color: Colors.black54,
+                        child: Center(
+                          child: Text('+$remaining',
+                              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                  ]),
+                ),
               ),
             ),
           ]),
@@ -693,35 +740,43 @@ class _PostCardState extends State<PostCard> {
 
   Widget _buildHeader(bool isOwner) {
     return Row(children: [
-      Semantics(
-        label: 'Avatar de ${_post.authorName}',
-        child: Container(
-          width: 42, height: 42,
-          decoration: BoxDecoration(shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])),
-          child: CircleAvatar(
-            radius: 19, backgroundColor: _PostColors.softBlue,
-            backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
-                ? CachedNetworkImageProvider(_post.authorAvatar!) : null,
-            child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
-                ? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null,
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _navigateToAuthorProfile,
+        child: Semantics(
+          label: 'Avatar de ${_post.authorName}',
+          child: Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                gradient: const LinearGradient(colors: [_PostColors.primaryDeep, _PostColors.primary])),
+            child: CircleAvatar(
+              radius: 19, backgroundColor: _PostColors.softBlue,
+              backgroundImage: _post.authorAvatar != null && _post.authorAvatar!.isNotEmpty
+                  ? CachedNetworkImageProvider(_post.authorAvatar!) : null,
+              child: _post.authorAvatar == null || _post.authorAvatar!.isEmpty
+                  ? const Icon(Icons.person_rounded, size: 18, color: _PostColors.primaryDeep) : null,
+            ),
           ),
         ),
       ),
       const SizedBox(width: 10),
       Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-          if (_post.authorTitle != null && _post.authorTitle!.isNotEmpty)
-            Text(_post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _navigateToAuthorProfile,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_post.authorName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _PostColors.textDark),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-          Row(children: [
-            Text(_getTimeAgo(_post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary)),
-            const SizedBox(width: 4),
-            const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary),
+            if (_post.authorTitle != null && _post.authorTitle!.isNotEmpty)
+              Text(_post.authorTitle!, style: const TextStyle(fontSize: 10.5, color: _PostColors.textSecondary),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            Row(children: [
+              Text(_getTimeAgo(_post.createdAt), style: const TextStyle(fontSize: 10, color: _PostColors.textSecondary)),
+              const SizedBox(width: 4),
+              const Icon(Icons.public_rounded, size: 11, color: _PostColors.textSecondary),
+            ]),
           ]),
-        ]),
+        ),
       ),
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert_rounded, size: 18, color: _PostColors.textSecondary),
@@ -860,6 +915,135 @@ class _PostCardState extends State<PostCard> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── VISIONNEUSE PLEIN ÉCRAN AVEC SCROLL LATÉRAL ───
+class _FullScreenGallery extends StatefulWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const _FullScreenGallery({
+    required this.imageUrls,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_FullScreenGallery> createState() => _FullScreenGalleryState();
+}
+
+class _FullScreenGalleryState extends State<_FullScreenGallery> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.imageUrls.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Center(
+                  child: Hero(
+                    tag: 'post_gallery_image_$index',
+                    child: InteractiveViewer(
+                      minScale: 1,
+                      maxScale: 4,
+                      child: CachedNetworkImage(
+                        imageUrl: widget.imageUrls[index],
+                        fit: BoxFit.contain,
+                        placeholder: (_, __) => const Center(
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        ),
+                        errorWidget: (_, __, ___) => const Icon(
+                          Icons.broken_image_rounded, color: Colors.white54, size: 48,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          // Bouton fermer
+          Positioned(
+            top: 12,
+            right: 12,
+            child: SafeArea(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ),
+          // Compteur "2 / 5"
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              top: 12,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(20)),
+                    child: Text(
+                      '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Points de pagination
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.imageUrls.length, (i) {
+                  final active = i == _currentIndex;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: active ? Colors.white : Colors.white38,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  );
+                }),
+              ),
+            ),
         ],
       ),
     );
