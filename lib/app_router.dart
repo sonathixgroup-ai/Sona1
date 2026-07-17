@@ -195,7 +195,7 @@ import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/incoming_call_page.dart';
 import 'package:thix_id/models/chat/call_invite.dart';
 import 'package:thix_id/models/chat/call_status.dart';
-Dans la section des routes
+
 import 'package:thix_id/presentation/chat/connections_page.dart';
 
 // MON PAYS
