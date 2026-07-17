@@ -75,6 +75,67 @@ class NetworkService {
     return (res as List).map((e) => NetworkStory.fromJson({...e, 'image_url': e['media_url']?? '', 'userName': e['profiles']['display_name'], 'userAvatar': e['profiles']['avatar_url']})).toList();
   }
 
+  // ─── MÉTHODES UTILITAIRES RÉINTÉGRÉES ───
+
+  Future<void> createStory(String mediaUrl, {String mediaType = 'image', int duration = 24}) async {
+    await _supabase.from('stories').insert({
+      'user_id': currentUserId,
+      'media_url': mediaUrl,
+      'media_type': mediaType,
+      'is_active': true,
+      'created_at': DateTime.now().toIso8601String(),
+      'expires_at': DateTime.now().add(Duration(hours: duration)).toIso8601String(),
+    });
+  }
+
+  Future<void> savePost(String postId) async {
+    await _supabase.from('saved_posts').upsert({
+      'post_id': postId,
+      'user_id': currentUserId,
+      'saved_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'post_id,user_id');
+  }
+
+  Future<void> unsavePost(String postId) async {
+    await _supabase.from('saved_posts').delete().eq('post_id', postId).eq('user_id', currentUserId);
+  }
+
+  Future<void> repost(String originalPostId, String? quote) async {
+    await _supabase.from('reposts').insert({
+      'original_post_id': originalPostId,
+      'user_id': currentUserId,
+      'quote': quote,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> pinPost(String postId) async {
+    await _supabase.from('posts').update({'is_pinned': false}).eq('user_id', currentUserId).eq('is_pinned', true);
+    await _supabase.from('posts').update({'is_pinned': true}).eq('id', postId);
+  }
+
+  Future<void> reportPost(String postId, String reason) async {
+    await _supabase.from('reported_posts').insert({
+      'post_id': postId,
+      'user_id': currentUserId,
+      'reason': reason,
+      'reported_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<String?> uploadImageBytes(Uint8List bytes, {required String fileExtension, String bucket = 'post_images'}) async {
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+      final path = '$currentUserId/$fileName';
+      await _supabase.storage.from(bucket).uploadBinary(path, bytes);
+      return _supabase.storage.from(bucket).getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading: $e');
+      return null;
+    }
+  }
+
+  
   Future<List<NetworkConnection>> getSuggestedConnections({int limit = 5}) async {
     // 1 seule RPC qui calcule tout côté SQL
     final res = await _supabase.rpc('get_suggested_connections', params: {'p_user_id': currentUserId, 'p_limit': limit});
