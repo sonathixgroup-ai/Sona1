@@ -260,16 +260,19 @@ class _NewConversationPageState extends State<NewConversationPage> {
   }
 
   /// ✅ Envoie une demande de connexion
-  Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) async {
-    final currentUserId = supabase.auth.currentUser?.id;
-    if (currentUserId == null) return;
+  // ─── Dans _NewConversationPageState ───
 
-    try {
-      await _connectionService.sendRequest(
-        senderId: currentUserId,
-        receiverId: user['id'],
-        message: message.isNotEmpty ? message : null,
-      );
+Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) async {
+  final currentUserId = supabase.auth.currentUser?.id;
+  if (currentUserId == null) return;
+
+  try {
+    final success = await _connectionService.sendRequest(
+      senderId: currentUserId,
+      receiverId: user['id'],
+      message: message.isNotEmpty ? message : null,
+    );
+    if (success) {
       setState(() {
         _connectionStatus[user['id']] = 'pending';
       });
@@ -277,101 +280,26 @@ class _NewConversationPageState extends State<NewConversationPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Demande envoyée ✅'), backgroundColor: Colors.green),
         );
-        // Rafraîchir l'état de la liste
         _searchUsers(_searchController.text.trim());
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: danger),
-      );
-    }
-  }
-
-  void _toggleSelection(Map<String, dynamic> user) {
-    setState(() {
-      if (_selected.any((s) => s['id'] == user['id'])) {
-        _selected.removeWhere((s) => s['id'] == user['id']);
-        _searchUsers(_searchController.text.trim());
-      } else {
-        _selected.add(user);
-        _results.removeWhere((r) => r['id'] == user['id']);
-      }
-    });
-  }
-
-  Future<void> _startChat() async {
-    if (_isCreatingChat) return;
-
-    if (_selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez au moins une personne')),
-      );
-      return;
-    }
-
-    // ✅ Vérifier que tous les participants sélectionnés sont connectés
-    final currentUserId = supabase.auth.currentUser?.id;
-    if (currentUserId == null) return;
-
-    final notConnected = _selected.where((user) {
-      final status = _connectionStatus[user['id']] ?? 'none';
-      return status != 'accepted' && status != 'connected';
-    }).toList();
-
-    if (notConnected.isNotEmpty) {
-      final names = notConnected.map((u) => u['display_name'] ?? 'Inconnu').join(', ');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Vous n\'êtes pas connecté avec : $names. Envoyez une demande d\'abord.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isCreatingChat = true);
-
-    final participantIds = _selected.map((u) => u['id'] as String).toList();
-    if (!participantIds.contains(currentUserId)) {
-      participantIds.add(currentUserId);
-    }
-
-    try {
-      final conversation = await _chatService.createConversation(
-        participantIds: participantIds,
-        isGroup: _selected.length > 1,
-        groupName: _selected.length > 1 ? _groupName.trim() : null,
-      );
-
+    } else {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              conversationId: conversation.id,
-              conversation: conversation,
-            ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ ${_connectionService.error ?? "Demande déjà existante"}'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
+    }
+  } catch (e) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isCreatingChat = false);
-      }
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ivory,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
+}
           // ============================================================
           // BARRE DE RECHERCHE
           // ============================================================
