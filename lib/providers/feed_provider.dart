@@ -22,8 +22,8 @@ class FeedProvider extends ChangeNotifier {
   String get currentFeedType => _feedType;
 
   Future<void> loadFeed({String? feedType, bool force = false}) async {
-    if (_isLoading &&!force) return;
-    if (feedType!= null) _feedType = feedType;
+    if (_isLoading && !force) return;
+    if (feedType != null) _feedType = feedType;
     _isLoading = true; _offset = 0; _hasMore = true;
     notifyListeners();
     try {
@@ -33,7 +33,7 @@ class FeedProvider extends ChangeNotifier {
   }
 
   Future<void> loadMore() async {
-    if (_isLoadingMore ||!_hasMore || _isLoading) return;
+    if (_isLoadingMore || !_hasMore || _isLoading) return;
     _isLoadingMore = true; notifyListeners();
     try {
       final more = await _service.getFeedPosts(limit: _limit, offset: _offset, feedType: _feedType);
@@ -45,14 +45,38 @@ class FeedProvider extends ChangeNotifier {
   Future<void> toggleLike(String postId) async {
     final i = _posts.indexWhere((p) => p.id == postId); if (i == -1) return;
     final old = _posts[i];
-    _posts[i] = old.copyWith(isLiked:!old.isLiked, likesCount: old.isLiked? old.likesCount - 1 : old.likesCount + 1);
+    _posts[i] = old.copyWith(isLiked: !old.isLiked, likesCount: old.isLiked ? old.likesCount - 1 : old.likesCount + 1);
     notifyListeners();
-    try { old.isLiked? await _service.unlikePost(postId) : await _service.likePost(postId); }
+    try { old.isLiked ? await _service.unlikePost(postId) : await _service.likePost(postId); }
     catch (_) { _posts[i] = old; notifyListeners(); }
   }
 
   void initRealtime() {
-    _channel = _supabase.channel('posts_feed').onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'posts', callback: (_) => loadFeed(force: true)).subscribe();
+    _channel = _supabase.channel('posts_feed').onPostgresChanges(
+      event: PostgresChangeEvent.insert, 
+      schema: 'public', 
+      table: 'posts', 
+      callback: (_) => loadFeed(force: true)
+    ).subscribe();
   }
-  @override void dispose() { _channel?.unsubscribe(); super.dispose(); }
+
+  // ─── MÉTHODES AJOUTÉES POUR RÉSOUDRE L'ERREUR DE BUILD ───
+
+  void disposeRealtime() {
+    _channel?.unsubscribe();
+    _channel = null;
+  }
+
+  Future<void> reconnectRealtime() async {
+    debugPrint('🔄 FeedProvider: Reconnexion Realtime...');
+    disposeRealtime();
+    await Future.delayed(const Duration(milliseconds: 300));
+    initRealtime();
+  }
+
+  @override 
+  void dispose() { 
+    disposeRealtime(); 
+    super.dispose(); 
+  }
 }
