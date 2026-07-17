@@ -1,255 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:async';
 import '../services/network_service.dart';
 import '../models/network_post.dart';
 
 class FeedProvider extends ChangeNotifier {
-  final NetworkService _networkService;
-  final SupabaseClient? _supabase;
+  final NetworkService _service;
+  final SupabaseClient _supabase;
+  FeedProvider(this._service, {required SupabaseClient supabase}) : _supabase = supabase;
 
   List<NetworkPost> _posts = [];
-  bool _isLoading = false;
-  bool _hasMore = true;
-  String _currentFeedType = 'smart';
-  String? _error;
-  bool _realtimeInitialized = false;
+  bool _isLoading = false, _isLoadingMore = false, _hasMore = true;
+  String _feedType = 'smart';
+  int _offset = 0;
+  static const _limit = 15;
+  RealtimeChannel? _channel;
 
-  // Real-time listening
-  RealtimeChannel? _realtimeChannel;
-
-  FeedProvider(this._networkService, {SupabaseClient? supabase}) : _supabase = supabase;
-
-  // Getters
   List<NetworkPost> get posts => _posts;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
   bool get hasMore => _hasMore;
-  String get currentFeedType => _currentFeedType;
-  String? get error => _error;
+  String get currentFeedType => _feedType;
 
-  // ============================================================
-  // INITIALISATION REALTIME
-  // ============================================================
-
-  void initRealtime() {
-    if (_realtimeInitialized) {
-      debugPrint('⚠️ FeedProvider: Realtime déjà initialisé, skip');
-      return;
-    }
-    debugPrint('🎙️ FeedProvider: Initialisation realtime...');
-    _realtimeInitialized = true;
-    _setupRealtimeListener();
-  }
-
-  // ✅ NOUVEAU : Méthode appelée par main.dart au retour dans l'application
-  Future<void> reconnectRealtime() async {
-    debugPrint('🔄 FeedProvider: Reconnexion Realtime...');
-    disposeRealtime();
-    await Future.delayed(const Duration(milliseconds: 300));
-    _realtimeInitialized = false;
-    initRealtime();
-  }
-
-  void disposeRealtime() {
-    _realtimeChannel?.unsubscribe();
-  }
-
-  void _setupRealtimeListener() {
+  Future<void> loadFeed({String? feedType, bool force = false}) async {
+    if (_isLoading &&!force) return;
+    if (feedType!= null) _feedType = feedType;
+    _isLoading = true; _offset = 0; _hasMore = true;
+    notifyListeners();
     try {
-      if (_supabase == null) {
-        debugPrint('❌ FeedProvider: Supabase client manquant');
-        return;
-      }
-
-      _realtimeChannel = _supabase!
-          .channel('public:posts_feed')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.insert,
-            schema: 'public',
-            table: 'posts',
-            callback: (payload) async {
-              debugPrint('📬 [REALTIME] Nouvelle publication détectée!');
-              await _onPostInserted();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.update,
-            schema: 'public',
-            table: 'posts',
-            callback: (payload) async {
-              debugPrint('📝 [REALTIME] Publication mise à jour');
-              await _onPostUpdated();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.delete,
-            schema: 'public',
-            table: 'posts',
-            callback: (payload) {
-              debugPrint('🗑️ [REALTIME] Publication supprimée');
-              _onPostDeleted(payload.oldRecord);
-            },
-          );
-
-      _realtimeChannel!.subscribe((status, err) {
-        if (err != null) {
-          debugPrint('❌ FeedProvider Realtime error: $err');
-        } else {
-          debugPrint('✅ FeedProvider: Realtime connecté - status: $status');
-        }
-      });
-    } catch (e) {
-      debugPrint('❌ FeedProvider _setupRealtimeListener error: $e');
-    }
+      final newPosts = await _service.getFeedPosts(limit: _limit, offset: 0, feedType: _feedType);
+      _posts = newPosts; _offset = newPosts.length; _hasMore = newPosts.length >= _limit;
+    } finally { _isLoading = false; notifyListeners(); }
   }
 
-  Future<void> _onPostInserted() async {
-    debugPrint('📬 FeedProvider: Nouveau post inséré - rechargement du feed...');
-    // ✅ Chargement silencieux pour ne pas figer l'écran de l'utilisateur
-    await loadFeed(feedType: _currentFeedType, silent: true);
-  }
-
-  Future<void> _onPostUpdated() async {
-    debugPrint('📝 FeedProvider: Post mis à jour - rechargement du feed...');
-    // ✅ Chargement silencieux
-    await loadFeed(feedType: _currentFeedType, silent: true);
-  }
-
-  void _onPostDeleted(dynamic deletedRecord) {
+  Future<void> loadMore() async {
+    if (_isLoadingMore ||!_hasMore || _isLoading) return;
+    _isLoadingMore = true; notifyListeners();
     try {
-      if (deletedRecord == null) return;
-      final Map<String, dynamic> jsonData;
-      if (deletedRecord is Map<String, dynamic>) {
-        jsonData = deletedRecord;
-      } else {
-        jsonData = (deletedRecord as Map).cast<String, dynamic>();
-      }
-      final deletedId = jsonData['id'] as String?;
-      if (deletedId != null && deletedId.isNotEmpty) {
-        _posts.removeWhere((p) => p.id == deletedId);
-        notifyListeners();
-        debugPrint('✅ FeedProvider: Post $deletedId supprimé');
-      }
-    } catch (e) {
-      debugPrint('❌ FeedProvider _onPostDeleted error: $e');
-    }
+      final more = await _service.getFeedPosts(limit: _limit, offset: _offset, feedType: _feedType);
+      if (more.isEmpty) { _hasMore = false; }
+      else { _posts.addAll(more); _offset += more.length; _hasMore = more.length >= _limit; }
+    } finally { _isLoadingMore = false; notifyListeners(); }
   }
-
-  // ============================================================
-  // CHARGEMENT DU FEED
-  // ============================================================
-
-  /// Charge le feed.
-  /// Le paramètre [silent] permet de rafraîchir la liste en arrière-plan 
-  /// (sans afficher d'indicateur de chargement global).
-  Future<void> loadFeed({String? feedType, int limit = 20, bool force = false, bool silent = false}) async {
-    if (_isLoading && !force) return;
-
-    if (!silent || _posts.isEmpty) {
-      _isLoading = true;
-      notifyListeners();
-    }
-    
-    _error = null;
-
-    try {
-      if (feedType != null) _currentFeedType = feedType;
-
-      debugPrint('🔄 loadFeed: utilisation de getFeedPosts (mode simplifié)');
-      final newPosts = await _networkService.getFeedPosts(limit: limit);
-
-      _posts = newPosts;
-      _hasMore = newPosts.length >= limit;
-
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('❌ FeedProvider loadFeed error: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ============================================================
-  // CRÉATION DE POST
-  // ============================================================
-
-  Future<bool> createPost(String content, List<String> images) async {
-    try {
-      debugPrint('📝 FeedProvider: création du post...');
-      final postId = await _networkService.createPost(content, images);
-      if (postId.isEmpty) {
-        debugPrint('❌ FeedProvider: pas d\'ID retourné');
-        return false;
-      }
-      debugPrint('✅ FeedProvider: post créé avec ID: $postId');
-      
-      // Force le rechargement avec loader pour montrer à l'utilisateur que son post s'ajoute
-      await loadFeed(feedType: _currentFeedType, force: true, silent: false);
-      return true;
-    } catch (e) {
-      debugPrint('❌ FeedProvider createPost error: $e');
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  // ============================================================
-  // INTERACTIONS (LIKE, COMMENTAIRE)
-  // ============================================================
 
   Future<void> toggleLike(String postId) async {
-    try {
-      final index = _posts.indexWhere((p) => p.id == postId);
-      if (index == -1) return;
-
-      final post = _posts[index];
-      final currentLikeStatus = post.isLiked;
-
-      // Mise à jour immédiate de l'interface (Optimistic UI)
-      if (currentLikeStatus) {
-        _posts[index] = post.copyWith(
-          likesCount: (post.likesCount - 1).clamp(0, double.infinity).toInt(),
-          isLiked: false,
-        );
-        notifyListeners();
-        await _networkService.unlikePost(postId);
-      } else {
-        _posts[index] = post.copyWith(
-          likesCount: post.likesCount + 1,
-          isLiked: true,
-        );
-        notifyListeners();
-        await _networkService.likePost(postId);
-      }
-
-    } catch (e) {
-      debugPrint('❌ FeedProvider toggleLike error: $e');
-    }
+    final i = _posts.indexWhere((p) => p.id == postId); if (i == -1) return;
+    final old = _posts[i];
+    _posts[i] = old.copyWith(isLiked:!old.isLiked, likesCount: old.isLiked? old.likesCount - 1 : old.likesCount + 1);
+    notifyListeners();
+    try { old.isLiked? await _service.unlikePost(postId) : await _service.likePost(postId); }
+    catch (_) { _posts[i] = old; notifyListeners(); }
   }
 
-  Future<void> addComment(String postId, String comment) async {
-    try {
-      await _networkService.addComment(postId, comment);
-
-      final index = _posts.indexWhere((p) => p.id == postId);
-      if (index != -1) {
-        final post = _posts[index];
-        _posts[index] = post.copyWith(
-          commentsCount: post.commentsCount + 1,
-        );
-        notifyListeners();
-      }
-      debugPrint('✅ FeedProvider: Commentaire ajouté');
-    } catch (e) {
-      debugPrint('❌ FeedProvider addComment error: $e');
-    }
+  void initRealtime() {
+    _channel = _supabase.channel('posts_feed').onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'posts', callback: (_) => loadFeed(force: true)).subscribe();
   }
-
-  @override
-  void dispose() {
-    _realtimeChannel?.unsubscribe();
-    super.dispose();
-  }
+  @override void dispose() { _channel?.unsubscribe(); super.dispose(); }
 }
