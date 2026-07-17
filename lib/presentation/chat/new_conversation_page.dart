@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/chat_service.dart';
+import '../../services/chat/connection_service.dart'; // ✅ Ajout
 import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
 import 'package:thix_id/models/chat/chat_message.dart';
@@ -27,6 +28,10 @@ class _NewConversationPageState extends State<NewConversationPage> {
 
   final supabase = Supabase.instance.client;
   late ChatService _chatService;
+  late ConnectionService _connectionService; // ✅ Service de connexion
+
+  // ✅ Stockage du statut de connexion pour chaque utilisateur (id -> status)
+  final Map<String, String> _connectionStatus = {};
 
   // ============================================================
   // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
@@ -40,12 +45,14 @@ class _NewConversationPageState extends State<NewConversationPage> {
   static const Color darkText = Color(0xFF10182B);
   static const Color mutedText = Color(0xFF6B7690);
   static const Color danger = Color(0xFFD64545);
+  static const Color success = Color(0xFF1FA971);
   static const Color hairline = Color(0xFFE7EAF3);
 
   @override
   void initState() {
     super.initState();
     _chatService = ChatService(supabase);
+    _connectionService = ConnectionService(); // ✅ Initialisation
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -101,6 +108,9 @@ class _NewConversationPageState extends State<NewConversationPage> {
         }
       }
 
+      // ✅ Charger le statut de connexion pour chaque utilisateur
+      await _loadConnectionStatus(allResults);
+
       setState(() => _results.clear());
       for (var r in allResults) {
         final alreadySelected = _selected.any((s) => s['id'] == r['id']);
@@ -112,6 +122,168 @@ class _NewConversationPageState extends State<NewConversationPage> {
       debugPrint('❌ Erreur recherche: $e');
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  /// ✅ Charge le statut de connexion pour une liste d'utilisateurs
+  Future<void> _loadConnectionStatus(List<Map<String, dynamic>> users) async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    for (var user in users) {
+      final userId = user['id'];
+      if (userId == currentUserId) continue; // Ignorer soi-même
+      final status = await _connectionService.getStatusBetween(currentUserId, userId);
+      _connectionStatus[userId] = status;
+    }
+  }
+
+  /// ✅ Renvoie le texte et la couleur du statut
+  (String label, Color color) _getStatusDisplay(String userId) {
+    final status = _connectionStatus[userId] ?? 'none';
+    switch (status) {
+      case 'accepted':
+      case 'connected':
+        return ('Connecté', success);
+      case 'pending':
+        return ('En attente', Colors.orange);
+      case 'rejected':
+        return ('Refusé', danger);
+      default:
+        return ('', Colors.transparent);
+    }
+  }
+
+  /// ✅ Gère le clic sur un utilisateur (ajout à la sélection ou demande de connexion)
+  void _onUserTap(Map<String, dynamic> user) {
+    final userId = user['id'];
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (userId == currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous ne pouvez pas discuter avec vous-même')),
+      );
+      return;
+    }
+
+    final status = _connectionStatus[userId] ?? 'none';
+
+    if (status == 'accepted' || status == 'connected') {
+      // ✅ Déjà connecté → ajouter à la sélection (ou démarrer directement si un seul)
+      if (_selected.isEmpty) {
+        // Sélectionner et démarrer directement
+        _selected.add(user);
+        _startChat();
+      } else {
+        _toggleSelection(user);
+      }
+    } else if (status == 'pending') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Demande de connexion en attente'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } else if (status == 'rejected') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cette personne a refusé votre demande'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else {
+      // ✅ Aucune demande → afficher dialogue pour envoyer une demande
+      _showRequestDialog(user);
+    }
+  }
+
+  /// ✅ Dialogue d'envoi de demande de connexion
+  void _showRequestDialog(Map<String, dynamic> user) {
+    final messageController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: navy,
+              backgroundImage: user['avatar_url'] != null ? NetworkImage(user['avatar_url']) : null,
+              child: user['avatar_url'] == null
+                  ? const Icon(Icons.person_rounded, color: Colors.white, size: 16)
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Demander à ${user['display_name'] ?? "l'utilisateur"}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Envoyez une demande de connexion pour pouvoir discuter.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: messageController,
+              decoration: const InputDecoration(
+                hintText: 'Message (optionnel)',
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: navy)),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _sendConnectionRequest(user, messageController.text.trim());
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Envoyer la demande'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ✅ Envoie une demande de connexion
+  Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    try {
+      await _connectionService.sendRequest(
+        senderId: currentUserId,
+        receiverId: user['id'],
+        message: message.isNotEmpty ? message : null,
+      );
+      setState(() {
+        _connectionStatus[user['id']] = 'pending';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Demande envoyée ✅'), backgroundColor: Colors.green),
+        );
+        // Rafraîchir l'état de la liste
+        _searchUsers(_searchController.text.trim());
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: danger),
+      );
     }
   }
 
@@ -137,10 +309,22 @@ class _NewConversationPageState extends State<NewConversationPage> {
       return;
     }
 
-    final currentUser = supabase.auth.currentUser;
-    if (currentUser == null) {
+    // ✅ Vérifier que tous les participants sélectionnés sont connectés
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    final notConnected = _selected.where((user) {
+      final status = _connectionStatus[user['id']] ?? 'none';
+      return status != 'accepted' && status != 'connected';
+    }).toList();
+
+    if (notConnected.isNotEmpty) {
+      final names = notConnected.map((u) => u['display_name'] ?? 'Inconnu').join(', ');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur : Utilisateur non authentifié.')),
+        SnackBar(
+          content: Text('Vous n\'êtes pas connecté avec : $names. Envoyez une demande d\'abord.'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -148,8 +332,8 @@ class _NewConversationPageState extends State<NewConversationPage> {
     setState(() => _isCreatingChat = true);
 
     final participantIds = _selected.map((u) => u['id'] as String).toList();
-    if (!participantIds.contains(currentUser.id)) {
-      participantIds.add(currentUser.id);
+    if (!participantIds.contains(currentUserId)) {
+      participantIds.add(currentUserId);
     }
 
     try {
@@ -189,7 +373,7 @@ class _NewConversationPageState extends State<NewConversationPage> {
       body: Column(
         children: [
           // ============================================================
-          // BARRE DE RECHERCHE — pilule blanche sur fond ivoire
+          // BARRE DE RECHERCHE
           // ============================================================
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -307,7 +491,7 @@ class _NewConversationPageState extends State<NewConversationPage> {
             ),
 
           // ============================================================
-          // RÉSULTATS DE RECHERCHE
+          // RÉSULTATS DE RECHERCHE (avec statut de connexion)
           // ============================================================
           Expanded(
             child: _isLoading
@@ -344,17 +528,13 @@ class _NewConversationPageState extends State<NewConversationPage> {
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final user = _results[index];
-                          final isSelected = _selected.any((s) => s['id'] == user['id']);
+                          final userId = user['id'];
+                          final isSelected = _selected.any((s) => s['id'] == userId);
+                          final (statusLabel, statusColor) = _getStatusDisplay(userId);
+
                           return InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              if (_selected.isEmpty) {
-                                _selected.add(user);
-                                _startChat();
-                              } else {
-                                _toggleSelection(user);
-                              }
-                            },
+                            onTap: () => _onUserTap(user),
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
@@ -383,9 +563,31 @@ class _NewConversationPageState extends State<NewConversationPage> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          user['display_name'] ?? 'Utilisateur',
-                                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: darkText),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              user['display_name'] ?? 'Utilisateur',
+                                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: darkText),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            if (statusLabel.isNotEmpty)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: statusColor.withOpacity(0.15),
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: statusColor.withOpacity(0.3)),
+                                                ),
+                                                child: Text(
+                                                  statusLabel,
+                                                  style: TextStyle(
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: statusColor,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                         const SizedBox(height: 2),
                                         if ((user['profession'] ?? '').toString().isNotEmpty)
@@ -404,19 +606,29 @@ class _NewConversationPageState extends State<NewConversationPage> {
                                       ],
                                     ),
                                   ),
-                                  isSelected
-                                      ? const Icon(Icons.check_circle_rounded, color: gold, size: 22)
-                                      : (_selected.length > 1 || _selected.isEmpty
-                                          ? InkWell(
-                                              borderRadius: BorderRadius.circular(20),
-                                              onTap: () => _toggleSelection(user),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(5),
-                                                decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
-                                                child: const Icon(Icons.add_rounded, color: navy, size: 18),
-                                              ),
-                                            )
-                                          : const SizedBox.shrink()),
+                                  // ✅ Action dynamique selon statut
+                                  if (statusLabel == 'Connecté')
+                                    isSelected
+                                        ? const Icon(Icons.check_circle_rounded, color: gold, size: 22)
+                                        : InkWell(
+                                            borderRadius: BorderRadius.circular(20),
+                                            onTap: () => _toggleSelection(user),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(5),
+                                              decoration: BoxDecoration(color: ivory, shape: BoxShape.circle),
+                                              child: const Icon(Icons.add_rounded, color: navy, size: 18),
+                                            ),
+                                          )
+                                  else if (statusLabel == 'En attente')
+                                    const Icon(Icons.hourglass_top, color: Colors.orange, size: 20)
+                                  else if (statusLabel == 'Refusé')
+                                    const Icon(Icons.block, color: Colors.red, size: 20)
+                                  else
+                                    IconButton(
+                                      icon: const Icon(Icons.person_add_alt_1, color: primaryBlue, size: 20),
+                                      onPressed: () => _showRequestDialog(user),
+                                      tooltip: 'Envoyer une demande',
+                                    ),
                                 ],
                               ),
                             ),
