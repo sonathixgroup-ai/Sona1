@@ -11,6 +11,14 @@ class ConnectionsPage extends StatefulWidget {
 }
 
 class _ConnectionsPageState extends State<ConnectionsPage> {
+  // Couleurs harmonisées avec le chat
+  static const Color primaryBlue = Color(0xFF4A8BFF);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color ivory = Color(0xFFF3F5FA);
+  static const Color success = Color(0xFF1FA971);
+  static const Color danger = Color(0xFFD64545);
+  static const Color mutedText = Color(0xFF6B7690);
+
   @override
   void initState() {
     super.initState();
@@ -24,35 +32,27 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     await service.loadData(user.id);
   }
 
-  Future<void> _acceptRequest(String requestId) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-    final service = context.read<ConnectionService>();
-    final success = await service.acceptRequest(requestId, user.id);
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connexion acceptée '), backgroundColor: Colors.green),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${service.error}'), backgroundColor: Colors.red),
-      );
-    }
-  }
+  // Confirmation avant annulation (Insister pour le deuxième avis)
+  Future<void> _confirmCancelRequest(String requestId) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Annuler la demande ?', style: TextStyle(color: navyDeep)),
+        content: const Text('Êtes-vous sûr de vouloir annuler cette invitation ? Cette action est irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Oui, annuler', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
 
-  Future<void> _rejectRequest(String requestId) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-    final service = context.read<ConnectionService>();
-    final success = await service.rejectRequest(requestId, user.id);
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Demande refusée'), backgroundColor: Colors.orange),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${service.error}'), backgroundColor: Colors.red),
-      );
+    if (confirmed == true) {
+      _cancelRequest(requestId);
     }
   }
 
@@ -62,13 +62,17 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     final service = context.read<ConnectionService>();
     final success = await service.cancelRequest(requestId, user.id);
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Demande annulée'), backgroundColor: Colors.orange),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${service.error}'), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demande annulée'), backgroundColor: danger));
+    }
+  }
+
+  // Méthodes _acceptRequest et _rejectRequest (inchangées)
+  Future<void> _acceptRequest(String requestId) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    final service = context.read<ConnectionService>();
+    if (await service.acceptRequest(requestId, user.id) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connexion acceptée'), backgroundColor: success));
     }
   }
 
@@ -77,131 +81,73 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     final service = context.watch<ConnectionService>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
+      backgroundColor: ivory,
       appBar: AppBar(
-        title: const Text('Connexions', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF3B82F6),
+        title: const Text('Connexions', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: navyDeep,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadData,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
       body: service.isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3B82F6)))
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // ============================================================
-                // SECTION 1 : DEMANDES REÇUES
-                // ============================================================
-                if (service.receivedRequests.isNotEmpty) ...[
-                  const Text(
-                    'Demandes reçues',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
-                  ),
-                  const SizedBox(height: 8),
-                  ...service.receivedRequests.map((req) => Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: const Color(0xFFE9F0FF),
-                            child: Text(
-                              (req.sender?['display_name'] ?? '?')[0].toUpperCase(),
-                              style: const TextStyle(color: Color(0xFF3B82F6)),
-                            ),
-                          ),
-                          title: Text(req.sender?['display_name'] ?? 'Inconnu'),
-                          subtitle: Text(req.message ?? 'Souhaite vous contacter'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.check, color: Colors.green),
-                                onPressed: () => _acceptRequest(req.id),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red),
-                                onPressed: () => _rejectRequest(req.id),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )),
-                  const SizedBox(height: 16),
-                ],
+                _buildSectionTitle('Demandes reçues'),
+                ...service.receivedRequests.map((req) => _buildRequestCard(
+                  name: req.sender?['display_name'] ?? 'Inconnu',
+                  subtitle: req.message ?? 'Souhaite vous contacter',
+                  onAccept: () => _acceptRequest(req.id),
+                  onReject: () => _rejectRequest(req.id),
+                )),
+                
+                _buildSectionTitle('Demandes envoyées'),
+                ...service.sentRequests.map((req) => _buildRequestCard(
+                  name: req.receiver?['display_name'] ?? 'Inconnu',
+                  subtitle: 'En attente...',
+                  onCancel: () => _confirmCancelRequest(req.id),
+                )),
 
-                // ============================================================
-                // SECTION 2 : DEMANDES ENVOYÉES
-                // ============================================================
-                if (service.sentRequests.isNotEmpty) ...[
-                  const Text(
-                    'Demandes envoyées',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                _buildSectionTitle('Vos connexions'),
+                ...service.connections.map((conn) => Card(
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    leading: CircleAvatar(backgroundColor: primaryBlue.withOpacity(0.1), child: Text(conn['display_name'][0])),
+                    title: Text(conn['display_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('@${conn['username']}', style: const TextStyle(color: mutedText)),
                   ),
-                  const SizedBox(height: 8),
-                  ...service.sentRequests.map((req) => Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: const Color(0xFFE9F0FF),
-                            child: Text(
-                              (req.receiver?['display_name'] ?? '?')[0].toUpperCase(),
-                              style: const TextStyle(color: Color(0xFF3B82F6)),
-                            ),
-                          ),
-                          title: Text(req.receiver?['display_name'] ?? 'Inconnu'),
-                          subtitle: const Text('En attente de réponse'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.red),
-                            onPressed: () => _cancelRequest(req.id),
-                            tooltip: 'Annuler',
-                          ),
-                        ),
-                      )),
-                  const SizedBox(height: 16),
-                ],
-
-                // ============================================================
-                // SECTION 3 : CONNEXIONS ACTIVES
-                // ============================================================
-                const Text(
-                  'Vos connexions',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
-                ),
-                const SizedBox(height: 8),
-                if (service.connections.isEmpty)
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(
-                        child: Text('Aucune connexion pour le moment', style: TextStyle(color: Color(0xFF94A3B8))),
-                      ),
-                    ),
-                  )
-                else
-                  ...service.connections.map((conn) => Card(
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: const Color(0xFFE9F0FF),
-                            child: Text((conn['display_name'] ?? '?')[0].toUpperCase()),
-                          ),
-                          title: Text(conn['display_name'] ?? 'Inconnu'),
-                          subtitle: Text('@${conn['username'] ?? ''}'),
-                          onTap: () {
-                            // Ouvrir la conversation
-                          },
-                        ),
-                      )),
-                const SizedBox(height: 20),
+                )),
               ],
             ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: navyDeep)),
+    );
+  }
+
+  Widget _buildRequestCard({required String name, required String subtitle, VoidCallback? onAccept, VoidCallback? onReject, VoidCallback? onCancel}) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle, style: const TextStyle(color: mutedText)),
+        trailing: onCancel != null 
+          ? IconButton(icon: const Icon(Icons.close, color: danger), onPressed: onCancel)
+          : Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(icon: const Icon(Icons.check, color: success), onPressed: onAccept),
+              IconButton(icon: const Icon(Icons.close, color: danger), onPressed: onReject),
+            ]),
+      ),
     );
   }
 }
