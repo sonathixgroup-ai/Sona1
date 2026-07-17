@@ -3,11 +3,19 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
+// Tes providers et widgets
 import '../../../providers/chat/chat_settings_provider.dart';
 import 'widgets/chat_settings_tile.dart';
 import 'widgets/chat_settings_section.dart';
+
+// ✅ IMPORTS DE TES VRAIES PAGES (basés sur tes captures d'écran)
+import 'chat_appearance_settings.dart';
+import 'chat_privacy_settings.dart';
+import 'chat_notification_settings.dart';
+import 'chat_data_settings.dart';
+import '../profile/chat_profile_page.dart'; // Import du profil
 
 class ChatSettingsPage extends StatefulWidget {
   const ChatSettingsPage({super.key});
@@ -17,7 +25,7 @@ class ChatSettingsPage extends StatefulWidget {
 }
 
 class _ChatSettingsPageState extends State<ChatSettingsPage> {
-  // Couleurs THIX ID pour harmoniser le design
+  // Couleurs THIX ID
   static const Color primaryBlue = Color(0xFF4A8BFF);
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color ivory = Color(0xFFF3F5FA);
@@ -29,7 +37,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
-    // Valeurs par défaut sécurisées au cas où 'settings' est null dans Supabase
+    // Valeurs par défaut sécurisées
     final theme = settings?.theme ?? 'system';
     final wallpaper = settings?.wallpaper ?? 'default';
     final lastSeen = settings?.lastSeenVisibility ?? 'everyone';
@@ -40,10 +48,10 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
     final autoDownload = settings?.autoDownload ?? 'wifi';
 
     return Scaffold(
-      backgroundColor: ivory, // Fond global
+      backgroundColor: ivory,
       appBar: AppBar(
         title: const Text('Paramètres du chat', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: navyDeep, // Remplacement du violet par le bleu THIX
+        backgroundColor: navyDeep,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -60,13 +68,13 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                       icon: Icons.palette_rounded,
                       title: 'Thème',
                       subtitle: _getThemeLabel(theme),
-                      onTap: () => context.push('/chat/settings/appearance'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatAppearanceSettings())), // Nom de classe à adapter si besoin
                     ),
                     ChatSettingsTile(
                       icon: Icons.brush_rounded,
                       title: 'Fond d\'écran',
                       subtitle: wallpaper == 'default' ? 'Par défaut' : 'Personnalisé',
-                      onTap: () => context.push('/chat/settings/appearance'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatAppearanceSettings())),
                     ),
                   ],
                 ),
@@ -79,13 +87,13 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                       icon: Icons.visibility_rounded,
                       title: 'Dernière activité',
                       subtitle: _getVisibilityLabel(lastSeen),
-                      onTap: () => context.push('/chat/settings/privacy'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPrivacySettings())),
                     ),
                     ChatSettingsTile(
                       icon: Icons.image_rounded,
                       title: 'Photo de profil',
                       subtitle: _getVisibilityLabel(profilePhoto),
-                      onTap: () => context.push('/chat/settings/privacy'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPrivacySettings())),
                     ),
                   ],
                 ),
@@ -98,13 +106,13 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                       icon: Icons.notifications_rounded,
                       title: 'Messages',
                       subtitle: notifMsgs ? 'Activé' : 'Désactivé',
-                      onTap: () => context.push('/chat/settings/notifications'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatNotificationSettings())),
                     ),
                     ChatSettingsTile(
                       icon: Icons.phone_rounded,
                       title: 'Appels',
                       subtitle: notifCalls ? 'Activé' : 'Désactivé',
-                      onTap: () => context.push('/chat/settings/notifications'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatNotificationSettings())),
                     ),
                   ],
                 ),
@@ -116,16 +124,14 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     ChatSettingsTile(
                       icon: Icons.timer_rounded,
                       title: 'Messages éphémères',
-                      subtitle: ephemeralDuration == null
-                          ? 'Désactivé'
-                          : '${ephemeralDuration}s',
-                      onTap: () => context.push('/chat/settings/data'),
+                      subtitle: ephemeralDuration == null ? 'Désactivé' : '${ephemeralDuration}s',
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatDataSettings())),
                     ),
                     ChatSettingsTile(
                       icon: Icons.cloud_download_rounded,
                       title: 'Téléchargement auto',
                       subtitle: _getDownloadLabel(autoDownload),
-                      onTap: () => context.push('/chat/settings/data'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatDataSettings())),
                     ),
                   ],
                 ),
@@ -139,7 +145,8 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                       title: 'Voir mon profil',
                       onTap: () {
                         if (provider.chatUser?.id != null) {
-                          context.push('/chat/profile/${provider.chatUser?.id}');
+                          // Redirection vers ta page de profil
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => ChatProfilePage(userId: provider.chatUser!.id))); 
                         }
                       },
                     ),
@@ -153,46 +160,35 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                   ],
                 ),
                 
-                const SizedBox(height: 32), // Espace en bas
+                const SizedBox(height: 32),
               ],
             ),
     );
   }
 
   // --- Fonctions utilitaires ---
-
   String _getThemeLabel(String theme) {
     switch (theme) {
-      case 'light':
-        return 'Clair';
-      case 'dark':
-        return 'Sombre';
-      default:
-        return 'Système';
+      case 'light': return 'Clair';
+      case 'dark': return 'Sombre';
+      default: return 'Système';
     }
   }
 
   String _getVisibilityLabel(String visibility) {
     switch (visibility) {
-      case 'everyone':
-        return 'Tout le monde';
-      case 'contacts':
-        return 'Mes contacts';
-      case 'nobody':
-        return 'Personne';
-      default:
-        return 'Tout le monde';
+      case 'everyone': return 'Tout le monde';
+      case 'contacts': return 'Mes contacts';
+      case 'nobody': return 'Personne';
+      default: return 'Tout le monde';
     }
   }
 
   String _getDownloadLabel(String mode) {
     switch (mode) {
-      case 'wifi':
-        return 'Wi-Fi uniquement';
-      case 'mobile':
-        return 'Données mobiles';
-      default:
-        return 'Jamais';
+      case 'wifi': return 'Wi-Fi uniquement';
+      case 'mobile': return 'Données mobiles';
+      default: return 'Jamais';
     }
   }
 }
