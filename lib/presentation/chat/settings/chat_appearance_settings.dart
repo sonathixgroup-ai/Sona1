@@ -21,17 +21,37 @@ class ChatAppearanceSettings extends StatelessWidget {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
+    // On affiche le chargement SEULEMENT quand ça charge vraiment
     if (provider.isLoading && settings == null) {
       return Scaffold(
         backgroundColor: ivory,
-        appBar: AppBar(title: const Text('Apparence', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
+        appBar: AppBar(
+          title: const Text('Apparence', style: TextStyle(fontWeight: FontWeight.w800)), 
+          backgroundColor: navyDeep, 
+          foregroundColor: Colors.white, 
+          elevation: 0
+        ),
         body: const Center(child: CircularProgressIndicator(color: primaryBlue)),
       );
     }
 
-    final currentTheme = settings?.theme ?? 'system';
-    final currentFontSize = settings?.fontSize ?? 16.0;
-    final isRounded = (settings?.bubbleStyle ?? 'rounded') == 'rounded';
+    // Si ça ne charge pas mais qu'il n'y a pas de donnée, on affiche un message
+    if (settings == null) {
+      return Scaffold(
+        backgroundColor: ivory,
+        appBar: AppBar(
+          title: const Text('Apparence', style: TextStyle(fontWeight: FontWeight.w800)), 
+          backgroundColor: navyDeep, 
+          foregroundColor: Colors.white, 
+          elevation: 0
+        ),
+        body: const Center(child: Text('Impossible de charger les réglages', style: TextStyle(color: mutedText))),
+      );
+    }
+
+    final currentTheme = settings.theme ?? 'system';
+    final currentFontSize = settings.fontSize ?? 16.0;
+    final isRounded = (settings.bubbleStyle ?? 'rounded') == 'rounded';
 
     return Scaffold(
       backgroundColor: ivory,
@@ -56,8 +76,7 @@ class ChatAppearanceSettings extends StatelessWidget {
                   DropdownMenuItem(value: 'dark', child: Text('Sombre')),
                   DropdownMenuItem(value: 'system', child: Text('Système')),
                 ],
-                // On garde async/await ici car DropdownButton accepte un Future
-                onChanged: settings == null ? null : (val) async {
+                onChanged: (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(theme: val));
                   }
@@ -80,7 +99,7 @@ class ChatAppearanceSettings extends StatelessWidget {
                   DropdownMenuItem(value: 18.0, child: Text('Grande')),
                   DropdownMenuItem(value: 20.0, child: Text('Très grande')),
                 ],
-                onChanged: settings == null ? null : (val) async {
+                onChanged: (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(fontSize: val));
                   }
@@ -95,8 +114,7 @@ class ChatAppearanceSettings extends StatelessWidget {
               title: 'Style des bulles',
               subtitle: 'Arrondies ou carrées',
               value: isRounded,
-              // CORRECTION: Retrait du 'async' et 'await'
-              onChanged: settings == null ? null : (val) {
+              onChanged: (val) {
                 provider.updateSettings(settings.copyWith(bubbleStyle: val ? 'rounded' : 'square'));
               },
             ),
