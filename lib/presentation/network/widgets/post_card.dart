@@ -304,11 +304,18 @@ class _PostCardState extends State<PostCard> {
     const double spacing = 4;
     final radius = BorderRadius.circular(12);
 
-    // 1 photo → pleine largeur
+    // 1 photo → hauteur adaptée au ratio réel de l'image, photo entière visible
     if (urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: _tappableImage(urls[0], 0, height: 280),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openFullScreenGallery(0),
+          child: Hero(
+            tag: 'post_${_post.id}_image_0',
+            child: _AdaptiveSingleImage(imageUrl: urls[0]),
+          ),
+        ),
       );
     }
 
@@ -917,6 +924,110 @@ class _PostCardState extends State<PostCard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── IMAGE UNIQUE ADAPTATIVE : hauteur de carte calquée sur le ratio réel ───
+// Évite le recadrage : on lit les dimensions natives de l'image, puis on
+// dimensionne le conteneur pour qu'il corresponde exactement à ce ratio
+// (borné entre une hauteur mini et maxi pour rester raisonnable à l'écran).
+class _AdaptiveSingleImage extends StatefulWidget {
+  final String imageUrl;
+  const _AdaptiveSingleImage({required this.imageUrl});
+
+  @override
+  State<_AdaptiveSingleImage> createState() => _AdaptiveSingleImageState();
+}
+
+class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
+  static const double _minHeight = 220;
+  static const double _maxHeight = 520;
+
+  double? _aspectRatio; // width / height
+  ImageStream? _stream;
+  late ImageStreamListener _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    _listener = ImageStreamListener(_onImageResolved, onError: (_, __) {
+      if (mounted) setState(() => _aspectRatio = 1.0);
+    });
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdaptiveSingleImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _stream?.removeListener(_listener);
+      _aspectRatio = null;
+      _resolveImage();
+    }
+  }
+
+  void _resolveImage() {
+    final provider = CachedNetworkImageProvider(widget.imageUrl);
+    _stream = provider.resolve(const ImageConfiguration());
+    _stream!.addListener(_listener);
+  }
+
+  void _onImageResolved(ImageInfo info, bool _) {
+    if (!mounted) return;
+    final w = info.image.width.toDouble();
+    final h = info.image.height.toDouble();
+    if (h > 0) setState(() => _aspectRatio = w / h);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        if (_aspectRatio == null) {
+          // Pendant le chargement des dimensions, hauteur neutre le temps de mesurer
+          return Container(
+            height: 300,
+            width: width,
+            color: _PostColors.softBlue,
+            child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2)),
+          );
+        }
+
+        double naturalHeight = width / _aspectRatio!;
+        final clampedHeight = naturalHeight.clamp(_minHeight, _maxHeight);
+        final needsCrop = naturalHeight != clampedHeight;
+
+        return SizedBox(
+          width: width,
+          height: clampedHeight,
+          child: CachedNetworkImage(
+            imageUrl: widget.imageUrl,
+            width: width,
+            height: clampedHeight,
+            fit: needsCrop ? BoxFit.cover : BoxFit.contain,
+            errorWidget: (_, __, ___) => Container(
+              color: _PostColors.softBlue,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image_rounded, size: 36, color: _PostColors.primary.withOpacity(0.4)),
+                  const SizedBox(height: 6),
+                  const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
