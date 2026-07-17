@@ -1,4 +1,3 @@
-// lib/presentation/chat/connections_page.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/connection_service.dart';
@@ -12,7 +11,7 @@ class ConnectionsPage extends StatefulWidget {
 
 class _ConnectionsPageState extends State<ConnectionsPage> {
   late ConnectionService _connectionService;
-  List<Map<String, dynamic>> _pendingRequests = [];
+  List<ConnectionRequest> _pendingRequests = [];
   List<Map<String, dynamic>> _connections = [];
   bool _loading = true;
 
@@ -31,18 +30,17 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     try {
       // Demandes reçues en attente
       final requests = await _connectionService.getPendingRequests(user.id);
-      setState(() => _pendingRequests = requests.map((r) => r.toJson()).toList());
-
-      // Ici tu peux récupérer la liste des connexions actives (à implémenter dans ConnectionService)
-      // Pour l'instant on simule
-      setState(() => _connections = []);
-      _loading = false;
+      setState(() {
+        _pendingRequests = requests;
+        _connections = []; // à remplacer par la vraie liste plus tard
+        _loading = false;
+      });
     } catch (e) {
       setState(() => _loading = false);
     }
   }
 
-  Future<void> _acceptRequest(String requestId, String senderId) async {
+  Future<void> _acceptRequest(String requestId) async {
     try {
       await _connectionService.acceptRequest(requestId);
       _loadData();
@@ -108,22 +106,22 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                           leading: CircleAvatar(
                             backgroundColor: const Color(0xFFE9F0FF),
                             child: Text(
-                              (req['sender']?['display_name'] ?? '?')[0].toUpperCase(),
+                              (req.sender?['display_name'] ?? '?')[0].toUpperCase(),
                               style: const TextStyle(color: Color(0xFF3B82F6)),
                             ),
                           ),
-                          title: Text(req['sender']?['display_name'] ?? 'Inconnu'),
-                          subtitle: Text(req['message'] ?? 'Souhaite vous contacter'),
+                          title: Text(req.sender?['display_name'] ?? 'Inconnu'),
+                          subtitle: Text(req.message ?? 'Souhaite vous contacter'),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.check, color: Colors.green),
-                                onPressed: () => _acceptRequest(req['id'], req['sender_id']),
+                                onPressed: () => _acceptRequest(req.id),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.close, color: Colors.red),
-                                onPressed: () => _rejectRequest(req['id']),
+                                onPressed: () => _rejectRequest(req.id),
                               ),
                             ],
                           ),
@@ -154,7 +152,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                           ),
                           title: Text(conn['display_name'] ?? 'Inconnu'),
                           onTap: () {
-                            // Ouvrir la conversation (à implémenter)
+                            // Ouvrir la conversation
                           },
                         ),
                       )),
