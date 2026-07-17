@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -20,12 +20,10 @@ class _DialogColors {
   static const Color shadow = Color(0x142D6CDF);
 }
 
-// Compression exécutée dans un Isolate
-Future<List<int>> _compressImageFile(String filePath) async {
-  final file = File(filePath);
-  final original = await file.readAsBytes();
+/// Compression exécutée dans un Isolate (Mobile) ou directement (Web)
+Future<Uint8List> compressImageBytes(Uint8List bytes) async {
   return FlutterImageCompress.compressWithList(
-    original,
+    bytes,
     minHeight: 1080,
     minWidth: 1080,
     quality: 85,
@@ -34,9 +32,10 @@ Future<List<int>> _compressImageFile(String filePath) async {
 }
 
 class _MediaItem {
-  final String path;
+  final String? path;       // Mobile seulement
+  final Uint8List? bytes;   // Web ou fallback
   final bool isVideo;
-  const _MediaItem(this.path, {this.isVideo = false});
+  const _MediaItem({this.path, this.bytes, this.isVideo = false});
 }
 
 class CreatePostDialog extends StatefulWidget {
@@ -91,6 +90,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     super.dispose();
   }
 
+  // ─── Mentions ───
   void _onContentChanged() {
     final text = _contentController.text;
     final lastAtIndex = text.lastIndexOf('@');
@@ -113,8 +113,8 @@ class _CreatePostDialogState extends State<CreatePostDialog>
 
   Future<void> _searchUsers(String query) async {
     try {
-      final networkService = Provider.of<NetworkService>(context, listen: false);
-      final users = await networkService.searchUsers(query);
+      final ns = Provider.of<NetworkService>(context, listen: false);
+      final users = await ns.searchUsers(query);
       if (mounted) setState(() => _mentionSuggestions = users);
     } catch (e) {
       debugPrint('Error searching users: $e');
@@ -141,12 +141,12 @@ class _CreatePostDialogState extends State<CreatePostDialog>
         text: newText, selection: TextSelection.collapsed(offset: newText.length - suffix.length),
       );
     } else {
-      final start = selection.start;
-      final end = selection.end;
+      final start = selection.start, end = selection.end;
       final selected = text.substring(start, end);
       final newText = text.replaceRange(start, end, '$prefix$selected$suffix');
       _contentController.value = TextEditingValue(
-        text: newText, selection: TextSelection.collapsed(offset: start + prefix.length + selected.length + suffix.length),
+        text: newText,
+        selection: TextSelection.collapsed(offset: start + prefix.length + selected.length + suffix.length),
       );
     }
     _contentFocusNode.requestFocus();
@@ -159,12 +159,23 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     _wrapSelection('{c:$hex}', '{c}');
   }
 
+  // ─── Sélection de fichiers cross‑platform ───
   Future<void> _pickImages() async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+        withData: kIsWeb, // Web a besoin des bytes, mobile du chemin
+      );
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
-          _images.addAll(result.files.where((f) => f.path != null).map((f) => _MediaItem(f.path!)));
+          for (final f in result.files) {
+            if (kIsWeb) {
+              if (f.bytes != null) _images.add(_MediaItem(bytes: f.bytes));
+            } else {
+              if (f.path != null) _images.add(_MediaItem(path: f.path));
+            }
+          }
           _selectedPostType = _images.isNotEmpty ? 1 : 0;
         });
       }
@@ -176,10 +187,20 @@ class _CreatePostDialogState extends State<CreatePostDialog>
 
   Future<void> _pickVideos() async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: true);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: true,
+        withData: kIsWeb,
+      );
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() {
-          _videos.addAll(result.files.where((f) => f.path != null).map((f) => _MediaItem(f.path!, isVideo: true)));
+          for (final f in result.files) {
+            if (kIsWeb) {
+              if (f.bytes != null) _videos.add(_MediaItem(bytes: f.bytes, isVideo: true));
+            } else {
+              if (f.path != null) _videos.add(_MediaItem(path: f.path, isVideo: true));
+            }
+          }
           _selectedPostType = 2;
         });
       }
@@ -191,10 +212,18 @@ class _CreatePostDialogState extends State<CreatePostDialog>
 
   Future<void> _pickCamera() async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: kIsWeb,
+      );
       if (result != null && result.files.isNotEmpty && mounted) {
         final f = result.files.first;
-        if (f.path != null) setState(() => _images.add(_MediaItem(f.path!)));
+        if (kIsWeb) {
+          if (f.bytes != null) _images.add(_MediaItem(bytes: f.bytes));
+        } else {
+          if (f.path != null) _images.add(_MediaItem(path: f.path));
+        }
       }
     } catch (e) {
       debugPrint('Error picking from camera: $e');
@@ -211,6 +240,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     });
   }
 
+  // ─── Publication ───
   Future<void> _publishPost() async {
     if (_contentController.text.trim().isEmpty && _images.isEmpty && _videos.isEmpty) {
       setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
@@ -223,11 +253,27 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       final networkService = Provider.of<NetworkService>(context, listen: false);
       final feedProvider = Provider.of<FeedProvider>(context, listen: false);
 
+      Future<Uint8List> getCompressedBytes(_MediaItem item) async {
+        if (kIsWeb) {
+          // Déjà en mémoire (Uint8List)
+          return compressImageBytes(item.bytes!);
+        } else {
+          // Mobile : lire le fichier et compresser dans un Isolate
+          final fileData = await compute((String path) async {
+            final file = File(path);
+            final bytes = await file.readAsBytes();
+            return compressImageBytes(bytes);
+          }, item.path!);
+          return fileData;
+        }
+      }
+
       final imageUrls = <String>[];
       for (final item in _images) {
         try {
-          final compressed = await compute(_compressImageFile, item.path);
-          final ext = item.path.split('.').last;
+          final compressed = await getCompressedBytes(item);
+          // compressed est un Uint8List (retourné par compressImageBytes)
+          final ext = kIsWeb ? 'jpg' : (item.path?.split('.').last ?? 'jpg');
           final url = await networkService.uploadImageBytes(compressed, fileExtension: ext);
           if (url != null && url.isNotEmpty) imageUrls.add(url);
         } catch (e) {
@@ -238,10 +284,17 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       final videoUrls = <String>[];
       for (final item in _videos) {
         try {
-          final file = File(item.path);
-          final bytes = await file.readAsBytes();
-          final ext = item.path.split('.').last;
-          final url = await networkService.uploadImageBytes(bytes, fileExtension: ext);
+          Uint8List videoBytes;
+          String ext;
+          if (kIsWeb) {
+            videoBytes = item.bytes!;
+            ext = 'mp4';
+          } else {
+            final file = File(item.path!);
+            videoBytes = await file.readAsBytes();
+            ext = item.path!.split('.').last;
+          }
+          final url = await networkService.uploadImageBytes(videoBytes, fileExtension: ext);
           if (url != null && url.isNotEmpty) videoUrls.add(url);
         } catch (e) {
           debugPrint('Video upload error: $e');
@@ -276,6 +329,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     }
   }
 
+  // ─── Interface ───
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -319,7 +373,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                 ]),
               ),
 
-            // Corps scrollable
+            // Corps
             Expanded(
               child: SingleChildScrollView(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -328,10 +382,10 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(color: _DialogColors.softBlue, borderRadius: BorderRadius.circular(16)),
                     child: Row(children: [
-                      _formatButton(child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                      _formatBtn(child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
                           onTap: _applyBold, tooltip: 'Gras'),
                       const SizedBox(width: 6),
-                      _formatButton(child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800, fontSize: 14)),
+                      _formatBtn(child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800, fontSize: 14)),
                           onTap: _applyItalic, tooltip: 'Italique'),
                       Container(width: 1, height: 20, color: _DialogColors.border, margin: const EdgeInsets.symmetric(horizontal: 8)),
                       ..._textColors.map((color) => Padding(
@@ -397,13 +451,16 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                   // Prévisualisation des images
                   if (_images.isNotEmpty)
                     Wrap(spacing: 8, runSpacing: 8, children: _images.map((item) {
+                      Widget preview;
+                      if (kIsWeb) {
+                        preview = Image.memory(item.bytes!, width: 84, height: 84, fit: BoxFit.cover);
+                      } else {
+                        preview = Image.file(File(item.path!), width: 84, height: 84, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(color: _DialogColors.softBlue, child: const Icon(Icons.broken_image)),
+                        );
+                      }
                       return Stack(children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: Image.file(File(item.path), width: 84, height: 84, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(color: _DialogColors.softBlue, child: const Icon(Icons.broken_image)),
-                          ),
-                        ),
+                        ClipRRect(borderRadius: BorderRadius.circular(14), child: preview),
                         Positioned(top: 4, right: 4,
                           child: GestureDetector(
                             onTap: () => _removeMedia(_images.indexOf(item), false),
@@ -444,9 +501,9 @@ class _CreatePostDialogState extends State<CreatePostDialog>
             const SizedBox(height: 12),
             // Footer
             Row(children: [
-              _mediaIconButton(Icons.photo_rounded, _pickImages, const Color(0xFF059669)),
-              _mediaIconButton(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)),
-              _mediaIconButton(Icons.photo_camera_rounded, _pickCamera, _DialogColors.primary),
+              _mediaBtn(Icons.photo_rounded, _pickImages, const Color(0xFF059669)),
+              _mediaBtn(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)),
+              _mediaBtn(Icons.photo_camera_rounded, _pickCamera, _DialogColors.primary),
               const Spacer(),
               if (_images.isNotEmpty || _videos.isNotEmpty)
                 Container(
@@ -485,7 +542,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     );
   }
 
-  Widget _formatButton({required Widget child, required VoidCallback onTap, required String tooltip}) {
+  Widget _formatBtn({required Widget child, required VoidCallback onTap, required String tooltip}) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -500,7 +557,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     );
   }
 
-  Widget _mediaIconButton(IconData icon, VoidCallback onTap, Color color) {
+  Widget _mediaBtn(IconData icon, VoidCallback onTap, Color color) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
