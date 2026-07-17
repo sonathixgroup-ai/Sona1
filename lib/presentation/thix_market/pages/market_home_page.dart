@@ -520,7 +520,7 @@ class _MarketHomePageState extends State<MarketHomePage> {
 
   Widget _buildSupermarketSection() {
     final mockSupermarkets = [
-      {'name': 'Freshia', 'id': 'freshia-id', 'color1': const Color(0xFF00B09B), 'color2': const Color(0xFF96C93D), 'icon': Icons.eco_rounded},
+      {'name': 'Fresha', 'id': 'fresha-id', 'color1': const Color(0xFF00B09B), 'color2': const Color(0xFF96C93D), 'icon': Icons.eco_rounded},
       {'name': 'MegaStore', 'id': 'mega-id', 'color1': const Color(0xFFFF512F), 'color2': const Color(0xFFDD2476), 'icon': Icons.shopping_basket_rounded},
       {'name': 'CityMart', 'id': 'city-id', 'color1': const Color(0xFF36D1DC), 'color2': const Color(0xFF5B86E5), 'icon': Icons.storefront_rounded},
       {'name': 'DailyDrop', 'id': 'daily-id', 'color1': const Color(0xFF8E2DE2), 'color2': const Color(0xFF4A00E0), 'icon': Icons.local_mall_rounded},
@@ -545,11 +545,11 @@ class _MarketHomePageState extends State<MarketHomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: mockSupermarkets.map((store) {
-              final bool isFreshia = store['name'] == 'Freshia';
+              final bool isFresha = store['name'] == 'Fresha';
               return GestureDetector(
                 onTap: () {
-                  if (isFreshia) {
-                    context.pushNamed('supermarketDetail', pathParameters: {'shopId': store['id'] as String});
+                  if (isFresha) {
+                    context.push('/market/shop/${store['id']}');
                   } else {
                     _safeNavigate('marketShops', '/market/shops');
                   }
