@@ -10,28 +10,30 @@ import 'widgets/chat_settings_switch.dart';
 class ChatPrivacySettings extends StatelessWidget {
   const ChatPrivacySettings({super.key});
 
-  // Couleurs THIX ID
   static const Color primaryBlue = Color(0xFF4A8BFF);
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color ivory = Color(0xFFF3F5FA);
   static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
-    // SCÉNARIO SÉCURISÉ : Si les paramètres chargent ou sont nulls
-    if (settings == null || provider.isLoading) {
+    if (provider.isLoading) {
       return Scaffold(
         backgroundColor: ivory,
-        appBar: AppBar(
-          title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)),
-          backgroundColor: navyDeep,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
+        appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
         body: const Center(child: CircularProgressIndicator(color: primaryBlue)),
+      );
+    }
+
+    if (settings == null) {
+      return Scaffold(
+        backgroundColor: ivory,
+        appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
+        body: const Center(child: Text('Impossible de charger les réglages', style: TextStyle(color: mutedText))),
       );
     }
 
@@ -60,8 +62,7 @@ class ChatPrivacySettings extends StatelessWidget {
                 ],
                 onChanged: (val) async {
                   if (val != null) {
-                    final newSettings = settings.copyWith(lastSeenVisibility: val);
-                    await provider.updateSettings(newSettings);
+                    await provider.updateSettings(settings.copyWith(lastSeenVisibility: val));
                   }
                 },
               ),
@@ -82,8 +83,7 @@ class ChatPrivacySettings extends StatelessWidget {
                 ],
                 onChanged: (val) async {
                   if (val != null) {
-                    final newSettings = settings.copyWith(profilePhotoVisibility: val);
-                    await provider.updateSettings(newSettings);
+                    await provider.updateSettings(settings.copyWith(profilePhotoVisibility: val));
                   }
                 },
               ),
@@ -97,8 +97,7 @@ class ChatPrivacySettings extends StatelessWidget {
               subtitle: 'Afficher quand vous lisez un message',
               value: settings.readReceipts,
               onChanged: (val) async {
-                final newSettings = settings.copyWith(readReceipts: val);
-                await provider.updateSettings(newSettings);
+                await provider.updateSettings(settings.copyWith(readReceipts: val));
               },
             ),
           ),
@@ -110,8 +109,7 @@ class ChatPrivacySettings extends StatelessWidget {
               subtitle: 'Afficher quand vous tapez un message',
               value: settings.typingIndicator,
               onChanged: (val) async {
-                final newSettings = settings.copyWith(typingIndicator: val);
-                await provider.updateSettings(newSettings);
+                await provider.updateSettings(settings.copyWith(typingIndicator: val));
               },
             ),
           ),
