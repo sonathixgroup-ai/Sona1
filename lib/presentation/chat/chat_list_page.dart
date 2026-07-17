@@ -97,10 +97,98 @@ class _ChatListPageState extends State<ChatListPage> {
     return Container(color:_C.white, padding:const EdgeInsets.fromLTRB(0,4,0,8), child:SizedBox(height:30, child:ListView.builder(padding:const EdgeInsets.symmetric(horizontal:12),scrollDirection:Axis.horizontal,itemCount:tabs.length,itemBuilder:(ctx,i){ final sel=_selectedFilter==i; return Padding(padding:const EdgeInsets.only(right:6), child:InkWell(onTap:(){setState(()=>_selectedFilter=i);_applyFilter();},borderRadius:BorderRadius.circular(18),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.symmetric(horizontal:12),decoration:BoxDecoration(color:sel?_C.blue:_C.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:sel?_C.blue:_C.border)),child:Row(children:[Text(tabs[i],style:TextStyle(fontSize:11.5,fontWeight:sel?FontWeight.w800:FontWeight.w600,color:sel?Colors.white:_C.textDark)),const SizedBox(width:5),Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:1),decoration:BoxDecoration(color:sel?Colors.white.withOpacity(.22):_C.blueSoft,borderRadius:BorderRadius.circular(99)),child:Text('${counts[i]}',style:TextStyle(fontSize:9,fontWeight:FontWeight.w800,color:sel?Colors.white:_C.blue))) ])))); })));
   }
 
-  Widget _chatList(){
-    if(_filtered.isEmpty) return const SliverToBoxAdapter(child:Padding(padding:EdgeInsets.all(32),child:Center(child:Text('Aucune conversation',style:TextStyle(color:_C.textMuted,fontSize:12)))));
-    return SliverList(delegate:SliverChildBuilderDelegate((ctx,idx){ final conv=_filtered[idx]; final last=conv.lastMessage; final t=last!=null?last.createdAt:conv.updatedAt; final unread=conv.unreadCount>0; return Container(color:_C.white, child:InkWell(onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>ChatScreen(conversationId:conv.id,conversation:conv))), child:Padding(padding:const EdgeInsets.fromLTRB(16,9,14,9), child:Row(children:[CircleAvatar(radius:21,backgroundColor:_C.blueSoft,backgroundImage:conv.displayAvatar!=null?NetworkImage(conv.displayAvatar!):null,child:conv.displayAvatar==null?Text(conv.displayName.isNotEmpty?conv.displayName[0].toUpperCase():'?',style:const TextStyle(fontWeight:FontWeight.w800,color:_C.blue,fontSize:12)):null),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(conv.displayName,maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:13,fontWeight:unread?FontWeight.w800:FontWeight.w700,color:_C.textDark)),const SizedBox(height:2),Text(last?.content??'Commencez à discuter...',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:11.2,fontWeight:unread?FontWeight.w600:FontWeight.w500,color:unread?_C.textDark:_C.textMuted))])),const SizedBox(width:8),Column(crossAxisAlignment:CrossAxisAlignment.end,children:[Text(_fmt(t),style:TextStyle(fontSize:9.5,fontWeight:FontWeight.w500,color:unread?_C.blue:_C.textMuted)),const SizedBox(height:5),if(unread)Container(width:18,height:18,alignment:Alignment.center,decoration:const BoxDecoration(color:_C.blue,shape:BoxShape.circle),child:Text('${conv.unreadCount}',style:const TextStyle(color:Colors.white,fontSize:9,fontWeight:FontWeight.w800)))else const SizedBox(height:18)])]))); },childCount:_filtered.length));
+    Widget _chatList() {
+    if (_filtered.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(
+            child: Text('Aucune conversation', style: TextStyle(color: _C.textMuted, fontSize: 12))
+          )
+        )
+      );
+    }
+    
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (ctx, idx) {
+          final conv = _filtered[idx];
+          final last = conv.lastMessage;
+          final t = last != null ? last.createdAt : conv.updatedAt;
+          final unread = conv.unreadCount > 0;
+          
+          return Container(
+            color: _C.white,
+            child: InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversationId: conv.id, conversation: conv))),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 9, 14, 9),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 21,
+                      backgroundColor: _C.blueSoft,
+                      backgroundImage: conv.displayAvatar != null ? NetworkImage(conv.displayAvatar!) : null,
+                      child: conv.displayAvatar == null 
+                        ? Text(
+                            conv.displayName.isNotEmpty ? conv.displayName[0].toUpperCase() : '?',
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: _C.blue, fontSize: 12)
+                          )
+                        : null
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            conv.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 13, fontWeight: unread ? FontWeight.w800 : FontWeight.w700, color: _C.textDark)
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            last?.content ?? 'Commencez à discuter...',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11.2, fontWeight: unread ? FontWeight.w600 : FontWeight.w500, color: unread ? _C.textDark : _C.textMuted)
+                          )
+                        ]
+                      )
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _fmt(t),
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: unread ? _C.blue : _C.textMuted)
+                        ),
+                        const SizedBox(height: 5),
+                        if (unread)
+                          Container(
+                            width: 18,
+                            height: 18,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle),
+                            child: Text('${conv.unreadCount}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800))
+                          )
+                        else
+                          const SizedBox(height: 18)
+                      ]
+                    )
+                  ]
+                )
+              )
+            )
+          );
+        },
+        childCount: _filtered.length
+      )
+    );
   }
+
 
   // BOTTOM BARRE TYPE PHOTO 2 avec notch
   Widget _bottomNotchPro(int unread){
