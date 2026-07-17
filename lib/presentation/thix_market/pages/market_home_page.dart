@@ -299,5 +299,5 @@ class _MarketHomePageState extends State<MarketHomePage> {
       )
     ); 
   }
-
+}
   
