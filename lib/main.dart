@@ -63,7 +63,7 @@ import 'package:thix_id/services/chat/connection_service.dart';
 // ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
-
+import 'package:thix_id/providers/chat/chat_settings_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // THIX RESERVATION BUS — SaaS Providers
