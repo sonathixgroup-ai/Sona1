@@ -79,6 +79,29 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
+    // ─── FIX COMPILATION: Méthode manquante pour create_community_page.dart ───
+  Future<NetworkCommunity> createCommunity({required String name, String? description, String? bannerUrl, String? logoUrl}) async {
+    final res = await _supabase.from('communities').insert({
+      'name': name.trim(),
+      'description': description?.trim(),
+      'logo_url': logoUrl?? bannerUrl,
+      'banner_url': bannerUrl,
+      'created_by': currentUserId,
+      'created_at': DateTime.now().toIso8601String(),
+      'members_count': 1,
+      'posts_count': 0,
+    }).select().single();
+
+    await _supabase.from('community_members').upsert({
+      'community_id': res['id'],
+      'user_id': currentUserId,
+      'role': 'admin',
+      'joined_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'community_id,user_id');
+
+    notifyListeners();
+    return NetworkCommunity.fromJson(res);
+  }
   // ─────────────────────────────────────────────
   // POSTS CRUD
   // ─────────────────────────────────────────────
