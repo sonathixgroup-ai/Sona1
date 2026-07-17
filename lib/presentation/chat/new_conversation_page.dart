@@ -1,12 +1,12 @@
 // lib/presentation/chat/new_conversation_page.dart
+// Version corrigée – sans erreurs de syntaxe
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/chat_service.dart';
-import '../../services/chat/connection_service.dart'; // ✅ Ajout
+import '../../services/chat/connection_service.dart';
 import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
-import 'package:thix_id/models/chat/chat_message.dart';
 
 class NewConversationPage extends StatefulWidget {
   const NewConversationPage({super.key});
@@ -28,14 +28,10 @@ class _NewConversationPageState extends State<NewConversationPage> {
 
   final supabase = Supabase.instance.client;
   late ChatService _chatService;
-  late ConnectionService _connectionService; // ✅ Service de connexion
-
-  // ✅ Stockage du statut de connexion pour chaque utilisateur (id -> status)
+  late ConnectionService _connectionService;
   final Map<String, String> _connectionStatus = {};
 
-  // ============================================================
-  // CHARTE THIX ID — Design Institutionnel Premium (Navy / Bleu / Or)
-  // ============================================================
+  // Couleurs
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color primaryBlue = Color(0xFF2D6CDF);
@@ -52,7 +48,7 @@ class _NewConversationPageState extends State<NewConversationPage> {
   void initState() {
     super.initState();
     _chatService = ChatService(supabase);
-    _connectionService = ConnectionService(); // ✅ Initialisation
+    _connectionService = ConnectionService();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -65,7 +61,6 @@ class _NewConversationPageState extends State<NewConversationPage> {
 
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-
     _debounce = Timer(const Duration(milliseconds: 300), () {
       final query = _searchController.text.trim();
       if (query.isNotEmpty) {
@@ -76,7 +71,6 @@ class _NewConversationPageState extends State<NewConversationPage> {
     });
   }
 
-  /// Recherche par identifiant THIX CHAT ou par nom
   Future<void> _searchUsers(String query) async {
     setState(() => _isLoading = true);
     try {
@@ -108,7 +102,6 @@ class _NewConversationPageState extends State<NewConversationPage> {
         }
       }
 
-      // ✅ Charger le statut de connexion pour chaque utilisateur
       await _loadConnectionStatus(allResults);
 
       setState(() => _results.clear());
@@ -125,24 +118,20 @@ class _NewConversationPageState extends State<NewConversationPage> {
     }
   }
 
-  /// ✅ Charge le statut de connexion pour une liste d'utilisateurs
   Future<void> _loadConnectionStatus(List<Map<String, dynamic>> users) async {
     final currentUserId = supabase.auth.currentUser?.id;
     if (currentUserId == null) return;
-
     for (var user in users) {
       final userId = user['id'];
-      if (userId == currentUserId) continue; // Ignorer soi-même
+      if (userId == currentUserId) continue;
       final status = await _connectionService.getStatusBetween(currentUserId, userId);
       _connectionStatus[userId] = status;
     }
   }
 
-  /// ✅ Renvoie le texte et la couleur du statut
   (String label, Color color) _getStatusDisplay(String userId) {
     final status = _connectionStatus[userId] ?? 'none';
     switch (status) {
-      case 'accepted':
       case 'connected':
         return ('Connecté', success);
       case 'pending':
@@ -154,7 +143,6 @@ class _NewConversationPageState extends State<NewConversationPage> {
     }
   }
 
-  /// ✅ Gère le clic sur un utilisateur (ajout à la sélection ou demande de connexion)
   void _onUserTap(Map<String, dynamic> user) {
     final userId = user['id'];
     final currentUserId = supabase.auth.currentUser?.id;
@@ -167,10 +155,8 @@ class _NewConversationPageState extends State<NewConversationPage> {
 
     final status = _connectionStatus[userId] ?? 'none';
 
-    if (status == 'accepted' || status == 'connected') {
-      // ✅ Déjà connecté → ajouter à la sélection (ou démarrer directement si un seul)
+    if (status == 'connected') {
       if (_selected.isEmpty) {
-        // Sélectionner et démarrer directement
         _selected.add(user);
         _startChat();
       } else {
@@ -178,25 +164,17 @@ class _NewConversationPageState extends State<NewConversationPage> {
       }
     } else if (status == 'pending') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Demande de connexion en attente'),
-          backgroundColor: Colors.orange,
-        ),
+        const SnackBar(content: Text('Demande de connexion en attente'), backgroundColor: Colors.orange),
       );
     } else if (status == 'rejected') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cette personne a refusé votre demande'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Cette personne a refusé votre demande'), backgroundColor: Colors.red),
       );
     } else {
-      // ✅ Aucune demande → afficher dialogue pour envoyer une demande
       _showRequestDialog(user);
     }
   }
 
-  /// ✅ Dialogue d'envoi de demande de connexion
   void _showRequestDialog(Map<String, dynamic> user) {
     final messageController = TextEditingController();
     showDialog(
@@ -259,50 +237,128 @@ class _NewConversationPageState extends State<NewConversationPage> {
     );
   }
 
-  /// ✅ Envoie une demande de connexion
-  // ─── Dans _NewConversationPageState ───
+  Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
 
-Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) async {
-  final currentUserId = supabase.auth.currentUser?.id;
-  if (currentUserId == null) return;
-
-  try {
-    final success = await _connectionService.sendRequest(
-      senderId: currentUserId,
-      receiverId: user['id'],
-      message: message.isNotEmpty ? message : null,
-    );
-    if (success) {
-      setState(() {
-        _connectionStatus[user['id']] = 'pending';
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Demande envoyée ✅'), backgroundColor: Colors.green),
-        );
-        _searchUsers(_searchController.text.trim());
+    try {
+      final success = await _connectionService.sendRequest(
+        senderId: currentUserId,
+        receiverId: user['id'],
+        message: message.isNotEmpty ? message : null,
+      );
+      if (success) {
+        setState(() {
+          _connectionStatus[user['id']] = 'pending';
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Demande envoyée ✅'), backgroundColor: Colors.green),
+          );
+          _searchUsers(_searchController.text.trim());
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ ${_connectionService.error ?? "Demande déjà existante"}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ ${_connectionService.error ?? "Demande déjà existante"}'),
-            backgroundColor: Colors.red,
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _toggleSelection(Map<String, dynamic> user) {
+    setState(() {
+      if (_selected.any((s) => s['id'] == user['id'])) {
+        _selected.removeWhere((s) => s['id'] == user['id']);
+        _searchUsers(_searchController.text.trim());
+      } else {
+        _selected.add(user);
+        _results.removeWhere((r) => r['id'] == user['id']);
+      }
+    });
+  }
+
+  Future<void> _startChat() async {
+    if (_isCreatingChat) return;
+    if (_selected.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sélectionnez au moins une personne')),
+      );
+      return;
+    }
+
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    final notConnected = _selected.where((user) {
+      final status = _connectionStatus[user['id']] ?? 'none';
+      return status != 'connected';
+    }).toList();
+
+    if (notConnected.isNotEmpty) {
+      final names = notConnected.map((u) => u['display_name'] ?? 'Inconnu').join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vous n\'êtes pas connecté avec : $names. Envoyez une demande d\'abord.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isCreatingChat = true);
+
+    final participantIds = _selected.map((u) => u['id'] as String).toList();
+    if (!participantIds.contains(currentUserId)) {
+      participantIds.add(currentUserId);
+    }
+
+    try {
+      final conversation = await _chatService.createConversation(
+        participantIds: participantIds,
+        isGroup: _selected.length > 1,
+        groupName: _selected.length > 1 ? _groupName.trim() : null,
+      );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              conversationId: conversation.id,
+              conversation: conversation,
+            ),
           ),
         );
       }
-    }
-  } catch (e) {
-    if (mounted) {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: danger),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingChat = false);
+      }
     }
   }
-}
-          // ============================================================
-          // BARRE DE RECHERCHE
-          // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ivory,
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Container(
@@ -336,9 +392,6 @@ Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) a
             ),
           ),
 
-          // ============================================================
-          // NOM DU GROUPE (si plusieurs sélectionnés)
-          // ============================================================
           if (_selected.length > 1)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -362,9 +415,6 @@ Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) a
               ),
             ),
 
-          // ============================================================
-          // UTILISATEURS SÉLECTIONNÉS — chips navy/or
-          // ============================================================
           if (_selected.isNotEmpty)
             Container(
               height: 66,
@@ -418,9 +468,6 @@ Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) a
               ),
             ),
 
-          // ============================================================
-          // RÉSULTATS DE RECHERCHE (avec statut de connexion)
-          // ============================================================
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: primaryBlue))
@@ -534,7 +581,6 @@ Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) a
                                       ],
                                     ),
                                   ),
-                                  // ✅ Action dynamique selon statut
                                   if (statusLabel == 'Connecté')
                                     isSelected
                                         ? const Icon(Icons.check_circle_rounded, color: gold, size: 22)
@@ -569,9 +615,6 @@ Future<void> _sendConnectionRequest(Map<String, dynamic> user, String message) a
     );
   }
 
-  // ============================================================
-  // APP BAR — navy institutionnel, action "Démarrer" en or
-  // ============================================================
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: navyDeep,
