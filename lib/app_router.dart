@@ -1,10 +1,4 @@
-C'est trouvé ! L'erreur vient d'un petit accident de copier-coller.
-Si tu regardes vers la ligne 198 de ton code, dans la section des imports, il y a cette phrase qui flotte au milieu de nulle part, juste avant un import :
-> Dans la section des routes
-> 
-Puisque ce texte n'est pas commenté (avec //), le compilateur Dart essaie de le lire comme du code, ce qui fait tout planter !
-J'ai retiré cette phrase intruse. Voici ton fichier **app_router.dart** complet et corrigé. Tu peux tout sélectionner (Ctrl+A) et remplacer le contenu :
-```dart
+
 // lib/app_router.dart - BUILD VERT - Toutes routes conservees - FIX BUS
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -670,4 +664,4 @@ extension GoRouterBackHelpers on BuildContext {
   }
 }
 
-```
+
