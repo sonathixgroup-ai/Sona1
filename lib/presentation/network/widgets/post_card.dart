@@ -61,8 +61,11 @@ class _PostCardState extends State<PostCard> {
   bool _isSaving = false;
   bool _isReposting = false;
   bool _isLikedAnimating = false;
+  bool _isExpanded = false;
 
   final TextEditingController _quoteController = TextEditingController();
+
+  static const int _maxContentChars = 250;
 
   static final RegExp _richContentRegex = RegExp(
     r'\{c:(#[0-9A-Fa-f]{6,8})\}([\s\S]*?)\{c\}'
@@ -72,7 +75,9 @@ class _PostCardState extends State<PostCard> {
     r'|#(\w+)',
   );
 
-  List<InlineSpan>? _cachedSpans;
+  List<InlineSpan>? _cachedFullSpans;
+  List<InlineSpan>? _cachedTruncatedSpans;
+  bool _isTruncatable = false;
   String? _lastContent;
   final List<GestureRecognizer> _recognizers = [];
 
@@ -94,6 +99,7 @@ class _PostCardState extends State<PostCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.post.content != widget.post.content) {
       _disposeRecognizers();
+      _isExpanded = false;
       _cacheParsedContent();
     }
     if (oldWidget.post != widget.post) {
@@ -117,10 +123,20 @@ class _PostCardState extends State<PostCard> {
 
   void _cacheParsedContent() {
     _lastContent = widget.post.content;
-    _cachedSpans = _parseContent(
-      widget.post.content,
-      const TextStyle(fontSize: 14, height: 1.45, color: _PostColors.textDark),
-    );
+    final content = widget.post.content;
+    const baseStyle = TextStyle(fontSize: 14, height: 1.45, color: _PostColors.textDark);
+
+    _cachedFullSpans = _parseContent(content, baseStyle);
+    _isTruncatable = content.length > _maxContentChars;
+
+    if (_isTruncatable) {
+      String truncated = content.substring(0, _maxContentChars);
+      final lastSpace = truncated.lastIndexOf(' ');
+      if (lastSpace > 0) truncated = truncated.substring(0, lastSpace);
+      _cachedTruncatedSpans = _parseContent('$truncated…', baseStyle);
+    } else {
+      _cachedTruncatedSpans = _cachedFullSpans;
+    }
   }
 
   List<InlineSpan> _parseContent(String content, TextStyle baseStyle) {
@@ -193,6 +209,14 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  void _openPostDetails() {
+    try {
+      Navigator.pushNamed(context, '/post/${_post.id}');
+    } catch (e) {
+      _showNavigationError('détails du post');
+    }
+  }
+
   void _showNavigationError(String page) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,73 +228,143 @@ class _PostCardState extends State<PostCard> {
 
   String _getTimeAgo(DateTime dateTime) => timeago.format(dateTime, locale: 'fr');
 
-  Widget _buildNetworkImage(String url, {double? width, BoxFit fit = BoxFit.cover}) {
+  Widget _buildNetworkImage(String url, {double? width, double height = 200, BoxFit fit = BoxFit.cover}) {
     return CachedNetworkImage(
       imageUrl: url,
       width: width,
+      height: height,
       fit: fit,
       placeholder: (_, __) => Container(
-        height: 200, width: width, color: _PostColors.softBlue,
-        child: const Center(child: CircularProgressIndicator(color: _PostColors.primary)),
+        height: height, width: width, color: _PostColors.softBlue,
+        child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2)),
       ),
       errorWidget: (_, __, ___) => Container(
-        height: 200, width: width, color: _PostColors.softBlue,
+        height: height, width: width, color: _PostColors.softBlue,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.broken_image_rounded, size: 44, color: _PostColors.primary.withOpacity(0.4)),
-            const SizedBox(height: 8),
-            const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 12)),
+            Icon(Icons.broken_image_rounded, size: 36, color: _PostColors.primary.withOpacity(0.4)),
+            const SizedBox(height: 6),
+            const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 11)),
           ],
         ),
       ),
     );
   }
 
+  // ─── GRILLE DE PHOTOS STYLE FACEBOOK ───
   Widget _buildImageGrid(List<String> urls) {
     if (urls.isEmpty) return const SizedBox.shrink();
 
+    const double spacing = 4;
+    final radius = BorderRadius.circular(12);
+
+    // 1 photo → pleine largeur
     if (urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: _buildNetworkImage(
-          urls.first,
-          width: double.infinity,
-          fit: BoxFit.fitWidth,
-        ),
+        child: _buildNetworkImage(urls.first, width: double.infinity, height: 280),
       );
     }
 
-    return Column(
-      children: urls.asMap().entries.map((entry) {
-        final index = entry.key;
-        final url = entry.value;
-        if (index >= 4) return const SizedBox.shrink();
-        final bool isLastWithCount = (urls.length > 4 && index == 3);
+    // 2 photos → côte à côte, égales
+    if (urls.length == 2) {
+      return SizedBox(
+        height: 200,
+        child: Row(children: [
+          Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 200))),
+          const SizedBox(width: spacing),
+          Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 200))),
+        ]),
+      );
+    }
 
-        return Padding(
-          padding: EdgeInsets.only(top: index == 0 ? 0 : 6),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _buildNetworkImage(url, width: double.infinity, fit: BoxFit.fitWidth),
-                if (isLastWithCount)
-                  Container(
-                    color: Colors.black45,
-                    child: Center(
-                      child: Text(
-                        '+${urls.length - 4}',
-                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+    // 3 photos → 1 grande à gauche + 2 empilées à droite
+    if (urls.length == 3) {
+      return SizedBox(
+        height: 240,
+        child: Row(children: [
+          Expanded(
+            flex: 3,
+            child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 240)),
+          ),
+          const SizedBox(width: spacing),
+          Expanded(
+            flex: 2,
+            child: Column(children: [
+              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 118))),
+              const SizedBox(height: spacing),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[2], width: double.infinity, height: 118))),
+            ]),
+          ),
+        ]),
+      );
+    }
+
+    // 4 photos → grille 2x2
+    if (urls.length == 4) {
+      return SizedBox(
+        height: 240,
+        child: Column(children: [
+          Expanded(
+            child: Row(children: [
+              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 118))),
+              const SizedBox(width: spacing),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 118))),
+            ]),
+          ),
+          const SizedBox(height: spacing),
+          Expanded(
+            child: Row(children: [
+              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[2], width: double.infinity, height: 118))),
+              const SizedBox(width: spacing),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[3], width: double.infinity, height: 118))),
+            ]),
+          ),
+        ]),
+      );
+    }
+
+    // 5 photos ou plus → 2 en haut + 3 en bas, "+N" sur la dernière si > 5
+    final int remaining = urls.length - 5;
+    return SizedBox(
+      height: 260,
+      child: Column(children: [
+        Expanded(
+          flex: 3,
+          child: Row(children: [
+            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[0], width: double.infinity, height: 150))),
+            const SizedBox(width: spacing),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[1], width: double.infinity, height: 150))),
+          ]),
+        ),
+        const SizedBox(height: spacing),
+        Expanded(
+          flex: 2,
+          child: Row(children: [
+            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[2], width: double.infinity, height: 100))),
+            const SizedBox(width: spacing),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _buildNetworkImage(urls[3], width: double.infinity, height: 100))),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: radius,
+                child: Stack(alignment: Alignment.center, children: [
+                  _buildNetworkImage(urls[4], width: double.infinity, height: 100),
+                  if (remaining > 0)
+                    Container(
+                      color: Colors.black54,
+                      child: Center(
+                        child: Text('+$remaining',
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                       ),
                     ),
-                  ),
-              ],
+                ]),
+              ),
             ),
-          ),
-        );
-      }).toList(),
+          ]),
+        ),
+      ]),
     );
   }
 
@@ -457,6 +551,7 @@ class _PostCardState extends State<PostCard> {
       setState(() {
         _post = _post.copyWith(content: newContent);
         _disposeRecognizers();
+        _isExpanded = false;
         _cacheParsedContent();
       });
       if (mounted) {
@@ -545,7 +640,7 @@ class _PostCardState extends State<PostCard> {
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
-          onTap: widget.onTap ?? () {},
+          onTap: widget.onTap ?? _openPostDetails,
           borderRadius: BorderRadius.circular(22),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -555,7 +650,29 @@ class _PostCardState extends State<PostCard> {
               if (_post.content.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: RichText(text: TextSpan(children: _cachedSpans ?? [])),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          children: _isExpanded ? (_cachedFullSpans ?? []) : (_cachedTruncatedSpans ?? []),
+                        ),
+                      ),
+                      if (_isTruncatable)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => setState(() => _isExpanded = !_isExpanded),
+                            child: Text(
+                              _isExpanded ? 'Voir moins' : 'Voir plus',
+                              style: const TextStyle(
+                                  color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               if (_post.imageUrls.isNotEmpty) ...[
                 _buildImageGrid(_post.imageUrls),
@@ -651,7 +768,6 @@ class _PostCardState extends State<PostCard> {
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: [
-          // Like
           Semantics(
             label: _post.isLiked ? 'Retirer le like' : 'Aimer',
             child: InkWell(
@@ -679,8 +795,6 @@ class _PostCardState extends State<PostCard> {
             ),
           ),
           const SizedBox(width: 18),
-
-          // Comment
           Semantics(
             label: 'Commenter',
             child: InkWell(
@@ -700,8 +814,6 @@ class _PostCardState extends State<PostCard> {
             ),
           ),
           const SizedBox(width: 18),
-
-          // Repost
           Semantics(
             label: 'Reposter',
             child: InkWell(
@@ -725,8 +837,6 @@ class _PostCardState extends State<PostCard> {
             ),
           ),
           const SizedBox(width: 18),
-
-          // Share
           Semantics(
             label: 'Partager',
             child: InkWell(
