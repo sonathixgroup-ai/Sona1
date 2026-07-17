@@ -64,6 +64,7 @@ import 'package:thix_id/services/chat/connection_service.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
 
+
 // ═══════════════════════════════════════════════════════════════════════
 // THIX RESERVATION BUS — SaaS Providers
 // ═══════════════════════════════════════════════════════════════════════
@@ -422,7 +423,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
-
+         ChangeNotifierProvider<ChatSettingsProvider>(create: (_) => ChatSettingsProvider()),
         // ✅ PROVIDER DE CONNEXION (ajout direct ici, sans MultiProvider imbriqué)
         ChangeNotifierProvider<ConnectionService>(create: (_) => ConnectionService()),
 
