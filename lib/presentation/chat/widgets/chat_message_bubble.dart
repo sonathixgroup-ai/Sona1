@@ -40,7 +40,8 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   bool _isDecrypted = false;
   String? _decryptedContent;
 
-  final List<String> _emojiReactions = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+  // Liste des emojis mise à jour pour correspondre à la capture d'écran fournie
+  final List<String> _emojiReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
 
   // Couleurs mises à jour selon le nouveau design
   static const Color primaryBlue = Color(0xFF4A8BFF); // Bleu vif pour l'expéditeur
@@ -428,13 +429,16 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
           tag: widget.message.id,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              widget.message.mediaUrl!,
-              fit: BoxFit.cover,
+            // CORRECTION COMPILATION WEB : Remplacement direct par un Container avec constraints
+            child: Container(
               constraints: const BoxConstraints(maxHeight: 250),
-              errorBuilder: (_, __, ___) => const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Icon(Icons.broken_image, size: 40, color: mutedText),
+              child: Image.network(
+                widget.message.mediaUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Icon(Icons.broken_image, size: 40, color: mutedText),
+                ),
               ),
             ),
           ),
@@ -462,7 +466,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
 }
 
 // ============================================================
-// PAGE FULL SCREEN (Ajouter à la fin de votre fichier ou dans un fichier séparé)
+// PAGE FULL SCREEN 
 // ============================================================
 
 class FullScreenImagePage extends StatelessWidget {
