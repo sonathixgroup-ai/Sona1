@@ -59,7 +59,8 @@ import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
 import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
-
+import 'package:thix_id/services/chat/connection_service.dart';
+import 'package:provider/provider.dart';
 // ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
@@ -425,7 +426,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
-
+         MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => ConnectionService()),
         // BUS
         ChangeNotifierProvider<BusSearchProvider>(create: (_) => BusSearchProvider()),
         ChangeNotifierProvider<SeatSelectionProvider>(create: (_) => SeatSelectionProvider()),
