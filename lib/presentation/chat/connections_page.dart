@@ -41,10 +41,11 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     final service = context.read<ConnectionService>();
-    final success = await service.acceptRequest(requestId, user.id);
-    if (success && mounted) {
+    final isSuccess = await service.acceptRequest(requestId, user.id);
+    if (isSuccess && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connexion acceptée '), backgroundColor: success),
+        // CORRECTION : Plus de 'const' devant SnackBar
+        const SnackBar(content: Text('Connexion acceptée ✅'), backgroundColor: success),
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -53,14 +54,14 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     }
   }
 
-  // LA MÉTHODE QUI MANQUAIT : Refuser une demande
   Future<void> _rejectRequest(String requestId) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     final service = context.read<ConnectionService>();
-    final success = await service.rejectRequest(requestId, user.id);
-    if (success && mounted) {
+    final isSuccess = await service.rejectRequest(requestId, user.id);
+    if (isSuccess && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
+        // CORRECTION : Plus de 'const' devant SnackBar
         const SnackBar(content: Text('Demande refusée'), backgroundColor: Colors.orange),
       );
     } else if (mounted) {
@@ -70,7 +71,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     }
   }
 
-  // Confirmation avant annulation (Insister pour le deuxième avis)
+  // Confirmation avant annulation
   Future<void> _confirmCancelRequest(String requestId) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -98,9 +99,10 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     final service = context.read<ConnectionService>();
-    final success = await service.cancelRequest(requestId, user.id);
-    if (success && mounted) {
+    final isSuccess = await service.cancelRequest(requestId, user.id);
+    if (isSuccess && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
+        // CORRECTION : Plus de 'const' devant SnackBar
         const SnackBar(content: Text('Demande annulée'), backgroundColor: danger)
       );
     } else if (mounted) {
@@ -142,7 +144,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                     name: req.sender?['display_name'] ?? 'Inconnu',
                     subtitle: req.message ?? 'Souhaite vous contacter',
                     onAccept: () => _acceptRequest(req.id),
-                    onReject: () => _rejectRequest(req.id), // L'erreur venait d'ici !
+                    onReject: () => _rejectRequest(req.id),
                   )),
                 ],
                 
