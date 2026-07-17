@@ -1,5 +1,3 @@
-// Route: lib/presentation/chat/chat_screen.dart
-// Version ULTRA COMPLÈTE - AUCUNE COUPE - Nouveau Design Appliqué
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
@@ -18,6 +16,7 @@ import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
+import 'package:thix_id/services/chat/connection_service.dart'; // ✅ AJOUT
 
 // Modèles
 import 'package:thix_id/models/chat/chat_message.dart';
@@ -62,6 +61,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late PresenceService _presenceService;
   late AudioService _audioService;
   late GroupService _groupService;
+  late ConnectionService _connectionService; // ✅ AJOUT
 
   // Messages
   List<ChatMessage> _messages = [];
@@ -131,6 +131,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _presenceService = PresenceService(client);
     _audioService = AudioService(client);
     _groupService = GroupService(client);
+    _connectionService = ConnectionService(); // ✅ AJOUT
 
     _loadUserRole();
 
@@ -382,12 +383,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _startVideoCall() => _startCall(CallType.video);
 
   // ============================================================
-  // ENVOI DE MESSAGES
+  // ENVOI DE MESSAGES (avec vérification de connexion)
   // ============================================================
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending) return;
+
+    // ⚠️ VÉRIFICATION DE CONNEXION pour les conversations 1:1 (sauf notes internes)
+    if (!widget.conversation.isGroup && !_isInternalNoteMode) {
+      final currentUserId = _chatService.currentUserId;
+      if (currentUserId != null) {
+        final otherId = widget.conversation.participantIds.firstWhere(
+          (id) => id != currentUserId,
+          orElse: () => '',
+        );
+        if (otherId.isNotEmpty) {
+          final isConnected = await _connectionService.checkConnection(
+            currentUserId,
+            otherId,
+          );
+          if (!isConnected) {
+            _showSnackBar(
+              'Vous devez être connecté avec cet utilisateur pour lui envoyer un message',
+              Colors.orange,
+            );
+            return;
+          }
+        }
+      }
+    }
 
     _isTyping = false;
     _sendTypingStatus(false);
@@ -766,7 +791,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _cancelReply() => setState(() => _replyToId = '');
 
   // ============================================================
-  // MENU D'ACTIONS SUR UN MESSAGE (Avec DIVIDER E2E8F0)
+  // MENU D'ACTIONS SUR UN MESSAGE
   // ============================================================
 
   void _showMessageActions(ChatMessage msg, bool isOwn) {
