@@ -24,15 +24,33 @@ class ChatPrivacySettings extends StatelessWidget {
     if (provider.isLoading && settings == null) {
       return Scaffold(
         backgroundColor: ivory,
-        appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
+        appBar: AppBar(
+          title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), 
+          backgroundColor: navyDeep, 
+          foregroundColor: Colors.white, 
+          elevation: 0
+        ),
         body: const Center(child: CircularProgressIndicator(color: primaryBlue)),
       );
     }
 
-    final lastSeen = settings?.lastSeenVisibility ?? 'everyone';
-    final profilePhoto = settings?.profilePhotoVisibility ?? 'everyone';
-    final readReceipts = settings?.readReceipts ?? true;
-    final typingIndicator = settings?.typingIndicator ?? true;
+    if (settings == null) {
+      return Scaffold(
+        backgroundColor: ivory,
+        appBar: AppBar(
+          title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), 
+          backgroundColor: navyDeep, 
+          foregroundColor: Colors.white, 
+          elevation: 0
+        ),
+        body: const Center(child: Text('Impossible de charger les réglages', style: TextStyle(color: mutedText))),
+      );
+    }
+
+    final lastSeen = settings.lastSeenVisibility ?? 'everyone';
+    final profilePhoto = settings.profilePhotoVisibility ?? 'everyone';
+    final readReceipts = settings.readReceipts ?? true;
+    final typingIndicator = settings.typingIndicator ?? true;
 
     return Scaffold(
       backgroundColor: ivory,
@@ -57,7 +75,7 @@ class ChatPrivacySettings extends StatelessWidget {
                   DropdownMenuItem(value: 'contacts', child: Text('Mes contacts')),
                   DropdownMenuItem(value: 'nobody', child: Text('Personne')),
                 ],
-                onChanged: settings == null ? null : (val) async {
+                onChanged: (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(lastSeenVisibility: val));
                   }
@@ -78,7 +96,7 @@ class ChatPrivacySettings extends StatelessWidget {
                   DropdownMenuItem(value: 'contacts', child: Text('Mes contacts')),
                   DropdownMenuItem(value: 'nobody', child: Text('Personne')),
                 ],
-                onChanged: settings == null ? null : (val) async {
+                onChanged: (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(profilePhotoVisibility: val));
                   }
@@ -93,8 +111,7 @@ class ChatPrivacySettings extends StatelessWidget {
               title: 'Confirmations de lecture',
               subtitle: 'Afficher quand vous lisez un message',
               value: readReceipts,
-              // CORRECTION: Retrait du 'async' et 'await'
-              onChanged: settings == null ? null : (val) {
+              onChanged: (val) {
                 provider.updateSettings(settings.copyWith(readReceipts: val));
               },
             ),
@@ -106,8 +123,7 @@ class ChatPrivacySettings extends StatelessWidget {
               title: 'Indicateur de saisie',
               subtitle: 'Afficher quand vous tapez un message',
               value: typingIndicator,
-              // CORRECTION: Retrait du 'async' et 'await'
-              onChanged: settings == null ? null : (val) {
+              onChanged: (val) {
                 provider.updateSettings(settings.copyWith(typingIndicator: val));
               },
             ),
