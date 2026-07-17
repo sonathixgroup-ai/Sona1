@@ -1,7 +1,87 @@
-// lib/services/chat/connection_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/connection_request.dart';
-import '../models/connection.dart';
+
+// ============================================================
+// MODÈLES
+// ============================================================
+
+class ConnectionRequest {
+  final String id;
+  final String senderId;
+  final String receiverId;
+  final String status; // pending, accepted, rejected, blocked
+  final String? message;
+  final DateTime createdAt;
+  final DateTime? respondedAt;
+  final Map<String, dynamic>? sender;
+  final Map<String, dynamic>? receiver;
+
+  ConnectionRequest({
+    required this.id,
+    required this.senderId,
+    required this.receiverId,
+    required this.status,
+    this.message,
+    required this.createdAt,
+    this.respondedAt,
+    this.sender,
+    this.receiver,
+  });
+
+  factory ConnectionRequest.fromJson(Map<String, dynamic> json) {
+    return ConnectionRequest(
+      id: json['id'] ?? '',
+      senderId: json['sender_id'] ?? '',
+      receiverId: json['receiver_id'] ?? '',
+      status: json['status'] ?? 'pending',
+      message: json['message'],
+      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+      respondedAt: json['responded_at'] != null
+          ? DateTime.parse(json['responded_at'])
+          : null,
+      sender: json['sender'],
+      receiver: json['receiver'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'sender_id': senderId,
+      'receiver_id': receiverId,
+      'status': status,
+      'message': message,
+      'created_at': createdAt.toIso8601String(),
+      'responded_at': respondedAt?.toIso8601String(),
+    };
+  }
+}
+
+class Connection {
+  final String id;
+  final String user1Id;
+  final String user2Id;
+  final DateTime createdAt;
+
+  Connection({
+    required this.id,
+    required this.user1Id,
+    required this.user2Id,
+    required this.createdAt,
+  });
+
+  factory Connection.fromJson(Map<String, dynamic> json) {
+    return Connection(
+      id: json['id'] ?? '',
+      user1Id: json['user1_id'] ?? '',
+      user2Id: json['user2_id'] ?? '',
+      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+// ============================================================
+// SERVICE
+// ============================================================
 
 class ConnectionService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -52,9 +132,6 @@ class ConnectionService {
         .select()
         .single();
 
-    // 3. Créer une conversation (optionnel)
-    // Ou laisser ChatService gérer la création de conversation
-
     return Connection.fromJson(connectionResponse);
   }
 
@@ -95,26 +172,44 @@ class ConnectionService {
     final response = await _supabase
         .from('connections')
         .select('id')
-        .or('user1_id.eq.$userId1,user2_id.eq.$userId2')
-        .or('user1_id.eq.$userId2,user2_id.eq.$userId1')
+        .or('user1_id.eq.$userId1,user2_id.eq.$userId1')
+        .or('user1_id.eq.$userId2,user2_id.eq.$userId2')
         .maybeSingle();
     return response != null;
   }
 
-  // Vérifier si une demande est en attente
-  Future<String?> checkPendingRequest(String senderId, String receiverId) async {
-    final response = await _supabase
+  // ✅ Obtenir le statut de connexion entre deux utilisateurs
+  // Retourne : 'connected', 'pending', 'rejected', 'none'
+  Future<String> getStatusBetween(String userId1, String userId2) async {
+    // Vérifier si une connexion existe
+    final isConnected = await checkConnection(userId1, userId2);
+    if (isConnected) return 'connected';
+
+    // Vérifier s'il y a une demande en attente
+    final pending = await _supabase
         .from('connection_requests')
         .select('status')
-        .eq('sender_id', senderId)
-        .eq('receiver_id', receiverId)
+        .or('sender_id.eq.$userId1,receiver_id.eq.$userId1')
+        .or('sender_id.eq.$userId2,receiver_id.eq.$userId2')
+        .eq('status', 'pending')
         .maybeSingle();
-    return response?['status'] as String?;
+    if (pending != null) return 'pending';
+
+    // Vérifier s'il y a une demande rejetée
+    final rejected = await _supabase
+        .from('connection_requests')
+        .select('status')
+        .or('sender_id.eq.$userId1,receiver_id.eq.$userId1')
+        .or('sender_id.eq.$userId2,receiver_id.eq.$userId2')
+        .eq('status', 'rejected')
+        .maybeSingle();
+    if (rejected != null) return 'rejected';
+
+    return 'none';
   }
 
   // Bloquer un utilisateur
   Future<void> blockUser(String userId, String blockedId) async {
-    // Créer ou mettre à jour une entrée de blocage
-    // (à implémenter selon votre modèle)
+    // À implémenter selon votre modèle
   }
 }
