@@ -134,3 +134,4 @@ class NetworkService extends ChangeNotifier {
       'receiver_id': targetId
     }, onConflict: 'sender_id,receiver_id');
   } 
+}
