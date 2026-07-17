@@ -23,13 +23,11 @@ class ChatSettingsProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Charger toutes les données (VERSION ANTI-CRASH)
   Future<void> load(String userId) async {
     _currentUserId = userId; 
     _setLoading(true);
     _error = null;
 
-    // 1. Tenter de charger le profil
     try {
       _chatUser = await _service.getChatUser(userId);
     } catch (e) {
@@ -37,17 +35,42 @@ class ChatSettingsProvider extends ChangeNotifier {
       _error = 'Erreur Profil: $e';
     }
 
-    // 2. Tenter de charger les paramètres (Même si le profil a échoué)
     try {
       _settings = await _service.getSettings(userId);
     } catch (e) {
       print('⚠️ Erreur Supabase (getSettings) : $e');
-      _error = 'Erreur Settings: $e';
-      // Fallback : On crée des paramètres par défaut vides pour débloquer l'interface
       _settings = ChatSettings.fromJson({});
     }
 
     _setLoading(false);
+  }
+
+  // ============================================================
+  // 🔥 MISE À JOUR OPTIMISTE (L'interface change instantanément)
+  // ============================================================
+  Future<bool> updateSettings(ChatSettings newSettings) async {
+    if (_currentUserId == null) return false;
+
+    // 1. On sauvegarde l'ancien état au cas où Supabase refuse
+    final backupSettings = _settings;
+    
+    // 2. On met à jour l'interface IMMÉDIATEMENT !
+    _settings = newSettings;
+    notifyListeners();
+
+    try {
+      // 3. On envoie à Supabase en arrière-plan
+      await _service.updateSettings(_currentUserId!, newSettings);
+      return true;
+    } catch (e) {
+      print('❌ Erreur de sauvegarde Supabase : $e');
+      
+      // 4. Si Supabase échoue, on annule et on remet l'ancienne valeur
+      _settings = backupSettings;
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<bool> updateChatUser(ChatUser user) async {
@@ -77,21 +100,6 @@ class ChatSettingsProvider extends ChangeNotifier {
       _error = e.toString();
       _setLoading(false);
       return null;
-    }
-  }
-
-  Future<bool> updateSettings(ChatSettings settings) async {
-    if (_currentUserId == null) return false;
-    _setLoading(true);
-    try {
-      await _service.updateSettings(_currentUserId!, settings);
-      _settings = settings;
-      _setLoading(false);
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      _setLoading(false);
-      return false;
     }
   }
 
