@@ -1,3 +1,4 @@
+// lib/services/network_service.dart
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
@@ -24,7 +25,6 @@ class NetworkService extends ChangeNotifier {
     final uid = currentUserId;
     if (uid.isEmpty) return [];
 
-    // Smart Feed (RPC)
     if (feedType == 'smart') {
       final res = await _supabase.rpc('get_smart_feed', params: {
         'p_user_id': uid,
@@ -37,7 +37,6 @@ class NetworkService extends ChangeNotifier {
     final hiddenRes = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
     final hiddenSet = (hiddenRes as List).map((e) => e['post_id'] as String).toSet();
 
-    // Typage explicite pour séparer les filtres des transformations (évite l'erreur de build)
     PostgrestFilterBuilder query = _supabase.from('posts_view').select();
 
     if (feedType == 'network') {
@@ -216,7 +215,7 @@ class NetworkService extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────
-  // COMMENTS - ARBRE IMMUABLE
+  // COMMENTS - ARBRE
   // ─────────────────────────────────────────────
   Future<List<Comment>> getCommentsWithReplies(String postId) async {
     try {
@@ -224,21 +223,16 @@ class NetworkService extends ChangeNotifier {
       
       final Map<String, Comment> map = { for (var j in res as List) j['id']: Comment.fromJson(j) };
       final List<Comment> roots = [];
-      final Map<String, List<Comment>> childrenMap = {};
 
       for (var c in map.values) {
         if (c.parentId == null || c.parentId!.isEmpty || !map.containsKey(c.parentId)) {
           roots.add(c);
         } else {
-          childrenMap.putIfAbsent(c.parentId!, () => []).add(c);
+          final parent = map[c.parentId];
+          if (parent != null) parent.replies.add(c);
         }
       }
-      
-      return roots.map((root) {
-        final replies = childrenMap[root.id] ?? [];
-        return root.copyWith(replies: replies); // Respecte le modèle immuable
-      }).toList();
-
+      return roots;
     } catch (e) {
       debugPrint('getCommentsWithReplies: $e');
       return [];
