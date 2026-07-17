@@ -24,8 +24,8 @@ class NetworkService extends ChangeNotifier {
     return url != null && url.isNotEmpty ? [url] : [];
   }
 
-  // ─────────────────────────────────────────────
-  // FEED - VERSION SCALABLE 1 REQUÊTE
+    // ─────────────────────────────────────────────
+  // FEED - VERSION SCALABLE 1 REQUÊTE (CORRIGÉE)
   // ─────────────────────────────────────────────
   Future<List<NetworkPost>> getFeedPosts({int limit = 20, int offset = 0, String feedType = 'smart'}) async {
     final uid = currentUserId;
@@ -43,19 +43,26 @@ class NetworkService extends ChangeNotifier {
     final hiddenRes = await _supabase.from('hidden_posts').select('post_id').eq('user_id', uid);
     final hiddenSet = (hiddenRes as List).map((e) => e['post_id'] as String).toSet();
 
-    var query = _supabase.from('posts_view').select();
+    // 1. On définit uniquement les filtres ici
+    PostgrestFilterBuilder query = _supabase.from('posts_view').select();
 
     if (feedType == 'network') {
       final connIds = await _getConnectionIds();
       if (connIds.isEmpty) return [];
       query = query.inFilter('user_id', connIds.toList());
     } else if (feedType == 'popular') {
-      query = query.gte('created_at', DateTime.now().subtract(const Duration(days: 7)).toIso8601String()).order('likes_count', ascending: false);
+      query = query.gte('created_at', DateTime.now().subtract(const Duration(days: 7)).toIso8601String());
     } else {
-      query = query.eq('is_public', true).order('created_at', ascending: false);
+      query = query.eq('is_public', true);
     }
 
-    final res = await query.range(offset, offset + limit - 1);
+    // 2. On applique les tris (order) et la pagination (range) tout à la fin
+    final builder = feedType == 'popular'
+        ? query.order('likes_count', ascending: false).range(offset, offset + limit - 1)
+        : query.order('created_at', ascending: false).range(offset, offset + limit - 1);
+
+    final res = await builder;
+
     return (res as List)
        .map((e) => NetworkPost.fromJson({...e, 'image_urls': _imageUrlsFromRow(e)}))
        .where((p) => !hiddenSet.contains(p.id))
@@ -218,24 +225,26 @@ class NetworkService extends ChangeNotifier {
     return (res as List).map((e) => NetworkPost.fromJson({...e['post'], 'image_urls': _imageUrlsFromRow(e['post'])} ) ).toList();
   }
 
-  // ─────────────────────────────────────────────
-  // COMMENTS
+    // ─────────────────────────────────────────────
+  // COMMENTS - CORRIGÉ
   // ─────────────────────────────────────────────
   Future<List<Comment>> getCommentsWithReplies(String postId) async {
     try {
       final res = await _supabase.from('comments').select('*, profiles!user_id(display_name, avatar_url)').eq('post_id', postId).order('created_at', ascending: true);
+      
       final Map<String, Comment> map = { for (var j in res as List) j['id']: Comment.fromJson(j) };
       final List<Comment> roots = [];
-      final Map<String, List<Comment>> childrenMap = {};
 
+      // Construction de l'arbre sans utiliser copyWith
       for (var c in map.values) {
         if (c.parentId == null || c.parentId!.isEmpty || !map.containsKey(c.parentId)) {
           roots.add(c);
         } else {
-          childrenMap.putIfAbsent(c.parentId!, () => []).add(c);
+          final parent = map[c.parentId];
+          if (parent != null) parent.replies.add(c);
         }
       }
-      return roots.map<Comment>((r) => r.copyWith(replies: childrenMap[r.id] ?? <Comment>[])).toList();
+      return roots;
     } catch (e) {
       debugPrint('getCommentsWithReplies: $e');
       return [];
@@ -277,6 +286,7 @@ class NetworkService extends ChangeNotifier {
   Future<bool> unlikeComment(String commentId) async {
     try { await _supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch (_) { return false; }
   }
+
 
   // ─────────────────────────────────────────────
   // STORIES
