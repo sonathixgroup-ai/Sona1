@@ -102,6 +102,17 @@ class AppRoutes {
   static const String moderatorEventCreate = '/moderator/event/create';
   static const String moderatorEventEdit = '/moderator/event/edit/:id';
 
+  // ============================================================
+// 📁 BLOC 2 : CONSTANTES (à ajouter dans la classe AppRoutes)
+// ============================================================
+
+static const String chatProfile = '/chat/profile/:userId';
+static const String chatSettings = '/chat/settings';
+static const String chatAppearance = '/chat/settings/appearance';
+static const String chatPrivacy = '/chat/settings/privacy';
+static const String chatNotifications = '/chat/settings/notifications';
+static const String chatData = '/chat/settings/data';
+
   // ═══════════════════════════════════════════════════════════════════════
   // ─── MON PAYS ───
   // ═══════════════════════════════════════════════════════════════════════
