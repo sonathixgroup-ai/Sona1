@@ -128,4 +128,9 @@ class NetworkService extends ChangeNotifier {
     final res = await _supabase.from('communities_with_membership').select().eq('current_user_id', currentUserId).order('members_count', ascending: false).limit(limit);
     return (res as List).map((e) => NetworkCommunity.fromJson(e)).toList();
   }
-  Future<void> sendConnectionRequest
+  Future<void> sendConnectionRequest(String targetId) async {
+    await _supabase.from('connection_requests').upsert({
+      'sender_id': currentUserId, 
+      'receiver_id': targetId
+    }, onConflict: 'sender_id,receiver_id');
+  } 
