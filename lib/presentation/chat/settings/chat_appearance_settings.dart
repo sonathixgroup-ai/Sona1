@@ -21,7 +21,6 @@ class ChatAppearanceSettings extends StatelessWidget {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
-    // On affiche le chargement SEULEMENT quand ça charge vraiment
     if (provider.isLoading && settings == null) {
       return Scaffold(
         backgroundColor: ivory,
@@ -30,7 +29,6 @@ class ChatAppearanceSettings extends StatelessWidget {
       );
     }
 
-    // VALEURS PAR DÉFAUT (Si l'utilisateur n'a pas encore de paramètres dans Supabase)
     final currentTheme = settings?.theme ?? 'system';
     final currentFontSize = settings?.fontSize ?? 16.0;
     final isRounded = (settings?.bubbleStyle ?? 'rounded') == 'rounded';
@@ -58,7 +56,7 @@ class ChatAppearanceSettings extends StatelessWidget {
                   DropdownMenuItem(value: 'dark', child: Text('Sombre')),
                   DropdownMenuItem(value: 'system', child: Text('Système')),
                 ],
-                // Si 'settings' est null, on désactive le bouton pour éviter un crash
+                // On garde async/await ici car DropdownButton accepte un Future
                 onChanged: settings == null ? null : (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(theme: val));
@@ -97,8 +95,9 @@ class ChatAppearanceSettings extends StatelessWidget {
               title: 'Style des bulles',
               subtitle: 'Arrondies ou carrées',
               value: isRounded,
-              onChanged: settings == null ? null : (val) async {
-                await provider.updateSettings(settings.copyWith(bubbleStyle: val ? 'rounded' : 'square'));
+              // CORRECTION: Retrait du 'async' et 'await'
+              onChanged: settings == null ? null : (val) {
+                provider.updateSettings(settings.copyWith(bubbleStyle: val ? 'rounded' : 'square'));
               },
             ),
           ),
