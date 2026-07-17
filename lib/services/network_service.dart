@@ -109,6 +109,73 @@ class NetworkService extends ChangeNotifier {
     }).select('*, profiles!inner(display_name,avatar_url)').single();
     notifyListeners(); return res;
   }
+    // ─── MÉTHODES RESTAURÉES POUR COMPATIBILITÉ ───
+
+  Future<NetworkPost?> getPostById(String postId) async {
+    try {
+      final response = await _supabase
+          .from('posts_view') // Utilise votre vue optimisée
+          .select()
+          .eq('id', postId)
+          .maybeSingle();
+      if (response == null) return null;
+      return NetworkPost.fromJson({...response, 'image_urls': _imageUrlsFromRow(response)});
+    } catch (e) {
+      debugPrint('❌ getPostById: $e');
+      return null;
+    }
+  }
+
+  Future<List<Comment>> getCommentsWithReplies(String postId) async {
+    try {
+      final response = await _supabase
+          .from('comments')
+          .select('*, profiles!user_id(display_name, avatar_url)')
+          .eq('post_id', postId)
+          .order('created_at', ascending: false);
+      
+      final List<dynamic> data = response as List;
+      final Map<String, Comment> commentMap = {};
+      
+      // Conversion en objets Comment
+      final comments = data.map((json) => Comment.fromJson(json)).toList();
+      for (var c in comments) {
+        commentMap[c.id] = c;
+      }
+      
+      final List<Comment> root = [];
+      for (var c in commentMap.values) {
+        if (c.parentId == null || c.parentId!.isEmpty) {
+          root.add(c);
+        } else {
+          final parent = commentMap[c.parentId];
+          if (parent != null) parent.replies.add(c);
+          else root.add(c);
+        }
+      }
+      return root;
+    } catch (e) {
+      debugPrint('❌ getCommentsWithReplies: $e');
+      return [];
+    }
+  }
+
+  // Assurez-vous que cette version est utilisée pour que comments_page reçoive un objet Comment
+  @override 
+  Future<Comment> addComment(String postId, String content, {String? parentId}) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) throw Exception('Not logged in');
+    final response = await _supabase.from('comments').insert({
+      'post_id': postId,
+      'user_id': uid,
+      'content': content,
+      'parent_id': parentId,
+      'created_at': DateTime.now().toIso8601String(),
+    }).select('*, profiles!user_id(display_name, avatar_url)').single();
+    
+    return Comment.fromJson(response);
+  }
+
   Future<bool> updateComment(String commentId, String newContent) async {
     try { await _supabase.from('comments').update({'content': newContent.trim(),'is_edited': true,'updated_at': DateTime.now().toIso8601String()}).eq('id', commentId).eq('user_id', _uid!); notifyListeners(); return true; } catch(e){ return false; }
   }
