@@ -9,6 +9,9 @@ import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 
+// ✅ IMPORT AJOUTÉ POUR LA PAGE DES PARAMÈTRES
+import 'settings/chat_settings_page.dart'; 
+
 class _C {
   static const blue = Color(0xFF3B82F6);
   static const blueLight = Color(0xFF5B9CF6);
@@ -171,7 +174,7 @@ class _ChatListPageState extends State<ChatListPage> {
     return Container(color:_C.white, padding:const EdgeInsets.fromLTRB(0,4,0,8), child:SizedBox(height:30, child:ListView.builder(padding:const EdgeInsets.symmetric(horizontal:12),scrollDirection:Axis.horizontal,itemCount:tabs.length,itemBuilder:(ctx,i){ final sel=_selectedFilter==i; return Padding(padding:const EdgeInsets.only(right:6), child:InkWell(onTap:(){setState(()=>_selectedFilter=i);_applyFilter();},borderRadius:BorderRadius.circular(18),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.symmetric(horizontal:12),decoration:BoxDecoration(color:sel?_C.blue:_C.white,borderRadius:BorderRadius.circular(18),border:Border.all(color:sel?_C.blue:_C.border)),child:Row(children:[Text(tabs[i],style:TextStyle(fontSize:11.5,fontWeight:sel?FontWeight.w800:FontWeight.w600,color:sel?Colors.white:_C.textDark)),const SizedBox(width:5),Container(padding:const EdgeInsets.symmetric(horizontal:5,vertical:1),decoration:BoxDecoration(color:sel?Colors.white.withOpacity(.22):_C.blueSoft,borderRadius:BorderRadius.circular(99)),child:Text('${counts[i]}',style:TextStyle(fontSize:9,fontWeight:FontWeight.w800,color:sel?Colors.white:_C.blue))) ])))); })));
   }
 
-    Widget _chatList() {
+  Widget _chatList() {
     if (_filtered.isEmpty) {
       return const SliverToBoxAdapter(
         child: Padding(
@@ -276,7 +279,7 @@ class _ChatListPageState extends State<ChatListPage> {
           _navItem(Icons.chat_bubble_rounded,'Chats',1,unread>0,badge:unread),
           const SizedBox(width:56),
           _navItem(Icons.workspaces_rounded,'Spaces',2,false),
-          // ✅ REMPLACÉ : icône settings + libellé "Paramètres" pour éviter confusion
+          // ✅ Icône settings + libellé "Paramètres"
           _navItem(Icons.settings_rounded,'Paramètres',3,false),
         ]),
         Positioned(top:-14, child: GestureDetector(onTap:_showCreateMenu, child: Container(width:54,height:54,decoration:BoxDecoration(gradient:const LinearGradient(colors:[_C.blueLight,_C.blue]),shape:BoxShape.circle,boxShadow:[BoxShadow(color:_C.blue.withOpacity(.32),blurRadius:12,offset:const Offset(0,5))],border:Border.all(color:Colors.white,width:3)),child:const Icon(Icons.add_rounded,color:Colors.white,size:28)))),
@@ -284,17 +287,19 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // ✅ Modification du _navItem : gestion des clics avec redirection vers les paramètres pour "Paramètres" (index 3)
+  // ✅ CORRECTION DE LA NAVIGATION VERS LA PAGE PARAMÈTRES
   Widget _navItem(IconData ic,String lb,int idx,bool hasBadge,{int badge=0}){
     final sel=_selectedNav==idx;
     return InkWell(
       onTap:(){
         if(idx == 0) {
-          // Connexions
           context.pushNamed('connections');
         } else if(idx == 3) {
-          // Paramètres → Page des réglages du chat
-          context.pushNamed('chatSettings');
+          // Utilisation d'un MaterialPageRoute direct pour éviter les conflits GoRouter
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChatSettingsPage()),
+          );
         } else {
           setState(()=>_selectedNav=idx);
         }
