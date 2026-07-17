@@ -79,6 +79,14 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
     if(mounted) await _loadStories(context.read<NetworkService>());
   }
 
+  Future<void> _openCreateStory() async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => const CreateStoryDialog());
+    if (ok == true && mounted) {
+      HapticFeedback.mediumImpact();
+      await _loadStories(context.read<NetworkService>());
+    }
+  }
+
   @override void dispose(){ _scrollController.dispose(); super.dispose(); }
 
   @override
@@ -99,7 +107,7 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
               controller: _scrollController,
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               slivers: [
-                SliverToBoxAdapter(child: _buildStories()),
+                SliverToBoxAdapter(child: _buildStories(auth.currentUser!.id)),
                 SliverToBoxAdapter(child: _buildFilters(feed)),
                 SliverToBoxAdapter(child: _buildCreatePostBar()),
 
@@ -160,20 +168,39 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
   }
 
   // ─── STORIES ───
-  Widget _buildStories() {
-    if (_loadingStories) return const SizedBox(height: 76, child: Center(child: SizedBox(width:20,height:20, child: CircularProgressIndicator(strokeWidth:2))));
+  Widget _buildStories(String currentUserId) {
+    if (_loadingStories) {
+      return const SizedBox(height: 88, child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
+    }
+
+    final myStories = _stories.where((s) => s.userId == currentUserId).toList();
+    final otherStories = _stories.where((s) => s.userId != currentUserId).toList();
+
     return Container(
       color: ThixColors.white,
       height: 88,
       padding: const EdgeInsets.only(top: 10, bottom: 8),
       child: ListView.separated(
-        scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 14),
-        itemCount: _stories.length + 1,
-        separatorBuilder: (_,__)=> const SizedBox(width: 12),
-        itemBuilder: (c,i){
-          if(i==0) return _AddStoryBtn(onTap: () async { final ok = await showDialog<bool>(context: context, builder: (_)=> const CreateStoryDialog()); if(ok==true) _loadStories(context.read<NetworkService>()); });
-          final s = _stories[i-1];
-          return _StoryItem(story: s, onTap: ()=> Navigator.push(context, MaterialPageRoute(builder: (_)=> StoryViewer(stories: _stories, initialIndex: i-1))));
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: otherStories.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (c, i) {
+          if (i == 0) {
+            return _MyStoryItem(
+              hasStory: myStories.isNotEmpty,
+              avatarUrl: myStories.isNotEmpty ? myStories.first.userAvatar : null,
+              onView: myStories.isNotEmpty
+                  ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewer(stories: myStories, initialIndex: 0)))
+                  : _openCreateStory,
+              onAdd: _openCreateStory,
+            );
+          }
+          final s = otherStories[i - 1];
+          return _StoryItem(
+            story: s,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewer(stories: otherStories, initialIndex: i - 1))),
+          );
         },
       ),
     );
@@ -240,6 +267,107 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
   void _showShareSheet(post) => showModalBottomSheet(context: context, builder: (_)=> SafeArea(child: Wrap(children: [ListTile(leading: const Icon(Icons.link), title: const Text('Copier lien'), onTap: ()=> Navigator.pop(context)), ListTile(leading: const Icon(Icons.share), title: const Text('Partager'), onTap: ()=> Navigator.pop(context))])));
 }
 
-// ─── SOUS-WIDGETS STORIES ───
-class _AddStoryBtn extends StatelessWidget { final VoidCallback onTap; const _AddStoryBtn({required this.onTap}); @override Widget build(BuildContext context){ return GestureDetector(onTap: onTap, child: Column(children: [Container(width: 52, height: 52, decoration: BoxDecoration(shape: BoxShape.circle, color: ThixColors.softBlue, border: Border.all(color: ThixColors.gold, width: 1.5)), child: const Icon(Icons.add, color: ThixColors.gold)), const SizedBox(height: 4), const Text('Ajouter', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600))])) ;}}
-class _StoryItem extends StatelessWidget { final NetworkStory story; final VoidCallback onTap; const _StoryItem({required this.story, required this.onTap}); @override Widget build(BuildContext context){ return GestureDetector(onTap: onTap, child: Column(children: [Container(padding: const EdgeInsets.all(2.5), decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [ThixColors.primary, ThixColors.gold])), child: CircleAvatar(radius: 23, backgroundImage: story.userAvatar!=null? NetworkImage(story.userAvatar!) : null)), const SizedBox(height: 4), SizedBox(width: 56, child: Text(story.userName.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)))])); }}
+// ─── VOTRE STORY (toujours en première position) ───
+class _MyStoryItem extends StatelessWidget {
+  final bool hasStory;
+  final String? avatarUrl;
+  final VoidCallback onView;
+  final VoidCallback onAdd;
+
+  const _MyStoryItem({
+    required this.hasStory,
+    required this.avatarUrl,
+    required this.onView,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onView,
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              hasStory
+                  ? Container(
+                      padding: const EdgeInsets.all(2.5),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(colors: [ThixColors.primary, ThixColors.gold]),
+                      ),
+                      child: CircleAvatar(
+                        radius: 23,
+                        backgroundColor: ThixColors.softBlue,
+                        backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                            ? NetworkImage(avatarUrl!)
+                            : null,
+                        child: avatarUrl == null || avatarUrl!.isEmpty
+                            ? const Icon(Icons.person, size: 22, color: ThixColors.primaryDeep)
+                            : null,
+                      ),
+                    )
+                  : Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: ThixColors.softBlue,
+                        border: Border.all(color: ThixColors.border, width: 1.5),
+                      ),
+                      child: const Icon(Icons.person, size: 24, color: ThixColors.primaryDeep),
+                    ),
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: GestureDetector(
+                  onTap: onAdd,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ThixColors.gold,
+                      border: Border.all(color: ThixColors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.add_rounded, size: 13, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasStory ? 'Votre story' : 'Ajouter',
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ThixColors.textDark),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryItem extends StatelessWidget {
+  final NetworkStory story;
+  final VoidCallback onTap;
+  const _StoryItem({required this.story, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [ThixColors.primary, ThixColors.gold])),
+          child: CircleAvatar(radius: 23, backgroundImage: story.userAvatar != null ? NetworkImage(story.userAvatar!) : null),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 56,
+          child: Text(story.userName.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+        ),
+      ]),
+    );
+  }
+}
