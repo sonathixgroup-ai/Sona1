@@ -21,7 +21,7 @@ class ChatPrivacySettings extends StatelessWidget {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
-    if (provider.isLoading) {
+    if (provider.isLoading && settings == null) {
       return Scaffold(
         backgroundColor: ivory,
         appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
@@ -29,13 +29,11 @@ class ChatPrivacySettings extends StatelessWidget {
       );
     }
 
-    if (settings == null) {
-      return Scaffold(
-        backgroundColor: ivory,
-        appBar: AppBar(title: const Text('Confidentialité', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: navyDeep, foregroundColor: Colors.white, elevation: 0),
-        body: const Center(child: Text('Impossible de charger les réglages', style: TextStyle(color: mutedText))),
-      );
-    }
+    // VALEURS PAR DÉFAUT
+    final lastSeen = settings?.lastSeenVisibility ?? 'everyone';
+    final profilePhoto = settings?.profilePhotoVisibility ?? 'everyone';
+    final readReceipts = settings?.readReceipts ?? true;
+    final typingIndicator = settings?.typingIndicator ?? true;
 
     return Scaffold(
       backgroundColor: ivory,
@@ -53,14 +51,14 @@ class ChatPrivacySettings extends StatelessWidget {
             child: ListTile(
               title: const Text('Dernière activité', style: TextStyle(fontWeight: FontWeight.bold, color: darkText)),
               trailing: DropdownButton<String>(
-                value: settings.lastSeenVisibility,
+                value: lastSeen,
                 underline: const SizedBox(),
                 items: const [
                   DropdownMenuItem(value: 'everyone', child: Text('Tout le monde')),
                   DropdownMenuItem(value: 'contacts', child: Text('Mes contacts')),
                   DropdownMenuItem(value: 'nobody', child: Text('Personne')),
                 ],
-                onChanged: (val) async {
+                onChanged: settings == null ? null : (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(lastSeenVisibility: val));
                   }
@@ -74,14 +72,14 @@ class ChatPrivacySettings extends StatelessWidget {
             child: ListTile(
               title: const Text('Photo de profil', style: TextStyle(fontWeight: FontWeight.bold, color: darkText)),
               trailing: DropdownButton<String>(
-                value: settings.profilePhotoVisibility,
+                value: profilePhoto,
                 underline: const SizedBox(),
                 items: const [
                   DropdownMenuItem(value: 'everyone', child: Text('Tout le monde')),
                   DropdownMenuItem(value: 'contacts', child: Text('Mes contacts')),
                   DropdownMenuItem(value: 'nobody', child: Text('Personne')),
                 ],
-                onChanged: (val) async {
+                onChanged: settings == null ? null : (val) async {
                   if (val != null) {
                     await provider.updateSettings(settings.copyWith(profilePhotoVisibility: val));
                   }
@@ -95,8 +93,8 @@ class ChatPrivacySettings extends StatelessWidget {
             child: ChatSettingsSwitch(
               title: 'Confirmations de lecture',
               subtitle: 'Afficher quand vous lisez un message',
-              value: settings.readReceipts,
-              onChanged: (val) async {
+              value: readReceipts,
+              onChanged: settings == null ? null : (val) async {
                 await provider.updateSettings(settings.copyWith(readReceipts: val));
               },
             ),
@@ -107,8 +105,8 @@ class ChatPrivacySettings extends StatelessWidget {
             child: ChatSettingsSwitch(
               title: 'Indicateur de saisie',
               subtitle: 'Afficher quand vous tapez un message',
-              value: settings.typingIndicator,
-              onChanged: (val) async {
+              value: typingIndicator,
+              onChanged: settings == null ? null : (val) async {
                 await provider.updateSettings(settings.copyWith(typingIndicator: val));
               },
             ),
