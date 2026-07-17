@@ -1,6 +1,5 @@
-// lib/presentation/chat/connection_requests_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/chat/connection_service.dart';
 
 class ConnectionRequestsPage extends StatefulWidget {
@@ -11,6 +10,14 @@ class ConnectionRequestsPage extends StatefulWidget {
 }
 
 class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
+  // Couleurs harmonisées
+  static const Color primaryBlue = Color(0xFF4A8BFF);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color ivory = Color(0xFFF3F5FA);
+  static const Color success = Color(0xFF1FA971);
+  static const Color danger = Color(0xFFD64545);
+  static const Color mutedText = Color(0xFF6B7690);
+
   late ConnectionService _connectionService;
   List<ConnectionRequest> _requests = [];
   bool _loading = true;
@@ -37,50 +44,28 @@ class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Demandes de connexion'),
-        backgroundColor: Colors.blue,
+  // Confirmation pour refuser (Insister pour le deuxième avis)
+  Future<void> _confirmRejectRequest(String requestId) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Refuser la demande ?', style: TextStyle(color: navyDeep, fontWeight: FontWeight.bold)),
+        content: const Text('Êtes-vous sûr de vouloir refuser cette invitation ? Prenez un moment pour réfléchir.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Oui, refuser', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _requests.isEmpty
-              ? const Center(child: Text('Aucune demande en attente'))
-              : ListView.builder(
-                  itemCount: _requests.length,
-                  itemBuilder: (context, index) {
-                    final request = _requests[index];
-                    final sender = request.sender;
-                    final name = sender?['display_name'] ?? sender?['username'] ?? 'Inconnu';
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue.shade100,
-                          child: Text(name[0].toUpperCase()),
-                        ),
-                        title: Text(name),
-                        subtitle: Text(request.message ?? 'Souhaite vous contacter'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.check, color: Colors.green),
-                              onPressed: () => _acceptRequest(request.id),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, color: Colors.red),
-                              onPressed: () => _rejectRequest(request.id),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
     );
+
+    if (confirmed == true) {
+      _rejectRequest(requestId);
+    }
   }
 
   Future<void> _acceptRequest(String requestId) async {
@@ -88,11 +73,11 @@ class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
       await _connectionService.acceptRequest(requestId);
       _loadRequests();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connexion acceptée ✅'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Connexion acceptée '), backgroundColor: success),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: danger),
       );
     }
   }
@@ -106,8 +91,61 @@ class _ConnectionRequestsPageState extends State<ConnectionRequestsPage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: danger),
       );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ivory,
+      appBar: AppBar(
+        title: const Text('Demandes reçues', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: navyDeep,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+          : _requests.isEmpty
+              ? const Center(child: Text('Aucune demande en attente', style: TextStyle(color: mutedText)))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _requests.length,
+                  itemBuilder: (context, index) {
+                    final request = _requests[index];
+                    final sender = request.sender;
+                    final name = sender?['display_name'] ?? sender?['username'] ?? 'Inconnu';
+                    return Card(
+                      elevation: 0,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: CircleAvatar(
+                          backgroundColor: primaryBlue.withOpacity(0.1),
+                          child: Text(name[0].toUpperCase(), style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold)),
+                        ),
+                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(request.message ?? 'Souhaite vous contacter', style: const TextStyle(color: mutedText)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.check, color: success),
+                              onPressed: () => _acceptRequest(request.id),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: danger),
+                              onPressed: () => _confirmRejectRequest(request.id),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
   }
 }
