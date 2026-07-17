@@ -1,4 +1,3 @@
-
 // lib/app_router.dart - BUILD VERT - Toutes routes conservees - FIX BUS
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -663,5 +662,3 @@ extension GoRouterBackHelpers on BuildContext {
     go(fallbackLocation);
   }
 }
-
-
