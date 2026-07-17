@@ -1,3 +1,7 @@
+// ============================================================
+// 📁 lib/services/chat/connection_service.dart (CORRIGÉ)
+// ============================================================
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -188,7 +192,7 @@ class ConnectionService extends ChangeNotifier {
           .insert(data)
           .select()
           .single();
-      await loadData(senderId); // Recharger
+      await loadData(senderId);
       return true;
     } catch (e) {
       _error = e.toString();
@@ -251,47 +255,55 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // Vérifier le statut entre deux utilisateurs
+  // ✅ CORRECTION : getStatusBetween avec la bonne syntaxe OR
   Future<String> getStatusBetween(String userId1, String userId2) async {
-    // Vérifier si une connexion existe
-    final connected = await _supabase
-        .from('connections')
-        .select('id')
-        .or('user1_id.eq.$userId1,user2_id.eq.$userId1')
-        .or('user1_id.eq.$userId2,user2_id.eq.$userId2')
-        .maybeSingle();
-    if (connected != null) return 'connected';
+    try {
+      // Vérifier si une connexion existe
+      final connected = await _supabase
+          .from('connections')
+          .select('id')
+          .or('(user1_id.eq.$userId1,user2_id.eq.$userId2),(user1_id.eq.$userId2,user2_id.eq.$userId1)')
+          .maybeSingle();
+      if (connected != null) return 'connected';
 
-    final pending = await _supabase
-        .from('connection_requests')
-        .select('status')
-        .or('sender_id.eq.$userId1,receiver_id.eq.$userId1')
-        .or('sender_id.eq.$userId2,receiver_id.eq.$userId2')
-        .eq('status', 'pending')
-        .maybeSingle();
-    if (pending != null) return 'pending';
+      // Vérifier s'il y a une demande en attente
+      final pending = await _supabase
+          .from('connection_requests')
+          .select('status')
+          .or('(sender_id.eq.$userId1,receiver_id.eq.$userId2),(sender_id.eq.$userId2,receiver_id.eq.$userId1)')
+          .eq('status', 'pending')
+          .maybeSingle();
+      if (pending != null) return 'pending';
 
-    final rejected = await _supabase
-        .from('connection_requests')
-        .select('status')
-        .or('sender_id.eq.$userId1,receiver_id.eq.$userId1')
-        .or('sender_id.eq.$userId2,receiver_id.eq.$userId2')
-        .eq('status', 'rejected')
-        .maybeSingle();
-    if (rejected != null) return 'rejected';
+      // Vérifier s'il y a une demande rejetée
+      final rejected = await _supabase
+          .from('connection_requests')
+          .select('status')
+          .or('(sender_id.eq.$userId1,receiver_id.eq.$userId2),(sender_id.eq.$userId2,receiver_id.eq.$userId1)')
+          .eq('status', 'rejected')
+          .maybeSingle();
+      if (rejected != null) return 'rejected';
 
-    return 'none';
+      return 'none';
+    } catch (e) {
+      print('❌ Erreur getStatusBetween: $e');
+      return 'none';
+    }
   }
 
-  // Vérifier si une connexion existe
+  // ✅ CORRECTION : checkConnection avec la bonne syntaxe OR
   Future<bool> checkConnection(String userId1, String userId2) async {
-    final response = await _supabase
-        .from('connections')
-        .select('id')
-        .or('user1_id.eq.$userId1,user2_id.eq.$userId1')
-        .or('user1_id.eq.$userId2,user2_id.eq.$userId2')
-        .maybeSingle();
-    return response != null;
+    try {
+      final response = await _supabase
+          .from('connections')
+          .select('id')
+          .or('(user1_id.eq.$userId1,user2_id.eq.$userId2),(user1_id.eq.$userId2,user2_id.eq.$userId1)')
+          .maybeSingle();
+      return response != null;
+    } catch (e) {
+      print('❌ Erreur checkConnection: $e');
+      return false;
+    }
   }
 
   void _setLoading(bool loading) {
