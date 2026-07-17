@@ -201,9 +201,20 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // Accepter une demande
+  // Accepter une demande (CORRECTION ICI)
   Future<bool> acceptRequest(String requestId, String userId) async {
     try {
+      // 1. Récupérer les ID de l'expéditeur et du destinataire
+      final requestData = await _supabase
+          .from('connection_requests')
+          .select('sender_id, receiver_id')
+          .eq('id', requestId)
+          .single();
+
+      final senderId = requestData['sender_id'];
+      final receiverId = requestData['receiver_id'];
+
+      // 2. Mettre à jour le statut de la demande
       await _supabase
           .from('connection_requests')
           .update({
@@ -211,6 +222,15 @@ class ConnectionService extends ChangeNotifier {
             'responded_at': DateTime.now().toIso8601String(),
           })
           .eq('id', requestId);
+
+      // 3. CRÉER LA CONNEXION DANS LA TABLE CONNECTIONS (Ce qui manquait)
+      await _supabase
+          .from('connections')
+          .insert({
+            'user1_id': senderId,
+            'user2_id': receiverId,
+          });
+
       await loadData(userId);
       return true;
     } catch (e) {
@@ -255,7 +275,7 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ CORRECTION : getStatusBetween avec la bonne syntaxe OR
+  // getStatusBetween
   Future<String> getStatusBetween(String userId1, String userId2) async {
     try {
       // Vérifier si une connexion existe
@@ -291,7 +311,7 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ CORRECTION : checkConnection avec la bonne syntaxe OR
+  // checkConnection
   Future<bool> checkConnection(String userId1, String userId2) async {
     try {
       final response = await _supabase
