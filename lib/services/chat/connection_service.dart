@@ -1,14 +1,10 @@
 // ============================================================
-// 📁 lib/services/chat/connection_service.dart (CORRIGÉ)
+// lib/services/chat/connection_service.dart
 // ============================================================
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ============================================================
-// MODÈLES
-// ============================================================
-
+// ─── MODÈLES ──────────────────────────────────────────────────
 class ConnectionRequest {
   final String id;
   final String senderId;
@@ -84,10 +80,7 @@ class Connection {
   }
 }
 
-// ============================================================
-// SERVICE (ChangeNotifier)
-// ============================================================
-
+// ─── SERVICE ──────────────────────────────────────────────────
 class ConnectionService extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -124,6 +117,8 @@ class ConnectionService extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  // ─── PRIVÉ ──────────────────────────────────────────────────
 
   Future<List<ConnectionRequest>> _getPendingRequests(String userId) async {
     final response = await _supabase
@@ -174,12 +169,19 @@ class ConnectionService extends ChangeNotifier {
     return connections;
   }
 
+  // ─── PUBLIQUES ──────────────────────────────────────────────
+
   // Envoyer une demande
   Future<bool> sendRequest({
     required String senderId,
     required String receiverId,
     String? message,
   }) async {
+    if (senderId == receiverId) {
+      _error = 'Impossible de s\'envoyer une demande à soi-même';
+      notifyListeners();
+      return false;
+    }
     try {
       final data = {
         'sender_id': senderId,
@@ -201,18 +203,15 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // Accepter une demande (CORRECTION ICI)
+  // Accepter une demande (avec insertion dans connections)
   Future<bool> acceptRequest(String requestId, String userId) async {
     try {
-      // 1. Récupérer les ID de l'expéditeur et du destinataire
-      final requestData = await _supabase
+      // 1. Récupérer la demande
+      final request = await _supabase
           .from('connection_requests')
-          .select('sender_id, receiver_id')
+          .select()
           .eq('id', requestId)
           .single();
-
-      final senderId = requestData['sender_id'];
-      final receiverId = requestData['receiver_id'];
 
       // 2. Mettre à jour le statut de la demande
       await _supabase
@@ -223,12 +222,13 @@ class ConnectionService extends ChangeNotifier {
           })
           .eq('id', requestId);
 
-      // 3. CRÉER LA CONNEXION DANS LA TABLE CONNECTIONS (Ce qui manquait)
+      // 3. Créer la connexion (ordre trié pour éviter les doublons)
+      final ids = [request['sender_id'], request['receiver_id']]..sort();
       await _supabase
           .from('connections')
           .insert({
-            'user1_id': senderId,
-            'user2_id': receiverId,
+            'user1_id': ids[0],
+            'user2_id': ids[1],
           });
 
       await loadData(userId);
@@ -275,10 +275,27 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // getStatusBetween
-  Future<String> getStatusBetween(String userId1, String userId2) async {
+  // ✅ CORRIGÉ : vérification de connexion avec OR correct
+  Future<bool> checkConnection(String userId1, String userId2) async {
+    if (userId1 == userId2) return false;
     try {
-      // Vérifier si une connexion existe
+      final response = await _supabase
+          .from('connections')
+          .select('id')
+          .or('(user1_id.eq.$userId1,user2_id.eq.$userId2),(user1_id.eq.$userId2,user2_id.eq.$userId1)')
+          .maybeSingle();
+      return response != null;
+    } catch (e) {
+      debugPrint('❌ checkConnection error: $e');
+      return false;
+    }
+  }
+
+  // ✅ CORRIGÉ : statut entre deux utilisateurs
+  Future<String> getStatusBetween(String userId1, String userId2) async {
+    if (userId1 == userId2) return 'self';
+    try {
+      // 1. Connexion existante ?
       final connected = await _supabase
           .from('connections')
           .select('id')
@@ -286,7 +303,7 @@ class ConnectionService extends ChangeNotifier {
           .maybeSingle();
       if (connected != null) return 'connected';
 
-      // Vérifier s'il y a une demande en attente
+      // 2. Demande en attente ?
       final pending = await _supabase
           .from('connection_requests')
           .select('status')
@@ -295,7 +312,7 @@ class ConnectionService extends ChangeNotifier {
           .maybeSingle();
       if (pending != null) return 'pending';
 
-      // Vérifier s'il y a une demande rejetée
+      // 3. Demande rejetée ?
       final rejected = await _supabase
           .from('connection_requests')
           .select('status')
@@ -306,23 +323,8 @@ class ConnectionService extends ChangeNotifier {
 
       return 'none';
     } catch (e) {
-      print('❌ Erreur getStatusBetween: $e');
+      debugPrint('❌ getStatusBetween error: $e');
       return 'none';
-    }
-  }
-
-  // checkConnection
-  Future<bool> checkConnection(String userId1, String userId2) async {
-    try {
-      final response = await _supabase
-          .from('connections')
-          .select('id')
-          .or('(user1_id.eq.$userId1,user2_id.eq.$userId2),(user1_id.eq.$userId2,user2_id.eq.$userId1)')
-          .maybeSingle();
-      return response != null;
-    } catch (e) {
-      print('❌ Erreur checkConnection: $e');
-      return false;
     }
   }
 
