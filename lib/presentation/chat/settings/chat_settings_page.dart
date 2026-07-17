@@ -4,18 +4,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // IMPORTANT: Ajouté pour avoir l'ID de l'utilisateur
 
-// Tes providers et widgets
 import '../../../providers/chat/chat_settings_provider.dart';
 import 'widgets/chat_settings_tile.dart';
 import 'widgets/chat_settings_section.dart';
 
-// ✅ IMPORTS DE TES VRAIES PAGES (basés sur tes captures d'écran)
 import 'chat_appearance_settings.dart';
 import 'chat_privacy_settings.dart';
 import 'chat_notification_settings.dart';
 import 'chat_data_settings.dart';
-import '../profile/chat_profile_page.dart'; // Import du profil
+import '../profile/chat_profile_page.dart';
 
 class ChatSettingsPage extends StatefulWidget {
   const ChatSettingsPage({super.key});
@@ -25,19 +24,29 @@ class ChatSettingsPage extends StatefulWidget {
 }
 
 class _ChatSettingsPageState extends State<ChatSettingsPage> {
-  // Couleurs THIX ID
   static const Color primaryBlue = Color(0xFF4A8BFF);
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color ivory = Color(0xFFF3F5FA);
   static const Color danger = Color(0xFFD64545);
   static const Color mutedText = Color(0xFF6B7690);
 
+  // ✅ NOUVEAU : On charge les données dès l'ouverture de la page !
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) {
+        context.read<ChatSettingsProvider>().load(userId);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ChatSettingsProvider>();
     final settings = provider.settings;
 
-    // Valeurs par défaut sécurisées
     final theme = settings?.theme ?? 'system';
     final wallpaper = settings?.wallpaper ?? 'default';
     final lastSeen = settings?.lastSeenVisibility ?? 'everyone';
@@ -60,7 +69,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
           : ListView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               children: [
-                // Apparence
                 ChatSettingsSection(
                   title: 'Apparence',
                   children: [
@@ -68,7 +76,7 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                       icon: Icons.palette_rounded,
                       title: 'Thème',
                       subtitle: _getThemeLabel(theme),
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatAppearanceSettings())), // Nom de classe à adapter si besoin
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatAppearanceSettings())),
                     ),
                     ChatSettingsTile(
                       icon: Icons.brush_rounded,
@@ -78,8 +86,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     ),
                   ],
                 ),
-                
-                // Confidentialité
                 ChatSettingsSection(
                   title: 'Confidentialité',
                   children: [
@@ -97,8 +103,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     ),
                   ],
                 ),
-                
-                // Notifications
                 ChatSettingsSection(
                   title: 'Notifications',
                   children: [
@@ -116,8 +120,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     ),
                   ],
                 ),
-                
-                // Messages
                 ChatSettingsSection(
                   title: 'Messages',
                   children: [
@@ -135,8 +137,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     ),
                   ],
                 ),
-                
-                // Compte
                 ChatSettingsSection(
                   title: 'Compte',
                   children: [
@@ -145,7 +145,6 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                       title: 'Voir mon profil',
                       onTap: () {
                         if (provider.chatUser?.id != null) {
-                          // Redirection vers ta page de profil
                           Navigator.push(context, MaterialPageRoute(builder: (_) => ChatProfilePage(userId: provider.chatUser!.id))); 
                         }
                       },
@@ -153,20 +152,16 @@ class _ChatSettingsPageState extends State<ChatSettingsPage> {
                     ListTile(
                       leading: const Icon(Icons.logout_rounded, color: danger),
                       title: const Text('Se déconnecter', style: TextStyle(color: danger, fontWeight: FontWeight.bold)),
-                      onTap: () {
-                        // Action de déconnexion
-                      },
+                      onTap: () {},
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 32),
               ],
             ),
     );
   }
 
-  // --- Fonctions utilitaires ---
   String _getThemeLabel(String theme) {
     switch (theme) {
       case 'light': return 'Clair';
