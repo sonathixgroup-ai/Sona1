@@ -203,7 +203,12 @@ class SupermarketProvider extends ChangeNotifier {
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'products',
-          filter: PostgresChangeFilter(column: 'shop_id', value: shopId),
+          filter: PostgresChangeFilter(
+  type: PostgresChangeFilterType.eq, // <-- Ajoute cette ligne
+  column: 'shop_id', 
+  value: shopId
+),
+
           callback: (payload) {
             final idx = products.indexWhere((e) => e['id'] == payload.newRecord['id']);
             if (idx!= -1) {
