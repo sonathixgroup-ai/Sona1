@@ -85,7 +85,7 @@ class _MediaFormSheetState extends State<MediaFormSheet> {
 
       if (widget.existing == null) {
         final newItem = MediaContent(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          id: 'temp', // ID bidon temporaire
           title: _title.text.trim(),
           subtitle: _subtitle.text.trim(),
           type: _type,
@@ -101,7 +101,15 @@ class _MediaFormSheetState extends State<MediaFormSheet> {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        await Supabase.instance.client.from('media_content').insert(newItem.toJson());
+        
+        // ✅ LA CORRECTION EST ICI :
+        // On convertit l'objet en JSON et on supprime l'ID invalide
+        // pour que Supabase génère automatiquement un vrai UUID.
+        final insertData = newItem.toJson();
+        insertData.remove('id');
+        
+        await Supabase.instance.client.from('media_content').insert(insertData);
+        
       } else {
         await Supabase.instance.client.from('media_content').update({
           'title': _title.text.trim(),
