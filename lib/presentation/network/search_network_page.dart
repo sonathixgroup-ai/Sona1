@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:thix_id/models/network_community.dart';
 import 'package:thix_id/services/network_service.dart';
 
@@ -24,11 +26,20 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
   List<Map<String, dynamic>> _posts = [];
   List<NetworkCommunity> _communities = [];
 
+  // Gestion des états de connexion (Optimistic UI)
+  Set<String> _pendingRequests = {};
+  Set<String> _connectedUsers = {};
+
+  // Couleurs de la charte THIX PRO
+  final Color _thixPrimaryBlue = const Color(0xFF2B5CFF);
+  final Color _thixDarkText = const Color(0xFF1A1A2E);
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _networkService = NetworkService(Supabase.instance.client);
+    _networkService = Provider.of<NetworkService>(context, listen: false);
+    _loadUserConnections(); // Charge les états existants au démarrage
   }
 
   @override
@@ -37,6 +48,34 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
     _tabController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadUserConnections() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final uid = _networkService.currentUserId;
+
+      final pendingRes = await supabase
+          .from('connection_requests')
+          .select('receiver_id')
+          .eq('sender_id', uid)
+          .eq('status', 'pending');
+
+      final connRes = await supabase
+          .from('connections')
+          .select('connection_id')
+          .eq('user_id', uid)
+          .eq('status', 'accepted');
+
+      if (mounted) {
+        setState(() {
+          _pendingRequests = (pendingRes as List).map((e) => e['receiver_id'] as String).toSet();
+          _connectedUsers = (connRes as List).map((e) => e['connection_id'] as String).toSet();
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement connexions: $e');
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -48,7 +87,20 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
 
   Future<void> _search() async {
     final query = _searchController.text.trim();
-    if (query.isEmpty) return;
+    
+    // Si la recherche est vide, on réinitialise l'écran immédiatement
+    if (query.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _query = '';
+          _users = [];
+          _posts = [];
+          _communities = [];
+          _loading = false;
+        });
+      }
+      return;
+    }
 
     setState(() {
       _query = query;
@@ -56,43 +108,64 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
     });
 
     try {
-      final users = await _networkService.searchUsers(query);
-      final posts = await _networkService.searchPosts(query);
-      final communities = await _networkService.searchCommunities(query);
+      // Chargement en parallèle
+      final results = await Future.wait([
+        _networkService.searchUsers(query),
+        _networkService.searchPosts(query),
+        _networkService.searchCommunities(query),
+      ]);
+
+      if (!mounted) return;
+
+      // Bouclier Anti Race Condition : on ignore si l'utilisateur a continué de taper
+      if (_searchController.text.trim() != query) {
+        debugPrint('Race condition évitée: résultats pour "$query" ignorés.');
+        return; 
+      }
 
       setState(() {
-        _users = users;
-        _posts = posts;
-        _communities = communities;
+        _users = results[0] as List<Map<String, dynamic>>;
+        _posts = results[1] as List<Map<String, dynamic>>;
+        _communities = results[2] as List<NetworkCommunity>;
+        _loading = false;
       });
     } catch (e) {
       debugPrint('Search error: $e');
-      setState(() {
-        _users = [];
-        _posts = [];
-        _communities = [];
-      });
-      if (mounted) {
+      if (!mounted) return;
+      
+      if (_searchController.text.trim() == query) {
+        setState(() {
+          _users = [];
+          _posts = [];
+          _communities = [];
+          _loading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Erreur de recherche'), backgroundColor: Colors.red),
         );
       }
-    } finally {
-      setState(() => _loading = false);
     }
   }
 
   Future<void> _sendConnectionRequest(String userId, String userName) async {
+    // Optimistic UI : On change l'état immédiatement
+    setState(() {
+      _pendingRequests.add(userId);
+    });
+
     try {
       await _networkService.sendConnectionRequest(userId);
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Demande envoyée à $userName'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
+      // Rollback en cas d'échec
       if (mounted) {
+        setState(() {
+          _pendingRequests.remove(userId);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
         );
@@ -102,40 +175,15 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
 
   Future<void> _joinCommunity(NetworkCommunity community) async {
     try {
-      final supabase = Supabase.instance.client;
-      final currentUserId = supabase.auth.currentUser!.id;
+      await _networkService.joinCommunity(community.id);
       
-      final existing = await supabase
-          .from('community_members')
-          .select('id')
-          .eq('community_id', community.id)
-          .eq('user_id', currentUserId)
-          .maybeSingle();
-      
-      if (existing == null) {
-        await supabase.from('community_members').insert({
-          'community_id': community.id,
-          'user_id': currentUserId,
-          'joined_at': DateTime.now().toIso8601String(),
-        });
-        
-        await supabase.rpc('increment_community_members', params: {'community_id': community.id});
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Vous avez rejoint ${community.name}'), backgroundColor: Colors.green),
-          );
-          await _search();
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Vous êtes déjà membre'), backgroundColor: Colors.orange),
-          );
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action effectuée pour ${community.name}'), backgroundColor: Colors.green),
+        );
+        _search(); // Rafraîchissement léger
       }
     } catch (e) {
-      debugPrint('Error joining community: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
@@ -147,16 +195,17 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F8FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Recherche', style: TextStyle(color: Color(0xFF0B1B3D), fontWeight: FontWeight.bold)),
+        title: Text('Recherche', style: TextStyle(color: _thixDarkText, fontWeight: FontWeight.bold)),
+        iconTheme: IconThemeData(color: _thixDarkText),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFFD4AF37),
+          labelColor: _thixPrimaryBlue,
           unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFFD4AF37),
+          indicatorColor: _thixPrimaryBlue,
           tabs: const [
             Tab(text: 'Personnes'),
             Tab(text: 'Publications'),
@@ -169,9 +218,9 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
           _buildSearchBar(),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: _thixPrimaryBlue))
                 : _query.isEmpty
-                    ? const Center(child: Text('Recherchez des personnes, publications ou communautés'))
+                    ? Center(child: Text('Recherchez des personnes, publications...', style: TextStyle(color: Colors.grey.shade600)))
                     : TabBarView(
                         controller: _tabController,
                         children: [
@@ -190,33 +239,18 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              onSubmitted: (_) => _search(),
-              decoration: InputDecoration(
-                hintText: 'Rechercher...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _search,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
-              foregroundColor: const Color(0xFF0B1B3D),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            ),
-            child: const Text('Rechercher'),
-          ),
-        ],
+      child: TextField(
+        controller: _searchController,
+        onChanged: _onSearchChanged,
+        onSubmitted: (_) => _search(),
+        decoration: InputDecoration(
+          hintText: 'Rechercher...',
+          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+          filled: true,
+          fillColor: const Color(0xFFF5F8FA),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+        ),
       ),
     );
   }
@@ -233,51 +267,88 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
   Widget _buildUserTile(Map<String, dynamic> user) {
     final avatarUrl = user['avatar_url']?.toString();
     final displayName = user['display_name']?.toString() ?? 'Utilisateur';
-    final title = user['title']?.toString();
+    final title = user['profession']?.toString() ?? user['title']?.toString();
     final userId = user['id']?.toString() ?? '';
-    final isCurrentUser = userId == Supabase.instance.client.auth.currentUser?.id;
+    
+    final isCurrentUser = userId == _networkService.currentUserId;
+    final isPending = _pendingRequests.contains(userId);
+    final isConnected = _connectedUsers.contains(userId);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl == null ? const Icon(Icons.person) : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                if (title != null && title.isNotEmpty)
-                  Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
+    return GestureDetector(
+      onTap: () => context.push('/network/profile/$userId'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.grey.shade200,
+              backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) 
+                  ? CachedNetworkImageProvider(avatarUrl) 
+                  : null,
+              child: (avatarUrl == null || avatarUrl.isEmpty) 
+                  ? Icon(Icons.person, color: Colors.grey.shade400) 
+                  : null,
             ),
-          ),
-          if (!isCurrentUser)
-            OutlinedButton(
-              onPressed: () => _sendConnectionRequest(userId, displayName),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFD4AF37)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(displayName, style: TextStyle(fontWeight: FontWeight.bold, color: _thixDarkText)),
+                  if (title != null && title.isNotEmpty)
+                    Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
               ),
-              child: const Text('Se connecter', style: TextStyle(fontSize: 11)),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text('Vous', style: TextStyle(fontSize: 11)),
             ),
-        ],
+            if (!isCurrentUser)
+              _buildConnectionButton(userId, displayName, isPending, isConnected)
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildConnectionButton(String userId, String userName, bool isPending, bool isConnected) {
+    if (isConnected) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check, size: 14, color: _thixDarkText),
+            const SizedBox(width: 4),
+            Text('Connecté', style: TextStyle(fontSize: 11, color: _thixDarkText, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }
+
+    if (isPending) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Text('En attente', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+      );
+    }
+
+    return OutlinedButton(
+      onPressed: () => _sendConnectionRequest(userId, userName),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: _thixPrimaryBlue),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        foregroundColor: _thixPrimaryBlue,
+      ),
+      child: const Text('Se connecter', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -291,19 +362,17 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
   }
 
   Widget _buildPostTile(Map<String, dynamic> post) {
-    final user = post['profiles'] as Map<String, dynamic>?;
-    final userName = user?['display_name']?.toString() ?? 'Utilisateur';
-    final userAvatar = user?['avatar_url']?.toString();
+    final userName = post['author_name']?.toString() ?? 'Utilisateur';
+    final userAvatar = post['author_avatar']?.toString();
     final postId = post['id']?.toString() ?? '';
     final content = post['content']?.toString() ?? '';
-    final communityId = post['community_id']?.toString();
 
     return GestureDetector(
-      onTap: () => context.go('/network/post/$postId'),
+      onTap: () => context.push('/network/post/$postId'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -311,23 +380,17 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundImage: userAvatar != null ? NetworkImage(userAvatar) : null,
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage: (userAvatar != null && userAvatar.isNotEmpty) 
+                      ? CachedNetworkImageProvider(userAvatar) 
+                      : null,
                 ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      if (communityId != null)
-                        Text('Publié dans une communauté', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                    ],
-                  ),
-                ),
+                Text(userName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _thixDarkText)),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(content, maxLines: 3, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 12),
+            Text(content, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: _thixDarkText.withOpacity(0.8))),
           ],
         ),
       ),
@@ -345,7 +408,7 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
 
   Widget _buildCommunityTile(NetworkCommunity community) {
     return GestureDetector(
-      onTap: () => context.go('/network/community/${community.id}'),
+      onTap: () => context.push('/network/community/${community.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
@@ -356,25 +419,29 @@ class _SearchNetworkPageState extends State<SearchNetworkPage> with SingleTicker
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37).withOpacity(0.1),
+                color: _thixPrimaryBlue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.groups, color: Color(0xFFD4AF37)),
+              child: Icon(Icons.groups, color: _thixPrimaryBlue),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(community.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(community.name, style: TextStyle(fontWeight: FontWeight.bold, color: _thixDarkText)),
                   Text('${community.membersCount} membres', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
               ),
             ),
             OutlinedButton(
               onPressed: () => _joinCommunity(community),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFD4AF37))),
-              child: const Text('Rejoindre', style: TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: _thixPrimaryBlue),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                foregroundColor: _thixPrimaryBlue,
+              ),
+              child: const Text('Rejoindre', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
