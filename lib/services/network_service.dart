@@ -279,11 +279,21 @@ class NetworkService extends ChangeNotifier {
   // STORIES & HIGHLIGHTS
   // ─────────────────────────────────────────────
   Future<List<NetworkStory>> getActiveStories() async {
-    try {
-      final res = await _supabase.from('stories').select('*, profiles!user_id(display_name, avatar_url, profession)').eq('is_active', true).gte('expires_at', DateTime.now().toIso8601String()).order('created_at', ascending: false).limit(30);
-      return (res as List).map((e) => NetworkStory.fromJson(e)).toList();
-    } catch (e) { debugPrint('getActiveStories: $e'); return []; }
+  try {
+    // La vue active_stories contient déjà :
+    // user_name, user_avatar, user_title (jointure avec profiles)
+    // et filtre les stories actives (now() < expires_at)
+    final res = await _supabase
+        .from('active_stories')
+        .select('*')
+        .order('created_at', ascending: false)
+        .limit(30);
+    return (res as List).map((e) => NetworkStory.fromJson(e)).toList();
+  } catch (e) {
+    debugPrint('getActiveStories: $e');
+    return [];
   }
+}
 
   Future<void> createStory(String mediaUrl, {String mediaType = 'image', int duration = 24}) async {
     await _supabase.from('stories').insert({'user_id': currentUserId, 'media_url': mediaUrl, 'media_type': mediaType, 'is_active': true, 'expires_at': DateTime.now().add(Duration(hours: duration.clamp(6, 48))).toIso8601String()});
