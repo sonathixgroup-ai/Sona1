@@ -508,10 +508,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-    Widget _buildPostGridItem(NetworkPost post) {
-    final mediaUrl = (post.mediaUrl != null && post.mediaUrl!.isNotEmpty) 
-        ? post.mediaUrl 
-        : (post.imageUrls.isNotEmpty ? post.imageUrls.first : null);
+      Widget _buildPostGridItem(NetworkPost post) {
+    // On utilise directement imageUrls qui existe dans ton modèle
+    final mediaUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : null;
+
 
     return GestureDetector(
       onTap: () => context.push('/network/post/${post.id}'),
