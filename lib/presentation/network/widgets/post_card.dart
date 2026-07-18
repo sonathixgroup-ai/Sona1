@@ -261,12 +261,13 @@ class _PostCardState extends State<PostCard> {
 
   String _getTimeAgo(DateTime dateTime) => timeago.format(dateTime, locale: 'fr');
 
-  Widget _buildNetworkImage(String url, {double? width, double height = 200, BoxFit fit = BoxFit.cover}) {
+  Widget _buildNetworkImage(String url, {double? width, double height = 200, BoxFit fit = BoxFit.cover, Alignment alignment = Alignment.center}) {
     return CachedNetworkImage(
       imageUrl: url,
       width: width,
       height: height,
       fit: fit,
+      alignment: alignment,
       placeholder: (_, __) => Container(
         height: height, width: width, color: _PostColors.softBlue,
         child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2)),
@@ -285,14 +286,16 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  // Enveloppe une vignette avec un tap dédié vers la visionneuse plein écran
-  Widget _tappableImage(String url, int index, {required double height, BoxFit fit = BoxFit.cover}) {
+  // Enveloppe une vignette avec un tap dédié vers la visionneuse plein écran.
+  // alignment = topCenter par défaut : quand un recadrage cover est nécessaire,
+  // on préserve la partie haute du sujet (têtes, visages) plutôt que de centrer.
+  Widget _tappableImage(String url, int index, {required double height, BoxFit fit = BoxFit.cover, Alignment alignment = Alignment.topCenter}) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _openFullScreenGallery(index),
       child: Hero(
         tag: 'post_${_post.id}_image_$index',
-        child: _buildNetworkImage(url, width: double.infinity, height: height, fit: fit),
+        child: _buildNetworkImage(url, width: double.infinity, height: height, fit: fit, alignment: alignment),
       ),
     );
   }
@@ -319,14 +322,39 @@ class _PostCardState extends State<PostCard> {
       );
     }
 
-    // 2 photos → côte à côte, égales
+    // 2 photos → côte à côte, hauteur commune calculée sur le ratio moyen réel
+    // des deux images (bien plus fidèle qu'une hauteur fixe arbitraire)
     if (urls.length == 2) {
-      return SizedBox(
-        height: 200,
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
         child: Row(children: [
-          Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 200))),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: radius,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openFullScreenGallery(0),
+                child: Hero(
+                  tag: 'post_${_post.id}_image_0',
+                  child: _AdaptivePairImage(imageUrl: urls[0], groupKey: urls),
+                ),
+              ),
+            ),
+          ),
           const SizedBox(width: spacing),
-          Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 200))),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: radius,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openFullScreenGallery(1),
+                child: Hero(
+                  tag: 'post_${_post.id}_image_1',
+                  child: _AdaptivePairImage(imageUrl: urls[1], groupKey: urls),
+                ),
+              ),
+            ),
+          ),
         ]),
       );
     }
@@ -356,21 +384,21 @@ class _PostCardState extends State<PostCard> {
     // 4 photos → grille 2x2
     if (urls.length == 4) {
       return SizedBox(
-        height: 240,
+        height: 320,
         child: Column(children: [
           Expanded(
             child: Row(children: [
-              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 158))),
               const SizedBox(width: spacing),
-              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 158))),
             ]),
           ),
           const SizedBox(height: spacing),
           Expanded(
             child: Row(children: [
-              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 158))),
               const SizedBox(width: spacing),
-              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, height: 118))),
+              Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, height: 158))),
             ]),
           ),
         ]),
@@ -380,23 +408,23 @@ class _PostCardState extends State<PostCard> {
     // 5 photos ou plus → 2 en haut + 3 en bas, "+N" sur la dernière si > 5
     final int remaining = urls.length - 5;
     return SizedBox(
-      height: 260,
+      height: 320,
       child: Column(children: [
         Expanded(
           flex: 3,
           child: Row(children: [
-            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 150))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[0], 0, height: 190))),
             const SizedBox(width: spacing),
-            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 150))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[1], 1, height: 190))),
           ]),
         ),
         const SizedBox(height: spacing),
         Expanded(
           flex: 2,
           child: Row(children: [
-            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 100))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[2], 2, height: 126))),
             const SizedBox(width: spacing),
-            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, height: 100))),
+            Expanded(child: ClipRRect(borderRadius: radius, child: _tappableImage(urls[3], 3, height: 126))),
             const SizedBox(width: spacing),
             Expanded(
               child: ClipRRect(
@@ -407,7 +435,7 @@ class _PostCardState extends State<PostCard> {
                   child: Stack(alignment: Alignment.center, children: [
                     Hero(
                       tag: 'post_${_post.id}_image_4',
-                      child: _buildNetworkImage(urls[4], width: double.infinity, height: 100),
+                      child: _buildNetworkImage(urls[4], width: double.infinity, height: 126, alignment: Alignment.topCenter),
                     ),
                     if (remaining > 0)
                       Container(
@@ -929,9 +957,6 @@ class _PostCardState extends State<PostCard> {
 }
 
 // ─── IMAGE UNIQUE ADAPTATIVE : hauteur de carte calquée sur le ratio réel ───
-// Évite le recadrage : on lit les dimensions natives de l'image, puis on
-// dimensionne le conteneur pour qu'il corresponde exactement à ce ratio
-// (borné entre une hauteur mini et maxi pour rester raisonnable à l'écran).
 class _AdaptiveSingleImage extends StatefulWidget {
   final String imageUrl;
   const _AdaptiveSingleImage({required this.imageUrl});
@@ -944,7 +969,7 @@ class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
   static const double _minHeight = 220;
   static const double _maxHeight = 520;
 
-  double? _aspectRatio; // width / height
+  double? _aspectRatio;
   ImageStream? _stream;
   late ImageStreamListener _listener;
 
@@ -993,7 +1018,6 @@ class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
         final width = constraints.maxWidth;
 
         if (_aspectRatio == null) {
-          // Pendant le chargement des dimensions, hauteur neutre le temps de mesurer
           return Container(
             height: 300,
             width: width,
@@ -1014,6 +1038,7 @@ class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
             width: width,
             height: clampedHeight,
             fit: needsCrop ? BoxFit.cover : BoxFit.contain,
+            alignment: Alignment.topCenter,
             errorWidget: (_, __, ___) => Container(
               color: _PostColors.softBlue,
               child: Column(
@@ -1022,6 +1047,114 @@ class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
                   Icon(Icons.broken_image_rounded, size: 36, color: _PostColors.primary.withOpacity(0.4)),
                   const SizedBox(height: 6),
                   const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── PAIRE D'IMAGES ADAPTATIVE (grille à 2 photos) ───
+// Calcule une hauteur commune à partir du ratio réel de CHAQUE image du duo,
+// en prenant la plus contraignante (celle qui a besoin du moins de recadrage),
+// bornée pour rester lisible sur mobile. Chaque case garde alignment topCenter
+// pour ne pas couper les têtes lors d'un léger recadrage résiduel.
+class _AdaptivePairImage extends StatefulWidget {
+  final String imageUrl;
+  final List<String> groupKey; // les 2 urls du duo, pour resynchroniser la hauteur si l'une change
+  const _AdaptivePairImage({required this.imageUrl, required this.groupKey});
+
+  @override
+  State<_AdaptivePairImage> createState() => _AdaptivePairImageState();
+}
+
+class _AdaptivePairImageState extends State<_AdaptivePairImage> {
+  static const double _minHeight = 180;
+  static const double _maxHeight = 320;
+
+  double? _aspectRatio;
+  ImageStream? _stream;
+  late ImageStreamListener _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    _listener = ImageStreamListener(_onImageResolved, onError: (_, __) {
+      if (mounted) setState(() => _aspectRatio = 0.75);
+    });
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdaptivePairImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _stream?.removeListener(_listener);
+      _aspectRatio = null;
+      _resolveImage();
+    }
+  }
+
+  void _resolveImage() {
+    final provider = CachedNetworkImageProvider(widget.imageUrl);
+    _stream = provider.resolve(const ImageConfiguration());
+    _stream!.addListener(_listener);
+  }
+
+  void _onImageResolved(ImageInfo info, bool _) {
+    if (!mounted) return;
+    final w = info.image.width.toDouble();
+    final h = info.image.height.toDouble();
+    if (h > 0) setState(() => _aspectRatio = w / h);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = constraints.maxWidth;
+
+        if (_aspectRatio == null) {
+          return Container(
+            height: 240,
+            width: cellWidth,
+            color: _PostColors.softBlue,
+            child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2)),
+          );
+        }
+
+        final naturalHeight = (cellWidth / _aspectRatio!).clamp(_minHeight, _maxHeight);
+
+        return SizedBox(
+          width: cellWidth,
+          height: naturalHeight,
+          child: CachedNetworkImage(
+            imageUrl: widget.imageUrl,
+            width: cellWidth,
+            height: naturalHeight,
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            placeholder: (_, __) => Container(
+              color: _PostColors.softBlue,
+              child: const Center(child: CircularProgressIndicator(color: _PostColors.primary, strokeWidth: 2)),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              color: _PostColors.softBlue,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image_rounded, size: 32, color: _PostColors.primary.withOpacity(0.4)),
+                  const SizedBox(height: 4),
+                  const Text('Image non disponible', style: TextStyle(color: _PostColors.textSecondary, fontSize: 10)),
                 ],
               ),
             ),
@@ -1098,7 +1231,6 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
               );
             },
           ),
-          // Bouton fermer
           Positioned(
             top: 12,
             right: 12,
@@ -1113,7 +1245,6 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
               ),
             ),
           ),
-          // Compteur "2 / 5"
           if (widget.imageUrls.length > 1)
             Positioned(
               top: 12,
@@ -1132,7 +1263,6 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
                 ),
               ),
             ),
-          // Points de pagination
           if (widget.imageUrls.length > 1)
             Positioned(
               bottom: 24,
