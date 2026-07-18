@@ -1,4 +1,4 @@
-// lib/app_router.dart - BUILD VERT - Toutes routes conservees - FIX BUS + THIX MEDIA ADMIN
+// lib/app_router.dart - BUILD VERT - Toutes routes conservees - FIX BUS + THIX MEDIA ADMIN + THIX EVENT ADMIN SCALABLE
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -154,12 +154,15 @@ import 'package:thix_id/presentation/thix_event/my_tickets_page.dart';
 import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
 import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
 import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
-
-// Moderateur
-import 'package:thix_id/presentation/moderator/moderator_home.dart';
-import 'package:thix_id/presentation/moderator/moderator_event_list.dart';
-import 'package:thix_id/presentation/moderator/moderator_event_form.dart';
-import 'package:thix_id/providers/auth_provider.dart';
+// THIX EVENT ADMIN - SCALABLE
+import 'package:thix_id/presentation/thix_event/admin/admin_dashboard.dart';
+import 'package:thix_id/presentation/thix_event/admin/pages/events/event_list_admin_page.dart';
+import 'package:thix_id/presentation/thix_event/admin/pages/events/event_create_edit_page.dart';
+import 'package:thix_id/presentation/thix_event/admin/pages/seats/seat_map_admin_page.dart';
+import 'package:thix_id/presentation/thix_event/admin/pages/bookings/booking_management_page.dart';
+import 'package:thix_id/presentation/thix_event/admin/pages/bookings/waiting_queue_page.dart' as admin_queue;
+import 'package:thix_id/presentation/thix_event/admin/pages/limits/booking_limits_page.dart';
+import 'package:thix_id/presentation/thix_event/admin/pages/analytics/analytics_page.dart';
 
 // Education
 import 'package:thix_id/presentation/education/education_routes.dart';
@@ -168,8 +171,8 @@ import 'package:thix_id/presentation/education/education_routes.dart';
 import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
-import 'package:thix_id/presentation/thix_media/admin/thix_media_admin_page.dart'; // ✅ AJOUT ADMIN
-import 'package:thix_id/presentation/thix_media/admin/admin_guard.dart'; // ✅ AJOUT ADMIN
+import 'package:thix_id/presentation/thix_media/admin/thix_media_admin_page.dart';
+import 'package:thix_id/presentation/thix_media/admin/admin_guard.dart';
 import 'package:thix_id/presentation/thix_reservation/thix_reservation_home_page.dart';
 import 'package:thix_id/presentation/splash/thix_id_start_page.dart';
 
@@ -259,7 +262,9 @@ class AppRouter {
         final isPublic = loc == AppRoutes.start || loc == AppRoutes.home || loc == AppRoutes.publicProfile ||
             loc == AppRoutes.jobs || loc == AppRoutes.opportunities || loc == AppRoutes.education ||
             loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
-            loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/');
+            loc == AppRoutes.trainingDetailsBasePath ||
+            loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/') ||
+            loc.startsWith('/thix-event'); // THIX EVENT en dev open access
         if (!logged && !isPublic && !isAuth) return AppRoutes.login;
         if (isAdmin && !logged) return AppRoutes.login;
         if (logged) {
@@ -432,13 +437,6 @@ class AppRouter {
         ...educationRoutes,
         ...instructorRoutes,
 
-        // Moderateur
-        GoRoute(path: '/moderator', name: 'moderatorHome', builder: (context, state) => const ModeratorHome(), routes: [
-          GoRoute(path: 'events', name: 'moderatorEvents', builder: (context, state) => const ModeratorEventList()),
-          GoRoute(path: 'event/create', name: 'moderatorEventCreate', builder: (context, state) => const ModeratorEventForm()),
-          GoRoute(path: 'event/edit/:id', name: 'moderatorEventEdit', builder: (context, state) => ModeratorEventForm(eventId: state.pathParameters['id']!)),
-        ]),
-
         // THIX Info
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) {
@@ -451,9 +449,9 @@ class AppRouter {
         GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => NoTransitionPage(child: const SavedArticlesPage())),
         GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
 
-        // ============ THIX Money, Media, Reservation - MODIFIE SEULEMENT ICI ============
+        // THIX Money, Media, Reservation
         GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
-                GoRoute(
+        GoRoute(
           path: AppRoutes.thixMedia,
           name: 'thixMedia',
           pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage()),
@@ -463,23 +461,19 @@ class AppRouter {
               name: 'thixMediaAdmin',
               pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage()),
               redirect: (context, state) {
-                // ✅ Désactivé temporairement pour vous laisser tester
-                // if (!AdminGuard.isAdmin) return AppRoutes.thixMedia;
-                return null; // Laisse passer tout le monde
+                return null;
               },
             ),
           ],
         ),
-
         GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) {
           final title = (state.uri.queryParameters['title'] ?? '').trim();
           final url = (state.uri.queryParameters['url'] ?? '').trim();
           return NoTransitionPage(child: VideoPlayerPage(title: title.isEmpty ? 'Lecture vidéo' : title, videoUrl: url));
         }),
         GoRoute(path: AppRoutes.reservation, name: 'thixreservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
-        // ============ FIN BLOC THIX MEDIA ============
 
-        // THIX Evenement
+        // THIX Evenement - PUBLIC
         GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
         GoRoute(path: AppRoutes.thixEventDetail, name: 'thixEventDetail', pageBuilder: (_, state) => NoTransitionPage(child: EventDetailPage(eventId: state.pathParameters['eventId']!))),
         GoRoute(path: AppRoutes.thixEventSearch, name: 'thixEventSearch', pageBuilder: (_, __) => NoTransitionPage(child: EventSearchPage())),
@@ -497,6 +491,19 @@ class AppRouter {
           final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
+
+        // THIX EVENEMENT - ADMIN SCALABLE - DEV OPEN ACCESS
+        GoRoute(path: '/thix-event/admin', name: 'thixEventAdmin', pageBuilder: (_, __) => NoTransitionPage(child: AdminDashboard())),
+        GoRoute(path: '/thix-event/admin/events', name: 'thixEventAdminEvents', pageBuilder: (_, __) => NoTransitionPage(child: EventListAdminPage())),
+        GoRoute(path: '/thix-event/admin/events/create', name: 'thixEventAdminCreate', pageBuilder: (context, state) {
+          final event = state.extra as dynamic;
+          return NoTransitionPage(child: EventCreateEditPage(eventToEdit: event));
+        }),
+        GoRoute(path: '/thix-event/admin/seats', name: 'thixEventAdminSeats', pageBuilder: (_, __) => NoTransitionPage(child: SeatMapAdminPage())),
+        GoRoute(path: '/thix-event/admin/bookings', name: 'thixEventAdminBookings', pageBuilder: (_, __) => NoTransitionPage(child: BookingManagementPage())),
+        GoRoute(path: '/thix-event/admin/queue', name: 'thixEventAdminQueue', pageBuilder: (_, __) => NoTransitionPage(child: admin_queue.WaitingQueuePage())),
+        GoRoute(path: '/thix-event/admin/limits', name: 'thixEventAdminLimits', pageBuilder: (_, __) => NoTransitionPage(child: BookingLimitsPage())),
+        GoRoute(path: '/thix-event/admin/analytics', name: 'thixEventAdminAnalytics', pageBuilder: (_, __) => NoTransitionPage(child: AnalyticsPage())),
 
         // BUS
         GoRoute(path: '/thix-reservation/bus', name: 'bus-home', pageBuilder: (_, __) => NoTransitionPage(child: BusHomePage())),
