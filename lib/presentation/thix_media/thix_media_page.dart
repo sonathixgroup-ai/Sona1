@@ -388,9 +388,9 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                   ),
                   const SizedBox(width: 10),
                   
-                  // ✅ BOUTON ADMIN TOUJOURS VISIBLE
+                  // ✅ CORRECTION ICI : UTILISATION DU NOM DE LA ROUTE !
                   InkWell(
-                    onTap: () => context.push('/admin/media'),
+                    onTap: () => context.pushNamed('thixMediaAdmin'),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
