@@ -458,12 +458,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildTabContent() {
     List<NetworkPost> displayedPosts = _posts;
 
-    // Filtrage simple basé sur media_type (à adapter si ta DB utilise imageUrls)
+        // Filtrage basé uniquement sur les listes d'URLs existantes dans le modèle
     if (_selectedTab == 1) {
-      displayedPosts = _posts.where((p) => p.mediaType == 'image' || p.imageUrls.isNotEmpty).toList();
+      displayedPosts = _posts.where((p) => p.imageUrls.isNotEmpty).toList();
     } else if (_selectedTab == 2) {
-      displayedPosts = _posts.where((p) => p.mediaType == 'video' || p.videoUrls.isNotEmpty).toList();
+      displayedPosts = _posts.where((p) => p.videoUrls.isNotEmpty).toList();
     }
+
 
     if (displayedPosts.isEmpty) {
       return SliverToBoxAdapter(
