@@ -8,9 +8,8 @@ import '../../models/media_content.dart';
 import '../../services/media_service.dart';
 import '../../app_router.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
-import 'admin/admin_guard.dart';
 
-// ===== CHARTE THIX MEDIA - Photo Identity =====
+// ===== CHARTE THIX MEDIA =====
 const Color kBg = Color(0xFFF9F8FD);
 const Color kNavyDeep = Color(0xFF0F0A24);
 const Color kViolet = Color(0xFF7C5CFC);
@@ -38,7 +37,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   String _selectedCategory = 'Accueil';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _bottomSearchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
 
@@ -77,7 +75,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     _searchDebounce?.cancel();
     _bannerController.dispose();
     _searchController.dispose();
-    _bottomSearchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -113,8 +110,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
       _filteredTrending = base.where((item) => item.rankPosition!= null).toList();
       _filteredRecommendations = base.where((item) => item.rankPosition == null).toList();
       _filteredNewReleases = base.where((item) => item.isNewRelease).toList();
-      // A venir = simulation des non-newRelease ou futurs - tu brancheras ton champ isUpcoming
-      _filteredUpcoming = base.where((item) =>!item.isNewRelease).take(8).toList();
+      _filteredUpcoming = base.where((item) =>!item.isNewRelease).take(10).toList();
     });
   }
 
@@ -189,13 +185,10 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                     const SizedBox(height: 10),
                     _buildNouveautes(),
                     const SizedBox(height: 22),
-                    // ===== NOUVELLE SECTION A VENIR =====
                     _buildSectionTitle('À venir'),
                     const SizedBox(height: 10),
                     _buildAVenir(),
-                    const SizedBox(height: 18),
-                    _buildBottomSearchBar(),
-                    const SizedBox(height: 90), // espace pour bottom nav
+                    const SizedBox(height: 90),
                   ],
                 ),
               ),
@@ -207,7 +200,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     );
   }
 
-  // ===== TOP HEADER COMME PHOTO =====
+  // ===== HEADER AVEC CERCLE ADMIN BLANC =====
   Widget _buildTopHeader() {
     return Container(
       color: Colors.white,
@@ -251,7 +244,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                       onChanged: _onSearchChanged,
                       style: const TextStyle(fontSize: 11, color: kTextBlack),
                       decoration: const InputDecoration(
-                        hintText: 'Rechercher un film, une série, un artiste...',
+                        hintText: 'Rechercher un film, une série...',
                         border: InputBorder.none,
                         hintStyle: TextStyle(fontSize: 10.5, color: kTextGrey),
                         isDense: true,
@@ -263,6 +256,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             ),
           ),
           const SizedBox(width: 10),
+          // NOTIF
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -279,10 +273,20 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             ],
           ),
           const SizedBox(width: 8),
-          Container(
-            width: 30, height: 30,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: kBorderLight)),
-            child: ClipOval(child: CachedNetworkImage(imageUrl: 'https://i.pravatar.cc/100', fit: BoxFit.cover)),
+          // CERCLE BLANC ADMIN - connecté comme avant
+          InkWell(
+            onTap: () => context.pushNamed('thixMediaAdmin'),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: kBorderLight, width: 1.2),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6)],
+              ),
+              child: const Icon(Icons.person_outline_rounded, size: 16, color: kTextBlack),
+            ),
           ),
         ],
       ),
@@ -333,6 +337,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     );
   }
 
+  // BANNER 100% DYNAMIQUE SUPABASE - PAS DE MOCK
   Widget _buildBannerCinema() {
     return Column(
       children: [
@@ -349,10 +354,10 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    CachedNetworkImage(imageUrl: item.coverUrl, fit: BoxFit.cover),
+                    CachedNetworkImage(imageUrl: item.coverUrl, fit: BoxFit.cover, placeholder: (_,__)=> Container(color: kSoftViolet), errorWidget: (_,__,___)=> Container(color: kSoftViolet)),
                     Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerRight, end: Alignment.centerLeft, colors: [Colors.transparent, kNavyDeep.withOpacity(0.92)]))),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 90, 14),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -363,10 +368,12 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                             child: const Text('NOUVEAUTÉ', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
                           ),
                           const SizedBox(height: 8),
-                          const Text("L'HÉRITAGE", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
-                          const Text("SAISON 1", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: kViolet)),
-                          const SizedBox(height: 6),
-                          const Text("Une histoire. Un combat. Un héritage.\nL'avenir appartient à ceux qui osent.", style: TextStyle(fontSize: 10, color: Colors.white70, height: 1.3)),
+                          // TITRE DYNAMIQUE DE SUPABASE
+                          Text(item.title.toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, height: 1.1)),
+                          if(item.subtitle!= null && item.subtitle!.isNotEmpty)...[
+                            const SizedBox(height: 2),
+                            Text(item.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Colors.white70, height: 1.2)),
+                          ],
                           const SizedBox(height: 12),
                           Row(
                             children: [
@@ -388,9 +395,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                         ],
                       ),
                     ),
-                    // flèches
-                    Positioned(left: 6, top: 0, bottom: 0, child: Center(child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: const Icon(Icons.arrow_back_rounded, size: 12, color: Colors.white)))),
-                    Positioned(right: 6, top: 0, bottom: 0, child: Center(child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: const Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.white)))),
                   ],
                 );
               },
@@ -419,7 +423,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
       {'label':'Musique','icon':Icons.music_note_rounded,'color':kOrange},
       {'label':'En direct','icon':Icons.sensors_rounded,'color':kRedLive},
       {'label':'Genres','icon':Icons.grid_view_rounded,'color':kViolet},
-      {'label':'Plus','icon':Icons.more_horiz_rounded,'color':kTextGrey},
     ];
     return SizedBox(
       height: 64,
@@ -481,7 +484,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                     children: [
                       ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: CachedNetworkImage(imageUrl: item.coverUrl, height: 76, width: 148, fit: BoxFit.cover)),
                       Positioned(top: 6, left: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: kViolet, borderRadius: BorderRadius.circular(10)), child: Text('#${item.rankPosition??i+1}', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)))),
-                      Positioned(bottom: 6, right: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(6)), child: Text('${(item.viewCount%5+2)}:${(item.viewCount%60).toString().padLeft(2,'0')}', style: const TextStyle(fontSize: 8, color: Colors.white)))),
                     ],
                   ),
                   Padding(
@@ -505,7 +507,8 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   }
 
   Widget _buildRecommandeGrid() {
-    final list = _filteredRecommendations.where((e)=> _selectedCategory=='Accueil'? e.type!='Vidéo': e.type==_selectedCategory).toList();
+    final list = _filteredRecommendations.where((e)=> _selectedCategory=='Accueil'? true: e.type==_selectedCategory).toList();
+    if(list.isEmpty) return const Text('Aucun contenu', style: TextStyle(fontSize: 11, color: kTextGrey));
     return SizedBox(
       height: 148,
       child: ListView.builder(
@@ -556,15 +559,17 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   }
 
   Widget _buildNouveautes(){
+    final list = _filteredNewReleases.where((e)=> _selectedCategory=='Accueil' || e.type==_selectedCategory).toList();
+    if(list.isEmpty) return const Text('Aucune nouveauté', style: TextStyle(fontSize: 11, color: kTextGrey));
     return SizedBox(
       height: 148,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: _filteredNewReleases.length,
+        itemCount: list.length,
         itemBuilder: (context,i){
-          final item = _filteredNewReleases.where((e)=> _selectedCategory=='Accueil' || e.type==_selectedCategory).toList()[i];
-          return GestureDetector(onTap: ()=> _navigateToVideo(item), child: Container(width: 108, margin: EdgeInsets.only(right: i==_filteredNewReleases.length-1?0:10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          final item = list[i];
+          return GestureDetector(onTap: ()=> _navigateToVideo(item), child: Container(width: 108, margin: EdgeInsets.only(right: i==list.length-1?0:10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             ClipRRect(borderRadius: BorderRadius.circular(10), child: CachedNetworkImage(imageUrl: item.coverUrl, height: 112, width: 108, fit: BoxFit.cover)),
             const SizedBox(height: 5),
             Text(item.title, maxLines: 1, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextBlack)),
@@ -585,43 +590,24 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
         itemCount: _filteredUpcoming.length,
         itemBuilder: (context,i){
           final item = _filteredUpcoming[i];
-          return Container(width: 108, margin: EdgeInsets.only(right: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Stack(children: [
-              ClipRRect(borderRadius: BorderRadius.circular(10), child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.black38, BlendMode.darken), child: CachedNetworkImage(imageUrl: item.coverUrl, height: 112, width: 108, fit: BoxFit.cover))),
-              Positioned.fill(child: Center(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), shape: BoxShape.circle), child: const Icon(Icons.schedule_rounded, size: 16, color: kViolet)))),
-              Positioned(top: 6, left: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: BoxDecoration(color: kTextBlack, borderRadius: BorderRadius.circular(6)), child: const Text('À VENIR', style: TextStyle(fontSize: 7, color: Colors.white, fontWeight: FontWeight.w800)))),
-            ]),
-            const SizedBox(height: 5),
-            Text(item.title, maxLines: 1, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextBlack)),
-            const Text('Bientôt', style: TextStyle(fontSize: 8.5, color: kTextGrey)),
-          ]));
+          return GestureDetector(
+            onTap: ()=> _navigateToVideo(item),
+            child: Container(width: 108, margin: const EdgeInsets.only(right: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Stack(children: [
+                ClipRRect(borderRadius: BorderRadius.circular(10), child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.black38, BlendMode.darken), child: CachedNetworkImage(imageUrl: item.coverUrl, height: 112, width: 108, fit: BoxFit.cover))),
+                Positioned.fill(child: Center(child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), shape: BoxShape.circle), child: const Icon(Icons.schedule_rounded, size: 16, color: kViolet)))),
+                Positioned(top: 6, left: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: BoxDecoration(color: kTextBlack, borderRadius: BorderRadius.circular(6)), child: const Text('À VENIR', style: TextStyle(fontSize: 7, color: Colors.white, fontWeight: FontWeight.w800)))),
+              ]),
+              const SizedBox(height: 5),
+              Text(item.title, maxLines: 1, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kTextBlack)),
+              const Text('Bientôt', style: TextStyle(fontSize: 8.5, color: kTextGrey)),
+            ])),
+          );
         },
       ),
     );
   }
 
-  Widget _buildBottomSearchBar(){
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: kBorderLight), boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.05), blurRadius: 10)]),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, size: 16, color: kTextGrey),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            controller: _bottomSearchController,
-            onChanged: _onSearchChanged,
-            style: const TextStyle(fontSize: 11, color: kTextBlack),
-            decoration: const InputDecoration(hintText: 'Rechercher un film, une série, un artiste...', border: InputBorder.none, hintStyle: TextStyle(fontSize: 10.5, color: kTextGrey), isDense: true),
-          )),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: kViolet, borderRadius: BorderRadius.circular(14)), child: const Text('Rechercher', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700))),
-        ],
-      ),
-    );
-  }
-
-  // ===== BOTTOM NAV AVEC LIVE AU MILIEU =====
   Widget _buildBottomNavWithLive(){
     return Container(
       margin: const EdgeInsets.fromLTRB(14,0,14,10),
@@ -654,7 +640,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(color: kRedLive, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: kRedLive.withOpacity(0.35), blurRadius: 12)]),
-            child: Row(children: const [
+            child: const Row(children: [
               Icon(Icons.sensors_rounded, size: 14, color: Colors.white),
               SizedBox(width: 4),
               Text('LIVE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5)),
