@@ -453,7 +453,7 @@ class AppRouter {
 
         // ============ THIX Money, Media, Reservation - MODIFIE SEULEMENT ICI ============
         GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
-        GoRoute(
+                GoRoute(
           path: AppRoutes.thixMedia,
           name: 'thixMedia',
           pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage()),
@@ -463,12 +463,14 @@ class AppRouter {
               name: 'thixMediaAdmin',
               pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage()),
               redirect: (context, state) {
-                if (!AdminGuard.isAdmin) return AppRoutes.thixMedia;
-                return null;
+                // ✅ Désactivé temporairement pour vous laisser tester
+                // if (!AdminGuard.isAdmin) return AppRoutes.thixMedia;
+                return null; // Laisse passer tout le monde
               },
             ),
           ],
         ),
+
         GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) {
           final title = (state.uri.queryParameters['title'] ?? '').trim();
           final url = (state.uri.queryParameters['url'] ?? '').trim();
