@@ -508,7 +508,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildPostGridItem(NetworkPost post) {
+    Widget _buildPostGridItem(NetworkPost post) {
     final mediaUrl = (post.mediaUrl != null && post.mediaUrl!.isNotEmpty) 
         ? post.mediaUrl 
         : (post.imageUrls.isNotEmpty ? post.imageUrls.first : null);
