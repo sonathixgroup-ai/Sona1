@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Cache des images
 import 'video_player_page.dart';
 import '../../models/media_content.dart';
 import '../../services/media_service.dart';
@@ -35,25 +36,30 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   String _selectedCategory = 'Accueil';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce; // ✅ Optimisation de la recherche
 
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
+
+  // ✅ Listes mises en cache pour éviter les recalculs à 60 FPS
+  List<MediaContent> _bannerItems = [];
+  List<MediaContent> _filteredTrending = [];
+  List<MediaContent> _filteredRecommendations = [];
+  List<MediaContent> _filteredNewReleases = [];
 
   @override
   void initState() {
     super.initState();
     _mediaService = MediaService(client: Supabase.instance.client, bucket: 'media');
     _loadMedia();
-    _startBannerAutoScroll();
   }
 
   void _startBannerAutoScroll() {
     _bannerTimer?.cancel();
+    if (_bannerItems.isEmpty) return;
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (!mounted) return;
-      if (_bannerItems.isEmpty) return;
-      if (!_bannerController.hasClients) return;
+      if (!mounted || !_bannerController.hasClients) return;
       final next = (_currentBannerIndex + 1) % _bannerItems.length;
       _bannerController.animateToPage(next, duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
     });
@@ -62,6 +68,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _searchDebounce?.cancel(); // ✅ Libération de la mémoire
     _bannerController.dispose();
     _searchController.dispose(); 
     super.dispose();
@@ -75,6 +82,8 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
         _allMedia = media;
         _isLoading = false;
       });
+      _updateFilteredLists(); // Calcule les listes une seule fois au chargement
+      _startBannerAutoScroll();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -84,16 +93,34 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     }
   }
 
-  List<MediaContent> get _searchBase {
-    if (_searchQuery.trim().isEmpty) return _allMedia;
-    final q = _searchQuery.toLowerCase();
-    return _allMedia.where((m) => m.title.toLowerCase().contains(q) || (m.subtitle?.toLowerCase().contains(q) ?? false)).toList();
+  // ✅ Ne tourne que quand on tape une recherche ou change de catégorie (Gain de CPU massif)
+  void _updateFilteredLists() {
+    Iterable<MediaContent> base = _allMedia;
+    
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      base = base.where((m) => m.title.toLowerCase().contains(q) || (m.subtitle?.toLowerCase().contains(q) ?? false));
+    }
+
+    setState(() {
+      _bannerItems = base.where((m) => m.isNewRelease).toList();
+      _filteredTrending = base.where((item) => item.rankPosition != null).toList();
+      _filteredRecommendations = base.where((item) => item.rankPosition == null && item.type != 'Vidéo').toList();
+      _filteredNewReleases = base.where((item) => item.isNewRelease).toList();
+    });
   }
 
-  List<MediaContent> get _bannerItems => _searchBase.where((m) => m.isNewRelease).toList();
-  List<MediaContent> get _filteredTrending => _searchBase.where((item) => item.rankPosition != null).toList();
-  List<MediaContent> get _filteredRecommendations => _searchBase.where((item) => item.rankPosition == null && item.type != 'Vidéo').toList();
-  List<MediaContent> get _filteredNewReleases => _searchBase.where((item) => item.isNewRelease).toList(); 
+  void _onSearchChanged(String value) {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _searchQuery = value;
+      _updateFilteredLists();
+    });
+  }
+
+  void _onCategoryChanged(String category) {
+    setState(() => _selectedCategory = category);
+  }
 
   void _navigateToVideo(MediaContent item) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => VideoPlayerPage(title: item.title, videoUrl: item.videoUrl)));
@@ -267,59 +294,72 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.16), blurRadius: 20, offset: const Offset(0, 10))],
-        image: DecorationImage(image: NetworkImage(item.coverUrl), fit: BoxFit.cover),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [kNavyDeep.withOpacity(0.82), Colors.transparent],
-          ),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(20)),
-              child: const Text('NOUVEAUTÉ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: kNavyDeep)),
+            // ✅ Utilisation du Cache
+            CachedNetworkImage(
+              imageUrl: item.coverUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(color: kSoftBlue),
+              errorWidget: (context, url, error) => Container(color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
             ),
-            const SizedBox(height: 8),
-            Text(item.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
-            const SizedBox(height: 4),
-            Text(item.subtitle ?? '', style: const TextStyle(fontSize: 14, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _navigateToVideo(item),
-                  icon: const Icon(Icons.play_arrow_rounded, size: 17),
-                  label: const Text('Regarder maintenant'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kAccentColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [kNavyDeep.withOpacity(0.82), Colors.transparent],
                 ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                  label: const Text('Ma liste'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white70),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(20)),
+                    child: const Text('NOUVEAUTÉ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: kNavyDeep)),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(item.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Text(item.subtitle ?? '', style: const TextStyle(fontSize: 14, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => _navigateToVideo(item),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 17),
+                        label: const Text('Regarder maintenant'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kAccentColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                        label: const Text('Ma liste'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white70),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -372,7 +412,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                           Expanded(
                             child: TextField(
                               controller: _searchController,
-                              onChanged: (value) => setState(() => _searchQuery = value),
+                              onChanged: _onSearchChanged, // ✅ Utilisation du Debouncer
                               style: const TextStyle(fontSize: 13, color: kTextDark),
                               decoration: const InputDecoration(
                                 hintText: 'Rechercher...',
@@ -388,7 +428,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                   ),
                   const SizedBox(width: 10),
                   
-                  // ✅ CORRECTION ICI : UTILISATION DU NOM DE LA ROUTE !
                   InkWell(
                     onTap: () => context.pushNamed('thixMediaAdmin'),
                     borderRadius: BorderRadius.circular(12),
@@ -410,7 +449,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // ✅ FIN BOUTON ADMIN
 
                   Stack(
                     alignment: Alignment.topRight,
@@ -452,13 +490,13 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           children: [
-            _MediaChip(label: 'Accueil', selected: _selectedCategory == 'Accueil', onTap: () => setState(() => _selectedCategory = 'Accueil')),
-            _MediaChip(label: 'Vidéos', icon: Icons.video_library_rounded, selected: _selectedCategory == 'Vidéos', onTap: () => setState(() => _selectedCategory = 'Vidéos')),
-            _MediaChip(label: 'Films', icon: Icons.movie_rounded, selected: _selectedCategory == 'Films', onTap: () => setState(() => _selectedCategory = 'Films')),
-            _MediaChip(label: 'Séries', icon: Icons.tv_rounded, selected: _selectedCategory == 'Séries', onTap: () => setState(() => _selectedCategory = 'Séries')),
-            _MediaChip(label: 'Musique', icon: Icons.music_note_rounded, selected: _selectedCategory == 'Musique', onTap: () => setState(() => _selectedCategory = 'Musique')),
-            _MediaChip(label: 'Playlists', icon: Icons.playlist_play_rounded, selected: _selectedCategory == 'Playlists', onTap: () => setState(() => _selectedCategory = 'Playlists')),
-            _MediaChip(label: 'En direct', icon: Icons.live_tv_rounded, selected: _selectedCategory == 'En direct', onTap: () => setState(() => _selectedCategory = 'En direct')),
+            _MediaChip(label: 'Accueil', selected: _selectedCategory == 'Accueil', onTap: () => _onCategoryChanged('Accueil')),
+            _MediaChip(label: 'Vidéos', icon: Icons.video_library_rounded, selected: _selectedCategory == 'Vidéos', onTap: () => _onCategoryChanged('Vidéos')),
+            _MediaChip(label: 'Films', icon: Icons.movie_rounded, selected: _selectedCategory == 'Films', onTap: () => _onCategoryChanged('Films')),
+            _MediaChip(label: 'Séries', icon: Icons.tv_rounded, selected: _selectedCategory == 'Séries', onTap: () => _onCategoryChanged('Séries')),
+            _MediaChip(label: 'Musique', icon: Icons.music_note_rounded, selected: _selectedCategory == 'Musique', onTap: () => _onCategoryChanged('Musique')),
+            _MediaChip(label: 'Playlists', icon: Icons.playlist_play_rounded, selected: _selectedCategory == 'Playlists', onTap: () => _onCategoryChanged('Playlists')),
+            _MediaChip(label: 'En direct', icon: Icons.live_tv_rounded, selected: _selectedCategory == 'En direct', onTap: () => _onCategoryChanged('En direct')),
           ],
         ),
       );
@@ -601,12 +639,14 @@ class _TrendingList extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                    child: Image.network(
-                      item.coverUrl,
+                    // ✅ Utilisation du Cache
+                    child: CachedNetworkImage(
+                      imageUrl: item.coverUrl,
                       height: 80,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(height: 80, color: kSoftBlue),
+                      placeholder: (context, url) => Container(height: 80, color: kSoftBlue),
+                      errorWidget: (context, url, error) => Container(height: 80, color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
                     ),
                   ),
                   Padding(
@@ -663,12 +703,14 @@ class _RecommendationGrid extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                    child: Image.network(
-                      item.coverUrl,
+                    // ✅ Utilisation du Cache
+                    child: CachedNetworkImage(
+                      imageUrl: item.coverUrl,
                       height: 120,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(height: 120, color: kSoftBlue),
+                      placeholder: (context, url) => Container(height: 120, color: kSoftBlue),
+                      errorWidget: (context, url, error) => Container(height: 120, color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
                     ),
                   ),
                   Padding(
@@ -725,12 +767,14 @@ class _NewReleasesGrid extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                    child: Image.network(
-                      item.coverUrl,
+                    // ✅ Utilisation du Cache
+                    child: CachedNetworkImage(
+                      imageUrl: item.coverUrl,
                       height: 120,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(height: 120, color: kSoftBlue),
+                      placeholder: (context, url) => Container(height: 120, color: kSoftBlue),
+                      errorWidget: (context, url, error) => Container(height: 120, color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
                     ),
                   ),
                   Padding(
