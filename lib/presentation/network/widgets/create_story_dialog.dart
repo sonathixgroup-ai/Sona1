@@ -160,12 +160,13 @@ class _CreateStoryDialogState extends State<CreateStoryDialog> {
         );
       }
 
-      await networkService.createStory(
-        imageUrl: mediaUrl, // Ton backend utilise toujours cette variable pour l'URL
+            await networkService.createStory(
+        mediaUrl, // C'est l'argument positionnel qui manquait !
         text: text,
         duration: _duration,
-        mediaType: _selectedMediaType ?? 'text', // 'text', 'image', ou 'video'
+        mediaType: _selectedMediaType ?? 'text',
       );
+
 
       if (mounted) {
         Navigator.pop(context, true);
