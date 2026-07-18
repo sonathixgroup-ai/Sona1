@@ -8,18 +8,20 @@ import '../../models/media_content.dart';
 import '../../services/media_service.dart';
 import '../../app_router.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
-import 'admin/admin_guard.dart'; 
+import 'admin/admin_guard.dart';
 
-const Color kBackgroundColor = Color(0xFFF7FAFF);
-const Color kNavyDeep = Color(0xFF0A1F44);
-const Color kNavy = Color(0xFF123B7A);
-const Color kAccentColor = Color(0xFF2D6CDF);
-const Color kSoftBlue = Color(0xFFEFF5FF);
-const Color kGold = Color(0xFFE3B23C);
-const Color kHeaderIconColor = Color(0xFF7386A8);
-const Color kTextDark = Color(0xFF10192E);
-const Color kTextGrey = Color(0xFF7386A8);
-const Color kBorder = Color(0xFFE7EEFC);
+// ===== CHARTE THIX MEDIA — Violet renforcé =====
+const Color kBackgroundColor = Color(0xFFF8F7FC);
+const Color kNavyDeep = Color(0xFF120B2E); // fond sombre du banner (proche du screenshot)
+const Color kNavy = Color(0xFF1B1140);
+const Color kAccentColor = Color(0xFF7C5CFC); // violet principal
+const Color kAccentDark = Color(0xFF5B3DE0); // violet profond (gradients / pressed)
+const Color kSoftPurple = Color(0xFFF1EDFF); // fond léger violet pour sélections/hover
+const Color kGold = Color(0xFFE3B23C); // réservé au badge ADMIN
+const Color kHeaderIconColor = Color(0xFF9C8DC9);
+const Color kTextDark = Color(0xFF15102B);
+const Color kTextGrey = Color(0xFF7C7593);
+const Color kBorder = Color(0xFFEAE6F7);
 
 class ThixMediaPage extends StatefulWidget {
   const ThixMediaPage({super.key});
@@ -36,13 +38,17 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   String _selectedCategory = 'Accueil';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  Timer? _searchDebounce; // ✅ Optimisation de la recherche
+  final FocusNode _searchFocusNode = FocusNode(); // ✅ pour connecter le bouton "Rechercher" du bas
+  Timer? _searchDebounce;
 
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
 
-  // ✅ Listes mises en cache pour éviter les recalculs à 60 FPS
+  // ✅ Scroll programmable + ancre pour amener l'utilisateur direct sur les résultats filtrés
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _recommendationsKey = GlobalKey();
+
   List<MediaContent> _bannerItems = [];
   List<MediaContent> _filteredTrending = [];
   List<MediaContent> _filteredRecommendations = [];
@@ -68,9 +74,11 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   @override
   void dispose() {
     _bannerTimer?.cancel();
-    _searchDebounce?.cancel(); // ✅ Libération de la mémoire
+    _searchDebounce?.cancel();
     _bannerController.dispose();
-    _searchController.dispose(); 
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -82,7 +90,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
         _allMedia = media;
         _isLoading = false;
       });
-      _updateFilteredLists(); // Calcule les listes une seule fois au chargement
+      _updateFilteredLists();
       _startBannerAutoScroll();
     } catch (e) {
       if (!mounted) return;
@@ -93,10 +101,11 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     }
   }
 
-  // ✅ Ne tourne que quand on tape une recherche ou change de catégorie (Gain de CPU massif)
+  // ✅ FIX : on ne retire plus les vidéos ici — l'exclusion "pas de doublon avec Tendances"
+  // se fait uniquement à l'affichage, et seulement quand on est sur "Accueil".
   void _updateFilteredLists() {
     Iterable<MediaContent> base = _allMedia;
-    
+
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       base = base.where((m) => m.title.toLowerCase().contains(q) || (m.subtitle?.toLowerCase().contains(q) ?? false));
@@ -105,7 +114,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     setState(() {
       _bannerItems = base.where((m) => m.isNewRelease).toList();
       _filteredTrending = base.where((item) => item.rankPosition != null).toList();
-      _filteredRecommendations = base.where((item) => item.rankPosition == null && item.type != 'Vidéo').toList();
+      _filteredRecommendations = base.where((item) => item.rankPosition == null).toList();
       _filteredNewReleases = base.where((item) => item.isNewRelease).toList();
     });
   }
@@ -122,12 +131,103 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     setState(() => _selectedCategory = category);
   }
 
+  // ✅ Utilisé par les raccourcis (Vidéos, Films, Séries...) : change la catégorie ET
+  // descend automatiquement jusqu'à la section Recommandations qui affiche les résultats.
+  void _goToCategoryAndScroll(String category) {
+    setState(() => _selectedCategory = category);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _recommendationsKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+          alignment: 0.05,
+        );
+      }
+    });
+  }
+
+  void _focusSearchFromBottomNav() {
+    _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FocusScope.of(context).requestFocus(_searchFocusNode);
+    });
+  }
+
   void _navigateToVideo(MediaContent item) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => VideoPlayerPage(title: item.title, videoUrl: item.videoUrl)));
   }
 
   void _showAll(String section) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Voir tout : $section')));
+  }
+
+  void _openGenresSheet() {
+    const genres = ['Vidéos', 'Films', 'Séries', 'Musique', 'Playlists', 'En direct'];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Genres', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: kTextDark)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: genres.map((g) {
+                  return _MediaChip(
+                    label: g,
+                    selected: _selectedCategory == g,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _goToCategoryAndScroll(g);
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openMoreSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.playlist_add_check_rounded, color: kAccentColor),
+              title: const Text('Ma liste'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_rounded, color: kAccentColor),
+              title: const Text('Téléchargements'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_rounded, color: kAccentColor),
+              title: const Text('Paramètres THIX MEDIA'),
+              onTap: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -139,13 +239,16 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
       backgroundColor: kBackgroundColor,
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildCategoryChips(),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
+            _buildQuickAccessGrid(), // ✅ nouveau : raccourcis façon capture
+            const SizedBox(height: 20),
             if (_selectedCategory == 'Accueil' && _bannerItems.isNotEmpty) ...[
               _buildCarouselBanner(),
               const SizedBox(height: 22),
@@ -154,23 +257,31 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
               _SectionHeader(title: 'Tendances', showSeeAll: true, onSeeAll: () => _showAll('Tendances')),
               const SizedBox(height: 10),
               _TrendingList(items: _filteredTrending, onItemTap: _navigateToVideo),
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
             ],
-            _SectionHeader(
-              title: _selectedCategory == 'Accueil' ? 'Recommandé pour vous' : 'Recommandations ($_selectedCategory)',
-              showSeeAll: true,
-              onSeeAll: () => _showAll('Recommandations'),
+            Container(
+              key: _recommendationsKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionHeader(
+                    title: _selectedCategory == 'Accueil' ? 'Recommandé pour vous' : _selectedCategory,
+                    showSeeAll: true,
+                    onSeeAll: () => _showAll('Recommandations'),
+                  ),
+                  const SizedBox(height: 10),
+                  _RecommendationGrid(
+                    items: _filteredRecommendations.where((item) {
+                      // Sur Accueil on évite le doublon avec Tendances (vidéos déjà affichées).
+                      if (_selectedCategory == 'Accueil') return item.type != 'Vidéo';
+                      return item.type == _selectedCategory;
+                    }).toList(),
+                    onItemTap: _navigateToVideo,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            _RecommendationGrid(
-              items: _filteredRecommendations.where((item) => _selectedCategory == 'Accueil' || item.type == _selectedCategory).toList(),
-              onItemTap: _navigateToVideo,
-            ),
-            const SizedBox(height: 22),
-            if (_selectedCategory == 'Accueil') ...[
-              _buildPremiumBanner(),
-              const SizedBox(height: 22),
-            ],
+            const SizedBox(height: 24),
             _SectionHeader(
               title: _selectedCategory == 'Accueil' ? 'Nouveautés' : 'Nouveautés ($_selectedCategory)',
               showSeeAll: true,
@@ -188,13 +299,39 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     );
   }
 
+  // ===== Grille de raccourcis (façon capture) =====
+  Widget _buildQuickAccessGrid() {
+    final items = <_QuickAccessItem>[
+      _QuickAccessItem('Vidéos', Icons.play_circle_fill_rounded, const Color(0xFFE5484D), () => _goToCategoryAndScroll('Vidéos')),
+      _QuickAccessItem('Films', Icons.movie_rounded, kAccentColor, () => _goToCategoryAndScroll('Films')),
+      _QuickAccessItem('Séries', Icons.tv_rounded, const Color(0xFF1FA97C), () => _goToCategoryAndScroll('Séries')),
+      _QuickAccessItem('Musique', Icons.music_note_rounded, const Color(0xFFE39B3C), () => _goToCategoryAndScroll('Musique')),
+      _QuickAccessItem('En direct', Icons.live_tv_rounded, const Color(0xFFE5484D), () => _goToCategoryAndScroll('En direct')),
+      _QuickAccessItem('Genres', Icons.grid_view_rounded, kAccentColor, _openGenresSheet),
+      _QuickAccessItem('Plus', Icons.more_horiz_rounded, kAccentDark, _openMoreSheet),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 92,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.82,
+      ),
+      itemBuilder: (context, index) => _QuickAccessButton(item: items[index]),
+    );
+  }
+
   Widget _buildBottomNavBar() {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.12), blurRadius: 22, offset: const Offset(0, 9))],
+        boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.14), blurRadius: 22, offset: const Offset(0, 9))],
       ),
       child: SafeArea(
         top: false,
@@ -220,10 +357,23 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
       borderRadius: BorderRadius.circular(14),
       onTap: () {
         switch (index) {
-          case 0: break;
-          case 1: ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recherche avancée à venir'))); break;
-          case 2: ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Favoris à venir'))); break;
-          case 3: context.go(AppRoutes.userDashboard); break;
+          case 0:
+            _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+            _onCategoryChanged('Accueil');
+            break;
+          case 1:
+            _focusSearchFromBottomNav(); // ✅ connecté : remonte et ouvre le clavier sur la vraie barre de recherche
+            break;
+          case 2:
+            // ⚠️ Pas de table "favoris" côté Supabase pour l'instant → je ne simule rien.
+            // Dis-moi le nom de la table/colonne (ex: user_favorites) et je branche la vraie requête.
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Favoris : en attente de la table Supabase dédiée')),
+            );
+            break;
+          case 3:
+            context.go(AppRoutes.userDashboard);
+            break;
         }
       },
       child: Padding(
@@ -234,7 +384,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: isSelected ? kSoftBlue : Colors.transparent,
+                color: isSelected ? kSoftPurple : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: isSelected ? kAccentColor : kTextGrey, size: 20),
@@ -278,7 +428,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
               width: _currentBannerIndex == i ? 16 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: _currentBannerIndex == i ? kAccentColor : kSoftBlue,
+                color: _currentBannerIndex == i ? kAccentColor : kSoftPurple,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -293,26 +443,25 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.16), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.22), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // ✅ Utilisation du Cache
             CachedNetworkImage(
               imageUrl: item.coverUrl,
               fit: BoxFit.cover,
-              placeholder: (context, url) => Container(color: kSoftBlue),
-              errorWidget: (context, url, error) => Container(color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
+              placeholder: (context, url) => Container(color: kSoftPurple),
+              errorWidget: (context, url, error) => Container(color: kSoftPurple, child: const Icon(Icons.broken_image, color: kTextGrey)),
             ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [kNavyDeep.withOpacity(0.82), Colors.transparent],
+                  colors: [kNavyDeep.withOpacity(0.90), Colors.transparent],
                 ),
               ),
               padding: const EdgeInsets.all(16),
@@ -322,8 +471,8 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(20)),
-                    child: const Text('NOUVEAUTÉ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: kNavyDeep)),
+                    decoration: BoxDecoration(color: kAccentColor, borderRadius: BorderRadius.circular(20)),
+                    child: const Text('NOUVEAUTÉ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
                   ),
                   const SizedBox(height: 8),
                   Text(item.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
@@ -373,7 +522,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
           decoration: const BoxDecoration(
             gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kNavyDeep, kNavy, kAccentColor]),
             borderRadius: BorderRadius.only(bottomLeft: Radius.circular(26), bottomRight: Radius.circular(26)),
-            boxShadow: [BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10))],
+            boxShadow: [BoxShadow(color: Color(0x337C5CFC), blurRadius: 22, offset: Offset(0, 10))],
           ),
           child: SafeArea(
             child: Padding(
@@ -389,7 +538,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(9)),
-                            child: const Icon(Icons.play_circle_fill_rounded, size: 15, color: kGold),
+                            child: const Icon(Icons.play_circle_fill_rounded, size: 15, color: Colors.white),
                           ),
                           const SizedBox(width: 7),
                           const Text('THIX MEDIA', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: Colors.white, letterSpacing: 0.4)),
@@ -412,7 +561,8 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                           Expanded(
                             child: TextField(
                               controller: _searchController,
-                              onChanged: _onSearchChanged, // ✅ Utilisation du Debouncer
+                              focusNode: _searchFocusNode,
+                              onChanged: _onSearchChanged,
                               style: const TextStyle(fontSize: 13, color: kTextDark),
                               decoration: const InputDecoration(
                                 hintText: 'Rechercher...',
@@ -427,7 +577,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  
                   InkWell(
                     onTap: () => context.pushNamed('thixMediaAdmin'),
                     borderRadius: BorderRadius.circular(12),
@@ -449,7 +598,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-
                   Stack(
                     alignment: Alignment.topRight,
                     children: [
@@ -500,39 +648,48 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
           ],
         ),
       );
+}
 
-  Widget _buildPremiumBanner() => Container(
-        height: 130,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [kNavyDeep, kNavy, kAccentColor], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: kNavyDeep.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 9))],
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 16),
-            const Icon(Icons.stars_rounded, color: kGold, size: 44),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text('THIX MEDIA Premium', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5, color: Colors.white)),
-                  SizedBox(height: 5),
-                  Text('Accédez à tout le contenu sans publicité,\ntéléchargez et regardez hors ligne.', style: TextStyle(fontSize: 11, color: Colors.white70, height: 1.3)),
-                ],
-              ),
-            ),
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
-              decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(30)),
-              child: const Icon(Icons.arrow_forward_ios_rounded, color: kNavyDeep, size: 15),
-            ),
-          ],
-        ),
-      );
+// ===== Widgets réutilisables =====
+
+class _QuickAccessItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  _QuickAccessItem(this.label, this.icon, this.color, this.onTap);
+}
+
+class _QuickAccessButton extends StatelessWidget {
+  final _QuickAccessItem item;
+  const _QuickAccessButton({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: item.onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(color: item.color.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
+            child: Icon(item.icon, color: item.color, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            item.label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: kTextDark),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MediaChip extends StatelessWidget {
@@ -551,11 +708,10 @@ class _MediaChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 9),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          gradient: selected ? const LinearGradient(colors: [kNavyDeep, kAccentColor]) : null,
-          color: selected ? null : Colors.white,
+          color: selected ? kAccentColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: selected ? Colors.transparent : kBorder),
-          boxShadow: selected ? [BoxShadow(color: kAccentColor.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))] : null,
+          boxShadow: selected ? [BoxShadow(color: kAccentColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -616,7 +772,7 @@ class _TrendingList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const Center(child: Text('Aucune donnée.', style: TextStyle(color: kTextGrey)));
     return SizedBox(
-      height: 122,
+      height: 168,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -626,7 +782,7 @@ class _TrendingList extends StatelessWidget {
           return GestureDetector(
             onTap: () => onItemTap(item),
             child: Container(
-              width: 150,
+              width: 170,
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -637,24 +793,37 @@ class _TrendingList extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                    // ✅ Utilisation du Cache
-                    child: CachedNetworkImage(
-                      imageUrl: item.coverUrl,
-                      height: 80,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(height: 80, color: kSoftBlue),
-                      errorWidget: (context, url, error) => Container(height: 80, color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
-                    ),
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                        child: CachedNetworkImage(
+                          imageUrl: item.coverUrl,
+                          height: 100,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(height: 100, color: kSoftPurple),
+                          errorWidget: (context, url, error) => Container(height: 100, color: kSoftPurple, child: const Icon(Icons.broken_image, color: kTextGrey)),
+                        ),
+                      ),
+                      if (item.rankPosition != null)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: kAccentColor, borderRadius: BorderRadius.circular(20)),
+                            child: Text('#${item.rankPosition}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                          ),
+                        ),
+                    ],
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text('${(item.viewCount / 1000).round()} k vues', style: const TextStyle(fontSize: 9.5, color: kTextGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ],
@@ -680,7 +849,7 @@ class _RecommendationGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const Center(child: Text('Aucune recommandation.', style: TextStyle(color: kTextGrey)));
     return SizedBox(
-      height: 180,
+      height: 190,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -690,7 +859,7 @@ class _RecommendationGrid extends StatelessWidget {
           return GestureDetector(
             onTap: () => onItemTap(item),
             child: Container(
-              width: 130,
+              width: 138,
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -701,24 +870,37 @@ class _RecommendationGrid extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                    // ✅ Utilisation du Cache
-                    child: CachedNetworkImage(
-                      imageUrl: item.coverUrl,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(height: 120, color: kSoftBlue),
-                      errorWidget: (context, url, error) => Container(height: 120, color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
-                    ),
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                        child: CachedNetworkImage(
+                          imageUrl: item.coverUrl,
+                          height: 128,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(height: 128, color: kSoftPurple),
+                          errorWidget: (context, url, error) => Container(height: 128, color: kSoftPurple, child: const Icon(Icons.broken_image, color: kTextGrey)),
+                        ),
+                      ),
+                      if (item.isNewRelease)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: kAccentColor, borderRadius: BorderRadius.circular(20)),
+                            child: const Text('NOUVEAU', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                          ),
+                        ),
+                    ],
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text('${item.type} • ${item.year ?? ''}', style: const TextStyle(fontSize: 9.5, color: kTextGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ],
@@ -744,7 +926,7 @@ class _NewReleasesGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const Center(child: Text('Aucune nouveauté.', style: TextStyle(color: kTextGrey)));
     return SizedBox(
-      height: 180,
+      height: 190,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -754,7 +936,7 @@ class _NewReleasesGrid extends StatelessWidget {
           return GestureDetector(
             onTap: () => onItemTap(item),
             child: Container(
-              width: 130,
+              width: 138,
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -765,24 +947,36 @@ class _NewReleasesGrid extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                    // ✅ Utilisation du Cache
-                    child: CachedNetworkImage(
-                      imageUrl: item.coverUrl,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(height: 120, color: kSoftBlue),
-                      errorWidget: (context, url, error) => Container(height: 120, color: kSoftBlue, child: const Icon(Icons.broken_image, color: kTextGrey)),
-                    ),
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                        child: CachedNetworkImage(
+                          imageUrl: item.coverUrl,
+                          height: 128,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(height: 128, color: kSoftPurple),
+                          errorWidget: (context, url, error) => Container(height: 128, color: kSoftPurple, child: const Icon(Icons.broken_image, color: kTextGrey)),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: kAccentColor, borderRadius: BorderRadius.circular(20)),
+                          child: const Text('NOUVEAU', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                        ),
+                      ),
+                    ],
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text('${item.type} • ${item.year ?? ''}', style: const TextStyle(fontSize: 9.5, color: kTextGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ],
