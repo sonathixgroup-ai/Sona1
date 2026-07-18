@@ -295,10 +295,23 @@ class NetworkService extends ChangeNotifier {
   }
 }
 
-  Future<void> createStory(String mediaUrl, {String mediaType = 'image', int duration = 24}) async {
-    await _supabase.from('stories').insert({'user_id': currentUserId, 'media_url': mediaUrl, 'media_type': mediaType, 'is_active': true, 'expires_at': DateTime.now().add(Duration(hours: duration.clamp(6, 48))).toIso8601String()});
+    Future<void> createStory(
+    String? mediaUrl, { // ⚠️ Ajout du '?' pour autoriser les stories sans image
+    String? text,       // ⚠️ Ajout du paramètre texte
+    String mediaType = 'image', 
+    int duration = 24
+  }) async {
+    await _supabase.from('stories').insert({
+      'user_id': currentUserId, 
+      'media_url': mediaUrl, 
+      'text_content': text, // Assure-toi d'avoir cette colonne dans Supabase
+      'media_type': mediaType, 
+      'is_active': true, 
+      'expires_at': DateTime.now().add(Duration(hours: duration.clamp(6, 48))).toIso8601String()
+    });
     notifyListeners();
   }
+
 
   Future<void> deleteStory(String storyId) async { await _supabase.from('stories').delete().eq('id', storyId).eq('user_id', currentUserId); notifyListeners(); }
   Future<void> markStoryAsViewed(String storyId) async { await _supabase.from('story_views').upsert({'story_id': storyId, 'user_id': currentUserId}, onConflict: 'story_id,user_id', ignoreDuplicates: true); }
@@ -355,8 +368,18 @@ class NetworkService extends ChangeNotifier {
     return {...res, 'posts_count': (posts as List).length}; 
   }
   
-  Future<List<NetworkPost>> getUserPosts(String userId) async { final res = await _supabase.from('posts_view').select().eq('user_id', userId).order('created_at', ascending: false).limit(20); return (res as List).map((e) => NetworkPost.fromJson(e)).toList(); }
-  
+    // ⚠️ Ajout des paramètres offset et limit
+  Future<List<NetworkPost>> getUserPosts(String userId, {int offset = 0, int limit = 15}) async { 
+    final res = await _supabase
+        .from('posts_view')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1); // ⚠️ Remplacement de .limit() par .range() pour la pagination
+
+    return (res as List).map((e) => NetworkPost.fromJson(e)).toList(); 
+  }
+
   Future<void> markEventInterest(String id) async { await _supabase.from('event_interests').upsert({'event_id': id, 'user_id': currentUserId}, onConflict: 'event_id,user_id', ignoreDuplicates: true); }
   Future<bool> hasEventInterest(String id) async { final r = await _supabase.from('event_interests').select('id').eq('event_id', id).eq('user_id', currentUserId).maybeSingle(); return r != null; }
   Future<Map<String, int>> getRecommendationsCount() async { return {'people': 5, 'opportunities': 0, 'communities': 5}; }
