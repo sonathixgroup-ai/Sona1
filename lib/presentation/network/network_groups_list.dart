@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:thix_id/models/network_community.dart';
+import 'package:thix_id/services/network_service.dart';
 
 class NetworkGroupsList extends StatefulWidget {
   const NetworkGroupsList({super.key});
@@ -10,19 +12,24 @@ class NetworkGroupsList extends StatefulWidget {
   State<NetworkGroupsList> createState() => _NetworkGroupsListState();
 }
 
-class _NetworkGroupsListState extends State<NetworkGroupsList>
-    with SingleTickerProviderStateMixin {
+class _NetworkGroupsListState extends State<NetworkGroupsList> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late NetworkService _networkService;
 
   List<NetworkCommunity> _myGroups = [];
   List<NetworkCommunity> _suggestedGroups = [];
-
   bool _loading = true;
+
+  // Couleurs de la charte THIX PRO
+  final Color _thixPrimaryBlue = const Color(0xFF2B5CFF);
+  final Color _thixDarkText = const Color(0xFF1A1A2E);
+  final Color _thixGold = const Color(0xFFD4AF37);
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _networkService = Provider.of<NetworkService>(context, listen: false);
     _loadGroups();
   }
 
@@ -32,53 +39,34 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
     super.dispose();
   }
 
+  // OPTIMISATION #1 : Chargement parallèle via le Service Réseau
   Future<void> _loadGroups() async {
     setState(() => _loading = true);
 
     try {
-      final supabase = Supabase.instance.client;
-      final currentUserId = supabase.auth.currentUser?.id;
-
-      if (currentUserId == null) {
-        if (mounted) setState(() => _loading = false);
-        return;
-      }
-
-      // Mes groupes
-      final myGroupsData = await supabase
-          .from('community_members')
-          .select('communities!community_id(*)')
-          .eq('user_id', currentUserId);
-
-      final myGroups = (myGroupsData as List)
-          .map((e) => NetworkCommunity.fromJson(e['communities'] as Map<String, dynamic>))
-          .toList();
-
-      final myGroupIds = myGroups.map((g) => g.id).toList();
-
-      // Suggestions (exclure mes groupes)
-      final suggestedData = await supabase
-          .from('network_communities')
-          .select('*')
-          .order('members_count', ascending: false)
-          .limit(20);
-
-      final suggestedGroups = (suggestedData as List)
-          .map((e) => NetworkCommunity.fromJson(e as Map<String, dynamic>))
-          .where((g) => !myGroupIds.contains(g.id))
-          .toList();
+      final results = await Future.wait([
+        _networkService.getMyCommunities(),
+        _networkService.getSuggestedCommunities(limit: 20),
+      ]);
 
       if (!mounted) return;
 
+      final myGroups = results[0];
+      final suggestedGroups = results[1];
+      
+      // Filtrer les suggestions pour retirer les groupes déjà rejoints
+      final myGroupIds = myGroups.map((g) => g.id).toSet();
+      final filteredSuggestions = suggestedGroups.where((g) => !myGroupIds.contains(g.id)).toList();
+
       setState(() {
         _myGroups = myGroups;
-        _suggestedGroups = suggestedGroups;
+        _suggestedGroups = filteredSuggestions;
       });
     } catch (e) {
       debugPrint('Error loading groups: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Erreur de chargement: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -86,47 +74,48 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
     }
   }
 
+  // OPTIMISATION #2 : Optimistic UI (Mise à jour instantanée sans rechargement complet)
   Future<void> _toggleJoin(NetworkCommunity group, bool isCurrentMember) async {
-    try {
-      final supabase = Supabase.instance.client;
-      final currentUserId = supabase.auth.currentUser!.id;
-
+    // 1. Mise à jour immédiate de l'interface (Optimistic UI)
+    setState(() {
       if (isCurrentMember) {
-        // Quitter
-        await supabase
-            .from('community_members')
-            .delete()
-            .eq('community_id', group.id)
-            .eq('user_id', currentUserId);
-        
-        await supabase.rpc('decrement_community_members', params: {'community_id': group.id});
-        
+        _myGroups.removeWhere((g) => g.id == group.id);
+        _suggestedGroups.insert(0, group); // Le remet dans les suggestions
+      } else {
+        _suggestedGroups.removeWhere((g) => g.id == group.id);
+        _myGroups.insert(0, group); // L'ajoute à mes groupes
+      }
+    });
+
+    try {
+      // 2. Appel réseau en arrière-plan via le service
+      if (isCurrentMember) {
+        await _networkService.leaveCommunity(group.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Groupe quitté'), backgroundColor: Colors.orange),
           );
         }
       } else {
-        // Rejoindre
-        await supabase.from('community_members').insert({
-          'community_id': group.id,
-          'user_id': currentUserId,
-          'joined_at': DateTime.now().toIso8601String(),
-        });
-        
-        await supabase.rpc('increment_community_members', params: {'community_id': group.id});
-        
+        await _networkService.joinCommunity(group.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Groupe rejoint !'), backgroundColor: Colors.green),
           );
         }
       }
-      
-      await _loadGroups();
     } catch (e) {
-      debugPrint('Error toggling group: $e');
+      // 3. Rollback en cas d'erreur réseau
       if (mounted) {
+        setState(() {
+          if (isCurrentMember) {
+            _suggestedGroups.removeWhere((g) => g.id == group.id);
+            _myGroups.insert(0, group);
+          } else {
+            _myGroups.removeWhere((g) => g.id == group.id);
+            _suggestedGroups.insert(0, group);
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
         );
@@ -134,90 +123,92 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
     }
   }
 
+  // OPTIMISATION #3 : Création déléguée au service
   void _showCreateGroupDialog() {
     final nameController = TextEditingController();
     final descController = TextEditingController();
+    bool isCreating = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Créer un groupe'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                hintText: 'Nom du groupe',
-                border: OutlineInputBorder(),
-              ),
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Créer un groupe', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    hintText: 'Nom du groupe',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Description (optionnelle)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Description (optionnelle)',
-                border: OutlineInputBorder(),
+            actions: [
+              if (!isCreating)
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+                ),
+              ElevatedButton(
+                onPressed: isCreating ? null : () async {
+                  if (nameController.text.trim().isEmpty) return;
+                  
+                  setStateDialog(() => isCreating = true);
+                  
+                  try {
+                    final newCommunity = await _networkService.createCommunity(
+                      name: nameController.text.trim(),
+                      description: descController.text.trim(),
+                    );
+                    
+                    if (mounted) {
+                      Navigator.pop(dialogContext);
+                      // Optimistic ajout
+                      setState(() {
+                        _myGroups.insert(0, newCommunity);
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Groupe créé !'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    setStateDialog(() => isCreating = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _thixGold,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+                child: isCreating 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Créer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-              
-              Navigator.pop(context);
-              
-              try {
-                final supabase = Supabase.instance.client;
-                final currentUserId = supabase.auth.currentUser!.id;
-                
-                final response = await supabase
-                    .from('network_communities')
-                    .insert({
-                      'name': nameController.text.trim(),
-                      'description': descController.text.trim(),
-                      'created_by': currentUserId,
-                      'created_at': DateTime.now().toIso8601String(),
-                      'members_count': 1,
-                      'posts_count': 0,
-                    })
-                    .select()
-                    .single();
-                
-                await supabase.from('community_members').insert({
-                  'community_id': response['id'],
-                  'user_id': currentUserId,
-                  'role': 'admin',
-                  'joined_at': DateTime.now().toIso8601String(),
-                });
-                
-                await _loadGroups();
-                
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Groupe créé !'), backgroundColor: Colors.green),
-                  );
-                }
-              } catch (e) {
-                debugPrint('Error creating group: $e');
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
-            child: const Text('Créer'),
-          ),
-        ],
+            ],
+          );
+        }
       ),
     );
   }
@@ -225,29 +216,26 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F8FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Groupes',
-          style: TextStyle(color: Color(0xFF0B1B3D), fontWeight: FontWeight.bold),
-        ),
+        title: Text('Groupes', style: TextStyle(color: _thixDarkText, fontWeight: FontWeight.bold)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0B1B3D)),
+          icon: Icon(Icons.arrow_back, color: _thixDarkText),
           onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Color(0xFF0B1B3D)),
+            icon: Icon(Icons.add, color: _thixDarkText),
             onPressed: _showCreateGroupDialog,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFFD4AF37),
+          labelColor: _thixPrimaryBlue,
           unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFFD4AF37),
+          indicatorColor: _thixPrimaryBlue,
           tabs: const [
             Tab(text: 'Mes groupes'),
             Tab(text: 'Suggestions'),
@@ -255,7 +243,7 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: _thixPrimaryBlue))
           : TabBarView(
               controller: _tabController,
               children: [
@@ -272,9 +260,12 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isMyGroups ? Icons.groups : Icons.explore, size: 64, color: Colors.grey),
+            Icon(isMyGroups ? Icons.groups : Icons.explore, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
-            Text(isMyGroups ? 'Aucun groupe rejoint' : 'Aucune suggestion'),
+            Text(
+              isMyGroups ? 'Aucun groupe rejoint' : 'Aucune suggestion',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
           ],
         ),
       );
@@ -289,18 +280,22 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
     );
   }
 
+  // OPTIMISATION #4 : Utilisation de CachedNetworkImage pour protéger la RAM
   Widget _buildGroupCard(NetworkCommunity group, {required bool isMyGroups}) {
     final hasBanner = group.bannerUrl != null && group.bannerUrl!.isNotEmpty;
     final isMember = isMyGroups;
 
     return GestureDetector(
-      onTap: () => context.go('/network/community/${group.id}'),
+      onTap: () => context.push('/network/community/${group.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))
+          ],
         ),
         child: Row(
           children: [
@@ -308,14 +303,17 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37).withOpacity(0.1),
+                color: _thixPrimaryBlue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 image: hasBanner
-                    ? DecorationImage(image: NetworkImage(group.bannerUrl!), fit: BoxFit.cover)
+                    ? DecorationImage(
+                        image: CachedNetworkImageProvider(group.bannerUrl!), 
+                        fit: BoxFit.cover
+                      )
                     : null,
               ),
               child: !hasBanner
-                  ? const Icon(Icons.groups, size: 30, color: Color(0xFFD4AF37))
+                  ? Icon(Icons.groups, size: 30, color: _thixPrimaryBlue)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -323,20 +321,25 @@ class _NetworkGroupsListState extends State<NetworkGroupsList>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(group.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _thixDarkText)),
                   const SizedBox(height: 4),
-                  Text('${group.membersCount} membres', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  Text('${group.membersCount} membres', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
             ),
             OutlinedButton(
               onPressed: () => _toggleJoin(group, isMember),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: isMember ? Colors.red : const Color(0xFFD4AF37)),
+                side: BorderSide(color: isMember ? Colors.red.shade300 : _thixPrimaryBlue),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
               child: Text(
                 isMember ? 'Quitter' : 'Rejoindre',
-                style: TextStyle(color: isMember ? Colors.red : const Color(0xFFD4AF37)),
+                style: TextStyle(
+                  color: isMember ? Colors.red : _thixPrimaryBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12
+                ),
               ),
             ),
           ],
