@@ -6,7 +6,12 @@ class NetworkStory {
   final String userName;
   final String? userAvatar;
   final String userTitle;
-  final String imageUrl;
+  
+  // Médias et contenu
+  final String imageUrl; // Consolidé pour pointer vers 'media_url'
+  final String? textContent; // <-- AJOUT POUR LES STORIES TEXTE
+  final String mediaType;    // <-- AJOUT POUR DIFFÉRENCIER IMAGE/VIDEO/TEXT
+  
   final int duration; // en heures (pour l'affichage/choix utilisateur)
   final DateTime createdAt;
   final DateTime expiresAt;
@@ -19,6 +24,8 @@ class NetworkStory {
     this.userAvatar,
     required this.userTitle,
     required this.imageUrl,
+    this.textContent,
+    this.mediaType = 'image',
     required this.duration,
     required this.createdAt,
     required this.expiresAt,
@@ -30,6 +37,8 @@ class NetworkStory {
     required String userId,
     required String userName,
     required String imageUrl,
+    String? textContent,
+    String mediaType = 'image',
     String? userAvatar,
     String? userTitle,
     int durationHours = 24,
@@ -42,6 +51,8 @@ class NetworkStory {
       userAvatar: userAvatar,
       userTitle: userTitle ?? 'Membre THIX',
       imageUrl: imageUrl,
+      textContent: textContent,
+      mediaType: mediaType,
       duration: durationHours,
       createdAt: now,
       expiresAt: now.add(Duration(hours: durationHours)),
@@ -64,7 +75,14 @@ class NetworkStory {
       userTitle: profiles?['title']?.toString() 
                 ?? json['user_title']?.toString() 
                 ?? 'Membre THIX',
-      imageUrl: json['image_url']?.toString() ?? '',
+      
+      // ⚠️ Gère la nouvelle colonne 'media_url' et retombe sur 'image_url' si besoin
+      imageUrl: json['media_url']?.toString() ?? json['image_url']?.toString() ?? '',
+      
+      // ⚠️ Ajout de la gestion du texte et du type de média
+      textContent: json['text_content']?.toString(),
+      mediaType: json['media_type']?.toString() ?? 'image',
+      
       duration: (json['duration'] as int?) ?? 24, // heures
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -79,7 +97,9 @@ class NetworkStory {
   Map<String, dynamic> toJson() => {
     'id': id,
     'user_id': userId,
-    'image_url': imageUrl,
+    'media_url': imageUrl,
+    'text_content': textContent,
+    'media_type': mediaType,
     'duration': duration,
     'created_at': createdAt.toIso8601String(),
     'expires_at': expiresAt.toIso8601String(),
@@ -87,7 +107,7 @@ class NetworkStory {
 
   // Getters métier
   bool get isExpired => DateTime.now().isAfter(expiresAt);
-  bool get isActive => !isExpired; // plus besoin de colonne is_active
+  bool get isActive => !isExpired;
   bool get hasUserAvatar => userAvatar != null && userAvatar!.isNotEmpty;
   String get avatarUrl => userAvatar ?? '';
   String get userInitial => userName.isNotEmpty ? userName[0].toUpperCase() : '?';
@@ -142,6 +162,8 @@ class NetworkStory {
     String? userAvatar,
     String? userTitle,
     String? imageUrl,
+    String? textContent,
+    String? mediaType,
     int? duration,
     DateTime? createdAt,
     DateTime? expiresAt,
@@ -154,6 +176,8 @@ class NetworkStory {
       userAvatar: userAvatar ?? this.userAvatar,
       userTitle: userTitle ?? this.userTitle,
       imageUrl: imageUrl ?? this.imageUrl,
+      textContent: textContent ?? this.textContent,
+      mediaType: mediaType ?? this.mediaType,
       duration: duration ?? this.duration,
       createdAt: createdAt ?? this.createdAt,
       expiresAt: expiresAt ?? this.expiresAt,
@@ -163,7 +187,7 @@ class NetworkStory {
 
   @override
   String toString() =>
-      'NetworkStory(id: $id, user: $userName, expired: $isExpired)';
+      'NetworkStory(id: $id, user: $userName, type: $mediaType, expired: $isExpired)';
 }
 
 // Extension sur liste de stories
