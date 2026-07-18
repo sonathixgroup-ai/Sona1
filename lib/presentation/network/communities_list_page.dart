@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/models/network_community.dart';
 import 'package:thix_id/services/network_service.dart';
@@ -25,7 +26,8 @@ class _CommunitiesListPageState extends State<CommunitiesListPage> with SingleTi
   @override
   void initState() {
     super.initState();
-    _networkService = NetworkService(Supabase.instance.client);
+    // OPTIMISATION 1 : Utilisation du Provider pour récupérer l'instance globale
+    _networkService = Provider.of<NetworkService>(context, listen: false);
     _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
@@ -36,24 +38,30 @@ class _CommunitiesListPageState extends State<CommunitiesListPage> with SingleTi
     super.dispose();
   }
 
+  // OPTIMISATION 2 : Chargement parallèle des 3 listes
   Future<void> _loadData() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final myCommunities = await _networkService.getMyCommunities();
-      final suggested = await _networkService.getSuggestedCommunities();
-      final all = await _networkService.getAllCommunities();
+      final results = await Future.wait([
+        _networkService.getMyCommunities(),
+        _networkService.getSuggestedCommunities(),
+        _networkService.getAllCommunities(),
+      ]);
+
+      if (!mounted) return;
 
       setState(() {
-        _myCommunities = myCommunities;
-        _suggestedCommunities = suggested;
-        _allCommunities = all;
+        _myCommunities = results[0];
+        _suggestedCommunities = results[1];
+        _allCommunities = results[2];
         _loading = false;
       });
     } catch (e) {
       debugPrint('❌ Erreur chargement communautés: $e');
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -141,7 +149,7 @@ class _CommunitiesListPageState extends State<CommunitiesListPage> with SingleTi
           Text(
             _error!,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600), // ✅ correction : sans 'const'
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -169,10 +177,10 @@ class _CommunitiesListPageState extends State<CommunitiesListPage> with SingleTi
             const SizedBox(height: 16),
             Text(
               emptyMessage,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600), // ✅ correction : sans 'const'
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
-            if (_tabController.index == 1) // Suggestions
+            if (_tabController.index == 1)
               const SizedBox(height: 16),
             if (_tabController.index == 1)
               ElevatedButton.icon(
