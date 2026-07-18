@@ -85,7 +85,7 @@ class AppRoutes {
   static String groupMembersPath(String groupId) => '/chat/group/$groupId/members';
   static String groupAddMembersPath(String groupId) => '/chat/group/$groupId/add-members';
 
-  // THIX Événement
+  // THIX Événement - PUBLIC
   static const String thixEvent = '/thix-event';
   static const String thixEventDetail = '/thix-event/event/:eventId';
   static const String thixEventSearch = '/thix-event/search';
@@ -96,26 +96,27 @@ class AppRoutes {
   static const String thixEventSeatSelection = '/thix-event/seat-selection/:eventId';
   static const String thixEventWaitingQueue = '/thix-event/waiting-queue/:eventId';
 
-  // Modérateur
-  static const String moderatorHome = '/moderator';
-  static const String moderatorEvents = '/moderator/events';
-  static const String moderatorEventCreate = '/moderator/event/create';
-  static const String moderatorEventEdit = '/moderator/event/edit/:id';
+  // THIX ÉVÉNEMENT - ADMIN SCALABLE - DEV OPEN
+  static const String thixEventAdmin = '/thix-event/admin';
+  static const String thixEventAdminEvents = '/thix-event/admin/events';
+  static const String thixEventAdminCreate = '/thix-event/admin/events/create';
+  static const String thixEventAdminSeats = '/thix-event/admin/seats';
+  static const String thixEventAdminBookings = '/thix-event/admin/bookings';
+  static const String thixEventAdminQueue = '/thix-event/admin/queue';
+  static const String thixEventAdminLimits = '/thix-event/admin/limits';
+  static const String thixEventAdminAnalytics = '/thix-event/admin/analytics';
 
   // ============================================================
-// 📁 BLOC 2 : CONSTANTES (à ajouter dans la classe AppRoutes)
-// ============================================================
+  // BLOC 2 : CONSTANTES
+  // ============================================================
+  static const String chatProfile = '/chat/profile/:userId';
+  static const String chatSettings = '/chat/settings';
+  static const String chatAppearance = '/chat/settings/appearance';
+  static const String chatPrivacy = '/chat/settings/privacy';
+  static const String chatNotifications = '/chat/settings/notifications';
+  static const String chatData = '/chat/settings/data';
 
-static const String chatProfile = '/chat/profile/:userId';
-static const String chatSettings = '/chat/settings';
-static const String chatAppearance = '/chat/settings/appearance';
-static const String chatPrivacy = '/chat/settings/privacy';
-static const String chatNotifications = '/chat/settings/notifications';
-static const String chatData = '/chat/settings/data';
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // ─── MON PAYS ───
-  // ═══════════════════════════════════════════════════════════════════════
+  // MON PAYS
   static const String monPays = '/mon-pays';
   static const String monPaysAuthorities = '/mon-pays/authorities';
   static const String monPaysAuthorityProfile = '/mon-pays/authority/:id';
@@ -159,16 +160,9 @@ static const String chatData = '/chat/settings/data';
   static String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
   static String monPaysAdminArticleFormPath({dynamic article}) => '/mon-pays/admin/articles/form';
 
-  // ========================================================================
-  // ─── THIX SANTÉ - 31 Routes Complètes (20 Rapides + 11 Santé) ───
-  // Source réelle Supabase RLS - THIX ID UID - Sans mock
-  // ========================================================================
-
-  // Base
+  // THIX SANTÉ
   static const String thixSante = '/thix-sante';
   static const String thixSanteDashboard = '/thix-sante/dashboard';
-
-  // ─── Services Rapides 20/20 (capture exacte, Don d'organes supprimé) ───
   static const String santeConsulterMedecin = '/thix-sante/consulter-medecin';
   static const String santeDossierMedical = '/thix-sante/dossier-medical';
   static const String santeResultatsExamens = '/thix-sante/resultats-examens';
@@ -183,60 +177,48 @@ static const String chatData = '/chat/settings/data';
   static const String santeDossierPartage = '/thix-sante/dossier-partage';
   static const String santeEpidemies = '/thix-sante/epidemies';
   static const String santeDonSang = '/thix-sante/don-sang';
-  static const String santeMonMedecinTraitant = '/thix-sante/mon-medecin-traitant'; // NEW - health_links
-  static const String santeDossierFamille = '/thix-sante/dossier-famille'; // NEW - family_links
-  static const String santeSecondAvis = '/thix-sante/second-avis'; // NEW - second_opinion_requests
+  static const String santeMonMedecinTraitant = '/thix-sante/mon-medecin-traitant';
+  static const String santeDossierFamille = '/thix-sante/dossier-famille';
+  static const String santeSecondAvis = '/thix-sante/second-avis';
   static const String santeRappelsVaccin = '/thix-sante/rappels-vaccin';
   static const String santeCertificatMedical = '/thix-sante/certificat-medical';
   static const String santeAssurance = '/thix-sante/assurance';
-
-  // ─── Services Santé 11/11 (sans mock, Supabase réel) ───
-  static const String santeEnfants = '/thix-sante/sante-enfants'; // family_links relation=enfant
-  static const String santeCarnetVaccination = '/thix-sante/carnet-vaccination'; // health_records type=vaccin + QR
-  static const String santeSuiviGrossesse = '/thix-sante/suivi-grossesse'; // health_records ilike %grossesse% + calcul SA
-  static const String santeAnalysePredictive = '/thix-sante/analyse-predictive'; // health_records+prescriptions+links -> score
-  static const String santeBienEtreMental = '/thix-sante/bien-etre-mental'; // mood_entries
-  static const String santeNutrition = '/thix-sante/nutrition'; // nutrition_logs + IMC réel
-  static const String santeActivitePhysique = '/thix-sante/activite-physique'; // activity_logs
-  static const String santeGestionStress = '/thix-sante/gestion-stress'; // stress_logs + timer
-  static const String santeAssuranceSanteDetail = '/thix-sante/assurance-sante'; // insurance_claims + Storage invoices
-  static const String santePlusServices = '/thix-sante/plus-services'; // service_catalog + user_favorites
-
-  // ─── Helpers dynamiques THIX Santé ───
+  static const String santeEnfants = '/thix-sante/sante-enfants';
+  static const String santeCarnetVaccination = '/thix-sante/carnet-vaccination';
+  static const String santeSuiviGrossesse = '/thix-sante/suivi-grossesse';
+  static const String santeAnalysePredictive = '/thix-sante/analyse-predictive';
+  static const String santeBienEtreMental = '/thix-sante/bien-etre-mental';
+  static const String santeNutrition = '/thix-sante/nutrition';
+  static const String santeActivitePhysique = '/thix-sante/activite-physique';
+  static const String santeGestionStress = '/thix-sante/gestion-stress';
+  static const String santeAssuranceSanteDetail = '/thix-sante/assurance-sante';
+  static const String santePlusServices = '/thix-sante/plus-services';
   static String santeOrdonnanceDetail(String id) => '/thix-sante/ordonnances/$id';
   static String santeDossierDetail(String recordId) => '/thix-sante/dossier-medical/$recordId';
   static String santeTeleconsultationRoom(String roomId) => '/thix-sante/teleconsultation/$roomId';
   static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
   static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
 
-  // ═══════════════════════════════════════
-  // ─── CALL PROD - SANS IMPORT ───
-  // ═══════════════════════════════════════
+  // CALL PROD
   static const String call = '/call';
   static const String callIncoming = '/call/incoming';
   static const String callOutgoing = '/call/outgoing';
   static const String callOngoing = '/call/ongoing';
   static const String callHistory = '/call/history';
-
   static const String callIncomingName = 'callIncoming';
   static const String callOutgoingName = 'callOutgoing';
   static const String callOngoingName = 'callOngoing';
   static const String callHistoryName = 'callHistory';
-
   static String callWithUser(String userId) => '/call/$userId';
-  // ═══════════════════════════════════════
-  // ─── THIX MARKET - Routes ───
-  // ═══════════════════════════════════════
+
   static const String marketHome = '/market/home';
   static const String marketSearch = '/market/search';
   static const String marketCart = '/market/cart';
   static const String marketOrders = '/market/orders';
-  static const String marketWishlist = '/market/wishlist';      // <--- AJOUTÉ
-  static const String marketCheckout = '/market/checkout';    // <--- AJOUTÉ
-  static const String marketDeliveryTracking = '/market/tracking/:orderId'; // <--- AJOUTÉ
+  static const String marketWishlist = '/market/wishlist';
+  static const String marketCheckout = '/market/checkout';
+  static const String marketDeliveryTracking = '/market/tracking/:orderId';
 
-  
-  // ─── CALL CONST PROD ───
   static const String agoraAppIdKey = 'AGORA_APP_ID';
   static const int agoraTokenExpireSec = 3600;
   static const int callTimeoutSec = 45;
@@ -250,7 +232,7 @@ static const String chatData = '/chat/settings/data';
   static Map<String, dynamic> callOngoingExtra({
     required String channel,
     required String name,
-    required String type, // 'audio' | 'video' -> string pour éviter import
+    required String type,
     String? inviteId,
     bool isCaller = true,
     String? avatarUrl,
@@ -265,9 +247,6 @@ static const String chatData = '/chat/settings/data';
     'calleeId': calleeId,
   };
 
-  // ========================================================================
-  // HELPERS GÉNÉRIQUES
-  // ========================================================================
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
