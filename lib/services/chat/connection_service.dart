@@ -1,6 +1,7 @@
 // ============================================================
-// lib/services/chat/connection_service.dart
+// lib/services/chat/connection_service.dart (corrigé)
 // ============================================================
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -86,15 +87,13 @@ class Connection {
 class ConnectionService extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // ─── ÉTAT ──────────────────────────────────────────────────
-
   List<ConnectionRequest> _sentRequests = [];
   List<ConnectionRequest> _receivedRequests = [];
   List<Map<String, dynamic>> _connections = [];
   bool _isLoading = false;
   String? _error;
 
-  // ─── GETTERS (publics) ────────────────────────────────────
+  // ─── GETTERS ────────────────────────────────────────────────
 
   List<ConnectionRequest> get sentRequests => _sentRequests;
   List<ConnectionRequest> get receivedRequests => _receivedRequests;
@@ -102,7 +101,7 @@ class ConnectionService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // ─── CHARGEMENT DES DONNÉES ───────────────────────────────
+  // ─── CHARGEMENT ─────────────────────────────────────────────
 
   Future<void> loadData(String userId) async {
     _setLoading(true);
@@ -123,7 +122,7 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ─── MÉTHODES PRIVÉES ──────────────────────────────────────
+  // ─── REQUÊTES PRIVÉES (sans OR complexe) ──────────────────
 
   Future<List<ConnectionRequest>> _getPendingRequests(String userId) async {
     final response = await _supabase
@@ -181,7 +180,7 @@ class ConnectionService extends ChangeNotifier {
 
   // ─── MÉTHODES PUBLIQUES ────────────────────────────────────
 
-  // Envoyer une demande (avec vérification des doublons)
+  // ✅ sendRequest (sans OR complexe, vérification en deux requêtes)
   Future<bool> sendRequest({
     required String senderId,
     required String receiverId,
@@ -193,12 +192,22 @@ class ConnectionService extends ChangeNotifier {
       return false;
     }
     try {
-      // 1. Vérifier si une demande existe déjà
-      final existing = await _supabase
+      // 1. Vérifier si une demande existe déjà (dans les deux sens)
+      final existing1 = await _supabase
           .from('connection_requests')
           .select()
-          .or('(sender_id.eq.$senderId,receiver_id.eq.$receiverId),(sender_id.eq.$receiverId,receiver_id.eq.$senderId)')
+          .eq('sender_id', senderId)
+          .eq('receiver_id', receiverId)
           .maybeSingle();
+
+      final existing2 = await _supabase
+          .from('connection_requests')
+          .select()
+          .eq('sender_id', receiverId)
+          .eq('receiver_id', senderId)
+          .maybeSingle();
+
+      final existing = existing1 ?? existing2;
 
       if (existing != null) {
         // 2. Réactiver la demande existante
@@ -236,17 +245,15 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // Accepter une demande (avec insertion dans connections)
+  // ✅ acceptRequest (inchangé, avec tri des IDs)
   Future<bool> acceptRequest(String requestId, String userId) async {
     try {
-      // 1. Récupérer la demande
       final request = await _supabase
           .from('connection_requests')
           .select()
           .eq('id', requestId)
           .single();
 
-      // 2. Mettre à jour le statut
       await _supabase
           .from('connection_requests')
           .update({
@@ -255,7 +262,6 @@ class ConnectionService extends ChangeNotifier {
           })
           .eq('id', requestId);
 
-      // 3. Créer la connexion (ordre trié pour éviter les doublons)
       final ids = [request['sender_id'], request['receiver_id']]..sort();
       await _supabase
           .from('connections')
@@ -273,7 +279,7 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // Refuser une demande
+  // ✅ rejectRequest
   Future<bool> rejectRequest(String requestId, String userId) async {
     try {
       await _supabase
@@ -292,7 +298,7 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // Annuler une demande envoyée
+  // ✅ cancelRequest
   Future<bool> cancelRequest(String requestId, String userId) async {
     try {
       await _supabase
@@ -308,51 +314,91 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ✅ Vérification de connexion (requête OR corrigée)
+  // ✅ checkConnection (sans OR complexe)
   Future<bool> checkConnection(String userId1, String userId2) async {
     if (userId1 == userId2) return false;
     try {
-      final response = await _supabase
+      final response1 = await _supabase
           .from('connections')
           .select('id')
-          .or('(user1_id.eq.$userId1,user2_id.eq.$userId2),(user1_id.eq.$userId2,user2_id.eq.$userId1)')
+          .eq('user1_id', userId1)
+          .eq('user2_id', userId2)
           .maybeSingle();
-      return response != null;
+
+      if (response1 != null) return true;
+
+      final response2 = await _supabase
+          .from('connections')
+          .select('id')
+          .eq('user1_id', userId2)
+          .eq('user2_id', userId1)
+          .maybeSingle();
+
+      return response2 != null;
     } catch (e) {
       debugPrint('❌ checkConnection error: $e');
       return false;
     }
   }
 
-  // ✅ Statut entre deux utilisateurs
+  // ✅ getStatusBetween (sans OR complexe)
   Future<String> getStatusBetween(String userId1, String userId2) async {
     if (userId1 == userId2) return 'self';
     try {
-      // 1. Connexion existante ?
-      final connected = await _supabase
+      // 1. Vérifier une connexion (dans les deux sens)
+      final conn1 = await _supabase
           .from('connections')
           .select('id')
-          .or('(user1_id.eq.$userId1,user2_id.eq.$userId2),(user1_id.eq.$userId2,user2_id.eq.$userId1)')
+          .eq('user1_id', userId1)
+          .eq('user2_id', userId2)
           .maybeSingle();
-      if (connected != null) return 'connected';
+      if (conn1 != null) return 'connected';
 
-      // 2. Demande en attente ?
-      final pending = await _supabase
+      final conn2 = await _supabase
+          .from('connections')
+          .select('id')
+          .eq('user1_id', userId2)
+          .eq('user2_id', userId1)
+          .maybeSingle();
+      if (conn2 != null) return 'connected';
+
+      // 2. Vérifier une demande en attente
+      final pending1 = await _supabase
           .from('connection_requests')
           .select('status')
-          .or('(sender_id.eq.$userId1,receiver_id.eq.$userId2),(sender_id.eq.$userId2,receiver_id.eq.$userId1)')
+          .eq('sender_id', userId1)
+          .eq('receiver_id', userId2)
           .eq('status', 'pending')
           .maybeSingle();
-      if (pending != null) return 'pending';
+      if (pending1 != null) return 'pending';
 
-      // 3. Demande rejetée ?
-      final rejected = await _supabase
+      final pending2 = await _supabase
           .from('connection_requests')
           .select('status')
-          .or('(sender_id.eq.$userId1,receiver_id.eq.$userId2),(sender_id.eq.$userId2,receiver_id.eq.$userId1)')
+          .eq('sender_id', userId2)
+          .eq('receiver_id', userId1)
+          .eq('status', 'pending')
+          .maybeSingle();
+      if (pending2 != null) return 'pending';
+
+      // 3. Vérifier une demande rejetée
+      final rejected1 = await _supabase
+          .from('connection_requests')
+          .select('status')
+          .eq('sender_id', userId1)
+          .eq('receiver_id', userId2)
           .eq('status', 'rejected')
           .maybeSingle();
-      if (rejected != null) return 'rejected';
+      if (rejected1 != null) return 'rejected';
+
+      final rejected2 = await _supabase
+          .from('connection_requests')
+          .select('status')
+          .eq('sender_id', userId2)
+          .eq('receiver_id', userId1)
+          .eq('status', 'rejected')
+          .maybeSingle();
+      if (rejected2 != null) return 'rejected';
 
       return 'none';
     } catch (e) {
