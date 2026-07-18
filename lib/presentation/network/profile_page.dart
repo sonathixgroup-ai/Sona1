@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/services/network_service.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -15,94 +14,142 @@ import 'widgets/pinned_post.dart';
 
 class ProfilePage extends StatefulWidget {
   final String? userId;
-  final String? currentProfileId;
-
-  const ProfilePage({
-    super.key,
-    this.userId,
-    this.currentProfileId,
-  });
+  const ProfilePage({super.key, this.userId});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
+class _ProfilePageState extends State<ProfilePage> {
   late NetworkService _networkService;
+  final ScrollController _scrollController = ScrollController();
+
   Map<String, dynamic>? _user;
   List<NetworkPost> _posts = [];
   List<NetworkPost> _pinnedPosts = [];
-  List<NetworkPost> _savedPosts = [];
-  List<NetworkPost> _repostedPosts = [];
+  
+  // Pagination
   bool _loading = true;
+  bool _isLoadingMore = false;
+  bool _hasMorePosts = true;
+  final int _postsLimit = 15;
+  int _postsOffset = 0;
+
   bool _isFollowing = false;
   int _selectedTab = 0;
   bool _isGridView = true;
 
-  late AnimationController _levelUpController;
-  final List<String> _tabs = ['Posts', 'Photos', 'Vidéos', 'Reels', 'J\'aime', 'Sauvegardés'];
+  // Couleurs de la charte THIX PRO (basé sur la maquette d'accueil)
+  final Color _thixBgColor = const Color(0xFFF5F8FA);
+  final Color _thixPrimaryBlue = const Color(0xFF2B5CFF); // Bleu vif du bouton "Pour vous"
+  final Color _thixDarkText = const Color(0xFF1A1A2E); // Bleu très sombre du titre
+  final Color _thixGold = const Color(0xFFE7BE59);
+
+  final List<String> _tabs = ['Posts', 'Photos', 'Vidéos'];
 
   @override
   void initState() {
     super.initState();
-    _levelUpController = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
     _networkService = NetworkService(Supabase.instance.client);
-    _loadData();
+    _scrollController.addListener(_onScroll);
+    _loadInitialData();
     _checkFollowStatus();
   }
 
   @override
   void dispose() {
-    _levelUpController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
-  // ─── CHARGEMENT DES DONNÉES ───
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-    try {
-      final userId = widget.userId ?? _networkService.currentUserId;
-      final userData = await _networkService.getUserProfile(userId);
-      final posts = await _networkService.getUserPosts(userId);
-      final pinnedPosts = await _networkService.getPinnedPosts(userId);
-      final savedPosts = await _networkService.getSavedPosts();
-      final repostedPosts = await _networkService.getUserReposts(userId);
-
-      setState(() {
-        _user = userData;
-        _posts = posts;
-        _pinnedPosts = pinnedPosts;
-        _savedPosts = savedPosts;
-        _repostedPosts = repostedPosts;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading profile: $e');
-      setState(() => _loading = false);
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+      if (!_isLoadingMore && _hasMorePosts) {
+        _loadMorePosts();
+      }
     }
   }
 
-  // ─── SUIVI ───
-  Future<void> _checkFollowStatus() async {
-    if (widget.userId == null || widget.userId == _networkService.currentUserId) {
-      setState(() => _isFollowing = false);
-      return;
-    }
+  // CHARGEMENT INITIAL (Parallèle, sans bloquer le thread)
+  Future<void> _loadInitialData() async {
+    setState(() => _loading = true);
+    final userId = widget.userId ?? _networkService.currentUserId;
+
     try {
-      final userId = widget.userId!;
+      final results = await Future.wait([
+        _networkService.getUserProfile(userId),
+        _networkService.getPinnedPosts(userId),
+        _networkService.getUserPosts(userId, offset: 0, limit: _postsLimit),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _user = results[0] as Map<String, dynamic>?;
+          _pinnedPosts = results[1] as List<NetworkPost>;
+          _posts = results[2] as List<NetworkPost>;
+          
+          _postsOffset = _posts.length;
+          _hasMorePosts = _posts.length == _postsLimit;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement profil: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // RAFRAÎCHISSEMENT DU FLUX UNIQUEMENT
+  Future<void> _onRefreshFeed() async {
+    final userId = widget.userId ?? _networkService.currentUserId;
+    try {
+      final newPosts = await _networkService.getUserPosts(userId, offset: 0, limit: _postsLimit);
+      if (mounted) {
+        setState(() {
+          _posts = newPosts;
+          _postsOffset = newPosts.length;
+          _hasMorePosts = newPosts.length == _postsLimit;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur refresh feed: $e');
+    }
+  }
+
+  // CHARGEMENT INFINI
+  Future<void> _loadMorePosts() async {
+    setState(() => _isLoadingMore = true);
+    final userId = widget.userId ?? _networkService.currentUserId;
+
+    try {
+      final newPosts = await _networkService.getUserPosts(userId, offset: _postsOffset, limit: _postsLimit);
+      if (mounted) {
+        setState(() {
+          _posts.addAll(newPosts);
+          _postsOffset += newPosts.length;
+          _hasMorePosts = newPosts.length == _postsLimit;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _checkFollowStatus() async {
+    if (widget.userId == null || widget.userId == _networkService.currentUserId) return;
+    try {
       final response = await Supabase.instance.client
           .from('connections')
           .select('id')
           .eq('user_id', _networkService.currentUserId)
-          .eq('connection_id', userId)
+          .eq('connection_id', widget.userId!)
           .eq('status', 'accepted')
           .maybeSingle();
-      setState(() => _isFollowing = response != null);
+      if (mounted) setState(() => _isFollowing = response != null);
     } catch (e) {
-      debugPrint('Error checking follow status: $e');
+      debugPrint('Follow status error: $e');
     }
   }
 
@@ -121,130 +168,58 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     }
   }
 
-  // ─── MESSAGERIE ───
-  void _sendMessage() {
-    context.push('/network/chat/${widget.userId}');
-  }
-
-  // ─── ÉPINGLER ───
-  Future<void> _unpinPost(String postId) async {
-    await _networkService.unpinPost(postId);
-    await _loadData();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post désépinglé'), backgroundColor: Colors.orange),
-      );
-    }
-  }
-
-  // ─── PARTAGE ───
-  void _shareProfile() {
-    final name = _user?['display_name'] ?? 'Utilisateur';
-    final url = 'Découvrez le profil de $name sur THIX Réseau Pro !';
-    Share.share(url);
-  }
-
-  // ─── CHANGER COUVERTURE ───
-  Future<void> _changeCover() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    final url = await _networkService.uploadImageBytes(
-      bytes,
-      fileExtension: picked.path.split('.').last,
-      bucket: 'covers',
-    );
-    if (url != null) {
-      await Supabase.instance.client
-          .from('users')
-          .update({'cover_url': url})
-          .eq('id', _networkService.currentUserId);
-      await _loadData();
-    }
-  }
-
-  // ─── CHANGER AVATAR ───
-  Future<void> _changeAvatar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    final url = await _networkService.uploadImageBytes(
-      bytes,
-      fileExtension: picked.path.split('.').last,
-      bucket: 'avatars',
-    );
-    if (url != null) {
-      await Supabase.instance.client
-          .from('users')
-          .update({'photo_url': url})
-          .eq('id', _networkService.currentUserId);
-      await _loadData();
-    }
-  }
-
-  // ─── OUVRIR URL ───
-  void _openUrl(String url) async {
-    try {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        throw 'Impossible d\'ouvrir $url';
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible d\'ouvrir le lien: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  // ─── ÉDITER PROFIL ───
-  void _editProfile() {
-    context.push('/network/profile-settings');
-  }
-
-  // ─── FORMATAGE ───
   String _formatNumber(int num) {
     if (num >= 1000000) return '${(num / 1000000).toStringAsFixed(1)}M';
     if (num >= 1000) return '${(num / 1000).toStringAsFixed(1)}k';
     return num.toString();
   }
 
-  // ─── BUILD ───
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthController>(context);
+    final auth = Provider.of<AuthController>(context, listen: false);
     final isOwnProfile = widget.userId == null || widget.userId == auth.currentUser?.id;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: _thixBgColor,
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: _thixPrimaryBlue))
           : RefreshIndicator(
-              onRefresh: _loadData,
-              color: const Color(0xFFD4AF37),
+              onRefresh: _onRefreshFeed, // Ne rafraîchit que les posts !
+              color: _thixPrimaryBlue,
+              backgroundColor: Colors.white,
               child: CustomScrollView(
-                controller: ScrollController(),
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(child: _buildCoverBanner(isOwnProfile)),
                   SliverToBoxAdapter(child: _buildProfileHeader(isOwnProfile)),
+                  
                   if (_pinnedPosts.isNotEmpty)
                     SliverToBoxAdapter(
                       child: PinnedPost(
                         post: _pinnedPosts.first,
                         onTap: () => context.push('/network/post/${_pinnedPosts.first.id}'),
-                        onUnpin: isOwnProfile ? () => unawaited(_unpinPost(_pinnedPosts.first.id)) : null,
+                        onUnpin: null,
                       ),
                     ),
-                  SliverToBoxAdapter(child: _buildXpBar()),
-                  SliverToBoxAdapter(child: _buildStatsGrid()),
-                  SliverToBoxAdapter(child: _buildBadgesSection()),
-                  if (_user?['bio'] != null || _user?['skills'] != null)
+                    
+                  SliverToBoxAdapter(child: _buildStatsRow()),
+                  
+                  if (_user?['bio'] != null || _user?['location'] != null)
                     SliverToBoxAdapter(child: _buildAboutSection()),
+                    
                   SliverToBoxAdapter(child: _buildTabsAndSwitch()),
+                  
                   _buildTabContent(),
+                  
+                  if (_isLoadingMore)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Center(child: CircularProgressIndicator(color: _thixPrimaryBlue)),
+                      ),
+                    ),
+                    
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
@@ -252,34 +227,35 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  // ─── COUVERTURE ───
+  // ─── WIDGETS D'INTERFACE ───
+
   Widget _buildCoverBanner(bool isOwnProfile) {
     return Stack(
       children: [
         Container(
-          height: 160,
+          height: 140,
           width: double.infinity,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0B1B3D), Color(0xFF1A2B4D)],
-            ),
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+            color: _thixDarkText,
             image: _user?['cover_url'] != null
-                ? DecorationImage(image: NetworkImage(_user!['cover_url']), fit: BoxFit.cover)
+                ? DecorationImage(
+                    image: CachedNetworkImageProvider(_user!['cover_url']),
+                    fit: BoxFit.cover,
+                  )
                 : null,
           ),
         ),
         if (isOwnProfile)
           Positioned(
-            bottom: -30,
-            right: 16,
+            bottom: 12,
+            right: 12,
             child: CircleAvatar(
-              backgroundColor: const Color(0xFFD4AF37),
+              backgroundColor: Colors.black45,
+              radius: 18,
               child: IconButton(
-                icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                onPressed: _changeCover,
+                icon: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                onPressed: () {}, // Fonctionnalité à connecter plus tard
+                padding: EdgeInsets.zero,
               ),
             ),
           ),
@@ -287,38 +263,44 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     );
   }
 
-  // ─── EN-TÊTE PROFIL ───
   Widget _buildProfileHeader(bool isOwnProfile) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      transform: Matrix4.translationValues(0.0, -30.0, 0.0), // Fait remonter l'avatar sur la couverture
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 40),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: _user?['photo_url'] != null
-                        ? NetworkImage(_user!['photo_url'])
-                        : null,
-                    child: _user?['photo_url'] == null
-                        ? const Icon(Icons.person, size: 50)
-                        : null,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: _thixBgColor, width: 4),
+                    ),
+                    child: CircleAvatar(
+                      radius: 46,
+                      backgroundColor: Colors.white,
+                      backgroundImage: _user?['photo_url'] != null
+                          ? CachedNetworkImageProvider(_user!['photo_url'])
+                          : null,
+                      child: _user?['photo_url'] == null
+                          ? Icon(Icons.person, size: 40, color: _thixPrimaryBlue.withOpacity(0.5))
+                          : null,
+                    ),
                   ),
                   if (isOwnProfile)
                     Positioned(
-                      bottom: 0,
-                      right: 0,
+                      bottom: 4,
+                      right: 4,
                       child: CircleAvatar(
                         radius: 14,
-                        backgroundColor: const Color(0xFFD4AF37),
+                        backgroundColor: _thixPrimaryBlue,
                         child: IconButton(
                           icon: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
-                          onPressed: _changeAvatar,
+                          onPressed: () {}, // Fonctionnalité à connecter
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -328,321 +310,105 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               ),
               const Spacer(),
               if (isOwnProfile)
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _shareProfile,
-                      icon: const Icon(Icons.share, size: 18),
-                      label: const Text('Partager'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _editProfile,
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Modifier'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
-                  ],
+                OutlinedButton(
+                  onPressed: () => context.push('/network/profile-settings'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    foregroundColor: _thixDarkText,
+                  ),
+                  child: const Text('Modifier le profil', style: TextStyle(fontWeight: FontWeight.w600)),
                 )
               else
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _followUser,
-                      icon: Icon(_isFollowing ? Icons.person_remove : Icons.person_add, size: 18),
-                      label: Text(_isFollowing ? 'Abonné' : 'Suivre'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD4AF37),
-                        foregroundColor: const Color(0xFF0B1B3D),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _sendMessage,
-                      icon: const Icon(Icons.message, size: 18),
-                      label: const Text('Message'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  onPressed: _followUser,
+                  icon: Icon(_isFollowing ? Icons.check : Icons.person_add, size: 18),
+                  label: Text(_isFollowing ? 'Abonné' : 'Suivre'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isFollowing ? Colors.grey.shade200 : _thixPrimaryBlue,
+                    foregroundColor: _isFollowing ? _thixDarkText : Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             _user?['display_name'] ?? 'Utilisateur',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _thixDarkText),
           ),
           const SizedBox(height: 4),
           Text(
-            '@${_user?['display_name']?.toString().toLowerCase().replaceAll(' ', '') ?? 'user'}',
-            style: const TextStyle(fontSize: 13, color: Colors.grey),
+            _user?['profession'] ?? 'Membre THIX PRO',
+            style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _user?['profession'] ?? 'Membre THIX',
-            style: const TextStyle(fontSize: 13, color: Color(0xFFD4AF37)),
-          ),
-          const SizedBox(height: 8),
-          if (_user?['bio'] != null)
-            Text(
-              _user!['bio'],
-              style: const TextStyle(fontSize: 13, height: 1.4),
-            ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            children: [
-              if (_user?['location'] != null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.location_on, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(_user!['location'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text('Membre depuis 2024', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_user?['website'] != null)
-            GestureDetector(
-              onTap: () => _openUrl(_user!['website']),
-              child: Row(
-                children: [
-                  const Icon(Icons.link, size: 14, color: Colors.blue),
-                  const SizedBox(width: 4),
-                  Text(_user!['website'], style: const TextStyle(fontSize: 12, color: Colors.blue)),
-                ],
-              ),
-            ),
         ],
       ),
     );
   }
 
-  // ─── XP BAR ───
-  Widget _buildXpBar() {
-    final level = _user?['level'] ?? 1;
-    final xp = _user?['xp'] ?? 0;
-    final xpNeeded = level * 100;
-    final progress = (xp / xpNeeded).clamp(0.0, 1.0);
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.emoji_events, size: 20, color: Color(0xFFD4AF37)),
-                  const SizedBox(width: 8),
-                  Text('Niveau $level', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFE5C55E)]),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text('DIAMANT', style: TextStyle(fontSize: 10, color: Colors.white)),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.local_fire_department, size: 16, color: Colors.orange),
-                  const SizedBox(width: 4),
-                  Text('Streak: ${_user?['streak'] ?? 0} jours', style: const TextStyle(fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[200],
-              color: const Color(0xFFD4AF37),
-              minHeight: 6,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text('$xp / $xpNeeded XP', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  // ─── STATISTIQUES ───
-  Widget _buildStatsGrid() {
+  Widget _buildStatsRow() {
+    // Vraies données de la DB, sans fausses stats générées.
     final stats = [
-      {'icon': Icons.people, 'value': _user?['followers_count'] ?? 0, 'label': 'Abonnés'},
-      {'icon': Icons.visibility, 'value': _user?['profile_views'] ?? 0, 'label': 'Vues'},
-      {'icon': Icons.article, 'value': _user?['posts_count'] ?? 0, 'label': 'Posts'},
-      {'icon': Icons.favorite, 'value': _user?['total_likes'] ?? 0, 'label': 'Likes'},
-      {'icon': Icons.groups, 'value': _user?['communities_count'] ?? 0, 'label': 'Communautés'},
-      {'icon': Icons.stars, 'value': _user?['xp'] ?? 0, 'label': 'XP'},
+      {'value': _user?['followers_count'] ?? 0, 'label': 'Abonnés'},
+      {'value': _user?['following_count'] ?? 0, 'label': 'Abonnements'},
+      {'value': _user?['posts_count'] ?? 0, 'label': 'Publications'},
     ];
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
-      ),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 1.5,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: stats.length,
-        itemBuilder: (context, index) {
-          final stat = stats[index];
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      transform: Matrix4.translationValues(0.0, -10.0, 0.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: stats.map((stat) => Padding(
+          padding: const EdgeInsets.only(right: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(stat['icon'] as IconData, size: 24, color: const Color(0xFFD4AF37)),
-              const SizedBox(height: 4),
-              Text(_formatNumber(stat['value'] as int), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text(stat['label'] as String, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text('${_formatNumber(stat['value'] as int)}', 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _thixDarkText)),
+              Text(stat['label'] as String, 
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
             ],
-          );
-        },
+          ),
+        )).toList(),
       ),
     );
   }
 
-  // ─── BADGES ───
-  Widget _buildBadgesSection() {
-    final badges = [
-      {'icon': Icons.verified, 'name': 'Vérifié', 'color': Colors.blue},
-      {'icon': Icons.local_fire_department, 'name': 'Streak 15', 'color': Colors.orange},
-      {'icon': Icons.emoji_events, 'name': 'Pro', 'color': const Color(0xFFD4AF37)},
-      {'icon': Icons.camera_alt, 'name': 'Photographe', 'color': Colors.purple},
-      {'icon': Icons.edit, 'name': 'Créateur', 'color': Colors.green},
-      {'icon': Icons.people, 'name': 'Influenceur', 'color': Colors.red},
-    ];
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('🎖️ Badges & Succès', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              TextButton(
-                onPressed: () {},
-                child: const Text('Tout voir', style: TextStyle(color: Color(0xFFD4AF37))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 80,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: badges.length,
-              itemBuilder: (context, index) {
-                final badge = badges[index];
-                return Container(
-                  width: 70,
-                  margin: const EdgeInsets.only(right: 12),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: (badge['color'] as Color).withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(badge['icon'] as IconData, color: badge['color'] as Color, size: 24),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(badge['name'] as String, style: const TextStyle(fontSize: 10), textAlign: TextAlign.center),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── À PROPOS ───
   Widget _buildAboutSection() {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('📝 À propos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          if (_user?['bio'] != null)
-            Text(_user!['bio'], style: const TextStyle(fontSize: 13, height: 1.4)),
-          const SizedBox(height: 12),
-          if (_user?['skills'] != null)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: (_user!['skills'] as List).map((skill) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD4AF37).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(skill.toString(), style: const TextStyle(fontSize: 12, color: Color(0xFFD4AF37))),
-              )).toList(),
+          if (_user?['bio'] != null) ...[
+            Text(_user!['bio'], style: TextStyle(fontSize: 14, color: _thixDarkText.withOpacity(0.8), height: 1.5)),
+            const SizedBox(height: 12),
+          ],
+          if (_user?['location'] != null)
+            Row(
+              children: [
+                Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(_user!['location'], style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              ],
             ),
         ],
       ),
     );
   }
 
-  // ─── TABS ───
   Widget _buildTabsAndSwitch() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           Expanded(
@@ -651,27 +417,26 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               child: Row(
                 children: List.generate(_tabs.length, (index) {
                   final isSelected = _selectedTab == index;
+                  // Design exact des pilules de la page d'accueil (Pour vous / Réseau)
                   return GestureDetector(
                     onTap: () => setState(() => _selectedTab = index),
                     child: Container(
-                      margin: const EdgeInsets.only(right: 24),
-                      child: Column(
-                        children: [
-                          Text(
-                            _tabs[index],
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                              color: isSelected ? const Color(0xFFD4AF37) : Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            height: 2,
-                            width: 30,
-                            color: isSelected ? const Color(0xFFD4AF37) : Colors.transparent,
-                          ),
-                        ],
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? _thixPrimaryBlue : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? _thixPrimaryBlue : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Text(
+                        _tabs[index],
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.white : _thixDarkText,
+                        ),
                       ),
                     ),
                   );
@@ -679,78 +444,39 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               ),
             ),
           ),
+          // Bouton d'affichage discret
           IconButton(
-            icon: Icon(_isGridView ? Icons.grid_view : Icons.view_list),
+            icon: Icon(_isGridView ? Icons.grid_view_rounded : Icons.view_agenda_rounded),
+            color: Colors.grey.shade600,
             onPressed: () => setState(() => _isGridView = !_isGridView),
-            color: const Color(0xFFD4AF37),
-          ),
+          )
         ],
       ),
     );
   }
 
-  // ─── CONTENU DES ONGLETS ───
   Widget _buildTabContent() {
-    switch (_selectedTab) {
-      case 0:
-        return _buildPostsContent(_posts);
-      case 1:
-        return _buildFilteredContent('image');
-      case 2:
-        return _buildFilteredContent('video');
-      case 3:
-        return _buildFilteredContent('reel');
-      case 4:
-        return _buildPostsContent(_posts);
-      case 5:
-        return _buildSavedContent();
-      default:
-        return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-  }
+    List<NetworkPost> displayedPosts = _posts;
 
-  Widget _buildFilteredContent(String mediaType) {
-    final filtered = _posts.where((post) {
-      if (mediaType == 'image') return post.imageUrls.isNotEmpty;
-      if (mediaType == 'video') return post.videoUrls.isNotEmpty;
-      if (mediaType == 'reel') return post.videoUrls.isNotEmpty;
-      return false;
-    }).toList();
-    if (filtered.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Text('Aucun contenu de ce type.', style: TextStyle(color: Colors.grey)),
-          ),
-        ),
-      );
+    // Filtrage simple basé sur media_type (à adapter si ta DB utilise imageUrls)
+    if (_selectedTab == 1) {
+      displayedPosts = _posts.where((p) => p.mediaType == 'image' || p.imageUrls.isNotEmpty).toList();
+    } else if (_selectedTab == 2) {
+      displayedPosts = _posts.where((p) => p.mediaType == 'video' || p.videoUrls.isNotEmpty).toList();
     }
-    return _buildPostsContent(filtered);
-  }
 
-  Widget _buildSavedContent() {
-    if (_savedPosts.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Text('Aucun post sauvegardé.', style: TextStyle(color: Colors.grey)),
-          ),
-        ),
-      );
-    }
-    return _buildPostsContent(_savedPosts);
-  }
-
-  // ─── AFFICHAGE DES POSTS ───
-  Widget _buildPostsContent(List<NetworkPost> posts) {
-    if (posts.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Text('Aucun post pour le moment.', style: TextStyle(color: Colors.grey)),
+    if (displayedPosts.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(Icons.feed_outlined, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 12),
+                Text('Aucune publication', style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+              ],
+            ),
           ),
         ),
       );
@@ -762,139 +488,89 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           crossAxisCount: 3,
           crossAxisSpacing: 2,
           mainAxisSpacing: 2,
-          childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildPostGridItem(posts[index]),
-          childCount: posts.length,
+          (context, index) => _buildPostGridItem(displayedPosts[index]),
+          childCount: displayedPosts.length,
+          addAutomaticKeepAlives: false, // Protection RAM !
+          addRepaintBoundaries: true,
         ),
       );
     } else {
       return SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildPostListItem(posts[index]),
-          childCount: posts.length,
+          (context, index) => _buildPostListItem(displayedPosts[index]),
+          childCount: displayedPosts.length,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
         ),
       );
     }
   }
 
   Widget _buildPostGridItem(NetworkPost post) {
-    final mediaUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : null;
-    final isPostPinned = _pinnedPosts.any((p) => p.id == post.id);
+    final mediaUrl = (post.mediaUrl != null && post.mediaUrl!.isNotEmpty) 
+        ? post.mediaUrl 
+        : (post.imageUrls.isNotEmpty ? post.imageUrls.first : null);
 
     return GestureDetector(
       onTap: () => context.push('/network/post/${post.id}'),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (mediaUrl != null)
-            Image.network(
-              mediaUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: Colors.grey[200],
-                child: const Icon(Icons.broken_image, color: Colors.grey),
-              ),
-            )
-          else
-            Container(
-              color: Colors.grey[200],
-              child: const Icon(Icons.image, color: Colors.grey),
-            ),
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.favorite, size: 12, color: Colors.white),
-                  const SizedBox(width: 4),
-                  Text(_formatNumber(post.likesCount), style: const TextStyle(fontSize: 10, color: Colors.white)),
-                ],
-              ),
-            ),
-          ),
-          if (isPostPinned)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD4AF37).withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(8),
+      child: Container(
+        color: Colors.white,
+        child: mediaUrl != null
+            ? CachedNetworkImage(
+                imageUrl: mediaUrl,
+                fit: BoxFit.cover,
+                memCacheWidth: 300, // Limite la taille en RAM pour la miniature
+                placeholder: (context, url) => Container(color: Colors.grey.shade100),
+                errorWidget: (context, url, error) => Icon(Icons.broken_image, color: Colors.grey.shade300),
+              )
+            : Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.white,
+                child: Center(
+                  child: Text(
+                    post.content,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: _thixDarkText.withOpacity(0.7)),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                child: const Icon(Icons.push_pin, size: 12, color: Colors.white),
               ),
-            ),
-        ],
       ),
     );
   }
 
   Widget _buildPostListItem(NetworkPost post) {
-    final mediaUrl = post.imageUrls.isNotEmpty ? post.imageUrls.first : null;
-    final isPostPinned = _pinnedPosts.any((p) => p.id == post.id);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          if (mediaUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                mediaUrl,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.broken_image, color: Colors.grey),
-                ),
-              ),
-            ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onTap: () => context.push('/network/post/${post.id}'),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(post.content, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: _thixDarkText, height: 1.4)),
+            const SizedBox(height: 12),
+            Row(
               children: [
-                Text(
-                  post.content.isNotEmpty ? post.content : 'Sans description',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.favorite, size: 14, color: Colors.red),
-                    const SizedBox(width: 4),
-                    Text(_formatNumber(post.likesCount), style: const TextStyle(fontSize: 11)),
-                    const SizedBox(width: 12),
-                    Icon(Icons.comment, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(_formatNumber(post.commentsCount), style: const TextStyle(fontSize: 11)),
-                  ],
-                ),
+                Icon(Icons.favorite_border, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(_formatNumber(post.likesCount), style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                const SizedBox(width: 16),
+                Icon(Icons.chat_bubble_outline, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(_formatNumber(post.commentsCount), style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
               ],
-            ),
-          ),
-          if (isPostPinned) const Icon(Icons.push_pin, size: 16, color: Color(0xFFD4AF37)),
-        ],
+            )
+          ],
+        ),
       ),
     );
   }
