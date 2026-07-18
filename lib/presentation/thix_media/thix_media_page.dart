@@ -7,7 +7,7 @@ import '../../models/media_content.dart';
 import '../../services/media_service.dart';
 import '../../app_router.dart';
 import 'package:thix_id/nav.dart' show AppRoutes;
-import 'admin/admin_guard.dart'; // ✅ NOUVEAU
+import 'admin/admin_guard.dart'; 
 
 const Color kBackgroundColor = Color(0xFFF7FAFF);
 const Color kNavyDeep = Color(0xFF0A1F44);
@@ -48,7 +48,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     _startBannerAutoScroll();
   }
 
-  // ✅ FIX : sécurisé + utilise bannerItems.length pas allMedia
   void _startBannerAutoScroll() {
     _bannerTimer?.cancel();
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -64,7 +63,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   void dispose() {
     _bannerTimer?.cancel();
     _bannerController.dispose();
-    _searchController.dispose(); // ✅ FIX LEAK
+    _searchController.dispose(); 
     super.dispose();
   }
 
@@ -85,7 +84,6 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
     }
   }
 
-  // ✅ FIX : Recherche fonctionnelle
   List<MediaContent> get _searchBase {
     if (_searchQuery.trim().isEmpty) return _allMedia;
     final q = _searchQuery.toLowerCase();
@@ -95,7 +93,7 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
   List<MediaContent> get _bannerItems => _searchBase.where((m) => m.isNewRelease).toList();
   List<MediaContent> get _filteredTrending => _searchBase.where((item) => item.rankPosition != null).toList();
   List<MediaContent> get _filteredRecommendations => _searchBase.where((item) => item.rankPosition == null && item.type != 'Vidéo').toList();
-  List<MediaContent> get _filteredNewReleases => _searchBase.where((item) => item.isNewRelease).toList(); // ✅ plus de 2024 en dur
+  List<MediaContent> get _filteredNewReleases => _searchBase.where((item) => item.isNewRelease).toList(); 
 
   void _navigateToVideo(MediaContent item) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => VideoPlayerPage(title: item.title, videoUrl: item.videoUrl)));
@@ -389,29 +387,31 @@ class _ThixMediaPageState extends State<ThixMediaPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // ✅ BOUTON ADMIN EN HAUT
-                  if (AdminGuard.isAdmin)
-                    InkWell(
-                      onTap: () => context.push('/admin/media'),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: kGold,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [BoxShadow(color: kGold.withOpacity(0.3), blurRadius: 8)],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.admin_panel_settings_rounded, size: 14, color: kNavyDeep),
-                            SizedBox(width: 4),
-                            Text('ADMIN', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: kNavyDeep)),
-                          ],
-                        ),
+                  
+                  // ✅ BOUTON ADMIN TOUJOURS VISIBLE
+                  InkWell(
+                    onTap: () => context.push('/admin/media'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: kGold,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [BoxShadow(color: kGold.withOpacity(0.3), blurRadius: 8)],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.admin_panel_settings_rounded, size: 14, color: kNavyDeep),
+                          SizedBox(width: 4),
+                          Text('ADMIN', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: kNavyDeep)),
+                        ],
                       ),
                     ),
-                  if (AdminGuard.isAdmin) const SizedBox(width: 8),
+                  ),
+                  const SizedBox(width: 8),
+                  // ✅ FIN BOUTON ADMIN
+
                   Stack(
                     alignment: Alignment.topRight,
                     children: [
