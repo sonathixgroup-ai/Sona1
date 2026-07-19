@@ -26,6 +26,10 @@ class WaitingQueuePage extends StatefulWidget {
 class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBindingObserver {
   late EventQueueService _queueService;
 
+  // Définition de la couleur violette principale de l'app (tirée de la maquette)
+  static const Color appViolet = Color(0xFF6B3CE2); 
+  static const Color textDark = Color(0xFF1A1A2E);
+
   int _position = -1;
   int _queueSize = 0;
   bool _isLoading = true;
@@ -46,13 +50,12 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _queueSubscription?.cancel(); // 🔴 TRÈS IMPORTANT : Couper l'écoute temps réel
+    _queueSubscription?.cancel(); 
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Si l'app revient au premier plan, on relance une vérification manuelle légère
     if (state == AppLifecycleState.resumed && !_isProcessing) {
       _fetchInitialQueueInfo();
     }
@@ -78,7 +81,6 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
     });
 
     try {
-      // 1. Rejoindre la file côté DB
       final queue = await _queueService.joinWaitingQueue(
         widget.eventId,
         widget.requestedQuantity,
@@ -86,21 +88,28 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
 
       if (queue != null) {
         await _fetchInitialQueueInfo();
-        _listenToMyPosition(); // 🟢 Démarrer l'écoute Temps Réel (0 polling)
+        _listenToMyPosition(); 
       } else {
         throw Exception("Impossible de rejoindre la file d'attente");
       }
     } catch (e) {
       if (mounted) {
+        // Extraction propre du message d'erreur pour un affichage pro
+        String cleanMessage = "Une erreur est survenue lors de l'accès à la file.";
+        if (e is PostgrestException) {
+          cleanMessage = e.message;
+        } else {
+          cleanMessage = e.toString().replaceAll('Exception: ', '');
+        }
+
         setState(() {
-          _error = e.toString();
+          _error = cleanMessage;
           _isLoading = false;
         });
       }
     }
   }
 
-  // Requête unique au démarrage pour avoir la taille totale (pas de polling là-dessus)
   Future<void> _fetchInitialQueueInfo() async {
     try {
       final size = await _queueService.getQueueSize(widget.eventId);
@@ -113,7 +122,6 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
           _isLoading = false;
         });
 
-        // Si par chance on est déjà premier au chargement
         if (_position == 1 && !_isProcessing) {
           _onYourTurn();
         }
@@ -123,22 +131,17 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
     }
   }
 
-  // 🟢 OPTIMISATION : Supabase Realtime (Aucune surcharge base de données)
-  // ⚠️ CORRECTION : SupabaseStreamFilterBuilder ne supporte qu'UN SEUL .eq()
-  // chaîné après .stream(). On filtre donc le user_id manuellement dans le
-  // callback .listen() plutôt que de chaîner un second .eq().
   void _listenToMyPosition() {
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser!.id;
 
     _queueSubscription = supabase
         .from('waiting_queue')
-        .stream(primaryKey: ['id']) // 'id' doit être ta clé primaire
-        .eq('event_id', widget.eventId) // ✅ un seul filtre autorisé ici
+        .stream(primaryKey: ['id']) 
+        .eq('event_id', widget.eventId) 
         .listen((data) {
       if (!mounted || data.isEmpty) return;
 
-      // ✅ Filtrage du user_id fait côté client
       final myRow = data.cast<Map<String, dynamic>?>().firstWhere(
             (row) => row?['user_id'] == currentUserId,
             orElse: () => null,
@@ -172,7 +175,7 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.confirmation_number, size: 48, color: Color(0xFFD4AF37)),
+            const Icon(Icons.confirmation_number, size: 48, color: appViolet),
             const SizedBox(height: 16),
             Text(
               'Vous avez ${widget.requestedQuantity} place(s) réservée(s).',
@@ -198,11 +201,11 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _claimAndProceed(); // 🟢 Appel de la transaction atomique
+              _claimAndProceed();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
-              foregroundColor: const Color(0xFF0B1B3D),
+              backgroundColor: appViolet,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
             child: const Text('RÉSERVER MAINTENANT', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -212,7 +215,6 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
     );
   }
 
-  // 🟢 OPTIMISATION : Verrouillage Atomique pour éviter la surréservation
   Future<void> _claimAndProceed() async {
     setState(() => _isLoading = true);
 
@@ -220,31 +222,48 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
       final supabase = Supabase.instance.client;
       final currentUserId = supabase.auth.currentUser!.id;
 
-      // Appel de la procédure stockée (RPC) avec FOR UPDATE
       final bool success = await supabase.rpc('try_claim_spot', params: {
         'p_user_id': currentUserId,
         'p_event_id': widget.eventId,
       });
 
       if (success && mounted) {
-        // La place est verrouillée pour ce user, on va au paiement
         _queueSubscription?.cancel();
         context.push('/thix-event/reservation/${widget.eventId}');
       } else {
-        // Échec atomique : la place n'est plus dispo ou le rang a changé in extremis
         throw Exception("Délai expiré ou place prise. Veuillez réessayer.");
       }
     } catch (e) {
       if (mounted) {
+        // Nettoyage de l'erreur
+        String cleanMessage = "Impossible de sécuriser la place.";
+        bool isAlreadyBooked = false;
+
+        if (e is PostgrestException) {
+          cleanMessage = e.message;
+          if (cleanMessage.contains('déjà une réservation')) isAlreadyBooked = true;
+        } else {
+          cleanMessage = e.toString().replaceAll('Exception: ', '');
+          if (cleanMessage.contains('déjà une réservation')) isAlreadyBooked = true;
+        }
+
         setState(() {
           _isLoading = false;
           _isProcessing = false;
-          _error = e.toString();
+          _error = cleanMessage;
         });
+
+        // Affichage du SnackBar informatif
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Une erreur est survenue, impossible de sécuriser la place."),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: Text(
+              isAlreadyBooked 
+                  ? "Information : Vous possédez déjà un billet pour cet événement."
+                  : cleanMessage
+            ),
+            backgroundColor: isAlreadyBooked ? appViolet : Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -258,7 +277,6 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
 
   String _formatEstimatedTime() {
     if (_position <= 0) return 'Calcul...';
-    // Approximation légère : 30 secondes par personne devant
     final minutes = ((_position - 1) * 0.5).round();
     if (minutes < 1) return 'Moins d\'une minute';
     if (minutes == 1) return 'Environ 1 minute';
@@ -267,7 +285,6 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
 
   double _getProgressValue() {
     if (_queueSize <= 0 || _position <= 0) return 0;
-    // Si la file est grande, on fait un ratio. Si je suis 1er, c'est 1.0 (100%)
     final progress = (_queueSize - _position + 1) / _queueSize;
     return progress.clamp(0.0, 1.0);
   }
@@ -288,12 +305,12 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
                 title: const Text('Quitter la file ?', style: TextStyle(fontWeight: FontWeight.bold)),
                 content: const Text('Si vous quittez, vous perdrez votre position actuelle.'),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Rester')),
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Rester', style: TextStyle(color: textDark))),
                   TextButton(
                     onPressed: () {
                       _leaveQueue();
-                      Navigator.pop(context); // Ferme modale
-                      Navigator.pop(context); // Quitte page
+                      Navigator.pop(context); 
+                      Navigator.pop(context); 
                     },
                     child: const Text('Quitter', style: TextStyle(color: Colors.red)),
                   ),
@@ -305,7 +322,7 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
         title: const Text('File d\'attente', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: const Color(0xFFD4AF37)))
+          ? const Center(child: CircularProgressIndicator(color: appViolet))
           : _error != null
               ? _buildErrorState()
               : _buildQueueContent(),
@@ -315,7 +332,6 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
   Widget _buildQueueContent() {
     return Column(
       children: [
-        // Animation et statut
         Container(
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(24),
@@ -336,14 +352,14 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
                       value: _getProgressValue(),
                       strokeWidth: 6,
                       backgroundColor: Colors.grey.shade100,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                      valueColor: const AlwaysStoppedAnimation<Color>(appViolet),
                     ),
                   ),
                   Column(
                     children: [
                       Text(
                         '$_position',
-                        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37), height: 1),
+                        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: appViolet, height: 1),
                       ),
                       const Text('position', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
                     ],
@@ -353,7 +369,7 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
               const SizedBox(height: 20),
               const Text(
                 'Vous êtes en file d\'attente',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1B3D)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark),
               ),
               const SizedBox(height: 6),
               Text(
@@ -364,17 +380,17 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD4AF37).withOpacity(0.1),
+                  color: appViolet.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.timer, size: 16, color: Color(0xFFD4AF37)),
+                    const Icon(Icons.timer, size: 16, color: appViolet),
                     const SizedBox(width: 6),
                     Text(
                       _formatEstimatedTime(),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFD4AF37)),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: appViolet),
                     ),
                   ],
                 ),
@@ -382,33 +398,28 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
             ],
           ),
         ),
-
-        // Informations
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: appViolet.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.shade100),
+            border: Border.all(color: appViolet.withOpacity(0.15)),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+              const Icon(Icons.info_outline, color: appViolet, size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Ne quittez pas cette page. Vous serez automatiquement redirigé(e) quand ce sera votre tour.',
-                  style: TextStyle(fontSize: 13, color: Colors.blue.shade800, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.4),
                 ),
               ),
             ],
           ),
         ),
-
         const SizedBox(height: 20),
-
-        // Récapitulatif
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(16),
@@ -420,7 +431,7 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Récapitulatif', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0B1B3D))),
+              const Text('Récapitulatif', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
               const SizedBox(height: 16),
               _buildInfoRow('Événement', _event?.title ?? 'Chargement...'),
               const Padding(
@@ -445,39 +456,53 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E))),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textDark)),
       ],
     );
   }
 
   Widget _buildErrorState() {
+    // Vérification intelligente si l'erreur est liée à un doublon
+    final isAlreadyBooked = _error != null && _error!.contains('déjà une réservation');
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+            // Icône dynamique : Info Violette pour doublon, Erreur Rouge pour les vrais crashs
+            Icon(
+              isAlreadyBooked ? Icons.info_outline : Icons.error_outline, 
+              size: 64, 
+              color: isAlreadyBooked ? appViolet : Colors.red.shade300
+            ),
             const SizedBox(height: 16),
             Text(
               _error ?? 'Une erreur est survenue',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              style: const TextStyle(fontSize: 15, color: textDark, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                setState(() {
-                  _error = null;
-                  _isLoading = true;
-                });
-                _joinQueue();
+                if (isAlreadyBooked) {
+                  // Renvoie à l'accueil si la place est déjà prise
+                  context.go('/thix-event'); 
+                } else {
+                  // Autorise un ré-essai pour les autres erreurs
+                  setState(() {
+                    _error = null;
+                    _isLoading = true;
+                  });
+                  _joinQueue();
+                }
               },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
+              icon: Icon(isAlreadyBooked ? Icons.home : Icons.refresh),
+              label: Text(isAlreadyBooked ? 'Retour aux événements' : 'Réessayer'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.white,
+                backgroundColor: appViolet, 
+                foregroundColor: Colors.white, 
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
