@@ -1,7 +1,7 @@
 // lib/presentation/thix_event/admin/pages/seats/seat_map_admin_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../models/event_seat.dart';
+import '../../../../models/seat_model.dart'; 
 import '../../providers/admin_event_provider.dart';
 import '../../services/admin_event_service.dart';
 import '../../widgets/admin_app_bar.dart';
