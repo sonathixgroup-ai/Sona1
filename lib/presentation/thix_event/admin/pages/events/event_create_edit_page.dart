@@ -19,6 +19,9 @@ class EventCreateEditPage extends StatefulWidget {
 }
 
 class _EventCreateEditPageState extends State<EventCreateEditPage> {
+  // Couleur THIX Violette
+  static const Color appViolet = Color(0xFF6B3CE2);
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleCtrl, _descCtrl, _locationCtrl, _addressCtrl, _cityCtrl;
   late TextEditingController _priceCtrl, _capacityCtrl, _subCategoryCtrl;
@@ -27,8 +30,11 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
   late String _category, _currency, _status;
   late DateTime _startDate;
   DateTime? _endDate;
-  bool _isFree = false, _isFeatured = false;
+  bool _isFree = false;
   bool _isSaving = false;
+
+  // Nouvelle variable pour la section de publication
+  String _publishSection = 'upcoming';
 
   Uint8List? _pickedImageBytes;
   Uint8List? _pickedBannerBytes;
@@ -56,7 +62,14 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     _startDate = e?.startDate ?? DateTime.now().add(const Duration(days: 7));
     _endDate = e?.endDate;
     _isFree = e?.isFree ?? false;
-    _isFeatured = e?.isFeatured ?? false;
+    
+    // Initialisation de la section de publication
+    if (e?.isFeatured == true) {
+      _publishSection = 'featured';
+    } else {
+      // TODO: Si vous ajoutez e?.isRecommended dans le futur, gérez-le ici.
+      _publishSection = 'upcoming';
+    }
   }
 
   Future<void> _pickImage(bool isBanner) async {
@@ -65,6 +78,45 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
       final bytes = await x.readAsBytes();
       setState(() => isBanner ? _pickedBannerBytes = bytes : _pickedImageBytes = bytes);
     }
+  }
+
+  // Fonction combinée pour choisir la Date ET l'Heure
+  Future<DateTime?> _pickDateTime(DateTime initialDate) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      builder: (context, child) => _buildTheme(child),
+    );
+
+    if (date == null) return null; // Annulé
+
+    if (!mounted) return date;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialDate),
+      builder: (context, child) => _buildTheme(child),
+    );
+
+    if (time == null) return date; // A choisi la date mais annulé l'heure
+
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  // Applique le thème Violet THIX aux sélecteurs
+  Widget _buildTheme(Widget? child) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: const ColorScheme.light(
+          primary: appViolet, 
+          onPrimary: Colors.white,
+          onSurface: Colors.black87,
+        ),
+      ),
+      child: child!,
+    );
   }
 
   Future<void> _save() async {
@@ -82,6 +134,9 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
 
       final capacity = int.tryParse(_capacityCtrl.text);
 
+      bool isFeatured = _publishSection == 'featured';
+      // bool isRecommended = _publishSection == 'recommended'; // À décommenter si ajouté au modèle Event
+
       final event = Event(
         id: widget.eventToEdit?.id ?? '',
         title: _titleCtrl.text.trim(),
@@ -98,7 +153,8 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         isFree: _isFree,
         capacity: capacity,
         remainingTickets: widget.eventToEdit == null ? capacity : widget.eventToEdit?.remainingTickets,
-        isFeatured: _isFeatured,
+        isFeatured: isFeatured,
+         isRecommended: isRecommended, // Ajoutez ceci dans votre constructeur Event si vous gérez les recommandations
         status: _status,
         organizerName: _organizerNameCtrl.text.trim().isEmpty ? null : _organizerNameCtrl.text.trim(),
         contactPhone: _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim(),
@@ -115,14 +171,19 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
       await provider.loadEvents(refresh: true);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Événement enregistré')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Événement enregistré', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green));
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  // Format d'affichage de la date et l'heure
+  String _formatDateTime(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -135,7 +196,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         child: ElevatedButton(
           onPressed: _isSaving ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0A1F44),
+            backgroundColor: appViolet, // Changé en Violet
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
@@ -143,7 +204,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Text(
                   widget.eventToEdit == null ? 'CRÉER L\'ÉVÉNEMENT' : 'ENREGISTRER',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1),
                 ),
         ),
       ),
@@ -157,7 +218,8 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
               const SizedBox(width: 12),
               Expanded(child: _imagePicker('Banner', _pickedBannerBytes, widget.eventToEdit?.bannerUrl, () => _pickImage(true))),
             ]),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            
             _field(_titleCtrl, 'Titre événement *', validator: (v) => v!.isEmpty ? 'Requis' : null),
             const SizedBox(height: 12),
             _field(_descCtrl, 'Description *', maxLines: 4, validator: (v) => v!.length < 10 ? 'Min 10 car' : null),
@@ -174,7 +236,51 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
               const SizedBox(width: 12),
               Expanded(child: _field(_subCategoryCtrl, 'Sous-catégorie')),
             ]),
-            const SizedBox(height: 12),
+            
+            const SizedBox(height: 20),
+            const Text('Date & Heure', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    final dt = await _pickDateTime(_startDate);
+                    if (dt != null) setState(() => _startDate = dt);
+                  },
+                  child: InputDecorator(
+                    decoration: _deco('Début'),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_formatDateTime(_startDate), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const Icon(Icons.access_time, size: 16, color: appViolet),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    final dt = await _pickDateTime(_endDate ?? _startDate);
+                    if (dt != null) setState(() => _endDate = dt);
+                  },
+                  child: InputDecorator(
+                    decoration: _deco('Fin (Optionnel)'),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_endDate == null ? 'Ajouter' : _formatDateTime(_endDate!), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const Icon(Icons.access_time, size: 16, color: appViolet),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+            
+            const SizedBox(height: 20),
             Row(children: [
               Expanded(child: _field(_cityCtrl, 'Ville *', validator: (v) => v!.isEmpty ? 'Requis' : null)),
               const SizedBox(width: 12),
@@ -182,7 +288,8 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
             ]),
             const SizedBox(height: 12),
             _field(_addressCtrl, 'Adresse complète'),
-            const SizedBox(height: 12),
+            
+            const SizedBox(height: 20),
             Row(children: [
               Expanded(child: _field(_organizerNameCtrl, 'Organisateur')),
               const SizedBox(width: 12),
@@ -190,7 +297,8 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
             ]),
             const SizedBox(height: 12),
             _field(_contactEmailCtrl, 'Email de contact', keyboard: TextInputType.emailAddress),
-            const SizedBox(height: 12),
+            
+            const SizedBox(height: 20),
             Row(children: [
               Expanded(child: _field(_priceCtrl, 'Prix', enabled: !_isFree, keyboard: TextInputType.number)),
               const SizedBox(width: 8),
@@ -201,13 +309,13 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
               ),
               const SizedBox(width: 8),
               Row(children: [
-                Checkbox(value: _isFree, onChanged: (v) => setState(() => _isFree = v!)),
+                Checkbox(value: _isFree, activeColor: appViolet, onChanged: (v) => setState(() => _isFree = v!)),
                 const Text('Gratuit', style: TextStyle(fontSize: 12))
               ]),
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _field(_capacityCtrl, 'Capacité', keyboard: TextInputType.number)),
+              Expanded(child: _field(_capacityCtrl, 'Capacité totale', keyboard: TextInputType.number)),
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
@@ -218,37 +326,30 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
                 ),
               ),
             ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Checkbox(value: _isFeatured, onChanged: (v) => setState(() => _isFeatured = v!)),
-              const Text('Featured / Événement Star', style: TextStyle(fontSize: 12)),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Début: ${_startDate.toString().substring(0, 16)}', style: const TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.calendar_today, size: 16),
-                  onTap: () async {
-                    final d = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365 * 2)), initialDate: _startDate);
-                    if (d != null) setState(() => _startDate = d);
-                  },
+            
+            const SizedBox(height: 20),
+            const Text('Où afficher cet événement ?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _publishSection,
+              decoration: _deco('Visibilité de l\'événement'),
+              items: const [
+                DropdownMenuItem(
+                  value: 'upcoming', 
+                  child: Text('Prochains événements (Par défaut)', style: TextStyle(fontSize: 13))
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(_endDate == null ? 'Ajouter Fin' : 'Fin: ${_endDate.toString().substring(0, 16)}', style: const TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.calendar_today, size: 16),
-                  onTap: () async {
-                    final d = await showDatePicker(context: context, firstDate: _startDate, lastDate: DateTime.now().add(const Duration(days: 365 * 2)), initialDate: _endDate ?? _startDate);
-                    if (d != null) setState(() => _endDate = d);
-                  },
+                DropdownMenuItem(
+                  value: 'recommended', 
+                  child: Text('Événements Recommandés', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13))
                 ),
-              ),
-            ]),
+                DropdownMenuItem(
+                  value: 'featured', 
+                  child: Text('À la Une (Bannière)', style: TextStyle(color: appViolet, fontWeight: FontWeight.bold, fontSize: 13))
+                ),
+              ],
+              onChanged: (v) => setState(() => _publishSection = v!),
+            ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -263,18 +364,18 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE7EEFC)),
+          border: Border.all(color: appViolet.withOpacity(0.3), width: 1.5),
         ),
         child: bytes != null
-            ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, fit: BoxFit.cover))
+            ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, fit: BoxFit.cover))
             : url != null
-                ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(url, fit: BoxFit.cover))
+                ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(url, fit: BoxFit.cover))
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.add_a_photo, color: Color(0xFF7386A8)),
+                      const Icon(Icons.add_a_photo, color: appViolet),
                       const SizedBox(height: 6),
-                      Text(label, style: const TextStyle(fontSize: 11)),
+                      Text(label, style: const TextStyle(fontSize: 11, color: appViolet, fontWeight: FontWeight.w600)),
                     ],
                   ),
       ),
@@ -297,6 +398,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE7EEFC))),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: appViolet, width: 2)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       );
 }
