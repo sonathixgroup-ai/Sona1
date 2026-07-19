@@ -198,4 +198,10 @@ class Event {
         : price.toStringAsFixed(2);
     return '$priceString $priceCurrency';
   }
+
+  // --- NOUVEAU GETTER POUR LA DATE COURTE ---
+  String get shortDate {
+    final months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return '${startDate.day} ${months[startDate.month - 1]}';
+  }
 }
