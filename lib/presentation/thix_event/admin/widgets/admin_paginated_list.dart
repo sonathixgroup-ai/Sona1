@@ -1,6 +1,7 @@
-// lib/presentation/thix_event/admin/widgets/admin_paginated_list.dart
+// lib/presentation/thix_event/admin/widgets/admin_paginated_list.dart - FIXED BUILD VERT
 import 'package:flutter/material.dart';
 import '../providers/admin_state.dart';
+import 'admin_state_widgets.dart'; // FIX: Import manquant qui causait AdminErrorWidget not defined
 
 class AdminPaginatedList<T> extends StatefulWidget {
   final AdminPaginatedState<T> state;
@@ -32,9 +33,8 @@ class _AdminPaginatedListState<T> extends State<AdminPaginatedList<T>> {
   }
 
   void _onScroll() {
-    // Charge plus quand on est à 80% du scroll
     if (_controller.position.pixels >= _controller.position.maxScrollExtent * 0.8) {
-      if (widget.state.hasMore &&!widget.state.isLoadingMore) {
+      if (widget.state.hasMore && !widget.state.isLoadingMore) {
         widget.onLoadMore();
       }
     }
@@ -43,11 +43,11 @@ class _AdminPaginatedListState<T> extends State<AdminPaginatedList<T>> {
   @override
   Widget build(BuildContext context) {
     if (widget.state.status == AdminStatus.initial || widget.state.status == AdminStatus.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
     if (widget.state.status == AdminStatus.error) {
-      return AdminErrorWidget(message: widget.state.error?? 'Erreur', onRetry: widget.onRefresh);
+      return AdminErrorWidget(message: widget.state.error ?? 'Erreur', onRetry: widget.onRefresh);
     }
 
     if (widget.state.status == AdminStatus.empty || widget.state.items.isEmpty) {
@@ -58,15 +58,22 @@ class _AdminPaginatedListState<T> extends State<AdminPaginatedList<T>> {
       onRefresh: widget.onRefresh,
       child: ListView.builder(
         controller: _controller,
-        itemCount: widget.state.items.length + (widget.state.hasMore? 1 : 0) + (widget.header!= null? 1 : 0),
+        itemCount: widget.state.items.length + (widget.state.hasMore ? 1 : 0) + (widget.header != null ? 1 : 0),
         itemBuilder: (context, index) {
-          if (widget.header!= null && index == 0) return widget.header!;
+          if (widget.header != null && index == 0) return widget.header!;
 
-          final adjustedIndex = widget.header!= null? index - 1 : index;
+          final adjustedIndex = widget.header != null ? index - 1 : index;
 
           if (adjustedIndex == widget.state.items.length) {
-            // Loader en bas
-            return Padding(padding: const EdgeInsets.all(16), child: Center(child: widget.state.isLoadingMore? const CircularProgressIndicator() : Text('${widget.state.items.length} chargés • ${widget.state.hasMore? "Scroll pour plus" : "Fin"}', style: const TextStyle(fontSize: 11, color: Color(0xFF7386A8)))));
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: widget.state.isLoadingMore
+                    ? const CircularProgressIndicator(strokeWidth: 2)
+                    : Text('${widget.state.items.length} chargés • ${widget.state.hasMore ? "Scroll pour plus" : "Fin"}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF7386A8))),
+              ),
+            );
           }
 
           return widget.itemBuilder(context, widget.state.items[adjustedIndex], adjustedIndex);
