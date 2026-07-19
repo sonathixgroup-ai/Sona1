@@ -34,6 +34,12 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   String _selectedQuickFilter = 'all';
   String _selectedDateFilter = 'all';
 
+  // --- HERO BANNER : carrousel auto-scrollant sur eventProvider.featuredEvents ---
+  final PageController _heroController = PageController(viewportFraction: 0.92);
+  Timer? _heroAutoScrollTimer;
+  int _heroCurrentPage = 0;
+  int _heroTrackedCount = -1; // pour redémarrer le timer si la liste change de taille
+
   final List<Map<String, dynamic>> _quickFilters = [
     {'value': 'all', 'label': 'Tous les\nevenements', 'icon': Icons.calendar_month_rounded, 'color': const Color(0xFF6B3BFF)},
     {'value': 'concert', 'label': 'Concerts', 'icon': Icons.music_note_rounded, 'color': const Color(0xFFEC4899)},
@@ -43,7 +49,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     {'value': 'more', 'label': 'Plus', 'icon': Icons.more_horiz_rounded, 'color': const Color(0xFF9CA3AF)},
   ];
 
+  // Filtres date — branchés sur EventProvider.setDateFilter (déjà existant)
   final List<Map<String, String>> _dateFilters = [
+    {'value': 'all', 'label': 'Tous'},
     {'value': 'today', 'label': 'Aujourd\'hui'},
     {'value': 'week', 'label': 'Cette semaine'},
     {'value': 'month', 'label': 'Ce mois'},
@@ -69,12 +77,35 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     }
     if (mounted) {
       setState(() => _isInitialized = true);
+      _maybeRestartHeroAutoScroll(eventProvider.featuredEvents.length);
     }
+  }
+
+  void _maybeRestartHeroAutoScroll(int count) {
+    if (count == _heroTrackedCount) return;
+    _heroTrackedCount = count;
+    _heroCurrentPage = 0;
+    _heroAutoScrollTimer?.cancel();
+    if (count <= 1) return;
+    _heroAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted || !_heroController.hasClients) return;
+      final provider = Provider.of<EventProvider>(context, listen: false);
+      final total = provider.featuredEvents.length;
+      if (total == 0) return;
+      final nextPage = (_heroCurrentPage + 1) % total;
+      _heroController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _heroAutoScrollTimer?.cancel();
+    _heroController.dispose();
     super.dispose();
   }
 
@@ -94,9 +125,10 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   }
 
   void _onDateFilterTap(String value) {
+    if (_selectedDateFilter == value) return;
     setState(() => _selectedDateFilter = value);
     HapticFeedback.selectionClick();
-    context.read<EventProvider>().fetchEvents(dateFilter: value);
+    context.read<EventProvider>().setDateFilter(value);
   }
 
   void _goToEventDetail(String eventId) => context.push('/thix-event/event/$eventId');
@@ -128,12 +160,17 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   @override
   Widget build(BuildContext context) {
     final eventProvider = Provider.of<EventProvider>(context);
-    final featuredEvent = eventProvider.featuredEvent;
+    final featuredEvents = eventProvider.featuredEvents;
     final events = eventProvider.upcomingEvents;
     final recommendedEvents = events.take(4).toList();
     final upcomingEvents = events.skip(4).take(6).toList();
     final isLoading = eventProvider.isLoading;
     final hasError = eventProvider.error != null;
+
+    // Redémarre le timer d'auto-scroll si la liste featuredEvents a changé de taille
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeRestartHeroAutoScroll(featuredEvents.length);
+    });
 
     if (!_isInitialized && isLoading) {
       return const Scaffold(backgroundColor: _ThixColors.lightBg, body: Center(child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 2)));
@@ -162,9 +199,11 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           SliverToBoxAdapter(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const SizedBox(height: 8),
-              _buildHeroBanner(featuredEvent),
+              _buildHeroBanner(featuredEvents),
               const SizedBox(height: 10),
               _buildQuickFilters(),
+              const SizedBox(height: 10),
+              _buildDateFilters(),
               const SizedBox(height: 12),
               _buildCategorySection(),
               const SizedBox(height: 14),
@@ -194,6 +233,15 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           ),
           if (isLoading && upcomingEvents.isEmpty)
             const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 2))))
+          else if (upcomingEvents.isEmpty)
+            const SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('Aucun evenement pour ce filtre', style: TextStyle(color: _ThixColors.mutedText, fontSize: 11)),
+                ),
+              ),
+            )
           else
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -213,6 +261,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
 
   // TOP BAR COMPACT - Photo reference + Admin button à la place de l'avatar
   Widget _buildTopBar() {
+    // Badge masqué tant qu'aucun vrai compteur n'est exposé par le provider
+    const int unreadCount = 0;
+
     return SliverAppBar(
       pinned: true,
       floating: true,
@@ -221,10 +272,8 @@ class _ThixEventHomeState extends State<ThixEventHome> {
       toolbarHeight: 54,
       automaticallyImplyLeading: false,
       title: Row(children: [
-        // Menu
         Container(width: 32, height: 32, decoration: BoxDecoration(color: _ThixColors.lightBg, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.menu_rounded, color: _ThixColors.darkText, size: 18)),
         const SizedBox(width: 8),
-        // Logo THIX - petit
         Container(width: 28, height: 28, decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6B3BFF)]), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 16)),
         const SizedBox(width: 6),
         const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -234,13 +283,19 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           ]),
           Text('Decouvrez, reservez, vivez l\'exceptionnel.', style: TextStyle(fontSize: 8.5, color: _ThixColors.mutedText, fontWeight: FontWeight.w500, height: 1)),
         ])),
-        // Notif
         Stack(clipBehavior: Clip.none, children: [
           InkWell(onTap: _showNotificationSettings, borderRadius: BorderRadius.circular(16), child: Container(width: 32, height: 32, decoration: BoxDecoration(color: _ThixColors.lightBg, shape: BoxShape.circle, border: Border.all(color: _ThixColors.cardBorder, width: 0.8)), child: const Icon(Icons.notifications_none_rounded, size: 16, color: _ThixColors.darkText))),
-          Positioned(top: -2, right: -1, child: Container(width: 14, height: 14, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle), child: const Center(child: Text('3', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))))),
+          if (unreadCount > 0)
+            Positioned(
+              top: -2, right: -1,
+              child: Container(
+                width: 14, height: 14,
+                decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle),
+                child: Center(child: Text(unreadCount > 9 ? '9+' : '$unreadCount', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))),
+              ),
+            ),
         ]),
         const SizedBox(width: 8),
-        // ADMIN BUTTON à la place de l'avatar profil
         InkWell(
           onTap: () => context.push('/thix-event/admin'),
           borderRadius: BorderRadius.circular(20),
@@ -258,11 +313,120 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     );
   }
 
-  Widget _buildHeroBanner(Event? featuredEvent) {
-    final imageUrl = featuredEvent?.imageUrl ?? 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?q=80&w=2070';
-    final title = featuredEvent?.title ?? 'Vivez des moments\ninoubliables.';
-    final subtitle = 'Concerts, festivals, conferences,\nspectacles et plus encore.';
+  // --- HERO BANNER : carrousel auto-scrollant sur les vrais featuredEvents ---
+  Widget _buildHeroBanner(List<Event> featuredEvents) {
+    if (featuredEvents.isEmpty) {
+      return _buildHeroBannerEmptyState();
+    }
 
+    return SizedBox(
+      height: 172,
+      child: Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: _heroController,
+              itemCount: featuredEvents.length,
+              onPageChanged: (index) => setState(() => _heroCurrentPage = index),
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _buildHeroSlide(featuredEvents[index]),
+              ),
+            ),
+          ),
+          if (featuredEvents.length > 1) ...[
+            const SizedBox(height: 8),
+            _buildHeroDotsIndicator(featuredEvents.length),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroSlide(Event event) {
+    final title = event.title;
+    final subtitle = event.city.isNotEmpty ? '${event.categoryLabel} • ${event.city}' : event.categoryLabel;
+
+    return Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: _ThixColors.primary),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(fit: StackFit.expand, children: [
+        if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
+          Image.network(
+            event.imageUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(color: _ThixColors.primary),
+          )
+        else
+          Container(
+            decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6B3BFF)])),
+          ),
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xF26B3BFF), Color(0xA06B3BFF), Color(0x106B3BFF)],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (event.isFeatured)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(5)),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.star_rounded, size: 9, color: Colors.white),
+                    SizedBox(width: 3),
+                    Text('A LA UNE', style: TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                  ]),
+                ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.1),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 9, height: 1.2),
+              ),
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => _goToEventDetail(event.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(8)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(
+                      event.isFree ? 'Voir l\'evenement gratuit' : 'Reserver maintenant',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_rounded, size: 10, color: Colors.white),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildHeroBannerEmptyState() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Container(
@@ -270,22 +434,55 @@ class _ThixEventHomeState extends State<ThixEventHome> {
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: _ThixColors.primary),
         clipBehavior: Clip.antiAlias,
         child: Stack(children: [
-          Positioned.fill(child: Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(color: _ThixColors.primary))),
-          Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [Color(0xF26B3BFF), Color(0xA06B3BFF), Color(0x106B3BFF)])))),
+          Positioned.fill(
+            child: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6B3BFF)]))),
+          ),
           Padding(
             padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(5)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.star_rounded, size: 9, color: Colors.white), SizedBox(width: 3), Text('A LA UNE', style: TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w800, letterSpacing: 0.5))])),
-              const SizedBox(height: 8),
-              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.1)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 9, height: 1.2)),
-              const SizedBox(height: 10),
-              InkWell(onTap: () => context.push('/thix-event/search'), child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(8)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Decouvrir les evenements', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)), SizedBox(width: 4), Icon(Icons.arrow_forward_rounded, size: 10, color: Colors.white)]))),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Vivez des moments\ninoubliables.', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.1)),
+                const SizedBox(height: 4),
+                const Text('Concerts, festivals, conferences,\nspectacles et plus encore.', style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 9, height: 1.2)),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () => context.push('/thix-event/search'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(8)),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('Decouvrir les evenements', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_rounded, size: 10, color: Colors.white),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
           ),
         ]),
       ),
+    );
+  }
+
+  Widget _buildHeroDotsIndicator(int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (index) {
+        final isActive = index == _heroCurrentPage;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          width: isActive ? 16 : 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: isActive ? _ThixColors.primary : _ThixColors.cardBorder,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        );
+      }),
     );
   }
 
@@ -306,7 +503,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
               onTap: () {
                 if (f['value'] == 'more') { context.push('/thix-event/categories'); return; }
                 setState(() => _selectedQuickFilter = f['value'] as String);
-                context.read<EventProvider>().fetchEvents(category: f['value'] == 'all' ? null : f['value'] as String);
+                context.read<EventProvider>().setCategory(f['value'] == 'all' ? 'all' : f['value'] as String);
               },
               borderRadius: BorderRadius.circular(10),
               child: SizedBox(
@@ -320,6 +517,45 @@ class _ThixEventHomeState extends State<ThixEventHome> {
             ),
           );
         }).toList()),
+      ),
+    );
+  }
+
+  // --- FILTRES DATE : Aujourd'hui / Cette semaine / Ce mois ---
+  Widget _buildDateFilters() {
+    return SizedBox(
+      height: 30,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: _dateFilters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final filter = _dateFilters[index];
+          final isSelected = _selectedDateFilter == filter['value'];
+          return InkWell(
+            onTap: () => _onDateFilterTap(filter['value']!),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? _ThixColors.primary : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isSelected ? _ThixColors.primary : _ThixColors.cardBorder, width: 1),
+              ),
+              child: Center(
+                child: Text(
+                  filter['label']!,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected ? Colors.white : _ThixColors.mutedText,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
