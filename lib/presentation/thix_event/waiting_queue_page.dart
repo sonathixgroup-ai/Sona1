@@ -124,25 +124,29 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
   }
 
   // 🟢 OPTIMISATION : Supabase Realtime (Aucune surcharge base de données)
-  void _listenToMyPosition() {
+    void _listenToMyPosition() {
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser!.id;
 
-        _queueSubscription = supabase
+    // 🟢 La requête doit être construite dans cet ordre :
+    // 1. from()
+    // 2. eq() (les filtres)
+    // 3. stream()
+    _queueSubscription = supabase
         .from('waiting_queue')
-        .stream(primaryKey: ['id']) // Assure-toi que 'id' est bien la PK dans Supabase
+        .stream(primaryKey: ['id']) // 'id' doit être ta clé primaire
         .eq('event_id', widget.eventId)
         .eq('user_id', currentUserId)
         .listen((data) {
       
       if (data.isEmpty || !mounted) return;
+
       final newPosition = data.first['position'] as int?;
       if (newPosition != null && newPosition != _position) {
         setState(() {
           _position = newPosition;
         });
 
-        // C'est notre tour !
         if (_position == 1 && !_isProcessing) {
           _onYourTurn();
         }
@@ -151,6 +155,7 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
       debugPrint("Erreur Stream File d'attente: $error");
     });
   }
+
 
   void _onYourTurn() {
     setState(() => _isProcessing = true);
