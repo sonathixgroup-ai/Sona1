@@ -9,13 +9,11 @@ import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 import 'widgets/event_card.dart';
 import 'widgets/category_chip.dart';
-import 'widgets/upcoming_event_item.dart';
 
 class _ThixColors {
-  // Violet THIX Vibrant et "réflectant"
   static const Color primary = Color(0xFF6B3CE2); 
   static const Color primaryLight = Color(0xFF8B5CF6);
-  static const Color primaryGradientEnd = Color(0xFF5A2ECA); // Pour donner de la profondeur
+  static const Color primaryGradientEnd = Color(0xFF5A2ECA); 
   
   static const Color lightBg = Color(0xFFF8F7FF);
   static const Color pureWhite = Colors.white;
@@ -37,11 +35,17 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   String _selectedQuickFilter = 'all';
   String _selectedDateFilter = 'all';
 
-  // --- HERO BANNER : carrousel auto-scrollant sur eventProvider.featuredEvents ---
+  // --- HERO BANNER ---
   final PageController _heroController = PageController(viewportFraction: 0.92);
   Timer? _heroAutoScrollTimer;
   int _heroCurrentPage = 0;
   int _heroTrackedCount = -1; 
+
+  // --- RECOMMANDÉS AUTO-SCROLL ---
+  final ScrollController _recScrollController = ScrollController();
+  Timer? _recAutoScrollTimer;
+  bool _recScrollingForward = true;
+  int _recTrackedCount = -1;
 
   final List<Map<String, dynamic>> _quickFilters = [
     {'value': 'all', 'label': 'Tous les\névénements', 'icon': Icons.calendar_month_rounded, 'color': _ThixColors.primary},
@@ -80,6 +84,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     if (mounted) {
       setState(() => _isInitialized = true);
       _maybeRestartHeroAutoScroll(eventProvider.featuredEvents.length);
+      _maybeRestartRecAutoScroll(eventProvider.upcomingEvents.where((e) => e.isRecommended).length);
     }
   }
 
@@ -103,11 +108,45 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     });
   }
 
+  // 🟢 NOUVEAU: Logique d'auto-scrolling pour les événements recommandés
+  void _maybeRestartRecAutoScroll(int count) {
+    if (count == _recTrackedCount) return;
+    _recTrackedCount = count;
+    _recAutoScrollTimer?.cancel();
+    
+    // On active l'auto-scroll uniquement s'il y a plus de 4 événements (ce qui dépasse l'écran)
+    if (count > 4) {
+      _recAutoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        if (!mounted || !_recScrollController.hasClients) return;
+        
+        double maxScroll = _recScrollController.position.maxScrollExtent;
+        double currentScroll = _recScrollController.position.pixels;
+        double itemWidth = 160.0; // Largeur de la carte + espacement
+
+        if (_recScrollingForward) {
+          if (currentScroll >= maxScroll - 20) {
+            _recScrollingForward = false;
+          } else {
+            _recScrollController.animateTo(currentScroll + itemWidth, duration: const Duration(milliseconds: 800), curve: Curves.easeInOut);
+          }
+        } else {
+          if (currentScroll <= 20) {
+            _recScrollingForward = true;
+          } else {
+            _recScrollController.animateTo(currentScroll - itemWidth, duration: const Duration(milliseconds: 800), curve: Curves.easeInOut);
+          }
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
     _heroAutoScrollTimer?.cancel();
     _heroController.dispose();
+    _recScrollController.dispose();
+    _recAutoScrollTimer?.cancel();
     super.dispose();
   }
 
@@ -146,12 +185,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Plus tard', style: TextStyle(fontSize: 11, color: Colors.grey))),
           ElevatedButton(
             onPressed: () { Navigator.pop(ctx); _requestNotificationPermission(); },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _ThixColors.primary, 
-              foregroundColor: Colors.white, 
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), 
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: _ThixColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
             child: const Text('Activer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
           ),
         ],
@@ -174,14 +208,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
     final featuredEvents = eventProvider.featuredEvents;
     final events = eventProvider.upcomingEvents;
     
-    // 🟢 VRAIE LOGIQUE DE FILTRAGE
-    // Événements Recommandés (Ceux dont la case a été cochée dans l'admin)
     final recommendedEvents = events.where((e) => e.isRecommended).toList();
-    
-    // Prochains événements (Les événements à venir qui ne sont ni recommandés ni à la une)
-    final upcomingEvents = events.where((e) => !e.isRecommended && !e.isFeatured).take(5).toList();
-    
-    // Tous les événements (Pour la section du bas)
+    // On limite à 4 ou 6 pour faire une grille propre
+    final upcomingEvents = events.where((e) => !e.isRecommended && !e.isFeatured).take(6).toList();
     final allEvents = events;
     
     final isLoading = eventProvider.isLoading;
@@ -189,6 +218,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeRestartHeroAutoScroll(featuredEvents.length);
+      _maybeRestartRecAutoScroll(recommendedEvents.length);
     });
 
     if (!_isInitialized && isLoading) {
@@ -241,18 +271,21 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                 const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Aucune recommandation pour le moment.', style: TextStyle(color: _ThixColors.mutedText, fontSize: 11))))
               else
                 SizedBox(
-                  height: 210,
+                  height: 220, // Légèrement augmenté pour éviter que l'ombre ne coupe
                   child: ListView.separated(
+                    controller: _recScrollController, // Contrôleur pour l'auto-scroll
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     itemCount: recommendedEvents.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, i) => SizedBox(width: 140, child: EventCard(event: recommendedEvents[i], onTap: () => _goToEventDetail(recommendedEvents[i].id))),
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) => SizedBox(
+                      width: 150, 
+                      child: EventCard(event: recommendedEvents[i], onTap: () => _goToEventDetail(recommendedEvents[i].id))
+                    ),
                   ),
                 ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               
-              // --- BANNIÈRE DE NOTIFICATION ---
               Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: _buildNotificationBanner()),
               const SizedBox(height: 18),
               
@@ -262,7 +295,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
             ]),
           ),
           
-          // LISTE PROCHAINS ÉVÉNEMENTS
+          // 🟢 NOUVEAU: GRILLE AVEC PHOTOS POUR PROCHAINS ÉVÉNEMENTS
           if (isLoading && upcomingEvents.isEmpty)
             const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 2))))
           else if (upcomingEvents.isEmpty)
@@ -272,26 +305,35 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           else
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              sliver: SliverList(
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, 
+                  mainAxisSpacing: 16, 
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.68, // Ajustement pour que la photo EventCard soit belle
+                ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(padding: const EdgeInsets.only(bottom: 8), child: UpcomingEventItem(event: upcomingEvents[index], onTap: () => _goToEventDetail(upcomingEvents[index].id))),
+                  (context, index) => EventCard(
+                    event: upcomingEvents[index], 
+                    onTap: () => _goToEventDetail(upcomingEvents[index].id)
+                  ),
                   childCount: upcomingEvents.length,
                 ),
               ),
             ),
             
-          // --- SECTION: TOUS LES ÉVÉNEMENTS (NOUVEAU) ---
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          // --- SECTION: TOUS LES ÉVÉNEMENTS ---
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
           SliverToBoxAdapter(
             child: Column(
               children: [
                 _buildSectionHeader('Tous les événements', '/thix-event/search'),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
               ],
             ),
           ),
           
-          // LISTE TOUS LES ÉVÉNEMENTS
+          // 🟢 NOUVEAU: GRILLE AVEC PHOTOS POUR TOUS LES ÉVÉNEMENTS
           if (allEvents.isEmpty)
             const SliverToBoxAdapter(
               child: Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Aucun événement disponible.', style: TextStyle(color: _ThixColors.mutedText, fontSize: 11)))),
@@ -299,15 +341,24 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           else
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              sliver: SliverList(
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, 
+                  mainAxisSpacing: 16, 
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.68,
+                ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(padding: const EdgeInsets.only(bottom: 8), child: UpcomingEventItem(event: allEvents[index], onTap: () => _goToEventDetail(allEvents[index].id))),
+                  (context, index) => EventCard(
+                    event: allEvents[index], 
+                    onTap: () => _goToEventDetail(allEvents[index].id)
+                  ),
                   childCount: allEvents.length,
                 ),
               ),
             ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 90)), // Espace pour la BottomNavBar
+          const SliverToBoxAdapter(child: SizedBox(height: 90)),
         ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
@@ -355,9 +406,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           child: Container(
             width: 32, height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1F44), // Bleu Marine Admin
+              color: const Color(0xFF0A1F44),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE3B23C), width: 1.5), // Or Admin
+              border: Border.all(color: const Color(0xFFE3B23C), width: 1.5),
             ),
             child: const Icon(Icons.admin_panel_settings_rounded, size: 16, color: Color(0xFFE3B23C)),
           ),
@@ -367,10 +418,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
   }
 
   Widget _buildHeroBanner(List<Event> featuredEvents) {
-    if (featuredEvents.isEmpty) {
-      return _buildHeroBannerEmptyState();
-    }
-
+    if (featuredEvents.isEmpty) return _buildHeroBannerEmptyState();
     return SizedBox(
       height: 172,
       child: Column(
@@ -404,15 +452,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
       clipBehavior: Clip.antiAlias,
       child: Stack(fit: StackFit.expand, children: [
         if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
-          Image.network(
-            event.imageUrl!,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(color: _ThixColors.primary),
-          )
+          Image.network(event.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _ThixColors.primary))
         else
-          Container(
-            decoration: const BoxDecoration(gradient: LinearGradient(colors: [_ThixColors.primaryLight, _ThixColors.primaryGradientEnd])),
-          ),
+          Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [_ThixColors.primaryLight, _ThixColors.primaryGradientEnd]))),
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -442,19 +484,9 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                   ]),
                 ),
               const SizedBox(height: 8),
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.1),
-              ),
+              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.1)),
               const SizedBox(height: 4),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 9, height: 1.2),
-              ),
+              Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 9, height: 1.2)),
               const SizedBox(height: 10),
               InkWell(
                 onTap: () => _goToEventDetail(event.id),
@@ -462,10 +494,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(color: _ThixColors.primaryLight, borderRadius: BorderRadius.circular(8)),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(
-                      event.isFree ? 'Voir l\'événement gratuit' : 'Réserver maintenant',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
-                    ),
+                    Text(event.isFree ? 'Voir l\'événement gratuit' : 'Réserver maintenant', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
                     const SizedBox(width: 4),
                     const Icon(Icons.arrow_forward_rounded, size: 10, color: Colors.white),
                   ]),
@@ -486,9 +515,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: _ThixColors.primary),
         clipBehavior: Clip.antiAlias,
         child: Stack(children: [
-          Positioned.fill(
-            child: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [_ThixColors.primaryLight, _ThixColors.primaryGradientEnd]))),
-          ),
+          Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [_ThixColors.primaryLight, _ThixColors.primaryGradientEnd])))),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -529,10 +556,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
           margin: const EdgeInsets.symmetric(horizontal: 2),
           width: isActive ? 16 : 5,
           height: 5,
-          decoration: BoxDecoration(
-            color: isActive ? _ThixColors.primary : _ThixColors.cardBorder,
-            borderRadius: BorderRadius.circular(3),
-          ),
+          decoration: BoxDecoration(color: isActive ? _ThixColors.primary : _ThixColors.cardBorder, borderRadius: BorderRadius.circular(3)),
         );
       }),
     );
@@ -595,14 +619,7 @@ class _ThixEventHomeState extends State<ThixEventHome> {
                 border: Border.all(color: isSelected ? _ThixColors.primary : _ThixColors.cardBorder, width: 1),
               ),
               child: Center(
-                child: Text(
-                  filter['label']!,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    color: isSelected ? Colors.white : _ThixColors.mutedText,
-                  ),
-                ),
+                child: Text(filter['label']!, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, color: isSelected ? Colors.white : _ThixColors.mutedText)),
               ),
             ),
           );
