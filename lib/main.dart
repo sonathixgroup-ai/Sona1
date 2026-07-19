@@ -42,13 +42,12 @@ import 'package:thix_id/presentation/education/providers/forum_provider.dart';
 import 'package:thix_id/presentation/education/providers/recommendation_provider.dart';
 import 'package:thix_id/presentation/education/services/education_service.dart';
 
-// ─── MODERATEUR ───
-import 'package:thix_id/providers/auth_provider.dart';
-import 'package:thix_id/providers/moderator_provider.dart';
-
 // ─── THIX ÉVÉNEMENT ───
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
+// ✅ ADMIN THIX EVENT SCALABLE
+import 'package:thix_id/presentation/thix_event/admin/services/admin_event_service.dart';
+import 'package:thix_id/presentation/thix_event/admin/providers/admin_event_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // THIX CHAT — Imports
@@ -388,7 +387,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Provider<CallSignalingService>.value(value: widget.callSignaling),
         ChangeNotifierProvider<CallProvider>(create: (_) => CallProvider()),
         ChangeNotifierProvider.value(value: widget.feed),
+        
+        // ─── THIX ÉVÉNEMENT + ADMIN SCALABLE ───
         ChangeNotifierProvider<EventProvider>(create: (_) => EventProvider(widget.eventService)),
+        Provider<AdminEventService>(create: (_) => AdminEventService(SupabaseConfig.client)),
+        ChangeNotifierProvider<AdminEventProvider>(create: (ctx) => AdminEventProvider(ctx.read<AdminEventService>())),
+        
         ChangeNotifierProvider<NewsProvider>(create: (_) => NewsProvider(NewsService(SupabaseConfig.client))),
 
         // ─── THIX MARKET ───
@@ -413,18 +417,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider<ForumProvider>(create: (_) => ForumProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<RecommendationProvider>(create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client))),
 
-        // ─── MODERATEUR ───
-        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider(SupabaseConfig.client)),
-        ChangeNotifierProvider<ModeratorProvider>(create: (_) => ModeratorProvider(widget.eventService)),
-
         // ─── THIX CHAT ───
         Provider<ChatService>.value(value: widget.chatService),
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
-         ChangeNotifierProvider<ChatSettingsProvider>(create: (_) => ChatSettingsProvider()),
-        // ✅ PROVIDER DE CONNEXION (ajout direct ici, sans MultiProvider imbriqué)
+        ChangeNotifierProvider<ChatSettingsProvider>(create: (_) => ChatSettingsProvider()),
         ChangeNotifierProvider<ConnectionService>(create: (_) => ConnectionService()),
 
         // ─── THIX RESERVATION BUS ───
