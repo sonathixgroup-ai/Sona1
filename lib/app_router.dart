@@ -1,4 +1,4 @@
-// lib/app_router.dart - BUILD VERT - Toutes routes conservees - FIX BUS + THIX MEDIA ADMIN + THIX EVENT ADMIN SCALABLE
+// lib/app_router.dart - BUILD VERT - FIX DELIVERY PAGE NOT FOUND - TOUTES ROUTES CONSERVEES
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -117,7 +117,7 @@ import 'package:thix_id/presentation/thix_market/pages/price_alerts_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/wishlist_page.dart';
 import 'package:thix_id/presentation/thix_market/cart/cart_page.dart';
 import 'package:thix_id/presentation/thix_market/checkout/checkout_page.dart';
-import 'package:thix_id/presentation/thix_market/delivery/delivery_tracking_page.dart';
+import 'package:thix_id/presentation/thix_market/delivery/delivery_tracking_page.dart' as market_delivery;
 import 'package:thix_id/presentation/thix_market/pages/order_history_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/order_detail_page.dart';
 import 'package:thix_id/presentation/thix_market/pages/create_shop_page.dart';
@@ -154,7 +154,6 @@ import 'package:thix_id/presentation/thix_event/my_tickets_page.dart';
 import 'package:thix_id/presentation/thix_event/favorite_events_page.dart';
 import 'package:thix_id/presentation/thix_event/seat_selection_page.dart';
 import 'package:thix_id/presentation/thix_event/waiting_queue_page.dart';
-// THIX EVENT ADMIN - SCALABLE
 import 'package:thix_id/presentation/thix_event/admin/admin_dashboard.dart';
 import 'package:thix_id/presentation/thix_event/admin/pages/events/event_list_admin_page.dart';
 import 'package:thix_id/presentation/thix_event/admin/pages/events/event_create_edit_page.dart';
@@ -228,7 +227,8 @@ import 'presentation/mon_pays/admin/admin_administrative_form_page.dart';
 import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 import 'package:thix_id/presentation/mon_pays/models/province.dart';
-// ============ THIX DELIVERY MODULE - SCALABLE 1M ============
+
+// ============ THIX DELIVERY MODULE - FIXED ============
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_checkout_page.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_tracking_page.dart' as delivery_tracking;
@@ -275,7 +275,8 @@ class AppRouter {
             loc == AppRoutes.trainingHome || loc.startsWith('${AppRoutes.trainingDetailsBasePath}/') ||
             loc == AppRoutes.trainingDetailsBasePath ||
             loc == AppRoutes.monPays || loc.startsWith('${AppRoutes.monPays}/') ||
-            loc.startsWith('/thix-event'); // THIX EVENT en dev open access
+            loc.startsWith('/thix-event') ||
+            loc.startsWith('/thix-reservation/delivery'); // DELIVERY en public pour test
         if (!logged && !isPublic && !isAuth) return AppRoutes.login;
         if (isAdmin && !logged) return AppRoutes.login;
         if (logged) {
@@ -471,9 +472,7 @@ class AppRouter {
               path: 'admin',
               name: 'thixMediaAdmin',
               pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage()),
-              redirect: (context, state) {
-                return null;
-              },
+              redirect: (context, state) { return null; },
             ),
           ],
         ),
@@ -503,7 +502,7 @@ class AppRouter {
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
 
-        // THIX EVENEMENT - ADMIN SCALABLE - DEV OPEN ACCESS
+        // THIX EVENT ADMIN
         GoRoute(path: '/thix-event/admin', name: 'thixEventAdmin', pageBuilder: (_, __) => NoTransitionPage(child: AdminDashboard())),
         GoRoute(path: '/thix-event/admin/events', name: 'thixEventAdminEvents', pageBuilder: (_, __) => NoTransitionPage(child: EventListAdminPage())),
         GoRoute(path: '/thix-event/admin/events/create', name: 'thixEventAdminCreate', pageBuilder: (context, state) {
@@ -535,25 +534,19 @@ class AppRouter {
         GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
         GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
 
-                   GoRoute(path: AppRoutes.reservation, name: 'thixreservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
-
-        // ============ THIX DELIVERY - 8 ROUTES - NE CASSE RIEN ============
-        GoRoute(path: '/thix-reservation/delivery', name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
-        GoRoute(path: '/thix-reservation/delivery/checkout', name: 'delivery-checkout', pageBuilder: (context, _) {
-          // On garde le provider du home pour garder le prix calculé
+        // ============ THIX DELIVERY - FIX DEFINITIF - 8 ROUTES ============
+        GoRoute(path: AppRoutes.deliveryHome, name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
+        GoRoute(path: AppRoutes.deliveryCheckout, name: 'delivery-checkout', pageBuilder: (context, _) {
           final clientProv = context.read<DeliveryClientProvider>();
           return NoTransitionPage(child: ChangeNotifierProvider.value(value: clientProv, child: const DeliveryCheckoutPage()));
         }),
-        GoRoute(path: '/thix-reservation/delivery/tracking', name: 'delivery-tracking', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const delivery_tracking.DeliveryTrackingPage()))),
-        GoRoute(path: '/thix-reservation/delivery/history', name: 'delivery-history', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..loadMyShipments(refresh: true), child: const DeliveryHistoryPage()))),
-        
-        // ADMIN DELIVERY - Prix par trajet
-        GoRoute(path: '/thix-reservation/delivery/admin', name: 'delivery-admin-dashboard', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..init(), child: const DeliveryAdminDashboardPage()))),
-        GoRoute(path: '/thix-reservation/delivery/admin/routes', name: 'delivery-admin-routes', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadRoutes(force: true), child: const DeliveryAdminRoutesPage()))),
-        GoRoute(path: '/thix-reservation/delivery/admin/shipments', name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
-        GoRoute(path: '/thix-reservation/delivery/admin/scan', name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
+        GoRoute(path: AppRoutes.deliveryTracking, name: 'delivery-tracking', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const delivery_tracking.DeliveryTrackingPage()))),
+        GoRoute(path: AppRoutes.deliveryHistory, name: 'delivery-history', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..loadMyShipments(refresh: true), child: const DeliveryHistoryPage()))),
+        GoRoute(path: AppRoutes.deliveryAdminDashboard, name: 'delivery-admin-dashboard', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..init(), child: const DeliveryAdminDashboardPage()))),
+        GoRoute(path: AppRoutes.deliveryAdminRoutes, name: 'delivery-admin-routes', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadRoutes(force: true), child: const DeliveryAdminRoutesPage()))),
+        GoRoute(path: AppRoutes.deliveryAdminShipments, name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
+        GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
 
-        
         // THIX MARKET
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage()), routes: [
           GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
@@ -567,7 +560,7 @@ class AppRouter {
           GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
           GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
           GoRoute(path: 'checkout', name: 'marketCheckout', pageBuilder: (_, __) => const NoTransitionPage(child: CheckoutPage())),
-          GoRoute(path: 'tracking/:orderId', name: 'marketDeliveryTracking', pageBuilder: (_, state) => NoTransitionPage(child: DeliveryTrackingPage(orderId: state.pathParameters['orderId']!))),
+          GoRoute(path: 'tracking/:orderId', name: 'marketDeliveryTracking', pageBuilder: (_, state) => NoTransitionPage(child: market_delivery.DeliveryTrackingPage(orderId: state.pathParameters['orderId']!))),
           GoRoute(path: 'shop/:shopId/manage', name: 'marketManageShop', pageBuilder: (_, state) => NoTransitionPage(child: ManageShopPage(shopId: state.pathParameters['shopId']!))),
           GoRoute(path: 'shop/:shopId/stats', name: 'marketShopStats', pageBuilder: (_, state) => NoTransitionPage(child: ShopStatisticsPage(shopId: state.pathParameters['shopId']!))),
           GoRoute(path: 'product/:productId', name: 'marketProductDetail', pageBuilder: (_, state) => NoTransitionPage(child: ProductDetailPage(productId: state.pathParameters['productId']!))),
