@@ -1,7 +1,7 @@
 // lib/services/event_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:io';
+import 'dart:typed_data'; // REMPLACE dart:io pour la compatibilité Web
 import 'dart:math';
 
 import '../models/event_model.dart';
@@ -169,14 +169,12 @@ class EventService {
   /// Récupère tous les événements pour le modérateur (y compris passés, annulés, etc.)
   Future<List<Event>> getEventsForModerator({String? status}) async {
     try {
-      // Vérifier que l'utilisateur est modérateur/admin
       final uid = currentUserId;
       if (uid.isEmpty) {
         debugPrint('⚠️ getEventsForModerator: utilisateur non connecté');
         return [];
       }
 
-      // Vérification du rôle (optionnelle mais recommandée)
       final userRole = await _supabase
           .from('users')
           .select('role')
@@ -523,24 +521,31 @@ class EventService {
   // ADMIN - CRUD
   // ============================================================
 
+  // FIX: Ajout de toutes les nouvelles colonnes
   Future<Event> createEvent({
     required String title,
     required String description,
     required String category,
+    String? subCategory,
     required DateTime startDate,
+    DateTime? endDate,
     required String location,
+    String? address,
     double price = 0,
+    String priceCurrency = 'FC',
     bool isFree = false,
     int? capacity,
     String? imageUrl,
+    String? bannerUrl,
     String? city,
-    String? address,
     bool isFeatured = false,
+    String? organizerName,
+    String? contactPhone,
+    String? contactEmail,
   }) async {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Admin non connecté');
 
-    // Vérification du rôle (optionnelle)
     final userRole = await _supabase
         .from('users')
         .select('role')
@@ -560,22 +565,30 @@ class EventService {
       'title': title,
       'description': description,
       'category': category,
+      if (subCategory != null) 'sub_category': subCategory,
       'start_date': startDateStr,
+      if (endDate != null) 'end_date': endDate.toIso8601String(),
       'location': location,
       'city': city,
-      'address': address,
+      if (address != null) 'address': address,
       'price': price,
+      'price_currency': priceCurrency,
       'is_free': isFree,
       'capacity': capacity,
       'remaining_tickets': capacity,
       'image_url': imageUrl,
+      'banner_url': bannerUrl,
       'is_featured': isFeatured,
       'status': startDate.isAfter(DateTime.now()) ? 'upcoming' : 'ongoing',
       'organizer_id': uid,
+      'organizer_name': organizerName,
+      'contact_phone': contactPhone,
+      'contact_email': contactEmail,
       'created_at': now,
       'updated_at': now,
       'views_count': 0,
       'likes_count': 0,
+      'shares_count': 0,
     }).select().single();
 
     debugPrint('✅ createEvent: Événement créé avec ID ${response['id']}');
@@ -586,7 +599,6 @@ class EventService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Admin non connecté');
 
-    // Vérification du rôle
     final userRole = await _supabase
         .from('users')
         .select('role')
@@ -610,7 +622,6 @@ class EventService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Admin non connecté');
 
-    // Vérification du rôle
     final userRole = await _supabase
         .from('users')
         .select('role')
@@ -628,12 +639,12 @@ class EventService {
   // UPLOAD
   // ============================================================
 
-  Future<String?> uploadImage(String filePath) async {
+  // FIX: Utilisation de Uint8List pour la compatibilité Web
+  Future<String?> uploadImage(Uint8List bytes, String fileName) async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return null;
 
-      // Vérification du rôle
       final userRole = await _supabase
           .from('users')
           .select('role')
@@ -644,12 +655,7 @@ class EventService {
         return null;
       }
 
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-
-      final extension = filePath.split('.').last;
-      final fileName = 'event_${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final storagePath = 'events/$fileName';
+      final storagePath = 'events/${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
       await _supabase.storage.from('event_images').uploadBinary(storagePath, bytes);
 
@@ -669,7 +675,6 @@ class EventService {
       final uid = currentUserId;
       if (uid.isEmpty) return _emptyStats();
 
-      // Vérification du rôle
       final userRole = await _supabase
           .from('users')
           .select('role')
