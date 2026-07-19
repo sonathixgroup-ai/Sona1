@@ -128,15 +128,14 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser!.id;
 
-    _queueSubscription = supabase
+        _queueSubscription = supabase
         .from('waiting_queue')
-        .stream(primaryKey: ['id']) // Ou ['user_id', 'event_id'] selon ta clé primaire
+        .stream(primaryKey: ['id']) // Assure-toi que 'id' est bien la PK dans Supabase
         .eq('event_id', widget.eventId)
         .eq('user_id', currentUserId)
         .listen((data) {
       
       if (data.isEmpty || !mounted) return;
-
       final newPosition = data.first['position'] as int?;
       if (newPosition != null && newPosition != _position) {
         setState(() {
