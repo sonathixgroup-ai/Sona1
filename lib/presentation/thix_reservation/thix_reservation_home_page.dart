@@ -1,9 +1,10 @@
 // lib/presentation/thix_reservation/thix_reservation_home_page.dart
-// DESIGN V2 - INSTITUTIONAL BLUE - BUILD VERT
+// DESIGN V2 - INSTITUTIONAL BLUE - BUILD VERT - DELIVERY CONNECTE
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/nav.dart'; // <-- AJOUT IMPORTANT
 
 class ThixReservationHomePage extends StatefulWidget {
   const ThixReservationHomePage({super.key});
@@ -17,7 +18,6 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
   Timer? _heroTimer;
   int _heroIndex = 0;
 
-  // Palette institutionnelle - PLUS DE JAUNE
   static const kPrimary = Color(0xFF0A3D91);
   static const kPrimaryLight = Color(0xFF0D5BC2);
   static const kBackground = Color(0xFFF5F7FB);
@@ -31,7 +31,7 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
       'valid': 'Valable jusqu’au 30 Juin 2026',
       'cta': 'Réserver maintenant',
       'route': '/thix-reservation/bus',
-      'image': 'assets/images/hero_bus_plane.png', // mets ton image du screenshot
+      'image': 'assets/images/hero_bus_plane.png',
       'gradient': [Color(0xFF0A3D91), Color(0xFF1E6BFF)],
     },
     {
@@ -105,7 +105,7 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
             _buildPremiumHero(),
             const SizedBox(height: 16),
 
-            // CATEGORIES INSTITUTIONNELLES
+            // CATEGORIES INSTITUTIONNELLES - DELIVERY CONNECTE ICI
             Container(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16, offset: const Offset(0,4))]),
@@ -114,7 +114,8 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
                 _CatPro(icon: Icons.flight_takeoff_rounded, label: 'Vol', onTap: ()=> context.push('/thix-reservation/flights')),
                 _CatPro(icon: Icons.king_bed_rounded, label: 'Hôtel', onTap: ()=> context.push('/thix-reservation/hotels')),
                 _CatPro(icon: Icons.local_taxi_rounded, label: 'Taxi', onTap: ()=> context.push('/thix-reservation/taxi')),
-                _CatPro(icon: Icons.delivery_dining_rounded, label: 'Livraison', onTap: ()=> context.push('/thix-reservation/delivery')),
+                // --- LIVRAISON CONNECTE DIRECT DASHBOARD CLIENT ---
+                _CatPro(icon: Icons.delivery_dining_rounded, label: 'Livraison', onTap: ()=> context.push(AppRoutes.deliveryHome)),
                 _CatPro(icon: Icons.apps_rounded, label: 'Plus', isMore: true, onTap: ()=> showModalBottomSheet(context: context, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))), builder: (_)=> const _MoreSheetPro())),
               ]),
             ),
@@ -146,7 +147,6 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
             ])),
             const SizedBox(height: 18),
 
-            // PARRAINAGE BLEU
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFEAF1FF), Colors.white]), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFD6E4FF))),
@@ -159,42 +159,6 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
                   Text.rich(TextSpan(style: TextStyle(fontSize: 11, color: Color(0xFF5A6D8E)), children: [TextSpan(text: 'Gagnez jusqu’à '), TextSpan(text: '10.000 FC', style: TextStyle(color: kPrimary, fontWeight: FontWeight.w800)), TextSpan(text: ' par ami parrainé.')])),
                 ])),
                 const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: kPrimary),
-              ]),
-            ),
-            const SizedBox(height: 20),
-
-            _SectionPro(title: 'Restaurants à proximité', onSeeAll: (){}),
-            const SizedBox(height: 10),
-            SizedBox(height: 176, child: FutureBuilder(
-              future: Supabase.instance.client.from('restaurants').select().eq('is_active', true).limit(6),
-              builder: (_, snap){
-                final list = (snap.data as List?)?? [];
-                if(list.isEmpty) return ListView.separated(scrollDirection: Axis.horizontal, itemCount: 4, separatorBuilder: (_,__)=> const SizedBox(width: 12), itemBuilder: (_, i)=> const _RestaurantProPlaceholder());
-                return ListView.separated(scrollDirection: Axis.horizontal, itemCount: list.length, separatorBuilder: (_,__)=> const SizedBox(width: 12), itemBuilder: (_, i){ final r=list[i]; return _RestaurantCardPro(name: r['name'], cat: r['category']??'Africain', time: '20-30 min', rating: 4.6, image: r['image_url']); });
-              },
-            )),
-            const SizedBox(height: 20),
-
-            _SectionPro(title: 'Annonces vérifiées', onSeeAll: (){}),
-            const SizedBox(height: 10),
-            SizedBox(height: 178, child: ListView(scrollDirection: Axis.horizontal, children: const [
-              _AnnoncePro(badge: 'À VENDRE', title: 'Toyota RAV4 2021', price: '25.000.000 FC', color: kPrimary),
-              SizedBox(width: 12),
-              _AnnoncePro(badge: 'À LOUER', title: 'Appart 3 pièces', price: '600.000 FC / mois', color: Color(0xFF0E8A5B)),
-              SizedBox(width: 12),
-              _AnnoncePro(badge: 'SERVICE', title: 'Ménage pro', price: 'Dès 10.000 FC', color: kPrimary),
-            ])),
-            const SizedBox(height: 20),
-
-            // TRUST FOOTER BLEU
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEEF2F7))),
-              child: const Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                _TrustItem(icon: Icons.verified_user_rounded, title: 'Paiement sécurisé'),
-                _TrustItem(icon: Icons.support_agent_rounded, title: 'Support 24/7'),
-                _TrustItem(icon: Icons.workspace_premium_rounded, title: 'Prix garantis'),
-                _TrustItem(icon: Icons.bolt_rounded, title: 'Rapide & fiable'),
               ]),
             ),
             const SizedBox(height: 90),
@@ -233,7 +197,6 @@ class _ThixReservationHomePageState extends State<ThixReservationHomePage> {
                       SizedBox(height: 36, child: ElevatedButton(onPressed: ()=> context.push(s['route'] as String), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: kPrimary, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(horizontal: 16)), child: Text(s['cta'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)))),
                     ])),
                     const SizedBox(width: 12),
-                    // Illustration - utilise ton image jaune du screenshot ici
                     if(index==0) Image.asset('assets/bus_plane.png', width: 132, errorBuilder: (_,__,___)=> const Icon(Icons.airport_shuttle_rounded, size: 90, color: Colors.white))
                     else const Icon(Icons.shield_rounded, size: 90, color: Colors.white),
                   ]),
@@ -277,8 +240,9 @@ class _CatPro extends StatelessWidget {
 class _SectionPro extends StatelessWidget { final String title; final VoidCallback? onSeeAll; const _SectionPro({required this.title, this.onSeeAll}); @override Widget build(BuildContext context)=> Row(children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: Color(0xFF0F2040))), const Spacer(), InkWell(onTap: onSeeAll, child: const Row(children: [Text('Voir tout', style: TextStyle(fontSize: 12, color: Color(0xFF6B7A99), fontWeight: FontWeight.w600)), Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF6B7A99))]))]); }
 class _ResPro extends StatelessWidget { final String label, count; final Color color; final IconData icon; const _ResPro({required this.label, required this.count, required this.color, required this.icon}); @override Widget build(BuildContext context)=> Expanded(child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFEEF2F7)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8)]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(width: 28, height: 28, decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 16, color: color)), const SizedBox(height: 8), Text(count, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F2040))), Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF7A8AA8), fontWeight: FontWeight.w600))]))); }
 class _OfferPro extends StatelessWidget { final String title, discount, subtitle; final List<Color> colors; const _OfferPro({required this.title, required this.discount, required this.subtitle, required this.colors}); @override Widget build(BuildContext context)=> Container(width: 158, padding: const EdgeInsets.all(14), decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 12)), const SizedBox(height: 6), Text(discount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)), const SizedBox(height: 4), Text(subtitle, style: const TextStyle(color: Color(0xFFD6E8FF), fontSize: 11, height: 1.2))])) ;}
-class _RestaurantProPlaceholder extends StatelessWidget { const _RestaurantProPlaceholder(); @override Widget build(BuildContext context)=> Container(width: 156, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: Column(children: [Container(height: 96, decoration: BoxDecoration(color: const Color(0xFFEEF2F7), borderRadius: const BorderRadius.vertical(top: Radius.circular(16))))])); }
-class _RestaurantCardPro extends StatelessWidget { final String name, cat, time; final double rating; final String? image; const _RestaurantCardPro({required this.name, required this.cat, required this.time, required this.rating, this.image}); @override Widget build(BuildContext context)=> Container(width: 156, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Stack(children: [ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: image!=null? Image.network(image!, height: 96, width: 156, fit: BoxFit.cover) : Container(height: 96, color: const Color(0xFFEEF2F7), child: const Icon(Icons.restaurant_rounded, color: Color(0xFF9AA8C3)))), Positioned(top: 8, right: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(color: Colors.black.withOpacity(0.75), borderRadius: BorderRadius.circular(8)), child: Row(children: [const Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFC83D)), const SizedBox(width: 2), Text('$rating', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))])))]), Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: Color(0xFF0F2040))), Text(cat, style: const TextStyle(fontSize: 11, color: Color(0xFF7A8AA8))), const SizedBox(height: 6), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF7A8AA8))), const Text('\$\$', style: TextStyle(fontSize: 11, color: Color(0xFF7A8AA8)))])]))])); }
-class _AnnoncePro extends StatelessWidget { final String badge, title, price; final Color color; const _AnnoncePro({required this.badge, required this.title, required this.price, required this.color}); @override Widget build(BuildContext context)=> Container(width: 168, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEEF2F7))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Stack(children: [Container(height: 96, decoration: BoxDecoration(color: const Color(0xFFF1F4F9), borderRadius: const BorderRadius.vertical(top: Radius.circular(16)))), Positioned(top: 8, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)), child: Text(badge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800))))]), Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)), const SizedBox(height: 4), Text(price, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF0A3D91)))]))])) ;}
-class _TrustItem extends StatelessWidget { final IconData icon; final String title; const _TrustItem({required this.icon, required this.title}); @override Widget build(BuildContext context)=> Column(children: [Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: const Color(0xFF0A3D91).withOpacity(0.08), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: const Color(0xFF0A3D91))), const SizedBox(height: 6), Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF1A2B4D)))]); }
-class _MoreSheetPro extends StatelessWidget { const _MoreSheetPro(); @override Widget build(BuildContext context)=> Container(padding: const EdgeInsets.all(22), decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))), child: Wrap(spacing: 18, runSpacing: 18, children: [ _CatPro(icon: Icons.restaurant_rounded, label: 'Restaurant', onTap: (){}), _CatPro(icon: Icons.storefront_rounded, label: 'Annonces', onTap: (){}), _CatPro(icon: Icons.event_rounded, label: 'Événement', onTap: ()=> context.push('/thix-event')), ])); }
+class _MoreSheetPro extends StatelessWidget { const _MoreSheetPro(); @override Widget build(BuildContext context)=> Container(padding: const EdgeInsets.all(22), decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))), child: Wrap(spacing: 18, runSpacing: 18, children: [
+  _CatPro(icon: Icons.restaurant_rounded, label: 'Restaurant', onTap: (){}),
+  _CatPro(icon: Icons.storefront_rounded, label: 'Annonces', onTap: (){}),
+  _CatPro(icon: Icons.event_rounded, label: 'Événement', onTap: ()=> context.push('/thix-event')),
+  _CatPro(icon: Icons.delivery_dining_rounded, label: 'Livraison', onTap: ()=> context.push(AppRoutes.deliveryHome)),
+])); }
