@@ -25,14 +25,14 @@ class WaitingQueuePage extends StatefulWidget {
 
 class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBindingObserver {
   late EventQueueService _queueService;
-  
+
   int _position = -1;
   int _queueSize = 0;
   bool _isLoading = true;
   bool _isProcessing = false;
   String? _error;
   Event? _event;
-  
+
   StreamSubscription<List<Map<String, dynamic>>>? _queueSubscription;
 
   @override
@@ -76,14 +76,14 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
       _isLoading = true;
       _error = null;
     });
-    
+
     try {
       // 1. Rejoindre la file côté DB
       final queue = await _queueService.joinWaitingQueue(
         widget.eventId,
         widget.requestedQuantity,
       );
-      
+
       if (queue != null) {
         await _fetchInitialQueueInfo();
         _listenToMyPosition(); // 🟢 Démarrer l'écoute Temps Réel (0 polling)
@@ -105,14 +105,14 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
     try {
       final size = await _queueService.getQueueSize(widget.eventId);
       final currentPosition = await _queueService.getQueuePosition(widget.eventId);
-      
+
       if (mounted) {
         setState(() {
           _queueSize = size;
           if (currentPosition > 0) _position = currentPosition;
           _isLoading = false;
         });
-        
+
         // Si par chance on est déjà premier au chargement
         if (_position == 1 && !_isProcessing) {
           _onYourTurn();
@@ -124,24 +124,29 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
   }
 
   // 🟢 OPTIMISATION : Supabase Realtime (Aucune surcharge base de données)
-    void _listenToMyPosition() {
+  // ⚠️ CORRECTION : SupabaseStreamFilterBuilder ne supporte qu'UN SEUL .eq()
+  // chaîné après .stream(). On filtre donc le user_id manuellement dans le
+  // callback .listen() plutôt que de chaîner un second .eq().
+  void _listenToMyPosition() {
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser!.id;
 
-    // 🟢 La requête doit être construite dans cet ordre :
-    // 1. from()
-    // 2. eq() (les filtres)
-    // 3. stream()
     _queueSubscription = supabase
         .from('waiting_queue')
         .stream(primaryKey: ['id']) // 'id' doit être ta clé primaire
-        .eq('event_id', widget.eventId)
-        .eq('user_id', currentUserId)
+        .eq('event_id', widget.eventId) // ✅ un seul filtre autorisé ici
         .listen((data) {
-      
-      if (data.isEmpty || !mounted) return;
+      if (!mounted || data.isEmpty) return;
 
-      final newPosition = data.first['position'] as int?;
+      // ✅ Filtrage du user_id fait côté client
+      final myRow = data.cast<Map<String, dynamic>?>().firstWhere(
+            (row) => row?['user_id'] == currentUserId,
+            orElse: () => null,
+          );
+
+      if (myRow == null) return;
+
+      final newPosition = myRow['position'] as int?;
       if (newPosition != null && newPosition != _position) {
         setState(() {
           _position = newPosition;
@@ -156,10 +161,9 @@ class _WaitingQueuePageState extends State<WaitingQueuePage> with WidgetsBinding
     });
   }
 
-
   void _onYourTurn() {
     setState(() => _isProcessing = true);
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
