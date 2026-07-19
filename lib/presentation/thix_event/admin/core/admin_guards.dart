@@ -1,5 +1,6 @@
 // lib/presentation/thix_event/admin/core/admin_guards.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'admin_constants.dart';
 
 enum AdminRole { superAdmin, eventManager, viewer, none }
 
