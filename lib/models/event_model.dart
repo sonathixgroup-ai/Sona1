@@ -1,4 +1,5 @@
 // lib/models/event_model.dart
+import 'ticket_tier.dart';
 class Event {
   final String id;
   final String title;
@@ -29,7 +30,8 @@ class Event {
   final int sharesCount;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  
+  final List<TicketTier> ticketTiers;
+
   // Champs pour l'état local de l'utilisateur (Likes & Favoris)
   final bool isLiked;
   final bool isSaved;
@@ -66,6 +68,7 @@ class Event {
     this.updatedAt,
     this.isLiked = false,
     this.isSaved = false,
+    this.ticketTiers = const [],
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -100,6 +103,9 @@ class Event {
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
       isLiked: json['is_liked'] ?? false,
+      ticketTiers: json['ticket_tiers'] != null 
+    ? (json['ticket_tiers'] as List).map((i) => TicketTier.fromJson(i)).toList() 
+    : [],
       isSaved: json['is_saved'] ?? false,
     );
   }
@@ -137,6 +143,8 @@ class Event {
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
       'is_liked': isLiked,
       'is_saved': isSaved,
+      'ticket_tiers': ticketTiers.map((e) => e.toJson()).toList(),
+
     };
   }
 
@@ -172,6 +180,7 @@ class Event {
     DateTime? updatedAt,
     bool? isLiked,
     bool? isSaved,
+    List<TicketTier>? ticketTiers,
   }) {
     return Event(
       id: id ?? this.id,
@@ -204,6 +213,7 @@ class Event {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isLiked: isLiked ?? this.isLiked,
+      ticketTiers: ticketTiers ?? this.ticketTiers,
       isSaved: isSaved ?? this.isSaved,
     );
   }
