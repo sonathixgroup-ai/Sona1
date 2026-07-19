@@ -1,5 +1,5 @@
 // lib/presentation/admin/pages/create_event_page.dart
-import 'dart:io';
+import 'dart:typed_data'; // REMPLACE dart:io
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
@@ -32,7 +32,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
   bool _isFree = false;
   bool _isFeatured = false;
   String? _imageUrl;
-  File? _imageFile;
+  
+  // FIX: Utilisation de Uint8List et String pour stocker l'image en RAM (Compatible Web)
+  Uint8List? _imageBytes;
+  String? _imageFileName;
+  
   bool _isLoading = false;
 
   final List<Map<String, String>> _categories = [
@@ -86,10 +90,14 @@ class _CreateEventPageState extends State<CreateEventPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true, // FIX: Obligatoire sur le Web pour récupérer les bytes
       );
       
       if (result != null && result.files.isNotEmpty) {
-        setState(() => _imageFile = File(result.files.first.path!));
+        setState(() {
+          _imageBytes = result.files.first.bytes;
+          _imageFileName = result.files.first.name;
+        });
       }
     } catch (e) {
       _showError('Erreur lors de la sélection de l\'image');
@@ -119,10 +127,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
   }
 
   Future<String?> _uploadImage() async {
-    if (_imageFile == null) return _imageUrl;
+    if (_imageBytes == null || _imageFileName == null) return _imageUrl;
     
     final provider = context.read<EventProvider>();
-    return await provider.uploadImage(_imageFile!.path);
+    return await provider.uploadImage(_imageBytes!, _imageFileName!);
   }
 
   Future<void> _saveEvent() async {
@@ -393,10 +401,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: _imageFile != null
+            // FIX: Utilisation de Image.memory pour le Web
+            child: _imageBytes != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_imageFile!, fit: BoxFit.cover, width: double.infinity),
+                    child: Image.memory(_imageBytes!, fit: BoxFit.cover, width: double.infinity),
                   )
                 : _imageUrl != null
                     ? ClipRRect(
@@ -414,12 +423,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       ),
           ),
         ),
-        if (_imageFile != null || _imageUrl != null)
+        if (_imageBytes != null || _imageUrl != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: TextButton.icon(
               onPressed: () => setState(() {
-                _imageFile = null;
+                _imageBytes = null;
+                _imageFileName = null;
                 _imageUrl = null;
               }),
               icon: const Icon(Icons.delete, size: 16),
