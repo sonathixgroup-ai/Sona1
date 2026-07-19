@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../../../models/event_model.dart';
+
+// FIX: Utilisation du chemin absolu package: pour garantir la détection du modèle
+import 'package:thix_id/models/event_model.dart';
+
 import '../../providers/admin_event_provider.dart';
 import '../../services/admin_event_service.dart';
 import '../../widgets/admin_app_bar.dart';
