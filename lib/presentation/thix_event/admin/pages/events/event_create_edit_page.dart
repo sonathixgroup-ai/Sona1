@@ -19,26 +19,26 @@ class EventCreateEditPage extends StatefulWidget {
 }
 
 class _EventCreateEditPageState extends State<EventCreateEditPage> {
-  // Couleur THIX Violette
   static const Color appViolet = Color(0xFF6B3CE2);
 
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleCtrl, _descCtrl, _locationCtrl, _addressCtrl, _cityCtrl;
-  late TextEditingController _priceCtrl, _capacityCtrl, _subCategoryCtrl;
+  late TextEditingController _subCategoryCtrl;
   late TextEditingController _organizerNameCtrl, _contactPhoneCtrl, _contactEmailCtrl;
   
   late String _category, _currency, _status;
   late DateTime _startDate;
   DateTime? _endDate;
-  bool _isFree = false;
   bool _isSaving = false;
 
-  // Nouvelle variable pour la section de publication
   String _publishSection = 'upcoming';
 
   Uint8List? _pickedImageBytes;
   Uint8List? _pickedBannerBytes;
   final ImagePicker _picker = ImagePicker();
+
+  // 🟢 NOUVEAU : Liste dynamique des classes de billets
+  List<Map<String, dynamic>> _ticketTiers = [];
 
   @override
   void initState() {
@@ -49,8 +49,6 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     _locationCtrl = TextEditingController(text: e?.location ?? '');
     _addressCtrl = TextEditingController(text: e?.address ?? '');
     _cityCtrl = TextEditingController(text: e?.city ?? 'Dar es Salaam, Tanzanie');
-    _priceCtrl = TextEditingController(text: e?.price.toString() ?? '0');
-    _capacityCtrl = TextEditingController(text: e?.capacity?.toString() ?? '100');
     _subCategoryCtrl = TextEditingController(text: e?.subCategory ?? '');
     _organizerNameCtrl = TextEditingController(text: e?.organizerName ?? '');
     _contactPhoneCtrl = TextEditingController(text: e?.contactPhone ?? '');
@@ -61,9 +59,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     _status = e?.status ?? 'upcoming';
     _startDate = e?.startDate ?? DateTime.now().add(const Duration(days: 7));
     _endDate = e?.endDate;
-    _isFree = e?.isFree ?? false;
     
-    // Initialisation de la section de publication
     if (e?.isFeatured == true) {
       _publishSection = 'featured';
     } else if (e?.isRecommended == true) {
@@ -71,6 +67,12 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     } else {
       _publishSection = 'upcoming';
     }
+
+    // Initialisation des classes de billets (si on modifie un événement existant)
+    // NOTE: Si e?.ticketTiers existe dans votre modèle, chargez-le ici. Sinon, on met un Standard par défaut.
+    _ticketTiers = [
+      {'name': 'Standard', 'price': e?.price ?? 0.0, 'capacity': e?.capacity ?? 100}
+    ];
   }
 
   Future<void> _pickImage(bool isBanner) async {
@@ -81,42 +83,76 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     }
   }
 
-  // Fonction combinée pour choisir la Date ET l'Heure
   Future<DateTime?> _pickDateTime(DateTime initialDate) async {
     final date = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-      builder: (context, child) => _buildTheme(child),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: appViolet, onPrimary: Colors.white, onSurface: Colors.black87),
+        ),
+        child: child!,
+      ),
     );
-
-    if (date == null) return null; // Annulé
-
+    if (date == null) return null;
     if (!mounted) return date;
 
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initialDate),
-      builder: (context, child) => _buildTheme(child),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: appViolet, onPrimary: Colors.white, onSurface: Colors.black87),
+        ),
+        child: child!,
+      ),
     );
-
-    if (time == null) return date; // A choisi la date mais annulé l'heure
-
+    if (time == null) return date;
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
-  // Applique le thème Violet THIX aux sélecteurs
-  Widget _buildTheme(Widget? child) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        colorScheme: const ColorScheme.light(
-          primary: appViolet, 
-          onPrimary: Colors.white,
-          onSurface: Colors.black87,
+  // 🟢 NOUVEAU : Fonction pour ajouter une classe de billet via un dialogue
+  void _showAddTierDialog() {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+    final capacityCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Ajouter une classe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nom (ex: VVIP, VIP, Early Bird)')),
+            const SizedBox(height: 10),
+            TextField(controller: priceCtrl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Prix ($_currency)')),
+            const SizedBox(height: 10),
+            TextField(controller: capacityCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Capacité de cette classe')),
+          ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: appViolet, foregroundColor: Colors.white),
+            onPressed: () {
+              if (nameCtrl.text.isEmpty) return;
+              setState(() {
+                _ticketTiers.add({
+                  'name': nameCtrl.text.trim(),
+                  'price': double.tryParse(priceCtrl.text) ?? 0.0,
+                  'capacity': int.tryParse(capacityCtrl.text) ?? 0,
+                });
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Ajouter'),
+          ),
+        ],
       ),
-      child: child!,
     );
   }
 
@@ -127,17 +163,23 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    if (_ticketTiers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez ajouter au moins une classe de billet'), backgroundColor: Colors.red));
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
       final service = context.read<AdminEventService>();
       final provider = context.read<AdminEventProvider>();
 
-      final capacity = int.tryParse(_capacityCtrl.text);
-
-      // ✅ CORRECTION ICI : Les deux variables sont bien définies
       bool isFeatured = _publishSection == 'featured';
       bool isRecommended = _publishSection == 'recommended'; 
+
+      // 🟢 CALCULS AUTOMATIQUES BASÉS SUR LES CLASSES
+      int totalCapacity = _ticketTiers.fold(0, (sum, tier) => sum + (tier['capacity'] as int));
+      double minPrice = _ticketTiers.map((t) => t['price'] as double).reduce((a, b) => a < b ? a : b);
+      bool isFree = minPrice == 0 && _ticketTiers.length == 1; // Gratuit seulement s'il y a 1 classe à 0 FC
 
       final event = Event(
         id: widget.eventToEdit?.id ?? '',
@@ -150,13 +192,13 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         city: _cityCtrl.text.trim(),
         startDate: _startDate,
         endDate: _endDate,
-        price: _isFree ? 0 : double.tryParse(_priceCtrl.text) ?? 0,
+        price: minPrice, // Le prix "À partir de"
         priceCurrency: _currency,
-        isFree: _isFree,
-        capacity: capacity,
-        remainingTickets: widget.eventToEdit == null ? capacity : widget.eventToEdit?.remainingTickets,
+        isFree: isFree,
+        capacity: totalCapacity, // Capacité totale cumulée
+        remainingTickets: widget.eventToEdit == null ? totalCapacity : widget.eventToEdit?.remainingTickets,
         isFeatured: isFeatured,
-        isRecommended: isRecommended, // ✅ Ne causera plus d'erreur !
+        isRecommended: isRecommended,
         status: _status,
         organizerName: _organizerNameCtrl.text.trim().isEmpty ? null : _organizerNameCtrl.text.trim(),
         contactPhone: _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim(),
@@ -167,6 +209,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         createdAt: widget.eventToEdit?.createdAt ?? DateTime.now(),
         imageUrl: widget.eventToEdit?.imageUrl,
         bannerUrl: widget.eventToEdit?.bannerUrl,
+        // ticketTiers: _ticketTiers, // <-- À décommenter si vous l'ajoutez dans event_model.dart
       );
 
       await service.upsertEvent(event, imageBytes: _pickedImageBytes, bannerBytes: _pickedBannerBytes);
@@ -183,7 +226,6 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     }
   }
 
-  // Format d'affichage de la date et l'heure
   String _formatDateTime(DateTime dt) {
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
@@ -198,7 +240,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         child: ElevatedButton(
           onPressed: _isSaving ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: appViolet, // Changé en Violet
+            backgroundColor: appViolet, 
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
@@ -300,34 +342,67 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
             const SizedBox(height: 12),
             _field(_contactEmailCtrl, 'Email de contact', keyboard: TextInputType.emailAddress),
             
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: _field(_priceCtrl, 'Prix', enabled: !_isFree, keyboard: TextInputType.number)),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _currency,
-                items: ['FC', 'USD', 'EUR'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (v) => setState(() => _currency = v!),
-              ),
-              const SizedBox(width: 8),
-              Row(children: [
-                Checkbox(value: _isFree, activeColor: appViolet, onChanged: (v) => setState(() => _isFree = v!)),
-                const Text('Gratuit', style: TextStyle(fontSize: 12))
-              ]),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: _field(_capacityCtrl, 'Capacité totale', keyboard: TextInputType.number)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _status,
-                  decoration: _deco('Statut'),
-                  items: ['upcoming', 'ongoing', 'completed', 'cancelled'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (v) => setState(() => _status = v!),
+            const SizedBox(height: 24),
+            // 🟢 NOUVELLE SECTION : CLASSES DE BILLETS
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Classes de billets & Capacité', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+                DropdownButton<String>(
+                  value: _currency,
+                  underline: const SizedBox(),
+                  items: ['FC', 'USD', 'EUR'].map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
+                  onChanged: (v) => setState(() => _currency = v!),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE7EEFC)),
               ),
-            ]),
+              child: Column(
+                children: [
+                  ..._ticketTiers.asMap().entries.map((entry) {
+                    int idx = entry.key;
+                    var tier = entry.value;
+                    return ListTile(
+                      title: Text(tier['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text('${tier['price']} $_currency • Capacité: ${tier['capacity']} places', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                        onPressed: () => setState(() => _ticketTiers.removeAt(idx)),
+                      ),
+                    );
+                  }),
+                  const Divider(height: 1, color: Color(0xFFE7EEFC)),
+                  InkWell(
+                    onTap: _showAddTierDialog,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add_circle_outline, color: appViolet, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('Ajouter VVIP, VIP, etc.', style: TextStyle(color: appViolet, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              value: _status,
+              decoration: _deco('Statut de l\'événement'),
+              items: ['upcoming', 'ongoing', 'completed', 'cancelled'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              onChanged: (v) => setState(() => _status = v!),
+            ),
             
             const SizedBox(height: 20),
             const Text('Où afficher cet événement ?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
@@ -336,18 +411,9 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
               value: _publishSection,
               decoration: _deco('Visibilité de l\'événement'),
               items: const [
-                DropdownMenuItem(
-                  value: 'upcoming', 
-                  child: Text('Prochains événements (Par défaut)', style: TextStyle(fontSize: 13))
-                ),
-                DropdownMenuItem(
-                  value: 'recommended', 
-                  child: Text('Événements Recommandés', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13))
-                ),
-                DropdownMenuItem(
-                  value: 'featured', 
-                  child: Text('À la Une (Bannière)', style: TextStyle(color: appViolet, fontWeight: FontWeight.bold, fontSize: 13))
-                ),
+                DropdownMenuItem(value: 'upcoming', child: Text('Prochains événements (Par défaut)', style: TextStyle(fontSize: 13))),
+                DropdownMenuItem(value: 'recommended', child: Text('Événements Recommandés', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13))),
+                DropdownMenuItem(value: 'featured', child: Text('À la Une (Bannière)', style: TextStyle(color: appViolet, fontWeight: FontWeight.bold, fontSize: 13))),
               ],
               onChanged: (v) => setState(() => _publishSection = v!),
             ),
