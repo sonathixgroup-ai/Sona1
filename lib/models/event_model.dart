@@ -238,4 +238,10 @@ class Event {
     }
     return startHour;
   }
+    // --- GETTERS : STATUTS TEMPORELS ---
+  bool get isUpcoming => startDate.isAfter(DateTime.now());
+  bool get isPastEvent => endDate != null 
+      ? endDate!.isBefore(DateTime.now()) 
+      : startDate.isBefore(DateTime.now());
+
 }
