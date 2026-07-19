@@ -28,6 +28,10 @@ class Event {
   final int sharesCount;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  
+  // Champs pour l'état local de l'utilisateur (Likes & Favoris)
+  final bool isLiked;
+  final bool isSaved;
 
   Event({
     required this.id,
@@ -58,6 +62,8 @@ class Event {
     this.sharesCount = 0,
     required this.createdAt,
     this.updatedAt,
+    this.isLiked = false,
+    this.isSaved = false,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -90,6 +96,8 @@ class Event {
       sharesCount: json['shares_count'] ?? 0,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      isLiked: json['is_liked'] ?? false,
+      isSaved: json['is_saved'] ?? false,
     );
   }
 
@@ -123,6 +131,8 @@ class Event {
       'shares_count': sharesCount,
       'created_at': createdAt.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+      'is_liked': isLiked,
+      'is_saved': isSaved,
     };
   }
 
@@ -155,6 +165,8 @@ class Event {
     int? sharesCount,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isLiked,
+    bool? isSaved,
   }) {
     return Event(
       id: id ?? this.id,
@@ -185,23 +197,45 @@ class Event {
       sharesCount: sharesCount ?? this.sharesCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isLiked: isLiked ?? this.isLiked,
+      isSaved: isSaved ?? this.isSaved,
     );
   }
 
-  // --- NOUVEAU GETTER POUR LE PRIX ---
+  // --- GETTER : PRIX FORMATÉ ---
   String get formattedPrice {
     if (isFree || price <= 0) return 'Gratuit';
-    // Affiche le prix sans décimales si c'est un nombre entier (ex: 5000), 
-    // ou avec 2 décimales si nécessaire (ex: 50.50)
     final priceString = price.truncateToDouble() == price 
         ? price.toInt().toString() 
         : price.toStringAsFixed(2);
     return '$priceString $priceCurrency';
   }
 
-  // --- NOUVEAU GETTER POUR LA DATE COURTE ---
+  // --- GETTER : DATE COURTE ---
   String get shortDate {
     final months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     return '${startDate.day} ${months[startDate.month - 1]}';
+  }
+
+  // --- GETTER : DATE FORMATÉE ---
+  String get formattedDate {
+    final months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    return '${startDate.day} ${months[startDate.month - 1]} ${startDate.year}';
+  }
+
+  // --- GETTER : LABEL DE CATÉGORIE ---
+  String get categoryLabel {
+    if (category.isEmpty) return 'Événement';
+    return category[0].toUpperCase() + category.substring(1).toLowerCase();
+  }
+
+  // --- GETTER : PLAGE HORAIRE ---
+  String get timeRange {
+    String startHour = '${startDate.hour.toString().padLeft(2, '0')}:${startDate.minute.toString().padLeft(2, '0')}';
+    if (endDate != null) {
+      String endHour = '${endDate!.hour.toString().padLeft(2, '0')}:${endDate!.minute.toString().padLeft(2, '0')}';
+      return '$startHour - $endHour';
+    }
+    return startHour;
   }
 }
