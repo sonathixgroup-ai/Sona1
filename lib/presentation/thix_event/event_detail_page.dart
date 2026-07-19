@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
+import '../../models/ticket_tier.dart';
 import '../../services/event_seat_service.dart';
 import '../../services/event_queue_service.dart';
 import '../../services/event_booking_limit_service.dart';
@@ -16,30 +17,28 @@ import 'seat_selection_page.dart';
 import 'waiting_queue_page.dart';
 
 class _ThixColors {
-  static const Color primary = Color(0xFF6B3BFF);
-  static const Color primaryLight = Color(0xFF7C3AED);
+  static const Color primary = Color(0xFF6B3CE2); // Violet THIX mis à jour
+  static const Color primaryLight = Color(0xFF8B5CF6);
   static const Color lightBg = Color(0xFFF8F7FF);
   static const Color darkText = Color(0xFF1E1B4B);
   static const Color mutedText = Color(0xFF8B8BA7);
   static const Color cardBorder = Color(0xFFEEE9FF);
 
-  // Même palette par catégorie que EventCard, pour cohérence visuelle globale
   static const Map<String, Color> categoryColors = {
-    'musique': Color(0xFF6B3BFF),
-    'concert': Color(0xFF6B3BFF),
+    'musique': Color(0xFF6B3CE2),
+    'concert': Color(0xFF6B3CE2),
     'conference': Color(0xFFF59E0B),
     'culture': Color(0xFF3B82F6),
     'sport': Color(0xFF10B981),
     'match': Color(0xFF10B981),
     'festival': Color(0xFFEC4899),
-    'spectacle': Color(0xFF7C3AED),
+    'spectacle': Color(0xFF8B5CF6),
     'exposition': Color(0xFF3B82F6),
   };
 
   static Color accentFor(String category) => categoryColors[category.toLowerCase()] ?? primary;
 }
 
-// Définition temporaire de EventBookingLimit
 class EventBookingLimit {
   final String eventId;
   final int maxPerPerson;
@@ -150,8 +149,105 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
   }
 
-  void _goToReservation() {
-    context.push('/thix-event/reservation/${_event.id}');
+  // 🟢 NOUVELLE FONCTION : Choix de la classe de billet via BottomSheet
+  void _showTicketTierSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+            ),
+            const SizedBox(height: 20),
+            const Text('Choisissez votre billet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
+            const SizedBox(height: 6),
+            const Text('Sélectionnez la catégorie qui vous correspond.', style: TextStyle(fontSize: 12, color: _ThixColors.mutedText)),
+            const SizedBox(height: 20),
+            ..._event.ticketTiers.map((tier) => _buildTierOption(tier)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTierOption(TicketTier tier) {
+    bool isSoldOut = tier.capacity > 0 && (tier.remaining ?? tier.capacity) == 0;
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: isSoldOut ? null : () {
+          Navigator.pop(context);
+          _goToReservation(selectedTier: tier);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isSoldOut ? Colors.grey.shade100 : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isSoldOut ? Colors.grey.shade200 : _ThixColors.primary.withOpacity(0.3), width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.local_activity_rounded, size: 16, color: isSoldOut ? Colors.grey : _ThixColors.primary),
+                      const SizedBox(width: 8),
+                      Text(tier.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: isSoldOut ? Colors.grey : _ThixColors.darkText)),
+                    ],
+                  ),
+                  if (tier.capacity > 0 && !isSoldOut) ...[
+                    const SizedBox(height: 4),
+                    Text('Plus que ${tier.remaining ?? tier.capacity} places', style: const TextStyle(fontSize: 10, color: Color(0xFFF59E0B), fontWeight: FontWeight.bold)),
+                  ]
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    tier.price == 0 ? 'Gratuit' : '${tier.price.toInt()} ${_event.priceCurrency}',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isSoldOut ? Colors.grey : _ThixColors.primary),
+                  ),
+                  if (isSoldOut)
+                    const Text('Épuisé', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🟢 MISE À JOUR : Navigation vers réservation avec la classe choisie
+  void _goToReservation({TicketTier? selectedTier}) {
+    // Si l'événement a des classes et qu'on a pas choisi, on ouvre le Sheet
+    if (_event.ticketTiers.isNotEmpty && selectedTier == null) {
+      _showTicketTierSelection();
+      return;
+    }
+
+    // Navigue vers la page de paiement en passant le tier choisi en paramètre (ou via le provider)
+    // context.push('/thix-event/reservation/${_event.id}', extra: selectedTier);
+    
+    // Pour l'instant on garde votre routing actuel (à adapter si vous utilisez extra dans GoRouter)
+    context.push('/thix-event/reservation/${_event.id}'); 
   }
 
   void _goToSeatSelection() {
@@ -222,7 +318,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Widget _buildBookingButton() {
     if (_isLoading) return const SizedBox.shrink();
 
-    final isSoldOut = (_event.remainingTickets ?? 0) == 0;
+    final isSoldOut = (_event.remainingTickets != null && _event.remainingTickets! == 0);
     final accent = _accent;
 
     if (isSoldOut) {
@@ -256,7 +352,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     }
 
     return ElevatedButton(
-      onPressed: _goToReservation,
+      onPressed: _goToReservation, // 🟢 Appelle la nouvelle logique (avec ou sans sheet)
       style: ElevatedButton.styleFrom(
         backgroundColor: accent,
         foregroundColor: Colors.white,
@@ -279,67 +375,59 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
     final accent = _accent;
 
+    // 🟢 Affichage du prix : Si classes dispo, on ajoute "À partir de"
+    String displayPrice = _event.formattedPrice;
+    if (_event.ticketTiers.length > 1) {
+      displayPrice = 'Dès $displayPrice';
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: _isFavorite ? const Color(0xFFEC4899) : _ThixColors.mutedText,
-              size: 22,
-            ),
-            onPressed: _toggleFavorite,
-          ),
-          IconButton(
-            icon: const Icon(Icons.share_rounded, color: _ThixColors.darkText),
-            onPressed: _shareEvent,
-          ),
-          IconButton(
-            icon: const Icon(Icons.calendar_today_rounded, color: _ThixColors.darkText),
-            onPressed: _addToCalendar,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_event.imageUrl != null && _event.imageUrl!.isNotEmpty)
-              Image.network(
-                _event.imageUrl!,
-                width: double.infinity,
-                height: 220,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 220,
-                    color: const Color(0xFFF3F0FF),
-                    child: Center(child: CircularProgressIndicator(color: accent, strokeWidth: 2)),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 220,
-                  decoration: BoxDecoration(gradient: LinearGradient(colors: [accent.withOpacity(0.85), accent])),
-                  child: const Icon(Icons.event_rounded, size: 50, color: Colors.white70),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 250,
+            pinned: true,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText, size: 20),
+                  onPressed: () => Navigator.pop(context),
                 ),
-              )
-            else
-              Container(
-                width: double.infinity,
-                height: 220,
-                decoration: BoxDecoration(gradient: LinearGradient(colors: [accent.withOpacity(0.85), accent])),
-                child: const Icon(Icons.event_rounded, size: 50, color: Colors.white70),
               ),
-            Padding(
-              padding: const EdgeInsets.all(16),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: IconButton(
+                    icon: Icon(_isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: _isFavorite ? const Color(0xFFEC4899) : _ThixColors.mutedText, size: 20),
+                    onPressed: _toggleFavorite,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: IconButton(icon: const Icon(Icons.share_rounded, color: _ThixColors.darkText, size: 20), onPressed: _shareEvent),
+                ),
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: _event.imageUrl != null && _event.imageUrl!.isNotEmpty
+                  ? Image.network(_event.imageUrl!, fit: BoxFit.cover)
+                  : Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [accent.withOpacity(0.85), accent])), child: const Center(child: Icon(Icons.event_rounded, size: 50, color: Colors.white70))),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -350,56 +438,25 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: accent.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _event.categoryLabel.toUpperCase(),
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: accent),
-                        ),
+                        decoration: BoxDecoration(color: accent.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                        child: Text(_event.categoryLabel.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: accent)),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _event.isFree ? const Color(0xFF10B981).withOpacity(0.12) : _ThixColors.primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _event.isFree ? 'GRATUIT' : 'PAYANT',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: _event.isFree ? const Color(0xFF10B981) : _ThixColors.primary,
-                          ),
-                        ),
+                        decoration: BoxDecoration(color: _event.isFree ? const Color(0xFF10B981).withOpacity(0.12) : _ThixColors.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                        child: Text(_event.isFree ? 'GRATUIT' : 'PAYANT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _event.isFree ? const Color(0xFF10B981) : _ThixColors.primary)),
                       ),
-                      if (_event.remainingTickets != null && _event.remainingTickets! < 50)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Plus que ${_event.remainingTickets} places',
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFFF59E0B)),
-                          ),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    _event.title,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, height: 1.2, color: _ThixColors.darkText),
-                  ),
+                  Text(_event.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, height: 1.2, color: _ThixColors.darkText)),
                   const SizedBox(height: 16),
                   _buildInfoRow(Icons.calendar_today_rounded, _event.formattedDate, accent),
                   const SizedBox(height: 8),
                   _buildInfoRow(Icons.access_time_rounded, _event.timeRange, accent),
                   const SizedBox(height: 8),
                   _buildInfoRow(Icons.location_on_rounded, _event.location, accent),
-                  if (_event.address != null) ...[
+                  if (_event.address != null && _event.address!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     _buildInfoRow(Icons.map_rounded, _event.address!, accent),
                   ],
@@ -414,90 +471,29 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         children: [
                           Text('Prix', style: TextStyle(fontSize: 12, color: _ThixColors.mutedText)),
                           const SizedBox(height: 4),
-                          Text(
-                            _event.formattedPrice,
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: accent),
-                          ),
+                          Text(displayPrice, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: accent)), // 🟢 Affichage géré
                         ],
                       ),
                       _buildBookingButton(),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  const Text('Description', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
+                  const Text('Description', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
                   const SizedBox(height: 8),
                   Text(_event.description, style: const TextStyle(fontSize: 13, height: 1.5, color: _ThixColors.mutedText)),
-                  const SizedBox(height: 24),
-                  if (_event.organizerName != null) ...[
-                    const Text('Organisateur', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _ThixColors.lightBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _ThixColors.cardBorder, width: 0.8),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: accent,
-                            child: const Icon(Icons.business_rounded, size: 20, color: Colors.white),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(_event.organizerName!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _ThixColors.darkText)),
-                                if (_event.contactPhone != null)
-                                  Text(_event.contactPhone!, style: const TextStyle(fontSize: 11, color: _ThixColors.mutedText)),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.phone_rounded, size: 18, color: accent),
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (_bookingLimit != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _ThixColors.primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, size: 18, color: _ThixColors.primary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Maximum ${_bookingLimit!.maxPerPerson} places par personne.',
-                              style: const TextStyle(fontSize: 11, color: _ThixColors.primary, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 32),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildInfoRow(IconData icon, String text, Color accent) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: accent),
         const SizedBox(width: 8),
