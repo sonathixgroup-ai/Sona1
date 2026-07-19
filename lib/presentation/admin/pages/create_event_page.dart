@@ -1,5 +1,5 @@
 // lib/presentation/admin/pages/create_event_page.dart
-import 'dart:typed_data'; // REMPLACE dart:io
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +17,10 @@ class CreateEventPage extends StatefulWidget {
 }
 
 class _CreateEventPageState extends State<CreateEventPage> {
+  // Couleur principale THIX
+  static const Color appViolet = Color(0xFF6B3CE2);
+  static const Color textDark = Color(0xFF1A1A2E);
+
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -30,13 +34,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
   DateTime _startDate = DateTime.now().add(const Duration(days: 7));
   TimeOfDay _startTime = TimeOfDay.now();
   bool _isFree = false;
-  bool _isFeatured = false;
-  String? _imageUrl;
   
-  // FIX: Utilisation de Uint8List et String pour stocker l'image en RAM (Compatible Web)
+  // Section de publication (Au lieu d'un simple switch)
+  String _publishSection = 'upcoming'; 
+
+  String? _imageUrl;
   Uint8List? _imageBytes;
   String? _imageFileName;
-  
   bool _isLoading = false;
 
   final List<Map<String, String>> _categories = [
@@ -62,8 +66,17 @@ class _CreateEventPageState extends State<CreateEventPage> {
       _startDate = widget.event!.startDate;
       _startTime = TimeOfDay.fromDateTime(widget.event!.startDate);
       _isFree = widget.event!.isFree;
-      _isFeatured = widget.event!.isFeatured;
       _imageUrl = widget.event!.imageUrl;
+      
+      // Déterminer la section de publication
+      if (widget.event!.isFeatured) {
+        _publishSection = 'featured';
+      } else {
+        // Si vous avez ajouté isRecommended au modèle plus tard, on pourrait l'assigner ici.
+        // Pour l'instant on garde 'upcoming' par défaut si pas featured.
+        _publishSection = 'upcoming'; 
+      }
+
       if (!_isFree) {
         _priceController.text = widget.event!.price.toStringAsFixed(0);
       }
@@ -90,7 +103,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
-        withData: true, // FIX: Obligatoire sur le Web pour récupérer les bytes
+        withData: true, 
       );
       
       if (result != null && result.files.isNotEmpty) {
@@ -110,6 +123,18 @@ class _CreateEventPageState extends State<CreateEventPage> {
       initialDate: _startDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: appViolet, // Header background color
+              onPrimary: Colors.white, // Header text color
+              onSurface: textDark, // Body text color
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (date != null) {
       setState(() => _startDate = date);
@@ -120,6 +145,18 @@ class _CreateEventPageState extends State<CreateEventPage> {
     final time = await showTimePicker(
       context: context,
       initialTime: _startTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: appViolet, 
+              onPrimary: Colors.white,
+              onSurface: textDark,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (time != null) {
       setState(() => _startTime = time);
@@ -148,36 +185,45 @@ class _CreateEventPageState extends State<CreateEventPage> {
       
       final provider = context.read<EventProvider>();
       
+      // Conversion de la section en booléens pour la base de données
+      bool isFeatured = _publishSection == 'featured';
+      bool isRecommended = _publishSection == 'recommended';
+
+      final eventData = {
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'category': _selectedCategory,
+        'start_date': startDateTime.toIso8601String(),
+        'location': _locationController.text.trim(),
+        'city': _cityController.text.trim(),
+        'address': _addressController.text.trim(),
+        'price': _isFree ? 0 : double.parse(_priceController.text.trim()),
+        'is_free': _isFree,
+        'capacity': _capacityController.text.trim().isEmpty ? null : int.parse(_capacityController.text.trim()),
+        'image_url': uploadedImageUrl,
+        'is_featured': isFeatured,
+        'is_recommended': isRecommended, // Assurez-vous que cette colonne existe en DB !
+      };
+      
       if (widget.event != null) {
-        await provider.updateEvent(widget.event!.id, {
-          'title': _titleController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'category': _selectedCategory,
-          'start_date': startDateTime.toIso8601String(),
-          'location': _locationController.text.trim(),
-          'city': _cityController.text.trim(),
-          'address': _addressController.text.trim(),
-          'price': _isFree ? 0 : double.parse(_priceController.text.trim()),
-          'is_free': _isFree,
-          'capacity': _capacityController.text.trim().isEmpty ? null : int.parse(_capacityController.text.trim()),
-          'image_url': uploadedImageUrl,
-          'is_featured': _isFeatured,
-        });
+        await provider.updateEvent(widget.event!.id, eventData);
         _showSuccess('Événement modifié avec succès');
       } else {
         await provider.createEvent(
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim(),
-          category: _selectedCategory,
+          title: eventData['title'] as String,
+          description: eventData['description'] as String,
+          category: eventData['category'] as String,
           startDate: startDateTime,
-          location: _locationController.text.trim(),
-          city: _cityController.text.trim(),
-          address: _addressController.text.trim(),
-          price: _isFree ? 0 : double.parse(_priceController.text.trim()),
-          isFree: _isFree,
-          capacity: _capacityController.text.trim().isEmpty ? null : int.parse(_capacityController.text.trim()),
+          location: eventData['location'] as String,
+          city: eventData['city'] as String,
+          address: eventData['address'] as String,
+          price: eventData['price'] as double,
+          isFree: eventData['is_free'] as bool,
+          capacity: eventData['capacity'] as int?,
           imageUrl: uploadedImageUrl,
-          isFeatured: _isFeatured,
+          isFeatured: isFeatured,
+          // Note : Le provider createEvent devra peut-être être mis à jour 
+          // pour accepter isRecommended si vous l'utilisez dans la fonction.
         );
         _showSuccess('Événement créé avec succès');
       }
@@ -207,14 +253,14 @@ class _CreateEventPageState extends State<CreateEventPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1B3D),
+        backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
           widget.event != null ? 'Modifier l\'événement' : 'Nouvel événement',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textDark),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: textDark),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -222,13 +268,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
             onPressed: _isLoading ? null : _saveEvent,
             child: Text(
               widget.event != null ? 'MODIFIER' : 'CRÉER',
-              style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 12),
+              style: const TextStyle(color: appViolet, fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: appViolet))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
@@ -237,14 +283,18 @@ class _CreateEventPageState extends State<CreateEventPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildImageSection(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+                    
+                    const Text('Informations générales', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _titleController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Titre de l\'événement',
                         hintText: 'Nom accrocheur...',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                       ),
                       validator: (v) => v?.trim().isEmpty == true ? 'Titre requis' : null,
                     ),
@@ -252,10 +302,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
                     TextFormField(
                       controller: _descriptionController,
                       maxLines: 5,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Description',
                         hintText: 'Description complète...',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                         alignLabelWithHint: true,
                       ),
                       validator: (v) => v?.trim().isEmpty == true ? 'Description requise' : null,
@@ -263,51 +314,54 @@ class _CreateEventPageState extends State<CreateEventPage> {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _selectedCategory,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Catégorie',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                       ),
                       items: _categories.map((cat) {
                         return DropdownMenuItem(
                           value: cat['value'],
-                          child: Text(cat['label']!, style: const TextStyle(fontSize: 13)),
+                          child: Text(cat['label']!, style: const TextStyle(fontSize: 14)),
                         );
                       }).toList(),
                       onChanged: (v) => setState(() => _selectedCategory = v!),
                     ),
-                    const SizedBox(height: 16),
+                    
+                    const SizedBox(height: 32),
+                    const Text('Date & Heure', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _pickDate,
-                            icon: const Icon(Icons.calendar_today, size: 18),
-                            label: Text(
-                              '${_startDate.day}/${_startDate.month}/${_startDate.year}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                          child: _buildDateTimeButton(
+                            icon: Icons.calendar_today,
+                            label: 'Date',
+                            value: '${_startDate.day.toString().padLeft(2, '0')}/${_startDate.month.toString().padLeft(2, '0')}/${_startDate.year}',
+                            onTap: _pickDate,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _pickTime,
-                            icon: const Icon(Icons.access_time, size: 18),
-                            label: Text(
-                              '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                          child: _buildDateTimeButton(
+                            icon: Icons.access_time_filled,
+                            label: 'Heure',
+                            value: '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+                            onTap: _pickTime,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(height: 32),
+                    const Text('Lieu de l\'événement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _locationController,
-                      decoration: const InputDecoration(
-                        labelText: 'Lieu',
-                        hintText: 'Nom du lieu',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Nom du lieu (Ex: Palais des Congrès)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                       ),
                       validator: (v) => v?.trim().isEmpty == true ? 'Lieu requis' : null,
                     ),
@@ -317,10 +371,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
                         Expanded(
                           child: TextFormField(
                             controller: _cityController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'Ville',
-                              hintText: 'Kinshasa, Lubumbashi...',
-                              border: OutlineInputBorder(),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                             ),
                           ),
                         ),
@@ -328,33 +382,42 @@ class _CreateEventPageState extends State<CreateEventPage> {
                         Expanded(
                           child: TextFormField(
                             controller: _addressController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'Adresse',
-                              hintText: 'Optionnel',
-                              border: OutlineInputBorder(),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      value: _isFree,
-                      onChanged: (v) => setState(() => _isFree = v),
-                      title: const Text('Événement gratuit'),
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: const Color(0xFFD4AF37),
+
+                    const SizedBox(height: 32),
+                    const Text('Billetterie & Visibilité', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: SwitchListTile(
+                        value: _isFree,
+                        onChanged: (v) => setState(() => _isFree = v),
+                        title: const Text('Événement 100% gratuit', style: TextStyle(fontWeight: FontWeight.w500)),
+                        activeColor: appViolet,
+                      ),
                     ),
                     if (!_isFree) ...[
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _priceController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Prix',
-                          hintText: '5000',
+                        decoration: InputDecoration(
+                          labelText: 'Prix du billet standard',
                           suffixText: 'FC',
-                          border: OutlineInputBorder(),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                         ),
                         validator: (v) => v?.trim().isEmpty == true ? 'Prix requis' : null,
                       ),
@@ -363,22 +426,43 @@ class _CreateEventPageState extends State<CreateEventPage> {
                     TextFormField(
                       controller: _capacityController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Capacité',
-                        hintText: 'Nombre de places (optionnel)',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Capacité totale',
+                        hintText: 'Ex: 500 (Laisser vide si illimité)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      value: _isFeatured,
-                      onChanged: (v) => setState(() => _isFeatured = v),
-                      title: const Text('Mettre à la une'),
-                      subtitle: const Text('Apparaîtra en vedette sur la page d\'accueil'),
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: const Color(0xFFD4AF37),
+                    const SizedBox(height: 24),
+                    
+                    // SECTION DE PUBLICATION
+                    DropdownButtonFormField<String>(
+                      value: _publishSection,
+                      decoration: InputDecoration(
+                        labelText: 'Où afficher cet événement ?',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: appViolet, width: 2)),
+                        filled: true,
+                        fillColor: appViolet.withOpacity(0.05),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'upcoming', 
+                          child: Text('Prochains événements (Par défaut)')
+                        ),
+                        DropdownMenuItem(
+                          value: 'recommended', 
+                          child: Text('Événements Recommandés', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold))
+                        ),
+                        DropdownMenuItem(
+                          value: 'featured', 
+                          child: Text('À la Une (Bannière Défilante)', style: TextStyle(color: appViolet, fontWeight: FontWeight.bold))
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => _publishSection = v!),
                     ),
-                    const SizedBox(height: 32),
+                    
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -386,54 +470,89 @@ class _CreateEventPageState extends State<CreateEventPage> {
     );
   }
 
+  // Widget personnalisé pour rendre la sélection de la date/heure plus attractive
+  Widget _buildDateTimeButton({required IconData icon, required String label, required String value, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.white,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: appViolet),
+                const SizedBox(width: 8),
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildImageSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Image de l\'événement', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
+        const Text('Affiche de l\'événement', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
+        const SizedBox(height: 12),
         GestureDetector(
           onTap: _pickImage,
           child: Container(
-            height: 160,
+            height: 180,
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: appViolet.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
+              border: Border.all(color: appViolet.withOpacity(0.3), width: 2, style: BorderStyle.solid),
             ),
-            // FIX: Utilisation de Image.memory pour le Web
             child: _imageBytes != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     child: Image.memory(_imageBytes!, fit: BoxFit.cover, width: double.infinity),
                   )
                 : _imageUrl != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         child: Image.network(_imageUrl!, fit: BoxFit.cover, width: double.infinity),
                       )
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey[400]),
-                          const SizedBox(height: 8),
-                          Text('Ajouter une image', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                          Text('JPG, PNG, WEBP', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+                            child: const Icon(Icons.add_a_photo, size: 32, color: appViolet),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text('Ajouter une affiche', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: appViolet)),
+                          const SizedBox(height: 4),
+                          Text('Format 16:9 recommandé', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                         ],
                       ),
           ),
         ),
         if (_imageBytes != null || _imageUrl != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
+          Align(
+            alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: () => setState(() {
                 _imageBytes = null;
                 _imageFileName = null;
                 _imageUrl = null;
               }),
-              icon: const Icon(Icons.delete, size: 16),
-              label: const Text('Supprimer l\'image', style: TextStyle(fontSize: 12)),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Retirer l\'image'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
             ),
           ),
       ],
