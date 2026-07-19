@@ -228,6 +228,17 @@ import 'presentation/mon_pays/admin/admin_administrative_form_page.dart';
 import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 import 'package:thix_id/presentation/mon_pays/models/province.dart';
+// ============ THIX DELIVERY MODULE - SCALABLE 1M ============
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_home_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_checkout_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_tracking_page.dart' as delivery_tracking;
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_history_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/admin/delivery_admin_dashboard_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/admin/delivery_admin_routes_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/admin/delivery_admin_shipments_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/pages/admin/delivery_admin_scan_page.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/providers/delivery_client_provider.dart';
+import 'package:thix_id/presentation/thix_reservation/delivery/providers/delivery_admin_provider.dart';
 
 // ADMIN ALIAS
 import 'presentation/admin/admin_home_page.dart' as thix_admin;
@@ -524,6 +535,25 @@ class AppRouter {
         GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
         GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
 
+                   GoRoute(path: AppRoutes.reservation, name: 'thixreservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
+
+        // ============ THIX DELIVERY - 8 ROUTES - NE CASSE RIEN ============
+        GoRoute(path: '/thix-reservation/delivery', name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
+        GoRoute(path: '/thix-reservation/delivery/checkout', name: 'delivery-checkout', pageBuilder: (context, _) {
+          // On garde le provider du home pour garder le prix calculé
+          final clientProv = context.read<DeliveryClientProvider>();
+          return NoTransitionPage(child: ChangeNotifierProvider.value(value: clientProv, child: const DeliveryCheckoutPage()));
+        }),
+        GoRoute(path: '/thix-reservation/delivery/tracking', name: 'delivery-tracking', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider(), child: const delivery_tracking.DeliveryTrackingPage()))),
+        GoRoute(path: '/thix-reservation/delivery/history', name: 'delivery-history', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..loadMyShipments(refresh: true), child: const DeliveryHistoryPage()))),
+        
+        // ADMIN DELIVERY - Prix par trajet
+        GoRoute(path: '/thix-reservation/delivery/admin', name: 'delivery-admin-dashboard', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..init(), child: const DeliveryAdminDashboardPage()))),
+        GoRoute(path: '/thix-reservation/delivery/admin/routes', name: 'delivery-admin-routes', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadRoutes(force: true), child: const DeliveryAdminRoutesPage()))),
+        GoRoute(path: '/thix-reservation/delivery/admin/shipments', name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
+        GoRoute(path: '/thix-reservation/delivery/admin/scan', name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
+
+        
         // THIX MARKET
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage()), routes: [
           GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
