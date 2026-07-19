@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:typed_data'; // REMPLACE dart:io pour la compatibilité Web
 import 'dart:math';
-
+import '../models/event_booking.dart';
 import '../models/event_model.dart';
 
 class EventService {
