@@ -2,9 +2,9 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../models/event_model.dart';
 import '../providers/admin_stats_model.dart';
 import '../core/admin_constants.dart';
+import 'package:thix_id/models/event_model.dart';
 
 class AdminEventService {
   final SupabaseClient _supabase;
