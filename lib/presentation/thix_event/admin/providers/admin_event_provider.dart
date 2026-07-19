@@ -1,7 +1,7 @@
 // lib/presentation/thix_event/admin/providers/admin_event_provider.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:thix_id/presentation/thix_event/models/event_model.dart';
+import 'package:thix_id/models/event_model.dart';
 import '../core/admin_constants.dart';
 import '../services/admin_event_service.dart';
 import 'admin_state.dart';
