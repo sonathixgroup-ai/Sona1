@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
+// FIX: Ajout de l'import manquant pour EventBooking !
+import '../../models/event_booking.dart'; 
 
 class MyTicketsPage extends StatefulWidget {
   const MyTicketsPage({super.key});
@@ -218,11 +220,12 @@ class _TicketDetailSheet extends StatelessWidget {
                 const Icon(Icons.qr_code_scanner, size: 120, color: Color(0xFFD4AF37)),
                 const SizedBox(height: 16),
                 Center(
-  child: Text(
-    'Aucun billet',
-    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-  ),
-),
+                  child: Text(
+                    ticket.eventTitle, // FIX: Affichera le vrai nom de l'event au lieu de "Aucun billet"
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _buildInfoRow('Date', DateFormat('dd MMMM yyyy • HH:mm').format(ticket.eventDate)),
                 const SizedBox(height: 8),
