@@ -198,7 +198,20 @@ class AppRoutes {
   static String santeTeleconsultationRoom(String roomId) => '/thix-sante/teleconsultation/$roomId';
   static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
   static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
+  
 
+  // ============ THIX DELIVERY - 8 ROUTES - SCALABLE 1M ============
+  static const String deliveryHome = '/thix-reservation/delivery';
+  static const String deliveryCheckout = '/thix-reservation/delivery/checkout';
+  static const String deliveryTracking = '/thix-reservation/delivery/tracking';
+  static const String deliveryHistory = '/thix-reservation/delivery/history';
+  
+  // ADMIN DELIVERY - Fixer prix par trajet
+  static const String deliveryAdminDashboard = '/thix-reservation/delivery/admin';
+  static const String deliveryAdminRoutes = '/thix-reservation/delivery/admin/routes';
+  static const String deliveryAdminShipments = '/thix-reservation/delivery/admin/shipments';
+  static const String deliveryAdminScan = '/thix-reservation/delivery/admin/scan';
+  
   // CALL PROD
   static const String call = '/call';
   static const String callIncoming = '/call/incoming';
