@@ -1,4 +1,5 @@
 // lib/providers/event_provider.dart
+import 'dart:typed_data'; // FIX: Ajout de l'import pour Uint8List
 import 'package:flutter/material.dart';
 import '../services/event_service.dart';
 import '../models/event_model.dart';
@@ -289,8 +290,9 @@ class EventProvider extends ChangeNotifier {
   // UPLOAD
   // ============================================================
 
-  Future<String?> uploadImage(String filePath) async {
-    return await _eventService.uploadImage(filePath);
+  // FIX: Remplacement de filePath par Uint8List (bytes) pour compatibilité Web
+  Future<String?> uploadImage(Uint8List bytes, String fileName) async {
+    return await _eventService.uploadImage(bytes, fileName);
   }
 
   // ============================================================
