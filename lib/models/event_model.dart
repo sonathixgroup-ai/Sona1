@@ -187,4 +187,15 @@ class Event {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  // --- NOUVEAU GETTER POUR LE PRIX ---
+  String get formattedPrice {
+    if (isFree || price <= 0) return 'Gratuit';
+    // Affiche le prix sans décimales si c'est un nombre entier (ex: 5000), 
+    // ou avec 2 décimales si nécessaire (ex: 50.50)
+    final priceString = price.truncateToDouble() == price 
+        ? price.toInt().toString() 
+        : price.toStringAsFixed(2);
+    return '$priceString $priceCurrency';
+  }
 }
