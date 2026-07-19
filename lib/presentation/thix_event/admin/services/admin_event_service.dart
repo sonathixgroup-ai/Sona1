@@ -6,6 +6,9 @@ import '../providers/admin_stats_model.dart';
 import '../core/admin_constants.dart';
 import 'package:thix_id/models/event_model.dart';
 
+// FIX: Import du modèle EventSeat pour la méthode getSeatMapForAdmin
+import 'package:thix_id/models/event_seat.dart';
+
 class AdminEventService {
   final SupabaseClient _supabase;
   AdminEventService(this._supabase);
@@ -110,7 +113,7 @@ class AdminEventService {
       throw Exception('Image trop lourde: ${sizeMB.toStringAsFixed(1)}MB > ${AdminConstants.maxImageSizeMB}MB');
     }
 
-    await _supabase.storage.from('event-images').upload(path, file, fileOptions: FileOptions(upsert: true));
+    await _supabase.storage.from('event-images').upload(path, file, fileOptions: const FileOptions(upsert: true));
     return _supabase.storage.from('event-images').getPublicUrl(path);
   }
 
@@ -127,6 +130,24 @@ class AdminEventService {
   }
 
   // ===================== 4. SEATS - BATCH INSERT (CRITIQUE POUR 10k sièges) =====================
+  
+  // FIX: Méthode ajoutée pour récupérer le plan de salle existant
+  Future<List<EventSeat>> getSeatMapForAdmin(String eventId) async {
+    try {
+      final response = await _supabase
+          .from('event_seats')
+          .select()
+          .eq('event_id', eventId)
+          .order('row', ascending: true)
+          .order('number', ascending: true);
+          
+      return (response as List).map((e) => EventSeat.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('❌ getSeatMapForAdmin error: $e');
+      rethrow;
+    }
+  }
+
   // Ne jamais faire 10k insert en boucle. On batch par 200.
   Future<void> generateSeatMap({
     required String eventId,
