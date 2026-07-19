@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../services/event_service.dart';
 import '../models/event_model.dart';
+import '../models/event_booking.dart';
 
 class EventProvider extends ChangeNotifier {
   final EventService _eventService;
