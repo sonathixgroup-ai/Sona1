@@ -82,18 +82,21 @@ class DeliveryClientProvider extends ChangeNotifier {
       final user = _supa.auth.currentUser;
       if (user == null) return;
 
-      // On récupère le profil + on check si admin en même temps
-      final results = await Future.wait([
-        _supa.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
-        _service.isUserAdmin(),
-      ]);
+      // Correction : Exécution séquentielle au lieu de Future.wait
+      final profileData = await _supa
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+          
+      final adminStatus = await _service.isUserAdmin();
 
-      final profile = results[0] as Map<String, dynamic>?;
-      isAdmin = results[1] as bool;
+      // Affectation des valeurs
+      isAdmin = adminStatus;
 
       // On extrait juste le prénom pour "Bonjour, Michel"
-      if (profile != null && profile['full_name'] != null) {
-        final fullName = profile['full_name'] as String;
+      if (profileData != null && profileData['full_name'] != null) {
+        final fullName = profileData['full_name'] as String;
         userName = fullName.split(' ').first;
       }
     } catch (e) {
