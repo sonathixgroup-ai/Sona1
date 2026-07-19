@@ -18,6 +18,7 @@ class Event {
   final int? capacity;
   final int? remainingTickets;
   final bool isFeatured;
+  final bool isRecommended; // 🟢 Ajout ici
   final String status;
   final String? organizerId;
   final String? organizerName;
@@ -52,6 +53,7 @@ class Event {
     this.capacity,
     this.remainingTickets,
     required this.isFeatured,
+    this.isRecommended = false, // 🟢 Ajout ici (valeur par défaut pour éviter de casser le vieux code)
     required this.status,
     this.organizerId,
     this.organizerName,
@@ -86,6 +88,7 @@ class Event {
       capacity: json['capacity'],
       remainingTickets: json['remaining_tickets'],
       isFeatured: json['is_featured'] ?? false,
+      isRecommended: json['is_recommended'] ?? false, // 🟢 Ajout ici
       status: json['status'] ?? 'upcoming',
       organizerId: json['organizer_id'],
       organizerName: json['organizer_name'],
@@ -121,6 +124,7 @@ class Event {
       if (capacity != null) 'capacity': capacity,
       if (remainingTickets != null) 'remaining_tickets': remainingTickets,
       'is_featured': isFeatured,
+      'is_recommended': isRecommended, // 🟢 Ajout ici
       'status': status,
       if (organizerId != null) 'organizer_id': organizerId,
       if (organizerName != null) 'organizer_name': organizerName,
@@ -155,6 +159,7 @@ class Event {
     int? capacity,
     int? remainingTickets,
     bool? isFeatured,
+    bool? isRecommended, // 🟢 Ajout ici
     String? status,
     String? organizerId,
     String? organizerName,
@@ -187,6 +192,7 @@ class Event {
       capacity: capacity ?? this.capacity,
       remainingTickets: remainingTickets ?? this.remainingTickets,
       isFeatured: isFeatured ?? this.isFeatured,
+      isRecommended: isRecommended ?? this.isRecommended, // 🟢 Ajout ici
       status: status ?? this.status,
       organizerId: organizerId ?? this.organizerId,
       organizerName: organizerName ?? this.organizerName,
@@ -238,10 +244,10 @@ class Event {
     }
     return startHour;
   }
-    // --- GETTERS : STATUTS TEMPORELS ---
+  
+  // --- GETTERS : STATUTS TEMPORELS ---
   bool get isUpcoming => startDate.isAfter(DateTime.now());
   bool get isPastEvent => endDate != null 
       ? endDate!.isBefore(DateTime.now()) 
       : startDate.isBefore(DateTime.now());
-
 }
