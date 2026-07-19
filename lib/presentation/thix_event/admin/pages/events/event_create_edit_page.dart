@@ -66,8 +66,9 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     // Initialisation de la section de publication
     if (e?.isFeatured == true) {
       _publishSection = 'featured';
+    } else if (e?.isRecommended == true) {
+      _publishSection = 'recommended';
     } else {
-      // TODO: Si vous ajoutez e?.isRecommended dans le futur, gérez-le ici.
       _publishSection = 'upcoming';
     }
   }
@@ -134,8 +135,9 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
 
       final capacity = int.tryParse(_capacityCtrl.text);
 
+      // ✅ CORRECTION ICI : Les deux variables sont bien définies
       bool isFeatured = _publishSection == 'featured';
-      // bool isRecommended = _publishSection == 'recommended'; // À décommenter si ajouté au modèle Event
+      bool isRecommended = _publishSection == 'recommended'; 
 
       final event = Event(
         id: widget.eventToEdit?.id ?? '',
@@ -154,7 +156,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         capacity: capacity,
         remainingTickets: widget.eventToEdit == null ? capacity : widget.eventToEdit?.remainingTickets,
         isFeatured: isFeatured,
-         isRecommended: isRecommended, // Ajoutez ceci dans votre constructeur Event si vous gérez les recommandations
+        isRecommended: isRecommended, // ✅ Ne causera plus d'erreur !
         status: _status,
         organizerName: _organizerNameCtrl.text.trim().isEmpty ? null : _organizerNameCtrl.text.trim(),
         contactPhone: _contactPhoneCtrl.text.trim().isEmpty ? null : _contactPhoneCtrl.text.trim(),
