@@ -29,16 +29,20 @@ class SeatSelectionPage extends StatefulWidget {
 class _SeatSelectionPageState extends State<SeatSelectionPage> {
   late EventSeatService _seatService;
   
-  // Couleurs de l'application
+  // Charte Graphique THIX
   static const Color appViolet = Color(0xFF6B3CE2);
-  static const Color textDark = Color(0xFF1A1A2E);
-  static const Color availableSeatColor = Color(0xFFE0E0E0);
-  static const Color reservedByOtherColor = Colors.orange;
-  static const Color soldColor = Colors.red;
+  static const Color textDark = Color(0xFF1E1B4B);
+  static const Color availableSeatColor = Color(0xFFF3F4F6); // Gris très clair
+  static const Color reservedByOtherColor = Color(0xFFF59E0B); // Orange
+  static const Color soldColor = Color(0xFFEF4444); // Rouge
 
   List<EventSeat> _seats = [];
   List<EventSeat> _selectedSeats = [];
-  Set<String> _processingSeats = {}; // Pour bloquer les clics répétés sur un même siège
+  final Set<String> _processingSeats = {}; 
+  
+  // 🟢 OPTIMISATION PRODUCTION : Mise en cache du plan pour éviter de recalculer à chaque frame
+  Map<String, List<EventSeat>> _groupedSeats = {};
+  List<String> _sortedRows = [];
   
   bool _isLoading = true;
   bool _isConfirming = false;
@@ -47,7 +51,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
 
   // Limite stricte de sécurité
   int get _maxAllowedSeats {
-    int maxLimit = 5;
+    int maxLimit = 5; // Limite globale du système
     if (widget.requestedQuantity != null && widget.requestedQuantity! < maxLimit) {
       return widget.requestedQuantity!;
     }
@@ -67,7 +71,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     super.dispose();
   }
 
-  // Libère toutes les places sécurisées si l'utilisateur quitte sans payer
+  // Libère toutes les places sécurisées si l'utilisateur quitte la page sans payer
   Future<void> _releaseTemporaryReservations() async {
     if (_selectedSeats.isNotEmpty) {
       final seatIds = _selectedSeats.map((s) => s.id).toList();
@@ -76,6 +80,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   }
 
   Future<void> _loadSeatMap() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -85,17 +90,33 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
       final seats = await _seatService.getSeatMap(widget.eventId);
       final available = await _seatService.getAvailableSeatsCount(widget.eventId);
       
-      setState(() {
-        _seats = seats;
-        _availableSeats = available;
-        _isLoading = false;
-      });
+      // 🟢 OPTIMISATION : On groupe et on trie UNE SEULE FOIS ici
+      _groupAndSortSeats(seats);
+
+      if (mounted) {
+        setState(() {
+          _seats = seats;
+          _availableSeats = available;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = 'Impossible de charger le plan des places: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Impossible de charger le plan des places. Veuillez vérifier votre connexion.';
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  // Fonction dédiée au calcul du layout
+  void _groupAndSortSeats(List<EventSeat> seats) {
+    _groupedSeats.clear();
+    for (var seat in seats) {
+      _groupedSeats.putIfAbsent(seat.row, () => []).add(seat);
+    }
+    _sortedRows = _groupedSeats.keys.toList()..sort();
   }
 
   // SÉCURITÉ : Verrouillage/Déverrouillage immédiat en base de données
@@ -105,30 +126,32 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     setState(() => _processingSeats.add(seat.id));
 
     try {
-      if (_selectedSeats.contains(seat)) {
-        // DÉVERROUILLER LA PLACE
+      // Vérification par ID pour plus de sécurité
+      final isAlreadySelected = _selectedSeats.any((s) => s.id == seat.id);
+
+      if (isAlreadySelected) {
+        // --- DÉVERROUILLER LA PLACE ---
         final released = await _seatService.releaseSeats(widget.eventId, [seat.id]);
         if (released && mounted) {
           setState(() {
-            _selectedSeats.remove(seat);
+            _selectedSeats.removeWhere((s) => s.id == seat.id);
             _availableSeats += 1;
           });
         }
       } else {
-        // VÉRIFIER LA LIMITE STRICTE DE 5
+        // --- VÉRIFIER LA LIMITE ---
         if (_selectedSeats.length >= _maxAllowedSeats) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Limite atteinte : Vous ne pouvez réserver que $_maxAllowedSeats place(s) maximum.'),
+              content: Text('Limite atteinte : $_maxAllowedSeats place(s) maximum.'),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
           );
-          setState(() => _processingSeats.remove(seat.id));
-          return;
+          return; // Sortie anticipée
         }
 
-        // VERROUILLER LA PLACE
+        // --- VERROUILLER LA PLACE ---
         final reserved = await _seatService.reserveSeats(widget.eventId, [seat.id]);
         if (reserved && mounted) {
           setState(() {
@@ -136,7 +159,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
             _availableSeats -= 1;
           });
         } else {
-          // La place vient d'être prise par quelqu'un d'autre in-extremis
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -145,14 +167,14 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                 behavior: SnackBarBehavior.floating,
               ),
             );
-            _loadSeatMap(); // Rafraîchir la carte
+            _loadSeatMap(); // Rafraîchissement silencieux
           }
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur de connexion : $e'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Erreur de réseau. Veuillez réessayer.'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -165,14 +187,11 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   }
 
   void _confirmSelection() {
-    if (_selectedSeats.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner au moins une place')),
-      );
-      return;
-    }
+    if (_selectedSeats.isEmpty) return;
 
-    // Les places sont DÉJÀ verrouillées en BDD à ce stade, on passe direct au paiement
+    // Blocage du bouton pendant la transition
+    setState(() => _isConfirming = true);
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -184,8 +203,11 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
         ),
       ),
     ).then((_) {
-      // Si l'utilisateur revient en arrière depuis la page de réservation
-      _loadSeatMap();
+      // Débloque et recharge à la fermeture de la page de réservation
+      if (mounted) {
+        setState(() => _isConfirming = false);
+        _loadSeatMap();
+      }
     });
   }
 
@@ -196,24 +218,31 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: textDark),
-          onPressed: () => Navigator.pop(context),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+            decoration: const BoxDecoration(color: Color(0xFFF8F7FF), shape: BoxShape.circle),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: textDark, size: 18),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
         ),
-        title: const Text('Choisissez vos places', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textDark)),
+        title: const Text('Choisissez vos places', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textDark)),
+        centerTitle: true,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   color: appViolet.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   '${_selectedSeats.length} / $_maxAllowedSeats',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: appViolet),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: appViolet),
                 ),
               ),
             ),
@@ -237,23 +266,32 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
 
   Widget _buildErrorView() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(_error!, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _loadSeatMap,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: appViolet,
-              foregroundColor: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.red),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadSeatMap,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appViolet,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -265,21 +303,26 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: const Color(0xFFEEE9FF), width: 1.5),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Icon(Icons.event_seat, color: Colors.grey.shade600, size: 20),
-              const SizedBox(width: 8),
-              const Text('Places disponibles', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: appViolet.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.event_seat_rounded, color: appViolet, size: 16),
+              ),
+              const SizedBox(width: 12),
+              const Text('Places disponibles', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textDark)),
             ],
           ),
           Text(
             '$_availableSeats',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: appViolet),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: appViolet),
           ),
         ],
       ),
@@ -310,8 +353,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 14,
-          height: 14,
+          width: 14, height: 14,
           decoration: BoxDecoration(
             color: isFilled ? color : Colors.transparent,
             border: Border.all(color: isFilled ? color : Colors.grey.shade400, width: 1.5),
@@ -319,42 +361,32 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
           ),
         ),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontSize: 11, color: textDark, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
   Widget _buildSeatMap() {
     if (_seats.isEmpty) {
-      return const Center(child: Text('Aucune place disponible pour cet événement'));
+      return const Center(child: Text('Aucune place n\'a été configurée pour cet événement.', style: TextStyle(color: Colors.grey)));
     }
-
-    final Map<String, List<EventSeat>> rows = {};
-    for (var seat in _seats) {
-      rows.putIfAbsent(seat.row, () => []).add(seat);
-    }
-
-    final sortedRows = rows.keys.toList()..sort();
 
     return InteractiveViewer(
       minScale: 0.5,
-      maxScale: 2.5,
-      boundaryMargin: const EdgeInsets.all(20),
+      maxScale: 3.0,
+      boundaryMargin: const EdgeInsets.all(40), // Permet un meilleur panning
       child: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 10, bottom: 40, left: 16, right: 16),
+        padding: const EdgeInsets.only(top: 20, bottom: 60, left: 16, right: 16),
         child: Column(
           children: [
             // Dessin de la Scène courbée
-            CustomPaint(
-              size: const Size(250, 40),
-              painter: ScenePainter(),
-            ),
+            CustomPaint(size: const Size(250, 40), painter: ScenePainter()),
             const SizedBox(height: 12),
-            const Text('SCÈNE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 4, color: Colors.grey)),
+            const Text('SCÈNE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 5, color: Colors.grey)),
             const SizedBox(height: 40),
             
-            // Grille des sièges
-            for (var row in sortedRows)
+            // Grille des sièges générée via le cache (_sortedRows et _groupedSeats)
+            for (var row in _sortedRows)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
@@ -363,15 +395,15 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                   children: [
                     SizedBox(
                       width: 24,
-                      child: Text(row, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                      child: Text(row, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textDark)),
                     ),
                     const SizedBox(width: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
-                      children: rows[row]!.map((seat) {
-                        final isSelectedByMe = _selectedSeats.contains(seat);
+                      children: _groupedSeats[row]!.map((seat) {
+                        final isSelectedByMe = _selectedSeats.any((s) => s.id == seat.id);
                         final isProcessing = _processingSeats.contains(seat.id);
                         final isAvailable = seat.isAvailable;
                         final isReservedByOther = seat.isReserved && !isSelectedByMe;
@@ -388,37 +420,34 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                           seatColor = reservedByOtherColor;
                         } else {
                           seatColor = Colors.white;
-                          textColor = Colors.grey.shade700;
+                          textColor = textDark;
                         }
                         
                         return GestureDetector(
                           onTap: (isAvailable || isSelectedByMe) && !_isConfirming ? () => _onSeatSelected(seat) : null,
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 38,
-                            height: 38,
+                            duration: const Duration(milliseconds: 150),
+                            width: 38, height: 38,
                             decoration: BoxDecoration(
                               color: seatColor,
                               border: Border.all(
-                                color: isSelectedByMe ? appViolet : (isAvailable ? Colors.grey.shade400 : seatColor), 
+                                color: isSelectedByMe ? appViolet : (isAvailable ? Colors.grey.shade300 : seatColor), 
                                 width: 1.5
                               ),
                               borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                topRight: Radius.circular(8),
-                                bottomLeft: Radius.circular(4),
-                                bottomRight: Radius.circular(4),
+                                topLeft: Radius.circular(8), topRight: Radius.circular(8),
+                                bottomLeft: Radius.circular(4), bottomRight: Radius.circular(4),
                               ),
                               boxShadow: isSelectedByMe 
-                                  ? [BoxShadow(color: appViolet.withOpacity(0.4), blurRadius: 6, offset: const Offset(0, 2))]
+                                  ? [BoxShadow(color: appViolet.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))]
                                   : null,
                             ),
                             child: Center(
                               child: isProcessing 
-                                  ? SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: isSelectedByMe ? Colors.white : appViolet))
+                                  ? SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2, color: isSelectedByMe ? Colors.white : appViolet))
                                   : Text(
                                       seat.number.toString(),
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
                                     ),
                             ),
                           ),
@@ -435,11 +464,15 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   }
 
   Widget _buildBottomBar() {
+    // 🟢 OPTIMISATION : Devise dynamique tirée de l'événement
+    final String currency = widget.event?.priceCurrency ?? 'FC';
+    
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, -5))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: SafeArea(
         child: Row(
@@ -452,12 +485,12 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                 children: [
                   Text(
                     '${_selectedSeats.length} place(s)',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    '${_totalPrice.toStringAsFixed(0)} FC',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark),
+                    '${_totalPrice.toStringAsFixed(0)} $currency', // Utilisation dynamique
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
                   ),
                 ],
               ),
@@ -469,12 +502,14 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: appViolet,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  disabledBackgroundColor: appViolet.withOpacity(0.3), // Rendu du désactivé plus premium
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  elevation: _selectedSeats.isEmpty ? 0 : 4,
+                  elevation: 0,
                 ),
-                child: const Text('CONTINUER', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                child: _isConfirming 
+                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('CONTINUER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1)),
               ),
             ),
           ],
@@ -484,12 +519,11 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   }
 }
 
-// Widget personnalisé pour dessiner la scène courbée
 class ScenePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFD1C4E9) // Violet très clair
+      ..color = const Color(0xFFEEE9FF) // Violet très clair THIX
       ..style = PaintingStyle.fill;
 
     final path = Path()
