@@ -1,7 +1,6 @@
-// lib/presentation/thix_event/admin/providers/admin_event_provider.dart - FIXED BUILD VERT
+// lib/presentation/thix_event/admin/providers/admin_event_provider.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-// FIX: Import correct du modèle Event
 import 'package:thix_id/presentation/thix_event/models/event_model.dart';
 import '../core/admin_constants.dart';
 import '../services/admin_event_service.dart';
@@ -32,14 +31,14 @@ class AdminEventProvider extends ChangeNotifier {
     }
   }
 
-  AdminPaginatedState<EventModel> _eventsState = const AdminPaginatedState<EventModel>();
-  AdminPaginatedState<EventModel> get eventsState => _eventsState;
+  AdminPaginatedState<Event> _eventsState = const AdminPaginatedState<Event>();
+  AdminPaginatedState<Event> get eventsState => _eventsState;
 
   String _searchQuery = '';
   String _categoryFilter = 'all';
   Timer? _debounce;
 
-  final Map<String, List<EventModel>> _cache = {};
+  final Map<String, List<Event>> _cache = {};
   DateTime? _lastCacheTime;
 
   bool _isCacheValid() {
@@ -49,7 +48,7 @@ class AdminEventProvider extends ChangeNotifier {
 
   Future<void> loadEvents({bool refresh = false}) async {
     if (refresh) {
-      _eventsState = const AdminPaginatedState<EventModel>();
+      _eventsState = const AdminPaginatedState<Event>();
       _cache.clear();
     }
     if (_eventsState.isLoading) return;
@@ -59,7 +58,7 @@ class AdminEventProvider extends ChangeNotifier {
 
     try {
       final cacheKey = '${_searchQuery}_${_categoryFilter}_0';
-      List<EventModel> events;
+      List<Event> events;
 
       if (!refresh && _cache.containsKey(cacheKey) && _isCacheValid()) {
         events = _cache[cacheKey]!;
@@ -74,7 +73,7 @@ class AdminEventProvider extends ChangeNotifier {
         _lastCacheTime = DateTime.now();
       }
 
-      _eventsState = AdminPaginatedState<EventModel>(
+      _eventsState = AdminPaginatedState<Event>(
         items: events,
         status: events.isEmpty ? AdminStatus.empty : AdminStatus.success,
         hasMore: events.length == AdminConstants.eventsPageSize,
@@ -127,7 +126,7 @@ class AdminEventProvider extends ChangeNotifier {
   }
 
   Future<bool> deleteEvent(String id) async {
-    final oldList = List<EventModel>.from(_eventsState.items);
+    final oldList = List<Event>.from(_eventsState.items);
     _eventsState = _eventsState.copyWith(items: oldList.where((e) => e.id != id).toList());
     notifyListeners();
 
@@ -148,8 +147,8 @@ class AdminEventProvider extends ChangeNotifier {
     if (index == -1) return false;
 
     final old = _eventsState.items[index];
-    _eventsState = AdminPaginatedState<EventModel>(
-      items: List<EventModel>.from(_eventsState.items)..[index] = old.copyWith(isFeatured: isFeatured),
+    _eventsState = AdminPaginatedState<Event>(
+      items: List<Event>.from(_eventsState.items)..[index] = old.copyWith(isFeatured: isFeatured),
       status: _eventsState.status,
       hasMore: _eventsState.hasMore,
       currentPage: _eventsState.currentPage,
@@ -160,8 +159,8 @@ class AdminEventProvider extends ChangeNotifier {
       await _service.updateEventField(id, {'is_featured': isFeatured});
       return true;
     } catch (_) {
-      _eventsState = AdminPaginatedState<EventModel>(
-        items: List<EventModel>.from(_eventsState.items)..[index] = old,
+      _eventsState = AdminPaginatedState<Event>(
+        items: List<Event>.from(_eventsState.items)..[index] = old,
         status: _eventsState.status,
         hasMore: _eventsState.hasMore,
         currentPage: _eventsState.currentPage,
