@@ -1,12 +1,10 @@
 // lib/presentation/thix_event/admin/services/admin_event_service.dart
-import 'dart:io';
+import 'dart:typed_data'; // REMPLACE dart:io pour la compatibilité Web
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/admin_stats_model.dart';
 import '../core/admin_constants.dart';
 import 'package:thix_id/models/event_model.dart';
-
-// FIX: Import du modèle EventSeat pour la méthode getSeatMapForAdmin
 import 'package:thix_id/models/event_seat.dart';
 
 class AdminEventService {
@@ -71,23 +69,23 @@ class AdminEventService {
   }
 
   // ===================== 3. UPSERT EVENT + UPLOAD IMAGE =====================
-  Future<Event> upsertEvent(Event event, {File? imageFile, File? bannerFile}) async {
+  Future<Event> upsertEvent(Event event, {Uint8List? imageBytes, Uint8List? bannerBytes}) async {
     try {
       String? imageUrl = event.imageUrl;
       String? bannerUrl = event.bannerUrl;
 
       // Upload scalable: compress + upload vers Storage
-      if (imageFile!= null) {
-        imageUrl = await _uploadImage(imageFile, 'events/${event.id}_cover_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      if (imageBytes != null) {
+        imageUrl = await _uploadBytes(imageBytes, 'events/${event.id}_cover_${DateTime.now().millisecondsSinceEpoch}.jpg');
       }
-      if (bannerFile!= null) {
-        bannerUrl = await _uploadImage(bannerFile, 'events/${event.id}_banner_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      if (bannerBytes != null) {
+        bannerUrl = await _uploadBytes(bannerBytes, 'events/${event.id}_banner_${DateTime.now().millisecondsSinceEpoch}.jpg');
       }
 
       final data = {
        ...event.toJson(),
-        if (imageUrl!= null) 'image_url': imageUrl,
-        if (bannerUrl!= null) 'banner_url': bannerUrl,
+        if (imageUrl != null) 'image_url': imageUrl,
+        if (bannerUrl != null) 'banner_url': bannerUrl,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -106,14 +104,14 @@ class AdminEventService {
     }
   }
 
-  Future<String> _uploadImage(File file, String path) async {
+  Future<String> _uploadBytes(Uint8List bytes, String path) async {
     // Vérif taille
-    final sizeMB = await file.length() / (1024 * 1024);
+    final sizeMB = bytes.lengthInBytes / (1024 * 1024);
     if (sizeMB > AdminConstants.maxImageSizeMB) {
       throw Exception('Image trop lourde: ${sizeMB.toStringAsFixed(1)}MB > ${AdminConstants.maxImageSizeMB}MB');
     }
 
-    await _supabase.storage.from('event-images').upload(path, file, fileOptions: const FileOptions(upsert: true));
+    await _supabase.storage.from('event-images').uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: true));
     return _supabase.storage.from('event-images').getPublicUrl(path);
   }
 
