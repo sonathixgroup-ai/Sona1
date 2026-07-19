@@ -1,10 +1,7 @@
 // lib/presentation/thix_event/admin/pages/seats/seat_map_admin_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-// FIX : Import absolu pour trouver correctement les modèles (EventSeat, SeatCategory, SeatStatus)
-import 'package:thix_id/models/seat_model.dart'; 
-
+import 'package:thix_id/models/event_seat.dart';
 import '../../providers/admin_event_provider.dart';
 import '../../services/admin_event_service.dart';
 import '../../widgets/admin_app_bar.dart';
