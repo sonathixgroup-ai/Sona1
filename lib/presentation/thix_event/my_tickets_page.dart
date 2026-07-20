@@ -38,17 +38,18 @@ class _MyTicketsPageState extends State<MyTicketsPage> {
     }
   }
 
-  void _showTicketDetails(EventBooking ticket) {
+    void _showTicketDetails(EventBooking ticket) {
     showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
+      // ✔️ Ligne supprimée ici
       builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.transparent, // Le fond transparent reste bien appliqué ici
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: _TicketDetailModal(ticket: ticket),
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
