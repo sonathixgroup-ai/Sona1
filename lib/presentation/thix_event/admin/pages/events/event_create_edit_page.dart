@@ -37,7 +37,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
   Uint8List? _pickedBannerBytes;
   final ImagePicker _picker = ImagePicker();
 
-  // 🟢 NOUVEAU : Liste dynamique des classes de billets
+  // Liste dynamique des classes de billets
   List<Map<String, dynamic>> _ticketTiers = [];
 
   @override
@@ -68,11 +68,18 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
       _publishSection = 'upcoming';
     }
 
-    // Initialisation des classes de billets (si on modifie un événement existant)
-    // NOTE: Si e?.ticketTiers existe dans votre modèle, chargez-le ici. Sinon, on met un Standard par défaut.
-    _ticketTiers = [
-      {'name': 'Standard', 'price': e?.price ?? 0.0, 'capacity': e?.capacity ?? 100}
-    ];
+    // 🟢 CORRECTION : Chargement correct des classes de billets existantes
+    if (e != null && e.ticketTiers.isNotEmpty) {
+      _ticketTiers = e.ticketTiers.map((tier) => {
+        'name': tier.name,
+        'price': tier.price,
+        'capacity': tier.capacity,
+      }).toList();
+    } else {
+      _ticketTiers = [
+        {'name': 'Standard', 'price': e?.price ?? 0.0, 'capacity': e?.capacity ?? 100}
+      ];
+    }
   }
 
   Future<void> _pickImage(bool isBanner) async {
@@ -113,7 +120,6 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
-  // 🟢 NOUVEAU : Fonction pour ajouter une classe de billet via un dialogue
   void _showAddTierDialog() {
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
@@ -176,10 +182,9 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
       bool isFeatured = _publishSection == 'featured';
       bool isRecommended = _publishSection == 'recommended'; 
 
-      // 🟢 CALCULS AUTOMATIQUES BASÉS SUR LES CLASSES
       int totalCapacity = _ticketTiers.fold(0, (sum, tier) => sum + (tier['capacity'] as int));
       double minPrice = _ticketTiers.map((t) => t['price'] as double).reduce((a, b) => a < b ? a : b);
-      bool isFree = minPrice == 0 && _ticketTiers.length == 1; // Gratuit seulement s'il y a 1 classe à 0 FC
+      bool isFree = minPrice == 0 && _ticketTiers.length == 1; 
 
       final event = Event(
         id: widget.eventToEdit?.id ?? '',
@@ -192,10 +197,10 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         city: _cityCtrl.text.trim(),
         startDate: _startDate,
         endDate: _endDate,
-        price: minPrice, // Le prix "À partir de"
+        price: minPrice, 
         priceCurrency: _currency,
         isFree: isFree,
-        capacity: totalCapacity, // Capacité totale cumulée
+        capacity: totalCapacity, 
         remainingTickets: widget.eventToEdit == null ? totalCapacity : widget.eventToEdit?.remainingTickets,
         isFeatured: isFeatured,
         isRecommended: isRecommended,
@@ -210,7 +215,6 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         imageUrl: widget.eventToEdit?.imageUrl,
         bannerUrl: widget.eventToEdit?.bannerUrl,
         ticketTiers: _ticketTiers.map<TicketTier>((tier) => TicketTier.fromJson(tier)).toList(),
-
       );
 
       await service.upsertEvent(event, imageBytes: _pickedImageBytes, bannerBytes: _pickedBannerBytes);
@@ -344,7 +348,6 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
             _field(_contactEmailCtrl, 'Email de contact', keyboard: TextInputType.emailAddress),
             
             const SizedBox(height: 24),
-            // 🟢 NOUVELLE SECTION : CLASSES DE BILLETS
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
