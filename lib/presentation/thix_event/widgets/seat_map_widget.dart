@@ -2,6 +2,17 @@
 import 'package:flutter/material.dart';
 import '../../../models/event_seat.dart';
 
+class _ThixColors {
+  static const Color primary = Color(0xFF6B3CE2); // Violet THIX pour la sélection
+  static const Color darkText = Color(0xFF1E1B4B);
+  static const Color mutedText = Color(0xFF8B8BA7);
+  
+  // Couleurs de statuts modernes (en phase avec la légende)
+  static const Color seatAvailable = Color(0xFF10B981); // Vert émeraude
+  static const Color seatReserved = Color(0xFFF59E0B);  // Orange
+  static const Color seatSold = Color(0xFFEF4444);      // Rouge
+}
+
 class SeatMapWidget extends StatelessWidget {
   final List<EventSeat> seats;
   final List<EventSeat> selectedSeats;
@@ -16,77 +27,98 @@ class SeatMapWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Grouper les places par rangée
+    // Grouper les places par rangée de manière dynamique
     final Map<String, List<EventSeat>> rows = {};
     for (var seat in seats) {
       rows.putIfAbsent(seat.row, () => []).add(seat);
     }
 
-    // Trier les rangées
+    // Trier les rangées alphabétiquement/numériquement
     final sortedRows = rows.keys.toList()..sort();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Scène
+          // 🎭 SCÈNE (Design modernisé)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            margin: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            margin: const EdgeInsets.only(bottom: 28),
             decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
+              color: _ThixColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _ThixColors.primary.withOpacity(0.2), width: 1.5),
             ),
             child: const Center(
-              child: Text('SCÈNE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
+              child: Text(
+                'SCÈNE', 
+                style: TextStyle(
+                  fontSize: 12, 
+                  fontWeight: FontWeight.w900, 
+                  letterSpacing: 3, 
+                  color: _ThixColors.primary,
+                ),
+              ),
             ),
           ),
-          // Plan des places
+          
+          // 💺 PLAN DES PLACES DYNAMIQUE
           for (var row in sortedRows)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
                   SizedBox(
-                    width: 30,
+                    width: 32,
                     child: Text(
                       row,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 14, 
+                        fontWeight: FontWeight.w900, 
+                        color: _ThixColors.darkText,
+                      ),
                     ),
                   ),
                   Expanded(
                     child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: rows[row]!.map((seat) {
                         final isSelected = selectedSeats.contains(seat);
                         final isAvailable = seat.isAvailable;
                         final isReserved = seat.isReserved;
                         final isSold = seat.isSold;
                         
+                        // Attribution des couleurs dynamiques selon l'état du siège
                         Color seatColor;
-                        if (isSelected) seatColor = const Color(0xFFD4AF37);
-                        else if (isSold) seatColor = Colors.red;
-                        else if (isReserved) seatColor = Colors.orange;
-                        else seatColor = Colors.green;
+                        if (isSelected) {
+                          seatColor = _ThixColors.primary; // 🟣 Violet THIX pour la sélection
+                        } else if (isSold) {
+                          seatColor = _ThixColors.seatSold; // 🔴 Rouge (vendu)
+                        } else if (isReserved) {
+                          seatColor = _ThixColors.seatReserved; // 🟠 Orange (réservé temporairement)
+                        } else {
+                          seatColor = _ThixColors.seatAvailable; // 🟢 Vert (disponible)
+                        }
                         
                         return GestureDetector(
                           onTap: isAvailable || isSelected ? () => onSeatTap(seat) : null,
-                          child: Container(
-                            width: 32,
-                            height: 32,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 34,
+                            height: 34,
                             decoration: BoxDecoration(
-                              color: seatColor.withOpacity(0.15),
-                              border: Border.all(color: seatColor, width: 1.5),
-                              borderRadius: BorderRadius.circular(6),
+                              color: seatColor.withOpacity(isSelected ? 0.25 : 0.12),
+                              border: Border.all(color: seatColor, width: isSelected ? 2.5 : 1.5),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Center(
                               child: Text(
                                 seat.number.toString(),
                                 style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
                                   color: seatColor,
                                 ),
                               ),
@@ -99,13 +131,25 @@ class SeatMapWidget extends StatelessWidget {
                 ],
               ),
             ),
-          // Couloir central (optionnel)
+            
+          // 🚪 COULOIR CENTRAL OPTIONNEL
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 16),
-            height: 20,
-            color: Colors.grey[200],
+            margin: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: const Center(
-              child: Text('COULOIR', style: TextStyle(fontSize: 10, color: Colors.grey)),
+              child: Text(
+                'COULOIR CENTRAL', 
+                style: TextStyle(
+                  fontSize: 10, 
+                  fontWeight: FontWeight.w700, 
+                  letterSpacing: 1.5, 
+                  color: _ThixColors.mutedText,
+                ),
+              ),
             ),
           ),
         ],
