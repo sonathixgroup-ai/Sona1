@@ -209,7 +209,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         createdAt: widget.eventToEdit?.createdAt ?? DateTime.now(),
         imageUrl: widget.eventToEdit?.imageUrl,
         bannerUrl: widget.eventToEdit?.bannerUrl,
-        // ticketTiers: _ticketTiers, // <-- À décommenter si vous l'ajoutez dans event_model.dart
+        ticketTiers: _ticketTiers,  
       );
 
       await service.upsertEvent(event, imageBytes: _pickedImageBytes, bannerBytes: _pickedBannerBytes);
