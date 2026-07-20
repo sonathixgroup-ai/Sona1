@@ -23,6 +23,10 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
   final ScrollController _scrollCtrl = ScrollController();
   final GlobalKey _formKey = GlobalKey();
 
+  // Type de colis — en attendant un champ dédié côté provider/modèle
+  final List<String> _packageTypes = const ["Documents", "Colis standard", "Fragile", "Volumineux"];
+  String _selectedPackageType = "";
+
   // --- Hero carousel (mock, auto-scroll) ---
   final PageController _heroCtrl = PageController();
   Timer? _heroTimer;
@@ -80,6 +84,11 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
     if (ctx != null) {
       Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     }
+  }
+
+  // Stub pour toute route pas encore créée dans AppRoutes.
+  void _comingSoon(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$label — bientôt disponible")));
   }
 
   @override
@@ -144,29 +153,14 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
           ]),
         ]),
         actions: [
-          Consumer<DeliveryClientProvider>(builder: (context, prov, _) {
-            final unread = prov.unreadNotificationsCount; // TODO: exposer côté provider
-            return Stack(clipBehavior: Clip.none, children: [
-              InkWell(
-                onTap: () => context.push(AppRoutes.notifications),
-                child: Container(
-                  width: 34, height: 34,
-                  decoration: BoxDecoration(color: kBg, shape: BoxShape.circle, border: Border.all(color: kBorder)),
-                  child: const Icon(Icons.notifications_none_rounded, size: 17, color: Color(0xFF1A1A2E)),
-                ),
-              ),
-              if (unread > 0)
-                Positioned(
-                  top: -2, right: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(color: kPurple, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
-                    child: Text("$unread", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-            ]);
-          }),
+          InkWell(
+            onTap: () => _comingSoon("Notifications"),
+            child: Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(color: kBg, shape: BoxShape.circle, border: Border.all(color: kBorder)),
+              child: const Icon(Icons.notifications_none_rounded, size: 17, color: Color(0xFF1A1A2E)),
+            ),
+          ),
           const SizedBox(width: 8),
           InkWell(
             onTap: () => context.push(AppRoutes.deliveryAdminDashboard),
@@ -177,18 +171,14 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
             ),
           ),
           const SizedBox(width: 8),
-          Consumer<DeliveryClientProvider>(builder: (context, prov, _) {
-            final avatarUrl = prov.userAvatarUrl; // TODO: exposer côté provider (Supabase auth)
-            return Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: kPurpleLight,
-                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
-                child: (avatarUrl == null || avatarUrl.isEmpty) ? const Icon(Icons.person_rounded, color: kPurple, size: 18) : null,
-              ),
-            );
-          }),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: CircleAvatar(
+              radius: 17,
+              backgroundColor: kPurpleLight,
+              child: const Icon(Icons.person_rounded, color: kPurple, size: 18),
+            ),
+          ),
         ],
       );
 
@@ -216,8 +206,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
                 Padding(
                   padding: const EdgeInsets.all(18),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(prov.userFirstName.isNotEmpty ? "Bonjour, ${prov.userFirstName} \u{1F44B}" : "Bonjour \u{1F44B}",
-                        style: const TextStyle(color: Color(0xFFD9CCFF), fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text("Bonjour \u{1F44B}", style: TextStyle(color: Color(0xFFD9CCFF), fontSize: 11, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Text(s.title, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1.15)),
                     const SizedBox(height: 6),
@@ -264,13 +253,13 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
   // ---------------- Catégories ----------------
   Widget _buildCategories() {
     final items = <_CatItem>[
-      _CatItem("Hôtels", Icons.apartment_rounded, () => context.push(AppRoutes.hotelsHome)),
-      _CatItem("Vols", Icons.flight_rounded, () => context.push(AppRoutes.flightsHome)),
-      _CatItem("Bus", Icons.directions_bus_filled_rounded, () => context.push(AppRoutes.busHome)),
-      _CatItem("Transports", Icons.directions_car_filled_rounded, () => context.push(AppRoutes.transportHome)),
+      _CatItem("Hôtels", Icons.apartment_rounded, () => _comingSoon("Hôtels")),
+      _CatItem("Vols", Icons.flight_rounded, () => _comingSoon("Vols")),
+      _CatItem("Bus", Icons.directions_bus_filled_rounded, () => _comingSoon("Bus")),
+      _CatItem("Transports", Icons.directions_car_filled_rounded, () => _comingSoon("Transports")),
       _CatItem("Livraison colis", Icons.inventory_2_rounded, () {}, selected: true),
-      _CatItem("Événements", Icons.confirmation_number_rounded, () => context.push(AppRoutes.eventsHome)),
-      _CatItem("Plus", Icons.more_horiz_rounded, () => context.push(AppRoutes.reservationMore)),
+      _CatItem("Événements", Icons.confirmation_number_rounded, () => _comingSoon("Événements")),
+      _CatItem("Plus", Icons.more_horiz_rounded, () => _comingSoon("Plus")),
     ];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -307,7 +296,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           const Text("Envoyer un colis", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
           InkWell(
-            onTap: () => context.push(AppRoutes.deliveryHelp),
+            onTap: () => _comingSoon("Aide"),
             child: const Row(children: [
               Icon(Icons.headset_mic_rounded, size: 13, color: kPurple),
               SizedBox(width: 4),
@@ -317,16 +306,6 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
           ),
         ]),
         const SizedBox(height: 10),
-        // Toggle National / International — nécessite prov.isNational + prov.setIsNational()
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(10)),
-          child: Row(children: [
-            Expanded(child: _toggleBtn("National", prov.isNational, () => prov.setIsNational(true))),
-            Expanded(child: _toggleBtn("International", !prov.isNational, () => prov.setIsNational(false))),
-          ]),
-        ),
-        const SizedBox(height: 12),
         Row(children: [
           Expanded(child: _addressField("Expéditeur", prov.fromCity, () => _pickFrom(prov))),
         ]),
@@ -346,7 +325,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: _field(Icons.category_rounded, "Type de colis", prov.packageType?.label ?? "Sélectionner", () => _pickPackageType(prov))),
+          Expanded(child: _field(Icons.category_rounded, "Type de colis", _selectedPackageType.isEmpty ? "Sélectionner" : _selectedPackageType, _pickPackageType)),
           const SizedBox(width: 8),
           Expanded(child: _field(Icons.scale_rounded, "Poids estimé", prov.weightKg == 0 ? "Sélectionner" : "0 - ${prov.weightKg} kg", () => _pickWeight(prov))),
           const SizedBox(width: 8),
@@ -399,21 +378,6 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
     );
   }
 
-  Widget _toggleBtn(String label, bool active, VoidCallback onTap) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: active ? Border.all(color: kPurpleLight) : null,
-          ),
-          child: Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: active ? kPurple : kMuted)),
-        ),
-      );
-
   Widget _addressField(String label, String value, VoidCallback tap) => InkWell(
         onTap: tap,
         child: Container(
@@ -458,10 +422,10 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
   // ---------------- Actions rapides ----------------
   Widget _buildActionsRapides(DeliveryClientProvider prov) {
     final items = <_QuickAction>[
-      _QuickAction("Suivre un colis", "Suivez l'acheminement\nde votre colis", Icons.qr_code_scanner_rounded, const Color(0xFF5B2BD6), () => context.push(AppRoutes.deliveryTrack)),
-      _QuickAction("Recevoir un colis", "Recevez un colis\nen attente", Icons.download_rounded, const Color(0xFF00B26A), () => context.push(AppRoutes.deliveryReceive)),
-      _QuickAction("Mes envois", "Consultez l'historique\nde vos envois", Icons.receipt_long_rounded, const Color(0xFF2D6CDF), () => context.push(AppRoutes.deliveryHistory)),
-      _QuickAction("Points relais", "Trouvez un point\nrelais proche", Icons.location_on_rounded, const Color(0xFFE07A2D), () => context.push(AppRoutes.deliveryRelayPoints)),
+      _QuickAction("Suivre un colis", "Suivez l'acheminement\nde votre colis", Icons.qr_code_scanner_rounded, const Color(0xFF5B2BD6), () => _comingSoon("Suivi de colis")),
+      _QuickAction("Recevoir un colis", "Recevez un colis\nen attente", Icons.download_rounded, const Color(0xFF00B26A), () => _comingSoon("Recevoir un colis")),
+      _QuickAction("Mes envois", "Consultez l'historique\nde vos envois", Icons.receipt_long_rounded, const Color(0xFF2D6CDF), () => _comingSoon("Mes envois")),
+      _QuickAction("Points relais", "Trouvez un point\nrelais proche", Icons.location_on_rounded, const Color(0xFFE07A2D), () => _comingSoon("Points relais")),
     ];
     return Container(
       padding: const EdgeInsets.all(14),
@@ -511,7 +475,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         const Text("Offres du moment", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
         InkWell(
-          onTap: () => context.push(AppRoutes.deliveryOffers),
+          onTap: () => _comingSoon("Toutes les offres"),
           child: const Row(children: [
             Text("Voir tout", style: TextStyle(fontSize: 10, color: kPurple, fontWeight: FontWeight.w700)),
             Icon(Icons.chevron_right_rounded, size: 14, color: kPurple),
@@ -540,10 +504,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
                 const SizedBox(height: 6),
                 Text(o.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700)),
                 const Spacer(),
-                Row(children: [
-                  Text("${o.oldPrice} F", style: const TextStyle(fontSize: 8, color: kMuted, decoration: TextDecoration.lineThrough)),
-                ]),
-                Text("${o.newPrice} FCFA", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                Text("${o.newPrice} F", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
               ]),
             );
           },
@@ -612,7 +573,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
           ]),
         ),
         InkWell(
-          onTap: () => context.push(AppRoutes.deliveryHelp),
+          onTap: () => _comingSoon("Contact"),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(color: kPurple, borderRadius: BorderRadius.circular(9)),
@@ -629,7 +590,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
         decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -2))]),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, crossAxisAlignment: CrossAxisAlignment.center, children: [
           _navIcon(Icons.home_rounded, "Accueil", true, () => context.go(AppRoutes.home)),
-          _navIcon(Icons.receipt_long_outlined, "Réservations", false, () => context.go(AppRoutes.reservations)),
+          _navIcon(Icons.receipt_long_outlined, "Réservations", false, () => _comingSoon("Réservations")),
           InkWell(
             onTap: _scrollToForm,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -642,7 +603,7 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
               const Text("Envoyer", style: TextStyle(fontSize: 8, color: kPurple, fontWeight: FontWeight.w700)),
             ]),
           ),
-          _navIcon(Icons.favorite_border_rounded, "Favoris", false, () => context.go(AppRoutes.favorites)),
+          _navIcon(Icons.favorite_border_rounded, "Favoris", false, () => _comingSoon("Favoris")),
           _navIcon(Icons.person_outline_rounded, "Profil", false, () => context.go('/user/dashboard')),
         ]),
       );
@@ -685,9 +646,9 @@ class _DeliveryHomePageState extends State<DeliveryHomePage> {
         builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: DeliveryMode.values.map((m) => ListTile(title: Text(m.label), onTap: () { prov.setMode(m); Navigator.pop(context); })).toList()),
       );
 
-  void _pickPackageType(DeliveryClientProvider prov) => showModalBottomSheet(
+  void _pickPackageType() => showModalBottomSheet(
         context: context,
-        builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: PackageType.values.map((t) => ListTile(title: Text(t.label), onTap: () { prov.setPackageType(t); Navigator.pop(context); })).toList()),
+        builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: _packageTypes.map((t) => ListTile(title: Text(t), onTap: () { setState(() => _selectedPackageType = t); Navigator.pop(context); })).toList()),
       );
 }
 
