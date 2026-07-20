@@ -29,7 +29,7 @@ class EventReservationPage extends StatefulWidget {
     super.key,
     required this.eventId,
     this.selectedSeats,
-    this.totalPrice,
+    this.totalPrice, // Utilisé pour passer le prix spécifique du billet (ex: GOLD)
     this.quantity = 1,
   });
 
@@ -98,9 +98,14 @@ class _EventReservationPageState extends State<EventReservationPage> {
     }
   }
 
+  // Nouveau getter pour le prix unitaire dynamique
+  double get _unitPrice {
+    return widget.totalPrice ?? _event.price;
+  }
+
+  // Le total multiplie désormais le bon prix unitaire par la quantité
   double get _totalPrice {
-    if (widget.totalPrice != null) return widget.totalPrice!;
-    return _event.price * _quantity;
+    return _unitPrice * _quantity;
   }
 
   String get _formattedTotal {
@@ -151,7 +156,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
         final booking = await provider.bookTicket(
           eventId: widget.eventId,
           quantity: widget.selectedSeats!.length,
-          totalPrice: widget.totalPrice ?? _totalPrice,
+          totalPrice: _totalPrice, // Mise à jour pour utiliser le calcul dynamique
         );
         
         if (booking != null) {
@@ -277,7 +282,10 @@ class _EventReservationPageState extends State<EventReservationPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Prix unitaire', style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, fontWeight: FontWeight.w600)),
-                        Text(_event.formattedPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
+                        Text(
+                          '${_unitPrice.truncateToDouble() == _unitPrice ? _unitPrice.toInt() : _unitPrice.toStringAsFixed(2)} ${_event.priceCurrency}', 
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ThixColors.darkText)
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -328,7 +336,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
-                child: AutofillGroup( // Gère le clavier pour l'auto-remplissage
+                child: AutofillGroup( 
                   child: Column(
                     children: [
                       _buildTextField(
@@ -336,7 +344,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
                         label: 'Nom complet',
                         icon: Icons.person_outline_rounded,
                         autofillHints: const [AutofillHints.name],
-                        // Utilise trim() pour enlever les espaces parasites à la fin
                         validator: (val) => val == null || val.trim().isEmpty ? 'Veuillez entrer votre nom' : null,
                       ),
                       const SizedBox(height: 16),
