@@ -517,24 +517,26 @@ class AppRouter {
         GoRoute(path: '/thix-event/admin/limits', name: 'thixEventAdminLimits', pageBuilder: (_, __) => NoTransitionPage(child: BookingLimitsPage())),
         GoRoute(path: '/thix-event/admin/analytics', name: 'thixEventAdminAnalytics', pageBuilder: (_, __) => NoTransitionPage(child: AnalyticsPage())),
     
-GoRoute(
-  path: 'payment',
-  builder: (context, state) {
-    final extra = state.extra as Map<String, dynamic>;
-    return EventPaymentPage(
-      bookingId: extra['bookingId'] as String,
-      amount: extra['amount'] as double,
-      currency: extra['currency'] as String,
-    );
-  },
-),
-GoRoute(
-  path: 'ticket/:id',
-  builder: (context, state) {
-    final bookingId = state.pathParameters['id']!;
-    return EventTicketPage(bookingId: bookingId);
-  },
-),
+    GoRoute(
+      path: '/thix-event/payment',
+      builder: (context, state) {
+        // Sécurité : on récupère les données avec des valeurs par défaut au cas où
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return EventPaymentPage(
+          bookingId: extra['bookingId'] as String? ?? '',
+          amount: (extra['amount'] as num?)?.toDouble() ?? 0.0,
+          currency: extra['currency'] as String? ?? 'USD',
+        );
+      },
+    ),
+    GoRoute(
+      path: '/thix-event/ticket/:id',
+      builder: (context, state) {
+        final bookingId = state.pathParameters['id']!;
+        return EventTicketPage(bookingId: bookingId);
+      },
+    ),
+
 
 
         // BUS
