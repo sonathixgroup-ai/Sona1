@@ -243,7 +243,7 @@ class AppRoutes {
   static const String callChannelPrefix = 'thix_';
   static const String tableCallInvites = 'call_invites';
   static const String funcAgoraToken = 'agora-token';
-
+static const String thixUrgentGardiens = '/thix-urgent/config/gardiens';
   static String callChannelId(String conversationId) => '$callChannelPrefix$conversationId';
 
   static Map<String, dynamic> callOngoingExtra({
