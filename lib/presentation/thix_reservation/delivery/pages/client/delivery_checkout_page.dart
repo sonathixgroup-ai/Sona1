@@ -22,10 +22,21 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _senderNameCtrl = TextEditingController(); // 🟢 NOUVEAU: Champ pour le nom de l'expéditeur
   final _senderAddrCtrl = TextEditingController();
   ParcelType _type = ParcelType.other;
   bool _isCreating = false;
   String? _trackingCode;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _addressCtrl.dispose();
+    _senderNameCtrl.dispose();
+    _senderAddrCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +49,8 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
         onStepContinue: () async {
           if (_step == 0) {
             // Validation simple
-            if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Remplis tous les champs")));
+            if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty || _senderNameCtrl.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Remplis tous les champs requis (Nom expéditeur, Nom et Tel destinataire)")));
               return;
             }
             setState(() => _step = 1);
@@ -48,6 +59,7 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
             setState(() => _isCreating = true);
             try {
               final code = await prov.createShipment(
+                senderName: _senderNameCtrl.text, // 🟢 AJOUTÉ ICI pour corriger l'erreur de compilation
                 receiverName: _nameCtrl.text,
                 receiverPhone: _phoneCtrl.text,
                 receiverAddress: _addressCtrl.text,
@@ -62,25 +74,39 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
               setState(() => _isCreating = false);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
             }
+          } else if (_step == 2) {
+             // Fin, retour à l'accueil
+             Navigator.popUntil(context, (r) => r.isFirst);
           }
         },
-        onStepCancel: () => setState(() => _step = _step > 0? _step - 1 : 0),
+        onStepCancel: () => setState(() => _step = _step > 0 ? _step - 1 : 0),
         steps: [
-          // --- STEP 0: Infos destinataire ---
+          // --- STEP 0: Infos expéditeur & destinataire ---
           Step(
-            title: const Text("Destinataire"),
+            title: const Text("Informations"),
+            isActive: _step >= 0,
             content: Column(children: [
-              TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: "Nom destinataire")),
-              TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: "Téléphone"), keyboardType: TextInputType.phone),
+              const Text("Expéditeur", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.left),
+              TextField(controller: _senderNameCtrl, decoration: const InputDecoration(labelText: "Ton nom (Expéditeur) *")),
+              TextField(controller: _senderAddrCtrl, decoration: const InputDecoration(labelText: "Ton adresse")),
+              const Divider(height: 30),
+              const Text("Destinataire", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.left),
+              TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: "Nom destinataire *")),
+              TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: "Téléphone *"), keyboardType: TextInputType.phone),
               TextField(controller: _addressCtrl, decoration: const InputDecoration(labelText: "Adresse complète dest.")),
-              TextField(controller: _senderAddrCtrl, decoration: const InputDecoration(labelText: "Ton adresse expéditeur")),
               const SizedBox(height: 10),
-              DropdownButtonFormField<ParcelType>(value: _type, items: ParcelType.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name))).toList(), onChanged: (v) => setState(() => _type = v!)),
+              DropdownButtonFormField<ParcelType>(
+                value: _type, 
+                decoration: const InputDecoration(labelText: "Type de colis"),
+                items: ParcelType.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase()))).toList(), 
+                onChanged: (v) => setState(() => _type = v!)
+              ),
             ]),
           ),
           // --- STEP 1: Paiement ---
           Step(
             title: const Text("Paiement"),
+            isActive: _step >= 1,
             content: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Container(
                 padding: const EdgeInsets.all(14),
@@ -91,21 +117,26 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
                 ]),
               ),
               const SizedBox(height: 10),
-              const Text("Mode de paiement (Orange Money / Wave / Carte) - à intégrer"),
-              if (_isCreating) const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()),
+              const Text("Mode de paiement (M-Pesa / Airtel Money / Carte) - à intégrer"),
+              if (_isCreating) const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())),
             ]),
           ),
           // --- STEP 2: Success ---
           Step(
             title: const Text("Succès"),
+            isActive: _step >= 2,
+            state: StepState.complete,
             content: Column(children: [
               const Icon(Icons.check_circle, size: 80, color: Colors.green),
               const SizedBox(height: 10),
               const Text("Colis créé avec succès!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
-              SelectableText("Code tracking: $_trackingCode", style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              ElevatedButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text("Retour Accueil")),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+                child: SelectableText("Tracking ID: $_trackingCode", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.5)),
+              ),
+              const SizedBox(height: 20),
             ]),
           ),
         ],
