@@ -31,15 +31,18 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
   bool _hasMore = true;
   String? _errorMessage;
 
-  // Pagination dynamique (à lier avec votre Provider/Supabase plus tard)
+  // Pagination dynamique
   int _currentPage = 0;
   static const int _limit = 20;
 
-  final Map<String, String> _categoryNames = {
+  // 🟢 OPTIMISATION : Mis en statique pour de meilleures performances
+  static const Map<String, String> _categoryNames = {
     'musique': 'Musique & Concerts',
+    'concert': 'Musique & Concerts',
     'conference': 'Conférences & Séminaires',
     'culture': 'Culture & Art',
     'sport': 'Sport & Loisirs',
+    'match': 'Sport & Loisirs',
     'festival': 'Festivals & Soirées',
     'spectacle': 'Spectacles',
     'exposition': 'Expositions',
@@ -54,11 +57,11 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Écouteur de défilement pour l'Infinite Scroll
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       if (!_isLoading && !_isLoadingMore && _hasMore) {
@@ -75,7 +78,6 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
         _currentPage = 0;
         _hasMore = true;
         _errorMessage = null;
-        // On ne met pas _isLoading à true pour ne pas bloquer l'UI pendant le refresh
       });
     } else {
       setState(() {
@@ -86,16 +88,12 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
 
     try {
       final provider = context.read<EventProvider>();
-      
-      // 💡 NOTE PRODUCTION : Si votre provider gère la pagination, passez _currentPage et _limit ici
-      // ex: provider.fetchEventsByCategory(widget.category, page: _currentPage, limit: _limit);
       final events = await provider.fetchEventsByCategory(widget.category);
 
       if (mounted) {
         setState(() {
           _events = events;
           _isLoading = false;
-          // Si le nombre d'événements retournés est inférieur à la limite, on a atteint la fin
           _hasMore = events.length >= _limit; 
         });
       }
@@ -117,17 +115,15 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
       _currentPage++;
       final provider = context.read<EventProvider>();
       
-      // 💡 Appel à adapter si votre backend supporte la pagination
-      final newEvents = await provider.fetchEventsByCategory(widget.category); // Ajouter offset/limit
+      final newEvents = await provider.fetchEventsByCategory(widget.category);
       
       if (mounted) {
         setState(() {
           if (newEvents.isEmpty) {
             _hasMore = false;
           } else {
-            // Pour l'exemple sans pagination backend, on évite les doublons.
-            // En vraie prod avec Supabase limit/offset, vous ferez juste _events.addAll(newEvents)
-            _hasMore = false; // Désactivé temporairement tant que le backend ne pagine pas
+            // Désactivé temporairement tant que le backend ne pagine pas via offset/limit
+            _hasMore = false; 
           }
           _isLoadingMore = false;
         });
@@ -157,7 +153,7 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
         ),
         title: Text(
           _categoryNames[widget.category.toLowerCase()] ?? widget.category.toUpperCase(),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ThixColors.darkText),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ThixColors.darkText),
         ),
       ),
       body: _buildBody(),
@@ -190,7 +186,7 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.70, // Ajusté pour donner un peu plus de hauteur aux cartes
+                childAspectRatio: 0.68, // 🟢 Légèrement ajusté pour éviter le débordement du texte sur les petits écrans
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),
@@ -198,6 +194,7 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
                 (context, index) {
                   return EventCard(
                     event: _events[index],
+                    isCompact: true, // 🟢 Souvent préférable dans une grille à 2 colonnes
                     onTap: () => context.push('/thix-event/event/${_events[index].id}'),
                   );
                 },
@@ -214,7 +211,6 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
                 ),
               ),
             ),
-          // Espace supplémentaire en bas pour que le dernier item ne soit pas collé
           const SliverToBoxAdapter(child: SizedBox(height: 40)), 
         ],
       ),
@@ -293,15 +289,16 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
                   style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
                 ),
                 const SizedBox(height: 32),
-                OutlinedButton(
-                  onPressed: () => _loadEvents(isRefresh: true),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context), // 🟢 Retour facile pour l'utilisateur
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Retour', style: TextStyle(fontWeight: FontWeight.w800)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _ThixColors.primary,
                     side: const BorderSide(color: _ThixColors.primary, width: 1.5),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Text('Rafraîchir', style: TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ],
             ),
