@@ -199,7 +199,6 @@ class AppRoutes {
   static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
   static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
   
-
   // ============ THIX DELIVERY - 8 ROUTES - SCALABLE 1M ============
   static const String deliveryHome = '/thix-reservation/delivery';
   static const String deliveryCheckout = '/thix-reservation/delivery/checkout';
@@ -211,6 +210,11 @@ class AppRoutes {
   static const String deliveryAdminRoutes = '/thix-reservation/delivery/admin/routes';
   static const String deliveryAdminShipments = '/thix-reservation/delivery/admin/shipments';
   static const String deliveryAdminScan = '/thix-reservation/delivery/admin/scan';
+
+  // ============ THIX URGENT - 2 ROUTES - SCALABLE 1M - PROVIDER ============
+  static const String thixUrgent = '/thix-urgent';
+  static const String chambreDeCrise = '/thix-urgent/chambre-de-crise';
+  static String chambreDeCrisePath(String criseId) => '/thix-urgent/chambre-de-crise?criseId=$criseId';
   
   // CALL PROD
   static const String call = '/call';
