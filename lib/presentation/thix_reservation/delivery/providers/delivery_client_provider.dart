@@ -1,5 +1,4 @@
 // lib/presentation/thix_reservation/delivery/providers/delivery_client_provider.dart
-// FULL - ADMIN DRIVEN - COMPAT HISTORY + TRACKING
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/delivery_models.dart';
@@ -12,6 +11,7 @@ class DeliveryClientProvider extends ChangeNotifier {
   bool isLoading = true;
   bool isCalculating = false;
   bool isLoadingHistory = false;
+  bool isTracking = false;
   bool hasMoreHistory = false;
   bool isNational = true;
 
@@ -28,7 +28,6 @@ class DeliveryClientProvider extends ChangeNotifier {
   
   DeliveryShipment? trackedShipment;
   List<DeliveryTrackingEvent> trackingEvents = [];
-
   DeliveryRoute? selectedRoute;
 
   Future<void> init() async {
@@ -36,11 +35,7 @@ class DeliveryClientProvider extends ChangeNotifier {
     notifyListeners();
     try {
       userName = _supa.auth.currentUser?.userMetadata?['full_name']?? "";
-      await Future.wait([
-        loadRoutes(),
-        loadOffers(),
-        loadMyShipments(),
-      ]);
+      await Future.wait([loadRoutes(), loadOffers(), loadMyShipments()]);
     } finally {
       isLoading = false;
       notifyListeners();
@@ -52,7 +47,7 @@ class DeliveryClientProvider extends ChangeNotifier {
       popularRoutes = await _service.getActiveRoutes(forceRefresh: force);
       _recalculate();
     } catch (e) {
-      debugPrint("CLIENT LOAD ROUTES ERROR: $e");
+      debugPrint("LOAD ROUTES ERROR: $e");
     }
   }
 
@@ -60,39 +55,95 @@ class DeliveryClientProvider extends ChangeNotifier {
     try {
       final data = await _supa.from('delivery_offers').select().eq('is_active', true);
       offers = (data as List).map((e) => DeliveryOffer.fromJson(e)).toList();
-    } catch (e) {
-      debugPrint("LOAD OFFERS ERROR: $e");
-    }
+    } catch (_) {}
   }
 
   Future<void> loadMyShipments({bool refresh = false}) async {
     isLoadingHistory = true;
-    if(refresh) myShipments = [];
+    if (refresh) myShipments = [];
     notifyListeners();
     try {
       final user = _supa.auth.currentUser;
       if (user == null) return;
       final data = await _supa.from('delivery_shipments').select().eq('sender_id', user.id).order('created_at', ascending: false).limit(50);
       myShipments = (data as List).map((e) => DeliveryShipment.fromJson(e)).toList();
-      hasMoreHistory = false;
     } catch (e) {
-      debugPrint("LOAD MY SHIPMENTS ERROR: $e");
+      debugPrint("MY SHIPMENTS ERROR: $e");
     } finally {
       isLoadingHistory = false;
       notifyListeners();
     }
   }
 
-  Future<void> trackShipment(String shipmentId) async {
+  // FIX pour delivery_tracking_page.dart
+  Future<void> trackByCode(String code) async {
+    isTracking = true;
+    notifyListeners();
     try {
-      final shipData = await _supa.from('delivery_shipments').select().eq('id', shipmentId).single();
+      final shipData = await _supa.from('delivery_shipments').select().eq('tracking_code', code.trim().toUpperCase()).maybeSingle();
+      if (shipData == null) throw Exception("Code introuvable");
       trackedShipment = DeliveryShipment.fromJson(shipData);
       
-      final eventsData = await _supa.from('delivery_tracking_events').select().eq('shipment_id', shipmentId).order('created_at', ascending: true);
+      final eventsData = await _supa.from('delivery_tracking_events').select().eq('shipment_id', trackedShipment!.id).order('created_at', ascending: true);
       trackingEvents = (eventsData as List).map((e) => DeliveryTrackingEvent.fromJson(e)).toList();
-      notifyListeners();
     } catch (e) {
-      debugPrint("TRACK ERROR: $e");
+      rethrow;
+    } finally {
+      isTracking = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> trackShipment(String id) async {
+    isTracking = true;
+    notifyListeners();
+    try {
+      final shipData = await _supa.from('delivery_shipments').select().eq('id', id).single();
+      trackedShipment = DeliveryShipment.fromJson(shipData);
+      final eventsData = await _supa.from('delivery_tracking_events').select().eq('shipment_id', id).order('created_at', ascending: true);
+      trackingEvents = (eventsData as List).map((e) => DeliveryTrackingEvent.fromJson(e)).toList();
+    } finally {
+      isTracking = false;
+      notifyListeners();
+    }
+  }
+
+  // FIX pour delivery_checkout_page.dart
+  Future<String> createShipment({
+    required String senderName,
+    required String senderPhone,
+    required String receiverName,
+    required String receiverPhone,
+  }) async {
+    try {
+      final user = _supa.auth.currentUser;
+      if (user == null) throw Exception("Non connecté");
+      if (selectedRoute == null) throw Exception("Aucune route sélectionnée");
+
+      final trackingCode = "THX${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
+      
+      final payload = {
+        'sender_id': user.id,
+        'from_city': fromCity,
+        'to_city': toCity,
+        'weight_kg': weightKg,
+        'delivery_mode': deliveryMode.name,
+        'price': calculatedPrice,
+        'route_id': selectedRoute!.id,
+        'tracking_code': trackingCode,
+        'status': 'pending',
+        'sender_name': senderName,
+        'sender_phone': senderPhone,
+        'receiver_name': receiverName,
+        'receiver_phone': receiverPhone,
+      };
+
+      await _supa.from('delivery_shipments').insert(payload);
+      await loadMyShipments(refresh: true);
+      return trackingCode;
+    } catch (e) {
+      debugPrint("CREATE SHIPMENT ERROR: $e");
+      rethrow;
     }
   }
 
@@ -119,7 +170,6 @@ class DeliveryClientProvider extends ChangeNotifier {
   }
 }
 
-// Petit model si pas dans delivery_models.dart
 class DeliveryTrackingEvent {
   final String status;
   final String location;
