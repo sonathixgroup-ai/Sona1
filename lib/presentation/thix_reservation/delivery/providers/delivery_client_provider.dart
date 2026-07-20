@@ -34,8 +34,14 @@ class DeliveryClientProvider extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      userName = _supa.auth.currentUser?.userMetadata?['full_name']?? "";
-      await Future.wait([loadRoutes(), loadOffers(), loadMyShipments()]);
+      userName = _supa.auth.currentUser?.userMetadata?['full_name'] ?? "";
+      
+      // FIX : Typage explicite <void> pour éviter toute erreur de compilation Web (dart2js)
+      await Future.wait<void>([
+        loadRoutes(), 
+        loadOffers(), 
+        loadMyShipments()
+      ]);
     } finally {
       isLoading = false;
       notifyListeners();
@@ -60,12 +66,19 @@ class DeliveryClientProvider extends ChangeNotifier {
 
   Future<void> loadMyShipments({bool refresh = false}) async {
     isLoadingHistory = true;
-    if (refresh) myShipments = [];
+    if (refresh) myShipments.clear(); // Utilisation de .clear() qui est plus performant
     notifyListeners();
     try {
       final user = _supa.auth.currentUser;
       if (user == null) return;
-      final data = await _supa.from('delivery_shipments').select().eq('sender_id', user.id).order('created_at', ascending: false).limit(50);
+      
+      final data = await _supa
+          .from('delivery_shipments')
+          .select()
+          .eq('sender_id', user.id)
+          .order('created_at', ascending: false)
+          .limit(50);
+          
       myShipments = (data as List).map((e) => DeliveryShipment.fromJson(e)).toList();
     } catch (e) {
       debugPrint("MY SHIPMENTS ERROR: $e");
@@ -80,11 +93,21 @@ class DeliveryClientProvider extends ChangeNotifier {
     isTracking = true;
     notifyListeners();
     try {
-      final shipData = await _supa.from('delivery_shipments').select().eq('tracking_code', code.trim().toUpperCase()).maybeSingle();
+      final shipData = await _supa
+          .from('delivery_shipments')
+          .select()
+          .eq('tracking_code', code.trim().toUpperCase())
+          .maybeSingle();
+          
       if (shipData == null) throw Exception("Code introuvable");
       trackedShipment = DeliveryShipment.fromJson(shipData);
       
-      final eventsData = await _supa.from('delivery_tracking_events').select().eq('shipment_id', trackedShipment!.id).order('created_at', ascending: true);
+      final eventsData = await _supa
+          .from('delivery_tracking_events')
+          .select()
+          .eq('shipment_id', trackedShipment!.id)
+          .order('created_at', ascending: true);
+          
       trackingEvents = (eventsData as List).map((e) => DeliveryTrackingEvent.fromJson(e)).toList();
     } catch (e) {
       rethrow;
@@ -100,8 +123,17 @@ class DeliveryClientProvider extends ChangeNotifier {
     try {
       final shipData = await _supa.from('delivery_shipments').select().eq('id', id).single();
       trackedShipment = DeliveryShipment.fromJson(shipData);
-      final eventsData = await _supa.from('delivery_tracking_events').select().eq('shipment_id', id).order('created_at', ascending: true);
+      
+      final eventsData = await _supa
+          .from('delivery_tracking_events')
+          .select()
+          .eq('shipment_id', id)
+          .order('created_at', ascending: true);
+          
       trackingEvents = (eventsData as List).map((e) => DeliveryTrackingEvent.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint("TRACK SHIPMENT ERROR: $e");
+      rethrow;
     } finally {
       isTracking = false;
       notifyListeners();
@@ -109,7 +141,7 @@ class DeliveryClientProvider extends ChangeNotifier {
   }
 
   // FIX pour delivery_checkout_page.dart
-    Future<String> createShipment({
+  Future<String> createShipment({
     required String senderName,
     required String senderPhone,
     required String receiverName,
@@ -144,7 +176,17 @@ class DeliveryClientProvider extends ChangeNotifier {
         'description': packageDescription ?? '',
       };
 
-      await _supa.from('delivery_shipments').insert(payload);
+      // FIX : On récupère l'ID inséré pour générer le premier statut de tracking
+      final insertedData = await _supa.from('delivery_shipments').insert(payload).select('id').single();
+
+      // FIX : Création de l'événement initial (sinon le tracking sera vide au départ)
+      await _supa.from('delivery_tracking_events').insert({
+        'shipment_id': insertedData['id'],
+        'status': 'pending',
+        'location': fromCity,
+        'description': 'Colis enregistré, en attente de ramassage',
+      });
+
       await loadMyShipments(refresh: true);
       return trackingCode;
     } catch (e) {
@@ -152,6 +194,7 @@ class DeliveryClientProvider extends ChangeNotifier {
       rethrow;
     }
   }
+
   void setNational(bool v) { isNational = v; _recalculate(); notifyListeners(); }
   void setFromCity(String v) { fromCity = v.trim().toUpperCase(); _recalculate(); notifyListeners(); }
   void setToCity(String v) { toCity = v.trim().toUpperCase(); _recalculate(); notifyListeners(); }
@@ -170,6 +213,7 @@ class DeliveryClientProvider extends ChangeNotifier {
       );
       calculatedPrice = selectedRoute!.calculatePrice(weightKg: weightKg, mode: deliveryMode);
     } catch (_) {
+      // Aucun trajet trouvé, le prix reste à 0 et la route est null
       calculatedPrice = 0;
     }
   }
@@ -180,11 +224,18 @@ class DeliveryTrackingEvent {
   final String location;
   final String description;
   final DateTime date;
-  DeliveryTrackingEvent({required this.status, required this.location, required this.description, required this.date});
+  
+  DeliveryTrackingEvent({
+    required this.status, 
+    required this.location, 
+    required this.description, 
+    required this.date
+  });
+  
   factory DeliveryTrackingEvent.fromJson(Map<String,dynamic> j) => DeliveryTrackingEvent(
-    status: j['status']??'',
-    location: j['location']??'',
-    description: j['description']??'',
-    date: DateTime.tryParse(j['created_at']??'')??DateTime.now(),
+    status: j['status'] ?? '',
+    location: j['location'] ?? '',
+    description: j['description'] ?? '',
+    date: DateTime.tryParse(j['created_at'] ?? '') ?? DateTime.now(),
   );
 }
