@@ -16,7 +16,7 @@ import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/full_screen_message.dart';
 import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
-import 'package:thix_id/presentation/emergency/emergency_overlay.dart';
+// L'import de emergency_overlay a été supprimé ici
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
@@ -116,9 +116,21 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     if (!auth.isAuthenticated) { context.push(AppRoutes.login); return; }
     try { context.go(AppRoutes.userDashboard); } catch (_) { context.go('/user-dashboard'); }
   }
+  
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.go(AppRoutes.chat); return; } context.push(AppRoutes.login); }
   Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
-  Future<void> _openEmergency() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { await EmergencyOverlay.show(context); return; } if (!mounted) return; context.push(AppRoutes.login); }
+  
+  // CORRECTION ICI : Redirection vers THIX Urgent au lieu d'afficher l'overlay manquant
+  Future<void> _openEmergency() async { 
+    final auth = context.read<AuthController>(); 
+    if (auth.isAuthenticated) { 
+      context.push('/thix-urgent'); 
+      return; 
+    } 
+    if (!mounted) return; 
+    context.push(AppRoutes.login); 
+  }
+  
   void _openDocumentVault() { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.vault); } else { context.push(AppRoutes.login); } }
   void _openScanQr() => ThixIdentitySheets.showQrScanSheet(context);
   void _openMiniApps() { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mini Apps — bientôt disponible.'))); }
