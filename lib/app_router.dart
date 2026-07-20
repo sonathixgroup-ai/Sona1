@@ -1,4 +1,4 @@
-// lib/app_router.dart - BUILD VERT - FIX DELIVERY PAGE NOT FOUND - TOUTES ROUTES CONSERVEES + THIX URGENT
+// lib/app_router.dart - BUILD VERT - FIX SYNTAXE??? - TOUTES ROUTES CONSERVEES
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,7 +22,7 @@ import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.
 import 'presentation/vault/document_vault_page.dart';
 import 'presentation/settings/settings_page.dart';
 
-// ============ BUS MODULE ============
+// BUS
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_search_result_page.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/pages/client/bus_trip_detail_page.dart';
@@ -85,7 +85,7 @@ import 'package:thix_id/presentation/network/story_viewer_screen.dart';
 import 'package:thix_id/presentation/network/comments_page.dart';
 import 'package:thix_id/presentation/network/hashtag_page.dart';
 
-// Jobs, Opportunites
+// Jobs
 import 'presentation/jobs/jobs_page.dart';
 import 'package:thix_id/presentation/jobs/job_apply_page.dart';
 import 'package:thix_id/presentation/jobs/job_details_page.dart';
@@ -95,7 +95,7 @@ import 'package:thix_id/presentation/opportunities/opportunities_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_apply_page.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_details_page.dart';
 
-// Admin générique
+// Admin
 import 'package:thix_id/presentation/admin/admin_page.dart';
 import 'package:thix_id/presentation/admin/admin_routes.dart';
 import 'package:thix_id/presentation/admin/pages/admin_media_page.dart';
@@ -230,7 +230,7 @@ import 'presentation/mon_pays/admin/admin_achievement_form_page.dart';
 import 'presentation/mon_pays/admin/admin_media_form_page.dart';
 import 'package:thix_id/presentation/mon_pays/models/province.dart';
 
-// ============ THIX DELIVERY MODULE - FIXED ============
+// DELIVERY
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_home_page.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_checkout_page.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/pages/client/delivery_tracking_page.dart' as delivery_tracking;
@@ -242,7 +242,7 @@ import 'package:thix_id/presentation/thix_reservation/delivery/pages/admin/deliv
 import 'package:thix_id/presentation/thix_reservation/delivery/providers/delivery_client_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/delivery/providers/delivery_admin_provider.dart';
 
-// ============ THIX URGENT MODULE - SCALABLE 1M - PROVIDER ============
+// THIX URGENT
 import 'package:thix_id/presentation/thix_urgent/thix_urgent_screen.dart';
 import 'package:thix_id/presentation/thix_urgent/chambre_de_crise/chambre_de_crise_screen.dart';
 import 'package:thix_id/presentation/thix_urgent/providers/thix_urgent_providers.dart';
@@ -326,26 +326,14 @@ class AppRouter {
           GoRoute(path: 'dashboard', name: 'enterprisePortalDashboardRoot', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
         ]),
 
-        // ============ THIX URGENT - 2 ROUTES ============
-GoRoute(
-  path: '/thix-urgent',
-  name: 'thixUrgent',
-  pageBuilder: (_, __) => NoTransitionPage(
-    child: ThixUrgentProviders.wrap(const ThixUrgentScreen()),
-  ),
-),
-GoRoute(
-  path: '/thix-urgent/chambre-de-crise',
-  name: 'chambreDeCrise',
-  pageBuilder: (_, state) {
-    final extra = state.extra as Map<String, dynamic>?;
-    final criseId = extra?['criseId'] as String? ?? 'crise_${DateTime.now().millisecondsSinceEpoch}';
-    final type = extra?['type'] as EmergencyType? ?? EmergencyType.police;
-    return NoTransitionPage(
-      child: ChambreDeCriseScreen(criseId: criseId, type: type),
-    );
-  },
-),
+        // THIX URGENT
+        GoRoute(path: '/thix-urgent', name: 'thixUrgent', pageBuilder: (_, __) => NoTransitionPage(child: ThixUrgentProviders.wrap(const ThixUrgentScreen()))),
+        GoRoute(path: '/thix-urgent/chambre-de-crise', name: 'chambreDeCrise', pageBuilder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final criseId = extra?['criseId'] as String??? 'crise_${DateTime.now().millisecondsSinceEpoch}';
+          final type = extra?['type'] as EmergencyType??? EmergencyType.police;
+          return NoTransitionPage(child: ChambreDeCriseScreen(criseId: criseId, type: type));
+        }),
 
         // CHAT
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
@@ -405,7 +393,7 @@ GoRoute(
           final uid = state.pathParameters['userId']!;
           final extra = state.extra;
           String name = 'Discussion'; String? avatar;
-          if (extra is String) name = extra; else if (extra is Map) { name = extra['userName'] as String??? name; avatar = extra['userAvatar'] as String?; }
+          if (extra is String) { name = extra; } else if (extra is Map) { name = extra['userName'] as String??? name; avatar = extra['userAvatar'] as String?; }
           return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
         }),
         GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => NoTransitionPage(child: ConnectionsListPage())),
@@ -475,37 +463,22 @@ GoRoute(
           return NoTransitionPage(child: JobApplyPage(jobId: state.pathParameters['jobId']?? ''));
         }),
 
-        // Education
        ...educationRoutes,
        ...instructorRoutes,
 
         // THIX Info
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
-        GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) {
-          return NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!));
-        }),
+        GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
         GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => NoTransitionPage(child: const infoSearch.SearchPage())),
-        GoRoute(path: AppRoutes.thixInfoCategory, name: 'thixInfoCategory', pageBuilder: (_, state) {
-          return NoTransitionPage(child: CategoryArticlesPage(category: state.pathParameters['category']!));
-        }),
+        GoRoute(path: AppRoutes.thixInfoCategory, name: 'thixInfoCategory', pageBuilder: (_, state) => NoTransitionPage(child: CategoryArticlesPage(category: state.pathParameters['category']!))),
         GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => NoTransitionPage(child: const SavedArticlesPage())),
         GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
 
-        // THIX Money, Media, Reservation
+        // THIX Money, Media
         GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
-        GoRoute(
-          path: AppRoutes.thixMedia,
-          name: 'thixMedia',
-          pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage()),
-          routes: [
-            GoRoute(
-              path: 'admin',
-              name: 'thixMediaAdmin',
-              pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage()),
-              redirect: (context, state) { return null; },
-            ),
-          ],
-        ),
+        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage()), routes: [
+          GoRoute(path: 'admin', name: 'thixMediaAdmin', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage())),
+        ]),
         GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) {
           final title = (state.uri.queryParameters['title']?? '').trim();
           final url = (state.uri.queryParameters['url']?? '').trim();
@@ -513,7 +486,7 @@ GoRoute(
         }),
         GoRoute(path: AppRoutes.reservation, name: 'thixreservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
 
-        // THIX Evenement - PUBLIC
+        // THIX Evenement
         GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
         GoRoute(path: AppRoutes.thixEventDetail, name: 'thixEventDetail', pageBuilder: (_, state) => NoTransitionPage(child: EventDetailPage(eventId: state.pathParameters['eventId']!))),
         GoRoute(path: AppRoutes.thixEventSearch, name: 'thixEventSearch', pageBuilder: (_, __) => NoTransitionPage(child: EventSearchPage())),
@@ -531,8 +504,6 @@ GoRoute(
           final quantity = int.tryParse(state.uri.queryParameters['quantity']?? '1')?? 1;
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
-
-        // THIX EVENT ADMIN
         GoRoute(path: '/thix-event/admin', name: 'thixEventAdmin', pageBuilder: (_, __) => NoTransitionPage(child: AdminDashboard())),
         GoRoute(path: '/thix-event/admin/events', name: 'thixEventAdminEvents', pageBuilder: (_, __) => NoTransitionPage(child: EventListAdminPage())),
         GoRoute(path: '/thix-event/admin/events/create', name: 'thixEventAdminCreate', pageBuilder: (context, state) {
@@ -569,7 +540,7 @@ GoRoute(
         GoRoute(path: '/agency/trip/create', name: 'agency-create-trip', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyCreateTripPage())),
         GoRoute(path: '/agency/scan', name: 'agency-scan', pageBuilder: (_, __) => const NoTransitionPage(child: AgencyQrScanPage())),
 
-        // THIX DELIVERY - 8 ROUTES
+        // DELIVERY
         GoRoute(path: AppRoutes.deliveryHome, name: 'delivery-home', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryClientProvider()..init(), child: const DeliveryHomePage()))),
         GoRoute(path: AppRoutes.deliveryCheckout, name: 'delivery-checkout', pageBuilder: (context, _) {
           final clientProv = context.read<DeliveryClientProvider>();
@@ -582,7 +553,7 @@ GoRoute(
         GoRoute(path: AppRoutes.deliveryAdminShipments, name: 'delivery-admin-shipments', pageBuilder: (_, __) => NoTransitionPage(child: ChangeNotifierProvider(create: (_) => DeliveryAdminProvider()..loadAllShipments(), child: const DeliveryAdminShipmentsPage()))),
         GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
 
-        // THIX MARKET
+        // MARKET
         GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage()), routes: [
           GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
           GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => NoTransitionPage(child: const marketSearch.SearchPage())),
