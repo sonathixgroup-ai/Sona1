@@ -209,7 +209,7 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         createdAt: widget.eventToEdit?.createdAt ?? DateTime.now(),
         imageUrl: widget.eventToEdit?.imageUrl,
         bannerUrl: widget.eventToEdit?.bannerUrl,
-        ticketTiers: _ticketTiers,  
+        ticketTiers: _ticketTiers.map((tier) => TicketTier.fromJson(tier)).toList(),
       );
 
       await service.upsertEvent(event, imageBytes: _pickedImageBytes, bannerBytes: _pickedBannerBytes);
