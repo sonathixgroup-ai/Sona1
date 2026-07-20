@@ -1,5 +1,5 @@
 // lib/presentation/thix_reservation/delivery/providers/delivery_client_provider.dart
-// 100% ADMIN-DRIVEN - PAS DE MOCK
+// 100% ADMIN-DRIVEN - AVEC myShipments pour history
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/delivery_models.dart';
@@ -22,6 +22,7 @@ class DeliveryClientProvider extends ChangeNotifier {
   int calculatedPrice = 0;
   List<DeliveryRoute> popularRoutes = [];
   List<DeliveryOffer> offers = [];
+  List<DeliveryShipment> myShipments = []; // FIX pour history_page
   DeliveryRoute? selectedRoute;
 
   Future<void> init() async {
@@ -29,10 +30,10 @@ class DeliveryClientProvider extends ChangeNotifier {
     notifyListeners();
     try {
       userName = _supa.auth.currentUser?.userMetadata?['full_name']?? "";
-      // FORCE REFRESH pour récupérer les routes créées par l'admin
       await Future.wait([
         loadRoutes(),
         loadOffers(),
+        loadMyShipments(),
       ]);
     } finally {
       isLoading = false;
@@ -42,10 +43,7 @@ class DeliveryClientProvider extends ChangeNotifier {
 
   Future<void> loadRoutes() async {
     try {
-      // On force le refresh pour ne pas avoir le cache vide
       popularRoutes = await _service.getActiveRoutes(forceRefresh: true);
-      // Filtre national / international selon toggle
-      _applyNationalFilter();
       _recalculate();
     } catch (e) {
       debugPrint("CLIENT LOAD ROUTES ERROR: $e");
@@ -61,16 +59,22 @@ class DeliveryClientProvider extends ChangeNotifier {
     }
   }
 
-  void setNational(bool v) {
-    isNational = v;
-    _applyNationalFilter();
-    _recalculate();
-    notifyListeners();
+  Future<void> loadMyShipments() async {
+    try {
+      final user = _supa.auth.currentUser;
+      if (user == null) return;
+      final data = await _supa.from('delivery_shipments').select().eq('sender_id', user.id).order('created_at', ascending: false);
+      myShipments = (data as List).map((e) => DeliveryShipment.fromJson(e)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint("LOAD MY SHIPMENTS ERROR: $e");
+    }
   }
 
-  void _applyNationalFilter() {
-    // On garde en mémoire toutes les routes, pas de filtre dur ici
-    // Le calcul se fera sur la route exacte
+  void setNational(bool v) {
+    isNational = v;
+    _recalculate();
+    notifyListeners();
   }
 
   void setFromCity(String v) {
@@ -109,8 +113,6 @@ class DeliveryClientProvider extends ChangeNotifier {
     calculatedPrice = 0;
     selectedRoute = null;
     if (fromCity.isEmpty || toCity.isEmpty) return;
-
-    // Cherche la route exacte créée par l'admin (insensible à la casse)
     try {
       selectedRoute = popularRoutes.firstWhere(
         (r) => r.fromCity.toUpperCase() == fromCity.toUpperCase() &&
@@ -118,7 +120,6 @@ class DeliveryClientProvider extends ChangeNotifier {
       );
       calculatedPrice = selectedRoute!.calculatePrice(weightKg: weightKg, mode: deliveryMode);
     } catch (_) {
-      // Aucune route admin = prix 0 -> le bouton dira "Trajet non tarifé"
       calculatedPrice = 0;
     }
   }
