@@ -16,7 +16,6 @@ import 'package:thix_id/nav.dart';
 import 'package:thix_id/presentation/common/full_screen_message.dart';
 import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/presentation/common/thix_identity_sheets.dart';
-// L'import de emergency_overlay a été supprimé ici
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/notification_service.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
@@ -120,7 +119,6 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.go(AppRoutes.chat); return; } context.push(AppRoutes.login); }
   Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
   
-  // CORRECTION ICI : Redirection vers THIX Urgent au lieu d'afficher l'overlay manquant
   Future<void> _openEmergency() async { 
     final auth = context.read<AuthController>(); 
     if (auth.isAuthenticated) { 
@@ -202,7 +200,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 class _HomeSoftBackground extends StatelessWidget { const _HomeSoftBackground(); @override Widget build(BuildContext context) { return IgnorePointer(child: RepaintBoundary(child: Stack(children: [Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FF), AppColors.lightGrayBg])))), Positioned(top: -220, right: -180, child: _SoftBlob(size: 420, colors: const [Color(0x2A003BFF), Color(0x1400214F)])), Positioned(top: -120, left: -220, child: _SoftBlob(size: 360, colors: const [Color(0x1F003BFF), Color(0x1200214F)]))]))); } }
 class _SoftBlob extends StatelessWidget { final double size; final List<Color> colors; const _SoftBlob({required this.size, required this.colors}); @override Widget build(BuildContext context) { return ClipOval(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: Container(width: size, height: size, decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors))))); } }
 
-// HEADER CORRIGÉ AVEC GLOBE + PROFILE CONNECTÉ
+// HEADER
 class _PremiumHeader extends StatelessWidget {
   final double safeTop; final String displayName; final String? photoUrl; final bool isAuthenticated; final VoidCallback onProfileTap; final VoidCallback onAccountRequest;
   const _PremiumHeader({required this.safeTop, required this.displayName, required this.photoUrl, required this.isAuthenticated, required this.onProfileTap, required this.onAccountRequest});
@@ -232,7 +230,7 @@ class _PremiumHeader extends StatelessWidget {
 class _RotatingGreeting extends StatefulWidget { const _RotatingGreeting(); @override State<_RotatingGreeting> createState() => _RotatingGreetingState(); }
 class _RotatingGreetingState extends State<_RotatingGreeting> { static const List<Map<String, String>> _greetings = [{'lang': 'Lingala', 'text': 'Mbote'}, {'lang': 'Kiswahili', 'text': 'Jambo'}, {'lang': 'Tshiluba', 'text': 'Moyo'}, {'lang': 'Kikongo', 'text': 'Mbote'}]; int _index = 0; Timer? _timer; @override void initState() { super.initState(); _timer = Timer.periodic(const Duration(seconds: 3), (_) { if (!mounted) return; setState(() => _index = (_index + 1) % _greetings.length); }); } @override void dispose() { _timer?.cancel(); super.dispose(); } @override Widget build(BuildContext context) { final g = _greetings[_index]; return SizedBox(height: 15, child: AnimatedSwitcher(duration: const Duration(milliseconds: 380), transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim), child: child)), child: Row(key: ValueKey(g['lang']), mainAxisSize: MainAxisSize.min, children: [Text(g['text']!, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w800)), const SizedBox(width: 5), Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1), decoration: BoxDecoration(color: AppColors.goldBadge.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(6)), child: Text(g['lang']!, style: const TextStyle(color: AppColors.premiumAccent, fontSize: 8, fontWeight: FontWeight.w900)))]))); } }
 
-// SEARCH BAR CORRIGÉE
+// SEARCH BAR 
 class _SearchBarOverlay extends StatefulWidget { final TextEditingController controller; final bool isSearching; final VoidCallback onVerify; const _SearchBarOverlay({required this.controller, required this.isSearching, required this.onVerify}); @override State<_SearchBarOverlay> createState() => _SearchBarOverlayState(); }
 class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   @override Widget build(BuildContext context) {
@@ -252,7 +250,7 @@ class _SearchBarOverlayState extends State<_SearchBarOverlay> {
 }
 class _PremiumStatusCard extends StatelessWidget { @override Widget build(BuildContext context) { return Container(height: 84, decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd]), border: Border.all(color: AppColors.cardBorder, width: 0.7), borderRadius: BorderRadius.circular(AppRadius.mainCard), boxShadow: AppShadows.main), padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l), child: Row(children: [const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26), const SizedBox(width: AppSpacing.m), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: const [Text('Membre Premium', style: TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w800)), Text('Score de confiance : 98%', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600))])), Container(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s), decoration: BoxDecoration(color: AppColors.darkText, borderRadius: BorderRadius.circular(AppRadius.button)), child: const Text('Voir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)))])); } }
 
-// QUICK ACTIONS CORRIGÉES AVEC t()
+// QUICK ACTIONS 
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onScanTap; final VoidCallback onDocumentTap; final VoidCallback onChatTap; final VoidCallback onSecurityTap;
   const _QuickActionsRow({required this.onScanTap, required this.onDocumentTap, required this.onChatTap, required this.onSecurityTap});
@@ -262,6 +260,7 @@ class _QuickActionsRow extends StatelessWidget {
       Expanded(child: Center(child: _QuickActionItem(icon: Icons.smart_toy_rounded, label: l10n.t('quickThixIA'), accent: AppColors.premiumAccent, onTap: onScanTap))),
       Expanded(child: Center(child: _QuickActionItem(icon: Icons.folder_shared_rounded, label: l10n.t('quickDocument'), accent: AppColors.domainLearning, onTap: onDocumentTap))),
       Expanded(child: Center(child: _QuickActionItem(icon: Icons.forum_rounded, label: l10n.t('quickChat'), accent: AppColors.domainNetwork, onTap: onChatTap))),
+      // Bouton Urgence conservé ici
       Expanded(child: Center(child: _QuickActionItem(icon: Icons.emergency_rounded, label: l10n.t('quickUrgence'), accent: AppColors.dangerRed, onTap: onSecurityTap))),
     ]);
   }
@@ -281,10 +280,11 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   void _armAutoCollapse() { _collapseTimer?.cancel(); _collapseTimer = Timer(const Duration(seconds: 10), () { if (mounted) setState(() => _menuExpanded = false); }); }
   void _toggleHubMenu() { HapticFeedback.mediumImpact(); setState(() => _menuExpanded = !_menuExpanded); if (_menuExpanded) { _armAutoCollapse(); } else { _collapseTimer?.cancel(); } }
   void _runHubItem(VoidCallback action) { _collapseTimer?.cancel(); setState(() => _menuExpanded = false); action(); }
+  
+  // CORRECTION ICI: THIX URGENT retiré pour éviter le doublon avec la barre du haut
   List<_ServiceNodeData> _nodes() {
     final c = widget.counts;
     return [
-      _ServiceNodeData(key: 'thixUrgent', icon: Icons.emergency_rounded, title: 'THIX URGENT', color: AppColors.dangerRed),
       _ServiceNodeData(key: 'thixMedia', icon: Icons.play_circle_filled, title: 'THIX MEDIA', color: AppColors.domainMedia),
       _ServiceNodeData(key: 'thixMarket', icon: Icons.storefront_rounded, title: 'THIX Market', color: AppColors.domainMarket),
       _ServiceNodeData(key: 'formations', icon: Icons.school_rounded, title: 'Formations', color: AppColors.domainLearning, badge: c.formations),
@@ -299,6 +299,7 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
       _ServiceNodeData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: 'Réservation', color: AppColors.domainReservation)
     ];
   }
+
   Offset _polar(Offset center, double angleDeg, double radius) { final rad = angleDeg * math.pi / 180; return center + Offset(radius * math.cos(rad), radius * math.sin(rad)); }
   @override Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
