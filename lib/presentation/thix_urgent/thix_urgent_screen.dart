@@ -29,7 +29,6 @@ class _ThixUrgentScreenState extends State<ThixUrgentScreen> {
       ),
       body: Column(
         children: [
-          // CARTE PROFIL + CONFIG GARDIENS
           Container(
             margin: EdgeInsets.all(12),
             padding: EdgeInsets.all(12),
@@ -59,9 +58,7 @@ class _ThixUrgentScreenState extends State<ThixUrgentScreen> {
               ],
             ),
           ),
-
           Spacer(),
-          // BOUTON ROUGE
           GestureDetector(
             onLongPress: () async {
               final ok = await ctrl.declencherAlerte();
@@ -82,8 +79,6 @@ class _ThixUrgentScreenState extends State<ThixUrgentScreen> {
           SizedBox(height: 20),
           Text('Maintiens 2s le bouton rouge pour alerter', style: TextStyle(color: Colors.white54)),
           Spacer(),
-
-          // 4 BOUTONS VERTS
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
             child: Row(children: [
@@ -95,8 +90,6 @@ class _ThixUrgentScreenState extends State<ThixUrgentScreen> {
           ),
           SizedBox(height: 8),
           Text('Type sélectionné: ${ctrl.selectedType.name.toUpperCase()} • Maintiens le bouton rouge', style: TextStyle(color: Colors.white38, fontSize: 11)),
-
-          // CHAMBRE DE CRISE
           Container(
             margin: EdgeInsets.all(12),
             width: double.infinity, height: 56,
@@ -139,16 +132,79 @@ class _ThixUrgentScreenState extends State<ThixUrgentScreen> {
   }
 
   void _showConfigSecours(BuildContext context) {
-    showModalBottomSheet(context: context, backgroundColor: Color(0xFF1A1C25), shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (_) {
-      return Padding(padding: EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('Configurer les secours', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-        SizedBox(height: 16),
-        ListTile(leading: Icon(Icons.contacts, color: Colors.white), title: Text('Mes gardiens (contacts THIX)', style: TextStyle(color: Colors.white)), subtitle: Text('Ils recevront ton alerte + position live', style: TextStyle(color: Colors.white54)), onTap: (){}),
-        ListTile(leading: Icon(Icons.local_police, color: Colors.white), title: Text('Police la plus proche', style: TextStyle(color: Colors.white)), subtitle: Text('Automatique via GPS', style: TextStyle(color: Colors.white54)), onTap: (){}),
-        ListTile(leading: Icon(Icons.local_hospital, color: Colors.white), title: Text('Hôpital / Ambulance', style: TextStyle(color: Colors.white)), onTap: (){}),
-        ListTile(leading: Icon(Icons.mic, color: Colors.white), title: Text('Enregistrement auto + Sirène', style: TextStyle(color: Colors.white)), trailing: Switch(value: true, onChanged: (v){})),
-        SizedBox(height: 20),
-      ]));
-    });
+    final ctrl = context.read<UrgentController>();
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: Color(0xFF1A1C25), 
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), 
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.all(20), 
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+            SizedBox(height: 16),
+            Text('Configurer les secours', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            SizedBox(height: 16),
+            
+            // 1. MES GARDIENS
+            ListTile(
+              leading: Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.contacts, color: Colors.blue)),
+              title: Text('Mes gardiens (contacts THIX)', style: TextStyle(color: Colors.white)),
+              subtitle: Text('Ils recevront ton alerte + position live', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              trailing: Icon(Icons.chevron_right, color: Colors.white54),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                context.push('/thix-urgent/config/gardiens');
+              },
+            ),
+            Divider(color: Colors.white10),
+            
+            // 2. POLICE
+            ListTile(
+              leading: Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.local_police, color: Colors.green)),
+              title: Text('Police la plus proche', style: TextStyle(color: Colors.white)),
+              subtitle: Text('Automatique via GPS - Activé', style: TextStyle(color: Colors.green, fontSize: 11)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Police: localisation automatique activée via GPS')));
+              },
+            ),
+            Divider(color: Colors.white10),
+            
+            // 3. HOPITAL
+            ListTile(
+              leading: Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.local_hospital, color: Colors.red)),
+              title: Text('Hôpital / Ambulance', style: TextStyle(color: Colors.white)),
+              subtitle: Text('SAMU le plus proche - Activé', style: TextStyle(color: Colors.green, fontSize: 11)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hôpital: alerte SAMU automatique activée')));
+              },
+            ),
+            Divider(color: Colors.white10),
+            
+            // 4. SIRENE
+            StatefulBuilder(builder: (context, setStateSB) {
+              return ListTile(
+                leading: Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.mic, color: Colors.orange)),
+                title: Text('Enregistrement auto + Sirène', style: TextStyle(color: Colors.white)),
+                subtitle: Text(ctrl.sireneActive ? 'Sirène ON' : 'Sirène OFF', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                trailing: Switch(
+                  value: ctrl.sireneActive,
+                  activeColor: Colors.red,
+                  onChanged: (v){
+                    ctrl.sireneActive = v;
+                    ctrl.notifyListeners();
+                    setStateSB(()=>{});
+                    setState(()=>{});
+                  },
+                ),
+              );
+            }),
+            SizedBox(height: 20),
+          ]),
+        );
+      }
+    );
   }
 }
