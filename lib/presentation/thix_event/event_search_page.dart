@@ -7,6 +7,13 @@ import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 import 'widgets/event_card.dart';
 
+class _ThixColors {
+  static const Color primary = Color(0xFF6B3CE2);
+  static const Color darkText = Color(0xFF1E1B4B);
+  static const Color mutedText = Color(0xFF8B8BA7);
+  static const Color lightBg = Color(0xFFF8F9FA);
+}
+
 class EventSearchPage extends StatefulWidget {
   const EventSearchPage({super.key});
 
@@ -63,75 +70,111 @@ class _EventSearchPageState extends State<EventSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: _ThixColors.lightBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: TextField(
-            controller: _searchController,
-            focusNode: _focusNode,
-            onChanged: _performSearch,
-            decoration: InputDecoration(
-              hintText: 'Rechercher un événement, artiste, lieu...',
-              hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
-              prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: _ThixColors.lightBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _focusNode,
+              onChanged: _performSearch,
+              cursorColor: _ThixColors.primary,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _ThixColors.darkText),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un événement, lieu...',
+                hintStyle: const TextStyle(fontSize: 13, color: _ThixColors.mutedText, fontWeight: FontWeight.w400),
+                prefixIcon: const Icon(Icons.search_rounded, size: 20, color: _ThixColors.mutedText),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18, color: _ThixColors.mutedText),
+                        onPressed: () {
+                          _searchController.clear();
+                          _performSearch('');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
         ),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_searchController.text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFilterChip('Tous', 'all'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Aujourd\'hui', 'today'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Cette semaine', 'week'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Gratuits', 'free'),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        _buildModernChip('Tous', 'all', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
+                        const SizedBox(width: 8),
+                        _buildModernChip('Aujourd\'hui', 'today', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
+                        const SizedBox(width: 8),
+                        _buildModernChip('Cette semaine', 'week', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
+                        const SizedBox(width: 8),
+                        _buildModernChip('Gratuits', 'free', _selectedFilter, (val) => setState(() { _selectedFilter = val; _performSearch(_searchController.text); })),
+                      ],
+                    ),
+                  ),
+                  if (_cities.length > 1) ...[
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: _cities.map((city) {
+                          final displayName = city == 'all' ? 'Toutes villes' : city;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _buildModernChip(displayName, city, _selectedCity, (val) => setState(() { _selectedCity = val; _performSearch(_searchController.text); }), isCity: true),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ]
                 ],
-              ),
-            ),
-          if (_searchController.text.isNotEmpty && _cities.length > 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _cities.map((city) => _buildCityChip(city)).toList(),
-                ),
               ),
             ),
           Expanded(
             child: _isSearching
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: _ThixColors.primary))
                 : _results.isEmpty && _searchController.text.isNotEmpty
                     ? _buildEmptyState()
                     : _results.isEmpty
                         ? _buildInitialState()
                         : ListView.builder(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(16),
                             itemCount: _results.length,
-                            itemBuilder: (context, index) => EventCard(
-                              event: _results[index],
-                              isCompact: true,
-                              onTap: () => context.push('/thix-event/event/${_results[index].id}'),
+                            itemBuilder: (context, index) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: EventCard(
+                                event: _results[index],
+                                isCompact: true,
+                                onTap: () => context.push('/thix-event/event/${_results[index].id}'),
+                              ),
                             ),
                           ),
           ),
@@ -140,67 +183,92 @@ class _EventSearchPageState extends State<EventSearchPage> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _selectedFilter == value;
-    return FilterChip(
-      selected: isSelected,
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      onSelected: (selected) {
-        setState(() => _selectedFilter = value);
-        _performSearch(_searchController.text);
-      },
-      backgroundColor: Colors.white,
-      selectedColor: const Color(0xFFD4AF37).withOpacity(0.15),
-      side: BorderSide(color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[300]!),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    );
-  }
-
-  Widget _buildCityChip(String city) {
-    final isSelected = _selectedCity == city;
-    final displayName = city == 'all' ? 'Toutes villes' : city;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(displayName, style: const TextStyle(fontSize: 11)),
-        onSelected: (selected) {
-          setState(() => _selectedCity = city);
-          _performSearch(_searchController.text);
-        },
-        backgroundColor: Colors.white,
-        selectedColor: Colors.blue.withOpacity(0.1),
-        side: BorderSide(color: isSelected ? Colors.blue : Colors.grey[300]!),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  // 🟢 Design des "Chips" (Boutons de filtre) harmonisé
+  Widget _buildModernChip(String label, String value, String groupValue, Function(String) onSelected, {bool isCity = false}) {
+    final isSelected = groupValue == value;
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? _ThixColors.primary.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? _ThixColors.primary : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isCity && isSelected) ...[
+              const Icon(Icons.location_on_rounded, size: 14, color: _ThixColors.primary),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? _ThixColors.primary : _ThixColors.mutedText,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  // 🟢 "Empty State" professionnel pour Aucun Résultat
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 60, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('Aucun résultat pour "${_searchController.text}"', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.05), shape: BoxShape.circle),
+            child: const Icon(Icons.search_off_rounded, size: 50, color: _ThixColors.primary),
+          ),
+          const SizedBox(height: 20),
+          Text('Aucun résultat', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
           const SizedBox(height: 8),
-          Text('Essayez avec d\'autres mots-clés', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Nous n\'avons trouvé aucun événement correspondant à "${_searchController.text}".',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
+            ),
+          ),
         ],
       ),
     );
   }
 
+  // 🟢 "Empty State" professionnel pour l'état Initial
   Widget _buildInitialState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search, size: 60, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('Recherchez un événement', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.05), shape: BoxShape.circle),
+            child: const Icon(Icons.travel_explore_rounded, size: 50, color: _ThixColors.primary),
+          ),
+          const SizedBox(height: 20),
+          const Text('Trouvez votre prochaine sortie', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
           const SizedBox(height: 8),
-          Text('Tapez un mot-clé pour commencer', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Tapez un mot-clé, le nom d\'un artiste ou d\'un lieu pour lancer la recherche.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
+            ),
+          ),
         ],
       ),
     );
