@@ -109,11 +109,14 @@ class DeliveryClientProvider extends ChangeNotifier {
   }
 
   // FIX pour delivery_checkout_page.dart
-  Future<String> createShipment({
+    Future<String> createShipment({
     required String senderName,
     required String senderPhone,
     required String receiverName,
     required String receiverPhone,
+    String? receiverAddress,
+    String? senderAddress,
+    String? packageDescription,
   }) async {
     try {
       final user = _supa.auth.currentUser;
@@ -136,6 +139,9 @@ class DeliveryClientProvider extends ChangeNotifier {
         'sender_phone': senderPhone,
         'receiver_name': receiverName,
         'receiver_phone': receiverPhone,
+        'receiver_address': receiverAddress ?? '',
+        'sender_address': senderAddress ?? '',
+        'description': packageDescription ?? '',
       };
 
       await _supa.from('delivery_shipments').insert(payload);
@@ -146,7 +152,6 @@ class DeliveryClientProvider extends ChangeNotifier {
       rethrow;
     }
   }
-
   void setNational(bool v) { isNational = v; _recalculate(); notifyListeners(); }
   void setFromCity(String v) { fromCity = v.trim().toUpperCase(); _recalculate(); notifyListeners(); }
   void setToCity(String v) { toCity = v.trim().toUpperCase(); _recalculate(); notifyListeners(); }
