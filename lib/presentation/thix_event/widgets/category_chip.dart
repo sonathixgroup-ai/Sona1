@@ -2,6 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+class _ThixColors {
+  static const Color primary = Color(0xFF6B3CE2);
+  static const Color darkText = Color(0xFF1E1B4B);
+  static const Color mutedText = Color(0xFF8B8BA7);
+  static const Color border = Color(0xFFEEE9FF);
+}
+
 class CategoryChip extends StatelessWidget {
   final String label;
   final String slug;
@@ -22,28 +29,41 @@ class CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD4AF37).withOpacity(0.15) : Colors.white,
+          color: isSelected ? _ThixColors.primary.withOpacity(0.12) : Colors.white,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[300]!,
-            width: 1,
+            color: isSelected ? _ThixColors.primary : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1,
           ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: _ThixColors.primary.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600]),
-            const SizedBox(width: 6),
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? _ThixColors.primary : _ThixColors.mutedText,
+            ),
+            const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[700],
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? _ThixColors.primary : _ThixColors.darkText,
               ),
             ),
           ],
@@ -54,45 +74,50 @@ class CategoryChip extends StatelessWidget {
 }
 
 class CategoryChipsList extends StatelessWidget {
-  const CategoryChipsList({super.key});
+  final String? selectedSlug;
+  final Function(String slug)? onCategorySelected;
 
-  final List<Map<String, dynamic>> _categories = const [
-    {'slug': 'musique', 'label': 'Musique', 'icon': Icons.music_note},
-    {'slug': 'conference', 'label': 'Conférences', 'icon': Icons.mic},
-    {'slug': 'culture', 'label': 'Culture', 'icon': Icons.art_track},
-    {'slug': 'sport', 'label': 'Sport', 'icon': Icons.sports_soccer},
-    {'slug': 'festival', 'label': 'Festivals', 'icon': Icons.celebration},
+  const CategoryChipsList({
+    super.key,
+    this.selectedSlug,
+    this.onCategorySelected,
+  });
+
+  // Liste des catégories dynamiques
+  static const List<Map<String, dynamic>> _categories = [
+    {'slug': 'musique', 'label': 'Musique', 'icon': Icons.music_note_rounded},
+    {'slug': 'conference', 'label': 'Conférences', 'icon': Icons.mic_rounded},
+    {'slug': 'culture', 'label': 'Culture', 'icon': Icons.palette_rounded},
+    {'slug': 'sport', 'label': 'Sport', 'icon': Icons.sports_soccer_rounded},
+    {'slug': 'festival', 'label': 'Festivals', 'icon': Icons.celebration_rounded},
+    {'slug': 'spectacle', 'label': 'Spectacles', 'icon': Icons.theater_comedy_rounded},
   ];
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: _categories.map((cat) {
-          return GestureDetector(
-            onTap: () => context.push('/thix-event/category/${cat['slug']}'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.grey[300]!, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(cat['icon'] as IconData, size: 14, color: Colors.grey[600]),
-                  const SizedBox(width: 6),
-                  Text(
-                    cat['label'] as String,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                  ),
-                ],
-              ),
-            ),
+          final slug = cat['slug'] as String;
+          final label = cat['label'] as String;
+          final icon = cat['icon'] as IconData;
+          final isSelected = selectedSlug == slug;
+
+          return CategoryChip(
+            label: label,
+            slug: slug,
+            icon: icon,
+            isSelected: isSelected,
+            onTap: () {
+              // Si un callback personnalisé est fourni, on l'utilise, sinon navigation par défaut GoRouter
+              if (onCategorySelected != null) {
+                onCategorySelected!(slug);
+              } else {
+                context.push('/thix-event/category/$slug');
+              }
+            },
           );
         }).toList(),
       ),
