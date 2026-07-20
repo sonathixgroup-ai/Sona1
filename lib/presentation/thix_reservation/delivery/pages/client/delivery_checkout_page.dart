@@ -19,22 +19,29 @@ class DeliveryCheckoutPage extends StatefulWidget {
 
 class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
   int _step = 0; // 0=receiver, 1=payment, 2=success
+  
+  // Contrôleurs Expéditeur
+  final _senderNameCtrl = TextEditingController();
+  final _senderPhoneCtrl = TextEditingController(); // 🟢 NOUVEAU: Champ pour le téléphone de l'expéditeur
+  final _senderAddrCtrl = TextEditingController();
+  
+  // Contrôleurs Destinataire
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-  final _senderNameCtrl = TextEditingController(); // 🟢 NOUVEAU: Champ pour le nom de l'expéditeur
-  final _senderAddrCtrl = TextEditingController();
+  
   ParcelType _type = ParcelType.other;
   bool _isCreating = false;
   String? _trackingCode;
 
   @override
   void dispose() {
+    _senderNameCtrl.dispose();
+    _senderPhoneCtrl.dispose();
+    _senderAddrCtrl.dispose();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
-    _senderNameCtrl.dispose();
-    _senderAddrCtrl.dispose();
     super.dispose();
   }
 
@@ -49,8 +56,8 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
         onStepContinue: () async {
           if (_step == 0) {
             // Validation simple
-            if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty || _senderNameCtrl.text.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Remplis tous les champs requis (Nom expéditeur, Nom et Tel destinataire)")));
+            if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty || _senderNameCtrl.text.isEmpty || _senderPhoneCtrl.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Remplis tous les champs obligatoires (*)")));
               return;
             }
             setState(() => _step = 1);
@@ -59,7 +66,8 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
             setState(() => _isCreating = true);
             try {
               final code = await prov.createShipment(
-                senderName: _senderNameCtrl.text, // 🟢 AJOUTÉ ICI pour corriger l'erreur de compilation
+                senderName: _senderNameCtrl.text, 
+                senderPhone: _senderPhoneCtrl.text, // 🟢 AJOUTÉ ICI pour corriger l'erreur
                 receiverName: _nameCtrl.text,
                 receiverPhone: _phoneCtrl.text,
                 receiverAddress: _addressCtrl.text,
@@ -88,13 +96,16 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
             content: Column(children: [
               const Text("Expéditeur", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.left),
               TextField(controller: _senderNameCtrl, decoration: const InputDecoration(labelText: "Ton nom (Expéditeur) *")),
+              TextField(controller: _senderPhoneCtrl, decoration: const InputDecoration(labelText: "Ton téléphone (Expéditeur) *"), keyboardType: TextInputType.phone), // 🟢 Ajout du champ dans l'UI
               TextField(controller: _senderAddrCtrl, decoration: const InputDecoration(labelText: "Ton adresse")),
               const Divider(height: 30),
+              
               const Text("Destinataire", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.left),
               TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: "Nom destinataire *")),
               TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: "Téléphone *"), keyboardType: TextInputType.phone),
               TextField(controller: _addressCtrl, decoration: const InputDecoration(labelText: "Adresse complète dest.")),
               const SizedBox(height: 10),
+              
               DropdownButtonFormField<ParcelType>(
                 value: _type, 
                 decoration: const InputDecoration(labelText: "Type de colis"),
