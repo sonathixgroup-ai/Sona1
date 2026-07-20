@@ -66,13 +66,16 @@ class _EventTicketPageState extends State<EventTicketPage> {
     }
 
     final eventTitle = _eventData!['title'] ?? 'Événement';
-    final eventDate = _eventData!['date'] != null 
-        ? DateFormat('dd MMMM yyyy, HH:mm', 'fr').format(DateTime.parse(_eventData!['date'])) 
+    
+    // 🟢 CORRECTION : Vérifie tous les noms possibles pour la date dans Supabase
+    final rawDate = _eventData!['start_date'] ?? _eventData!['starts_at'] ?? _eventData!['date'];
+    final eventDate = rawDate != null 
+        ? DateFormat('dd MMMM yyyy, HH:mm', 'fr').format(DateTime.parse(rawDate.toString())) 
         : 'Date inconnue';
-    final location = _eventData!['location'] ?? 'Lieu inconnu';
-    final imageUrl = _eventData!['image_url'];
+
+    final location = _eventData!['location'] ?? _eventData!['place'] ?? 'Lieu inconnu';
+    final imageUrl = _eventData!['image_url'] ?? _eventData!['cover_image_path'];
     final quantity = _bookingData!['ticket_quantity'] ?? 1;
-    // Le QR Code contiendra cet ID unique pour le scan à la porte
     final qrData = _bookingData!['id'].toString(); 
 
     return Scaffold(
@@ -82,7 +85,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => context.go('/thix-event'), // Retour à l'accueil
+          onPressed: () => context.go('/thix-event'),
         ),
         title: const Text('Votre Billet', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         centerTitle: true,
@@ -91,7 +94,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           children: [
-            // 🎟️ LE BILLET
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -101,8 +103,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // HAUT : Flyer de l'événement
-                  if (imageUrl != null)
+                  if (imageUrl != null && imageUrl.toString().isNotEmpty)
                     ClipRRect(
                       borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
                       child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
@@ -117,7 +118,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                       child: const Center(child: Icon(Icons.event, size: 50, color: Colors.white54)),
                     ),
                   
-                  // MILIEU : Informations du ticket
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
@@ -132,7 +132,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                         Row(
                           children: [
                             Expanded(child: _buildTicketDetail('Billet(s)', '$quantity')),
-                            Expanded(child: _buildTicketDetail('Type', 'Standard')), // À lier avec vos data
+                            Expanded(child: _buildTicketDetail('Type', 'Standard')),
                             Expanded(child: _buildTicketDetail('Statut', 'PAYÉ', color: Colors.green)),
                           ],
                         ),
@@ -140,16 +140,14 @@ class _EventTicketPageState extends State<EventTicketPage> {
                     ),
                   ),
 
-                  // LIGNE DE DÉCOUPE (Effet visuel ticket)
                   Stack(
                     children: [
-                      const Divider(color: Colors.grey, height: 1, thickness: 1, indent: 20, endIndent: 20), // Pointillés idéaux ici
+                      const Divider(color: Colors.grey, height: 1, thickness: 1, indent: 20, endIndent: 20),
                       Positioned(left: -10, top: -10, child: Container(height: 20, width: 20, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle))),
                       Positioned(right: -10, top: -10, child: Container(height: 20, width: 20, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle))),
                     ],
                   ),
 
-                  // BAS : QR CODE PROPRE
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
@@ -179,10 +177,8 @@ class _EventTicketPageState extends State<EventTicketPage> {
               ),
             ),
             const SizedBox(height: 32),
-            
-            // Boutons d'action
             OutlinedButton.icon(
-              onPressed: () {}, // Logique pour sauvegarder l'image/PDF
+              onPressed: () {},
               icon: const Icon(Icons.download_rounded),
               label: const Text('Télécharger le billet'),
               style: OutlinedButton.styleFrom(
