@@ -38,6 +38,49 @@ class EventBooking {
   });
 
   factory EventBooking.fromJson(Map<String, dynamic> json) {
+    // 🟢 Récupération sécurisée si les données viennent d'une relation imbriquée Supabase (ex: 'events': { ... })
+    final eventData = json['events'] is Map<String, dynamic> ? json['events'] as Map<String, dynamic> : null;
+
+    // Helper pour chercher la valeur soit dans l'objet principal, soit dans l'objet imbrité 'events'
+    T? extractField<T>(String key, T? Function(dynamic) parser) {
+      if (json[key] != null) {
+        return parser(json[key]);
+      }
+      if (eventData != null && eventData[key] != null) {
+        return parser(eventData[key]);
+      }
+      return null;
+    }
+
+    // Gestion spécifique pour les dates (cherche 'event_date', 'starts_at', ou 'start_date')
+    DateTime parseDate(dynamic val) {
+      if (val == null) return DateTime.now();
+      return DateTime.tryParse(val.toString()) ?? DateTime.now();
+    }
+
+    DateTime? resolvedEventDate;
+    if (json['event_date'] != null) {
+      resolvedEventDate = parseDate(json['event_date']);
+    } else if (eventData != null) {
+      resolvedEventDate = parseDate(eventData['starts_at'] ?? eventData['start_date'] ?? eventData['date']);
+    }
+
+    // Gestion de l'image (cherche 'event_image_url', 'image_url', ou 'cover_image_path')
+    String? resolvedImageUrl = json['event_image_url']?.toString() ?? 
+        eventData?['image_url']?.toString() ?? 
+        eventData?['cover_image_path']?.toString();
+
+    // Gestion du titre
+    String resolvedTitle = json['event_title']?.toString() ?? 
+        eventData?['title']?.toString() ?? 
+        'Événement';
+
+    // Gestion du lieu
+    String resolvedLocation = json['event_location']?.toString() ?? 
+        eventData?['location']?.toString() ?? 
+        eventData?['place']?.toString() ?? 
+        'Lieu inconnu';
+
     return EventBooking(
       id: json['id']?.toString() ?? '',
       eventId: json['event_id']?.toString() ?? '',
@@ -53,13 +96,10 @@ class EventBooking {
           ? DateTime.tryParse(json['booking_date'].toString()) ?? DateTime.now()
           : DateTime.now(),
       
-      // Ces champs sont injectés par le service lors du getMyTickets
-      eventTitle: json['event_title']?.toString() ?? 'Événement',
-      eventImageUrl: json['event_image_url']?.toString(),
-      eventDate: json['event_date'] != null 
-          ? DateTime.tryParse(json['event_date'].toString()) ?? DateTime.now()
-          : DateTime.now(),
-      eventLocation: json['event_location']?.toString() ?? 'Lieu inconnu',
+      eventTitle: resolvedTitle,
+      eventImageUrl: resolvedImageUrl,
+      eventDate: resolvedEventDate ?? DateTime.now(),
+      eventLocation: resolvedLocation,
     );
   }
 }
