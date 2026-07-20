@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:thix_id/models/event_model.dart';
-
+import 'package:thix_id/models/ticket_tier.dart';
 import '../../providers/admin_event_provider.dart';
 import '../../services/admin_event_service.dart';
 import '../../widgets/admin_app_bar.dart';
@@ -209,7 +209,8 @@ class _EventCreateEditPageState extends State<EventCreateEditPage> {
         createdAt: widget.eventToEdit?.createdAt ?? DateTime.now(),
         imageUrl: widget.eventToEdit?.imageUrl,
         bannerUrl: widget.eventToEdit?.bannerUrl,
-        ticketTiers: _ticketTiers.map((tier) => TicketTier.fromJson(tier)).toList(),
+        ticketTiers: _ticketTiers.map<TicketTier>((tier) => TicketTier.fromJson(tier)).toList(),
+
       );
 
       await service.upsertEvent(event, imageBytes: _pickedImageBytes, bannerBytes: _pickedBannerBytes);
