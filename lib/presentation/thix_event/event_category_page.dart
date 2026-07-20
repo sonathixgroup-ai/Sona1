@@ -7,6 +7,13 @@ import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 import 'widgets/event_card.dart';
 
+class _ThixColors {
+  static const Color primary = Color(0xFF6B3CE2);
+  static const Color lightBg = Color(0xFFF8F9FA);
+  static const Color darkText = Color(0xFF1E1B4B);
+  static const Color mutedText = Color(0xFF8B8BA7);
+}
+
 class EventCategoryPage extends StatefulWidget {
   final String category;
   const EventCategoryPage({super.key, required this.category});
@@ -16,8 +23,17 @@ class EventCategoryPage extends StatefulWidget {
 }
 
 class _EventCategoryPageState extends State<EventCategoryPage> {
+  final ScrollController _scrollController = ScrollController();
+  
   List<Event> _events = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  String? _errorMessage;
+
+  // Pagination dynamique (à lier avec votre Provider/Supabase plus tard)
+  int _currentPage = 0;
+  static const int _limit = 20;
 
   final Map<String, String> _categoryNames = {
     'musique': 'Musique & Concerts',
@@ -32,67 +48,266 @@ class _EventCategoryPageState extends State<EventCategoryPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadEvents();
   }
 
-  Future<void> _loadEvents() async {
-    final provider = context.read<EventProvider>();
-    final events = await provider.fetchEventsByCategory(widget.category);
-    setState(() {
-      _events = events;
-      _isLoading = false;
-    });
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Écouteur de défilement pour l'Infinite Scroll
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoading && !_isLoadingMore && _hasMore) {
+        _loadMoreEvents();
+      }
+    }
+  }
+
+  Future<void> _loadEvents({bool isRefresh = false}) async {
+    if (!mounted) return;
+
+    if (isRefresh) {
+      setState(() {
+        _currentPage = 0;
+        _hasMore = true;
+        _errorMessage = null;
+        // On ne met pas _isLoading à true pour ne pas bloquer l'UI pendant le refresh
+      });
+    } else {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final provider = context.read<EventProvider>();
+      
+      // 💡 NOTE PRODUCTION : Si votre provider gère la pagination, passez _currentPage et _limit ici
+      // ex: provider.fetchEventsByCategory(widget.category, page: _currentPage, limit: _limit);
+      final events = await provider.fetchEventsByCategory(widget.category);
+
+      if (mounted) {
+        setState(() {
+          _events = events;
+          _isLoading = false;
+          // Si le nombre d'événements retournés est inférieur à la limite, on a atteint la fin
+          _hasMore = events.length >= _limit; 
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "Impossible de charger les événements. Veuillez vérifier votre connexion.";
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreEvents() async {
+    if (!mounted) return;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      _currentPage++;
+      final provider = context.read<EventProvider>();
+      
+      // 💡 Appel à adapter si votre backend supporte la pagination
+      final newEvents = await provider.fetchEventsByCategory(widget.category); // Ajouter offset/limit
+      
+      if (mounted) {
+        setState(() {
+          if (newEvents.isEmpty) {
+            _hasMore = false;
+          } else {
+            // Pour l'exemple sans pagination backend, on évite les doublons.
+            // En vraie prod avec Supabase limit/offset, vous ferez juste _events.addAll(newEvents)
+            _hasMore = false; // Désactivé temporairement tant que le backend ne pagine pas
+          }
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: _ThixColors.lightBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+            decoration: const BoxDecoration(color: _ThixColors.lightBg, shape: BoxShape.circle),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: _ThixColors.darkText, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
         ),
         title: Text(
-          _categoryNames[widget.category] ?? widget.category,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+          _categoryNames[widget.category.toLowerCase()] ?? widget.category.toUpperCase(),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ThixColors.darkText),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _events.isEmpty
-              ? _buildEmptyState()
-              : GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.75,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _events.length,
-                  itemBuilder: (context, index) => EventCard(
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: _ThixColors.primary));
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorState();
+    }
+
+    if (_events.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return RefreshIndicator(
+      color: _ThixColors.primary,
+      backgroundColor: Colors.white,
+      onRefresh: () => _loadEvents(isRefresh: true),
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.70, // Ajusté pour donner un peu plus de hauteur aux cartes
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return EventCard(
                     event: _events[index],
                     onTap: () => context.push('/thix-event/event/${_events[index].id}'),
-                  ),
+                  );
+                },
+                childCount: _events.length,
+              ),
+            ),
+          ),
+          if (_isLoadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: CircularProgressIndicator(color: _ThixColors.primary, strokeWidth: 3),
                 ),
+              ),
+            ),
+          // Espace supplémentaire en bas pour que le dernier item ne soit pas collé
+          const SliverToBoxAdapter(child: SizedBox(height: 40)), 
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), shape: BoxShape.circle),
+                    child: const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: _ThixColors.mutedText, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => _loadEvents(),
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.w800)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _ThixColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event_busy, size: 60, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('Aucun événement dans cette catégorie', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text('Revenez plus tard', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-        ],
-      ),
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: _ThixColors.primary.withOpacity(0.05), shape: BoxShape.circle),
+                  child: Icon(Icons.local_activity_outlined, size: 64, color: _ThixColors.primary.withOpacity(0.5)),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Aucun événement trouvé',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ThixColors.darkText),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Il n\'y a pas encore d\'événements\ndans cette catégorie pour le moment.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.5),
+                ),
+                const SizedBox(height: 32),
+                OutlinedButton(
+                  onPressed: () => _loadEvents(isRefresh: true),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _ThixColors.primary,
+                    side: const BorderSide(color: _ThixColors.primary, width: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: const Text('Rafraîchir', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
