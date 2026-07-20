@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/event_provider.dart';
@@ -174,9 +173,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
         final limitService = EventBookingLimitService(Supabase.instance.client);
         await limitService.recordBookingAttempt(widget.eventId, _quantity);
         
-        // 🚀 NOUVELLE LOGIQUE DE REDIRECTION VERS LE PAIEMENT
-        // Au lieu d'aller sur '/my-tickets', on pousse vers la page de paiement
-        // en passant les informations nécessaires via 'extra'
+        // Redirection vers le paiement avec passage des paramètres extra
         context.push('/thix-event/payment', extra: {
           'bookingId': bookingId,
           'amount': _totalPrice,
@@ -331,31 +328,41 @@ class _EventReservationPageState extends State<EventReservationPage> {
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  children: [
-                    _buildTextField(
-                      controller: _nameController,
-                      label: 'Nom complet',
-                      icon: Icons.person_outline_rounded,
-                      validator: (val) => val == null || val.isEmpty ? 'Veuillez entrer votre nom' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _emailController,
-                      label: 'Adresse email',
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (val) => val == null || !val.contains('@') ? 'Veuillez entrer un email valide' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _phoneController,
-                      label: 'Numéro de téléphone',
-                      icon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                      validator: (val) => val == null || val.length < 8 ? 'Veuillez entrer un numéro valide' : null,
-                    ),
-                  ],
+                child: AutofillGroup( // Gère le clavier pour l'auto-remplissage
+                  child: Column(
+                    children: [
+                      _buildTextField(
+                        controller: _nameController,
+                        label: 'Nom complet',
+                        icon: Icons.person_outline_rounded,
+                        autofillHints: const [AutofillHints.name],
+                        // Utilise trim() pour enlever les espaces parasites à la fin
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Veuillez entrer votre nom' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _emailController,
+                        label: 'Adresse email',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        validator: (val) => val == null || !val.trim().contains('@') ? 'Veuillez entrer un email valide' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _phoneController,
+                        label: 'Numéro de téléphone',
+                        icon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        autofillHints: const [AutofillHints.telephoneNumber],
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Veuillez entrer un numéro valide';
+                          if (val.trim().length < 8) return 'Numéro trop court';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -413,13 +420,13 @@ class _EventReservationPageState extends State<EventReservationPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _ThixColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
               child: _isProcessing || _isCheckingLimits
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('CONFIRMER', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                  : const Text('PASSER AU PAIEMENT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1)),
             ),
           ],
         ),
@@ -444,10 +451,12 @@ class _EventReservationPageState extends State<EventReservationPage> {
     required IconData icon, 
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    Iterable<String>? autofillHints,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      autofillHints: autofillHints,
       validator: validator,
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _ThixColors.darkText),
       decoration: InputDecoration(
