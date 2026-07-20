@@ -46,7 +46,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
   bool _isCheckingLimits = false;
   Map<String, dynamic>? _bookingLimit;
 
-  // Remplacement du Mock-up par un vrai formulaire
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -105,13 +104,11 @@ class _EventReservationPageState extends State<EventReservationPage> {
     return _event.price * _quantity;
   }
 
-  // 🟢 NOUVEAU : Devise dynamique et gestion du format
   String get _formattedTotal {
     if (_totalPrice == 0) return 'Gratuit';
     final priceString = _totalPrice.truncateToDouble() == _totalPrice 
         ? _totalPrice.toInt().toString() 
         : _totalPrice.toStringAsFixed(2);
-    // On utilise la devise de l'événement (_event.priceCurrency) au lieu du FC en dur
     return '$priceString ${_event.priceCurrency}';
   }
 
@@ -134,7 +131,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
   }
 
   Future<void> _processReservation() async {
-    // Validation du formulaire avant de continuer
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez remplir correctement vos informations.'), backgroundColor: Colors.red),
@@ -157,8 +153,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
           eventId: widget.eventId,
           quantity: widget.selectedSeats!.length,
           totalPrice: widget.totalPrice ?? _totalPrice,
-          // Vous pourrez passer les infos du formulaire ici si votre provider l'accepte
-          // attendeeName: _nameController.text,
         );
         
         if (booking != null) {
@@ -180,12 +174,17 @@ class _EventReservationPageState extends State<EventReservationPage> {
         final limitService = EventBookingLimitService(Supabase.instance.client);
         await limitService.recordBookingAttempt(widget.eventId, _quantity);
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Réservation confirmée !'), backgroundColor: Colors.green),
-        );
-        context.go('/thix-event/my-tickets');
+        // 🚀 NOUVELLE LOGIQUE DE REDIRECTION VERS LE PAIEMENT
+        // Au lieu d'aller sur '/my-tickets', on pousse vers la page de paiement
+        // en passant les informations nécessaires via 'extra'
+        context.push('/thix-event/payment', extra: {
+          'bookingId': bookingId,
+          'amount': _totalPrice,
+          'currency': _event.priceCurrency,
+        });
+
       } else {
-        throw Exception('Erreur lors de la réservation');
+        throw Exception('Erreur lors de la création de la réservation');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -228,7 +227,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 🟢 RÉSUMÉ DE L'ÉVÉNEMENT
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -273,7 +271,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
                   ),
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: _ThixColors.cardBorder)),
                   
-                  // Sélection de Sièges ou Quantité Simple
                   if (widget.selectedSeats != null && widget.selectedSeats!.isNotEmpty) ...[
                     _buildInfoRow('Places sélectionnées', widget.selectedSeats!.map((s) => s.displayName).join(', ')),
                     const SizedBox(height: 8),
@@ -323,7 +320,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
             ),
             const SizedBox(height: 24),
             
-            // 🟢 FORMULAIRE DU PARTICIPANT (Vrai Formulaire)
             const Text('Vos informations', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
             const SizedBox(height: 12),
             Container(
@@ -385,12 +381,11 @@ class _EventReservationPageState extends State<EventReservationPage> {
                   ],
                 ),
               ),
-            const SizedBox(height: 32), // Espace pour la bottom bar
+            const SizedBox(height: 32),
           ],
         ),
       ),
       
-      // 🟢 BARRE INFÉRIEURE FIXE (Total et Bouton)
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         decoration: BoxDecoration(
@@ -443,7 +438,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
     );
   }
 
-  // Widget de champ de texte réutilisable et stylisé
   Widget _buildTextField({
     required TextEditingController controller, 
     required String label, 
