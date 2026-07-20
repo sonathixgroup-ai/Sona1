@@ -247,7 +247,7 @@ import 'package:thix_id/presentation/thix_urgent/thix_urgent_screen.dart';
 import 'package:thix_id/presentation/thix_urgent/chambre_de_crise/chambre_de_crise_screen.dart';
 import 'package:thix_id/presentation/thix_urgent/providers/thix_urgent_providers.dart';
 import 'package:thix_id/presentation/thix_urgent/controllers/urgent_controller.dart';
-
+import 'package:thix_id/presentation/thix_urgent/pages/gardiens_config_page.dart';
 // ADMIN ALIAS
 import 'presentation/admin/admin_home_page.dart' as thix_admin;
 import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
@@ -334,6 +334,11 @@ class AppRouter {
           final type = extra?['type'] as EmergencyType? ?? EmergencyType.police;
           return NoTransitionPage(child: ChambreDeCriseScreen(criseId: criseId, type: type));
         }),
+        GoRoute(
+  path: '/thix-urgent/config/gardiens',
+  name: 'thixUrgentGardiens',
+  pageBuilder: (_, __) => NoTransitionPage(child: GardiensConfigPage()),
+),
 
         // CHAT
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
