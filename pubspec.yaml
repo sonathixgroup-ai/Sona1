@@ -75,7 +75,7 @@ dependencies:
   mobile_scanner: ^5.0.1
   qr_flutter: ^4.1.0
   barcode_widget: ^2.0.4
-
+  ticket_widget: ^1.2.0
   # OCR & IA
   google_ml_kit: ^0.16.0
 
