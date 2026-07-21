@@ -20,30 +20,29 @@ class EventTicketPage extends StatefulWidget {
   State<EventTicketPage> createState() => _EventTicketPageState();
 }
 
-// 🟢 Ajout de SingleTickerProviderStateMixin pour animer le filigrane
 class _EventTicketPageState extends State<EventTicketPage> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _isQrCodeVisible = false; 
   Map<String, dynamic>? _bookingData;
   Map<String, dynamic>? _eventData;
   
-  late AnimationController _watermarkController;
+  late AnimationController _hologramController;
 
   @override
   void initState() {
     super.initState();
     _fetchTicketData();
     
-    // 🟢 Configuration de l'animation en boucle pour le filigrane mouvant
-    _watermarkController = AnimationController(
+    // 🟢 Configuration de l'animation pour l'effet holographique (boucle continue)
+    _hologramController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 3),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _watermarkController.dispose();
+    _hologramController.dispose();
     super.dispose();
   }
 
@@ -372,7 +371,6 @@ class _EventTicketPageState extends State<EventTicketPage> with SingleTickerProv
                                     ),
                                   ),
                             const SizedBox(height: 12),
-                            // 🟢 TICKET ID MASQUÉ TANT QUE LE PIN N'EST PAS VALIDÉ
                             Text(
                               'Ticket ID: ${_isQrCodeVisible ? qrData.split('-').first.toUpperCase() : maskedTicketId}', 
                               style: const TextStyle(fontSize: 12, color: _ThixColors.mutedText, fontWeight: FontWeight.bold, letterSpacing: 2),
@@ -386,36 +384,77 @@ class _EventTicketPageState extends State<EventTicketPage> with SingleTickerProv
                   ),
                 ),
 
-                // 🟢 FILIGRANE ANIMÉ EN MOUVEMENT CONTINU (Reflet mouvant anti-capture)
+                // 🟢 FILIGRANE HOLOGRAPHIQUE ANIMÉ (Mosaïque THIX SECURE avec reflets arc-en-ciel)
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: AnimatedBuilder(
-                      animation: _watermarkController,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          // Déplace légèrement le filigrane de haut en bas et de gauche à droite en boucle
-                          offset: Offset(
-                            10 * (_watermarkController.value - 0.5),
-                            20 * (_watermarkController.value - 0.5),
-                          ),
-                          child: Center(
-                            child: Transform.rotate(
-                              angle: -0.5,
-                              child: Opacity(
-                                opacity: 0.05,
-                                child: Text(
-                                  'THIX SECURE • ${qrData.split('-').first.toUpperCase()}',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: _ThixColors.darkText,
-                                  ),
-                                ),
-                              ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: AnimatedBuilder(
+                        animation: _hologramController,
+                        builder: (context, child) {
+                          // Animation qui fait glisser le dégradé de couleurs
+                          final double slide = _hologramController.value * 2.0 - 0.5;
+                          
+                          return ShaderMask(
+                            blendMode: BlendMode.srcIn,
+                            shaderCallback: (Rect bounds) {
+                              return LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.transparent,
+                                  const Color(0xFF3B82F6).withOpacity(0.2), // Bleu
+                                  const Color(0xFF6B3CE2).withOpacity(0.25), // Violet
+                                  const Color(0xFF10B981).withOpacity(0.2), // Vert
+                                  const Color(0xFFF59E0B).withOpacity(0.25), // Or
+                                  const Color(0xFFEC4899).withOpacity(0.2), // Rose
+                                  Colors.transparent,
+                                ],
+                                stops: [
+                                  0.0,
+                                  slide - 0.2,
+                                  slide - 0.1,
+                                  slide,
+                                  slide + 0.1,
+                                  slide + 0.2,
+                                  1.0,
+                                ],
+                              ).createShader(bounds);
+                            },
+                            child: child,
+                          );
+                        },
+                        // Motif répété en arrière-plan
+                        child: Transform.scale(
+                          scale: 1.5,
+                          child: Transform.rotate(
+                            angle: -0.2,
+                            child: Wrap(
+                              spacing: 30,
+                              runSpacing: 40,
+                              alignment: WrapAlignment.center,
+                              children: List.generate(100, (index) {
+                                return const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.verified_user_rounded, size: 12, color: Colors.white),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'THIX SECURE',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
                 ),
