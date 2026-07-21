@@ -128,10 +128,10 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
     ]);
   }
 
-    Widget _tabDocs() {
+  Widget _tabDocs() {
     final records = ref.watch(grossesseRecordsProvider(pid));
     return ListView(
-      padding: const EdgeInsets.all(16), 
+      padding: const EdgeInsets.all(16),
       children: [
         if (isDoctor) ElevatedButton.icon(icon: const Icon(Icons.add), label: const Text('Ajouter consultation'), onPressed: () => _addConsultation()),
         OutlinedButton.icon(icon: const Icon(Icons.upload_file), label: const Text('Ajouter PDF écho/analyse'), onPressed: () => _pickDoc()),
@@ -140,15 +140,64 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
           data: (list) => Column(
             children: list.map((r) => Card(
               child: ListTile(
-                title: Text(r.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)), 
+                title: Text(r.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                 subtitle: Text(r.description ?? '', style: const TextStyle(fontSize: 10)),
                 trailing: IconButton(icon: const Icon(Icons.visibility), onPressed: () {}),
               ),
             )).toList(),
-          ), 
-          loading: () => const CircularProgressIndicator(), 
+          ),
+          loading: () => const CircularProgressIndicator(),
           error: (e, _) => Text('Erreur $e'),
         ),
-      ], 
-    ); 
+      ],
+    );
   }
+
+  // ---------------------------------------------------------------------
+  // ⚠️ Méthodes manquantes dans le fichier reçu — appelées dans build()
+  // mais jamais définies. Stubs ajoutés pour permettre la compilation.
+  // Remplace leur contenu par ta vraie implémentation si elle existe
+  // ailleurs (ex: dans une version précédente du fichier).
+  // ---------------------------------------------------------------------
+
+  Widget _tabJournal() {
+    return const Center(child: Text('Journal - à implémenter'));
+  }
+
+  Widget _tabPrepa(PregnancyProfile profile) {
+    return const Center(child: Text('Préparation - à implémenter'));
+  }
+
+  Widget _tabUrgences(PregnancyProfile profile) {
+    return const Center(child: Text('Urgences - à implémenter'));
+  }
+
+  Widget _createProfile() {
+    return const Center(child: Text('Créer un profil de grossesse - à implémenter'));
+  }
+
+  Widget _vitalChip(String label, String type) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 11)),
+      onPressed: () {
+        // TODO: ouvrir le formulaire d'ajout pour ce type de constante
+      },
+    );
+  }
+
+  Future<void> _addConsultation() async {
+    // TODO: implémenter l'ajout d'une consultation (docteur)
+  }
+
+  Future<void> _pickDoc() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
+    if (result == null) return;
+    // TODO: uploader le fichier sélectionné vers le backend / Supabase
+  }
+
+  Future<void> _exportPdf() async {
+    final doc = pw.Document();
+    doc.addPage(pw.Page(build: (context) => pw.Center(child: pw.Text('Suivi de grossesse'))));
+    await Printing.layoutPdf(onLayout: (format) async => doc.save());
+  }
+}
