@@ -1,5 +1,6 @@
 // lib/presentation/thix_sante/sante/screens/suivi_grossesse_page.dart
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,9 +149,21 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
       ])),
       const SizedBox(height:12),
       const Text('🎒 Valise', style: TextStyle(fontWeight: FontWeight.w900)),
-      checks.when(data: (list)=> Column(children: list.map((c)=> CheckboxListTile(value: c.done, title: Text(c.item, style: const TextStyle(fontSize:12)), onChanged: (v) async { await ref.read(grossesseServiceProvider).toggleChecklist(c.id, v!); ref.invalidate(checklistProvider(pid)); })).toList()), loading: ()=> const CircularProgressIndicator(), error: (_,__ )=> const Text('Erreur')),
-    ]);
-  }
+      checks.when(
+  data: (list) => Column(
+    children: list.map<Widget>((c) => CheckboxListTile(
+      value: c.done, 
+      title: Text(c.item, style: const TextStyle(fontSize: 12)), 
+      onChanged: (v) async { 
+        await ref.read(grossesseServiceProvider).toggleChecklist(c.id, v!); 
+        ref.invalidate(checklistProvider(pid)); 
+      }
+    )).toList(),
+  ), 
+  loading: () => const CircularProgressIndicator(), 
+  error: (_, __) => const Text('Erreur')
+)
+
 
   Widget _tabUrgences(PregnancyProfile p)=> ListView(padding: const EdgeInsets.all(16), children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12)), child: const Text('🚨 Saignements, liquide, fièvre >38.5, TA >140, 0 mouvement 12h, contractions <37 SA', style: TextStyle(fontSize:11, color: Color(0xFFB91C1C)))), ListTile(leading: const Icon(Icons.local_hospital, color: Colors.red), title: Text('Maternité DPA ${p.dpa.day}/${p.dpa.month}'), subtitle: const Text('15 / 112 - THIX Urgent'))]);
 
