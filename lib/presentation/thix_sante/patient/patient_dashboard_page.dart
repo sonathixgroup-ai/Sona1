@@ -32,7 +32,6 @@ import 'screens/bien_etre_mental_page.dart';
 import 'screens/nutrition_page.dart';
 import 'screens/activite_physique_page.dart';
 import 'screens/gestion_stress_page.dart';
-import 'screens/don_organes_page.dart';
 
 class DashboardStats {
   final int consultations, examens, medicaments, rdvs;
@@ -200,7 +199,7 @@ class PatientDashboardPage extends ConsumerWidget {
     );
   }
 
-  // SERVICES RAPIDES - 18 items sans doublons
+  // SERVICES RAPIDES - 17 items sans doublons
   Widget _servicesRapides(BuildContext ctx){
     final items = [
       ['Consulter\nmédecin','🩺', const ConsulterMedecinPage()],
@@ -217,7 +216,6 @@ class PatientDashboardPage extends ConsumerWidget {
       ['Dossier\npartagé','🔗', const DossierPartagePage()],
       ['Épidémies','🦠', const EpidemiesPage()],
       ['Don de sang','🩸', const DonSangPage()],
-      ['Don d\'organes','❤️', const DonOrganesPage()],
       ['Rappels\nvaccin','💉', const RappelsVaccinPage()],
       ['Certificat\nmédical','📋', const CertificatMedicalPage()],
       ['Assurance\nsanté','🛡️', const AssuranceSantePage()],
