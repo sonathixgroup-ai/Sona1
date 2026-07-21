@@ -852,18 +852,29 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage>
   }
 
   void _pickDoc() async {
-    final res = await FilePicker.platform
-       .pickFiles(withData: true, type: FileType.custom, allowedExtensions: ['pdf','jpg','png']);
-    if (res == null) return;
-    final f = res.files.first;
-    if (f.bytes == null) return;
-    final uid = pid?? Supabase.instance.client.auth.currentUser!.id;
-    await Supabase.instance.client.storage.from('pregnancy_photos').uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: true));
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-         .showSnackBar(SnackBar(content: Text('${f.name} uploade')));
-    }
+  final res = await FilePicker.platform.pickFiles(
+    withData: true,
+    type: FileType.custom,
+    allowedExtensions: ['pdf', 'jpg', 'png'],
+  );
+  if (res == null) return;
+  final f = res.files.first;
+  if (f.bytes == null) return;
+
+  // Définir les variables manquantes
+  final bytes = f.bytes!;
+  final uid = pid ?? Supabase.instance.client.auth.currentUser!.id;
+  final path = 'docs/$uid/${DateTime.now().millisecondsSinceEpoch}_${f.name}';
+
+  await Supabase.instance.client.storage
+      .from('pregnancy_photos')
+      .uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: true));
+
+  if (mounted) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('${f.name} uploade')));
   }
+}
 
   void _addConsultation() async {
     final t = TextEditingController();
