@@ -58,11 +58,22 @@ class GrossesseService {
 
   Future<List<PregnancyChecklist>> getChecklist(String? pid) async {
     final res = await _db.from('pregnancy_checklist').select().eq('user_id', resolveUid(pid));
-    return (res as List).map((e)=> PregnancyChecklist.fromJson(e)).toList();
+    return (res as List).map((e) => ChecklistItem.fromJson(e)).toList();
+
   }
   Future<void> toggleChecklist(String id, bool done) async {
     await _db.from('pregnancy_checklist').update({'done': done}).eq('id', id);
   }
+Future<String> uploadPhoto(String? patientId, String path, dynamic bytes) async {
+  // Logique d'upload à implémenter
+  return "url_de_la_photo";
+}
+
+Future<void> uploadDoc(String? patientId, String fileName, dynamic bytes) async {
+  // Logique d'upload à implémenter
+}
+
+  
   Future<void> ensureDefaultChecklist(String? pid) async {
     final uid = resolveUid(pid);
     final existing = await _db.from('pregnancy_checklist').select().eq('user_id', uid).limit(1);
