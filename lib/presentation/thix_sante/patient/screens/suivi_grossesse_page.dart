@@ -733,14 +733,117 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
           ]);
 
   Widget _createProfileWizard() {
-    // Reste identique pour éviter d'alourdir, gardez votre logique de Form.
-    return const Center(child: Text("Création de profil... (Voir logique précédente)"));
+    final ctrl = TextEditingController();
+    PregnancyType selectedType = PregnancyType.singleton;
+    
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, 
+              children: [
+                const Text('🤰', style: TextStyle(fontSize: 60)), 
+                const SizedBox(height: 16),
+                const Text('Bienvenue !', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: Color(0xFF1E293B))),
+                const SizedBox(height: 8),
+                const Text('Configurons votre suivi de grossesse.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                const SizedBox(height: 32),
+                
+                DropdownButtonFormField<PregnancyType>(
+                  value: selectedType, 
+                  decoration: InputDecoration(
+                    labelText: 'Type de grossesse',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.people_alt_outlined)
+                  ),
+                  items: PregnancyType.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase()))).toList(), 
+                  onChanged: (v) { if (v != null) setLocal(() => selectedType = v); }
+                ),
+                const SizedBox(height: 16),
+                
+                TextField(
+                  controller: ctrl, 
+                  readOnly: true, 
+                  decoration: InputDecoration(
+                    labelText: 'Date des Dernières Règles (DDR)', 
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.calendar_month, color: ThixSanteColors.primary)
+                  ), 
+                  onTap: () async { 
+                    final d = await showDatePicker(
+                      context: context, 
+                      initialDate: DateTime.now().subtract(const Duration(days: 60)), 
+                      firstDate: DateTime.now().subtract(const Duration(days: 300)), 
+                      lastDate: DateTime.now()
+                    ); 
+                    if (d != null) setLocal(() => ctrl.text = d.toIso8601String().substring(0, 10)); 
+                  }
+                ),
+                
+                const SizedBox(height: 32), 
+                
+                SizedBox(
+                  width: double.infinity, 
+                  height: 55, 
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ThixSanteColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 4
+                    ),
+                    onPressed: () async { 
+                      if (ctrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez entrer la DDR')));
+                        return;
+                      }
+                      // Enregistrement dans Supabase
+                      await ref.read(grossesseServiceProvider).createProfile(pid, DateTime.parse(ctrl.text), selectedType); 
+                      // Rafraîchissement de la page
+                      ref.invalidate(grossesseProfileProvider(pid)); 
+                    }, 
+                    child: const Text('DÉMARRER MON SUIVI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16))
+                  )
+                ),
+              ]
+            )
+          )
+        );
+      }
+    );
   }
 
-  Widget _riskAlerts(PregnancyProfile profile) {
-    // Logique identique
-    return const SizedBox(); 
+    Widget _riskAlerts(PregnancyProfile profile) {
+    final vitals = ref.watch(vitalsProvider(pid)).value ?? [];
+    final kicks = ref.watch(kicksProvider(pid)).value ?? [];
+    final contractions = ref.watch(contractionsProvider(pid)).value ?? [];
+    final risks = ref.read(grossesseServiceProvider).calculateRisks(sa: profile.sa, vitals: vitals, kicks: kicks, contractions: contractions);
+    
+    if (risks.isEmpty) {
+      return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green.shade200)),
+          child: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text("Grossesse normale - Pensez à vos vitamines", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF166534))))
+          ]));
+    }
+    return Column(
+        children: risks.map((r) => Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFB91C1C), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(r, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFB91C1C))))
+                ]))).toList());
   }
+
   
   // ================= MÉTHODES (Ajout, Upload, etc.) =================
   
