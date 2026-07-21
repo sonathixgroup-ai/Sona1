@@ -22,6 +22,7 @@ class EventTicketPage extends StatefulWidget {
 
 class _EventTicketPageState extends State<EventTicketPage> {
   bool _isLoading = true;
+  bool _isQrCodeVisible = false; // 🟢 État pour masquer/afficher le QR code
   Map<String, dynamic>? _bookingData;
   Map<String, dynamic>? _eventData;
 
@@ -34,7 +35,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
   Future<void> _fetchTicketData() async {
     try {
       final supabase = Supabase.instance.client;
-      // Récupère la réservation ET les infos de l'événement lié
       final response = await supabase
           .from('event_bookings')
           .select('*, events(*)')
@@ -50,6 +50,87 @@ class _EventTicketPageState extends State<EventTicketPage> {
       debugPrint('Erreur chargement ticket: $e');
       setState(() => _isLoading = false);
     }
+  }
+
+  // 🟢 Fonction de vérification du code PIN avant d'afficher le QR code
+  void _promptForPinToRevealQr() {
+    final TextEditingController pinInputController = TextEditingController();
+    final correctPin = _bookingData!['pin_code']?.toString() ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_rounded, color: _ThixColors.primary, size: 22),
+            SizedBox(width: 8),
+            Text('Sécurité du Billet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Entrez votre code PIN personnel à 4 chiffres pour afficher le QR code d\'accès :',
+              style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinInputController,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              obscureText: true,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 4),
+              decoration: InputDecoration(
+                counterText: '',
+                hintText: '••••',
+                filled: true,
+                fillColor: const Color(0xFFF8F7FF),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.primary, width: 1.5)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler', style: TextStyle(color: _ThixColors.mutedText, fontWeight: FontWeight.w700)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (pinInputController.text.trim() == correctPin) {
+                setState(() => _isQrCodeVisible = true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('QR code déverrouillé avec succès !'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Code PIN incorrect !'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _ThixColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text('Confirmer', style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -75,13 +156,10 @@ class _EventTicketPageState extends State<EventTicketPage> {
     final quantity = _bookingData!['ticket_quantity'] ?? 1;
     final category = _bookingData!['ticket_category'] ?? 'Standard';
     
-    // Récupération du Code PIN de sécurité personnel enregistré en base
     final pinCode = _bookingData!['pin_code']?.toString() ?? '****';
-    
-    // Le QR Code contiendra cet ID unique pour le scan à la porte
     final qrData = _bookingData!['id'].toString(); 
 
-    // 🟢 GESTION DYNAMIQUE DES ÉTATS DU BILLET
+    // Gestion dynamique des états
     final String rawStatus = (_bookingData!['status'] ?? 'confirmed').toString().toLowerCase();
     final bool isPaid = (_bookingData!['payment_status'] ?? 'paid').toString().toLowerCase() == 'paid';
     
@@ -99,7 +177,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
       statusBgColor = Colors.red.withOpacity(0.1);
     } else if (rawStatus == 'postponed') {
       statusLabel = 'REPORTÉ';
-      statusColor = const Color(0xFFF59E0B); // Orange
+      statusColor = const Color(0xFFF59E0B);
       statusBgColor = const Color(0xFFF59E0B).withOpacity(0.1);
     } else if (eventDateTime.isBefore(DateTime.now())) {
       statusLabel = 'EXPIRÉ';
@@ -118,7 +196,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => context.go('/thix-event'), // Retour à l'accueil
+          onPressed: () => context.go('/thix-event'),
         ),
         title: const Text('Votre Billet Sécurisé', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         centerTitle: true,
@@ -127,7 +205,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           children: [
-            // 🎟️ LE BILLET AVEC FILIGRANE ET STATUT DYNAMIQUE
             Stack(
               children: [
                 Container(
@@ -139,7 +216,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // HAUT : Flyer de l'événement
                       if (imageUrl != null)
                         ClipRRect(
                           borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
@@ -155,7 +231,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                           child: const Center(child: Icon(Icons.event, size: 50, color: Colors.white54)),
                         ),
                       
-                      // MILIEU : Informations du ticket
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
@@ -171,7 +246,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                               children: [
                                 Expanded(child: _buildTicketDetail('Billet(s)', '$quantity')),
                                 Expanded(child: _buildTicketDetail('Type', category)), 
-                                // 🟢 STATUT DYNAMIQUE (VALIDE, UTILISÉ, EXPIRÉ, ETC.)
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,7 +270,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                             ),
                             const SizedBox(height: 16),
                             
-                            // 🔒 AFFICHAGE DU CODE PIN DE SÉCURITÉ PERSONNEL
+                            // AFFICHAGE DU CODE PIN (MASQUÉ OU PARTIEL)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -216,7 +290,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                                     ],
                                   ),
                                   Text(
-                                    pinCode,
+                                    _isQrCodeVisible ? pinCode : '••••', // Masqué si le QR code est verrouillé
                                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 3, color: _ThixColors.primary),
                                   ),
                                 ],
@@ -226,7 +300,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                         ),
                       ),
 
-                      // LIGNE DE DÉCOUPE (Effet visuel ticket)
                       Stack(
                         children: [
                           const Divider(color: Colors.grey, height: 1, thickness: 1, indent: 20, endIndent: 20),
@@ -235,25 +308,56 @@ class _EventTicketPageState extends State<EventTicketPage> {
                         ],
                       ),
 
-                      // BAS : QR CODE PROPRE
+                      // 🟢 ZONE SÉCURISÉE DU QR CODE
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFEEE9FF), width: 2),
-                              ),
-                              child: QrImageView(
-                                data: qrData,
-                                version: QrVersions.auto,
-                                size: 150.0,
-                                foregroundColor: _ThixColors.darkText,
-                              ),
-                            ),
+                            _isQrCodeVisible
+                                ? Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: const Color(0xFFEEE9FF), width: 2),
+                                    ),
+                                    child: QrImageView(
+                                      data: qrData,
+                                      version: QrVersions.auto,
+                                      size: 150.0,
+                                      foregroundColor: _ThixColors.darkText,
+                                    ),
+                                  )
+                                : Container(
+                                    height: 174,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8F7FF),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: const Color(0xFFEEE9FF), width: 2),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.lock_outline_rounded, size: 36, color: _ThixColors.primary),
+                                        const SizedBox(height: 12),
+                                        const Text('QR Code masqué pour sécurité', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
+                                        const SizedBox(height: 12),
+                                        ElevatedButton.icon(
+                                          onPressed: _promptForPinToRevealQr,
+                                          icon: const Icon(Icons.visibility_rounded, size: 16),
+                                          label: const Text('Afficher le QR code', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _ThixColors.primary,
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                             const SizedBox(height: 12),
                             Text('Ticket ID: ${qrData.split('-').first.toUpperCase()}', style: const TextStyle(fontSize: 12, color: _ThixColors.mutedText, fontWeight: FontWeight.bold, letterSpacing: 2)),
                             const SizedBox(height: 4),
@@ -265,7 +369,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                   ),
                 ),
 
-                // 🌊 FILIGRANE VISUEL ANTI-CAPTURE
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Center(
@@ -290,7 +393,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
             ),
             const SizedBox(height: 32),
             
-            // Bouton d'action
             OutlinedButton.icon(
               onPressed: () {}, 
               icon: const Icon(Icons.download_rounded),
