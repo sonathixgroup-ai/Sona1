@@ -38,7 +38,7 @@ final nearbyPharmaciesProvider = FutureProvider<List<Map<String,dynamic>>>((ref)
     final res = await supabase
         .from('thix_pharmacies')
         .select()
-        .in_('id', allIds.toList())
+        .inFilter('id', allIds.toList()) // CORRIGÉ ICI (inFilter au lieu de in_)
         .order('rating', ascending: false);
 
     var list = List<Map<String, dynamic>>.from(res);
@@ -323,7 +323,8 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
     );
   }
 
-  Widget _showCheckout() {
+  // CORRIGÉ ICI (void au lieu de Widget)
+  void _showCheckout() {
     showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (_){
       final cart = ref.watch(cartProvider);
       return Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
