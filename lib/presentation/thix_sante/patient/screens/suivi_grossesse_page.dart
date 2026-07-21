@@ -128,10 +128,27 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
     ]);
   }
 
-  Widget _tabDocs(){
+    Widget _tabDocs() {
     final records = ref.watch(grossesseRecordsProvider(pid));
-    return ListView(padding: const EdgeInsets.all(16), children: [
-      if(isDoctor) ElevatedButton.icon(icon: const Icon(Icons.add), label: const Text('Ajouter consultation'), onPressed: ()=> _addConsultation()),
-      OutlinedButton.icon(icon: const Icon(Icons.upload_file), label: const Text('Ajouter PDF echo/analyse'), onPressed: ()=> _pickDoc()),
-      const SizedBox(height:12),
-      records.when(data: (list)=> Column(children: list.map((r)=> Card(child: ListTile(title: Text(r.title, style: const TextStyle(fontSize:12, fontWeight: FontWeight.w700)), subtitle: Text(r.description??'', style: const TextStyle(fontSize:10))))).toList()),
+    return ListView(
+      padding: const EdgeInsets.all(16), 
+      children: [
+        if (isDoctor) ElevatedButton.icon(icon: const Icon(Icons.add), label: const Text('Ajouter consultation'), onPressed: () => _addConsultation()),
+        OutlinedButton.icon(icon: const Icon(Icons.upload_file), label: const Text('Ajouter PDF écho/analyse'), onPressed: () => _pickDoc()),
+        const SizedBox(height: 12),
+        records.when(
+          data: (list) => Column(
+            children: list.map((r) => Card(
+              child: ListTile(
+                title: Text(r.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)), 
+                subtitle: Text(r.description ?? '', style: const TextStyle(fontSize: 10)),
+                trailing: IconButton(icon: const Icon(Icons.visibility), onPressed: () {}),
+              ),
+            )).toList(),
+          ), 
+          loading: () => const CircularProgressIndicator(), 
+          error: (e, _) => Text('Erreur $e'),
+        ),
+      ], 
+    ); 
+  }
