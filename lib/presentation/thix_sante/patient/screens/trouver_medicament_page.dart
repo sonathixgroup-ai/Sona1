@@ -293,14 +293,14 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E)),
           onPressed: () async {
             Navigator.pop(context);
-            // Ici tu lances le tracking map comme sur la photo
+            // CORRECTION ICI: Un point-virgule (;) a été mis au lieu de la virgule (,) !
             showDialog(context: context, builder: (_)=> Dialog(child: Container(height: 500, padding: const EdgeInsets.all(16), child: Column(children: [
               const Text('Deliveryman arriving in 20 mins', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Expanded(child: Container(decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(12)), child: const Center(child: Icon(Icons.map_rounded, size: 60, color: Colors.grey)))),
               const SizedBox(height: 12),
               const ListTile(leading: CircleAvatar(), title: Text('Pediatrician'), subtitle: Text('Dr. Olivia Blanton')),
-            ])))),
+            ])))); 
           },
           child: const Text('CONFIRMER COMMANDE - LIVRAISON 20MIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         )),
