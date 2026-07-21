@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,101 @@ import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/user_service.dart';
 import 'package:thix_id/theme.dart';
+
+// ============================================================================
+// THIX ID — GÉNÉRATION & VALIDATION (déterministe, avec clé de contrôle réelle)
+// ============================================================================
+//
+// Format : THIX-<PAYS>-<MMAA>-<5 chiffres>-<3 lettres>-<clé>
+// La clé de contrôle est calculée à partir des autres segments (checksum),
+// pas tirée au hasard : elle permet de VALIDER un THIX ID a posteriori
+// (ex: scan d'un QR code, support client) sans requête serveur.
+class ThixIdGenerator {
+  static const _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  static final _secureRandom = Random.secure();
+
+  static String _countryCode(String? fullCountryName) {
+    switch (fullCountryName) {
+      case 'République Démocratique du Congo':
+        return 'CD';
+      case 'Rwanda':
+        return 'RW';
+      case 'Burundi':
+        return 'BI';
+      case 'Ouganda':
+        return 'UG';
+      case 'Angola':
+        return 'AO';
+      case "Côte d'Ivoire":
+        return 'CI';
+      case 'Sénégal':
+        return 'SN';
+      case 'Cameroun':
+        return 'CM';
+      case 'France':
+        return 'FR';
+      case 'Belgique':
+        return 'BE';
+      case 'Canada':
+        return 'CA';
+      case 'États-Unis':
+        return 'US';
+      default:
+        return 'XX';
+    }
+  }
+
+  /// Calcule la clé de contrôle (0-9) à partir du corps de l'identifiant.
+  /// Algorithme simple pondéré (type Luhn simplifié) — suffisant pour
+  /// détecter une faute de frappe ou un ID falsifié côté client.
+  static int _checkDigit(String body) {
+    var sum = 0;
+    for (var i = 0; i < body.length; i++) {
+      final code = body.codeUnitAt(i);
+      final weight = (i % 2 == 0) ? 3 : 7;
+      sum += code * weight;
+    }
+    return sum % 10;
+  }
+
+  /// Génère un nouveau THIX ID. Ne garantit pas l'unicité globale à lui
+  /// seul : l'appelant doit retenter en cas de conflit d'unicité en base
+  /// (contrainte UNIQUE requise sur la colonne thix_id).
+  static String generate(String countryName) {
+    final codePays = _countryCode(countryName);
+
+    final now = DateTime.now();
+    final dateStr =
+        '${now.month.toString().padLeft(2, '0')}${now.year.toString().substring(2)}';
+
+    final variable = _secureRandom.nextInt(90000) + 10000; // 10000-99999
+
+    final codeCompl = String.fromCharCodes(
+      Iterable.generate(
+        3,
+        (_) => _alphabet.codeUnitAt(_secureRandom.nextInt(_alphabet.length)),
+      ),
+    );
+
+    final body = '$codePays-$dateStr-$variable-$codeCompl';
+    final cleVerif = _checkDigit(body);
+
+    return 'THIX-$body-$cleVerif';
+  }
+}
+
+/// Validateur autonome — utilisable ailleurs dans l'app (scan QR, écran
+/// support) sans dépendre du Supabase client.
+class ThixIdValidator {
+  static bool isValid(String thixId) {
+    final parts = thixId.split('-');
+    if (parts.length != 6 || parts[0] != 'THIX') return false;
+    final body = parts.sublist(1, 5).join('-');
+    final expected = ThixIdGenerator._checkDigit(body);
+    final actual = int.tryParse(parts[5]);
+    return actual != null && actual == expected;
+  }
+}
 
 // ============================================================================
 // PAGE D'INSCRIPTION SIMPLIFIÉE (2 ÉTAPES)
@@ -42,8 +139,13 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _thixIdGenerated = '';
   String _uid = '';
   bool _isLoading = false;
-  bool _otpSent = false; // indique si le code a été envoyé (pour affichage)
+  bool _otpSent = false;
+  bool _isNavigating = false; // garde anti double-tap pour la navigation d'étape
   int _step = 1;
+
+  Timer? _resendTimer;
+  int _resendCooldown = 0; // secondes restantes avant de pouvoir renvoyer l'OTP
+  static const int _resendCooldownDuration = 45;
 
   static const List<String> _countryList = [
     'République Démocratique du Congo',
@@ -71,87 +173,118 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     _confirmC.dispose();
     _otpC.dispose();
     _thixChatC.dispose();
+    _resendTimer?.cancel();
     super.dispose();
   }
 
-  void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-
-  String _rawError(Object e) {
-    if (e is AuthException) return 'Erreur: ${e.message}';
-    if (e is PostgrestException) return 'Erreur: ${e.message} (code: ${e.code})';
-    return e.toString();
-  }
-
-  // ---------- Traduction du pays en Code ISO ----------
-  String _getCountryCode(String? fullCountryName) {
-    switch (fullCountryName) {
-      case 'République Démocratique du Congo': return 'CD';
-      case 'Rwanda': return 'RW';
-      case 'Burundi': return 'BI';
-      case 'Ouganda': return 'UG';
-      case 'Angola': return 'AO';
-      case "Côte d'Ivoire": return 'CI';
-      case 'Sénégal': return 'SN';
-      case 'Cameroun': return 'CM';
-      case 'France': return 'FR';
-      case 'Belgique': return 'BE';
-      case 'Canada': return 'CA';
-      case 'États-Unis': return 'US';
-      default: return 'XX';
-    }
-  }
-
-  // ---------- Générateur Algorithmique du Format Officiel THIX ID ----------
-  String _generateOfficialThixId(String countryName) {
-    final rand = Random();
-    
-    // 1. Pays (ex: CD)
-    final codePays = _getCountryCode(countryName);
-    
-    // 2. Date (MMAA - ex: 0726 pour Juillet 2026)
-    final now = DateTime.now();
-    final dateStr = '${now.month.toString().padLeft(2, '0')}${now.year.toString().substring(2)}';
-    
-    // 3. Variable (5 chiffres aléatoires)
-    final variable = rand.nextInt(90000) + 10000; // De 10000 à 99999
-    
-    // 4. Code complémentaire (3 lettres majuscules aléatoires)
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    final codeCompl = String.fromCharCodes(
-      Iterable.generate(3, (_) => alphabet.codeUnitAt(rand.nextInt(alphabet.length))),
+  void _snack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red.shade600 : null,
+      ),
     );
-    
-    // 5. Clé de vérification (1 chiffre calculé ou aléatoire unique)
-    final cleVerif = rand.nextInt(10);
-    
-    // Assemblage final : THIX-CD-0726-48392-NJK-7
-    return 'THIX-$codePays-$dateStr-$variable-$codeCompl-$cleVerif';
+  }
+
+  // ---------- Traduction des erreurs techniques en messages utilisateur ----------
+  // Les messages bruts de Supabase (codes internes, contraintes SQL...) ne
+  // doivent jamais remonter tels quels à l'utilisateur : on les journalise
+  // pour le debug et on renvoie un message générique et rassurant.
+  String _userFacingError(Object e) {
+    if (kDebugMode) {
+      debugPrint('[PersonalRegistration] erreur brute: $e');
+    }
+    if (e is AuthException) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('already registered') || msg.contains('already exists')) {
+        return 'Un compte existe déjà avec cet email.';
+      }
+      if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
+        return 'Email ou mot de passe incorrect.';
+      }
+      if (msg.contains('token') && (msg.contains('expired') || msg.contains('invalid'))) {
+        return 'Le code saisi est invalide ou a expiré. Demandez un nouveau code.';
+      }
+      if (msg.contains('rate limit') || msg.contains('too many')) {
+        return 'Trop de tentatives. Merci de patienter quelques instants.';
+      }
+      return 'Une erreur est survenue lors de la vérification. Réessayez.';
+    }
+    if (e is PostgrestException) {
+      if (e.code == '23505') {
+        return 'Ce THIX CHAT est déjà pris, merci d\'en choisir un autre.';
+      }
+      return 'Une erreur est survenue côté serveur. Réessayez dans un instant.';
+    }
+    return 'Une erreur inattendue est survenue. Réessayez.';
+  }
+
+  // ---------- Validation ----------
+  bool _isValidEmail(String email) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+
+  String? _passwordIssue(String pass) {
+    if (pass.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
+    if (!RegExp(r'[A-Za-z]').hasMatch(pass) || !RegExp(r'[0-9]').hasMatch(pass)) {
+      return 'Le mot de passe doit contenir au moins une lettre et un chiffre.';
+    }
+    return null;
+  }
+
+  bool _isValidThixChat(String chat) {
+    // Format attendu : @ + 3 à 20 caractères parmi lettres minuscules,
+    // chiffres, point et underscore.
+    return RegExp(r'^@[a-z0-9._]{3,20}$').hasMatch(chat);
   }
 
   // ---------- Navigation étape 1 → 2 ----------
   Future<void> _goToStep2() async {
+    if (_isNavigating) return;
     final name = _nameC.text.trim();
     final dob = _dobC.text.trim();
-    if (name.isEmpty) return _snack('Nom complet requis.');
-    if (dob.isEmpty) return _snack('Date de naissance requise.');
-    if (_country == null) return _snack('Veuillez choisir votre pays.');
+    if (name.isEmpty) return _snack('Nom complet requis.', isError: true);
+    if (dob.isEmpty) return _snack('Date de naissance requise.', isError: true);
+    if (_country == null) return _snack('Veuillez choisir votre pays.', isError: true);
+
+    _isNavigating = true;
     setState(() => _step = 2);
+    _isNavigating = false;
+  }
+
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendCooldown = _resendCooldownDuration);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCooldown <= 1) {
+        timer.cancel();
+        setState(() => _resendCooldown = 0);
+      } else {
+        setState(() => _resendCooldown -= 1);
+      }
+    });
   }
 
   // ---------- Envoi du code OTP (inscription) ----------
   Future<void> _sendOtp() async {
-    if (_isLoading) return;
+    if (_isLoading || _resendCooldown > 0) return;
 
-    final email = _emailC.text.trim();
+    final email = _emailC.text.trim().toLowerCase();
     final pass = _passwordC.text;
     final confirm = _confirmC.text;
 
-    if (email.isEmpty || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return _snack('Email invalide.');
+    if (email.isEmpty || !_isValidEmail(email)) {
+      return _snack('Email invalide.', isError: true);
     }
-    if (pass.length < 8) return _snack('Mot de passe : minimum 8 caractères.');
-    if (pass != confirm) return _snack('Les mots de passe ne correspondent pas.');
+    final passIssue = _passwordIssue(pass);
+    if (passIssue != null) return _snack(passIssue, isError: true);
+    if (pass != confirm) {
+      return _snack('Les mots de passe ne correspondent pas.', isError: true);
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -170,19 +303,21 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         },
       );
       _otpSent = true;
-      _snack('Code de vérification envoyé à votre email.');
+      _startResendCooldown();
+      _snack('Un code OTP vous a été envoyé par email.');
     } catch (e) {
       final message = e is AuthException ? e.message.toLowerCase() : '';
       if (message.contains('inscription enregistrée') ||
           message.contains('confirm') ||
           message.contains('confirmez')) {
         _otpSent = true;
-        _snack('Code de vérification envoyé à votre email.');
+        _startResendCooldown();
+        _snack('Un code OTP vous a été envoyé par email.');
       } else {
-        _snack(_rawError(e));
+        _snack(_userFacingError(e), isError: true);
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -192,47 +327,73 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 
     final code = _otpC.text.trim();
     if (code.isEmpty) {
-      _snack('Veuillez saisir le code reçu par email.');
+      _snack('Veuillez saisir le code reçu par email.', isError: true);
+      return;
+    }
+
+    final desiredChatRaw = _thixChatC.text.trim();
+    final desiredChat = desiredChatRaw.isNotEmpty
+        ? desiredChatRaw
+        : _suggestChatFromName(_nameC.text.trim());
+    if (!_isValidThixChat(desiredChat)) {
+      _snack(
+        'THIX CHAT invalide : utilisez 3 à 20 caractères (lettres minuscules, chiffres, "." ou "_").',
+        isError: true,
+      );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
-      // Vérification du code OTP
-      await auth.verifyOTP(email: _emailC.text.trim(), token: code);
-      _snack('Email vérifié avec succès !');
+      await auth.verifyOTP(email: _emailC.text.trim().toLowerCase(), token: code);
 
       final me = auth.currentUser;
-      if (me == null) throw Exception('Utilisateur introuvable après vérification.');
+      if (me == null) {
+        throw Exception('Utilisateur introuvable après vérification.');
+      }
 
-      // ✅ Nouvelle Génération immédiate au format officiel THIX
-      final officialThixId = _generateOfficialThixId(_country ?? 'Autre');
-      _thixIdGenerated = officialThixId;
-      _uid = me.id;
-
-      // Récupération ou suggestion du THIX CHAT
-      final desiredChat = _thixChatC.text.trim().isNotEmpty
-          ? _thixChatC.text.trim()
-          : _suggestChatFromName(_nameC.text.trim());
-
-      // Réservation du THIX CHAT (unique)
+      // Réservation du THIX CHAT (unique) — la logique d'unicité est gérée
+      // côté service / contrainte UNIQUE en base.
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
 
-      // Mise à jour finale et activation immédiate dans Supabase
-      await _userService.updateProfile(
-        uid: me.id,
-        thixId: officialThixId,
-        thixChat: claimed,
-        registrationStatus: 'active',
-      );
+      // Génération + assignation du THIX ID avec retry en cas de collision.
+      // Nécessite une contrainte UNIQUE sur la colonne thix_id côté Supabase :
+      // en cas de conflit, Postgres renvoie le code d'erreur '23505'.
+      const maxAttempts = 5;
+      String officialThixId = '';
+      var assigned = false;
+      for (var attempt = 0; attempt < maxAttempts && !assigned; attempt++) {
+        officialThixId = ThixIdGenerator.generate(_country ?? 'Autre');
+        try {
+          await _userService.updateProfile(
+            uid: me.id,
+            thixId: officialThixId,
+            thixChat: claimed,
+            registrationStatus: 'active',
+          );
+          assigned = true;
+        } on PostgrestException catch (e) {
+          final isUniqueViolation = e.code == '23505';
+          if (isUniqueViolation && attempt < maxAttempts - 1) {
+            continue; // collision sur thix_id, on retente avec un nouvel ID
+          }
+          rethrow;
+        }
+      }
+      if (!assigned) {
+        throw Exception('Impossible de générer un THIX ID unique pour le moment.');
+      }
 
+      _thixIdGenerated = officialThixId;
+      _uid = me.id;
       _thixChatC.text = claimed;
-      setState(() => _step = 3);
+      _snack('Email vérifié avec succès !');
+      if (mounted) setState(() => _step = 3);
     } catch (e) {
-      _snack(_rawError(e));
+      _snack(_userFacingError(e), isError: true);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -372,6 +533,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
           onSendOtp: _sendOtp,
           isOtpSent: _otpSent,
           isLoading: _isLoading,
+          resendCooldown: _resendCooldown,
         );
       case 3:
         return _Step3Final(
@@ -480,7 +642,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
 }
 
 // ============================================================================
-// SOUS-WIDGETS (SANS CHANGEMENT)
+// SOUS-WIDGETS
 // ============================================================================
 
 class _Step1Profile extends StatelessWidget {
@@ -595,6 +757,7 @@ class _Step2Account extends StatelessWidget {
   final TextEditingController emailC, passwordC, confirmC, otpC, thixChatC;
   final VoidCallback onSendOtp;
   final bool isOtpSent, isLoading;
+  final int resendCooldown;
 
   const _Step2Account({
     required this.emailC,
@@ -605,10 +768,12 @@ class _Step2Account extends StatelessWidget {
     required this.onSendOtp,
     required this.isOtpSent,
     required this.isLoading,
+    required this.resendCooldown,
   });
 
   @override
   Widget build(BuildContext context) {
+    final canResend = !isLoading && resendCooldown == 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -637,7 +802,7 @@ class _Step2Account extends StatelessWidget {
           controller: passwordC,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: 'Mot de passe * (8 caractères min)',
+            labelText: 'Mot de passe * (8 car. min, 1 lettre + 1 chiffre)',
             prefixIcon: const Icon(Icons.lock_outline),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -661,17 +826,20 @@ class _Step2Account extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: isLoading ? null : onSendOtp,
+                onPressed: canResend ? onSendOtp : null,
                 icon: Icon(
                   isOtpSent ? Icons.refresh : Icons.send,
                   size: 18,
                 ),
                 label: Text(
-                  isOtpSent ? '🔁 Renvoyer le code OTP' : '📩 Envoyer le code OTP',
+                  !canResend && resendCooldown > 0
+                      ? 'Renvoyer dans ${resendCooldown}s'
+                      : (isOtpSent ? 'Renvoyer le code OTP' : 'Envoyer le code OTP'),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: LightModeColors.accent,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: LightModeColors.accent.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -682,10 +850,42 @@ class _Step2Account extends StatelessWidget {
           ],
         ),
         if (isOtpSent) ...[
-          const SizedBox(height: 8),
-          Text(
-            '✅ Un code a été envoyé à votre adresse email.',
-            style: TextStyle(color: Colors.green.shade700, fontSize: 14),
+          const SizedBox(height: 12),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.mark_email_read_outlined, color: Colors.blue.shade700),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Un code OTP vous a été envoyé par email',
+                        style: TextStyle(
+                          color: Colors.blue.shade800,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Vérifiez aussi vos spams. Le code expire après quelques minutes.',
+                        style: TextStyle(color: Colors.blue.shade700, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
         const SizedBox(height: 16),
@@ -714,7 +914,7 @@ class _Step2Account extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères)',
+          'Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères : lettres, chiffres, "." ou "_")',
           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
       ],
@@ -766,11 +966,33 @@ class _Step3Final extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _buildInfoTile(context, 'THIX ID', thixId, Icons.verified_user, Colors.blue, showCopy: true),
-        const SizedBox(height: 12),
-        _buildInfoTile(context, 'THIX CHAT', thixChat, Icons.chat, Colors.orange, showCopy: false),
-        const SizedBox(height: 12),
-        _buildInfoTile(context, 'UID (identifiant unique)', uid, Icons.fingerprint, Colors.grey, showCopy: false),
+        // Liste groupée style natif (une seule carte, lignes séparées par
+        // des dividers) plutôt que 3 blocs colorés séparés.
+        _NativeInfoGroup(
+          rows: [
+            _NativeInfoRow(
+              label: 'THIX ID',
+              value: thixId,
+              icon: Icons.verified_user,
+              iconColor: Colors.blue,
+              showCopy: true,
+            ),
+            _NativeInfoRow(
+              label: 'THIX CHAT',
+              value: thixChat,
+              icon: Icons.chat,
+              iconColor: Colors.orange,
+              showCopy: true,
+            ),
+            _NativeInfoRow(
+              label: 'UID (identifiant unique)',
+              value: uid,
+              icon: Icons.fingerprint,
+              iconColor: Colors.grey.shade700,
+              showCopy: false,
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(16),
@@ -793,38 +1015,94 @@ class _Step3Final extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Format THIX ID : ${thixId.substring(0, 15)}... (clé de vérification incluse)',
+          'Format THIX ID : ${thixId.length >= 15 ? thixId.substring(0, 15) : thixId}... (clé de vérification incluse)',
           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
       ],
     );
   }
+}
 
-  Widget _buildInfoTile(BuildContext context, String label, String value, IconData icon, Color color, {bool showCopy = false}) {
+/// Ligne d'information réutilisable pour une liste groupée native.
+class _NativeInfoRow {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color iconColor;
+  final bool showCopy;
+
+  const _NativeInfoRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.iconColor,
+    required this.showCopy,
+  });
+}
+
+/// Groupe de lignes façon "Réglages iOS" / Material grouped list :
+/// une seule carte blanche arrondie, lignes séparées par de fins dividers,
+/// icône ronde colorée à gauche, label + valeur, bouton copier à droite.
+class _NativeInfoGroup extends StatelessWidget {
+  final List<_NativeInfoRow> rows;
+  const _NativeInfoGroup({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            _buildRow(context, rows[i]),
+            if (i != rows.length - 1)
+              Divider(height: 1, indent: 60, endIndent: 16, color: Colors.grey.shade200),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, _NativeInfoRow row) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(icon, color: color),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: row.iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(row.icon, color: row.iconColor, size: 18),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  row.label,
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  value,
+                  row.value,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -832,19 +1110,20 @@ class _Step3Final extends StatelessWidget {
               ],
             ),
           ),
-          if (showCopy)
+          if (row.showCopy)
             IconButton(
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: value));
+                Clipboard.setData(ClipboardData(text: row.value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$label copié dans le presse-papier !'),
+                    content: Text('${row.label} copié dans le presse-papier !'),
                     backgroundColor: Colors.green,
                   ),
                 );
               },
               icon: const Icon(Icons.copy, size: 18),
               tooltip: 'Copier',
+              visualDensity: VisualDensity.compact,
             ),
         ],
       ),
