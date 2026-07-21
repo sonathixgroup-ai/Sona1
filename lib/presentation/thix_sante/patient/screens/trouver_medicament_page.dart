@@ -2,119 +2,170 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../core/thix_sante_colors.dart';
+
+// ================= COULEURS DU DESIGN =================
+const Color tealColor = Color(0xFF14B8A6); // Couleur turquoise de l'image
 
 // ================= PROVIDERS =================
 final searchQueryProvider = StateProvider<String>((ref) => '');
 final selectedCategoryProvider = StateProvider<String?>((ref) => null);
-final selectedPharmacyProvider = StateProvider<Map<String,dynamic>?>((ref) => null);
+final selectedPharmacyProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
 
-final nearbyPharmaciesProvider = FutureProvider<List<Map<String,dynamic>>>((ref) async {
+final nearbyPharmaciesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final supabase = Supabase.instance.client;
   final query = ref.watch(searchQueryProvider);
   final cat = ref.watch(selectedCategoryProvider);
 
   if (query.isNotEmpty) {
-    // 1. Chercher les pharmacies dont le nom correspond
+    // 1. Chercher les pharmacies dont le nom correspond (table: pharmacy)
     final matchingPharmacies = await supabase
-        .from('thix_pharmacies')
+        .from('pharmacy')
         .select()
         .ilike('nom', '%$query%');
+    
     final pharmacyIdsFromNames = matchingPharmacies.map((e) => e['id']).toSet();
 
-    // 2. Chercher les médicaments dont le nom correspond, et récupérer leur pharmacy_id
+    // 2. Chercher les médicaments (table: stocks) dont le nom correspond
     final matchingMeds = await supabase
-        .from('thix_medicines')
+        .from('stocks')
         .select('pharmacy_id')
         .ilike('nom', '%$query%');
+        
     final pharmacyIdsFromMeds = matchingMeds.map((e) => e['pharmacy_id']).toSet();
 
-    // Combiner tous les IDs de pharmacies trouvées (par nom ou par médicament)
+    // Combiner tous les IDs de pharmacies trouvées
     final allIds = {...pharmacyIdsFromNames, ...pharmacyIdsFromMeds};
 
-    if (allIds.isEmpty) return [];
+    if (allIds.isEmpty) {
+      return [];
+    }
 
     final res = await supabase
-        .from('thix_pharmacies')
+        .from('pharmacy')
         .select()
-        .inFilter('id', allIds.toList()) // CORRIGÉ ICI (inFilter au lieu de in_)
+        .inFilter('id', allIds.toList())
         .order('rating', ascending: false);
 
     var list = List<Map<String, dynamic>>.from(res);
 
     // Filtrer par catégorie si sélectionnée
     if (cat != null) {
-      final medsCat = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat);
+      final medsCat = await supabase
+          .from('stocks')
+          .select('pharmacy_id')
+          .eq('categorie', cat);
+          
       final idsCat = medsCat.map((e) => e['pharmacy_id']).toSet();
+      
       list = list.where((p) => idsCat.contains(p['id'])).toList();
     }
     return list;
+    
   } else {
     // Si la recherche est vide, on liste les pharmacies normalement
-    var q = supabase.from('thix_pharmacies').select();
+    var q = supabase.from('pharmacy').select();
     final res = await q.order('rating', ascending: false).limit(20);
-    var list = List<Map<String,dynamic>>.from(res);
+    
+    var list = List<Map<String, dynamic>>.from(res);
 
     // Filtre catégorie si sélectionnée
-    if(cat!= null) {
-      final meds = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat);
-      final ids = meds.map((e)=> e['pharmacy_id']).toSet();
-      list = list.where((p)=> ids.contains(p['id'])).toList();
+    if (cat != null) {
+      final meds = await supabase
+          .from('stocks')
+          .select('pharmacy_id')
+          .eq('categorie', cat);
+          
+      final ids = meds.map((e) => e['pharmacy_id']).toSet();
+      
+      list = list.where((p) => ids.contains(p['id'])).toList();
     }
     return list;
   }
 });
 
-final medicinesByPharmacyProvider = FutureProvider.family<List<Map<String,dynamic>>, String>((ref, pharmacyId) async {
+final medicinesByPharmacyProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, pharmacyId) async {
   final supabase = Supabase.instance.client;
-  final res = await supabase.from('thix_medicines').select().eq('pharmacy_id', pharmacyId).order('nom');
-  return List<Map<String,dynamic>>.from(res);
+  
+  final res = await supabase
+      .from('stocks')
+      .select()
+      .eq('pharmacy_id', pharmacyId)
+      .order('nom');
+      
+  return List<Map<String, dynamic>>.from(res);
 });
 
-final cartProvider = FutureProvider<List<Map<String,dynamic>>>((ref) async {
+final cartProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final supabase = Supabase.instance.client;
   final user = supabase.auth.currentUser;
-  if(user==null) return [];
-  final res = await supabase.from('thix_medicine_cart').select('*, thix_medicines(*)').eq('user_id', user.id);
-  return List<Map<String,dynamic>>.from(res);
+  
+  if (user == null) {
+    return [];
+  }
+  
+  // Jointure avec la table stocks
+  final res = await supabase
+      .from('medicine_cart')
+      .select('*, stocks(*)')
+      .eq('user_id', user.id);
+      
+  return List<Map<String, dynamic>>.from(res);
 });
 
 // ================= PAGE PRINCIPALE =================
 class TrouverMedicamentPage extends ConsumerStatefulWidget {
   const TrouverMedicamentPage({super.key});
-  @override ConsumerState<TrouverMedicamentPage> createState() => _TrouverMedicamentPageState();
+
+  @override 
+  ConsumerState<TrouverMedicamentPage> createState() => _TrouverMedicamentPageState();
 }
 
 class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
   final categories = [
-    {'id':'Cough', 'label':'Cough', 'icon': Icons.sick_rounded, 'color': Color(0xFFFFE4E6)},
-    {'id':'Pain Relief', 'label':'Pain Relief', 'icon': Icons.healing_rounded, 'color': Color(0xFFDCFCE7)},
-    {'id':'Skin Care', 'label':'Skin Care', 'icon': Icons.face_rounded, 'color': Color(0xFFFFF7CC)},
-    {'id':'Headache', 'label':'Headache', 'icon': Icons.psychology_rounded, 'color': Color(0xFFDBEAFE)},
-    {'id':'Fever', 'label':'Fever', 'icon': Icons.thermostat_rounded, 'color': Color(0xFFE0E7FF)},
-    {'id':'Weakness', 'label':'Weakness', 'icon': Icons.battery_0_bar_rounded, 'color': Color(0xFFFEF3C7)},
-    {'id':'Digestive', 'label':'Digestive', 'icon': Icons.restaurant_rounded, 'color': Color(0xFFFFE4D6)},
-    {'id':'Diabetic', 'label':'Diabetic', 'icon': Icons.bloodtype_rounded, 'color': Color(0xFFD1FAE5)},
-    {'id':'Eye Care', 'label':'Eye Care', 'icon': Icons.remove_red_eye_rounded, 'color': Color(0xFFE0F2FE)},
+    {'id': 'Toux', 'label': 'Toux', 'icon': Icons.sick_rounded, 'color': const Color(0xFFFFE4E6)},
+    {'id': 'Douleur', 'label': 'Douleur', 'icon': Icons.healing_rounded, 'color': const Color(0xFFDCFCE7)},
+    {'id': 'Peau', 'label': 'Peau', 'icon': Icons.face_rounded, 'color': const Color(0xFFFFF7CC)},
+    {'id': 'Tête', 'label': 'Maux de tête', 'icon': Icons.psychology_rounded, 'color': const Color(0xFFDBEAFE)},
+    {'id': 'Fièvre', 'label': 'Fièvre', 'icon': Icons.thermostat_rounded, 'color': const Color(0xFFE0E7FF)},
+    {'id': 'Fatigue', 'label': 'Fatigue', 'icon': Icons.battery_0_bar_rounded, 'color': const Color(0xFFFEF3C7)},
+    {'id': 'Digestion', 'label': 'Digestion', 'icon': Icons.restaurant_rounded, 'color': const Color(0xFFFFE4D6)},
+    {'id': 'Diabète', 'label': 'Diabète', 'icon': Icons.bloodtype_rounded, 'color': const Color(0xFFD1FAE5)},
+    {'id': 'Yeux', 'label': 'Yeux', 'icon': Icons.remove_red_eye_rounded, 'color': const Color(0xFFE0F2FE)},
   ];
 
   @override
   Widget build(BuildContext context) {
     final selectedPharmacy = ref.watch(selectedPharmacyProvider);
     final cart = ref.watch(cartProvider);
+    
     final cartTotal = cart.when(
-      data: (l) => l.fold<double>(0.0, (s, e) => s + ((e['thix_medicines']?['prix'] ?? 0) * (e['quantity'] ?? 1))), 
+      data: (list) {
+        return list.fold<double>(0.0, (sum, item) {
+          final price = item['stocks']?['prix'] ?? 0;
+          final quantity = item['quantity'] ?? 1;
+          return sum + (price * quantity);
+        });
+      }, 
       loading: () => 0.0, 
-      error: (_, __) => 0.0
+      error: (_, __) => 0.0,
     );
 
-    final cartCount = cart.when(data: (l)=> l.length, loading: ()=>0, error: (_,__)=>0);
+    final cartCount = cart.when(
+      data: (list) => list.length, 
+      loading: () => 0, 
+      error: (_, __) => 0,
+    );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: selectedPharmacy == null? _buildStoreList() : _buildPharmacyDetail(selectedPharmacy),
-      bottomNavigationBar: cartCount > 0 && selectedPharmacy!= null? _buildCartBar(cartCount, cartTotal) : null,
+      backgroundColor: Colors.white,
+      body: selectedPharmacy == null 
+          ? _buildStoreList() 
+          : _buildPharmacyDetail(selectedPharmacy),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: (cartCount > 0 && selectedPharmacy != null) 
+          ? _buildCartBar(cartCount, cartTotal) 
+          : null,
     );
   }
 
@@ -126,57 +177,152 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          pinned: true, backgroundColor: const Color(0xFFE9D5FF),
+          pinned: true, 
+          backgroundColor: const Color(0xFFE9D5FF),
           expandedHeight: 220,
-          leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.black), onPressed: ()=> Navigator.pop(context)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.black), 
+            onPressed: () => Navigator.pop(context)
+          ),
           flexibleSpace: FlexibleSpaceBar(
-            background: Stack(children: [
-              Positioned(right: 20, top: 40, child: Icon(Icons.medication_rounded, size: 100, color: Colors.white.withOpacity(0.5))),
-              Padding(padding: const EdgeInsets.fromLTRB(16, 80, 16, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Medicines', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 16),
-                Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
-                  child: TextField(
-                    controller: searchCtrl,
-                    onChanged: (v)=> ref.read(searchQueryProvider.notifier).state = v,
-                    decoration: const InputDecoration(hintText: 'Search medicine or pharmacy...', prefixIcon: Icon(Icons.search), border: InputBorder.none, contentPadding: EdgeInsets.all(14)),
-                  ),
+            background: Stack(
+              children: [
+                Positioned(
+                  right: 20, 
+                  top: 40, 
+                  child: Icon(Icons.medication_rounded, size: 100, color: Colors.white.withOpacity(0.5))
                 ),
-              ])),
-            ]),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 80, 16, 16), 
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: [
+                      const Text(
+                        'TROUVER UN MÉDICAMENT', 
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white, 
+                          borderRadius: BorderRadius.circular(12), 
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+                          ]
+                        ),
+                        child: TextField(
+                          controller: searchCtrl,
+                          textAlign: TextAlign.start,
+                          onChanged: (value) {
+                            ref.read(searchQueryProvider.notifier).state = value;
+                          },
+                          decoration: const InputDecoration(
+                            hintText: 'Rechercher un médicament...', 
+                            prefixIcon: Icon(Icons.search), 
+                            border: InputBorder.none, 
+                            contentPadding: EdgeInsets.all(14)
+                          ),
+                        ),
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            ),
           ),
         ),
-        SliverPadding(padding: const EdgeInsets.all(16), sliver: SliverGrid(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.1),
-          delegate: SliverChildBuilderDelegate((_, i){
-            final c = categories[i];
-            final isSelected = selectedCat == c['id'];
-            return GestureDetector(
-              onTap: ()=> ref.read(selectedCategoryProvider.notifier).state = isSelected? null : c['id'] as String,
-              child: Container(
-                decoration: BoxDecoration(color: isSelected? ThixSanteColors.primary : Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: isSelected? ThixSanteColors.primary : const Color(0xFFE5E7EB))),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: (c['color'] as Color), shape: BoxShape.circle), child: Icon(c['icon'] as IconData, size: 22, color: Colors.black87)),
-                  const SizedBox(height: 6),
-                  Text(c['label'] as String, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isSelected? Colors.white : Colors.black)),
-                ]),
-              ),
-            );
-          }, childCount: categories.length),
-        )),
-        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), child: Row(children: [
-          const Text('Pharma store near me', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-          const Spacer(),
-          if(selectedCat!=null) TextButton(onPressed: ()=> ref.read(selectedCategoryProvider.notifier).state=null, child: const Text('Clear')),
-        ]))),
+        SliverPadding(
+          padding: const EdgeInsets.all(16), 
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3, 
+              mainAxisSpacing: 12, 
+              crossAxisSpacing: 12, 
+              childAspectRatio: 1.1
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final category = categories[index];
+                final isSelected = selectedCat == category['id'];
+                
+                return GestureDetector(
+                  onTap: () {
+                    ref.read(selectedCategoryProvider.notifier).state = 
+                        isSelected ? null : category['id'] as String;
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected ? ThixSanteColors.primary : Colors.white, 
+                      borderRadius: BorderRadius.circular(14), 
+                      border: Border.all(color: isSelected ? ThixSanteColors.primary : const Color(0xFFE5E7EB))
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center, 
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8), 
+                          decoration: BoxDecoration(
+                            color: (category['color'] as Color), 
+                            shape: BoxShape.circle
+                          ), 
+                          child: Icon(category['icon'] as IconData, size: 22, color: Colors.black87)
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          category['label'] as String, 
+                          style: TextStyle(
+                            fontSize: 11, 
+                            fontWeight: FontWeight.w700, 
+                            color: isSelected ? Colors.white : Colors.black
+                          )
+                        ),
+                      ]
+                    ),
+                  ),
+                );
+              }, 
+              childCount: categories.length
+            ),
+          )
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), 
+            child: Row(
+              children: [
+                const Text(
+                  'Pharmacies à proximité', 
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)
+                ),
+                const Spacer(),
+                if (selectedCat != null) 
+                  TextButton(
+                    onPressed: () {
+                      ref.read(selectedCategoryProvider.notifier).state = null;
+                    }, 
+                    child: const Text('Effacer', style: TextStyle(color: Colors.red))
+                  ),
+              ]
+            )
+          )
+        ),
         nearby.when(
-          loading: ()=> const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))),
-          error: (e,_)=> SliverToBoxAdapter(child: Center(child: Text('Erreur: $e'))),
-          data: (stores)=> SliverList.builder(
+          loading: () => const SliverToBoxAdapter(
+            child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+          ),
+          error: (error, _) => SliverToBoxAdapter(
+            child: Center(child: Text('Erreur: $error'))
+          ),
+          data: (stores) => SliverList.builder(
             itemCount: stores.length,
-            itemBuilder: (_, i){
-              final s = stores[i];
-              return _storeCard(s, onTap: ()=> ref.read(selectedPharmacyProvider.notifier).state = s);
+            itemBuilder: (context, index) {
+              final store = stores[index];
+              return _storeCard(
+                store, 
+                onTap: () {
+                  ref.read(selectedPharmacyProvider.notifier).state = store;
+                }
+              );
             },
           ),
         ),
@@ -184,169 +330,554 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
     );
   }
 
-  Widget _buildPharmacyDetail(Map<String,dynamic> pharmacy) {
+  // ================= DESIGN DE LA PAGE PHARMACIE (Basé sur l'image) =================
+  Widget _buildPharmacyDetail(Map<String, dynamic> pharmacy) {
     final medicinesAsync = ref.watch(medicinesByPharmacyProvider(pharmacy['id']));
+    
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: ()=> ref.read(selectedPharmacyProvider.notifier).state=null),
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(pharmacy['nom']??'', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 14)),
-          Text('${pharmacy['adresse']??'Central Park'} • ${pharmacy['distance']??'1.5 km'}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-        ]),
+        backgroundColor: Colors.white, 
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20), 
+          onPressed: () {
+            ref.read(selectedPharmacyProvider.notifier).state = null;
+          }
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black), 
+            onPressed: () {}
+          ),
+        ],
       ),
-      body: Column(children: [
-        Container(color: Colors.white, padding: const EdgeInsets.all(16), child: Row(children: [
-          _infoBadge(Icons.star_rounded, '${pharmacy['rating']??'4.0'}', '${pharmacy['total_ratings']??'256'}+ ratings'),
-          const Spacer(),
-          _infoBadge(Icons.delivery_dining_rounded, 'Delivery in', '${pharmacy['delivery_time_min']??20} mins'),
-        ])),
-        const SizedBox(height: 8),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
-          const Text('Medicaments disponibles', style: TextStyle(fontWeight: FontWeight.w800)),
-          const Spacer(),
-          const Icon(Icons.keyboard_arrow_down_rounded),
-        ])),
-        Expanded(child: medicinesAsync.when(
-          loading: ()=> const Center(child: CircularProgressIndicator()),
-          error: (e,_)=> Center(child: Text('Erreur $e')),
-          data: (meds)=> ListView.builder(padding: const EdgeInsets.all(16), itemCount: meds.length, itemBuilder: (_, i){
-            final m = meds[i];
-            return _medicineTile(m);
-          }),
-        )),
-      ]),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // En-tête : Nom et Adresse
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  pharmacy['nom'] ?? 'Pharmacie Inconnue', 
+                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 22)
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${pharmacy['adresse'] ?? 'Adresse non spécifiée'} | ${pharmacy['distance'] ?? '1.5 km'}', 
+                  style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Ligne des statistiques (Notes et Livraison)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _infoStatBadge(
+                  Icons.star, 
+                  '${pharmacy['total_ratings'] ?? '60+' } avis', 
+                  '${pharmacy['rating'] ?? '4.0'}'
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                _infoStatBadge(
+                  Icons.pedal_bike_rounded, 
+                  'Livraison en', 
+                  '${pharmacy['delivery_time_min'] ?? 20} mins'
+                ),
+              ]
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          Divider(color: Colors.grey.shade100, thickness: 8),
+          const SizedBox(height: 16),
+          
+          // Titre de la catégorie
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Tous les médicaments', 
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)
+                ),
+                Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade600),
+              ]
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Liste des médicaments
+          Expanded(
+            child: medicinesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: tealColor)),
+              error: (error, _) => Center(child: Text('Erreur: $error')),
+              data: (meds) {
+                if (meds.isEmpty) {
+                  return const Center(child: Text('Aucun médicament en stock.'));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  itemCount: meds.length, 
+                  itemBuilder: (context, index) {
+                    final medicine = meds[index];
+                    return _medicineTile(medicine);
+                  }
+                );
+              },
+            )
+          ),
+        ]
+      ),
     );
   }
 
-  Widget _storeCard(Map<String,dynamic> s, {VoidCallback? onTap}) {
+  Widget _infoStatBadge(IconData icon, String subtitle, String title) {
+    return Column(
+      children: [
+        Text(
+          subtitle, 
+          style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(icon, size: 20, color: tealColor),
+            const SizedBox(width: 6),
+            Text(
+              title, 
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _storeCard(Map<String, dynamic> store, {VoidCallback? onTap}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE5E7EB))),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(14), 
+        border: Border.all(color: const Color(0xFFE5E7EB))
+      ),
       child: ListTile(
         onTap: onTap,
-        leading: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(s['image_url']??'https://via.placeholder.com/60', width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(width:60,height:60,color: const Color(0xFFF3F4F6), child: const Icon(Icons.local_pharmacy_rounded)))),
-        title: Text(s['nom']??'', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(s['adresse']??'Central Park', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Row(children: [
-            const Icon(Icons.delivery_dining, size: 12, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text('Delivery in ${s['delivery_time_min']??20} mins', style: const TextStyle(fontSize: 10)),
-            const SizedBox(width: 12),
-            Text('${s['distance']??'1.5 km'}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
-          ]),
-          const SizedBox(height: 4),
-          Row(children: [
-            Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF22C55E), borderRadius: BorderRadius.circular(6)), child: Row(children: [const Icon(Icons.star, size: 10, color: Colors.white), const SizedBox(width:2), Text('${s['rating']??'4.0'}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))])),
-            const SizedBox(width: 6),
-            Text('${s['total_ratings']??'256'} Rated', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          ]),
-        ]),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10), 
+          child: Image.network(
+            store['image_url'] ?? 'https://via.placeholder.com/60', 
+            width: 60, 
+            height: 60, 
+            fit: BoxFit.cover, 
+            errorBuilder: (_, __, ___) => Container(
+              width: 60, 
+              height: 60, 
+              color: const Color(0xFFF3F4F6), 
+              child: const Icon(Icons.local_pharmacy_rounded)
+            )
+          )
+        ),
+        title: Text(
+          store['nom'] ?? '', 
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, 
+          children: [
+            Text(
+              store['adresse'] ?? 'Adresse inconnue', 
+              style: const TextStyle(fontSize: 11, color: Colors.grey)
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.delivery_dining, size: 12, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  'Livraison en ${store['delivery_time_min'] ?? 20} min', 
+                  style: const TextStyle(fontSize: 10)
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${store['distance'] ?? '1.5 km'}', 
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)
+                ),
+              ]
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), 
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22C55E), 
+                    borderRadius: BorderRadius.circular(6)
+                  ), 
+                  child: Row(
+                    children: [
+                      const Icon(Icons.star, size: 10, color: Colors.white), 
+                      const SizedBox(width: 2), 
+                      Text(
+                        '${store['rating'] ?? '4.0'}', 
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)
+                      )
+                    ]
+                  )
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${store['total_ratings'] ?? '256'} avis', 
+                  style: const TextStyle(fontSize: 10, color: Colors.grey)
+                ),
+              ]
+            ),
+          ]
+        ),
       ),
     );
   }
 
-  Widget _medicineTile(Map<String,dynamic> m) {
+  // ================= TILE DU MÉDICAMENT =================
+  Widget _medicineTile(Map<String, dynamic> medicine) {
     final supabase = Supabase.instance.client;
-    final cart = ref.watch(cartProvider).value??[];
-    final inCart = cart.firstWhere((c)=> c['medicine_id']==m['id'], orElse: ()=> {});
-    final qty = inCart.isNotEmpty? inCart['quantity'] as int : 0;
+    final cartList = ref.watch(cartProvider).value ?? [];
+    
+    final inCart = cartList.firstWhere(
+      (item) => item['medicine_id'] == medicine['id'], 
+      orElse: () => {}
+    );
+    
+    final int qty = inCart.isNotEmpty ? (inCart['quantity'] as int) : 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
-      child: Row(children: [
-        if(m['prescription_requise']==true) const Text('Rx', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w900)),
-        const SizedBox(width: 8),
-        ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(m['image_url']??'', width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___)=> const Icon(Icons.medication_rounded, size: 40, color: Color(0xFF0B63F6)))),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(m['nom']??'', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-          Text('\$${m['prix']??'0'}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-          const SizedBox(height: 4),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE5E7EB)), borderRadius: BorderRadius.circular(6)), child: Text(m['pack_size']??'Pack of 10', style: const TextStyle(fontSize: 10))),
-        ])),
-        qty==0? OutlinedButton(onPressed: () async {
-          final user = supabase.auth.currentUser;
-          if(user==null) return;
-          await supabase.from('thix_medicine_cart').upsert({'user_id': user.id, 'medicine_id': m['id'], 'quantity': 1});
-          ref.invalidate(cartProvider);
-        }, style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF0B63F6)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: const Text('Add', style: TextStyle(fontSize: 12)))
-        : Container(decoration: BoxDecoration(color: const Color(0xFF0B63F6), borderRadius: BorderRadius.circular(20)), child: Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(icon: const Icon(Icons.remove, size: 16, color: Colors.white), onPressed: () async {
-            final user = supabase.auth.currentUser; if(user==null) return;
-            if(qty<=1) await supabase.from('thix_medicine_cart').delete().eq('user_id', user.id).eq('medicine_id', m['id']);
-            else await supabase.from('thix_medicine_cart').update({'quantity': qty-1}).eq('user_id', user.id).eq('medicine_id', m['id']);
-            ref.invalidate(cartProvider);
-          }),
-          Text('$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          IconButton(icon: const Icon(Icons.add, size: 16, color: Colors.white), onPressed: () async {
-            final user = supabase.auth.currentUser; if(user==null) return;
-            await supabase.from('thix_medicine_cart').update({'quantity': qty+1}).eq('user_id', user.id).eq('medicine_id', m['id']);
-            ref.invalidate(cartProvider);
-          }),
-        ])),
-      ]),
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image à gauche avec icône Rx
+          Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200)
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12), 
+                  child: Image.network(
+                    medicine['image_url'] ?? '', 
+                    width: 70, 
+                    height: 70, 
+                    fit: BoxFit.cover, 
+                    errorBuilder: (_, __, ___) => const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: Icon(Icons.medication, size: 40, color: Colors.grey),
+                    )
+                  )
+                ),
+              ),
+              if (medicine['prescription_requise'] == true)
+                const Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Text('Rx', style: TextStyle(color: tealColor, fontWeight: FontWeight.w900, fontSize: 14)),
+                )
+            ],
+          ),
+          
+          const SizedBox(width: 16),
+          
+          // Informations à droite
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, 
+              children: [
+                Text(
+                  medicine['nom'] ?? 'Médicament', 
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87)
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${medicine['prix'] ?? '0.00'} €', 
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.grey)
+                ),
+                const SizedBox(height: 12),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Sélecteur de boîte
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300), 
+                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.grey.shade50
+                      ), 
+                      child: Row(
+                        children: [
+                          Text(
+                            medicine['pack_size'] ?? 'Boîte de 10', 
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600)
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.grey.shade700)
+                        ],
+                      )
+                    ),
+                    
+                    // Boutons Ajouter ou Quantité
+                    qty == 0 
+                      ? OutlinedButton(
+                          onPressed: () async {
+                            final user = supabase.auth.currentUser;
+                            if (user == null) return;
+                            
+                            await supabase.from('medicine_cart').upsert({
+                              'user_id': user.id, 
+                              'medicine_id': medicine['id'], 
+                              'quantity': 1
+                            });
+                            ref.invalidate(cartProvider);
+                          }, 
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: tealColor,
+                            side: const BorderSide(color: tealColor, width: 1.5), 
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0)
+                          ), 
+                          child: const Text('Ajouter', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: tealColor, 
+                            borderRadius: BorderRadius.circular(20)
+                          ), 
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min, 
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove, size: 18, color: Colors.white), 
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                constraints: const BoxConstraints(),
+                                onPressed: () async {
+                                  final user = supabase.auth.currentUser; 
+                                  if (user == null) return;
+                                  
+                                  if (qty <= 1) {
+                                    await supabase.from('medicine_cart')
+                                      .delete()
+                                      .eq('user_id', user.id)
+                                      .eq('medicine_id', medicine['id']);
+                                  } else {
+                                    await supabase.from('medicine_cart')
+                                      .update({'quantity': qty - 1})
+                                      .eq('user_id', user.id)
+                                      .eq('medicine_id', medicine['id']);
+                                  }
+                                  ref.invalidate(cartProvider);
+                                }
+                              ),
+                              Text(
+                                '$qty', 
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add, size: 18, color: Colors.white), 
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                constraints: const BoxConstraints(),
+                                onPressed: () async {
+                                  final user = supabase.auth.currentUser; 
+                                  if (user == null) return;
+                                  
+                                  await supabase.from('medicine_cart')
+                                    .update({'quantity': qty + 1})
+                                    .eq('user_id', user.id)
+                                    .eq('medicine_id', medicine['id']);
+                                    
+                                  ref.invalidate(cartProvider);
+                                }
+                              ),
+                            ]
+                          )
+                        ),
+                  ],
+                ),
+              ]
+            ),
+          ),
+        ]
+      ),
     );
   }
 
-  Widget _infoBadge(IconData icon, String title, String subtitle) {
-    return Row(children: [
-      Icon(icon, size: 18, color: const Color(0xFF0B63F6)),
-      const SizedBox(width: 6),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        Text(subtitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-      ]),
-    ]);
-  }
-
+  // ================= BARRE PANIER FLOTTANTE =================
   Widget _buildCartBar(int count, double total) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE5E7EB)))),
+      margin: const EdgeInsets.only(bottom: 20, left: 16, right: 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(color: const Color(0xFF0B63F6), borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [
-          Text('$count Item • \$${total.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          GestureDetector(
-            onTap: ()=> _showCheckout(),
-            child: const Row(children: [Icon(Icons.shopping_basket_rounded, color: Colors.white, size: 18), SizedBox(width: 6), Text('View Cart', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800))]),
-          ),
-        ]),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: tealColor, 
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: tealColor.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))
+          ]
+        ),
+        child: Row(
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count Article(s) • ${total.toStringAsFixed(2)} €', 
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Frais supplémentaires applicables', 
+                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)
+                ),
+              ],
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _showCheckout(),
+              child: const Row(
+                children: [
+                  Icon(Icons.shopping_basket_rounded, color: Colors.white, size: 20), 
+                  SizedBox(width: 8), 
+                  Text(
+                    'Voir le panier', 
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)
+                  )
+                ]
+              ),
+            ),
+          ]
+        ),
       ),
     );
   }
 
-  // CORRIGÉ ICI (void au lieu de Widget)
   void _showCheckout() {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (_){
-      final cart = ref.watch(cartProvider);
-      return Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Order Medicine', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 12),
-        cart.when(data: (items)=> Column(children: items.map((e)=> ListTile(title: Text(e['thix_medicines']['nom']), subtitle: Text('Qty: ${e['quantity']}'), trailing: Text('\$${(e['thix_medicines']['prix']*e['quantity']).toStringAsFixed(2)}'))).toList()), loading: ()=> const CircularProgressIndicator(), error: (_,__)=> const Text('Erreur')),
-        const SizedBox(height: 12),
-        SizedBox(width: double.infinity, height: 50, child: ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E)),
-          onPressed: () async {
-            Navigator.pop(context);
-            showDialog(context: context, builder: (_)=> Dialog(child: Container(height: 500, padding: const EdgeInsets.all(16), child: Column(children: [
-              const Text('Deliveryman arriving in 20 mins', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Expanded(child: Container(decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(12)), child: const Center(child: Icon(Icons.map_rounded, size: 60, color: Colors.grey)))),
-              const SizedBox(height: 12),
-              const ListTile(leading: CircleAvatar(), title: Text('Pediatrician'), subtitle: Text('Dr. Olivia Blanton')),
-            ])))); 
-          },
-          child: const Text('CONFIRMER COMMANDE - LIVRAISON 20MIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        )),
-      ]));
-    });
+    showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true, 
+      backgroundColor: Colors.white, 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), 
+      builder: (context) {
+        final cart = ref.watch(cartProvider);
+        
+        return Padding(
+          padding: const EdgeInsets.all(20), 
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              const Text(
+                'Confirmer la commande', 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)
+              ),
+              const SizedBox(height: 20),
+              
+              cart.when(
+                data: (items) {
+                  return Column(
+                    children: items.map((item) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(item['stocks']['nom'], style: const TextStyle(fontWeight: FontWeight.bold)), 
+                        subtitle: Text('Quantité: ${item['quantity']}'), 
+                        trailing: Text(
+                          '${(item['stocks']['prix'] * item['quantity']).toStringAsFixed(2)} €',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                        )
+                      );
+                    }).toList()
+                  );
+                }, 
+                loading: () => const CircularProgressIndicator(color: tealColor), 
+                error: (error, __) => Text('Erreur: $error')
+              ),
+              
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity, 
+                height: 54, 
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tealColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    
+                    showDialog(
+                      context: context, 
+                      builder: (_) => Dialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: Container(
+                          height: 400, 
+                          padding: const EdgeInsets.all(20), 
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Livraison en cours !', 
+                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Votre livreur arrive dans 20 mins', 
+                                style: TextStyle(color: Colors.grey)
+                              ),
+                              const SizedBox(height: 20),
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE5E7EB), 
+                                    borderRadius: BorderRadius.circular(16)
+                                  ), 
+                                  child: const Center(child: Icon(Icons.map_rounded, size: 60, color: Colors.grey))
+                                )
+                              ),
+                              const SizedBox(height: 20),
+                              const ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(backgroundColor: tealColor, child: Icon(Icons.person, color: Colors.white)), 
+                                title: Text('Livreur Pharmacie', style: TextStyle(fontWeight: FontWeight.bold)), 
+                                subtitle: Text('En route...')
+                              ),
+                            ]
+                          )
+                        )
+                      )
+                    ); 
+                  },
+                  child: const Text(
+                    'VALIDER - LIVRAISON 20 MIN', 
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                  ),
+                )
+              ),
+              const SizedBox(height: 20),
+            ]
+          )
+        );
+      }
+    );
   }
 }
