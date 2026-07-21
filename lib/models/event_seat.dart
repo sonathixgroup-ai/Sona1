@@ -1,4 +1,6 @@
 // lib/models/event_seat.dart
+import 'package:flutter/material.dart';
+
 enum SeatStatus { available, reserved, sold, selected }
 enum SeatCategory { standard, vip, gold, family }
 
@@ -8,7 +10,7 @@ class EventSeat {
   final String row;
   final int number;
   final SeatCategory category;
-  final double price;
+  final double price; // 🟢 Le vrai prix exact venant de Supabase
   final SeatStatus status;
   final String? reservedBy;
   final DateTime? reservedUntil;
@@ -29,45 +31,45 @@ class EventSeat {
 
   factory EventSeat.fromJson(Map<String, dynamic> json) {
     return EventSeat(
-      id: json['id'],
-      eventId: json['event_id'],
-      row: json['row'],
-      number: json['number'],
+      id: json['id']?.toString() ?? '',
+      eventId: json['event_id']?.toString() ?? '',
+      row: json['row']?.toString() ?? 'A',
+      number: json['number'] is int ? json['number'] : int.tryParse(json['number']?.toString() ?? '1') ?? 1,
       category: SeatCategory.values.firstWhere(
-        (e) => e.toString() == 'SeatCategory.${json['category']}',
+        (e) => e.name.toLowerCase() == (json['category']?.toString().toLowerCase() ?? 'standard'),
         orElse: () => SeatCategory.standard,
       ),
-      price: (json['price'] ?? 0).toDouble(),
+      price: (json['price'] != null) ? double.tryParse(json['price'].toString()) ?? 0.0 : 0.0,
       status: SeatStatus.values.firstWhere(
-        (e) => e.toString() == 'SeatStatus.${json['status']}',
+        (e) => e.name.toLowerCase() == (json['status']?.toString().toLowerCase() ?? 'available'),
         orElse: () => SeatStatus.available,
       ),
-      reservedBy: json['reserved_by'],
+      reservedBy: json['reserved_by']?.toString(),
       reservedUntil: json['reserved_until'] != null 
           ? DateTime.parse(json['reserved_until']) 
           : null,
-      bookingId: json['booking_id'],
+      bookingId: json['booking_id'] is int ? json['booking_id'] : int.tryParse(json['booking_id']?.toString() ?? ''),
     );
   }
 
   String get displayName => '$row$number';
-  String get categoryColor {
+
+  // 🟢 COULEURS DYNAMIQUES PAR CATÉGORIE (En phase avec le design THIX)
+  Color get categoryColor {
     switch (category) {
-      case SeatCategory.standard: return '#4CAF50';
-      case SeatCategory.vip: return '#FFD700';
-      case SeatCategory.gold: return '#D4AF37';
-      case SeatCategory.family: return '#2196F3';
+      case SeatCategory.standard:
+        return const Color(0xFF10B981); // Vert émeraude
+      case SeatCategory.vip:
+        return const Color(0xFF8B5CF6); // Violet clair
+      case SeatCategory.gold:
+        return const Color(0xFFD4AF37); // Or / Gold
+      case SeatCategory.family:
+        return const Color(0xFF3B82F6); // Bleu
     }
   }
 
-  double get categoryPrice {
-    switch (category) {
-      case SeatCategory.standard: return price;
-      case SeatCategory.vip: return price * 2;
-      case SeatCategory.gold: return price * 3;
-      case SeatCategory.family: return price * 1.5;
-    }
-  }
+  // 🟢 CORRECTION DU PRIX : Renvoie directement le prix réel de la base de données sans multiplicateurs arbitraires
+  double get categoryPrice => price;
 
   bool get isAvailable => status == SeatStatus.available;
   bool get isReserved => status == SeatStatus.reserved;
