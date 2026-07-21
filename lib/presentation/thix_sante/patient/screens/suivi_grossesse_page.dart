@@ -858,9 +858,7 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage>
     final f = res.files.first;
     if (f.bytes == null) return;
     final uid = pid?? Supabase.instance.client.auth.currentUser!.id;
-    await Supabase.instance.client.storage
-       .from('pregnancy_docs')
-       .uploadBinary('$uid/${f.name}', f.bytes!);
+    await Supabase.instance.client.storage.from('pregnancy_photos').uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: true));
     if (mounted) {
       ScaffoldMessenger.of(context)
          .showSnackBar(SnackBar(content: Text('${f.name} uploade')));
