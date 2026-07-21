@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/grossesse_model.dart';
 
@@ -25,7 +26,6 @@ class GrossesseService {
     await ensureDefaultChecklist(pid);
   }
 
-  // PORTE 1 : WIZARD ULTRA COMPLET - DEDANS LA CLASSE
   Future<void> createFullProfile({
     required String? pid,
     required DateTime ddr,
@@ -47,16 +47,14 @@ class GrossesseService {
   }) async {
     final uid = resolveUid(pid);
     final bmi = poids / ((taille / 100) * (taille / 100));
-
     DateTime dpa;
     if (echo != null) {
-      dpa = echo.add(const Duration(days: 266)); // echo T1 la plus précise
+      dpa = echo.add(const Duration(days: 266));
     } else if (conception != null) {
       dpa = conception.add(const Duration(days: 266));
     } else {
       dpa = ddr.add(Duration(days: type == PregnancyType.jumeaux ? 259 : type == PregnancyType.triple ? 245 : 280));
     }
-
     await _db.from('pregnancy_profiles').upsert({
       'user_id': uid,
       'last_period_date': ddr.toIso8601String().substring(0, 10),
@@ -78,8 +76,6 @@ class GrossesseService {
       'diabete': diabete,
       'hta': hta,
     }, onConflict: 'user_id');
-
-    // Seed initial pour que les courbes demarrent direct
     await _db.from('pregnancy_vitals').insert({'user_id': uid, 'type': 'poids', 'value': poids.toString()});
     await _db.from('pregnancy_vitals').insert({'user_id': uid, 'type': 'imc', 'value': bmi.toStringAsFixed(1)});
     await ensureDefaultChecklist(pid);
@@ -142,11 +138,11 @@ class GrossesseService {
     final existing = await _db.from('pregnancy_checklist').select().eq('user_id', uid).limit(1);
     if ((existing as List).isNotEmpty) return;
     final defaults = [
-      {'item': 'Dossier médical + carte THIX', 'category': 'maman'},
+      {'item': 'Dossier medical + carte THIX', 'category': 'maman'},
       {'item': '3 pyjamas ouverts devant', 'category': 'maman'},
       {'item': 'Couches taille 1 + lingettes', 'category': 'bebe'},
-      {'item': 'Siège auto homologué', 'category': 'bebe'},
-      {'item': 'Trousse + carnet santé', 'category': 'bebe'},
+      {'item': 'Siege auto homologue', 'category': 'bebe'},
+      {'item': 'Trousse + carnet sante', 'category': 'bebe'},
     ];
     for (final d in defaults) {
       await _db.from('pregnancy_checklist').insert({'user_id': uid, 'item': d['item'], 'category': d['category'], 'done': false});
@@ -162,14 +158,16 @@ class GrossesseService {
   Future<String> uploadPhoto(String? pid, String path, dynamic bytes) async {
     final uid = resolveUid(pid);
     final filePath = '$uid/journal/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await _db.storage.from('pregnancy_photos').uploadBinary(filePath, bytes as List<int>);
+    final Uint8List data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes as List<int>);
+    await _db.storage.from('pregnancy_photos').uploadBinary(filePath, data, fileOptions: const FileOptions(upsert: true));
     return _db.storage.from('pregnancy_photos').getPublicUrl(filePath);
   }
 
   Future<void> uploadDoc(String? pid, String fileName, dynamic bytes) async {
     final uid = resolveUid(pid);
     final filePath = '$uid/$fileName';
-    await _db.storage.from('pregnancy_docs').uploadBinary(filePath, bytes as List<int>);
+    final Uint8List data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes as List<int>);
+    await _db.storage.from('pregnancy_docs').uploadBinary(filePath, data, fileOptions: const FileOptions(upsert: true));
   }
 
   Future<void> addConsultation(String? pid, String title, String desc) async {
@@ -189,14 +187,14 @@ class GrossesseService {
     final ta = vitals.where((v) => v.type == 'tension').toList();
     if (ta.isNotEmpty) {
       final sys = int.tryParse(ta.first.value.split('/').first) ?? 0;
-      if (sys >= 140) alerts.add('🚨 TA ${ta.first.value} >140 - Risque pré-éclampsie - Consulter');
+      if (sys >= 140) alerts.add('TA ${ta.first.value} >140 - Risque pre-eclampsie');
     }
     if (kicks.where((k) => k.createdAt.day == DateTime.now().day).isEmpty && sa >= 28) {
-      alerts.add('⚠️ 0 mouvement aujourd\'hui après 28 SA - Surveiller');
+      alerts.add('0 mouvement aujourd hui apres 28 SA');
     }
     if (sa >= 37 && contractions.length >= 3) {
       final avg = contractions.take(3).map((c) => c.intervalSec).reduce((a, b) => a + b) / 3;
-      if (avg <= 300) alerts.add('🚨 Contractions toutes les 5 min - Aller maternité');
+      if (avg <= 300) alerts.add('Contractions toutes les 5 min - Maternite');
     }
     return alerts;
   }
