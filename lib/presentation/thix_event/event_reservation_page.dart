@@ -157,19 +157,13 @@ class _EventReservationPageState extends State<EventReservationPage> {
     String? bookingId;
     
     try {
-      final String pinVal = _pinController.text.trim();
-      final String categoryVal = widget.ticketCategory ?? 'Standard';
-
       if (widget.selectedSeats != null && widget.selectedSeats!.isNotEmpty) {
         final seatService = EventSeatService(Supabase.instance.client);
         
-        // 🟢 Transmission directe du PIN et de la Catégorie à bookTicket
         final booking = await provider.bookTicket(
           eventId: widget.eventId,
           quantity: widget.selectedSeats!.length,
           totalPrice: _totalPrice,
-          pinCode: pinVal,
-          ticketCategory: categoryVal,
         );
         
         if (booking != null) {
@@ -179,18 +173,28 @@ class _EventReservationPageState extends State<EventReservationPage> {
           bookingId = booking.id;
         }
       } else {
-        // 🟢 Transmission directe du PIN et de la Catégorie à bookTicket
         final booking = await provider.bookTicket(
           eventId: widget.eventId,
           quantity: _quantity,
           totalPrice: _totalPrice,
-          pinCode: pinVal,
-          ticketCategory: categoryVal,
         );
         bookingId = booking?.id;
       }
       
       if (bookingId != null && mounted) {
+        // 🟢 MISE À JOUR DIRECTE DU PIN ET DE LA CATÉGORIE DANS LA TABLE SUPABASE
+        try {
+          await Supabase.instance.client
+              .from('event_bookings')
+              .update({
+                'pin_code': _pinController.text.trim(),
+                'ticket_category': widget.ticketCategory ?? 'Standard',
+              })
+              .eq('id', bookingId);
+        } catch (e) {
+          debugPrint('⚠️ Erreur mise à jour PIN/Catégorie: $e');
+        }
+
         final limitService = EventBookingLimitService(Supabase.instance.client);
         await limitService.recordBookingAttempt(widget.eventId, _quantity);
         
