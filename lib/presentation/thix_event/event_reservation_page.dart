@@ -25,6 +25,10 @@ class EventReservationPage extends StatefulWidget {
   final List<EventSeat>? selectedSeats;
   final double? totalPrice;
   final int quantity;
+  
+  // 🟢 NOUVEAUX PARAMÈTRES POUR GÉRER LES BILLETS (GOLD, VIPP, etc.)
+  final String? ticketCategory;
+  final double? ticketPrice;
 
   const EventReservationPage({
     super.key,
@@ -32,6 +36,8 @@ class EventReservationPage extends StatefulWidget {
     this.selectedSeats,
     this.totalPrice, 
     this.quantity = 1,
+    this.ticketCategory,
+    this.ticketPrice,
   });
 
   @override
@@ -50,7 +56,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  // 🟢 Contrôleur pour le Code PIN de sécurité personnel
   final TextEditingController _pinController = TextEditingController();
 
   @override
@@ -58,7 +63,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
     super.initState();
     _loadEvent();
     _quantity = widget.quantity;
-    // Génération automatique d'un PIN aléatoire à 4 chiffres par défaut (modifiable par l'utilisateur)
     _pinController.text = (1000 + Random().nextInt(9000)).toString();
   }
 
@@ -104,8 +108,9 @@ class _EventReservationPageState extends State<EventReservationPage> {
     }
   }
 
+  // 🟢 PRIX DYNAMIQUE : On priorise le prix de la catégorie (GOLD, etc.), puis le prix du siège, puis le prix de base
   double get _unitPrice {
-    return widget.totalPrice ?? _event.price;
+    return widget.ticketPrice ?? widget.totalPrice ?? _event.price;
   }
 
   double get _totalPrice {
@@ -179,20 +184,22 @@ class _EventReservationPageState extends State<EventReservationPage> {
       }
       
       if (bookingId != null && mounted) {
-        // 🟢 Enregistrement du Code PIN dans la base de données pour sécuriser le billet
+        // 🟢 ENREGISTREMENT DU PIN ET DE LA CATÉGORIE DANS SUPABASE
         try {
           await Supabase.instance.client
               .from('event_bookings')
-              .update({'pin_code': _pinController.text.trim()})
+              .update({
+                'pin_code': _pinController.text.trim(),
+                'ticket_category': widget.ticketCategory ?? 'Standard', // Sauvegarde "GOLD", "VIPP", etc.
+              })
               .eq('id', bookingId);
         } catch (e) {
-          debugPrint('⚠️ Erreur mise à jour PIN: $e');
+          debugPrint('⚠️ Erreur mise à jour PIN/Catégorie: $e');
         }
 
         final limitService = EventBookingLimitService(Supabase.instance.client);
         await limitService.recordBookingAttempt(widget.eventId, _quantity);
         
-        // Redirection vers le paiement
         context.push('/thix-event/payment', extra: {
           'bookingId': bookingId,
           'amount': _totalPrice,
@@ -287,10 +294,16 @@ class _EventReservationPageState extends State<EventReservationPage> {
                   ),
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: _ThixColors.cardBorder)),
                   
+                  // 🟢 AFFICHAGE DYNAMIQUE DE LA CATÉGORIE CHOISIE
+                  if (widget.ticketCategory != null && widget.selectedSeats == null) ...[
+                    _buildInfoRow('Catégorie', widget.ticketCategory!),
+                    const SizedBox(height: 8),
+                  ],
+
                   if (widget.selectedSeats != null && widget.selectedSeats!.isNotEmpty) ...[
                     _buildInfoRow('Places sélectionnées', widget.selectedSeats!.map((s) => s.displayName).join(', ')),
                     const SizedBox(height: 8),
-                    _buildInfoRow('Catégorie', widget.selectedSeats!.first.category.toString().split('.').last),
+                    _buildInfoRow('Catégorie', widget.selectedSeats!.first.category.toString().split('.').last.toUpperCase()),
                   ] else ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -383,7 +396,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      // 🟢 CHAMP CODE PIN DE SÉCURITÉ
                       _buildTextField(
                         controller: _pinController,
                         label: 'Code PIN de sécurité (4 chiffres)',
@@ -501,7 +513,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
         prefixIcon: Icon(icon, size: 18, color: _ThixColors.mutedText),
         filled: true,
         fillColor: _ThixColors.lightBg,
-        counterText: '', // Masque le compteur de caractères par défaut
+        counterText: '', 
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.primary, width: 1.5)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red, width: 1)),
