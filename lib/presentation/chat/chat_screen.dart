@@ -16,13 +16,18 @@ import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
-import 'package:thix_id/services/chat/connection_service.dart'; // ✅ AJOUT
+import 'package:thix_id/services/chat/connection_service.dart';
+
+// ─── AJOUT : Sentiment ──────────────────────────────────────
+import 'package:thix_id/services/chat/sentiment_service.dart';
+import 'package:thix_id/providers/chat/sentiment_provider.dart';
 
 // Modèles
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/models/chat/group_info.dart';
+import 'package:thix_id/models/chat/sentiment.dart';
 
 // Widgets
 import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
@@ -61,7 +66,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late PresenceService _presenceService;
   late AudioService _audioService;
   late GroupService _groupService;
-  late ConnectionService _connectionService; // ✅ AJOUT
+  late ConnectionService _connectionService;
+
+  // ─── AJOUT : Sentiment ──────────────────────────────────────
+  late SentimentProvider _sentimentProvider;
 
   // Messages
   List<ChatMessage> _messages = [];
@@ -131,7 +139,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _presenceService = PresenceService(client);
     _audioService = AudioService(client);
     _groupService = GroupService(client);
-    _connectionService = ConnectionService(); // ✅ AJOUT
+    _connectionService = ConnectionService();
+
+    // ─── AJOUT : Initialisation du provider ─────────────────
+    _sentimentProvider = SentimentProvider();
 
     _loadUserRole();
 
@@ -171,6 +182,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageSubscription?.cancel();
     _typingChannel?.unsubscribe();
     _audioService.dispose();
+    _sentimentProvider.dispose(); // ─── AJOUT ───
     super.dispose();
   }
 
@@ -205,6 +217,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _isLoading = false;
         _isLoadingMore = false;
       });
+
+      // ─── AJOUT : Analyser les messages existants ───────────
+      if (!loadMore) {
+        _analyzeExistingMessages();
+      }
 
       if (!loadMore) _scrollToBottom();
     } catch (e) {
@@ -302,7 +319,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _messages[index] = msg;
             }
           } else if (!msg.isDeleted) {
+            // ─── AJOUT : Analyser le nouveau message ──────────
             _messages.add(msg);
+            _analyzeMessage(msg);
           }
         }
       });
@@ -430,6 +449,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() {
         if (!_messages.any((m) => m.id == msg.id)) {
           _messages.add(msg);
+          // ─── AJOUT : Analyser le message envoyé ──────────────
+          _analyzeMessage(msg);
         }
         _inputController.clear();
         _replyToId = '';
@@ -460,10 +481,49 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _messages.add(msg);
         _replyToId = '';
         if (_isInternalNoteMode) _isInternalNoteMode = false;
+        // ─── AJOUT : Analyser le message audio ──────────────
+        _analyzeMessage(msg);
       });
       _scrollToBottom();
     } catch (e) {
       _showSnackBar('Erreur envoi audio: $e', danger);
+    }
+  }
+
+  // ============================================================
+  // ANALYSE DE SENTIMENT (AJOUT)
+  // ============================================================
+
+  Future<void> _analyzeMessage(ChatMessage message) async {
+    // Ignorer les messages vides ou trop courts
+    if (message.content.trim().length < 3) return;
+
+    // Ne pas analyser les messages internes
+    if (message.isInternalNote == true) return;
+
+    try {
+      final result = await _sentimentProvider.analyzeMessage(message.content);
+      if (result != null && mounted) {
+        // Mettre à jour le message dans la liste
+        final index = _messages.indexWhere((m) => m.id == message.id);
+        if (index != -1) {
+          final updated = _messages[index].copyWith(sentiment: result);
+          _messages[index] = updated;
+          setState(() {});
+        }
+        // Sauvegarder le sentiment en base
+        await _chatService.updateMessageSentiment(message.id, result);
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur analyse sentiment: $e');
+    }
+  }
+
+  Future<void> _analyzeExistingMessages() async {
+    // Analyser les messages qui n'ont pas encore de sentiment
+    final toAnalyze = _messages.where((m) => m.sentiment == null && m.content.trim().length >= 3 && m.isInternalNote != true).toList();
+    for (var msg in toAnalyze) {
+      await _analyzeMessage(msg);
     }
   }
 
@@ -1878,7 +1938,7 @@ class _TypingDotsState extends State<_TypingDots>
                 width: 5,
                 height: 5,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF4A8BFF), // primaryBlue
+                  color: Color(0xFF4A8BFF),
                   shape: BoxShape.circle,
                 ),
               ),
