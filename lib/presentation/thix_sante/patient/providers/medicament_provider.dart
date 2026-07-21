@@ -62,19 +62,58 @@ final nearbyPharmaciesProvider = FutureProvider<List<Map<String,dynamic>>>((ref)
   final query = ref.watch(searchQueryProvider);
   final cat = ref.watch(selectedCategoryProvider);
 
-  var req = supabase.from('thix_pharmacies').select();
   if (query.isNotEmpty) {
-    req = req.ilike('nom', '%$query%');
-  }
-  final res = await req.eq('is_open', true).order('rating', ascending: false).limit(20);
-  var list = List<Map<String,dynamic>>.from(res);
+    // 1. Cherche les pharmacies ouvertes dont le nom correspond
+    final matchingPharmacies = await supabase
+        .from('thix_pharmacies')
+        .select('id')
+        .ilike('nom', '%$query%')
+        .eq('is_open', true);
+    final pharmacyIdsFromNames = matchingPharmacies.map((e) => e['id']).toSet();
 
-  if (cat != null) {
-    final meds = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat).gt('stock', 0);
-    final ids = meds.map((e) => e['pharmacy_id']).toSet();
-    list = list.where((p) => ids.contains(p['id'])).toList();
+    // 2. Cherche les médicaments en stock dont le nom correspond
+    final matchingMeds = await supabase
+        .from('thix_medicines')
+        .select('pharmacy_id')
+        .ilike('nom', '%$query%')
+        .gt('stock', 0); // On ne veut que les pharmacies qui ont du stock pour ce med !
+    final pharmacyIdsFromMeds = matchingMeds.map((e) => e['pharmacy_id']).toSet();
+
+    // 3. On fusionne toutes les pharmacies trouvées
+    final allIds = {...pharmacyIdsFromNames, ...pharmacyIdsFromMeds};
+
+    if (allIds.isEmpty) return [];
+
+    final res = await supabase
+        .from('thix_pharmacies')
+        .select()
+        .in_('id', allIds.toList())
+        .eq('is_open', true)
+        .order('rating', ascending: false)
+        .limit(20);
+    
+    var list = List<Map<String,dynamic>>.from(res);
+
+    // Si on a tapé une recherche ET cliqué sur une catégorie
+    if (cat != null) {
+      final meds = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat).gt('stock', 0);
+      final ids = meds.map((e) => e['pharmacy_id']).toSet();
+      list = list.where((p) => ids.contains(p['id'])).toList();
+    }
+    return list;
+
+  } else {
+    // Comportement par défaut (Barre de recherche vide)
+    var req = supabase.from('thix_pharmacies').select().eq('is_open', true).order('rating', ascending: false).limit(20);
+    var list = List<Map<String,dynamic>>.from(await req);
+
+    if (cat != null) {
+      final meds = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat).gt('stock', 0);
+      final ids = meds.map((e) => e['pharmacy_id']).toSet();
+      list = list.where((p) => ids.contains(p['id'])).toList();
+    }
+    return list;
   }
-  return list;
 });
 
 final medicinesByPharmacyProvider = FutureProvider.family<List<Map<String,dynamic>>, String>((ref, pharmacyId) async {
