@@ -143,8 +143,18 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
   }
 
+  // 🟢 CORRECTION : Passage explicite des données de la catégorie à la page de réservation
   void _goToReservation({TicketTier? selectedTier}) {
-    context.push('/thix-event/reservation/${_event.id}'); 
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EventReservationPage(
+          eventId: _event.id,
+          ticketCategory: selectedTier?.name, // Transmet 'GOLD', 'VIPP', etc.
+          ticketPrice: selectedTier?.price,   // Transmet le prix exact de la catégorie
+        ),
+      ),
+    );
   }
 
   void _goToSeatSelection() {
@@ -162,14 +172,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Catégorie épuisée', style: TextStyle(fontWeight: FontWeight.w800, color: _ThixColors.darkText)),
-        content: Column(
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.queue_rounded, size: 48, color: const Color(0xFFF59E0B)),
-            const SizedBox(height: 12),
-            const Text('Il n\'y a plus de billets disponibles pour cette catégorie.', textAlign: TextAlign.center, style: TextStyle(color: _ThixColors.mutedText)),
-            const SizedBox(height: 16),
-            const Text('Voulez-vous rejoindre la file d\'attente ?', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: _ThixColors.darkText)),
+            Icon(Icons.queue_rounded, size: 48, color: Color(0xFFF59E0B)),
+            SizedBox(height: 12),
+            Text('Il n\'y a plus de billets disponibles pour cette catégorie.', textAlign: TextAlign.center, style: TextStyle(color: _ThixColors.mutedText)),
+            SizedBox(height: 16),
+            Text('Voulez-vous rejoindre la file d\'attente ?', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: _ThixColors.darkText)),
           ],
         ),
         actions: [
@@ -424,7 +434,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Widget _buildCategoryCard(TicketTier tier) {
     // 🟢 VÉRIFICATION STRICTE DU STOCK RESTANT
     final int remainingSeats = tier.remaining ?? tier.capacity;
-    bool isSoldOut = remainingSeats <= 0;
+    // Vérifie que le stock est à 0 ET que la capacité n'est pas illimitée (0 ou null)
+    final bool isSoldOut = (tier.capacity > 0 && remainingSeats <= 0) || (tier.remaining != null && tier.remaining! <= 0);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -455,10 +466,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      isSoldOut ? 'Toutes les places ont été vendues' : 'Il reste $remainingSeats place(s)', 
-                      style: TextStyle(fontSize: 12, color: isSoldOut ? Colors.red : const Color(0xFFF59E0B), fontWeight: FontWeight.bold)
-                    ),
+                    if (tier.capacity > 0)
+                      Text(
+                        isSoldOut ? 'Toutes les places ont été vendues' : 'Il reste $remainingSeats place(s)', 
+                        style: TextStyle(fontSize: 12, color: isSoldOut ? Colors.red : const Color(0xFFF59E0B), fontWeight: FontWeight.bold)
+                      ),
                   ],
                 ),
               ),
@@ -505,7 +517,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Widget _buildDefaultTicketCard() {
-    bool isSoldOut = (_event.remainingTickets != null && _event.remainingTickets! == 0);
+    // 🟢 VÉRIFICATION STRICTE DU STOCK RESTANT PAR DÉFAUT
+    bool isSoldOut = (_event.remainingTickets != null && _event.remainingTickets! <= 0);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -527,14 +540,24 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   const SizedBox(height: 4),
                   if (_event.remainingTickets != null)
                     Text(
-                      isSoldOut ? 'Complet' : 'Places limitées', 
+                      isSoldOut ? 'Toutes les places ont été vendues' : 'Places limitées', 
                       style: TextStyle(fontSize: 12, color: isSoldOut ? Colors.red : const Color(0xFFF59E0B), fontWeight: FontWeight.bold)
                     ),
                 ],
               ),
-              Text(
-                _event.formattedPrice,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isSoldOut ? Colors.grey : _ThixColors.primary),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _event.formattedPrice,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isSoldOut ? Colors.grey : _ThixColors.primary),
+                  ),
+                  if (isSoldOut)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text('ÉPUISÉ', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    ),
+                ],
               ),
             ],
           ),
@@ -565,26 +588,31 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Widget _buildSeatMapCard(Color accent) {
+    bool isSoldOut = _availableSeats <= 0;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: isSoldOut ? Colors.grey.shade300 : accent.withOpacity(0.3), width: 1.5),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.event_seat_rounded, color: accent),
+              Icon(Icons.event_seat_rounded, color: isSoldOut ? Colors.grey : accent),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Places Numérotées', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
+                    Text('Places Numérotées', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: isSoldOut ? Colors.grey : _ThixColors.darkText)),
                     const SizedBox(height: 4),
-                    Text('$_availableSeats places disponibles', style: const TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.bold)),
+                    Text(
+                      isSoldOut ? 'Toutes les places sont réservées' : '$_availableSeats places disponibles', 
+                      style: TextStyle(fontSize: 12, color: isSoldOut ? Colors.red : const Color(0xFFF59E0B), fontWeight: FontWeight.bold)
+                    ),
                   ],
                 ),
               ),
@@ -594,16 +622,19 @@ class _EventDetailPageState extends State<EventDetailPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _availableSeats <= 0 ? _joinWaitingQueue : _goToSeatSelection,
+              onPressed: isSoldOut ? _joinWaitingQueue : _goToSeatSelection,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _availableSeats <= 0 ? const Color(0xFFF59E0B).withOpacity(0.1) : accent,
-                foregroundColor: _availableSeats <= 0 ? const Color(0xFFF59E0B) : Colors.white,
+                backgroundColor: isSoldOut ? const Color(0xFFF59E0B).withOpacity(0.1) : accent,
+                foregroundColor: isSoldOut ? const Color(0xFFF59E0B) : Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: isSoldOut ? const BorderSide(color: Color(0xFFF59E0B), width: 1.5) : BorderSide.none,
+                ),
               ),
               child: Text(
-                _availableSeats <= 0 ? 'REJOINDRE LA FILE D\'ATTENTE' : 'CHOISIR MES PLACES',
+                isSoldOut ? 'REJOINDRE LA FILE D\'ATTENTE' : 'CHOISIR MES PLACES',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1),
               ),
             ),
