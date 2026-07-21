@@ -1,23 +1,111 @@
-// lib/presentation/thix_sante/patient/services/grossesse_advice_service.dart
 import '../models/grossesse_model.dart';
+
 class GrossesseAdviceService {
-  static WeekAdvice getWeekAdvice(int sa){
-    if(sa>=24) return WeekAdvice(
-      title: 'Semaine $sa - Viabilité',
-      babyDevelopment: ['Poumons continuent de produire du surfactant','Cerveau très actif, cycles veille/sommeil','Peau moins transparente, graisse se forme','Entend ta voix et réagit'],
-      motherAdvice: ['Dors sur côté gauche','Surveille TA','Marche 30 min/j'],
-      nutrition: ['Calcium 1000mg','Fer si anémie','Hydratation 2L','Oméga 3'],
-      avoid: ['Viande crue','Poisson cru','Alcool','Tabac'],
+  static BabyWeekInfo getBabyInfo(int sa) {
+    if (sa <= 4) {
+      return const BabyWeekInfo(
+        fruit: 'Graine',
+        size: '2 mm',
+        weight: '<1 g',
+        desc: 'Nidation',
+      );
+    }
+    if (sa <= 8) {
+      return const BabyWeekInfo(
+        fruit: 'Framboise',
+        size: '1.6 cm',
+        weight: '1 g',
+        desc: 'Coeur bat',
+      );
+    }
+    if (sa <= 12) {
+      return const BabyWeekInfo(
+        fruit: 'Citron',
+        size: '6 cm',
+        weight: '14 g',
+        desc: 'Organes formes',
+      );
+    }
+    if (sa <= 16) {
+      return const BabyWeekInfo(
+        fruit: 'Avocat',
+        size: '12 cm',
+        weight: '100 g',
+        desc: 'Mouvements',
+      );
+    }
+    if (sa <= 20) {
+      return const BabyWeekInfo(
+        fruit: 'Banane',
+        size: '25 cm',
+        weight: '300 g',
+        desc: 'Coups perceptibles',
+      );
+    }
+    if (sa <= 24) {
+      return const BabyWeekInfo(
+        fruit: 'Mais',
+        size: '30 cm',
+        weight: '600 g',
+        desc: 'Viabilite',
+      );
+    }
+    if (sa <= 28) {
+      return const BabyWeekInfo(
+        fruit: 'Aubergine',
+        size: '37 cm',
+        weight: '1 kg',
+        desc: 'Yeux ouverts',
+      );
+    }
+    if (sa <= 32) {
+      return const BabyWeekInfo(
+        fruit: 'Courge',
+        size: '42 cm',
+        weight: '1.7 kg',
+        desc: 'Os se solidifient',
+      );
+    }
+    if (sa <= 36) {
+      return const BabyWeekInfo(
+        fruit: 'Melon',
+        size: '47 cm',
+        weight: '2.6 kg',
+        desc: 'Poumons matures',
+      );
+    }
+    return const BabyWeekInfo(
+      fruit: 'Pasteque',
+      size: '50 cm',
+      weight: '3.3 kg',
+      desc: 'Pret a naitre',
     );
-    if(sa<=12) return WeekAdvice(title: 'Semaine $sa - 1er trimestre', babyDevelopment: ['Organes se forment','Cœur bat','Bourgeons des membres'], motherAdvice: ['Repos','Acide folique obligatoire'], nutrition: ['Acide folique 400µg','Légumes verts'], avoid: ['Alcool','Médicaments sans avis','Radios']);
-    return WeekAdvice(title: 'Semaine $sa', babyDevelopment: ['Croissance rapide','Mouvements plus forts'], motherAdvice: ['Écoute ton corps','Prépare valise dès 32 SA'], nutrition: ['Protéines','Fer','Calcium'], avoid: ['Excès sucre','Port de charges lourdes']);
   }
-  static BabyWeekInfo getBabyInfo(int sa){
-    if(sa>=40) return BabyWeekInfo(fruit:'Pastèque', size:'51 cm', weight:'3.4 kg', desc:'Prêt');
-    if(sa>=36) return BabyWeekInfo(fruit:'Pastèque petite', size:'47 cm', weight:'2.6 kg', desc:'Tête en bas');
-    if(sa>=32) return BabyWeekInfo(fruit:'Courge', size:'42 cm', weight:'1.7 kg', desc:'Os solides');
-    if(sa>=24) return BabyWeekInfo(fruit:'Maïs', size:'30 cm', weight:'600 g', desc:'Poumons en développement');
-    if(sa>=20) return BabyWeekInfo(fruit:'Banane', size:'25 cm', weight:'300 g', desc:'Coups');
-    return BabyWeekInfo(fruit:'Citron', size:'6 cm', weight:'14 g', desc:'Organes formés');
+
+  static WeekAdvice getWeekAdvice(int sa) {
+    final info = getBabyInfo(sa);
+    return WeekAdvice(
+      title: 'Semaine $sa - Bebe ${info.fruit}',
+      babyDevelopment: [
+        'Taille: ${info.size} - Poids: ${info.weight}',
+        info.desc,
+        sa >= 28
+            ? 'Compter les coups 2x/jour'
+            : 'Developpement cerebral intense',
+        sa >= 37
+            ? 'Bebe engage - surveiller contractions'
+            : 'Croissance continue',
+      ],
+      nutrition: [
+        'Acide folique + fer',
+        'Proteines + legumes verts',
+        'Hydratation 2L/jour',
+      ],
+      avoid: [
+        'Alcool, tabac',
+        'Fromages au lait cru, charcuterie crue',
+        'Efforts intenses si risque',
+      ],
+    );
   }
 }
