@@ -1,28 +1,18 @@
-// =============================================================================
-// Screen: SanteEnfantsPage - Service Sante 1/11
-// Source reelle: public.family_members where type = 'enfant'
-// + public.health_records pour vaccins/poids/taille par member_uid
-// Zero mock-up - 100% Supabase RLS
-// =============================================================================
-
+// lib/presentation/thix_sante/patient/screens/sante_enfants_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../core/thix_sante_colors.dart';
-import '../../patient/services/family_service.dart';
+import '../providers/famille_provider.dart';
 
-// Provider pour la croissance
-final enfantGrowthProvider = FutureProvider.family<Map<String,dynamic>, String>((ref, memberUid) async {
+final enfantGrowthProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, thixId) async {
   final db = Supabase.instance.client;
-  final data = await db.from('health_records')
-   .select('title, description, created_at')
-   .eq('patient_uid', memberUid)
-   .ilike('title', '%poids%')
-   .order('created_at', ascending: false)
-   .limit(1)
-   .maybeSingle();
-  return data ?? {};
+  try {
+    final data = await db.from('health_records').select('title, description, created_at').eq('patient_thix_id', thixId).ilike('title', '%poids%').order('created_at', ascending: false).limit(1).maybeSingle();
+    return data?? {};
+  } catch (_) {
+    return {};
+  }
 });
 
 class SanteEnfantsPage extends ConsumerWidget {
@@ -30,19 +20,20 @@ class SanteEnfantsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On utilise directement le provider défini dans votre family_service.dart
-    final enfantsAsync = ref.watch(enfantsProvider);
+    final async = ref.watch(familleMembersNotifierProvider);
 
     return Scaffold(
-      backgroundColor: ThixSanteColors.background,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Santé Enfants', style: TextStyle(color: ThixSanteColors.ink, fontWeight: FontWeight.w800)),
-        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: ThixSanteColors.ink), onPressed: () => Navigator.pop(context)),
+        backgroundColor: Colors.white, elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)), onPressed: () => Navigator.pop(context)),
+        title: const Text('Santé Enfants', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800, fontSize: 16)),
       ),
-      body: enfantsAsync.when(
-        data: (enfants) {
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Erreur: $e')),
+        data: (all) {
+          final enfants = all.where((m) => (m['lien']?? '')!= 'Vous').toList();
           if (enfants.isEmpty) {
             return Center(
               child: Padding(
@@ -52,7 +43,7 @@ class SanteEnfantsPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   const Text('Aucun enfant lié', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                   const SizedBox(height: 6),
-                  const Text('Ajoutez vos enfants dans Dossier Famille. Leur dossier santé apparaîtra ici automatiquement.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: ThixSanteColors.muted)),
+                  const Text('Ajoutez vos enfants dans Dossier Famille. Leur dossier santé apparaîtra ici automatiquement.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ]),
               ),
             );
@@ -60,72 +51,54 @@ class SanteEnfantsPage extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF9C3), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.info_rounded, size: 18, color: Color(0xFFCA8A04)), const SizedBox(width: 8), Expanded(child: Text('${enfants.length} dossiers enfants liés • Source: family_members', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))])),
+              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFEF9C3), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.info_rounded, size: 18, color: Color(0xFFCA8A04)), const SizedBox(width: 8), Expanded(child: Text('${enfants.length} dossiers enfants • Source: family_members', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))])),
               const SizedBox(height: 12),
-              ...enfants.map((enfant) => _buildEnfantCard(context, ref, enfant)),
+             ...enfants.map((e) => _card(context, ref, e)),
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e,_) => Center(child: Text('Erreur RLS: $e', style: const TextStyle(color: ThixSanteColors.danger))),
       ),
     );
   }
 
-  // On utilise Map<String, dynamic> au lieu de la classe inexistante FamilyMember
-  Widget _buildEnfantCard(BuildContext context, WidgetRef ref, Map<String, dynamic> enfant) {
-    // Extraction sécurisée depuis votre Map Supabase
-    final String fullName = '${enfant['prenom'] ?? ''} ${enfant['nom'] ?? ''}'.trim();
-    final String memberUid = enfant['linked_patient_id']?.toString() ?? enfant['id'].toString();
-    final String? avatarUrl = enfant['avatar_url']?.toString();
-    final String memberThixId = enfant['numero_securite_sociale']?.toString() ?? 'ID non renseigné';
-    final String type = enfant['type']?.toString() ?? 'enfant';
-    
-    final growthAsync = ref.watch(enfantGrowthProvider(memberUid));
+  Widget _card(BuildContext context, WidgetRef ref, Map<String, dynamic> enfant) {
+    final fullName = '${enfant['prenom']?? ''} ${enfant['nom']?? ''}'.trim();
+    final thixId = (enfant['thix_id']?? '').toString();
+    final avatarUrl = enfant['avatar_url'] as String?;
+    final lien = (enfant['lien']?? 'Enfant').toString();
+    final groupe = (enfant['groupe_sanguin']?? 'O+').toString();
+    final growthAsync = ref.watch(enfantGrowthProvider(thixId));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: ThixSanteColors.borderLight)),
-      child: Column(
-        children: [
-          Row(children: [
-            CircleAvatar(
-              radius: 22, 
-              backgroundColor: ThixSanteColors.primaryLight, 
-              backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null, 
-              child: avatarUrl == null && fullName.isNotEmpty 
-                  ? Text(fullName[0].toUpperCase(), style: const TextStyle(color: ThixSanteColors.primary, fontWeight: FontWeight.w800)) 
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(fullName.isNotEmpty ? fullName : 'Inconnu', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: ThixSanteColors.ink)),
-              Text(memberThixId, style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: ThixSanteColors.muted)),
-              Text(type, style: const TextStyle(fontSize: 11, color: ThixSanteColors.muted)),
-            ])),
-            const Icon(Icons.chevron_right_rounded, color: ThixSanteColors.mutedLight),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(children: [
+        Row(children: [
+          CircleAvatar(radius: 22, backgroundColor: const Color(0xFFEFF6FF), backgroundImage: avatarUrl!= null? NetworkImage(avatarUrl) : null, child: avatarUrl == null? Text(fullName.isNotEmpty? fullName[0].toUpperCase() : 'E', style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w800)) : null),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(fullName.isNotEmpty? fullName : 'Enfant', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)), Text(thixId, style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: Color(0xFF94A3B8))), Text('$lien • $groupe', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))])),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+        ]),
+        const SizedBox(height: 12),
+        growthAsync.when(
+          data: (g) => Row(children: [
+            Expanded(child: _metric(icon: Icons.monitor_weight_rounded, label: 'Poids', value: g['description']?.toString()?? '${enfant['poids']?? '--'} kg', color: const Color(0xFF2563EB))),
+            const SizedBox(width: 8),
+            Expanded(child: _metric(icon: Icons.vaccines_rounded, label: 'Vaccins', value: 'Voir carnet', color: const Color(0xFF16A34A), isAction: true)),
           ]),
-          const SizedBox(height: 12),
-          growthAsync.when(
-            data: (growth) => Row(children: [
-              Expanded(child: _metricBox(icon: Icons.monitor_weight_rounded, label: 'Poids', value: growth['description']?.toString() ?? 'Non renseigné', color: ThixSanteColors.primary)),
-              const SizedBox(width: 8),
-              Expanded(child: _metricBox(icon: Icons.vaccines_rounded, label: 'Vaccins', value: 'Voir carnet', color: ThixSanteColors.success, isAction: true)),
-            ]),
-            loading: () => const SizedBox(height: 40, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))),
-            error: (_,__) => const Text('Erreur croissance', style: TextStyle(fontSize: 10, color: ThixSanteColors.muted)),
-          ),
-        ],
-      ),
+          loading: () => const SizedBox(height: 40, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))),
+          error: (_, __) => const Text('Erreur', style: TextStyle(fontSize: 10)),
+        ),
+      ]),
     );
   }
 
-  Widget _metricBox({required IconData icon, required String label, required String value, required Color color, bool isAction = false}) {
+  Widget _metric({required IconData icon, required String label, required String value, required Color color, bool isAction = false}) {
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: ThixSanteColors.background, borderRadius: BorderRadius.circular(10), border: isAction ? Border.all(color: color.withOpacity(0.3)) : null),
-      child: Column(children: [Icon(icon, size: 18, color: color), const SizedBox(height: 4), Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: isAction ? color : ThixSanteColors.ink), maxLines: 1, overflow: TextOverflow.ellipsis), Text(label, style: const TextStyle(fontSize: 10, color: ThixSanteColors.muted))]),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: isAction? Border.all(color: color.withOpacity(0.3)) : null),
+      child: Column(children: [Icon(icon, size: 18, color: color), const SizedBox(height: 4), Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: isAction? color : const Color(0xFF0F172A)), maxLines: 1, overflow: TextOverflow.ellipsis), Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)))]),
     );
   }
 }
