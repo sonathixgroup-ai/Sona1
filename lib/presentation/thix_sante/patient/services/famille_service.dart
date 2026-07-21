@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart'; // Pour kIsWeb
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FamilleService {
@@ -47,32 +47,15 @@ class FamilleService {
     return res;
   }
 
-  /// Modifié pour supporter le Web et le Mobile via les octets (Bytes)
-  Future<String> uploadAvatar(dynamic fileInput, String thixId) async {
+  /// Upload universel par octets (fonctionne à la fois sur le Web, Android et iOS)
+  Future<String> uploadAvatar(Uint8List imageBytes, String thixId) async {
     final fileName = '${_db.auth.currentUser!.id}/$thixId-${DateTime.now().millisecondsSinceEpoch}.jpg';
     
-    if (kIsWeb) {
-      // Si on est sur le Web, fileInput doit être un Uint8List (les octets du fichier)
-      if (fileInput is Uint8List) {
-        await _db.storage.from(_bucket).uploadBinary(
-          fileName,
-          fileInput,
-          fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
-        );
-      } else {
-        throw Exception("Format de fichier non supporté sur le web (Uint8List attendu)");
-      }
-    } else {
-      // Sur mobile (Android/iOS), fileInput peut être un String (chemin du fichier) ou un File
-      final file = fileInput is String ? io.File(fileInput) : fileInput;
-      // Note: si vous gardez le code mobile, vous pouvez utiliser upload standard avec un File si vous isolez l'import,
-      // mais utiliser uploadBinary partout avec des bytes est encore plus propre et universel.
-      await _db.storage.from(_bucket).upload(
-        fileName,
-        file,
-        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
-      );
-    }
+    await _db.storage.from(_bucket).uploadBinary(
+      fileName,
+      imageBytes,
+      fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+    );
 
     return _db.storage.from(_bucket).getPublicUrl(fileName);
   }
