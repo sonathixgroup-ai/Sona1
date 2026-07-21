@@ -116,7 +116,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     try { context.go(AppRoutes.userDashboard); } catch (_) { context.go('/user-dashboard'); }
   }
   
-  Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.go(AppRoutes.chat); return; } context.push(AppRoutes.login); }
+  Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
   Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
   
   Future<void> _openEmergency() async { 
