@@ -1,5 +1,5 @@
 // lib/presentation/thix_sante/patient/screens/dossier_famille_page.dart
-import 'dart:io';
+import 'dart:typed_data'; // Remplacement de dart:io par dart:typed_data
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -226,7 +226,7 @@ class _DossierFamillePageState extends ConsumerState<DossierFamillePage> {
     String lien = 'Fille';
     String groupe = 'O+';
     DateTime? dob;
-    String? localPath;
+    Uint8List? imageBytes; // Modification: Utilisation de Uint8List au lieu de String
     int step = 0;
     final picker = ImagePicker();
 
@@ -236,10 +236,16 @@ class _DossierFamillePageState extends ConsumerState<DossierFamillePage> {
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSt) {
+        
+        // Modification de la fonction pick pour lire les octets
         Future<void> pick(bool cam) async {
           final XFile? x = await picker.pickImage(source: cam ? ImageSource.camera : ImageSource.gallery, imageQuality: 75);
-          if (x != null) setSt(() => localPath = x.path);
+          if (x != null) {
+            final bytes = await x.readAsBytes();
+            setSt(() => imageBytes = bytes);
+          }
         }
+
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
           child: SingleChildScrollView(
@@ -257,7 +263,7 @@ class _DossierFamillePageState extends ConsumerState<DossierFamillePage> {
                 TextField(controller: postnomCtrl, decoration: _dec('Postnom')),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: InkWell(onTap: () async { final d = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDate: DateTime(2018)); if (d != null) setSt(() => dob = d); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14), decoration: BoxDecoration(border: Border.all(color: const Color(0xFFD1D5DB)), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.calendar_month_rounded, size: 18), const SizedBox(width: 6), Text(dob == null ? 'Date naissance' : '${dob!.day}/${dob!.month}/${dob!.year}', style: const TextStyle(fontSize: 13))])))),
+                  Expanded(child: InkBorder(onTap: () async { final d = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDate: DateTime(2018)); if (d != null) setSt(() => dob = d); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14), decoration: BoxDecoration(border: Border.all(color: const Color(0xFFD1D5DB)), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.calendar_month_rounded, size: 18), const SizedBox(width: 6), Text(dob == null ? 'Date naissance' : '${dob!.day}/${dob!.month}/${dob!.year}', style: const TextStyle(fontSize: 13))])))),
                   const SizedBox(width: 8),
                   DropdownButton<String>(value: sexe, items: const [DropdownMenuItem(value: 'M', child: Text('Garcon')), DropdownMenuItem(value: 'F', child: Text('Fille'))], onChanged: (v) => setSt(() => sexe = v!)),
                 ]),
@@ -271,7 +277,8 @@ class _DossierFamillePageState extends ConsumerState<DossierFamillePage> {
                 Row(children: [Expanded(child: TextField(controller: poidsCtrl, keyboardType: TextInputType.number, decoration: _dec('Poids kg'))), const SizedBox(width: 8), Expanded(child: TextField(controller: tailleCtrl, keyboardType: TextInputType.number, decoration: _dec('Taille cm')))]),
               ],
               if (step == 2) ...[
-                Center(child: Stack(children: [CircleAvatar(radius: 54, backgroundImage: localPath != null ? FileImage(File(localPath!)) as ImageProvider : const NetworkImage('https://i.pravatar.cc/100?img=8')), Positioned(bottom: 0, right: 0, child: InkWell(onTap: () => pick(false), child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Color(0xFF2563EB), shape: BoxShape.circle), child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18))))])),
+                // Modification de l'image de profil pour supporter le Web (MemoryImage)
+                Center(child: Stack(children: [CircleAvatar(radius: 54, backgroundImage: imageBytes != null ? MemoryImage(imageBytes!) as ImageProvider : const NetworkImage('https://i.pravatar.cc/100?img=8')), Positioned(bottom: 0, right: 0, child: InkWell(onTap: () => pick(false), child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Color(0xFF2563EB), shape: BoxShape.circle), child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18))))])),
                 const SizedBox(height: 10),
                 const Center(child: Text('Photo avatar', style: TextStyle(fontWeight: FontWeight.w700))),
                 const SizedBox(height: 8),
@@ -292,7 +299,20 @@ class _DossierFamillePageState extends ConsumerState<DossierFamillePage> {
                         setSt(() => step = 2);
                       } else {
                         try {
-                          await ref.read(familleMembersNotifierProvider.notifier).add(thixId: thixCtrl.text, nom: nomCtrl.text, postnom: postnomCtrl.text, prenom: prenomCtrl.text, dob: dob!, sexe: sexe, lien: lien, groupe: groupe, poids: double.tryParse(poidsCtrl.text), taille: double.tryParse(tailleCtrl.text), localAvatarPath: localPath);
+                          // Modification de l'appel pour passer avatarBytes au lieu de localAvatarPath
+                          await ref.read(familleMembersNotifierProvider.notifier).add(
+                            thixId: thixCtrl.text, 
+                            nom: nomCtrl.text, 
+                            postnom: postnomCtrl.text, 
+                            prenom: prenomCtrl.text, 
+                            dob: dob!, 
+                            sexe: sexe, 
+                            lien: lien, 
+                            groupe: groupe, 
+                            poids: double.tryParse(poidsCtrl.text), 
+                            taille: double.tryParse(tailleCtrl.text), 
+                            avatarBytes: imageBytes
+                          );
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${prenomCtrl.text} ajoute'), backgroundColor: const Color(0xFF16A34A)));
                         } catch (e) {
