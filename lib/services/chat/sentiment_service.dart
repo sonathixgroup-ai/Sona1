@@ -1,11 +1,11 @@
-// 📁 lib/services/chat/sentiment_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/chat/sentiment.dart';
 
 class SentimentService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Analyser un message via la Edge Function
+  // ─── ANALYSE D'UN MESSAGE ──────────────────────────────────
+
   Future<SentimentResult> analyze(String text) async {
     final cleanText = _cleanText(text);
     if (cleanText.isEmpty) {
@@ -22,15 +22,23 @@ class SentimentService {
         'analyze-sentiment',
         body: {
           'text': cleanText,
-          'messageId': null, // Optionnel : l'ID du message pour mise à jour auto
+          'messageId': null,
         },
       );
 
-      if (response.error != null) {
-        throw Exception(response.error!.message);
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) {
+        throw Exception('Réponse vide');
       }
 
-      final data = response.data as Map<String, dynamic>;
+      if (data['error'] != null) {
+        throw Exception(data['error'] as String);
+      }
+
+      if (data['result'] == null) {
+        throw Exception('Aucun résultat');
+      }
+
       final result = data['result'] as Map<String, dynamic>;
 
       return SentimentResult(
@@ -41,12 +49,12 @@ class SentimentService {
       );
     } catch (e) {
       print('❌ Erreur analyse sentiment: $e');
-      // Fallback sur les règles locales
       return _analyzeWithRules(cleanText);
     }
   }
 
-  // Analyser et mettre à jour directement le message
+  // ─── ANALYSE + MISE À JOUR DIRECTE ──────────────────────────
+
   Future<void> analyzeAndUpdateMessage(String messageId, String text) async {
     try {
       await _supabase.functions.invoke(
@@ -61,7 +69,52 @@ class SentimentService {
     }
   }
 
-  // ─── RÈGLES (fallback local) ─────────────────────────────────
+  // ─── ANALYSE DE BATCH ───────────────────────────────────────
+
+  Future<List<SentimentResult>> analyzeBatch(List<String> texts) async {
+    final results = <SentimentResult>[];
+    for (var text in texts) {
+      final result = await analyze(text);
+      results.add(result);
+    }
+    return results;
+  }
+
+  // ─── ANALYSE DE CONVERSATION ───────────────────────────────
+
+  Future<Map<String, dynamic>> analyzeConversation(List<String> messages) async {
+    if (messages.isEmpty) {
+      return {
+        'overall': SentimentType.neutral,
+        'averageScore': 0.0,
+        'total': 0,
+        'positive': 0,
+        'neutral': 0,
+        'negative': 0,
+        'veryNegative': 0,
+      };
+    }
+
+    final results = await analyzeBatch(messages);
+    final stats = {
+      'total': results.length,
+      'positive': results.where((r) => r.sentiment == SentimentType.positive).length,
+      'neutral': results.where((r) => r.sentiment == SentimentType.neutral).length,
+      'negative': results.where((r) => r.sentiment == SentimentType.negative).length,
+      'veryNegative': results.where((r) => r.sentiment == SentimentType.veryNegative).length,
+    };
+
+    final avgScore = results.fold<double>(0, (sum, r) => sum + r.score) / results.length;
+    final overall = _getOverallSentiment(avgScore);
+
+    return {
+      'overall': overall,
+      'averageScore': avgScore,
+      ...stats,
+    };
+  }
+
+  // ─── RÈGLES (FALLBACK LOCAL) ────────────────────────────────
 
   SentimentResult _analyzeWithRules(String text) {
     final lower = text.toLowerCase();
@@ -101,6 +154,13 @@ class SentimentService {
       default:
         return SentimentType.neutral;
     }
+  }
+
+  SentimentType _getOverallSentiment(double avgScore) {
+    if (avgScore >= 0.3) return SentimentType.positive;
+    if (avgScore >= -0.1) return SentimentType.neutral;
+    if (avgScore >= -0.5) return SentimentType.negative;
+    return SentimentType.veryNegative;
   }
 
   String _cleanText(String text) {
