@@ -169,7 +169,8 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
         if (ddrCtrl.text.isEmpty) return DateTime.now().add(const Duration(days: 280));
         
         final ddr = DateTime.parse(ddrCtrl.text);
-        final days = type == PregnancyType.jumeaux ? 259 : type == PregnancyType.triplets ? 245 : 280;
+        final days = type == PregnancyType.jumeaux ? 259 : type.index == 2 ? 245 : 280;
+
         return ddr.add(Duration(days: days));
       }
 
@@ -292,7 +293,7 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text('Bébé fait la taille d\'un(e) ${info.fruitName ?? 'fruit'}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text('Bébé fait la taille de : ${info.fruit}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 4),
                       Text('📏 ${info.size}   •   ⚖️ ${info.weight}', style: const TextStyle(color: Colors.white, fontSize: 12))
                     ]))
@@ -307,7 +308,7 @@ class _SuiviGrossessePageState extends ConsumerState<SuiviGrossessePage> with Si
                 data: (records) {
                   if (records.isEmpty) return const SizedBox();
                   return Container(
-                    margin: const EdgeInsets.top(12),
+                    margin: const EdgeInsets.only(top: 12),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
                     child: Row(children: [
