@@ -15,18 +15,55 @@ final nearbyPharmaciesProvider = FutureProvider<List<Map<String,dynamic>>>((ref)
   final query = ref.watch(searchQueryProvider);
   final cat = ref.watch(selectedCategoryProvider);
 
-  var q = supabase.from('thix_pharmacies').select();
-  if(query.isNotEmpty) q = q.ilike('nom', '%$query%');
-  final res = await q.order('rating', ascending: false).limit(20);
-  var list = List<Map<String,dynamic>>.from(res);
+  if (query.isNotEmpty) {
+    // 1. Chercher les pharmacies dont le nom correspond
+    final matchingPharmacies = await supabase
+        .from('thix_pharmacies')
+        .select()
+        .ilike('nom', '%$query%');
+    final pharmacyIdsFromNames = matchingPharmacies.map((e) => e['id']).toSet();
 
-  // filtre catégorie si sélectionnée
-  if(cat!= null) {
-    final meds = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat);
-    final ids = meds.map((e)=> e['pharmacy_id']).toSet();
-    list = list.where((p)=> ids.contains(p['id'])).toList();
+    // 2. Chercher les médicaments dont le nom correspond, et récupérer leur pharmacy_id
+    final matchingMeds = await supabase
+        .from('thix_medicines')
+        .select('pharmacy_id')
+        .ilike('nom', '%$query%');
+    final pharmacyIdsFromMeds = matchingMeds.map((e) => e['pharmacy_id']).toSet();
+
+    // Combiner tous les IDs de pharmacies trouvées (par nom ou par médicament)
+    final allIds = {...pharmacyIdsFromNames, ...pharmacyIdsFromMeds};
+
+    if (allIds.isEmpty) return [];
+
+    final res = await supabase
+        .from('thix_pharmacies')
+        .select()
+        .in_('id', allIds.toList())
+        .order('rating', ascending: false);
+
+    var list = List<Map<String, dynamic>>.from(res);
+
+    // Filtrer par catégorie si sélectionnée
+    if (cat != null) {
+      final medsCat = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat);
+      final idsCat = medsCat.map((e) => e['pharmacy_id']).toSet();
+      list = list.where((p) => idsCat.contains(p['id'])).toList();
+    }
+    return list;
+  } else {
+    // Si la recherche est vide, on liste les pharmacies normalement
+    var q = supabase.from('thix_pharmacies').select();
+    final res = await q.order('rating', ascending: false).limit(20);
+    var list = List<Map<String,dynamic>>.from(res);
+
+    // Filtre catégorie si sélectionnée
+    if(cat!= null) {
+      final meds = await supabase.from('thix_medicines').select('pharmacy_id').eq('categorie', cat);
+      final ids = meds.map((e)=> e['pharmacy_id']).toSet();
+      list = list.where((p)=> ids.contains(p['id'])).toList();
+    }
+    return list;
   }
-  return list;
 });
 
 final medicinesByPharmacyProvider = FutureProvider.family<List<Map<String,dynamic>>, String>((ref, pharmacyId) async {
@@ -67,10 +104,10 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
     final selectedPharmacy = ref.watch(selectedPharmacyProvider);
     final cart = ref.watch(cartProvider);
     final cartTotal = cart.when(
-  data: (l) => l.fold<double>(0.0, (s, e) => s + ((e['thix_medicines']?['prix'] ?? 0) * (e['quantity'] ?? 1))), 
-  loading: () => 0.0, 
-  error: (_, __) => 0.0
-);
+      data: (l) => l.fold<double>(0.0, (s, e) => s + ((e['thix_medicines']?['prix'] ?? 0) * (e['quantity'] ?? 1))), 
+      loading: () => 0.0, 
+      error: (_, __) => 0.0
+    );
 
     final cartCount = cart.when(data: (l)=> l.length, loading: ()=>0, error: (_,__)=>0);
 
@@ -102,7 +139,7 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
                   child: TextField(
                     controller: searchCtrl,
                     onChanged: (v)=> ref.read(searchQueryProvider.notifier).state = v,
-                    decoration: const InputDecoration(hintText: 'Search', prefixIcon: Icon(Icons.search), border: InputBorder.none, contentPadding: EdgeInsets.all(14)),
+                    decoration: const InputDecoration(hintText: 'Search medicine or pharmacy...', prefixIcon: Icon(Icons.search), border: InputBorder.none, contentPadding: EdgeInsets.all(14)),
                   ),
                 ),
               ])),
@@ -166,7 +203,7 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
         ])),
         const SizedBox(height: 8),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
-          const Text('Pain Killers', style: TextStyle(fontWeight: FontWeight.w800)),
+          const Text('Medicaments disponibles', style: TextStyle(fontWeight: FontWeight.w800)),
           const Spacer(),
           const Icon(Icons.keyboard_arrow_down_rounded),
         ])),
@@ -286,7 +323,7 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
     );
   }
 
-  void _showCheckout() {
+  Widget _showCheckout() {
     showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (_){
       final cart = ref.watch(cartProvider);
       return Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -298,7 +335,6 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E)),
           onPressed: () async {
             Navigator.pop(context);
-            // CORRECTION ICI: Un point-virgule (;) a été mis au lieu de la virgule (,) !
             showDialog(context: context, builder: (_)=> Dialog(child: Container(height: 500, padding: const EdgeInsets.all(16), child: Column(children: [
               const Text('Deliveryman arriving in 20 mins', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
