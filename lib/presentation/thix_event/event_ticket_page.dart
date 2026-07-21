@@ -20,16 +20,31 @@ class EventTicketPage extends StatefulWidget {
   State<EventTicketPage> createState() => _EventTicketPageState();
 }
 
-class _EventTicketPageState extends State<EventTicketPage> {
+// 🟢 Ajout de SingleTickerProviderStateMixin pour animer le filigrane
+class _EventTicketPageState extends State<EventTicketPage> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
-  bool _isQrCodeVisible = false; // 🟢 État pour masquer/afficher le QR code
+  bool _isQrCodeVisible = false; 
   Map<String, dynamic>? _bookingData;
   Map<String, dynamic>? _eventData;
+  
+  late AnimationController _watermarkController;
 
   @override
   void initState() {
     super.initState();
     _fetchTicketData();
+    
+    // 🟢 Configuration de l'animation en boucle pour le filigrane mouvant
+    _watermarkController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _watermarkController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchTicketData() async {
@@ -52,7 +67,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
     }
   }
 
-  // 🟢 Fonction de vérification du code PIN avant d'afficher le QR code
   void _promptForPinToRevealQr() {
     final TextEditingController pinInputController = TextEditingController();
     final correctPin = _bookingData!['pin_code']?.toString() ?? '';
@@ -73,7 +87,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Entrez votre code PIN personnel à 4 chiffres pour afficher le QR code d\'accès :',
+              'Entrez votre code PIN personnel à 4 chiffres pour afficher le QR code et l\'ID secret :',
               style: TextStyle(fontSize: 13, color: _ThixColors.mutedText, height: 1.4),
             ),
             const SizedBox(height: 16),
@@ -106,7 +120,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                 setState(() => _isQrCodeVisible = true);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('QR code déverrouillé avec succès !'),
+                    content: Text('Billet déverrouillé avec succès !'),
                     backgroundColor: Colors.green,
                     duration: Duration(seconds: 2),
                   ),
@@ -158,6 +172,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
     
     final pinCode = _bookingData!['pin_code']?.toString() ?? '****';
     final qrData = _bookingData!['id'].toString(); 
+    final maskedTicketId = '****-****-${qrData.substring(qrData.length > 4 ? qrData.length - 4 : 0).toUpperCase()}';
 
     // Gestion dynamique des états
     final String rawStatus = (_bookingData!['status'] ?? 'confirmed').toString().toLowerCase();
@@ -270,7 +285,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                             ),
                             const SizedBox(height: 16),
                             
-                            // AFFICHAGE DU CODE PIN (MASQUÉ OU PARTIEL)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -290,7 +304,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                                     ],
                                   ),
                                   Text(
-                                    _isQrCodeVisible ? pinCode : '••••', // Masqué si le QR code est verrouillé
+                                    _isQrCodeVisible ? pinCode : '••••',
                                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 3, color: _ThixColors.primary),
                                   ),
                                 ],
@@ -308,7 +322,6 @@ class _EventTicketPageState extends State<EventTicketPage> {
                         ],
                       ),
 
-                      // 🟢 ZONE SÉCURISÉE DU QR CODE
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
@@ -359,9 +372,13 @@ class _EventTicketPageState extends State<EventTicketPage> {
                                     ),
                                   ),
                             const SizedBox(height: 12),
-                            Text('Ticket ID: ${qrData.split('-').first.toUpperCase()}', style: const TextStyle(fontSize: 12, color: _ThixColors.mutedText, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                            // 🟢 TICKET ID MASQUÉ TANT QUE LE PIN N'EST PAS VALIDÉ
+                            Text(
+                              'Ticket ID: ${_isQrCodeVisible ? qrData.split('-').first.toUpperCase() : maskedTicketId}', 
+                              style: const TextStyle(fontSize: 12, color: _ThixColors.mutedText, fontWeight: FontWeight.bold, letterSpacing: 2),
+                            ),
                             const SizedBox(height: 4),
-                            const Text('Présentez ce QR code et votre PIN à l\'entrée', style: TextStyle(fontSize: 11, color: _ThixColors.mutedText)),
+                            const Text('Entrez votre PIN pour afficher le QR code et l\'ID', style: TextStyle(fontSize: 11, color: _ThixColors.mutedText)),
                           ],
                         ),
                       ),
@@ -369,23 +386,36 @@ class _EventTicketPageState extends State<EventTicketPage> {
                   ),
                 ),
 
+                // 🟢 FILIGRANE ANIMÉ EN MOUVEMENT CONTINU (Reflet mouvant anti-capture)
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: Center(
-                      child: Transform.rotate(
-                        angle: -0.5,
-                        child: Opacity(
-                          opacity: 0.04,
-                          child: Text(
-                            'THIX SECURE • ${qrData.split('-').first.toUpperCase()}',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              color: _ThixColors.darkText,
+                    child: AnimatedBuilder(
+                      animation: _watermarkController,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          // Déplace légèrement le filigrane de haut en bas et de gauche à droite en boucle
+                          offset: Offset(
+                            10 * (_watermarkController.value - 0.5),
+                            20 * (_watermarkController.value - 0.5),
+                          ),
+                          child: Center(
+                            child: Transform.rotate(
+                              angle: -0.5,
+                              child: Opacity(
+                                opacity: 0.05,
+                                child: Text(
+                                  'THIX SECURE • ${qrData.split('-').first.toUpperCase()}',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: _ThixColors.darkText,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
