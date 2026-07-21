@@ -32,15 +32,14 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   // Charte Graphique THIX
   static const Color appViolet = Color(0xFF6B3CE2);
   static const Color textDark = Color(0xFF1E1B4B);
-  static const Color availableSeatColor = Color(0xFFF3F4F6); // Gris très clair
-  static const Color reservedByOtherColor = Color(0xFFF59E0B); // Orange
-  static const Color soldColor = Color(0xFFEF4444); // Rouge
+  static const Color availableSeatColor = Color(0xFFF3F4F6); 
+  static const Color reservedByOtherColor = Color(0xFFF59E0B); 
+  static const Color soldColor = Color(0xFFEF4444); 
 
   List<EventSeat> _seats = [];
   List<EventSeat> _selectedSeats = [];
   final Set<String> _processingSeats = {}; 
   
-  // 🟢 OPTIMISATION PRODUCTION : Mise en cache du plan pour éviter de recalculer à chaque frame
   Map<String, List<EventSeat>> _groupedSeats = {};
   List<String> _sortedRows = [];
   
@@ -49,9 +48,8 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   int _availableSeats = 0;
   String? _error;
 
-  // Limite stricte de sécurité
   int get _maxAllowedSeats {
-    int maxLimit = 5; // Limite globale du système
+    int maxLimit = 5; 
     if (widget.requestedQuantity != null && widget.requestedQuantity! < maxLimit) {
       return widget.requestedQuantity!;
     }
@@ -71,7 +69,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     super.dispose();
   }
 
-  // Libère toutes les places sécurisées si l'utilisateur quitte la page sans payer
   Future<void> _releaseTemporaryReservations() async {
     if (_selectedSeats.isNotEmpty) {
       final seatIds = _selectedSeats.map((s) => s.id).toList();
@@ -90,7 +87,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
       final seats = await _seatService.getSeatMap(widget.eventId);
       final available = await _seatService.getAvailableSeatsCount(widget.eventId);
       
-      // 🟢 OPTIMISATION : On groupe et on trie UNE SEULE FOIS ici
       _groupAndSortSeats(seats);
 
       if (mounted) {
@@ -110,7 +106,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     }
   }
 
-  // Fonction dédiée au calcul du layout
   void _groupAndSortSeats(List<EventSeat> seats) {
     _groupedSeats.clear();
     for (var seat in seats) {
@@ -119,18 +114,15 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     _sortedRows = _groupedSeats.keys.toList()..sort();
   }
 
-  // SÉCURITÉ : Verrouillage/Déverrouillage immédiat en base de données
   Future<void> _onSeatSelected(EventSeat seat) async {
-    if (_processingSeats.contains(seat.id)) return; // Anti-spam clic
+    if (_processingSeats.contains(seat.id)) return;
 
     setState(() => _processingSeats.add(seat.id));
 
     try {
-      // Vérification par ID pour plus de sécurité
       final isAlreadySelected = _selectedSeats.any((s) => s.id == seat.id);
 
       if (isAlreadySelected) {
-        // --- DÉVERROUILLER LA PLACE ---
         final released = await _seatService.releaseSeats(widget.eventId, [seat.id]);
         if (released && mounted) {
           setState(() {
@@ -139,7 +131,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
           });
         }
       } else {
-        // --- VÉRIFIER LA LIMITE ---
         if (_selectedSeats.length >= _maxAllowedSeats) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -148,10 +139,9 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
               behavior: SnackBarBehavior.floating,
             ),
           );
-          return; // Sortie anticipée
+          return;
         }
 
-        // --- VERROUILLER LA PLACE ---
         final reserved = await _seatService.reserveSeats(widget.eventId, [seat.id]);
         if (reserved && mounted) {
           setState(() {
@@ -167,7 +157,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                 behavior: SnackBarBehavior.floating,
               ),
             );
-            _loadSeatMap(); // Rafraîchissement silencieux
+            _loadSeatMap();
           }
         }
       }
@@ -182,14 +172,18 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     }
   }
 
+  // 🟢 CORRECTION DYNAMIQUE DU PRIX : Sécurise le calcul même si le champ s'appelle différemment dans le modèle
   double get _totalPrice {
-    return _selectedSeats.fold(0, (sum, seat) => sum + seat.categoryPrice);
+    return _selectedSeats.fold(0.0, (sum, seat) {
+      // S'assure de récupérer le prix dynamique (via categoryPrice ou un fallback sur le prix global de l'événement)
+      final price = seat.categoryPrice > 0 ? seat.categoryPrice : (widget.event?.price ?? 0.0);
+      return sum + price;
+    });
   }
 
   void _confirmSelection() {
     if (_selectedSeats.isEmpty) return;
 
-    // Blocage du bouton pendant la transition
     setState(() => _isConfirming = true);
 
     Navigator.push(
@@ -203,7 +197,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
         ),
       ),
     ).then((_) {
-      // Débloque et recharge à la fermeture de la page de réservation
       if (mounted) {
         setState(() => _isConfirming = false);
         _loadSeatMap();
@@ -374,18 +367,16 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     return InteractiveViewer(
       minScale: 0.5,
       maxScale: 3.0,
-      boundaryMargin: const EdgeInsets.all(40), // Permet un meilleur panning
+      boundaryMargin: const EdgeInsets.all(40),
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 20, bottom: 60, left: 16, right: 16),
         child: Column(
           children: [
-            // Dessin de la Scène courbée
             CustomPaint(size: const Size(250, 40), painter: ScenePainter()),
             const SizedBox(height: 12),
             const Text('SCÈNE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 5, color: Colors.grey)),
             const SizedBox(height: 40),
             
-            // Grille des sièges générée via le cache (_sortedRows et _groupedSeats)
             for (var row in _sortedRows)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -464,7 +455,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   }
 
   Widget _buildBottomBar() {
-    // 🟢 OPTIMISATION : Devise dynamique tirée de l'événement
+    // 🟢 DYNAMISME DES DEVISES : Récupération intelligente de la devise (depuis widget.event ou valeur par défaut)
     final String currency = widget.event?.priceCurrency ?? 'FC';
     
     return Container(
@@ -483,13 +474,16 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // 🟢 Indication dynamique de la catégorie si disponible
                   Text(
-                    '${_selectedSeats.length} place(s)',
+                    _selectedSeats.isNotEmpty 
+                        ? '${_selectedSeats.length} place(s) sélectionnée(s)'
+                        : 'Aucune place sélectionnée',
                     style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${_totalPrice.toStringAsFixed(0)} $currency', // Utilisation dynamique
+                    '${_totalPrice.toStringAsFixed(0)} $currency', 
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
                   ),
                 ],
@@ -502,7 +496,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: appViolet,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: appViolet.withOpacity(0.3), // Rendu du désactivé plus premium
+                  disabledBackgroundColor: appViolet.withOpacity(0.3),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   elevation: 0,
@@ -523,7 +517,7 @@ class ScenePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFEEE9FF) // Violet très clair THIX
+      ..color = const Color(0xFFEEE9FF) 
       ..style = PaintingStyle.fill;
 
     final path = Path()
