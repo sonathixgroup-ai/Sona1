@@ -7,6 +7,7 @@ import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/user_status.dart';
 import '../../models/chat/group_info.dart';
+import 'package:thix_id/models/chat/sentiment.dart';
 
 class ChatService {
   final SupabaseClient _supabase;
@@ -161,6 +162,21 @@ class ChatService {
     }
   }
 
+  // 👇 LA FONCTION CORRIGÉE EST ICI 👇
+  Future<void> updateMessageSentiment(String messageId, SentimentResult sentiment) async {
+    try {
+      // ✅ Utilisation de _supabase au lieu de supabase
+      await _supabase 
+          .from('messages') 
+          .update({'sentiment': sentiment.name}) 
+          .eq('id', messageId);
+          
+    } catch (e) {
+      debugPrint('❌ Erreur lors de la mise à jour du sentiment: $e');
+      throw Exception('Impossible de mettre à jour le sentiment');
+    }
+  }
+  
   Future<ChatConversation> createConversation({
     required List<String> participantIds,
     bool isGroup = false,
@@ -743,7 +759,7 @@ class ChatService {
       schema: 'public',
       table: 'messages',
       filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq, // ✅ Correction que nous avions faite précédemment
+        type: PostgresChangeFilterType.eq, 
         column: 'conversation_id',
         value: conversationId,
       ),
