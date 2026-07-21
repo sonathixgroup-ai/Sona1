@@ -228,7 +228,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   Widget _quickAccess(){
     final items = [
       {'l':'Rendez-vous','icon':Icons.calendar_month_rounded,'c':const Color(0xFF2563EB),'bg':const Color(0xFFEFF6FF),'p':const PrendreRdvPage()},
-      {'l':'Consultation','icon':Icons.stethoscope_rounded,'c':const Color(0xFF16A34A),'bg':const Color(0xFFEFFEF2),'p':const ConsulterMedecinPage()},
+      {'l':'Consultation','icon':Icons.medical_services_rounded,'c':const Color(0xFF16A34A),'bg':const Color(0xFFEFFEF2),'p':const ConsulterMedecinPage()},
       {'l':'Examens','icon':Icons.biotech_rounded,'c':const Color(0xFF7C3AED),'bg':const Color(0xFFF5F3FF),'p':const ResultatsExamensPage()},
       {'l':'Ordonnances','icon':Icons.medication_rounded,'c':const Color(0xFF2563EB),'bg':const Color(0xFFEFF6FF),'p':const MesOrdonnancesPage()},
       {'l':'Urgences','icon':Icons.favorite_rounded,'c':const Color(0xFFEF4444),'bg':const Color(0xFFFEF2F2),'p':const UrgencesProchesPage()},
