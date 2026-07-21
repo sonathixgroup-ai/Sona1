@@ -66,19 +66,50 @@ class _EventTicketPageState extends State<EventTicketPage> {
     }
 
     final eventTitle = _eventData!['title'] ?? 'Événement';
-    final eventDate = _eventData!['date'] != null 
-        ? DateFormat('dd MMMM yyyy, HH:mm', 'fr').format(DateTime.parse(_eventData!['date'])) 
-        : 'Date inconnue';
+    final eventDateStr = _eventData!['date'] ?? _eventData!['start_date'];
+    final DateTime eventDateTime = eventDateStr != null ? DateTime.tryParse(eventDateStr.toString()) ?? DateTime.now() : DateTime.now();
+    
+    final eventDateFormatted = DateFormat('dd MMMM yyyy, HH:mm', 'fr').format(eventDateTime);
     final location = _eventData!['location'] ?? 'Lieu inconnu';
     final imageUrl = _eventData!['image_url'];
     final quantity = _bookingData!['ticket_quantity'] ?? 1;
     final category = _bookingData!['ticket_category'] ?? 'Standard';
     
-    // 🟢 Récupération du Code PIN de sécurité personnel enregistré en base
+    // Récupération du Code PIN de sécurité personnel enregistré en base
     final pinCode = _bookingData!['pin_code']?.toString() ?? '****';
     
     // Le QR Code contiendra cet ID unique pour le scan à la porte
     final qrData = _bookingData!['id'].toString(); 
+
+    // 🟢 GESTION DYNAMIQUE DES ÉTATS DU BILLET
+    final String rawStatus = (_bookingData!['status'] ?? 'confirmed').toString().toLowerCase();
+    final bool isPaid = (_bookingData!['payment_status'] ?? 'paid').toString().toLowerCase() == 'paid';
+    
+    String statusLabel = 'VALIDE';
+    Color statusColor = Colors.green;
+    Color statusBgColor = Colors.green.withOpacity(0.1);
+
+    if (rawStatus == 'used' || rawStatus == 'scanned') {
+      statusLabel = 'UTILISÉ';
+      statusColor = Colors.grey;
+      statusBgColor = Colors.grey.withOpacity(0.1);
+    } else if (rawStatus == 'cancelled') {
+      statusLabel = 'ANNULÉ';
+      statusColor = Colors.red;
+      statusBgColor = Colors.red.withOpacity(0.1);
+    } else if (rawStatus == 'postponed') {
+      statusLabel = 'REPORTÉ';
+      statusColor = const Color(0xFFF59E0B); // Orange
+      statusBgColor = const Color(0xFFF59E0B).withOpacity(0.1);
+    } else if (eventDateTime.isBefore(DateTime.now())) {
+      statusLabel = 'EXPIRÉ';
+      statusColor = Colors.orange.shade700;
+      statusBgColor = Colors.orange.withOpacity(0.1);
+    } else if (!isPaid) {
+      statusLabel = 'EN ATTENTE';
+      statusColor = Colors.blue;
+      statusBgColor = Colors.blue.withOpacity(0.1);
+    }
 
     return Scaffold(
       backgroundColor: _ThixColors.primary,
@@ -96,10 +127,9 @@ class _EventTicketPageState extends State<EventTicketPage> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           children: [
-            // 🎟️ LE BILLET AVEC FILIGRANE ANTI-FRAUDE
+            // 🎟️ LE BILLET AVEC FILIGRANE ET STATUT DYNAMIQUE
             Stack(
               children: [
-                // CONTENU PRINCIPAL DU BILLET
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -133,7 +163,7 @@ class _EventTicketPageState extends State<EventTicketPage> {
                           children: [
                             Text(eventTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
                             const SizedBox(height: 16),
-                            _buildInfoRow(Icons.calendar_today_rounded, 'Date & Heure', eventDate),
+                            _buildInfoRow(Icons.calendar_today_rounded, 'Date & Heure', eventDateFormatted),
                             const SizedBox(height: 12),
                             _buildInfoRow(Icons.location_on_rounded, 'Lieu', location),
                             const SizedBox(height: 20),
@@ -141,7 +171,27 @@ class _EventTicketPageState extends State<EventTicketPage> {
                               children: [
                                 Expanded(child: _buildTicketDetail('Billet(s)', '$quantity')),
                                 Expanded(child: _buildTicketDetail('Type', category)), 
-                                Expanded(child: _buildTicketDetail('Statut', 'PAYÉ', color: Colors.green)),
+                                // 🟢 STATUT DYNAMIQUE (VALIDE, UTILISÉ, EXPIRÉ, ETC.)
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Statut', style: TextStyle(fontSize: 10, color: _ThixColors.mutedText, fontWeight: FontWeight.w600)),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: statusBgColor,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          statusLabel, 
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: statusColor),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -215,14 +265,14 @@ class _EventTicketPageState extends State<EventTicketPage> {
                   ),
                 ),
 
-                // 🌊 FILIGRANE VISUEL ANTI-CAPTURE (Arrière-plan subtil sur le billet)
+                // 🌊 FILIGRANE VISUEL ANTI-CAPTURE
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Center(
                       child: Transform.rotate(
                         angle: -0.5,
                         child: Opacity(
-                          opacity: 0.04, // Ultra transparent pour ne pas gêner la lecture
+                          opacity: 0.04,
                           child: Text(
                             'THIX SECURE • ${qrData.split('-').first.toUpperCase()}',
                             style: const TextStyle(
