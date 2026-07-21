@@ -5,6 +5,9 @@ import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
+// ─── IMPORTS POUR LE SENTIMENT ──────────────────────────────
+import 'package:thix_id/models/chat/sentiment.dart';
+import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
 
 class ChatMessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -40,12 +43,10 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   bool _isDecrypted = false;
   String? _decryptedContent;
 
-  // Liste des emojis mise à jour pour correspondre à la capture d'écran fournie
   final List<String> _emojiReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
 
-  // Couleurs mises à jour selon le nouveau design
-  static const Color primaryBlue = Color(0xFF4A8BFF); // Bleu vif pour l'expéditeur
-  static const Color leftBubbleColor = Color(0xFFE9F0FF); // Bleu clair pour le destinataire
+  static const Color primaryBlue = Color(0xFF4A8BFF);
+  static const Color leftBubbleColor = Color(0xFFE9F0FF);
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color gold = Color(0xFFE3B23C);
@@ -155,7 +156,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 14, // Augmenté à 14px
+                    radius: 14,
                     backgroundColor: leftBubbleColor,
                     backgroundImage: msg.senderAvatar != null ? NetworkImage(msg.senderAvatar!) : null,
                     child: msg.senderAvatar == null
@@ -237,13 +238,13 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                   onExit: (_) => setState(() => _isHovering = false),
                   child: Container(
                     padding: msg.mediaType == 'image' 
-                        ? const EdgeInsets.all(4) // Padding réduit pour laisser la photo plus "libre"
+                        ? const EdgeInsets.all(4)
                         : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
                     decoration: BoxDecoration(
                       color: widget.isInternalNote
                           ? Colors.yellow.shade100
-                          : (isOwn ? primaryBlue : leftBubbleColor), // Couleurs du design
+                          : (isOwn ? primaryBlue : leftBubbleColor),
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(20),
                         topRight: const Radius.circular(20),
@@ -260,9 +261,35 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                     child: Column(
                       crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
-                        // Badges divers (Note interne, Chiffré, Ephémère, etc.)
-                        _buildBadges(msg),
+                        // Badges + indicateur de sentiment
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 2,
+                                children: [
+                                  if (widget.isInternalNote) _badge(Icons.note_rounded, 'Note interne', Colors.orange),
+                                  if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', gold),
+                                  if (widget.isEphemeralActive) _badge(Icons.timer_rounded, 'Éphémère', Colors.orange),
+                                  if (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio') 
+                                    _badge(msg.mediaType == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, msg.mediaType ?? 'Fichier', Colors.blue),
+                                ],
+                              ),
+                            ),
+                            // ─── INDICATEUR DE SENTIMENT ──────────────────────
+                            if (msg.sentiment != null)
+                              SentimentIndicator(
+                                result: msg.sentiment!,
+                                size: 14,
+                                showLabel: false,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
 
+                        // Contenu du message
                         if (msg.isCodeSnippet && msg.codeContent != null)
                           ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage ?? 'text')
                         else if (msg.mediaType == 'audio' && msg.mediaUrl != null)
@@ -284,7 +311,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                             ),
                           ),
 
-                        // Réactions au sein de la bulle
+                        // Réactions
                         if (msg.reactions.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
@@ -308,7 +335,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ],
           ),
 
-          // Heure et accusés de réception placés en dehors de la bulle (taille 9px)
+          // Heure et accusés de réception (en dehors de la bulle)
           Padding(
             padding: EdgeInsets.only(top: 4, left: isOwn ? 0 : 8, right: isOwn ? 8 : 0),
             child: Row(
@@ -365,26 +392,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     );
   }
 
-  Widget _buildBadges(ChatMessage msg) {
-    bool hasBadge = widget.isInternalNote || _isEncrypted || widget.isEphemeralActive || (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio');
-    if (!hasBadge) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Wrap(
-        spacing: 4,
-        runSpacing: 2,
-        children: [
-          if (widget.isInternalNote) _badge(Icons.note_rounded, 'Note interne', Colors.orange),
-          if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', gold),
-          if (widget.isEphemeralActive) _badge(Icons.timer_rounded, 'Éphémère', Colors.orange),
-          if (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio') 
-            _badge(msg.mediaType == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, msg.mediaType ?? 'Fichier', Colors.blue),
-        ],
-      ),
-    );
-  }
-
+  // ─── BADGE ────────────────────────────────────────────────────
   Widget _badge(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -400,6 +408,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     );
   }
 
+  // ─── BOUTON DE RÉACTION ────────────────────────────────────
   Widget _buildReactionButton(String emoji) {
     return InkWell(
       onTap: () {
@@ -410,9 +419,9 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     );
   }
 
+  // ─── MÉDIA ──────────────────────────────────────────────────
   Widget _buildMediaContent() {
     if (widget.message.mediaType == 'image') {
-      // Photo libre et cliquable
       return GestureDetector(
         onTap: () {
           Navigator.push(
@@ -429,7 +438,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
           tag: widget.message.id,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            // CORRECTION COMPILATION WEB : Remplacement direct par un Container avec constraints
             child: Container(
               constraints: const BoxConstraints(maxHeight: 250),
               child: Image.network(
@@ -446,7 +454,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
       );
     }
 
-    // Vue de repli pour vidéos ou documents
     return Container(
       constraints: const BoxConstraints(maxHeight: 120),
       padding: const EdgeInsets.all(12),
@@ -465,9 +472,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   }
 }
 
-// ============================================================
-// PAGE FULL SCREEN 
-// ============================================================
+// ─── FULL SCREEN IMAGE PAGE ────────────────────────────────
 
 class FullScreenImagePage extends StatelessWidget {
   final String imageUrl;
