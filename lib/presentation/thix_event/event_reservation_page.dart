@@ -1,4 +1,5 @@
 // lib/presentation/thix_event/event_reservation_page.dart
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -29,7 +30,7 @@ class EventReservationPage extends StatefulWidget {
     super.key,
     required this.eventId,
     this.selectedSeats,
-    this.totalPrice, // Utilisé pour passer le prix spécifique du billet (ex: GOLD)
+    this.totalPrice, 
     this.quantity = 1,
   });
 
@@ -49,12 +50,16 @@ class _EventReservationPageState extends State<EventReservationPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  // 🟢 Contrôleur pour le Code PIN de sécurité personnel
+  final TextEditingController _pinController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadEvent();
     _quantity = widget.quantity;
+    // Génération automatique d'un PIN aléatoire à 4 chiffres par défaut (modifiable par l'utilisateur)
+    _pinController.text = (1000 + Random().nextInt(9000)).toString();
   }
 
   @override
@@ -62,6 +67,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -98,12 +104,10 @@ class _EventReservationPageState extends State<EventReservationPage> {
     }
   }
 
-  // Nouveau getter pour le prix unitaire dynamique
   double get _unitPrice {
     return widget.totalPrice ?? _event.price;
   }
 
-  // Le total multiplie désormais le bon prix unitaire par la quantité
   double get _totalPrice {
     return _unitPrice * _quantity;
   }
@@ -156,7 +160,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
         final booking = await provider.bookTicket(
           eventId: widget.eventId,
           quantity: widget.selectedSeats!.length,
-          totalPrice: _totalPrice, // Mise à jour pour utiliser le calcul dynamique
+          totalPrice: _totalPrice,
         );
         
         if (booking != null) {
@@ -175,10 +179,20 @@ class _EventReservationPageState extends State<EventReservationPage> {
       }
       
       if (bookingId != null && mounted) {
+        // 🟢 Enregistrement du Code PIN dans la base de données pour sécuriser le billet
+        try {
+          await Supabase.instance.client
+              .from('event_bookings')
+              .update({'pin_code': _pinController.text.trim()})
+              .eq('id', bookingId);
+        } catch (e) {
+          debugPrint('⚠️ Erreur mise à jour PIN: $e');
+        }
+
         final limitService = EventBookingLimitService(Supabase.instance.client);
         await limitService.recordBookingAttempt(widget.eventId, _quantity);
         
-        // Redirection vers le paiement avec passage des paramètres extra
+        // Redirection vers le paiement
         context.push('/thix-event/payment', extra: {
           'bookingId': bookingId,
           'amount': _totalPrice,
@@ -368,6 +382,19 @@ class _EventReservationPageState extends State<EventReservationPage> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      // 🟢 CHAMP CODE PIN DE SÉCURITÉ
+                      _buildTextField(
+                        controller: _pinController,
+                        label: 'Code PIN de sécurité (4 chiffres)',
+                        icon: Icons.lock_outline_rounded,
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        validator: (val) {
+                          if (val == null || val.trim().length != 4) return 'Entrez un code PIN exact à 4 chiffres';
+                          return null;
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -457,12 +484,14 @@ class _EventReservationPageState extends State<EventReservationPage> {
     required String label, 
     required IconData icon, 
     TextInputType? keyboardType,
+    int? maxLength,
     String? Function(String?)? validator,
     Iterable<String>? autofillHints,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      maxLength: maxLength,
       autofillHints: autofillHints,
       validator: validator,
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _ThixColors.darkText),
@@ -472,6 +501,7 @@ class _EventReservationPageState extends State<EventReservationPage> {
         prefixIcon: Icon(icon, size: 18, color: _ThixColors.mutedText),
         filled: true,
         fillColor: _ThixColors.lightBg,
+        counterText: '', // Masque le compteur de caractères par défaut
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _ThixColors.primary, width: 1.5)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red, width: 1)),
