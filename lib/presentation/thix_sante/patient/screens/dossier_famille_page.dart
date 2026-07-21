@@ -263,7 +263,8 @@ class _DossierFamillePageState extends ConsumerState<DossierFamillePage> {
                 TextField(controller: postnomCtrl, decoration: _dec('Postnom')),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: InkBorder(onTap: () async { final d = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDate: DateTime(2018)); if (d != null) setSt(() => dob = d); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14), decoration: BoxDecoration(border: Border.all(color: const Color(0xFFD1D5DB)), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.calendar_month_rounded, size: 18), const SizedBox(width: 6), Text(dob == null ? 'Date naissance' : '${dob!.day}/${dob!.month}/${dob!.year}', style: const TextStyle(fontSize: 13))])))),
+                  Expanded(child: InkWell(onTap: () async { final d = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDate: DateTime(2018)); if (d != null) setSt(() => dob = d); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14), decoration: BoxDecoration(border: Border.all(color: const Color(0xFFD1D5DB)), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.calendar_month_rounded, size: 18), const SizedBox(width: 6), Text(dob == null ? 'Date naissance' : '${dob!.day}/${dob!.month}/${dob!.year}', style: const TextStyle(fontSize: 13))])))),
+
                   const SizedBox(width: 8),
                   DropdownButton<String>(value: sexe, items: const [DropdownMenuItem(value: 'M', child: Text('Garcon')), DropdownMenuItem(value: 'F', child: Text('Fille'))], onChanged: (v) => setSt(() => sexe = v!)),
                 ]),
