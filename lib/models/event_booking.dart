@@ -13,6 +13,9 @@ class EventBooking {
   final String status;
   final DateTime bookingDate;
 
+  // Catégorie du billet (ex: VIP, GOLD, Standard)
+  final String ticketCategory;
+
   // Champs additionnels venant de la jointure avec la table 'events'
   final String eventTitle;
   final String? eventImageUrl;
@@ -31,6 +34,7 @@ class EventBooking {
     required this.qrCode,
     required this.status,
     required this.bookingDate,
+    this.ticketCategory = 'Standard',
     this.eventTitle = '',
     this.eventImageUrl,
     required this.eventDate,
@@ -38,19 +42,8 @@ class EventBooking {
   });
 
   factory EventBooking.fromJson(Map<String, dynamic> json) {
-    // 🟢 Récupération sécurisée si les données viennent d'une relation imbriquée Supabase (ex: 'events': { ... })
+    // Récupération sécurisée si les données viennent d'une relation imbriquée Supabase (ex: 'events': { ... })
     final eventData = json['events'] is Map<String, dynamic> ? json['events'] as Map<String, dynamic> : null;
-
-    // Helper pour chercher la valeur soit dans l'objet principal, soit dans l'objet imbrité 'events'
-    T? extractField<T>(String key, T? Function(dynamic) parser) {
-      if (json[key] != null) {
-        return parser(json[key]);
-      }
-      if (eventData != null && eventData[key] != null) {
-        return parser(eventData[key]);
-      }
-      return null;
-    }
 
     // Gestion spécifique pour les dates (cherche 'event_date', 'starts_at', ou 'start_date')
     DateTime parseDate(dynamic val) {
@@ -81,6 +74,12 @@ class EventBooking {
         eventData?['place']?.toString() ?? 
         'Lieu inconnu';
 
+    // Gestion de la catégorie du billet
+    String resolvedCategory = json['ticket_category']?.toString() ?? 
+        json['category']?.toString() ?? 
+        eventData?['category']?.toString() ?? 
+        'Standard';
+
     return EventBooking(
       id: json['id']?.toString() ?? '',
       eventId: json['event_id']?.toString() ?? '',
@@ -95,6 +94,8 @@ class EventBooking {
       bookingDate: json['booking_date'] != null 
           ? DateTime.tryParse(json['booking_date'].toString()) ?? DateTime.now()
           : DateTime.now(),
+      
+      ticketCategory: resolvedCategory,
       
       eventTitle: resolvedTitle,
       eventImageUrl: resolvedImageUrl,
