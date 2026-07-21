@@ -72,6 +72,11 @@ class _EventTicketPageState extends State<EventTicketPage> {
     final location = _eventData!['location'] ?? 'Lieu inconnu';
     final imageUrl = _eventData!['image_url'];
     final quantity = _bookingData!['ticket_quantity'] ?? 1;
+    final category = _bookingData!['ticket_category'] ?? 'Standard';
+    
+    // 🟢 Récupération du Code PIN de sécurité personnel enregistré en base
+    final pinCode = _bookingData!['pin_code']?.toString() ?? '****';
+    
     // Le QR Code contiendra cet ID unique pour le scan à la porte
     final qrData = _bookingData!['id'].toString(); 
 
@@ -84,105 +89,160 @@ class _EventTicketPageState extends State<EventTicketPage> {
           icon: const Icon(Icons.close_rounded, color: Colors.white),
           onPressed: () => context.go('/thix-event'), // Retour à l'accueil
         ),
-        title: const Text('Votre Billet', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+        title: const Text('Votre Billet Sécurisé', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           children: [
-            // 🎟️ LE BILLET
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // HAUT : Flyer de l'événement
-                  if (imageUrl != null)
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-                      child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
-                    )
-                  else
-                    Container(
-                      height: 120,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF3B1D82),
-                        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-                      ),
-                      child: const Center(child: Icon(Icons.event, size: 50, color: Colors.white54)),
-                    ),
-                  
-                  // MILIEU : Informations du ticket
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(eventTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
-                        const SizedBox(height: 16),
-                        _buildInfoRow(Icons.calendar_today_rounded, 'Date & Heure', eventDate),
-                        const SizedBox(height: 12),
-                        _buildInfoRow(Icons.location_on_rounded, 'Lieu', location),
-                        const SizedBox(height: 20),
-                        Row(
+            // 🎟️ LE BILLET AVEC FILIGRANE ANTI-FRAUDE
+            Stack(
+              children: [
+                // CONTENU PRINCIPAL DU BILLET
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // HAUT : Flyer de l'événement
+                      if (imageUrl != null)
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                          child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
+                        )
+                      else
+                        Container(
+                          height: 120,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF3B1D82),
+                            borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                          ),
+                          child: const Center(child: Icon(Icons.event, size: 50, color: Colors.white54)),
+                        ),
+                      
+                      // MILIEU : Informations du ticket
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: _buildTicketDetail('Billet(s)', '$quantity')),
-                            Expanded(child: _buildTicketDetail('Type', 'Standard')), // À lier avec vos data
-                            Expanded(child: _buildTicketDetail('Statut', 'PAYÉ', color: Colors.green)),
+                            Text(eventTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ThixColors.darkText)),
+                            const SizedBox(height: 16),
+                            _buildInfoRow(Icons.calendar_today_rounded, 'Date & Heure', eventDate),
+                            const SizedBox(height: 12),
+                            _buildInfoRow(Icons.location_on_rounded, 'Lieu', location),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(child: _buildTicketDetail('Billet(s)', '$quantity')),
+                                Expanded(child: _buildTicketDetail('Type', category)), 
+                                Expanded(child: _buildTicketDetail('Statut', 'PAYÉ', color: Colors.green)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            // 🔒 AFFICHAGE DU CODE PIN DE SÉCURITÉ PERSONNEL
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _ThixColors.primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _ThixColors.primary.withOpacity(0.2)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.lock_rounded, size: 16, color: _ThixColors.primary),
+                                      SizedBox(width: 8),
+                                      Text('Code PIN personnel :', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _ThixColors.darkText)),
+                                    ],
+                                  ),
+                                  Text(
+                                    pinCode,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 3, color: _ThixColors.primary),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                  // LIGNE DE DÉCOUPE (Effet visuel ticket)
-                  Stack(
-                    children: [
-                      const Divider(color: Colors.grey, height: 1, thickness: 1, indent: 20, endIndent: 20), // Pointillés idéaux ici
-                      Positioned(left: -10, top: -10, child: Container(height: 20, width: 20, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle))),
-                      Positioned(right: -10, top: -10, child: Container(height: 20, width: 20, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle))),
+                      // LIGNE DE DÉCOUPE (Effet visuel ticket)
+                      Stack(
+                        children: [
+                          const Divider(color: Colors.grey, height: 1, thickness: 1, indent: 20, endIndent: 20),
+                          Positioned(left: -10, top: -10, child: Container(height: 20, width: 20, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle))),
+                          Positioned(right: -10, top: -10, child: Container(height: 20, width: 20, decoration: const BoxDecoration(color: _ThixColors.primary, shape: BoxShape.circle))),
+                        ],
+                      ),
+
+                      // BAS : QR CODE PROPRE
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFEEE9FF), width: 2),
+                              ),
+                              child: QrImageView(
+                                data: qrData,
+                                version: QrVersions.auto,
+                                size: 150.0,
+                                foregroundColor: _ThixColors.darkText,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text('Ticket ID: ${qrData.split('-').first.toUpperCase()}', style: const TextStyle(fontSize: 12, color: _ThixColors.mutedText, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                            const SizedBox(height: 4),
+                            const Text('Présentez ce QR code et votre PIN à l\'entrée', style: TextStyle(fontSize: 11, color: _ThixColors.mutedText)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
+                ),
 
-                  // BAS : QR CODE PROPRE
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFEEE9FF), width: 2),
-                          ),
-                          child: QrImageView(
-                            data: qrData,
-                            version: QrVersions.auto,
-                            size: 160.0,
-                            foregroundColor: _ThixColors.darkText,
+                // 🌊 FILIGRANE VISUEL ANTI-CAPTURE (Arrière-plan subtil sur le billet)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: -0.5,
+                        child: Opacity(
+                          opacity: 0.04, // Ultra transparent pour ne pas gêner la lecture
+                          child: Text(
+                            'THIX SECURE • ${qrData.split('-').first.toUpperCase()}',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: _ThixColors.darkText,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Text('Ticket ID: ${qrData.split('-').first.toUpperCase()}', style: const TextStyle(fontSize: 12, color: _ThixColors.mutedText, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                        const SizedBox(height: 4),
-                        const Text('Présentez ce QR code à l\'entrée', style: TextStyle(fontSize: 11, color: _ThixColors.mutedText)),
-                      ],
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 32),
             
-            // Boutons d'action
+            // Bouton d'action
             OutlinedButton.icon(
-              onPressed: () {}, // Logique pour sauvegarder l'image/PDF
+              onPressed: () {}, 
               icon: const Icon(Icons.download_rounded),
               label: const Text('Télécharger le billet'),
               style: OutlinedButton.styleFrom(
