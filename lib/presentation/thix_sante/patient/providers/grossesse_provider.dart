@@ -1,10 +1,11 @@
+// lib/presentation/thix_sante/patient/providers/grossesse_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/grossesse_model.dart';
 import '../services/grossesse_service.dart';
 import '../models/health_record_model.dart';
 
-final grossesseServiceProvider = Provider((ref)=> GrossesseService());
+final grossesseServiceProvider = Provider((ref) => GrossesseService());
 
 final grossesseProfileProvider = FutureProvider.family<PregnancyProfile?, String?>((ref, pid) async {
   return ref.read(grossesseServiceProvider).getProfile(pid);
@@ -26,7 +27,8 @@ final contractionsProvider = FutureProvider.family<List<PregnancyContraction>, S
   return ref.read(grossesseServiceProvider).getContractions(pid);
 });
 
-final checklistProvider = FutureProvider.family<List<PregnancyChecklist>, String?>((ref, pid) async {
+// CORRIGÉ : Utilisation de ChecklistItem au lieu de PregnancyChecklist
+final checklistProvider = FutureProvider.family<List<ChecklistItem>, String?>((ref, pid) async {
   final svc = ref.read(grossesseServiceProvider);
   await svc.ensureDefaultChecklist(pid);
   return svc.getChecklist(pid);
@@ -36,5 +38,5 @@ final grossesseRecordsProvider = FutureProvider.family<List<HealthRecordModel>, 
   final db = Supabase.instance.client;
   final uid = pid ?? db.auth.currentUser!.id;
   final data = await db.from('health_records').select().eq('patient_uid', uid).or('title.ilike.%grossesse%,description.ilike.%grossesse%').order('exam_date', ascending: false);
-  return (data as List).map((e)=> HealthRecordModel.fromJson(e)).toList();
+  return (data as List).map((e) => HealthRecordModel.fromJson(e)).toList();
 });
