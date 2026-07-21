@@ -1,5 +1,7 @@
 // lib/models/chat/chat_message.dart
 
+import 'sentiment.dart'; // 👈 IMPORT AJOUTÉ ICI
+
 // Déclaration de la classe MessageReaction qui manquait
 class MessageReaction {
   final String reaction;
@@ -26,8 +28,8 @@ class ChatMessage {
   final String id;
   final String conversationId;
   final String senderId;
-  final String senderName;  // 👈 AJOUTÉ
-  final String? senderAvatar;  // 👈 AJOUTÉ (optionnel)
+  final String senderName;  
+  final String? senderAvatar;  
   final String content;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -44,14 +46,15 @@ class ChatMessage {
   final String? codeLanguage;
   final String? codeContent;
   final List<MessageReaction> reactions;
-  final bool isInternalNote; // 👈 AJOUTÉ POUR LES NOTES INTERNES
+  final bool isInternalNote; 
+  final SentimentResult? sentiment; // 👈 PROPRIÉTÉ AJOUTÉE ICI
 
   ChatMessage({
     required this.id,
     required this.conversationId,
     required this.senderId,
-    required this.senderName,  // 👈 REQUIS
-    this.senderAvatar,  // 👈 OPTIONNEL
+    required this.senderName,  
+    this.senderAvatar,  
     required this.content,
     required this.createdAt,
     this.updatedAt,
@@ -68,19 +71,19 @@ class ChatMessage {
     this.codeLanguage,
     this.codeContent,
     this.reactions = const [],
-    this.isInternalNote = false, // 👈 AJOUTÉ (Par défaut à false)
+    this.isInternalNote = false, 
+    this.sentiment, // 👈 PARAMÈTRE AJOUTÉ ICI
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    // 👈 Récupérer les infos du profil
     final profile = json['profiles'] as Map<String, dynamic>?;
     
     return ChatMessage(
       id: json['id'] ?? '',
       conversationId: json['conversation_id'] ?? '',
       senderId: json['sender_id'] ?? '',
-      senderName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu',  // 👈
-      senderAvatar: profile?['avatar_url'],  // 👈
+      senderName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu',  
+      senderAvatar: profile?['avatar_url'],  
       content: json['content'] ?? '',
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -106,7 +109,8 @@ class ChatMessage {
               ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
               .toList() ??
           [],
-      isInternalNote: json['is_internal_note'] ?? false, // 👈 AJOUTÉ
+      isInternalNote: json['is_internal_note'] ?? false, 
+      sentiment: json['sentiment'] != null ? json['sentiment'] as SentimentResult : null, // 👈 PARSING AJOUTÉ ICI
     );
   }
 
@@ -130,15 +134,16 @@ class ChatMessage {
     'code_language': codeLanguage,
     'code_content': codeContent,
     'reactions': reactions.map((r) => r.toJson()).toList(),
-    'is_internal_note': isInternalNote, // 👈 AJOUTÉ
+    'is_internal_note': isInternalNote, 
+    'sentiment': sentiment, // 👈 SÉRIALISATION AJOUTÉE ICI
   };
 
   ChatMessage copyWith({
     String? id,
     String? conversationId,
     String? senderId,
-    String? senderName,  // 👈
-    String? senderAvatar,  // 👈
+    String? senderName,  
+    String? senderAvatar,  
     String? content,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -155,14 +160,15 @@ class ChatMessage {
     String? codeLanguage,
     String? codeContent,
     List<MessageReaction>? reactions,
-    bool? isInternalNote, // 👈 AJOUTÉ
+    bool? isInternalNote, 
+    SentimentResult? sentiment, // 👈 PARAMÈTRE AJOUTÉ ICI
   }) {
     return ChatMessage(
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
       senderId: senderId ?? this.senderId,
-      senderName: senderName ?? this.senderName,  // 👈
-      senderAvatar: senderAvatar ?? this.senderAvatar,  // 👈
+      senderName: senderName ?? this.senderName,  
+      senderAvatar: senderAvatar ?? this.senderAvatar,  
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -179,7 +185,8 @@ class ChatMessage {
       codeLanguage: codeLanguage ?? this.codeLanguage,
       codeContent: codeContent ?? this.codeContent,
       reactions: reactions ?? this.reactions,
-      isInternalNote: isInternalNote ?? this.isInternalNote, // 👈 AJOUTÉ
+      isInternalNote: isInternalNote ?? this.isInternalNote, 
+      sentiment: sentiment ?? this.sentiment, // 👈 AFFECTATION AJOUTÉE ICI
     );
   }
 
