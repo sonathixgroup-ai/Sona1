@@ -26,7 +26,6 @@ class EventReservationPage extends StatefulWidget {
   final double? totalPrice;
   final int quantity;
   
-  // 🟢 NOUVEAUX PARAMÈTRES POUR GÉRER LES BILLETS (GOLD, VIPP, etc.)
   final String? ticketCategory;
   final double? ticketPrice;
 
@@ -108,7 +107,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
     }
   }
 
-  // 🟢 PRIX DYNAMIQUE : On priorise le prix de la catégorie (GOLD, etc.), puis le prix du siège, puis le prix de base
   double get _unitPrice {
     return widget.ticketPrice ?? widget.totalPrice ?? _event.price;
   }
@@ -159,13 +157,19 @@ class _EventReservationPageState extends State<EventReservationPage> {
     String? bookingId;
     
     try {
+      final String pinVal = _pinController.text.trim();
+      final String categoryVal = widget.ticketCategory ?? 'Standard';
+
       if (widget.selectedSeats != null && widget.selectedSeats!.isNotEmpty) {
         final seatService = EventSeatService(Supabase.instance.client);
         
+        // 🟢 Transmission directe du PIN et de la Catégorie à bookTicket
         final booking = await provider.bookTicket(
           eventId: widget.eventId,
           quantity: widget.selectedSeats!.length,
           totalPrice: _totalPrice,
+          pinCode: pinVal,
+          ticketCategory: categoryVal,
         );
         
         if (booking != null) {
@@ -175,28 +179,18 @@ class _EventReservationPageState extends State<EventReservationPage> {
           bookingId = booking.id;
         }
       } else {
+        // 🟢 Transmission directe du PIN et de la Catégorie à bookTicket
         final booking = await provider.bookTicket(
           eventId: widget.eventId,
           quantity: _quantity,
           totalPrice: _totalPrice,
+          pinCode: pinVal,
+          ticketCategory: categoryVal,
         );
         bookingId = booking?.id;
       }
       
       if (bookingId != null && mounted) {
-        // 🟢 ENREGISTREMENT DU PIN ET DE LA CATÉGORIE DANS SUPABASE
-        try {
-          await Supabase.instance.client
-              .from('event_bookings')
-              .update({
-                'pin_code': _pinController.text.trim(),
-                'ticket_category': widget.ticketCategory ?? 'Standard', // Sauvegarde "GOLD", "VIPP", etc.
-              })
-              .eq('id', bookingId);
-        } catch (e) {
-          debugPrint('⚠️ Erreur mise à jour PIN/Catégorie: $e');
-        }
-
         final limitService = EventBookingLimitService(Supabase.instance.client);
         await limitService.recordBookingAttempt(widget.eventId, _quantity);
         
@@ -294,7 +288,6 @@ class _EventReservationPageState extends State<EventReservationPage> {
                   ),
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: _ThixColors.cardBorder)),
                   
-                  // 🟢 AFFICHAGE DYNAMIQUE DE LA CATÉGORIE CHOISIE
                   if (widget.ticketCategory != null && widget.selectedSeats == null) ...[
                     _buildInfoRow('Catégorie', widget.ticketCategory!),
                     const SizedBox(height: 8),
