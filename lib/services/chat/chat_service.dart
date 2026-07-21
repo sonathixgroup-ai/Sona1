@@ -163,12 +163,15 @@ class ChatService {
   }
 
   // 👇 LA FONCTION CORRIGÉE EST ICI 👇
-  Future<void> updateMessageSentiment(String messageId, SentimentResult sentiment) async {
+    Future<void> updateMessageSentiment(String messageId, SentimentResult sentiment) async {
     try {
-      // ✅ Utilisation de _supabase au lieu de supabase
+      // ✅ Utilisation de toString() et split() au lieu de .name
+      // Cela fonctionne que SentimentResult soit un enum ou une classe.
+      final sentimentValue = sentiment.toString().split('.').last;
+
       await _supabase 
           .from('messages') 
-          .update({'sentiment': sentiment.name}) 
+          .update({'sentiment': sentimentValue}) 
           .eq('id', messageId);
           
     } catch (e) {
@@ -176,7 +179,7 @@ class ChatService {
       throw Exception('Impossible de mettre à jour le sentiment');
     }
   }
-  
+
   Future<ChatConversation> createConversation({
     required List<String> participantIds,
     bool isGroup = false,
