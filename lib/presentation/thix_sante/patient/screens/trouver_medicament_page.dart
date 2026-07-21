@@ -66,7 +66,12 @@ class _TrouverMedicamentPageState extends ConsumerState<TrouverMedicamentPage> {
   Widget build(BuildContext context) {
     final selectedPharmacy = ref.watch(selectedPharmacyProvider);
     final cart = ref.watch(cartProvider);
-    final cartTotal = cart.when(data: (l)=> l.fold<double>(0,(s,e)=> s + ((e['thix_medicines']?['prix']??0)* (e['quantity']??1)), orElse: ()=>0), loading: ()=>0, error: (_,__)=>0);
+    final cartTotal = cart.when(
+  data: (l) => l.fold<double>(0.0, (s, e) => s + ((e['thix_medicines']?['prix'] ?? 0) * (e['quantity'] ?? 1))), 
+  loading: () => 0.0, 
+  error: (_, __) => 0.0
+);
+
     final cartCount = cart.when(data: (l)=> l.length, loading: ()=>0, error: (_,__)=>0);
 
     return Scaffold(
