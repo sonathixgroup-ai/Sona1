@@ -1,4 +1,5 @@
 // 📁 lib/models/chat/sentiment.dart
+import 'package:flutter/material.dart';
 
 enum SentimentType {
   positive,
