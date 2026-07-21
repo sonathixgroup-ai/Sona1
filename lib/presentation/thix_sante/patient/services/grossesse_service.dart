@@ -1,109 +1,42 @@
+// lib/presentation/thix_sante/patient/services/grossesse_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/grossesse_model.dart';
 
 class GrossesseService {
   final _db = Supabase.instance.client;
   String get _uid => _db.auth.currentUser!.id;
-  String resolveUid(String? patientId) => patientId ?? _uid;
-  bool isDoctor(String? patientId) => patientId != null && patientId != _uid;
+  String resolveUid(String? pid)=> pid?? _uid;
 
-  // Profil
-  Future<PregnancyProfile?> getProfile(String? patientId) async {
-    final uid = resolveUid(patientId);
-    final res = await _db.from('pregnancy_profiles').select().eq('user_id', uid).maybeSingle();
-    return res==null? null : PregnancyProfile.fromJson(res);
+  Future<PregnancyProfile?> getProfile(String? pid) async {
+    final uid = resolveUid(pid);
+    try{ final res = await _db.from('pregnancy_profiles').select().eq('user_id', uid).maybeSingle(); if(res!=null) { await Hive.box('grossesse').put('profile_$uid', res); return PregnancyProfile.fromJson(res);} }catch(_){}
+    final cached = Hive.box('grossesse').get('profile_$uid'); return cached!=null? PregnancyProfile.fromJson(Map<String,dynamic>.from(cached)) : null;
   }
-  Future<void> createProfile(String? patientId, DateTime lastPeriod) async {
-    final uid = resolveUid(patientId);
-    final dpa = lastPeriod.add(const Duration(days: 280));
-    await _db.from('pregnancy_profiles').upsert({
-      'user_id': uid, 'last_period_date': lastPeriod.toIso8601String().substring(0,10),
-      'dpa': dpa.toIso8601String().substring(0,10)
-    }, onConflict: 'user_id');
+  Future<void> createProfile(String? pid, DateTime ddr, PregnancyType type) async {
+    final uid = resolveUid(pid); final dpa = ddr.add(Duration(days: type==PregnancyType.jumeaux? 259 : 280));
+    await _db.from('pregnancy_profiles').upsert({'user_id': uid, 'last_period_date': ddr.toIso8601String().substring(0,10), 'dpa': dpa.toIso8601String().substring(0,10), 'pregnancy_type': type.name}, onConflict: 'user_id');
   }
 
-  // Vitals - femme + medecin lié
-  Future<List<PregnancyVital>> getVitals(String? patientId) async {
-    final uid = resolveUid(patientId);
-    final res = await _db.from('pregnancy_vitals').select().eq('user_id', uid).order('created_at', ascending: false).limit(100);
-    return (res as List).map((e)=> PregnancyVital.fromJson(e)).toList();
-  }
-  Future<void> addVital(String? patientId, VitalType type, String value, {String? value2, String? note}) async {
-    final uid = resolveUid(patientId);
-    await _db.from('pregnancy_vitals').insert({'user_id': uid, 'type': type.name, 'value': value, 'value2': value2, 'note': note});
-  }
-
-  // Kicks - femme seule
-  Future<List<PregnancyKick>> getKicks(String? patientId) async {
-    final uid = resolveUid(patientId);
-    final res = await _db.from('pregnancy_kicks').select().eq('user_id', uid).order('created_at', ascending: false).limit(50);
-    return (res as List).map((e)=> PregnancyKick.fromJson(e)).toList();
-  }
-  Future<void> addKick(String? patientId) async {
-    if(isDoctor(patientId)) throw Exception('Seule la femme peut compter les coups');
-    final uid = resolveUid(patientId);
-    await _db.from('pregnancy_kicks').insert({'user_id': uid, 'count':1});
+  // Risques métier
+  List<String> calculateRisks({required int sa, List<PregnancyVital> vitals = const [], List<PregnancyKick> kicks = const [], List<PregnancyContraction> contractions = const []}){
+    final alerts = <String>[];
+    final ta = vitals.where((v)=> v.type=='tension').toList();
+    if(ta.isNotEmpty){ final last = ta.first.value; final parts = last.split('/'); if(parts.isNotEmpty){ final sys = int.tryParse(parts[0])??0; if(sys>=140) alerts.add('🚨 TA $last > 140/90 - Risque pré-éclampsie - Consulter'); } }
+    if(kicks.isNotEmpty){ final today = kicks.where((k)=> k.createdAt.day==DateTime.now().day).length; if(today==0 && sa>=28) alerts.add('⚠️ 0 mouvement aujourd\'hui après 28 SA - Consulter'); }
+    if(sa>=37 && contractions.length>=3){ final avgInterval = contractions.take(3).map((c)=> c.intervalSec).reduce((a,b)=> a+b)/3; if(avgInterval<=300) alerts.add('🚨 Contractions toutes les 5 min - Va à la maternité'); }
+    return alerts;
   }
 
-  // Contractions - femme seule
-  Future<void> addContraction(String? patientId, int duration, int interval) async {
-    if(isDoctor(patientId)) throw Exception('Seule la femme');
-    final uid = resolveUid(patientId);
-    await _db.from('pregnancy_contractions').insert({'user_id': uid, 'duration_sec': duration, 'interval_sec': interval});
-  }
-
-  // Journal - femme seule
-  Future<List<PregnancyJournal>> getJournals(String? patientId) async {
-    final uid = resolveUid(patientId);
-    final res = await _db.from('pregnancy_journal').select().eq('user_id', uid).order('created_at', ascending: false);
-    return (res as List).map((e)=> PregnancyJournal.fromJson(e)).toList();
-  }
-  Future<void> addJournal(String? patientId, String title, String content, {String? photoUrl, String? mood}) async {
-    if(isDoctor(patientId)) throw Exception('Journal réservé à la femme');
-    final uid = resolveUid(patientId);
-    await _db.from('pregnancy_journal').insert({'user_id': uid, 'title': title, 'content': content, 'photo_url': photoUrl, 'mood': mood});
-  }
-
-  // Checklist
-  Future<List<PregnancyChecklist>> getChecklist(String? patientId) async {
-    final uid = resolveUid(patientId);
-    final res = await _db.from('pregnancy_checklist').select().eq('user_id', uid);
-    return (res as List).map((e)=> PregnancyChecklist.fromJson(e)).toList();
-  }
-  Future<void> toggleChecklist(String id, bool done) async {
-    await _db.from('pregnancy_checklist').update({'done': done}).eq('id', id);
-  }
-  Future<void> ensureDefaultChecklist(String? patientId) async {
-    final uid = resolveUid(patientId);
-    final existing = await _db.from('pregnancy_checklist').select().eq('user_id', uid).limit(1);
-    if((existing as List).isNotEmpty) return;
-    final defaults = [
-      {'item':'Dossier médical + carte THIX','category':'maman'},
-      {'item':'3 pyjamas ouverts devant','category':'maman'},
-      {'item':'Couches taille 1 + lingettes','category':'bebe'},
-      {'item':'Siège auto homologué','category':'bebe'},
-    ];
-    for(final d in defaults){ await _db.from('pregnancy_checklist').insert({'user_id': uid, 'item': d['item'], 'category': d['category']}); }
-  }
-
-  // Health_records - MEDECIN LIE SEULEMENT
-  Future<void> addConsultation(String? patientId, String title, String desc) async {
-    final uid = resolveUid(patientId);
-    await _db.from('health_records').insert({
-      'patient_uid': uid, 'professional_uid': _uid,
-      'type': 'consultation', 'title': 'Grossesse - $title',
-      'description': desc, 'exam_date': DateTime.now().toIso8601String(),
-    });
-  }
-
-  BabyWeekInfo getBabyInfo(int sa){
-    if(sa>=40) return BabyWeekInfo(fruit:'Pastèque', size:'51 cm', weight:'3.4 kg', desc:'Prêt à naître');
-    if(sa>=36) return BabyWeekInfo(fruit:'Pastèque petite', size:'47 cm', weight:'2.6 kg', desc:'Tête en bas');
-    if(sa>=32) return BabyWeekInfo(fruit:'Courge', size:'42 cm', weight:'1.7 kg', desc:'Os se solidifient');
-    if(sa>=28) return BabyWeekInfo(fruit:'Aubergine', size:'37 cm', weight:'1 kg', desc:'Yeux ouverts');
-    if(sa>=24) return BabyWeekInfo(fruit:'Maïs', size:'30 cm', weight:'600 g', desc:'Poumons en développement');
-    if(sa>=20) return BabyWeekInfo(fruit:'Banane', size:'25 cm', weight:'300 g', desc:'Premiers coups');
-    if(sa>=12) return BabyWeekInfo(fruit:'Citron vert', size:'6 cm', weight:'14 g', desc:'Organes formés');
-    return BabyWeekInfo(fruit:'Graines', size:'0.1 cm', weight:'0 g', desc:'Fécondation');
-  }
+  Future<void> addVital(String? pid, String type, String value, {String? v2}) async { await _db.from('pregnancy_vitals').insert({'user_id': resolveUid(pid), 'type': type, 'value': value, 'value2': v2}); }
+  Future<List<PregnancyVital>> getVitals(String? pid) async { final res = await _db.from('pregnancy_vitals').select().eq('user_id', resolveUid(pid)).order('created_at', ascending:false).limit(100); return (res as List).map((e)=> PregnancyVital.fromJson(e)).toList(); }
+  Future<void> addKick(String? pid) async { if(pid!=null) throw Exception('Femme seule'); await _db.from('pregnancy_kicks').insert({'user_id': resolveUid(pid)}); }
+  Future<List<PregnancyKick>> getKicks(String? pid) async { final res = await _db.from('pregnancy_kicks').select().eq('user_id', resolveUid(pid)).order('created_at', ascending:false).limit(100); return (res as List).map((e)=> PregnancyKick.fromJson(e)).toList(); }
+  Future<void> addJournal(String? pid, String title, String content, {String? photoUrl}) async { if(pid!=null) throw Exception('Femme seule'); await _db.from('pregnancy_journal').insert({'user_id': resolveUid(pid), 'title': title, 'content': content, 'photo_url': photoUrl}); }
+  Future<List<PregnancyJournal>> getJournals(String? pid) async { final res = await _db.from('pregnancy_journal').select().eq('user_id', resolveUid(pid)).order('created_at', ascending:false); return (res as List).map((e)=> PregnancyJournal.fromJson(e)).toList(); }
+  Future<List<PregnancyContraction>> getContractions(String? pid) async { final res = await _db.from('pregnancy_contractions').select().eq('user_id', resolveUid(pid)).order('created_at', ascending:false).limit(20); return (res as List).map((e)=> PregnancyContraction.fromJson(e)).toList(); }
+  Future<void> addContraction(String? pid, int dur, int inter) async { await _db.from('pregnancy_contractions').insert({'user_id': resolveUid(pid), 'duration_sec': dur, 'interval_sec': inter}); }
+  Future<String> uploadPhoto(String? pid, String path, List<int> bytes) async { final uid = resolveUid(pid); final name = '${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg'; await _db.storage.from('pregnancy_photos').uploadBinary(name, bytes as dynamic); return _db.storage.from('pregnancy_photos').getPublicUrl(name); }
+  Future<String> uploadDoc(String? pid, String fileName, List<int> bytes) async { final uid = resolveUid(pid); final name = '${uid}/${DateTime.now().millisecondsSinceEpoch}_$fileName'; await _db.storage.from('pregnancy_docs').uploadBinary(name, bytes as dynamic); return _db.storage.from('pregnancy_docs').getPublicUrl(name); }
+  Future<void> addConsultation(String? pid, String title, String desc) async { await _db.from('health_records').insert({'patient_uid': resolveUid(pid), 'professional_uid': _uid, 'type': 'consultation', 'title': 'Grossesse - $title', 'description': desc, 'exam_date': DateTime.now().toIso8601String()}); }
 }
