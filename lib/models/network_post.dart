@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 @immutable
 class NetworkPost {
-  // ... (Garde tes champs actuels identiques)
   final String id;
   final String userId;
   final String authorName;
@@ -25,6 +24,12 @@ class NetworkPost {
   final String status;
   final bool isPublic;
   final String? communityId;
+
+  // 🛡️ Nouveaux champs pour le Fact-Checking Automatique par l'IA
+  final bool isFactChecked;
+  final bool isMisinformation;
+  final String? factCheckMessage;
+  final String? factCheckSeverity;
 
   const NetworkPost({
     required this.id,
@@ -47,12 +52,14 @@ class NetworkPost {
     this.isPublic = true,
     this.communityId,
     this.views,
+    this.isFactChecked = false,
+    this.isMisinformation = false,
+    this.factCheckMessage,
+    this.factCheckSeverity,
   });
 
-  // ─── NOUVEAU GETTER : Sécurise l'affichage de la vignette ───
   String? get primaryMediaUrl => mediaUrls.isNotEmpty ? mediaUrls.first : null;
 
-  // ─── Logique média existante ───
   static bool _hasExtension(String url, List<String> extensions) {
     final cleanUrl = url.split('?').first.split('#').first.toLowerCase();
     return extensions.any((ext) => cleanUrl.endsWith(ext));
@@ -68,11 +75,9 @@ class NetworkPost {
   bool get hasVideos => videoUrls.isNotEmpty;
   bool get hasMedia => mediaUrls.isNotEmpty;
 
-  // ─── Factory avec gestion robuste des erreurs JSON ───
   factory NetworkPost.fromJson(Map<String, dynamic> json) {
     List<String> mediaUrls = [];
     
-    // Priorité à media_urls (nouveau format), sinon fusion image+video
     if (json['media_urls'] != null) {
       mediaUrls = List<String>.from(json['media_urls'] as List? ?? []);
     } else {
@@ -102,6 +107,11 @@ class NetworkPost {
       isPublic: json['is_public'] as bool? ?? true,
       communityId: json['community_id']?.toString(),
       views: (json['views'] as num?)?.toInt(),
+      // 🛡️ Récupération des données Fact-Check depuis Supabase
+      isFactChecked: json['is_fact_checked'] as bool? ?? false,
+      isMisinformation: json['is_misinformation'] as bool? ?? false,
+      factCheckMessage: json['fact_check_message']?.toString(),
+      factCheckSeverity: json['fact_check_severity']?.toString(),
     );
   }
 
@@ -116,27 +126,45 @@ class NetworkPost {
     'reposts_count': repostsCount,
     'is_liked': isLiked,
     'community_id': communityId,
-    // ... ajoute les autres champs si nécessaire pour tes updates serveurs
+    'is_fact_checked': isFactChecked,
+    'is_misinformation': isMisinformation,
+    'fact_check_message': factCheckMessage,
+    'fact_check_severity': factCheckSeverity,
   };
 
-  // ... (Garde ton copyWith, formattedDate, et opérateurs ==/hashCode intacts)
   NetworkPost copyWith({
     String? id, String? userId, String? authorName, String? authorAvatar, String? authorTitle,
     String? content, List<String>? mediaUrls, DateTime? createdAt, DateTime? updatedAt,
     int? likesCount, int? commentsCount, int? repostsCount, bool? isLiked,
     bool? isSaved, bool? isReposted, bool? isPinned, String? status, bool? isPublic,
     String? communityId, int? views,
+    bool? isFactChecked, bool? isMisinformation, String? factCheckMessage, String? factCheckSeverity,
   }) {
     return NetworkPost(
-      id: id ?? this.id, userId: userId ?? this.userId, authorName: authorName ?? this.authorName,
-      authorAvatar: authorAvatar ?? this.authorAvatar, authorTitle: authorTitle ?? this.authorTitle,
-      content: content ?? this.content, mediaUrls: mediaUrls ?? this.mediaUrls,
-      createdAt: createdAt ?? this.createdAt, updatedAt: updatedAt ?? this.updatedAt,
-      likesCount: likesCount ?? this.likesCount, commentsCount: commentsCount ?? this.commentsCount,
-      repostsCount: repostsCount ?? this.repostsCount, isLiked: isLiked ?? this.isLiked,
-      isSaved: isSaved ?? this.isSaved, isReposted: isReposted ?? this.isReposted,
-      isPinned: isPinned ?? this.isPinned, status: status ?? this.status, isPublic: isPublic ?? this.isPublic,
-      communityId: communityId ?? this.communityId, views: views ?? this.views,
+      id: id ?? this.id, 
+      userId: userId ?? this.userId, 
+      authorName: authorName ?? this.authorName,
+      authorAvatar: authorAvatar ?? this.authorAvatar, 
+      authorTitle: authorTitle ?? this.authorTitle,
+      content: content ?? this.content, 
+      mediaUrls: mediaUrls ?? this.mediaUrls,
+      createdAt: createdAt ?? this.createdAt, 
+      updatedAt: updatedAt ?? this.updatedAt,
+      likesCount: likesCount ?? this.likesCount, 
+      commentsCount: commentsCount ?? this.commentsCount,
+      repostsCount: repostsCount ?? this.repostsCount, 
+      isLiked: isLiked ?? this.isLiked,
+      isSaved: isSaved ?? this.isSaved, 
+      isReposted: isReposted ?? this.isReposted,
+      isPinned: isPinned ?? this.isPinned, 
+      status: status ?? this.status, 
+      isPublic: isPublic ?? this.isPublic,
+      communityId: communityId ?? this.communityId, 
+      views: views ?? this.views,
+      isFactChecked: isFactChecked ?? this.isFactChecked,
+      isMisinformation: isMisinformation ?? this.isMisinformation,
+      factCheckMessage: factCheckMessage ?? this.factCheckMessage,
+      factCheckSeverity: factCheckSeverity ?? this.factCheckSeverity,
     );
   }
 
