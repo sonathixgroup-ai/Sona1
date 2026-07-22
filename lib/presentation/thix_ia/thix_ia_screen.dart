@@ -18,7 +18,8 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
   final List<Map<String, String>> _messages = [];
   bool _isLoading = false;
   
-  AiProvider _selectedProvider = AiProvider.mistral; 
+  // Utilisation fixe de Mistral (Modèle confidentiel, sans choix d'IA apparent)
+  final AiProvider _selectedProvider = AiProvider.mistral; 
   String _userName = "Utilisateur";
 
   @override
@@ -52,6 +53,11 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
     super.dispose();
   }
 
+  // Fonction pour nettoyer les astérisques de Markdown dans les réponses de l'IA
+  String _cleanResponse(String text) {
+    return text.replaceAll('*', '');
+  }
+
   Future<void> _sendMessage({String? textOverride}) async {
     final text = textOverride ?? _messageController.text.trim();
     if (text.isEmpty) return;
@@ -68,17 +74,17 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
       final response = await _aiService.askAi(
         prompt: text,
         provider: _selectedProvider,
-        systemPrompt: "Tu es THIX IA, l'intelligence artificielle avancée de Sonathix Group. Tu fournis des réponses claires, professionnelles et bien structurées.",
+        systemPrompt: "Tu es THIX IA, un assistant virtuel intelligent et confidentiel. Ne mets jamais d'astérisques dans tes réponses.",
       );
 
       setState(() {
-        _messages.add({'role': 'ai', 'text': response});
+        _messages.add({'role': 'ai', 'text': _cleanResponse(response)});
       });
     } catch (e) {
       setState(() {
         _messages.add({
           'role': 'ai', 
-          'text': '⚠️ Une erreur est survenue lors de la communication avec le serveur. Vérifiez votre connexion.'
+          'text': 'Une erreur est survenue lors de la communication avec le serveur.'
         });
       });
     } finally {
@@ -117,7 +123,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.auto_awesome, color: primaryBlue, size: 22),
+            Icon(Icons.auto_awesome, color: primaryBlue, size: 20),
             SizedBox(width: 8),
             Text(
               'THIX IA', 
@@ -126,32 +132,20 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<AiProvider>(
-                  value: _selectedProvider,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: primaryBlue),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: darkText),
-                  onChanged: (AiProvider? newValue) {
-                    if (newValue != null) setState(() => _selectedProvider = newValue);
-                  },
-                  items: const [
-                    DropdownMenuItem(value: AiProvider.mistral, child: Text('Mistral')),
-                    DropdownMenuItem(value: AiProvider.openai, child: Text('OpenAI')),
-                    DropdownMenuItem(value: AiProvider.anthropic, child: Text('Claude')),
-                  ],
-                ),
-              ),
-            ),
+          // Historique / Archivage de la conversation en cours
+          IconButton(
+            icon: const Icon(Icons.history_rounded, color: darkText),
+            tooltip: 'Historique de conversation',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _messages.clear();
+                _messages.add({
+                  'role': 'ai',
+                  'text': 'Historique effacé. Nouvelle session confidentielle initialisée.'
+                });
+              });
+            },
           ),
         ],
       ),
@@ -160,7 +154,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
           Expanded(
             child: _messages.isEmpty 
                 ? _buildWelcomeScreen(primaryBlue, darkText)
-                : _buildChatList(primaryBlue, darkText),
+                : _buildChatList(darkText),
           ),
           
           if (_isLoading)
@@ -191,8 +185,8 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -201,20 +195,20 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
-                  BoxShadow(color: primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+                  BoxShadow(color: primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
                 ],
               ),
-              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 40),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 34),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Text(
               'Bonjour, $_userName ! 👋',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: darkText, letterSpacing: -0.5),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: darkText, letterSpacing: -0.5),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               'Comment puis-je vous aider aujourd\'hui ?',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
           ],
         ),
@@ -222,7 +216,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
     );
   }
 
-  Widget _buildChatList(Color primary, Color darkText) {
+  Widget _buildChatList(Color darkText) {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(16),
@@ -236,7 +230,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
             alignment: Alignment.centerRight,
             child: Container(
               margin: const EdgeInsets.only(bottom: 16, left: 40),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF1877F2), Color(0xFF6366F1)],
@@ -244,15 +238,15 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(18),
                   bottomRight: Radius.circular(4),
                 ),
               ),
               child: Text(
                 msg['text']!,
-                style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
+                style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
               ),
             ),
           );
@@ -261,18 +255,18 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
             alignment: Alignment.centerLeft,
             child: Container(
               margin: const EdgeInsets.only(bottom: 16, right: 20),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
-                  topRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
                 ),
                 border: Border.all(color: Colors.grey.shade100, width: 1.5),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 3)),
                 ],
               ),
               child: Column(
@@ -280,15 +274,15 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.auto_awesome, color: Color(0xFF6366F1), size: 16),
-                      const SizedBox(width: 8),
-                      Text("THIX IA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey.shade500)),
+                      const Icon(Icons.auto_awesome, color: Color(0xFF6366F1), size: 14),
+                      const SizedBox(width: 6),
+                      Text("THIX IA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey.shade500)),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     msg['text']!,
-                    style: TextStyle(color: darkText, fontSize: 15, height: 1.5),
+                    style: TextStyle(color: darkText, fontSize: 14, height: 1.5),
                   ),
                 ],
               ),
@@ -300,9 +294,9 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
   }
 
   Widget _buildQuickActions() {
-    final actions = ["Analyser mes données", "Rédiger un email pro", "Traduire un texte", "Générer des idées"];
+    final actions = ["Analyser mes données", "Rédiger un email", "Traduire un texte", "Idées innovantes"];
     return SizedBox(
-      height: 40,
+      height: 38,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -311,7 +305,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: ActionChip(
-              label: Text(actions[index], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              label: Text(actions[index], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
               backgroundColor: Colors.white,
               side: BorderSide(color: Colors.grey.shade300),
               elevation: 0,
@@ -325,7 +319,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
 
   Widget _buildInputArea(Color primary) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -336,22 +330,29 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // Bouton Plus ultra-compact style Gemini
               Container(
-                margin: const EdgeInsets.only(bottom: 2, right: 10),
-                decoration: BoxDecoration(color: primary.withOpacity(0.1), shape: BoxShape.circle),
-                child: IconButton(
-                  icon: Icon(Icons.add_rounded, color: primary),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("L'ajout de fichiers arrive bientôt !")));
-                  },
+                margin: const EdgeInsets.only(bottom: 4, right: 6),
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.add_rounded, color: primary, size: 20),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pièces jointes bientôt disponibles")));
+                    },
+                  ),
                 ),
               ),
+              
+              // Champ de texte maximisé (Large Field) avec icônes réduites
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
@@ -360,26 +361,31 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                       Expanded(
                         child: TextField(
                           controller: _messageController,
-                          maxLines: 5,
+                          maxLines: 4,
                           minLines: 1,
+                          style: const TextStyle(fontSize: 14),
                           textCapitalization: TextCapitalization.sentences,
                           decoration: const InputDecoration(
                             hintText: 'Posez votre question...',
-                            hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                            hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
                         ),
                       ),
+                      // Bouton Envoyer réduit et épuré
                       Padding(
-                        padding: const EdgeInsets.all(4.0),
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: primary,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
-                            onPressed: _isLoading ? null : () => _sendMessage(),
+                        padding: const EdgeInsets.all(3.0),
+                        child: SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircleAvatar(
+                            backgroundColor: primary,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 14),
+                              onPressed: _isLoading ? null : () => _sendMessage(),
+                            ),
                           ),
                         ),
                       ),
@@ -389,10 +395,10 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             "THIX IA peut faire des erreurs. Vérifiez les informations importantes.",
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
             textAlign: TextAlign.center,
           ),
         ],
