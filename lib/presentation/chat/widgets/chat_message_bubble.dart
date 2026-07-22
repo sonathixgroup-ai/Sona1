@@ -43,8 +43,10 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   bool _isDecrypted = false;
   String? _decryptedContent;
 
+  // Liste complète des emojis
   final List<String> _emojiReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
 
+  // Couleurs du design
   static const Color primaryBlue = Color(0xFF4A8BFF);
   static const Color leftBubbleColor = Color(0xFFE9F0FF);
   static const Color navyDeep = Color(0xFF0A1F44);
@@ -149,7 +151,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
       child: Column(
         crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // Avatar et Nom
+          // ─── AVATAR ET NOM ──────────────────────────────────────────
           if (!isOwn && !widget.isInternalNote)
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: 4),
@@ -183,7 +185,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               ),
             ),
 
-          // Message cité
+          // ─── MESSAGE CITÉ (REPLY) ───────────────────────────────────
           if (widget.replyToMessage != null && !widget.isInternalNote)
             Padding(
               padding: EdgeInsets.only(bottom: 4, left: isOwn ? 40 : 12, right: isOwn ? 12 : 40),
@@ -221,7 +223,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               ),
             ),
 
-          // Bulle de message
+          // ─── BULLE PRINCIPALE ───────────────────────────────────────
           Row(
             mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -261,35 +263,25 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                     child: Column(
                       crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
-                        // Badges + indicateur de sentiment
+                        // Badges et Indicateur de Sentiment sur la même ligne
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Wrap(
-                                spacing: 4,
-                                runSpacing: 2,
-                                children: [
-                                  if (widget.isInternalNote) _badge(Icons.note_rounded, 'Note interne', Colors.orange),
-                                  if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', gold),
-                                  if (widget.isEphemeralActive) _badge(Icons.timer_rounded, 'Éphémère', Colors.orange),
-                                  if (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio') 
-                                    _badge(msg.mediaType == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, msg.mediaType ?? 'Fichier', Colors.blue),
-                                ],
-                              ),
-                            ),
-                            // ─── INDICATEUR DE SENTIMENT ──────────────────────
+                            Expanded(child: _buildBadges(msg)),
                             if (msg.sentiment != null)
-                              SentimentIndicator(
-                                result: msg.sentiment!,
-                                size: 14,
-                                showLabel: false,
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8.0, bottom: 6.0),
+                                child: SentimentIndicator(
+                                  result: msg.sentiment!,
+                                  size: 14,
+                                  showLabel: false,
+                                ),
                               ),
                           ],
                         ),
-                        const SizedBox(height: 4),
 
-                        // Contenu du message
+                        // Contenu (Code, Audio, Média ou Texte)
                         if (msg.isCodeSnippet && msg.codeContent != null)
                           ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage ?? 'text')
                         else if (msg.mediaType == 'audio' && msg.mediaUrl != null)
@@ -311,7 +303,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                             ),
                           ),
 
-                        // Réactions
+                        // Réactions intégrées sous le texte
                         if (msg.reactions.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
@@ -335,7 +327,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ],
           ),
 
-          // Heure et accusés de réception (en dehors de la bulle)
+          // ─── CHRONO ÉPHÉMÈRE ET HEURE ───────────────────────────────
           Padding(
             padding: EdgeInsets.only(top: 4, left: isOwn ? 0 : 8, right: isOwn ? 8 : 0),
             child: Row(
@@ -363,7 +355,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ),
           ),
 
-          // Barre d'actions flottante
+          // ─── BARRE D'ACTIONS FLOTTANTE (Hover / Long Press) ─────────
           if ((_isHovering || _showReactions) && !widget.isInternalNote)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -392,7 +384,28 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     );
   }
 
-  // ─── BADGE ────────────────────────────────────────────────────
+  // ─── SOUS-WIDGETS ───────────────────────────────────────────────────
+
+  Widget _buildBadges(ChatMessage msg) {
+    bool hasBadge = widget.isInternalNote || _isEncrypted || widget.isEphemeralActive || (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio');
+    if (!hasBadge) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 2,
+        children: [
+          if (widget.isInternalNote) _badge(Icons.note_rounded, 'Note interne', Colors.orange),
+          if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', gold),
+          if (widget.isEphemeralActive) _badge(Icons.timer_rounded, 'Éphémère', Colors.orange),
+          if (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio') 
+            _badge(msg.mediaType == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, msg.mediaType ?? 'Fichier', Colors.blue),
+        ],
+      ),
+    );
+  }
+
   Widget _badge(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -408,7 +421,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     );
   }
 
-  // ─── BOUTON DE RÉACTION ────────────────────────────────────
   Widget _buildReactionButton(String emoji) {
     return InkWell(
       onTap: () {
@@ -419,7 +431,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     );
   }
 
-  // ─── MÉDIA ──────────────────────────────────────────────────
   Widget _buildMediaContent() {
     if (widget.message.mediaType == 'image') {
       return GestureDetector(
