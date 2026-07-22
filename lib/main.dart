@@ -59,6 +59,11 @@ import 'package:thix_id/services/chat/group_service.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
 import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 import 'package:thix_id/services/chat/connection_service.dart';
+import 'package:thix_id/providers/chat_provider.dart'; 
+import 'package:thix_id/providers/chat/sentiment_provider.dart';
+
+// ─── CALL MODULE PROD ───
+
 // ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
@@ -416,15 +421,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider<CertificateProvider>(create: (_) => CertificateProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ForumProvider>(create: (_) => ForumProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<RecommendationProvider>(create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client))),
-
         // ─── THIX CHAT ───
         Provider<ChatService>.value(value: widget.chatService),
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
+        
+        // ✅ AJOUTE TES DEUX NOUVEAUX PROVIDERS ICI :
+        ChangeNotifierProvider<ChatProvider>(create: (_) => ChatProvider(widget.chatService)),
+        ChangeNotifierProvider<SentimentProvider>(create: (_) => SentimentProvider()),
+
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
         ChangeNotifierProvider<ChatSettingsProvider>(create: (_) => ChatSettingsProvider()),
         ChangeNotifierProvider<ConnectionService>(create: (_) => ConnectionService()),
+
 
         // ─── THIX RESERVATION BUS ───
         ChangeNotifierProvider<BusSearchProvider>(create: (_) => BusSearchProvider()),
