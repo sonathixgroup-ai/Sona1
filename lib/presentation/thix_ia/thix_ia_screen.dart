@@ -152,9 +152,9 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                     DropdownMenuItem(value: AiProvider.mistral, child: Text('Mistral')),
                     DropdownMenuItem(value: AiProvider.openai, child: Text('OpenAI')),
                     DropdownMenuItem(value: AiProvider.anthropic, child: Text('Claude')),
-                    DropdownMenuItem(
-                      value: AiProvider.ultra, 
-                      child: Text('ULTRA ⚡', style: TextStyle(color: Colors.purple, fontWeight: FontWeight.w900)),
+                    //DropdownMenuItem(
+                     // value: AiProvider.ultra, 
+                      //child: Text('ULTRA ⚡', style: TextStyle(color: Colors.purple, fontWeight: FontWeight.w900)),
                     ),
                   ],
                 ),
