@@ -1,4 +1,4 @@
-// lib/presentation/chat/screens/chat_screen.dart - VERSION 10/10 WEB + MOBILE
+// lib/presentation/chat/screens/chat_screen.dart - VERSION 10/10 WEB FIX 3461
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -11,7 +11,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 
 // Services
 import 'package:thix_id/services/chat/chat_service.dart';
@@ -143,19 +142,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _markAsRead() => _chatService.markAsRead(widget.conversationId);
   void _scrollToBottom() { if(_scrollController.hasClients) _scrollController.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut); }
 
+  // FIX 3461: ajout type: PostgresChangeFilterType.eq
   void _subscribeRealtimeSingleMessage() {
     final myId = _chatService.currentUserId;
     _realtimeChannel = Supabase.instance.client.channel('msg_${widget.conversationId}')
-    .onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'messages', filter: PostgresChangeFilter(column: 'conversation_id', value: widget.conversationId), callback: (payload) {
+   .onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'conversation_id', value: widget.conversationId),
+      callback: (payload) {
         if(payload.newRecord['sender_id']==myId) return;
         try {
           final msg = ChatMessage.fromJson({...payload.newRecord, 'profiles': {'full_name': payload.newRecord['sender_name']??'Utilisateur'}});
           if(mounted) { setState(()=>_messages.add(msg)); _scrollToBottom(); _markAsRead(); }
         } catch(_){}
-      })
-    .onPostgresChanges(event: PostgresChangeEvent.update, schema: 'public', table: 'messages', filter: PostgresChangeFilter(column: 'conversation_id', value: widget.conversationId), callback: (payload) {
-        final idx = _messages.indexWhere((m)=>m.id==payload.newRecord['id']); if(idx!=-1 && mounted) { try{ setState(()=>_messages[idx]=ChatMessage.fromJson({..._messages[idx].toJson(),...payload.newRecord})); }catch(_){} }
-      }).subscribe();
+      }
+    )
+   .onPostgresChanges(
+      event: PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'conversation_id', value: widget.conversationId),
+      callback: (payload) {
+        final idx = _messages.indexWhere((m)=>m.id==payload.newRecord['id']);
+        if(idx!=-1 && mounted) { try{ setState(()=>_messages[idx]=ChatMessage.fromJson({..._messages[idx].toJson(),...payload.newRecord})); }catch(_){} }
+      }
+    ).subscribe();
   }
 
   void _subscribeTyping() {
@@ -165,7 +178,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _sendTypingStatus(bool t) { _typingChannel?.sendBroadcastMessage(event: 'typing', payload: {'senderId': _chatService.currentUserId, 'isTyping': t}); }
   Future<void> _getParticipantInfo() async { if(widget.conversation.isGroup) return; final otherId = widget.conversation.participantIds.firstWhere((id)=>id!=_chatService.currentUserId, orElse:()=>''); if(otherId.isEmpty) return; final p = await _chatService.getUserPresence(otherId); if(mounted) setState(()=>_otherParticipant=p); }
-  Future<void> _loadGroupMembers() async { if(!widget.conversation.isGroup) return; try{ final m = await _groupService.getGroupMembers(widget.conversationId); if(mounted) setState(()=>_groupMembers=m); }catch(_){} }
+
+  // FIX 3461: getGroupMembers vient de _chatService, pas _groupService
+  Future<void> _loadGroupMembers() async {
+    if(!widget.conversation.isGroup) return;
+    try{
+      final m = await _chatService.getGroupMembers(widget.conversationId);
+      if(mounted) setState(()=>_groupMembers=m);
+    }catch(e){
+      debugPrint('group members error: $e');
+      _groupMembers = [];
+    }
+  }
 
   // ================= MULTI-PHOTO + VIDEO + PREVIEW (WEB + MOBILE) =================
   Future<void> _pickMultiMedia() async {
@@ -254,7 +278,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _startCall(CallType type) { final otherId = widget.conversation.participantIds.firstWhere((id)=>id!=_chatService.currentUserId, orElse:()=>''); context.read<CallProvider>().start(channel: widget.conversationId, calleeId: otherId, callType: type); Navigator.push(context, MaterialPageRoute(builder: (_)=>CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true))); }
-  void _startAudio() async { if(kIsWeb) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audio non supporté sur web'))); return; } if(await Permission.microphone.request().isGranted) { showModalBottomSheet(context: context, builder: (_)=>Padding(padding: const EdgeInsets.all(20), child: AudioRecorderWidget(audioService: _audioService, onRecordingComplete: (p,d) async { Navigator.pop(context); final bytes = await FilePicker.platform.pickFiles(); /* simplified */ }, onRecordingCanceled: ()=>Navigator.pop(context), maxDuration: 120))); } }
+  void _startAudio() async { if(kIsWeb) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audio non supporté sur web'))); return; } if(await Permission.microphone.request().isGranted) { if(!mounted) return; showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx)=>Container(padding: const EdgeInsets.all(20), child: AudioRecorderWidget(audioService: _audioService, onRecordingComplete: (p,d) async { Navigator.pop(ctx); try{ final file = await FilePicker.platform.pickFiles(); }catch(_){} }, onRecordingCanceled: ()=>Navigator.pop(ctx), maxDuration: 120))); } }
   void _showSecureDialog() { final m=TextEditingController(); final p=TextEditingController(); showDialog(context: context, builder: (_)=>AlertDialog(title: const Text('Message Protégé'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: m, maxLines: 4, decoration: const InputDecoration(hintText: 'Message secret')), TextField(controller: p, obscureText: true, decoration: const InputDecoration(hintText: 'Mot de passe'))]), actions: [TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('Annuler')), ElevatedButton(onPressed: () async { final enc=EncryptionService.encryptMessage(m.text, p.text); await _chatService.sendMessage(conversationId: widget.conversationId, content: enc); if(mounted) Navigator.pop(context); }, child: const Text('Envoyer'))])); }
   void _showEphemeralDialog() { showModalBottomSheet(context: context, builder: (_)=>Column(mainAxisSize: MainAxisSize.min, children: [[10,'10 sec'], [30,'30 sec'], [60,'1 min'], [300,'5 min'], [3600,'1 heure']].map((e)=>ListTile(title: Text(e[1] as String), onTap: (){ setState(()=>_isEphemeral=true); _ephemeralDuration=e[0] as int; Navigator.pop(context); })).toList())); }
   void _showMessageActions(ChatMessage msg, bool isOwn) {
