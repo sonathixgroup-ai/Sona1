@@ -44,7 +44,23 @@ class AppRoutes {
   static const String thixMediaVideo = '/thix-media-video'; 
   static const String adminMedia = '/admin-media';
   static const String thixMedia = '/thix-media';
+  
+  // ═══════════════════════════════════════════════════════════════
+  // THIX MONEY - FULL PRODUCTION - VÉRIFIE THIX_ID EN BASE
+  // ═══════════════════════════════════════════════════════════════
   static const String thixMoney = '/thix-money';
+  static const String thixMoneyDashboard = '/thix-money';
+  static const String thixMoneySend = '/thix-money/send';
+  static const String thixMoneyRecharge = '/thix-money/recharge';
+  static const String thixMoneyRetrait = '/thix-money/retrait';
+  static const String thixMoneyScanner = '/thix-money/scanner';
+  static const String thixMoneyHistory = '/thix-money/history';
+  static const String thixMoneySavings = '/thix-money/savings';
+  static const String thixMoneyInvestments = '/thix-money/investments';
+  static const String thixMoneyLoans = '/thix-money/loans';
+  static const String thixMoneyTontines = '/thix-money/tontines';
+  static const String thixMoneyProfile = '/thix-money/profile';
+  
   static const String reservation = '/reservation';
 
   // THIX INFO
@@ -58,34 +74,27 @@ class AppRoutes {
   static const String thixInfoCreate = '/thix-info/admin/create';
   static const String thixInfoEdit = '/thix-info/admin/edit/:articleId';
 
-  // ═══════════════════════════════════════
-  // ─── THIX CHAT (Routes complètes) ───
-  // ═══════════════════════════════════════════════════════════════════════
+  // THIX CHAT
   static const String chat = '/chat';
   static const String chatNew = '/chat/new';
   static const String chatConversation = '/chat/:conversationId';
   static String chatDetail(String conversationId) => '/chat/$conversationId';
-  
-  // ==================== CHAT ESCALATION ====================
   static const String chatEscalate = '/chat/escalate/:conversationId';
   static const String chatEscalationHandle = '/chat/escalation/handle/:escalationId';
   static const String chatEscalationHistory = '/chat/escalation/history/:conversationId';
   static const String chatEscalationDashboard = '/chat/escalation/dashboard';
   static const String chatEscalationReceived = '/chat/escalation/received';
-  
-  // ─── Groupes ───
   static const String groupCreate = '/chat/group/create';
   static const String groupInfo = '/chat/group/:groupId/info';
   static const String groupSettings = '/chat/group/:groupId/settings';
   static const String groupMembers = '/chat/group/:groupId/members';
   static const String groupAddMembers = '/chat/group/:groupId/add-members';
-
   static String groupInfoPath(String groupId) => '/chat/group/$groupId/info';
   static String groupSettingsPath(String groupId) => '/chat/group/$groupId/settings';
   static String groupMembersPath(String groupId) => '/chat/group/$groupId/members';
   static String groupAddMembersPath(String groupId) => '/chat/group/$groupId/add-members';
 
-  // THIX Événement - PUBLIC
+  // THIX ÉVÉNEMENT
   static const String thixEvent = '/thix-event';
   static const String thixEventDetail = '/thix-event/event/:eventId';
   static const String thixEventSearch = '/thix-event/search';
@@ -95,8 +104,6 @@ class AppRoutes {
   static const String thixEventFavorites = '/thix-event/favorites';
   static const String thixEventSeatSelection = '/thix-event/seat-selection/:eventId';
   static const String thixEventWaitingQueue = '/thix-event/waiting-queue/:eventId';
-
-  // THIX ÉVÉNEMENT - ADMIN SCALABLE - DEV OPEN
   static const String thixEventAdmin = '/thix-event/admin';
   static const String thixEventAdminEvents = '/thix-event/admin/events';
   static const String thixEventAdminCreate = '/thix-event/admin/events/create';
@@ -106,9 +113,7 @@ class AppRoutes {
   static const String thixEventAdminLimits = '/thix-event/admin/limits';
   static const String thixEventAdminAnalytics = '/thix-event/admin/analytics';
 
-  // ============================================================
-  // BLOC 2 : CONSTANTES
-  // ============================================================
+  // CHAT SETTINGS
   static const String chatProfile = '/chat/profile/:userId';
   static const String chatSettings = '/chat/settings';
   static const String chatAppearance = '/chat/settings/appearance';
@@ -121,7 +126,6 @@ class AppRoutes {
   static const String monPaysAuthorities = '/mon-pays/authorities';
   static const String monPaysAuthorityProfile = '/mon-pays/authority/:id';
   static String monPaysAuthorityProfilePath(String id) => '/mon-pays/authority/$id';
-
   static const String monPaysProvinces = '/mon-pays/provinces';
   static const String monPaysProvinceDetail = '/mon-pays/provinces/:id';
   static const String monPaysAdminProvinces = '/mon-pays/admin/provinces';
@@ -134,7 +138,6 @@ class AppRoutes {
   static const String monPaysAdminAdministrativeForm = '/mon-pays/admin/provinces/administrative/:provinceId';
   static const String monPaysAdminAchievementForm = '/mon-pays/admin/provinces/achievement/:provinceId';
   static const String monPaysAdminMediaForm = '/mon-pays/admin/provinces/media/:provinceId';
-
   static String monPaysProvinceDetailPath(String id) => '/mon-pays/provinces/$id';
   static String monPaysAdminProvinceFormPath({dynamic province}) => '/mon-pays/admin/provinces/form';
   static String monPaysAdminGovernmentFormPath(String provinceId) => '/mon-pays/admin/provinces/government/$provinceId';
@@ -145,13 +148,11 @@ class AppRoutes {
   static String monPaysAdminAdministrativeFormPath(String provinceId) => '/mon-pays/admin/provinces/administrative/$provinceId';
   static String monPaysAdminAchievementFormPath(String provinceId) => '/mon-pays/admin/provinces/achievement/$provinceId';
   static String monPaysAdminMediaFormPath(String provinceId) => '/mon-pays/admin/provinces/media/$provinceId';
-
   static const String monPaysLaws = '/mon-pays/laws';
   static const String monPaysArticleType = '/mon-pays/laws/:type';
   static const String monPaysArticleDetail = '/mon-pays/laws/article/:id';
   static String monPaysArticleTypePath(String type) => '/mon-pays/laws/$type';
   static String monPaysArticleDetailPath(String id) => '/mon-pays/laws/article/$id';
-
   static const String monPaysAdmin = '/mon-pays/admin';
   static const String monPaysAdminAuthorities = '/mon-pays/admin/authorities';
   static const String monPaysAdminForm = '/mon-pays/admin/form';
@@ -199,24 +200,18 @@ class AppRoutes {
   static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
   static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
   
-  // ============ THIX DELIVERY - 8 ROUTES - SCALABLE 1M ============
   static const String deliveryHome = '/thix-reservation/delivery';
   static const String deliveryCheckout = '/thix-reservation/delivery/checkout';
   static const String deliveryTracking = '/thix-reservation/delivery/tracking';
   static const String deliveryHistory = '/thix-reservation/delivery/history';
-  
-  // ADMIN DELIVERY - Fixer prix par trajet
   static const String deliveryAdminDashboard = '/thix-reservation/delivery/admin';
   static const String deliveryAdminRoutes = '/thix-reservation/delivery/admin/routes';
   static const String deliveryAdminShipments = '/thix-reservation/delivery/admin/shipments';
   static const String deliveryAdminScan = '/thix-reservation/delivery/admin/scan';
-
-  // ============ THIX URGENT - 2 ROUTES - SCALABLE 1M - PROVIDER ============
   static const String thixUrgent = '/thix-urgent';
   static const String chambreDeCrise = '/thix-urgent/chambre-de-crise';
   static String chambreDeCrisePath(String criseId) => '/thix-urgent/chambre-de-crise?criseId=$criseId';
   
-  // CALL PROD
   static const String call = '/call';
   static const String callIncoming = '/call/incoming';
   static const String callOutgoing = '/call/outgoing';
@@ -243,27 +238,9 @@ class AppRoutes {
   static const String callChannelPrefix = 'thix_';
   static const String tableCallInvites = 'call_invites';
   static const String funcAgoraToken = 'agora-token';
-static const String thixUrgentGardiens = '/thix-urgent/config/gardiens';
+  static const String thixUrgentGardiens = '/thix-urgent/config/gardiens';
   static String callChannelId(String conversationId) => '$callChannelPrefix$conversationId';
-
-  static Map<String, dynamic> callOngoingExtra({
-    required String channel,
-    required String name,
-    required String type,
-    String? inviteId,
-    bool isCaller = true,
-    String? avatarUrl,
-    String? calleeId,
-  }) => {
-    'channel': channel,
-    'name': name,
-    'type': type,
-    'inviteId': inviteId,
-    'isCaller': isCaller,
-    'avatarUrl': avatarUrl,
-    'calleeId': calleeId,
-  };
-
+  static Map<String, dynamic> callOngoingExtra({required String channel, required String name, required String type, String? inviteId, bool isCaller = true, String? avatarUrl, String? calleeId}) => {'channel': channel, 'name': name, 'type': type, 'inviteId': inviteId, 'isCaller': isCaller, 'avatarUrl': avatarUrl, 'calleeId': calleeId};
   static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
   static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
