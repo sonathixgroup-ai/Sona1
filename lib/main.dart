@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -45,13 +46,10 @@ import 'package:thix_id/presentation/education/services/education_service.dart';
 // ─── THIX ÉVÉNEMENT ───
 import 'package:thix_id/providers/event_provider.dart';
 import 'package:thix_id/services/event_service.dart';
-// ✅ ADMIN THIX EVENT SCALABLE
 import 'package:thix_id/presentation/thix_event/admin/services/admin_event_service.dart';
 import 'package:thix_id/presentation/thix_event/admin/providers/admin_event_provider.dart';
 
-// ═══════════════════════════════════════════════════════════════════════
-// THIX CHAT — Imports
-// ═══════════════════════════════════════════════════════════════════════
+// ─── THIX CHAT ───
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
@@ -61,25 +59,23 @@ import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 import 'package:thix_id/services/chat/connection_service.dart';
 import 'package:thix_id/providers/chat_provider.dart'; 
 import 'package:thix_id/providers/chat/sentiment_provider.dart';
-
-// ─── CALL MODULE PROD ───
-
-// ─── CALL MODULE PROD ───
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 import 'package:thix_id/services/chat/call_signaling_service.dart';
 import 'package:thix_id/providers/chat/chat_settings_provider.dart';
 
-// ═══════════════════════════════════════════════════════════════════════
-// THIX RESERVATION BUS — SaaS Providers
-// ═══════════════════════════════════════════════════════════════════════
+// ─── THIX RESERVATION BUS ───
 import 'package:thix_id/presentation/thix_reservation/bus/providers/bus_search_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/providers/seat_selection_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/providers/booking_provider.dart';
 import 'package:thix_id/presentation/thix_reservation/bus/providers/agency_dashboard_provider.dart';
 
-// ═══════════════════════════════════════════════════════════════════════
-// STATIC CONST GLOBALES
-// ═══════════════════════════════════
+// ─── THIX MONEY - PRODUCTION MILLIONS USERS ───
+import 'package:thix_id/presentation/thix_money/services/wallet_service.dart';
+import 'package:thix_id/presentation/thix_money/services/wonya_service.dart';
+import 'package:thix_id/presentation/thix_money/services/payment_service.dart';
+import 'package:thix_id/presentation/thix_money/services/qr_service.dart';
+import 'package:thix_id/presentation/thix_money/services/notification_service.dart';
+
 class AppConstants {
   static const String appName = 'THIX ID';
   static const String agoraAppIdKey = 'AGORA_APP_ID';
@@ -90,41 +86,21 @@ class AppConstants {
   static const String funcAgoraToken = 'agora-token';
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// MAIN
-// ═══════════════════════════════════════════════════════════════════════
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exceptionAsString()}');
     if (details.stack != null) debugPrint(details.stack.toString());
   };
-
   ErrorWidget.builder = (FlutterErrorDetails details) {
     debugPrint('ErrorWidget: ${details.exceptionAsString()}');
-    if (details.stack != null) debugPrint(details.stack.toString());
-    return Material(
-      color: Colors.transparent,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Une erreur est survenue.\n\n${kDebugMode ? details.exceptionAsString() : ''}',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
+    return Material(color: Colors.transparent, child: Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Une erreur est survenue.\n\n${kDebugMode ? details.exceptionAsString() : ''}', textAlign: TextAlign.center))));
   };
-
   await SupabaseConfig.initialize();
-
   runApp(const ProviderScope(child: BootstrapApp()));
 }
 
-// ─── Bootstrap ──────────────────────────────────────────────────────────────
 class BootstrapApp extends StatefulWidget {
   const BootstrapApp({super.key});
   @override
@@ -133,162 +109,43 @@ class BootstrapApp extends StatefulWidget {
 
 class _BootstrapAppState extends State<BootstrapApp> {
   late Future<_BootstrapResult> _future;
-
   @override
-  void initState() {
-    super.initState();
-    _future = _bootstrap();
-  }
-
-  void _retryBootstrap() {
-    setState(() {
-      _future = _bootstrap();
-    });
-  }
-
+  void initState() { super.initState(); _future = _bootstrap(); }
+  void _retryBootstrap() { setState(() { _future = _bootstrap(); }); }
   Future<_BootstrapResult> _bootstrap() async {
     final profiles = ProfileService();
     final userService = UserService(SupabaseConfig.client);
-
     final auth = AuthController(auth: SupabaseAuthManager(profiles: profiles));
-
-    try {
-      await auth.init();
-    } catch (e) {
-      debugPrint("⚠️ Échec initialisation auth : $e");
-    }
-
+    try { await auth.init(); } catch (e) { debugPrint("⚠️ Échec init auth : $e"); }
     final network = NetworkService(SupabaseConfig.client);
     final feed = FeedProvider(network, supabase: SupabaseConfig.client);
-
-    try {
-      feed.initRealtime();
-    } catch (e) {
-      debugPrint("⚠️ Échec Realtime : $e");
-    }
-
+    try { feed.initRealtime(); } catch (e) { debugPrint("⚠️ Échec Realtime : $e"); }
     final eventService = EventService(SupabaseConfig.client);
-
     final chatService = ChatService(SupabaseConfig.client);
     final presenceService = PresenceService(SupabaseConfig.client);
     final audioService = AudioService(SupabaseConfig.client);
     final groupService = GroupService(SupabaseConfig.client);
-
     final callSignaling = CallSignalingService();
-
-    return _BootstrapResult(
-      auth: auth,
-      profiles: profiles,
-      userService: userService,
-      network: network,
-      feed: feed,
-      eventService: eventService,
-      chatService: chatService,
-      presenceService: presenceService,
-      audioService: audioService,
-      groupService: groupService,
-      callSignaling: callSignaling,
-    );
+    return _BootstrapResult(auth: auth, profiles: profiles, userService: userService, network: network, feed: feed, eventService: eventService, chatService: chatService, presenceService: presenceService, audioService: audioService, groupService: groupService, callSignaling: callSignaling);
   }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<_BootstrapResult>(
       future: _future,
       builder: (context, snap) {
         if (snap.hasError) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: ThemeMode.system,
-            home: Scaffold(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.cloud_off_rounded, size: 72, color: Theme.of(context).colorScheme.error),
-                      const SizedBox(height: 16),
-                      Text('Connexion impossible', style: Theme.of(context).textTheme.headlineSmall),
-                      const SizedBox(height: 8),
-                      const Text('Vérifiez votre connexion internet.', textAlign: TextAlign.center),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _retryBootstrap, 
-                        icon: const Icon(Icons.refresh), 
-                        label: const Text('Réessayer')
-                      ),
-                      if (kDebugMode) ...[
-                        const SizedBox(height: 16),
-                        Text('Erreur : ${snap.error}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, fontFamily: 'monospace'), textAlign: TextAlign.center),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
+          return MaterialApp(debugShowCheckedModeBanner: false, theme: lightTheme, darkTheme: darkTheme, home: Scaffold(body: Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.cloud_off_rounded, size: 72, color: Theme.of(context).colorScheme.error), const SizedBox(height: 16), Text('Connexion impossible', style: Theme.of(context).textTheme.headlineSmall), const SizedBox(height: 8), const Text('Vérifiez votre connexion internet.', textAlign: TextAlign.center), const SizedBox(height: 24), ElevatedButton.icon(onPressed: _retryBootstrap, icon: const Icon(Icons.refresh), label: const Text('Réessayer')), if (kDebugMode) Text('Erreur : ${snap.error}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red), textAlign: TextAlign.center)])))));
         }
-
-        final child = snap.hasData
-            ? MyApp(
-                auth: snap.data!.auth,
-                profiles: snap.data!.profiles,
-                userService: snap.data!.userService,
-                network: snap.data!.network,
-                feed: snap.data!.feed,
-                eventService: snap.data!.eventService,
-                chatService: snap.data!.chatService,
-                presenceService: snap.data!.presenceService,
-                audioService: snap.data!.audioService,
-                groupService: snap.data!.groupService,
-                callSignaling: snap.data!.callSignaling,
-              )
-            : MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: lightTheme,
-                darkTheme: darkTheme,
-                themeMode: ThemeMode.system,
-                home: const _StartupLoadingPage(),
-              );
-
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: KeyedSubtree(key: ValueKey(snap.hasData), child: child),
-        );
+        final child = snap.hasData ? MyApp(auth: snap.data!.auth, profiles: snap.data!.profiles, userService: snap.data!.userService, network: snap.data!.network, feed: snap.data!.feed, eventService: snap.data!.eventService, chatService: snap.data!.chatService, presenceService: snap.data!.presenceService, audioService: snap.data!.audioService, groupService: snap.data!.groupService, callSignaling: snap.data!.callSignaling) : MaterialApp(debugShowCheckedModeBanner: false, theme: lightTheme, darkTheme: darkTheme, home: const _StartupLoadingPage());
+        return AnimatedSwitcher(duration: const Duration(milliseconds: 250), child: KeyedSubtree(key: ValueKey(snap.hasData), child: child));
       },
     );
   }
 }
 
 class _BootstrapResult {
-  final AuthController auth;
-  final ProfileService profiles;
-  final UserService userService;
-  final NetworkService network;
-  final FeedProvider feed;
-  final EventService eventService;
-  final ChatService chatService;
-  final PresenceService presenceService;
-  final AudioService audioService;
-  final GroupService groupService;
-  final CallSignalingService callSignaling;
-
-  const _BootstrapResult({
-    required this.auth,
-    required this.profiles,
-    required this.userService,
-    required this.network,
-    required this.feed,
-    required this.eventService,
-    required this.chatService,
-    required this.presenceService,
-    required this.audioService,
-    required this.groupService,
-    required this.callSignaling,
-  });
+  final AuthController auth; final ProfileService profiles; final UserService userService; final NetworkService network; final FeedProvider feed; final EventService eventService; final ChatService chatService; final PresenceService presenceService; final AudioService audioService; final GroupService groupService; final CallSignalingService callSignaling;
+  const _BootstrapResult({required this.auth, required this.profiles, required this.userService, required this.network, required this.feed, required this.eventService, required this.chatService, required this.presenceService, required this.audioService, required this.groupService, required this.callSignaling});
 }
 
 class _StartupLoadingPage extends StatelessWidget {
@@ -296,94 +153,29 @@ class _StartupLoadingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(height: 56, width: 56, decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)), child: Icon(Icons.verified_user_rounded, color: cs.primary)),
-            const SizedBox(height: 14),
-            Text(AppConstants.appName, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text('Chargement sécurisé…', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-            const SizedBox(height: 14),
-            SizedBox(width: 140, child: LinearProgressIndicator(minHeight: 6, borderRadius: BorderRadius.circular(999))),
-          ],
-        ),
-      ),
-    );
+    return Scaffold(backgroundColor: cs.surface, body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Container(height: 56, width: 56, decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)), child: Icon(Icons.verified_user_rounded, color: cs.primary)), const SizedBox(height: 14), Text(AppConstants.appName, style: Theme.of(context).textTheme.titleLarge), const SizedBox(height: 6), Text('Chargement sécurisé…', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)), const SizedBox(height: 14), SizedBox(width: 140, child: LinearProgressIndicator(minHeight: 6, borderRadius: BorderRadius.circular(999)))])));
   }
 }
 
 class MyApp extends StatefulWidget {
-  final AuthController auth;
-  final ProfileService profiles;
-  final UserService userService;
-  final NetworkService network;
-  final FeedProvider feed;
-  final EventService eventService;
-  final ChatService chatService;
-  final PresenceService presenceService;
-  final AudioService audioService;
-  final GroupService groupService;
-  final CallSignalingService callSignaling;
-
-  const MyApp({
-    super.key,
-    required this.auth,
-    required this.profiles,
-    required this.userService,
-    required this.network,
-    required this.feed,
-    required this.eventService,
-    required this.chatService,
-    required this.presenceService,
-    required this.audioService,
-    required this.groupService,
-    required this.callSignaling,
-  });
-
+  final AuthController auth; final ProfileService profiles; final UserService userService; final NetworkService network; final FeedProvider feed; final EventService eventService; final ChatService chatService; final PresenceService presenceService; final AudioService audioService; final GroupService groupService; final CallSignalingService callSignaling;
+  const MyApp({super.key, required this.auth, required this.profiles, required this.userService, required this.network, required this.feed, required this.eventService, required this.chatService, required this.presenceService, required this.audioService, required this.groupService, required this.callSignaling});
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  late final LocaleController _localeController;
-  late final dynamic _router;
-
+  late final LocaleController _localeController; late final dynamic _router;
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    
-    _localeController = LocaleController()..init();
-    _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController);
-  }
-
+  void initState() { super.initState(); WidgetsBinding.instance.addObserver(this); _localeController = LocaleController()..init(); _router = AppRouter.create(widget.auth, extraRefreshListenable: _localeController); }
   @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
+  void dispose() { WidgetsBinding.instance.removeObserver(this); super.dispose(); }
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      debugPrint('L\'application sort de veille (resumed). Reconnexion du Realtime...');
-      try {
-        widget.feed.reconnectRealtime();
-      } catch (e) {
-        debugPrint('Erreur lors de la reconnexion Realtime : $e');
-      }
-    }
-  }
-
+  void didChangeAppLifecycleState(AppLifecycleState state) { if (state == AppLifecycleState.resumed) { try { widget.feed.reconnectRealtime(); } catch (e) { debugPrint('Erreur reconnexion Realtime : $e'); } } }
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ─── AUTH ───
         ChangeNotifierProvider.value(value: widget.auth),
         ChangeNotifierProvider.value(value: _localeController),
         Provider<ProfileService>.value(value: widget.profiles),
@@ -392,15 +184,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Provider<CallSignalingService>.value(value: widget.callSignaling),
         ChangeNotifierProvider<CallProvider>(create: (_) => CallProvider()),
         ChangeNotifierProvider.value(value: widget.feed),
-        
-        // ─── THIX ÉVÉNEMENT + ADMIN SCALABLE ───
         ChangeNotifierProvider<EventProvider>(create: (_) => EventProvider(widget.eventService)),
         Provider<AdminEventService>(create: (_) => AdminEventService(SupabaseConfig.client)),
         ChangeNotifierProvider<AdminEventProvider>(create: (ctx) => AdminEventProvider(ctx.read<AdminEventService>())),
-        
         ChangeNotifierProvider<NewsProvider>(create: (_) => NewsProvider(NewsService(SupabaseConfig.client))),
-
-        // ─── THIX MARKET ───
         ChangeNotifierProvider<MarketProvider>(create: (_) => MarketProvider()),
         ChangeNotifierProvider<ProductProvider>(create: (_) => ProductProvider()),
         ChangeNotifierProvider<SearchProvider>(create: (_) => SearchProvider()),
@@ -414,58 +201,36 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider<SupportProvider>(create: (_) => SupportProvider()),
         ChangeNotifierProvider<SettingsProvider>(create: (_) => SettingsProvider()),
         ChangeNotifierProvider<DeliveryProvider>(create: (_) => DeliveryProvider()),
-
-        // ─── EDUCATION ───
         ChangeNotifierProvider<EducationProvider>(create: (_) => EducationProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ProgressProvider>(create: (_) => ProgressProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<CertificateProvider>(create: (_) => CertificateProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<ForumProvider>(create: (_) => ForumProvider(EducationService(SupabaseConfig.client))),
         ChangeNotifierProvider<RecommendationProvider>(create: (_) => RecommendationProvider(EducationService(SupabaseConfig.client))),
-        // ─── THIX CHAT ───
         Provider<ChatService>.value(value: widget.chatService),
         Provider<PresenceService>.value(value: widget.presenceService),
         Provider<AudioService>.value(value: widget.audioService),
         Provider<GroupService>.value(value: widget.groupService),
-        
-        // ✅ AJOUTE TES DEUX NOUVEAUX PROVIDERS ICI :
         ChangeNotifierProvider<ChatProvider>(create: (_) => ChatProvider(widget.chatService)),
         ChangeNotifierProvider<SentimentProvider>(create: (_) => SentimentProvider()),
-
         ChangeNotifierProvider<EscalationProvider>(create: (_) => EscalationProvider()),
         ChangeNotifierProvider<ChatSettingsProvider>(create: (_) => ChatSettingsProvider()),
         ChangeNotifierProvider<ConnectionService>(create: (_) => ConnectionService()),
-
-
-        // ─── THIX RESERVATION BUS ───
         ChangeNotifierProvider<BusSearchProvider>(create: (_) => BusSearchProvider()),
         ChangeNotifierProvider<SeatSelectionProvider>(create: (_) => SeatSelectionProvider()),
         ChangeNotifierProvider<BookingProvider>(create: (_) => BookingProvider()),
         ChangeNotifierProvider<AgencyDashboardProvider>(create: (_) => AgencyDashboardProvider()),
+
+        // ─── THIX MONEY SERVICES - chaque service vérifie thix_id dans profiles ───
+        Provider<WalletService>(create: (_) => WalletService()),
+        Provider<WonyaService>(create: (_) => WonyaService()),
+        Provider<PaymentService>(create: (_) => PaymentService()),
+        Provider<QrService>(create: (_) => QrService()),
+        Provider<NotificationService>(create: (_) => NotificationService()),
       ],
-      child: Builder(
-        builder: (context) {
-          final locale = context.watch<LocaleController>().locale;
-          return MaterialApp.router(
-            title: AppConstants.appName,
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: ThemeMode.system,
-            routerConfig: _router,
-            locale: locale,
-            supportedLocales: LocaleController.supportedLocales,
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            builder: (context, child) {
-              return GlobalCallListener(child: child ?? const SizedBox.shrink());
-            },
-          );
-        },
-      ),
+      child: Builder(builder: (context) {
+        final locale = context.watch<LocaleController>().locale;
+        return MaterialApp.router(title: AppConstants.appName, debugShowCheckedModeBanner: false, theme: lightTheme, darkTheme: darkTheme, themeMode: ThemeMode.system, routerConfig: _router, locale: locale, supportedLocales: LocaleController.supportedLocales, localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate], builder: (context, child) => GlobalCallListener(child: child ?? const SizedBox.shrink()));
+      }),
     );
   }
 }
