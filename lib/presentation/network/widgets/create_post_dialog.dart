@@ -262,35 +262,144 @@ class _CreatePostDialogState extends State<CreatePostDialog>
           final today = DateTime.now();
           final currentDateString = "${today.day}/${today.month}/${today.year}";
 
-          // 🚨 NOUVEAU PROMPT STRICT QUI IGNORE LES FAUTES ET VALIDE TES TITRES
           final prompt = """
 Date actuelle : $currentDateString
 
-Analyse cette publication pour un réseau social professionnel :
+Tu es un moteur de FACT-CHECKING professionnel.
+Ta mission est d'analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication suivante.
+
+PUBLICATION :
 "$textContent"
 
-RÈGLES DE MODÉRATION INTRANSIGEANTES :
-1. IGNORE L'ORTHOGRAPHE ET LA GRAMMAIRE : Une faute de frappe, de grammaire ou un problème de majuscule/minuscule (ex: "sONATHIX", "fire" au lieu de "fier") N'EST JAMAIS une désinformation.
-2. VALIDATION AUTOMATIQUE DES TITRES ET ENTREPRISES : Si l'auteur parle de son poste (CEO, fondateur, etc.), de son entreprise, de ses projets professionnels ou institutionnels, tu DOIS répondre SAFE. Ne remets jamais en question l'identité professionnelle de l'auteur.
-3. CIBLE UNIQUEMENT LE DANGER PUBLIC : Signale UNIQUEMENT les rumeurs graves, absurdes ou dangereuses pour la société (ex: fausse annonce de décès d'une personnalité politique, fausse alerte sécuritaire nationale).
-4. En cas de moindre doute, ou si le texte est inoffensif, réponds SAFE.
+====================================================
+RÈGLES ABSOLUES
+====================================================
+Analyse uniquement le FOND.
+Ignore totalement :
+- fautes d'orthographe
+- fautes de frappe
+- grammaire
+- ponctuation
+- style d'écriture
+- emojis
+- répétitions
+- formulation maladroite
+- langue utilisée
+Ces éléments ne sont JAMAIS de la désinformation.
 
-Réponds STRICTEMENT sous forme de texte brut avec l'un des deux formats :
-- SAFE
-- FAKE: [Explique très brièvement pourquoi c'est une rumeur publique grave]
+====================================================
+À VÉRIFIER
+====================================================
+Vérifie uniquement les affirmations portant sur :
+• lois, visas, immigration, gouvernements, décisions officielles, élections
+• géopolitique, guerres, décès, catastrophes, santé publique, justice
+• économie, entreprises publiques, organisations internationales
+• personnalités publiques, chiffres officiels, événements historiques
+• annonces gouvernementales
+
+====================================================
+NE PAS SIGNALER
+====================================================
+Toujours répondre SAFE si la publication est :
+• une opinion, une émotion, une prédiction, une hypothèse, une question
+• une blague, une satire, une publicité
+• une expérience personnelle, une présentation personnelle
+• une description d'entreprise, une offre d'emploi, une publication marketing
+
+Ne jamais remettre en cause :
+- le métier, le poste, le titre professionnel
+- l'entreprise, le rôle revendiqué par l'auteur
+Par exemple : "Je suis CEO", "Notre entreprise..." => SAFE
+
+====================================================
+FAKE UNIQUEMENT SI
+====================================================
+Réponds FAKE seulement si l'affirmation est clairement contredite par des faits publics largement établis.
+Exemples :
+"Les Congolais peuvent entrer aux USA sans visa." => FAKE
+"La RDC fait partie de l'Union Européenne." => FAKE
+"La Tanzanie a officiellement supprimé le visa pour tous les Congolais." => FAKE uniquement si cette annonce officielle n'existe pas.
+
+====================================================
+INFORMATIONS RÉCENTES
+====================================================
+Si l'affirmation concerne une décision récente ou un événement que tu ne peux pas confirmer avec certitude, réponds : INCERTAIN
+Ne jamais inventer ni supposer.
+
+====================================================
+FORMAT DE RÉPONSE
+====================================================
+Tu dois répondre UNIQUEMENT par l'un des formats suivants :
+
+SAFE
+ou
+INCERTAIN: [raison très courte]
+ou
+FAKE: [raison très courte]
+
+Ne produis aucun texte supplémentaire.
+""";
+
+          final systemPrompt = """
+Tu es THIX Fact-Check AI.
+
+Tu es un moteur de vérification des faits.
+
+Tu analyses uniquement les affirmations factuelles.
+
+Tu ignores totalement :
+
+- orthographe
+- grammaire
+- style
+- opinions
+- humour
+- satire
+- expériences personnelles
+- identité professionnelle
+- postes
+- entreprises
+- publicités
+
+Tu ne dois jamais inventer une information.
+
+Tu ne dois jamais deviner.
+
+Tu ne dois répondre FAKE que lorsqu'un fait public est clairement faux avec un niveau de certitude supérieur à 95 %.
+
+Sinon réponds SAFE ou INCERTAIN.
+
+Tu réponds uniquement avec :
+
+SAFE
+
+FAKE: raison
+
+INCERTAIN: raison
+
+Aucun autre texte n'est autorisé.
 """;
 
           final aiResponse = await aiService.askAi(
             prompt: prompt,
             provider: AiProvider.mistral,
-            systemPrompt: "Tu es un outil technique silencieux. Tu ne corriges pas les fautes. Tu ne vérifies que les Fake News extrêmement graves à l'échelle nationale ou mondiale.",
+            systemPrompt: systemPrompt,
           );
 
-          if (aiResponse.toUpperCase().contains("FAKE:")) {
+          final responseText = aiResponse.trim().toUpperCase();
+
+          if (responseText.startsWith("FAKE:")) {
             isMisinformation = true;
-            factCheckMessage = aiResponse.replaceAll(RegExp(r'FAKE:\s*', caseSensitive: false), '').trim();
             factCheckSeverity = "fake";
+            // On récupère le texte après "FAKE:" en gardant la casse d'origine de la réponse
+            factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
+          } 
+          else if (responseText.startsWith("INCERTAIN:")) {
+            isMisinformation = true;
+            factCheckSeverity = "warning"; // Niveau de sévérité différent pour afficher une couleur orange par exemple
+            factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("INCERTAIN:") + 10).trim();
           }
+
         } catch (aiError) {
           debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
         }
