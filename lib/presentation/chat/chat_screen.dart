@@ -171,6 +171,127 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (provider.hasMoreMessages && !provider.isLoadingMoreMessages) {
           provider.loadMoreMessages(widget.conversationId);
         }
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+  // ✅ On réintègre ChatService pour accéder à getGroupMembers et getUserPresence
+  late chat_service.ChatService _chatService; 
+  
+  late PresenceService _presenceService;
+  late AudioService _audioService;
+  late GroupService _groupService;
+  late ConnectionService _connectionService;
+  late SentimentProvider _sentimentProvider;
+
+  // Contrôleurs
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _inputController = TextEditingController();
+  final FocusNode _inputFocus = FocusNode();
+
+  // État local (UI uniquement)
+  bool _isSending = false;
+  String _replyToId = '';
+  bool _isEphemeral = false;
+  int? _ephemeralDuration;
+
+  // Participants
+  UserStatus? _otherParticipant;
+  List<GroupMember> _groupMembers = [];
+
+  // === TYPING INDICATOR ===
+  bool _isTyping = false;
+  bool _otherUserTyping = false;
+  Timer? _typingTimer;
+  RealtimeChannel? _typingChannel;
+
+  // === ESCALADE ET NOTES INTERNES ===
+  bool _isAgent = false;
+  bool _isInternalNoteMode = false;
+  bool _isConversationEscalated = false;
+
+  Stream<UserStatus?>? _presenceStream;
+
+  // === COULEURS ===
+  static const Color primaryBlue = Color(0xFF4A8BFF);
+  static const Color leftBubbleColor = Color(0xFFE9F0FF);
+  static const Color dividerColor = Color(0xFFE2E8F0);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF3F5FA);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color success = Color(0xFF1FA971);
+  static const Color danger = Color(0xFFD64545);
+  static const Color hairline = Color(0xFFE7EAF3);
+
+  static const List<String> _quickReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
+
+  @override
+  void initState() {
+    super.initState();
+    final client = Supabase.instance.client;
+    
+    // ✅ Initialisation du ChatService local
+    _chatService = chat_service.ChatService(client);
+    
+    _presenceService = PresenceService(client);
+    _audioService = AudioService(client);
+    _groupService = GroupService(client);
+    _connectionService = ConnectionService();
+    _sentimentProvider = SentimentProvider();
+
+    _loadUserRole();
+    WidgetsBinding.instance.addObserver(this);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<ChatProvider>();
+      provider.loadMessages(widget.conversationId);
+      provider.markAsRead(widget.conversationId);
+    });
+
+    _setupScrollListener();
+    _getParticipantInfo();
+    _subscribeToPresence();
+    _subscribeToTypingChannel();
+    _loadGroupMembersIfGroup();
+    _checkMicrophonePermission();
+  }
+
+  Future<void> _loadUserRole() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      final metadata = user.userMetadata ?? {};
+      final role = metadata['role'] as String?;
+      _isAgent = role == 'agent' || role == 'admin' || role == 'support';
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _checkMicrophonePermission() async {
+    final status = await Permission.microphone.status;
+    debugPrint('🎙 Statut permission microphone: $status');
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
+    _inputController.dispose();
+    _inputFocus.dispose();
+    _typingTimer?.cancel();
+    _typingChannel?.unsubscribe();
+    _audioService.dispose();
+    _sentimentProvider.dispose();
+    super.dispose();
+  }
+
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      final position = _scrollController.position;
+      if (position.pixels >= position.maxScrollExtent - 200) {
+        final provider = context.read<ChatProvider>();
+        if (provider.hasMoreMessages && !provider.isLoadingMoreMessages) {
+          provider.loadMoreMessages(widget.conversationId);
+        }
       }
     });
   }
@@ -197,9 +318,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
-      // NOTE: Si subscribeToPresence est toujours dans ChatService, 
-      // il faudra l'extraire dans PresenceService ou garder une ref à ChatService
-      _presenceStream = _presenceService.subscribeToPresence([otherId]).map(
+      // ✅ Corrigé : appel à _chatService
+      _presenceStream = _chatService.subscribeToPresence([otherId]).map(
         (list) => list.isNotEmpty ? list.first : null,
       );
       _presenceStream?.listen((status) {
@@ -216,7 +336,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
-      final participant = await _presenceService.getUserPresence(otherId);
+      // ✅ Corrigé : appel à _chatService
+      final participant = await _chatService.getUserPresence(otherId);
       if (mounted) setState(() => _otherParticipant = participant);
     }
   }
@@ -224,7 +345,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _loadGroupMembersIfGroup() async {
     if (!widget.conversation.isGroup) return;
     try {
-      final members = await _groupService.getGroupMembers(widget.conversationId);
+      // ✅ Corrigé : appel à _chatService
+      final members = await _chatService.getGroupMembers(widget.conversationId);
       if (mounted) setState(() => _groupMembers = members);
     } catch (e) {
       debugPrint('❌ Erreur chargement membres: $e');
