@@ -1,7 +1,9 @@
 // lib/presentation/thix_money/pages/scanner_page.dart
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:go_router/go_router.dart';
 import '../services/qr_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ScannerPage extends StatefulWidget {
   const ScannerPage({super.key});
@@ -10,37 +12,53 @@ class ScannerPage extends StatefulWidget {
 }
 
 class _ScannerPageState extends State<ScannerPage> {
-  final _manualCtrl = TextEditingController();
+  final _controller = MobileScannerController();
+  bool _handled = false;
 
-  void _onScan(String raw) {
+  Future<void> _onDetect(BarcodeCapture cap) async {
+    if (_handled) return;
+    final raw = cap.barcodes.first.rawValue;
+    if (raw == null) return;
+    _handled = true;
+    await _controller.stop();
+
     final data = QrService.decodeThixQr(raw);
     if (data == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QR invalide')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QR THIX invalide')));
+      _handled = false;
+      await _controller.start();
       return;
     }
+
+    // Vérifie en base que thix_id existe
     if (data['thix_id']!= null) {
-      context.push('/thix-money/send', extra: {'thix_id': data['thix_id'], 'name': data['name']});
-    } else if (data['phone']!= null) {
-      context.push('/thix-money/send', extra: {'phone': data['phone']});
+      final exists = await Supabase.instance.client.from('profiles').select('display_name').eq('thix_id', data['thix_id']).maybeSingle();
+      if (exists == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('THIX ID non trouvé en base'), backgroundColor: Colors.red));
+        _handled = false;
+        await _controller.start();
+        return;
+      }
     }
+
+    if (!mounted) return;
+    context.pushReplacement('/thix-money/send', extra: data);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scanner THIX ID')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          Container(height: 300, decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.blue)), child: const Center(child: Icon(Icons.qr_code_scanner, size: 120, color: Colors.black26))),
-          const SizedBox(height: 16),
-          const Text('Scannez le QR THIX ID d\'un utilisateur pour lui envoyer de l\'argent instantanément. Vérification en base automatique.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 24),
-          TextField(controller: _manualCtrl, decoration: const InputDecoration(labelText: 'Ou saisir THIX ID / Téléphone manuellement', border: OutlineInputBorder())),
-          const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _onScan(_manualCtrl.text), child: const Text('Vérifier et envoyer'))),
-        ]),
-      ),
+      backgroundColor: Colors.black,
+      appBar: AppBar(title: const Text('Scanner THIX ID'), backgroundColor: Colors.black, foregroundColor: Colors.white),
+      body: Stack(children: [
+        MobileScanner(controller: _controller, onDetect: _onDetect),
+        Align(alignment: Alignment.bottomCenter, child: Container(margin: const EdgeInsets.all(24), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: const Text('Placez le QR code THIX ID dans le cadre. Vérification automatique en base.', textAlign: TextAlign.center))),
+      ]),
     );
   }
+
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
 }
