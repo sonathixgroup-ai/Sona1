@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../services/chat/chat_service.dart';
 import '../../services/chat/presence_service.dart';
 import '../../models/chat/chat_conversation.dart';
 import 'chat_screen.dart';
 import 'new_conversation_page.dart';
 import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
-
-// ✅ IMPORT AJOUTÉ POUR LA PAGE DES PARAMÈTRES
 import 'settings/chat_settings_page.dart';
 
 class _C {
@@ -34,13 +33,26 @@ class ChatListPage extends StatefulWidget {
 class _ChatListPageState extends State<ChatListPage> {
   late ChatService _chatService;
   late PresenceService _presenceService;
+  
   final _searchCtrl = TextEditingController();
+  final ScrollController _scrollController = ScrollController(); // 🔥 SCROLL CONTROLLER POUR INFINITE SCROLL
+
   List<ChatConversation> _all = [];
   List<ChatConversation> _filtered = [];
+  
+  // États de chargement et pagination
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  final int _limit = 20;
+  
+  // Compteurs globaux
+  int _totalUnreadCount = 0;
+  int _pendingEscalationsCount = 0;
+  
+  // UI States
   int _selectedFilter = 0;
   int _selectedNav = 1;
-  int _pendingEscalationsCount = 0;
   bool _showSearchField = false;
 
   @override
@@ -48,44 +60,94 @@ class _ChatListPageState extends State<ChatListPage> {
     super.initState();
     _chatService = ChatService(Supabase.instance.client);
     _presenceService = PresenceService(Supabase.instance.client);
-    _load();
+    
+    // 🔥 Écouteur pour charger la suite en arrivant en bas de l'écran
+    _scrollController.addListener(_onScroll);
+    
+    _loadInitialData();
     _presenceService.initPresence();
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollController.dispose();
     _presenceService.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _hasMore) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadInitialData() async {
     if (mounted) setState(() => _isLoading = true);
     try {
-      final convs = await _chatService.getConversations();
-      int pending = 0;
-      final u = Supabase.instance.client.auth.currentUser;
-      if (u != null) {
-        try {
-          final r = await Supabase.instance.client
-              .from('escalation_steps')
-              .select('id')
-              .eq('to_agent_id', u.id)
-              .eq('status', 0)
-              .count();
-          pending = (r.count as int?) ?? 0;
-        } catch (_) {}
-      }
+      // 🔥 Exécution parallèle pour ne pas bloquer l'UI
+      final futures = await Future.wait([
+        _chatService.getConversations(limit: _limit, offset: 0),
+        _chatService.getTotalUnreadCount(),
+        _getPendingEscalations(),
+      ]);
+
+      final convs = futures[0] as List<ChatConversation>;
+      
       if (!mounted) return;
       setState(() {
         _all = convs;
-        _filtered = convs;
-        _pendingEscalationsCount = pending;
+        _totalUnreadCount = futures[1] as int;
+        _pendingEscalationsCount = futures[2] as int;
+        _hasMore = convs.length == _limit; // Si on reçoit 20 items, c'est qu'il y en a potentiellement d'autres
         _isLoading = false;
       });
       _applyFilter();
-    } catch (_) {
+    } catch (e) {
+      debugPrint("Erreur _loadInitialData: $e");
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final offset = _all.length;
+      final newConvs = await _chatService.getConversations(limit: _limit, offset: offset);
+      
+      if (!mounted) return;
+      setState(() {
+        if (newConvs.isEmpty) {
+          _hasMore = false;
+        } else {
+          _all.addAll(newConvs);
+          _hasMore = newConvs.length == _limit;
+        }
+        _isLoadingMore = false;
+      });
+      _applyFilter();
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<int> _getPendingEscalations() async {
+    final u = Supabase.instance.client.auth.currentUser;
+    if (u == null) return 0;
+    try {
+      final r = await Supabase.instance.client
+          .from('escalation_steps')
+          .select('id')
+          .eq('to_agent_id', u.id)
+          .eq('status', 0)
+          .count();
+      return (r.count as int?) ?? 0;
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -183,23 +245,31 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final unread = _all.fold<int>(0, (s, c) => s + c.unreadCount);
     return Scaffold(
       backgroundColor: _C.bg,
-      bottomNavigationBar: _bottomNotchPro(unread),
+      bottomNavigationBar: _bottomNotchPro(_totalUnreadCount),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _C.blue, strokeWidth: 2.4))
           : RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: _loadInitialData,
               color: _C.blue,
               child: CustomScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
-                  SliverToBoxAdapter(child: _headerTHIX(unread)),
+                  SliverToBoxAdapter(child: _headerTHIX(_totalUnreadCount)),
                   SliverToBoxAdapter(child: _searchBarFixed()),
                   SliverToBoxAdapter(child: _filters()),
                   const SliverToBoxAdapter(child: SizedBox(height: 4)),
                   _chatList(),
+                  // 🔥 Affichage du loader tout en bas quand on scrolle pour charger la suite
+                  if (_isLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: CircularProgressIndicator(color: _C.blue, strokeWidth: 2)),
+                      ),
+                    ),
                   const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],
               ),
@@ -207,7 +277,6 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // HEADER PRO : titre + compteurs "Non lus / Escalades" façon WhatsApp Business
   Widget _headerTHIX(int unread) {
     return Container(
       color: _C.white,
@@ -312,7 +381,6 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // Barre de recherche fixe (WhatsApp style), s'affiche/masque en douceur
   Widget _searchBarFixed() {
     return Container(
       color: _C.white,
@@ -344,12 +412,6 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Widget _filters() {
     final tabs = ['Tous', 'Groupes', 'Persos', 'Non lus'];
-    final counts = [
-      _all.length,
-      _all.where((c) => c.isGroup).length,
-      _all.where((c) => !c.isGroup).length,
-      _all.where((c) => c.unreadCount > 0).length,
-    ];
     return Container(
       color: _C.white,
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 10),
@@ -377,21 +439,11 @@ class _ChatListPageState extends State<ChatListPage> {
                     color: sel ? _C.blue : _C.bg,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(tabs[i],
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
-                            color: sel ? Colors.white : _C.textDark)),
-                    if (counts[i] > 0) ...[
-                      const SizedBox(width: 5),
-                      Text('${counts[i]}',
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: sel ? Colors.white.withOpacity(.85) : _C.textMuted)),
-                    ],
-                  ]),
+                  child: Text(tabs[i],
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
+                          color: sel ? Colors.white : _C.textDark)),
                 ),
               ),
             );
@@ -402,7 +454,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Widget _chatList() {
-    if (_filtered.isEmpty) {
+    if (_filtered.isEmpty && !_isLoadingMore) {
       return const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.all(40),
@@ -502,7 +554,6 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // BOTTOM BARRE avec NOTCH
   Widget _bottomNotchPro(int unread) {
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
