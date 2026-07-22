@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme.dart';
 import '../../nav.dart';
 import 'package:thix_id/auth/auth_controller.dart';
@@ -65,7 +67,6 @@ class _LoginHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Icône plus petite, fond gold + ombre douce
         Container(
           width: 56,
           height: 56,
@@ -116,7 +117,11 @@ class _LoginHeader extends StatelessWidget {
   }
 }
 
-class _SecureInput extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// Champ de saisie sécurisé — avec bascule afficher/masquer pour les mots
+// de passe (standard natif iOS/Android).
+// ---------------------------------------------------------------------------
+class _SecureInput extends StatefulWidget {
   final String label;
   final String hint;
   final IconData icon;
@@ -126,6 +131,7 @@ class _SecureInput extends StatelessWidget {
   final TextInputAction textInputAction;
 
   const _SecureInput({
+    super.key,
     required this.label,
     required this.hint,
     required this.icon,
@@ -136,6 +142,13 @@ class _SecureInput extends StatelessWidget {
   });
 
   @override
+  State<_SecureInput> createState() => _SecureInputState();
+}
+
+class _SecureInputState extends State<_SecureInput> {
+  late bool _obscured = widget.isPassword;
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: _LoginSpacing.m),
@@ -144,10 +157,10 @@ class _SecureInput extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: _LoginColors.textSecondary),
+              Icon(widget.icon, size: 16, color: _LoginColors.textSecondary),
               const SizedBox(width: _LoginSpacing.xs),
               Text(
-                label,
+                widget.label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: _LoginColors.darkNavy,
                   fontWeight: FontWeight.w600,
@@ -166,23 +179,34 @@ class _SecureInput extends StatelessWidget {
               boxShadow: _LoginShadows.card,
             ),
             child: TextField(
-              controller: controller,
-              obscureText: isPassword,
-              keyboardType: type,
-              textInputAction: textInputAction,
+              controller: widget.controller,
+              obscureText: _obscured,
+              keyboardType: widget.type,
+              textInputAction: widget.textInputAction,
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: _LoginColors.darkNavy,
               ),
               decoration: InputDecoration(
-                hintText: hint,
+                hintText: widget.hint,
                 hintStyle: const TextStyle(
                   color: _LoginColors.textSecondary,
                   fontSize: 14,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: _LoginSpacing.l),
+                suffixIcon: widget.isPassword
+                    ? IconButton(
+                        splashRadius: 18,
+                        icon: Icon(
+                          _obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                          size: 18,
+                          color: _LoginColors.textSecondary,
+                        ),
+                        onPressed: () => setState(() => _obscured = !_obscured),
+                      )
+                    : null,
               ),
             ),
           ),
@@ -218,14 +242,90 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
   bool _isLoading = false;
   PhoneAuthSession? _phoneSession;
 
+  // ---------- Anti brute-force (soft lockout côté client) ----------
+  // La vraie protection reste côté serveur (rate limiting Supabase Auth) ;
+  // ceci évite juste de marteler le bouton et donne un retour clair.
+  int _failedAttempts = 0;
+  int _lockoutSecondsLeft = 0;
+  Timer? _lockoutTimer;
+  static const int _lockoutThreshold = 5;
+  static const int _lockoutDuration = 30;
+
+  // ---------- Réinitialisation de mot de passe ----------
+  int _resetCooldown = 0;
+  Timer? _resetCooldownTimer;
+  static const int _resetCooldownDuration = 45;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si l'utilisateur modifie l'identifiant après avoir démarré une
+    // session SMS, on invalide cette session : on ne veut jamais valider
+    // un code reçu pour un numéro contre un identifiant différent.
+    _identifierC.addListener(_onIdentifierChanged);
+  }
+
+  void _onIdentifierChanged() {
+    if (_phoneSession != null) {
+      setState(() => _phoneSession = null);
+    }
+  }
+
   @override
   void dispose() {
+    _identifierC.removeListener(_onIdentifierChanged);
     _identifierC.dispose();
     _passwordC.dispose();
+    _lockoutTimer?.cancel();
+    _resetCooldownTimer?.cancel();
     super.dispose();
   }
 
+  // ---------- Erreurs techniques → messages utilisateur ----------
+  // On ne renvoie jamais le message brut de Supabase à l'écran (fuite
+  // d'info technique). Pour la connexion, on reste volontairement vague
+  // entre "email inconnu" et "mot de passe incorrect" pour ne pas
+  // permettre l'énumération de comptes.
+  String _userFacingError(Object e) {
+    if (kDebugMode) {
+      debugPrint('[Login] erreur brute: $e');
+    }
+    if (e is AuthException) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('rate limit') || msg.contains('too many')) {
+        return 'Trop de tentatives. Merci de patienter quelques instants.';
+      }
+      if (msg.contains('network') || msg.contains('connection')) {
+        return 'Problème de connexion. Vérifiez votre réseau et réessayez.';
+      }
+      return 'Identifiant ou mot de passe incorrect.';
+    }
+    return 'Une erreur est survenue. Vérifiez vos identifiants et réessayez.';
+  }
+
+  void _startLockoutTimer() {
+    _lockoutTimer?.cancel();
+    setState(() => _lockoutSecondsLeft = _lockoutDuration);
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_lockoutSecondsLeft <= 1) {
+        timer.cancel();
+        setState(() {
+          _lockoutSecondsLeft = 0;
+          _failedAttempts = 0;
+        });
+      } else {
+        setState(() => _lockoutSecondsLeft -= 1);
+      }
+    });
+  }
+
   Future<void> _signIn() async {
+    if (_lockoutSecondsLeft > 0) return;
+
     final auth = context.read<AuthController>();
     final identifier = _identifierC.text.trim();
     final password = _passwordC.text;
@@ -245,15 +345,17 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
           return;
         }
         if (_phoneSession == null) {
-          _phoneSession = await auth.startPhoneAuth(phoneNumber: identifier);
+          final session = await auth.startPhoneAuth(phoneNumber: identifier);
           if (!mounted) return;
+          setState(() => _phoneSession = session);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('SMS envoyé. Entrez le code dans le champ Mot de passe puis validez.')),
+            const SnackBar(content: Text('SMS envoyé. Entrez le code reçu ci-dessous puis validez.')),
           );
           return;
         }
         final u = await auth.confirmPhoneCode(session: _phoneSession!, smsCode: password);
         if (!mounted) return;
+        _failedAttempts = 0;
         final target = u.accountType == AccountType.enterprise
             ? AppRoutes.enterpriseDashboard
             : AppRoutes.userDashboard;
@@ -267,6 +369,7 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
         rememberMe: _rememberMe,
       );
       if (!mounted) return;
+      _failedAttempts = 0;
       final target = u.accountType == AccountType.enterprise
           ? AppRoutes.enterpriseDashboard
           : AppRoutes.userDashboard;
@@ -274,7 +377,17 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
     } catch (e) {
       debugPrint('Login failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      _failedAttempts += 1;
+      if (_failedAttempts >= _lockoutThreshold) {
+        _startLockoutTimer();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Trop de tentatives échouées. Réessayez dans ${_lockoutDuration}s.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_userFacingError(e))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -283,8 +396,168 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
   bool _looksLikePhone(String s) =>
       RegExp(r'^\+?[0-9][0-9\s\-]{7,}$').hasMatch(s.trim());
 
+  bool _looksLikeEmail(String s) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s.trim());
+
+  // ---------- Réinitialisation de mot de passe ----------
+  void _startResetCooldown() {
+    _resetCooldownTimer?.cancel();
+    setState(() => _resetCooldown = _resetCooldownDuration);
+    _resetCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resetCooldown <= 1) {
+        timer.cancel();
+        setState(() => _resetCooldown = 0);
+      } else {
+        setState(() => _resetCooldown -= 1);
+      }
+    });
+  }
+
+  Future<bool> _sendPasswordReset(String email) async {
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[ResetPassword] erreur brute: $e');
+      // Volontairement : on ne révèle jamais si l'échec vient d'un email
+      // inconnu ou d'une autre cause. Même message dans tous les cas.
+    }
+    _startResetCooldown();
+    return true;
+  }
+
+  void _openForgotPasswordDialog() {
+    final prefill = _looksLikeEmail(_identifierC.text) ? _identifierC.text.trim() : '';
+    final emailC = TextEditingController(text: prefill);
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final canSend = !isSending && _resetCooldown == 0;
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: _LoginColors.white,
+                  borderRadius: BorderRadius.circular(_LoginRadius.card),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.lock_reset_rounded, color: _LoginColors.primaryBlue),
+                        const SizedBox(width: _LoginSpacing.s),
+                        Expanded(
+                          child: Text(
+                            'Réinitialiser le mot de passe',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: _LoginColors.darkNavy,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: _LoginSpacing.m),
+                    Text(
+                      'Entrez l\'email associé à votre compte. Si un compte existe, un lien de réinitialisation vous sera envoyé.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _LoginColors.textSecondary,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    const SizedBox(height: _LoginSpacing.l),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: _LoginColors.lightGrayBg,
+                        borderRadius: BorderRadius.circular(_LoginRadius.input),
+                        border: Border.all(color: _LoginColors.cardBorder),
+                      ),
+                      child: TextField(
+                        controller: emailC,
+                        keyboardType: TextInputType.emailAddress,
+                        style: const TextStyle(fontSize: 14, color: _LoginColors.darkNavy),
+                        decoration: const InputDecoration(
+                          hintText: 'votre@email.com',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: _LoginSpacing.l),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: _LoginSpacing.l),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Annuler'),
+                          ),
+                        ),
+                        const SizedBox(width: _LoginSpacing.s),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: canSend
+                                ? () async {
+                                    final email = emailC.text.trim();
+                                    if (!_looksLikeEmail(email)) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Email invalide.')),
+                                      );
+                                      return;
+                                    }
+                                    setDialogState(() => isSending = true);
+                                    await _sendPasswordReset(email);
+                                    if (!dialogContext.mounted) return;
+                                    Navigator.of(dialogContext).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Si un compte existe avec cet email, un lien de réinitialisation vient d\'être envoyé.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _LoginColors.primaryBlue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(_LoginRadius.button),
+                              ),
+                            ),
+                            child: Text(
+                              !canSend && _resetCooldown > 0
+                                  ? 'Patientez ${_resetCooldown}s'
+                                  : (isSending ? 'Envoi...' : 'Envoyer le lien'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final inPhoneCodeMode = _phoneSession != null;
     return Scaffold(
       backgroundColor: _LoginColors.lightGrayBg,
       body: SafeArea(
@@ -295,7 +568,6 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
               const SizedBox(height: 12),
               const _LoginHeader(),
               const SizedBox(height: _LoginSpacing.xxl),
-              // Carte de connexion
               Container(
                 decoration: BoxDecoration(
                   color: _LoginColors.white,
@@ -325,6 +597,7 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                     ),
                     const SizedBox(height: _LoginSpacing.xl),
                     _SecureInput(
+                      key: const ValueKey('identifier'),
                       label: 'Identifiant THIX ID',
                       hint: 'Ex: TX-882-091 ou email',
                       icon: Icons.badge_rounded,
@@ -334,19 +607,30 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                       textInputAction: TextInputAction.next,
                     ),
                     _SecureInput(
-                      label: 'Mot de passe',
-                      hint: '••••••••••••',
-                      icon: Icons.lock_rounded,
-                      isPassword: true,
-                      type: TextInputType.text,
+                      key: ValueKey(inPhoneCodeMode ? 'sms_code' : 'password'),
+                      label: inPhoneCodeMode ? 'Code SMS reçu' : 'Mot de passe',
+                      hint: inPhoneCodeMode ? '123456' : '••••••••••••',
+                      icon: inPhoneCodeMode ? Icons.sms_rounded : Icons.lock_rounded,
+                      isPassword: !inPhoneCodeMode,
+                      type: inPhoneCodeMode ? TextInputType.number : TextInputType.text,
                       controller: _passwordC,
                       textInputAction: TextInputAction.done,
                     ),
+                    if (inPhoneCodeMode)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => setState(() {
+                            _phoneSession = null;
+                            _passwordC.clear();
+                          }),
+                          child: const Text('Changer de numéro'),
+                        ),
+                      ),
                     const SizedBox(height: _LoginSpacing.s),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Rester connecté
                         GestureDetector(
                           onTap: _isLoading
                               ? null
@@ -391,16 +675,8 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                             ],
                           ),
                         ),
-                        // Mot de passe oublié
                         GestureDetector(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Mode local: réinitialisation par email indisponible.'),
-                              ),
-                            );
-                          },
+                          onTap: _openForgotPasswordDialog,
                           child: Text(
                             'Oublié ?',
                             style: Theme.of(context)
@@ -416,11 +692,10 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                       ],
                     ),
                     const SizedBox(height: _LoginSpacing.xl),
-                    // Bouton principal
                     GestureDetector(
-                      onTap: _isLoading ? null : _signIn,
+                      onTap: (_isLoading || _lockoutSecondsLeft > 0) ? null : _signIn,
                       child: Opacity(
-                        opacity: _isLoading ? 0.8 : 1,
+                        opacity: (_isLoading || _lockoutSecondsLeft > 0) ? 0.8 : 1,
                         child: Container(
                           height: 54,
                           decoration: BoxDecoration(
@@ -439,7 +714,7 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               if (_isLoading) ...[
-                                SizedBox(
+                                const SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
@@ -450,7 +725,9 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                                 const SizedBox(width: _LoginSpacing.m),
                               ],
                               Text(
-                                _isLoading ? 'VÉRIFICATION…' : 'SE CONNECTER',
+                                _lockoutSecondsLeft > 0
+                                    ? 'RÉESSAYER DANS ${_lockoutSecondsLeft}S'
+                                    : (_isLoading ? 'VÉRIFICATION…' : 'SE CONNECTER'),
                                 style: Theme.of(context)
                                     .textTheme
                                     .labelLarge
@@ -461,19 +738,20 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                                       letterSpacing: 0.4,
                                     ),
                               ),
-                              const SizedBox(width: _LoginSpacing.m),
-                              const Icon(
-                                Icons.arrow_forward_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
+                              if (_lockoutSecondsLeft == 0) ...[
+                                const SizedBox(width: _LoginSpacing.m),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: _LoginSpacing.l),
-                    // Séparateur "BIOMÉTRIE"
                     Row(
                       children: [
                         const Expanded(
@@ -524,7 +802,6 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                 ),
               ),
               const SizedBox(height: _LoginSpacing.xxl),
-              // Sécurité
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -576,7 +853,6 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                 ),
               ),
               const SizedBox(height: _LoginSpacing.xl),
-              // Créer un compte
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -603,7 +879,6 @@ class _LoginPageBodyState extends State<_LoginPageBody> {
                 ],
               ),
               const SizedBox(height: _LoginSpacing.l),
-              // Sélecteur de langue
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
