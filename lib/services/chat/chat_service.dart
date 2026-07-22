@@ -33,15 +33,49 @@ class ChatService {
   }
 
   // ============================================================
-  // CONVERSATIONS
+  // CONVERSATIONS (OPTIMISÉES POUR L'ÉCHELLE)
   // ============================================================
 
-  Future<List<ChatConversation>> getConversations() async {
+  /// ✅ NOUVEAU : Récupère uniquement le nombre total de messages non lus (Ultra léger)
+  Future<int> getTotalUnreadCount() async {
+    try {
+      final uid = currentUserId;
+      if (uid.isEmpty) return 0;
+
+      // 1. Récupérer les IDs (très léger)
+      final participantResponse = await _supabase
+          .from('conversation_participants')
+          .select('conversation_id')
+          .eq('user_id', uid);
+
+      if (participantResponse.isEmpty) return 0;
+
+      final conversationIds = (participantResponse as List)
+          .map((e) => e['conversation_id'] as String)
+          .toList();
+
+      // 2. Compter uniquement les messages non lus (sans ramener le contenu)
+      final unreadResponse = await _supabase
+          .from('messages')
+          .select('id')
+          .inFilter('conversation_id', conversationIds)
+          .eq('is_read', false)
+          .neq('sender_id', uid);
+
+      return (unreadResponse as List).length;
+    } catch (e) {
+      debugPrint('❌ getTotalUnreadCount: $e');
+      return 0;
+    }
+  }
+
+  /// ✅ CORRIGÉ : Récupération paginée des conversations (Fini les crashs DB)
+  Future<List<ChatConversation>> getConversations({int limit = 20, int offset = 0}) async {
     try {
       final uid = currentUserId;
       if (uid.isEmpty) return [];
 
-      // 1. Récupérer les IDs de toutes les conversations de l'utilisateur
+      // 1. Récupérer TOUS les IDs (cette table est légère, ça passe à l'échelle)
       final participantResponse = await _supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -49,11 +83,11 @@ class ChatService {
 
       if (participantResponse.isEmpty) return [];
 
-      final conversationIds = (participantResponse as List)
+      final allConversationIds = (participantResponse as List)
           .map((e) => e['conversation_id'] as String)
           .toList();
 
-      // 2. Récupérer les données de toutes ces conversations
+      // 2. Récupérer UNIQUEMENT la page actuelle de conversations
       final response = await _supabase
           .from('conversations')
           .select('''
@@ -68,40 +102,41 @@ class ChatService {
               )
             )
           ''')
-          .inFilter('id', conversationIds)
-          .order('updated_at', ascending: false);
+          .inFilter('id', allConversationIds)
+          .order('updated_at', ascending: false)
+          .range(offset, offset + limit - 1); // 🔥 PAGINATION APPLIQUÉE ICI !
 
-      // 🔥 OPTIMISATION 1 : Récupérer TOUS les messages non lus en UNE SEULE requête
+      final paginatedConversations = response as List;
+      if (paginatedConversations.isEmpty) return [];
+
+      // On isole les IDs de CETTE page seulement (max 20)
+      final pageConversationIds = paginatedConversations.map((c) => c['id'] as String).toList();
+
+      // 3. Récupérer les non-lus UNIQUEMENT pour cette page
       final unreadResponse = await _supabase
           .from('messages')
           .select('id, conversation_id')
-          .inFilter('conversation_id', conversationIds)
+          .inFilter('conversation_id', pageConversationIds) // 🔥 Cible réduite
           .eq('is_read', false)
           .neq('sender_id', uid);
 
-      // Grouper les compteurs de non-lus par conversation en local
       final unreadCounts = <String, int>{};
       for (var msg in unreadResponse as List) {
         final cid = msg['conversation_id'] as String;
         unreadCounts[cid] = (unreadCounts[cid] ?? 0) + 1;
       }
 
-      // 🔥 OPTIMISATION 2 : Exécuter la récupération des derniers messages EN PARALLÈLE
-      final futures = (response as List).map((conv) async {
+      // 4. Récupérer les derniers messages (Max 20 requêtes, plus de crash DB !)
+      final futures = paginatedConversations.map((conv) async {
         final cid = conv['id'] as String;
         final participants = conv['conversation_participants'] as List;
-        final participantIds = participants
-            .map((p) => p['user_id'] as String)
-            .toList();
+        final participantIds = participants.map((p) => p['user_id'] as String).toList();
 
         String? otherParticipantName;
         String? otherParticipantAvatar;
 
         if (!(conv['is_group'] ?? false) && participants.length == 2) {
-          final other = participants.firstWhere(
-            (p) => p['user_id'] != uid,
-            orElse: () => null,
-          );
+          final other = participants.firstWhere((p) => p['user_id'] != uid, orElse: () => null);
           if (other != null) {
             final profile = other['profiles'] as Map<String, dynamic>?;
             otherParticipantName = _resolveDisplayName(profile);
@@ -109,7 +144,6 @@ class ChatService {
           }
         }
 
-        // Requête pour le dernier message (exécutée en même temps pour toutes les convs)
         final lastMsg = await _supabase
             .from('messages')
             .select('''
@@ -143,15 +177,14 @@ class ChatService {
           otherParticipantName: otherParticipantName ?? 'Utilisateur inconnu',
           otherParticipantAvatar: otherParticipantAvatar,
           lastMessage: lastMessage,
-          unreadCount: unreadCounts[cid] ?? 0, // Utilisation du compteur pré-calculé ultra rapide
+          unreadCount: unreadCounts[cid] ?? 0,
           updatedAt: DateTime.parse(conv['updated_at']),
           isPinned: conv['is_pinned'] ?? false,
         );
       });
 
-      // On attend que toutes les tâches parallèles soient finies (quelques millisecondes)
       final conversations = await Future.wait(futures);
-
+      
       // On s'assure que le tri est parfait
       conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
@@ -162,18 +195,13 @@ class ChatService {
     }
   }
 
-  // 👇 LA FONCTION CORRIGÉE EST ICI 👇
-    Future<void> updateMessageSentiment(String messageId, SentimentResult sentiment) async {
+  Future<void> updateMessageSentiment(String messageId, SentimentResult sentiment) async {
     try {
-      // ✅ Utilisation de toString() et split() au lieu de .name
-      // Cela fonctionne que SentimentResult soit un enum ou une classe.
       final sentimentValue = sentiment.toString().split('.').last;
-
       await _supabase 
           .from('messages') 
           .update({'sentiment': sentimentValue}) 
           .eq('id', messageId);
-          
     } catch (e) {
       debugPrint('❌ Erreur lors de la mise à jour du sentiment: $e');
       throw Exception('Impossible de mettre à jour le sentiment');
@@ -469,7 +497,7 @@ class ChatService {
           .eq('conversation_id', conversationId)
           .eq('is_deleted', false)
           .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+          .range(offset, offset + limit - 1); // ✅ Range respecté pour la pagination
 
       final messages = (response as List).map((e) {
         final profile = e['profiles'] as Map<String, dynamic>?;
@@ -478,7 +506,7 @@ class ChatService {
         return ChatMessage.fromJson(e);
       }).toList();
 
-      return messages.reversed.toList();
+      return messages; // 💡 Attention, on ne fait PLUS de .reversed ici, l'UI gère l'ordre inversé
     } catch (e) {
       debugPrint('❌ getMessages: $e');
       return [];
@@ -767,6 +795,7 @@ class ChatService {
         value: conversationId,
       ),
       callback: (payload) async {
+        // Optionnel: tu pourrais vouloir ne récupérer que le delta plutôt que tout relire
         final msgs = await getMessages(conversationId);
         controller.add(msgs);
       },
