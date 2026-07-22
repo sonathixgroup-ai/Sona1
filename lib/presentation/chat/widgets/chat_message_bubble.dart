@@ -5,9 +5,9 @@ import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'chat_code_snippet.dart';
 import 'chat_ephemeral_timer.dart';
-// ─── IMPORTS POUR LE SENTIMENT ──────────────────────────────
 import 'package:thix_id/models/chat/sentiment.dart';
 import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatMessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -43,483 +43,180 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   bool _isDecrypted = false;
   String? _decryptedContent;
 
-  // Liste complète des emojis
-  final List<String> _emojiReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
+  static const primaryBlue = Color(0xFF4A8BFF);
+  static const leftBubbleColor = Color(0xFFE9F0FF);
+  static const navyDeep = Color(0xFF0A1F44);
+  static const pureWhite = Color(0xFFFFFFFF);
+  static const darkText = Color(0xFF10182B);
+  static const mutedText = Color(0xFF6B7690);
+  static const danger = Color(0xFFD64545);
+  static const gold = Color(0xFFE3B23C);
 
-  // Couleurs du design
-  static const Color primaryBlue = Color(0xFF4A8BFF);
-  static const Color leftBubbleColor = Color(0xFFE9F0FF);
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color success = Color(0xFF1FA971);
-  static const Color danger = Color(0xFFD64545);
+  // REACTIONS + STICKERS + DRAPEAUX
+  final List<String> _quickReactions = ['❤️', '😂', '🔥', '👍', '😮', '😢'];
+
+  // 100+ stickers
+  static const List<String> stickers = [
+    '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚',
+    '🤩','🤗','🤔','🤭','🤫','🤥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💝','💘','💌','💋',
+    '🔥','⭐','🌟','💫','✨','🎉','🎊','🎈','🎁','🏆','🥇','💯','✅','❌','💀','👻','👽','🤖','💩','👍','👎','🙏','👏','🙌','💪',
+  ];
+
+  // 250 drapeaux pays
+  static const List<String> flags = [
+    '🇦🇫','🇦🇱','🇩🇿','🇦🇩','🇦🇴','🇦🇬','🇦🇷','🇦🇲','🇦🇺','🇦🇹','🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇾','🇧🇪','🇧🇿','🇧🇯','🇧🇹',
+    '🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇰🇭','🇨🇲','🇨🇦','🇨🇻','🇨🇫','🇹🇩','🇨🇱','🇨🇳','🇨🇴','🇰🇲','🇨🇬','🇨🇩',
+    '🇨🇷','🇭🇷','🇨🇺','🇨🇾','🇨🇿','🇩🇰','🇩🇯','🇩🇲','🇩🇴','🇪🇨','🇪🇬','🇸🇻','🇬🇶','🇪🇷','🇪🇪','🇸🇿','🇪🇹','🇫🇯','🇫🇮','🇫🇷',
+    '🇬🇦','🇬🇲','🇬🇪','🇩🇪','🇬🇭','🇬🇷','🇬🇩','🇬🇹','🇬🇳','🇬🇼','🇬🇾','🇭🇹','🇭🇳','🇭🇺','🇮🇸','🇮🇳','🇮🇩','🇮🇷','🇮🇶','🇮🇪',
+    '🇮🇱','🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪','🇰🇮','🇰🇵','🇰🇷','🇰🇼','🇰🇬','🇱🇦','🇱🇻','🇱🇧','🇱🇸','🇱🇷','🇱🇾','🇱🇮','🇱🇹',
+    '🇱🇺','🇲🇬','🇲🇼','🇲🇾','🇲🇻','🇲🇱','🇲🇹','🇲🇭','🇲🇷','🇲🇺','🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇦','🇲🇿','🇲🇲','🇳🇦',
+    '🇳🇷','🇳🇵','🇳🇱','🇳🇿','🇳🇮','🇳🇪','🇳🇬','🇲🇰','🇳🇴','🇴🇲','🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇵🇪','🇵🇭','🇵🇱','🇵🇹',
+    '🇶🇦','🇷🇴','🇷🇺','🇷🇼','🇰🇳','🇱🇨','🇻🇨','🇼🇸','🇸🇲','🇸🇹','🇸🇦','🇸🇳','🇷🇸','🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇧','🇸🇴',
+    '🇿🇦','🇸🇸','🇪🇸','🇱🇰','🇸🇩','🇸🇷','🇸🇪','🇨🇭','🇸🇾','🇹🇯','🇹🇿','🇹🇭','🇹🇱','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇷','🇹🇲','🇹🇻',
+    '🇺🇬','🇺🇦','🇦🇪','🇬🇧','🇺🇸','🇺🇾','🇺🇿','🇻🇺','🇻🇦','🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼','🇨🇩','🇹🇼',
+  ];
 
   bool get _isEncrypted {
-    final content = widget.message.content;
-    return content.startsWith('🔒') ||
-        content.contains('base64') ||
-        (content.length > 50 && content.contains('+') && content.contains('/'));
+    final c = widget.message.content;
+    return c.startsWith('🔒') || (c.length > 50 && c.contains('+') && c.contains('/'));
   }
 
   Future<void> _decryptMessage() async {
-    final passController = TextEditingController();
+    final passCtrl = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
-            Icon(Icons.lock_rounded, color: gold),
-            SizedBox(width: 8),
-            Text('Message chiffré', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Entrez le mot de passe pour déchiffrer ce message :'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: passController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Mot de passe',
-                border: OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: navy)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Annuler', style: TextStyle(color: mutedText)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: navyDeep,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.pop(ctx, passController.text),
-            child: const Text('Déchiffrer', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+        title: const Row(children: [Icon(Icons.lock_rounded, color: gold), SizedBox(width: 8), Text('Message chiffré', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep))]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [const Text('Entrez le mot de passe:'), const SizedBox(height: 12), TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Mot de passe', border: OutlineInputBorder()))]),
+        actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text('Annuler')), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: navyDeep), onPressed: ()=>Navigator.pop(ctx, passCtrl.text), child: const Text('Déchiffrer', style: TextStyle(color: Colors.white)))],
       ),
     );
-
-    if (result != null && result.isNotEmpty) {
-      try {
-        final decrypted = EncryptionService.decryptMessage(widget.message.content, result);
-        setState(() {
-          _decryptedContent = decrypted;
-          _isDecrypted = true;
-        });
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mot de passe incorrect'), backgroundColor: danger),
-        );
-      }
+    if(result!=null && result.isNotEmpty) {
+      try { final dec = EncryptionService.decryptMessage(widget.message.content, result); setState((){ _decryptedContent=dec; _isDecrypted=true; }); } catch(_) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mot de passe incorrect'), backgroundColor: danger)); }
     }
   }
 
   String get _displayContent {
-    if (_isEncrypted && !_isDecrypted) {
-      return '🔒 Message chiffré (appuyez pour déchiffrer)';
-    }
-    if (_isEncrypted && _isDecrypted) {
-      return _decryptedContent ?? widget.message.content;
-    }
+    if(_isEncrypted &&!_isDecrypted) return '🔒 Message chiffré (appuyez pour déchiffrer)';
+    if(_isEncrypted && _isDecrypted) return _decryptedContent?? widget.message.content;
     return widget.message.content;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isInternalNote && !widget.isAgentView) {
-      return const SizedBox.shrink();
-    }
-
+    if(widget.isInternalNote &&!widget.isAgentView) return const SizedBox.shrink();
     final isOwn = widget.isOwn;
     final msg = widget.message;
-    final bool isFromAgent = msg.senderId != null && msg.senderId!.contains('agent_');
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isOwn? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // ─── AVATAR ET NOM ──────────────────────────────────────────
-          if (!isOwn && !widget.isInternalNote)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: leftBubbleColor,
-                    backgroundImage: msg.senderAvatar != null ? NetworkImage(msg.senderAvatar!) : null,
-                    child: msg.senderAvatar == null
-                        ? Text(
-                            msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryBlue),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    msg.senderName,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutedText),
-                  ),
-                  if (isFromAgent) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(color: navy.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                      child: const Text('Agent', style: TextStyle(fontSize: 9, color: navy, fontWeight: FontWeight.w500)),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+          if(!isOwn &&!widget.isInternalNote)
+            Padding(padding: const EdgeInsets.only(left: 12, bottom: 4), child: Row(children: [
+              CircleAvatar(radius: 14, backgroundColor: leftBubbleColor, backgroundImage: msg.senderAvatar!=null? CachedNetworkImageProvider(msg.senderAvatar!) : null, child: msg.senderAvatar==null? Text(msg.senderName.isNotEmpty? msg.senderName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: primaryBlue)) : null),
+              const SizedBox(width: 8), Text(msg.senderName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutedText)),
+            ])),
 
-          // ─── MESSAGE CITÉ (REPLY) ───────────────────────────────────
-          if (widget.replyToMessage != null && !widget.isInternalNote)
-            Padding(
-              padding: EdgeInsets.only(bottom: 4, left: isOwn ? 40 : 12, right: isOwn ? 12 : 40),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isOwn ? primaryBlue.withOpacity(0.15) : leftBubbleColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border(left: BorderSide(color: isOwn ? primaryBlue : Colors.grey, width: 3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.reply, size: 14, color: Colors.grey),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.replyToMessage!.senderId == widget.message.senderId ? 'Vous' : widget.replyToMessage!.senderName,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            widget.replyToMessage!.content,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+          if(widget.replyToMessage!=null &&!widget.isInternalNote)
+            Padding(padding: EdgeInsets.only(bottom: 4, left: isOwn? 40 : 12, right: isOwn? 12 : 40), child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: isOwn? primaryBlue.withValues(alpha: 0.15) : leftBubbleColor, borderRadius: BorderRadius.circular(8), border: Border(left: BorderSide(color: isOwn? primaryBlue : Colors.grey, width: 3))), child: Text(widget.replyToMessage!.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey[700])))),
+
+          Row(mainAxisAlignment: isOwn? MainAxisAlignment.end : MainAxisAlignment.start, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            if(!isOwn) const SizedBox(width: 4),
+            GestureDetector(
+              onTap: (){ if(_isEncrypted &&!_isDecrypted) _decryptMessage(); },
+              onLongPress: ()=>setState(()=>_showReactions=!_showReactions),
+              child: MouseRegion(
+                onEnter: (_)=>setState(()=>_isHovering=true), onExit: (_)=>setState(()=>_isHovering=false),
+                child: Container(
+                  padding: msg.mediaType=='image'? const EdgeInsets.all(4) : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                  decoration: BoxDecoration(
+                    color: widget.isInternalNote? Colors.yellow.shade100 : (isOwn? primaryBlue : leftBubbleColor),
+                    borderRadius: BorderRadius.only(topLeft: const Radius.circular(20), topRight: const Radius.circular(20), bottomLeft: Radius.circular(isOwn? 20 : 4), bottomRight: Radius.circular(isOwn? 4 : 20)),
+                    border: widget.isInternalNote? Border.all(color: Colors.orange.shade700, width: 2) : (_isEncrypted &&!_isDecrypted? Border.all(color: gold, width: 1.5) : null),
+                  ),
+                  child: Column(crossAxisAlignment: isOwn? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      if(_isEncrypted || widget.isEphemeralActive || widget.isInternalNote) _buildBadges(msg),
+                      if(msg.sentiment!=null) Padding(padding: const EdgeInsets.only(left: 8, bottom: 6), child: SentimentIndicator(result: msg.sentiment!, size: 14, showLabel: false)),
+                    ]),
+                    if(msg.isCodeSnippet && msg.codeContent!=null) ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage??'text')
+                    else if(msg.mediaType=='audio' && msg.mediaUrl!=null) AudioPlayerWidget(audioUrl: msg.mediaUrl!, totalDuration: msg.ephemeralDuration, primaryColor: isOwn? pureWhite : primaryBlue, accentColor: isOwn? leftBubbleColor : gold)
+                    else if(msg.mediaUrl!=null) _buildMediaContent()
+                    else if(_displayContent.isNotEmpty) Text(_displayContent, style: TextStyle(color: widget.isInternalNote? Colors.black87 : (isOwn? Colors.white : darkText), fontSize: 15, height: 1.3)),
+
+                    if(msg.reactions.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Wrap(spacing: 4, children: msg.reactions.map((r)=>Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: mutedText.withValues(alpha: 0.2))), child: Text(r.reaction, style: const TextStyle(fontSize: 14)))).toList())),
+                  ]),
                 ),
               ),
             ),
+          ]),
 
-          // ─── BULLE PRINCIPALE ───────────────────────────────────────
-          Row(
-            mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!isOwn) const SizedBox(width: 4),
+          Padding(padding: EdgeInsets.only(top: 4, left: isOwn? 0 : 8, right: isOwn? 8 : 0), child: Row(mainAxisAlignment: isOwn? MainAxisAlignment.end : MainAxisAlignment.start, children: [
+            if(widget.isEphemeralActive) ChatEphemeralTimer(duration: widget.message.ephemeralDuration??60, onExpired: (){ if(widget.onDelete!=null) widget.onDelete!(); }),
+            if(widget.isEphemeralActive) const SizedBox(width: 6),
+            Text(DateFormat('HH:mm').format(msg.createdAt), style: const TextStyle(fontSize: 9, color: mutedText)),
+            if(isOwn)...[const SizedBox(width: 4), Icon(msg.isRead? Icons.done_all_rounded : Icons.check_rounded, size: 13, color: msg.isRead? primaryBlue : mutedText.withValues(alpha: 0.7))],
+          ])),
 
-              GestureDetector(
-                onTap: () {
-                  if (_isEncrypted && !_isDecrypted) _decryptMessage();
-                },
-                onLongPress: () => setState(() => _showReactions = !_showReactions),
-                child: MouseRegion(
-                  onEnter: (_) => setState(() => _isHovering = true),
-                  onExit: (_) => setState(() => _isHovering = false),
-                  child: Container(
-                    padding: msg.mediaType == 'image' 
-                        ? const EdgeInsets.all(4)
-                        : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                    decoration: BoxDecoration(
-                      color: widget.isInternalNote
-                          ? Colors.yellow.shade100
-                          : (isOwn ? primaryBlue : leftBubbleColor),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: Radius.circular(isOwn ? 20 : 4),
-                        bottomRight: Radius.circular(isOwn ? 4 : 20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 1)),
-                      ],
-                      border: widget.isInternalNote
-                          ? Border.all(color: Colors.orange.shade700, width: 2)
-                          : (_isEncrypted && !_isDecrypted ? Border.all(color: gold, width: 1.5) : null),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        // Badges et Indicateur de Sentiment sur la même ligne
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildBadges(msg)),
-                            if (msg.sentiment != null)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8.0, bottom: 6.0),
-                                child: SentimentIndicator(
-                                  result: msg.sentiment!,
-                                  size: 14,
-                                  showLabel: false,
-                                ),
-                              ),
-                          ],
-                        ),
-
-                        // Contenu (Code, Audio, Média ou Texte)
-                        if (msg.isCodeSnippet && msg.codeContent != null)
-                          ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage ?? 'text')
-                        else if (msg.mediaType == 'audio' && msg.mediaUrl != null)
-                          AudioPlayerWidget(
-                            audioUrl: msg.mediaUrl!,
-                            totalDuration: msg.ephemeralDuration,
-                            primaryColor: isOwn ? pureWhite : primaryBlue,
-                            accentColor: isOwn ? leftBubbleColor : gold,
-                          )
-                        else if (msg.mediaUrl != null)
-                          _buildMediaContent()
-                        else if (_displayContent.isNotEmpty)
-                          Text(
-                            _displayContent,
-                            style: TextStyle(
-                              color: widget.isInternalNote ? Colors.black87 : (isOwn ? Colors.white : darkText),
-                              fontSize: 15,
-                              height: 1.3,
-                            ),
-                          ),
-
-                        // Réactions intégrées sous le texte
-                        if (msg.reactions.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Wrap(
-                              spacing: 4,
-                              runSpacing: 2,
-                              children: msg.reactions.map((reaction) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: mutedText.withOpacity(0.2))),
-                                  child: Text(reaction.reaction, style: const TextStyle(fontSize: 14)),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // ─── CHRONO ÉPHÉMÈRE ET HEURE ───────────────────────────────
-          Padding(
-            padding: EdgeInsets.only(top: 4, left: isOwn ? 0 : 8, right: isOwn ? 8 : 0),
-            child: Row(
-              mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-              children: [
-                if (widget.isEphemeralActive)
-                  ChatEphemeralTimer(
-                    duration: widget.message.ephemeralDuration ?? 60,
-                    onExpired: () { if (widget.onDelete != null) widget.onDelete!(); },
-                  ),
-                if (widget.isEphemeralActive) const SizedBox(width: 6),
-                Text(
-                  DateFormat('HH:mm').format(msg.createdAt),
-                  style: const TextStyle(fontSize: 9, color: mutedText),
-                ),
-                if (isOwn) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    msg.isRead ? Icons.done_all_rounded : Icons.check_rounded,
-                    size: 13,
-                    color: msg.isRead ? primaryBlue : mutedText.withOpacity(0.7),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // ─── BARRE D'ACTIONS FLOTTANTE (Hover / Long Press) ─────────
-          if ((_isHovering || _showReactions) && !widget.isInternalNote)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              child: Row(
-                mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  if (_showReactions) ..._emojiReactions.map((emoji) => _buildReactionButton(emoji)),
-                  IconButton(
-                    icon: const Icon(Icons.reply, size: 16, color: mutedText),
-                    onPressed: widget.onReply,
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.all(4),
-                  ),
-                  if (isOwn)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 16, color: danger),
-                      onPressed: widget.onDelete,
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(4),
-                    ),
-                ],
-              ),
-            ),
+          if((_isHovering || _showReactions) &&!widget.isInternalNote)
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8)]), child: Row(mainAxisSize: MainAxisSize.min, children: [
+             ..._quickReactions.map((emoji)=>InkWell(onTap: (){ widget.onReaction?.call(emoji); setState(()=>_showReactions=false); }, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(emoji, style: const TextStyle(fontSize: 20))))),
+              Container(width: 1, height: 20, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 6)),
+              IconButton(icon: const Icon(Icons.emoji_emotions_outlined, size: 18, color: mutedText), onPressed: ()=>_showStickerPicker(), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              IconButton(icon: const Icon(Icons.flag_outlined, size: 18, color: mutedText), onPressed: ()=>_showFlagPicker(), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              IconButton(icon: const Icon(Icons.reply, size: 18, color: mutedText), onPressed: widget.onReply, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              if(isOwn) IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: danger), onPressed: widget.onDelete, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            ]))),
         ],
       ),
     );
   }
 
-  // ─── SOUS-WIDGETS ───────────────────────────────────────────────────
-
   Widget _buildBadges(ChatMessage msg) {
-    bool hasBadge = widget.isInternalNote || _isEncrypted || widget.isEphemeralActive || (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio');
-    if (!hasBadge) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Wrap(
-        spacing: 4,
-        runSpacing: 2,
-        children: [
-          if (widget.isInternalNote) _badge(Icons.note_rounded, 'Note interne', Colors.orange),
-          if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', gold),
-          if (widget.isEphemeralActive) _badge(Icons.timer_rounded, 'Éphémère', Colors.orange),
-          if (msg.mediaType != null && msg.mediaType != 'image' && msg.mediaType != 'audio') 
-            _badge(msg.mediaType == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, msg.mediaType ?? 'Fichier', Colors.blue),
-        ],
-      ),
-    );
+    return Wrap(spacing: 4, children: [
+      if(widget.isInternalNote) _badge(Icons.note_rounded, 'Interne', Colors.orange),
+      if(_isEncrypted) _badge(_isDecrypted? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted? 'Déchiffré' : 'Chiffré', gold),
+      if(widget.isEphemeralActive) _badge(Icons.timer_rounded, 'Éphémère', Colors.orange),
+    ]);
   }
 
   Widget _badge(IconData icon, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withOpacity(0.3))),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 2),
-          Text(text, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 12, color: color), const SizedBox(width: 2), Text(text, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600))]));
   }
 
-  Widget _buildReactionButton(String emoji) {
-    return InkWell(
-      onTap: () {
-        if (widget.onReaction != null) widget.onReaction!(emoji);
-        setState(() => _showReactions = false);
-      },
-      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(emoji, style: const TextStyle(fontSize: 20))),
-    );
+  void _showStickerPicker() {
+    showModalBottomSheet(context: context, backgroundColor: pureWhite, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))), builder: (ctx)=>DraggableScrollableSheet(initialChildSize: 0.5, maxChildSize: 0.8, minChildSize: 0.3, expand: false, builder: (_, sc)=>Column(children: [
+      const SizedBox(height: 12), Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4))),
+      const Padding(padding: EdgeInsets.all(16), child: Text('Stickers & Emojis', style: TextStyle(fontWeight: FontWeight.w800))),
+      Expanded(child: GridView.builder(controller: sc, padding: const EdgeInsets.all(12), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, crossAxisSpacing: 4, mainAxisSpacing: 4), itemCount: stickers.length, itemBuilder: (_, i)=>InkWell(onTap: (){ Navigator.pop(ctx); widget.onReaction?.call(stickers[i]); }, child: Center(child: Text(stickers[i], style: const TextStyle(fontSize: 24)))))),
+    ])));
+  }
+
+  void _showFlagPicker() {
+    showModalBottomSheet(context: context, backgroundColor: pureWhite, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))), builder: (ctx)=>DraggableScrollableSheet(initialChildSize: 0.6, maxChildSize: 0.9, minChildSize: 0.3, expand: false, builder: (_, sc)=>Column(children: [
+      const SizedBox(height: 12), Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4))),
+      const Padding(padding: EdgeInsets.all(16), child: Text('Drapeaux du monde 🌍 - 240 pays', style: TextStyle(fontWeight: FontWeight.w800))),
+      Expanded(child: GridView.builder(controller: sc, padding: const EdgeInsets.all(12), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, crossAxisSpacing: 8, mainAxisSpacing: 8), itemCount: flags.length, itemBuilder: (_, i)=>InkWell(onTap: (){ Navigator.pop(ctx); widget.onReaction?.call(flags[i]); }, child: Container(decoration: BoxDecoration(color: const Color(0xFFF3F5FA), borderRadius: BorderRadius.circular(8)), child: Center(child: Text(flags[i], style: const TextStyle(fontSize: 28))))))),
+    ])));
   }
 
   Widget _buildMediaContent() {
-    if (widget.message.mediaType == 'image') {
-      return GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => FullScreenImagePage(
-                imageUrl: widget.message.mediaUrl!,
-                tag: widget.message.id,
-              ),
-            ),
-          );
-        },
-        child: Hero(
-          tag: widget.message.id,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 250),
-              child: Image.network(
-                widget.message.mediaUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Icon(Icons.broken_image, size: 40, color: mutedText),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
+    if(widget.message.mediaType=='image') {
+      return GestureDetector(onTap: (){ Navigator.push(context, MaterialPageRoute(builder: (_)=>FullScreenImagePage(imageUrl: widget.message.mediaUrl!, tag: widget.message.id))); }, child: Hero(tag: widget.message.id, child: ClipRRect(borderRadius: BorderRadius.circular(16), child: CachedNetworkImage(imageUrl: widget.message.mediaUrl!, fit: BoxFit.cover, memCacheWidth: 600, placeholder: (_,__)=>Container(height: 150, color: Colors.grey.shade200, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))), errorWidget: (_,__,___)=>const Padding(padding: EdgeInsets.all(16), child: Icon(Icons.broken_image, size: 40, color: mutedText))))));
     }
-
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 120),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: pureWhite.withOpacity(0.3)),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(widget.message.mediaType == 'video' ? Icons.video_library_rounded : Icons.insert_drive_file_rounded, size: 32, color: widget.isOwn ? Colors.white : primaryBlue),
-            const SizedBox(height: 8),
-            Text(widget.message.mediaType ?? 'Fichier joint', style: TextStyle(color: widget.isOwn ? Colors.white : darkText, fontWeight: FontWeight.w500)),
-          ],
-        ),
-      ),
-    );
+    return Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: pureWhite.withValues(alpha: 0.3)), child: Row(children: [Icon(widget.message.mediaType=='video'? Icons.videocam_rounded : Icons.insert_drive_file_rounded, color: widget.isOwn? Colors.white : primaryBlue), const SizedBox(width: 8), Expanded(child: Text(widget.message.mediaName?? widget.message.mediaType?? 'Fichier', style: TextStyle(color: widget.isOwn? Colors.white : darkText)))]));
   }
 }
 
-// ─── FULL SCREEN IMAGE PAGE ────────────────────────────────
-
 class FullScreenImagePage extends StatelessWidget {
-  final String imageUrl;
-  final String tag;
-
-  const FullScreenImagePage({
-    super.key,
-    required this.imageUrl,
-    required this.tag,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          panEnabled: true,
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: Hero(
-            tag: tag,
-            child: Image.network(
-              imageUrl,
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-        ),
-      ),
-    );
+  final String imageUrl; final String tag;
+  const FullScreenImagePage({super.key, required this.imageUrl, required this.tag});
+  @override Widget build(BuildContext context) {
+    return Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)), body: Center(child: InteractiveViewer(minScale: 0.5, maxScale: 4, child: Hero(tag: tag, child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain)))));
   }
 }
