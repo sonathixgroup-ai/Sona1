@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// N'oublie pas d'importer ton AiService en ajustant le chemin selon ton dossier
+// Assure-toi que ce chemin correspond bien à l'emplacement de ton fichier AiService
 import '../../services/ai/ai_service.dart'; 
 
 class ThixIaScreen extends StatefulWidget {
@@ -148,7 +148,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 12, maxLines: 1),
+                    margin: const EdgeInsets.only(bottom: 12), // Propriété corrigée ici
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.75,
