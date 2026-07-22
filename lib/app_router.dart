@@ -169,7 +169,7 @@ import 'package:thix_id/presentation/thix_event/event_ticket_page.dart';
 import 'package:thix_id/presentation/education/education_routes.dart';
 
 // THIX Money, Media, Reservation
-import 'package:thix_id/presentation/thix_money/thix_money_page.dart';
+import 'presentation/thix_money/thix_money_router.dart';
 import 'package:thix_id/presentation/thix_media/thix_media_page.dart';
 import 'package:thix_id/presentation/thix_media/video_player_page.dart';
 import 'package:thix_id/presentation/thix_media/admin/thix_media_admin_page.dart';
@@ -472,7 +472,7 @@ class AppRouter {
 
        ...educationRoutes,
        ...instructorRoutes,
-
+       ...ThixMoneyRouter.routes,
         // THIX Info
         GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
@@ -482,7 +482,7 @@ class AppRouter {
         GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
 
         // THIX Money, Media
-        GoRoute(path: AppRoutes.thixMoney, name: 'thixMoney', pageBuilder: (_, __) => NoTransitionPage(child: ThixMoneyPage())),
+    
         GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage()), routes: [
           GoRoute(path: 'admin', name: 'thixMediaAdmin', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage())),
         ]),
