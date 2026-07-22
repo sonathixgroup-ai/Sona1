@@ -258,19 +258,32 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       if (textContent.isNotEmpty) {
         try {
           final aiService = AiService(Supabase.instance.client);
+          
+          final today = DateTime.now();
+          final currentDateString = "${today.day}/${today.month}/${today.year}";
+
+          // 🚨 NOUVEAU PROMPT STRICT QUI IGNORE LES FAUTES ET VALIDE TES TITRES
           final prompt = """
-Analyse cette publication pour un réseau social professionnel officiel. Vérifie si elle contient de fausses informations, des rumeurs, ou une désinformation grave concernant les autorités ou les institutions :
+Date actuelle : $currentDateString
+
+Analyse cette publication pour un réseau social professionnel :
 "$textContent"
 
+RÈGLES DE MODÉRATION INTRANSIGEANTES :
+1. IGNORE L'ORTHOGRAPHE ET LA GRAMMAIRE : Une faute de frappe, de grammaire ou un problème de majuscule/minuscule (ex: "sONATHIX", "fire" au lieu de "fier") N'EST JAMAIS une désinformation.
+2. VALIDATION AUTOMATIQUE DES TITRES ET ENTREPRISES : Si l'auteur parle de son poste (CEO, fondateur, etc.), de son entreprise, de ses projets professionnels ou institutionnels, tu DOIS répondre SAFE. Ne remets jamais en question l'identité professionnelle de l'auteur.
+3. CIBLE UNIQUEMENT LE DANGER PUBLIC : Signale UNIQUEMENT les rumeurs graves, absurdes ou dangereuses pour la société (ex: fausse annonce de décès d'une personnalité politique, fausse alerte sécuritaire nationale).
+4. En cas de moindre doute, ou si le texte est inoffensif, réponds SAFE.
+
 Réponds STRICTEMENT sous forme de texte brut avec l'un des deux formats :
-- Si tout est correct : SAFE
-- Si c'est suspect ou faux : FAKE: [Explique en une phrase courte pourquoi c'est une désinformation potentielle]
+- SAFE
+- FAKE: [Explique très brièvement pourquoi c'est une rumeur publique grave]
 """;
 
           final aiResponse = await aiService.askAi(
             prompt: prompt,
             provider: AiProvider.mistral,
-            systemPrompt: "Tu es un agent de modération et de fact-checking strict pour un réseau institutionnel.",
+            systemPrompt: "Tu es un outil technique silencieux. Tu ne corriges pas les fautes. Tu ne vérifies que les Fake News extrêmement graves à l'échelle nationale ou mondiale.",
           );
 
           if (aiResponse.toUpperCase().contains("FAKE:")) {
