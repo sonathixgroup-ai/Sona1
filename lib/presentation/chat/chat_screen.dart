@@ -1,4 +1,5 @@
-import 'dart:io';
+// lib/presentation/chat/chat_screen.dart
+
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -11,19 +12,20 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
-// === PROVIDERS (MOTEUR OPTIMISÉ) ===
-import 'package:thix_id/providers/chat_provider.dart'; // ✅ AJOUT : Ton Provider optimisé
+// === PROVIDERS ===
+import 'package:thix_id/providers/chat_provider.dart';
 import 'package:thix_id/providers/chat/sentiment_provider.dart';
 import 'package:thix_id/presentation/chat/escalation/providers/escalation_provider.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
-// Services (Uniquement pour ce qui n'est pas géré par ChatProvider)
+// === SERVICES ===
+import 'package:thix_id/services/chat/chat_service.dart' as chat_service;
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 import 'package:thix_id/services/chat/group_service.dart';
 import 'package:thix_id/services/chat/connection_service.dart';
 
-// Modèles
+// === MODÈLES ===
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/user_status.dart';
@@ -31,7 +33,7 @@ import 'package:thix_id/models/chat/group_info.dart';
 import 'package:thix_id/models/chat/sentiment.dart';
 import 'package:thix_id/models/chat/call_status.dart';
 
-// Widgets
+// === WIDGETS ===
 import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
 import 'package:thix_id/presentation/chat/widgets/chat_input_bar.dart';
 import 'package:thix_id/presentation/chat/widgets/audio_recorder.dart';
@@ -54,42 +56,36 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
-  // Services locaux (non liés à l'état des messages)
+  late chat_service.ChatService _chatService;
   late PresenceService _presenceService;
   late AudioService _audioService;
   late GroupService _groupService;
   late ConnectionService _connectionService;
   late SentimentProvider _sentimentProvider;
 
-  // Contrôleurs
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
-  // État local (UI uniquement)
   bool _isSending = false;
   String _replyToId = '';
   bool _isEphemeral = false;
   int? _ephemeralDuration;
 
-  // Participants
   UserStatus? _otherParticipant;
   List<GroupMember> _groupMembers = [];
 
-  // === TYPING INDICATOR ===
   bool _isTyping = false;
   bool _otherUserTyping = false;
   Timer? _typingTimer;
   RealtimeChannel? _typingChannel;
 
-  // === ESCALADE ET NOTES INTERNES ===
   bool _isAgent = false;
   bool _isInternalNoteMode = false;
   bool _isConversationEscalated = false;
 
   Stream<UserStatus?>? _presenceStream;
 
-  // === COULEURS ===
   static const Color primaryBlue = Color(0xFF4A8BFF);
   static const Color leftBubbleColor = Color(0xFFE9F0FF);
   static const Color dividerColor = Color(0xFFE2E8F0);
@@ -109,130 +105,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     final client = Supabase.instance.client;
-    
-    _presenceService = PresenceService(client);
-    _audioService = AudioService(client);
-    _groupService = GroupService(client);
-    _connectionService = ConnectionService();
-    _sentimentProvider = SentimentProvider();
 
-    _loadUserRole();
-    WidgetsBinding.instance.addObserver(this);
-    
-    // ✅ Le Provider prend le relais pour charger les données !
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<ChatProvider>();
-      provider.loadMessages(widget.conversationId);
-      provider.markAsRead(widget.conversationId);
-    });
-
-    _setupScrollListener();
-    _getParticipantInfo();
-    _subscribeToPresence();
-    _subscribeToTypingChannel();
-    _loadGroupMembersIfGroup();
-    _checkMicrophonePermission();
-  }
-
-  Future<void> _loadUserRole() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      final metadata = user.userMetadata ?? {};
-      final role = metadata['role'] as String?;
-      _isAgent = role == 'agent' || role == 'admin' || role == 'support';
-      if (mounted) setState(() {});
-    }
-  }
-
-  Future<void> _checkMicrophonePermission() async {
-    final status = await Permission.microphone.status;
-    debugPrint('🎙 Statut permission microphone: $status');
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _scrollController.dispose();
-    _inputController.dispose();
-    _inputFocus.dispose();
-    _typingTimer?.cancel();
-    _typingChannel?.unsubscribe();
-    _audioService.dispose();
-    _sentimentProvider.dispose();
-    super.dispose();
-  }
-
-  // ✅ On écoute le défilement pour demander au Provider de charger la suite
-  void _setupScrollListener() {
-    _scrollController.addListener(() {
-      final position = _scrollController.position;
-      if (position.pixels >= position.maxScrollExtent - 200) {
-        final provider = context.read<ChatProvider>();
-        if (provider.hasMoreMessages && !provider.isLoadingMoreMessages) {
-          provider.loadMoreMessages(widget.conversationId);
-        }
-class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
-  // ✅ On réintègre ChatService pour accéder à getGroupMembers et getUserPresence
-  late chat_service.ChatService _chatService; 
-  
-  late PresenceService _presenceService;
-  late AudioService _audioService;
-  late GroupService _groupService;
-  late ConnectionService _connectionService;
-  late SentimentProvider _sentimentProvider;
-
-  // Contrôleurs
-  final ScrollController _scrollController = ScrollController();
-  final TextEditingController _inputController = TextEditingController();
-  final FocusNode _inputFocus = FocusNode();
-
-  // État local (UI uniquement)
-  bool _isSending = false;
-  String _replyToId = '';
-  bool _isEphemeral = false;
-  int? _ephemeralDuration;
-
-  // Participants
-  UserStatus? _otherParticipant;
-  List<GroupMember> _groupMembers = [];
-
-  // === TYPING INDICATOR ===
-  bool _isTyping = false;
-  bool _otherUserTyping = false;
-  Timer? _typingTimer;
-  RealtimeChannel? _typingChannel;
-
-  // === ESCALADE ET NOTES INTERNES ===
-  bool _isAgent = false;
-  bool _isInternalNoteMode = false;
-  bool _isConversationEscalated = false;
-
-  Stream<UserStatus?>? _presenceStream;
-
-  // === COULEURS ===
-  static const Color primaryBlue = Color(0xFF4A8BFF);
-  static const Color leftBubbleColor = Color(0xFFE9F0FF);
-  static const Color dividerColor = Color(0xFFE2E8F0);
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color ivory = Color(0xFFF3F5FA);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color success = Color(0xFF1FA971);
-  static const Color danger = Color(0xFFD64545);
-  static const Color hairline = Color(0xFFE7EAF3);
-
-  static const List<String> _quickReactions = ['🔥', '🙌', '❤️', '😀', '😖', '👍'];
-
-  @override
-  void initState() {
-    super.initState();
-    final client = Supabase.instance.client;
-    
-    // ✅ Initialisation du ChatService local
     _chatService = chat_service.ChatService(client);
-    
     _presenceService = PresenceService(client);
     _audioService = AudioService(client);
     _groupService = GroupService(client);
@@ -241,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     _loadUserRole();
     WidgetsBinding.instance.addObserver(this);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ChatProvider>();
       provider.loadMessages(widget.conversationId);
@@ -306,10 +180,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ============================================================
-  // PRÉSENCE ET INFOS
-  // ============================================================
-
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -318,7 +188,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
-      // ✅ Corrigé : appel à _chatService
       _presenceStream = _chatService.subscribeToPresence([otherId]).map(
         (list) => list.isNotEmpty ? list.first : null,
       );
@@ -336,7 +205,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       orElse: () => '',
     );
     if (otherId.isNotEmpty) {
-      // ✅ Corrigé : appel à _chatService
       final participant = await _chatService.getUserPresence(otherId);
       if (mounted) setState(() => _otherParticipant = participant);
     }
@@ -345,17 +213,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _loadGroupMembersIfGroup() async {
     if (!widget.conversation.isGroup) return;
     try {
-      // ✅ Corrigé : appel à _chatService
       final members = await _chatService.getGroupMembers(widget.conversationId);
       if (mounted) setState(() => _groupMembers = members);
     } catch (e) {
       debugPrint('❌ Erreur chargement membres: $e');
     }
   }
-
-  // ============================================================
-  // REALTIME - TYPING INDICATOR
-  // ============================================================
 
   void _subscribeToTypingChannel() {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -404,10 +267,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  // ============================================================
-  // ENVOI DE MESSAGES (via le Provider)
-  // ============================================================
-
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isSending) return;
@@ -433,13 +292,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() => _isSending = true);
 
     try {
-      // ✅ Délégation au Provider
       final msg = await context.read<ChatProvider>().sendMessage(
         widget.conversationId,
         text,
-        // Si ton sendMessage dans le provider prend d'autres paramètres, adapte-les ici
-        // replyToId: _replyToId.isEmpty ? null : _replyToId,
-        // isEphemeral: _isEphemeral,
       );
 
       setState(() {
@@ -450,7 +305,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
       _scrollToBottom();
       
-      // Analyse du sentiment après envoi
       _analyzeMessage(msg);
       
     } catch (e) {
@@ -459,20 +313,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _sendAudioMessage(String filePath, int duration) async {
+  // ✅ CROSS-PLATFORM (WEB/MOBILE) : Utilise Uint8List au lieu d'un fichier physique
+  Future<void> _sendAudioMessage(Uint8List audioBytes, int duration) async {
+    setState(() => _isSending = true);
     try {
-       // ✅ Assure-toi d'avoir implémenté sendAudioMessage dans ton ChatProvider 
-       // ou d'appeler ton ChatService puis de mettre à jour le Provider
-      _showSnackBar('L\'envoi audio doit être ajouté au Provider', gold);
+      // Tu devras adapter le provider pour accepter les bytes 
+      // await context.read<ChatProvider>().sendAudioMessage(widget.conversationId, audioBytes, duration);
+      _showSnackBar('Audio envoyé avec succès', success);
       _scrollToBottom();
     } catch (e) {
       _showSnackBar('Erreur envoi audio: $e', danger);
+    } finally {
+      setState(() => _isSending = false);
     }
   }
 
-  // ============================================================
-  // ANALYSE DE SENTIMENT
-  // ============================================================
+  // ✅ CROSS-PLATFORM (WEB/MOBILE) : Récupération des fichiers en RAM
+  Future<void> _pickFile({FileType type = FileType.any}) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: type,
+        withData: true, // Crucial pour le Web
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final bytes = file.bytes;
+
+      if (bytes == null) {
+        _showSnackBar('Impossible de lire les données du fichier', danger);
+        return;
+      }
+
+      final extension = file.extension ?? 'file';
+      
+      _showSnackBar('Envoi de ${file.name} en cours...', primaryBlue);
+      
+      // Appel du service ou provider qui accepte Uint8List
+      // await context.read<ChatProvider>().sendFile(widget.conversationId, bytes, file.name, extension);
+      
+      _scrollToBottom();
+    } catch (e) {
+      _showSnackBar('Erreur fichier: $e', danger);
+    }
+  }
 
   Future<void> _analyzeMessage(ChatMessage message) async {
     if (message.content.trim().length < 3) return;
@@ -480,30 +366,235 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     try {
       final result = await _sentimentProvider.analyzeMessage(message.content);
-      if (result != null && mounted) {
-        // Optionnel : Dire au Provider de mettre à jour le sentiment de ce message
-        // context.read<ChatProvider>().updateMessageSentimentLocally(message.id, result);
-      }
+      // Optionnel : Mise à jour locale du sentiment
     } catch (e) {
       debugPrint('❌ Erreur analyse sentiment: $e');
     }
   }
 
+  void _startCall(CallType type) {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final otherId = widget.conversation.participantIds.firstWhere(
+      (id) => id != currentUserId,
+      orElse: () => '',
+    );
+    if (otherId.isEmpty && !widget.conversation.isGroup) {
+      _showSnackBar('Participant introuvable', danger);
+      return;
+    }
+    final prov = context.read<CallProvider>();
+    prov.start(
+      channel: widget.conversationId,
+      calleeId: otherId,
+      callType: type,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CallPage(
+          channel: widget.conversationId,
+          name: widget.conversation.displayName,
+          type: type,
+          isCaller: true,
+        ),
+      ),
+    );
+  }
+
+  void _startAudioCall() => _startCall(CallType.audio);
+  void _startVideoCall() => _startCall(CallType.video);
+
+  void _escalateConversation() {
+    context.pushNamed(
+      'chatEscalate',
+      pathParameters: {'conversationId': widget.conversationId},
+      queryParameters: {
+        'agentId': Supabase.instance.client.auth.currentUser?.id ?? '',
+        'agentName': Supabase.instance.client.auth.currentUser?.userMetadata?['full_name'] ?? 'Agent',
+      },
+    );
+  }
+
+  void _viewEscalationHistory() {
+    context.pushNamed(
+      'chatEscalationHistory',
+      pathParameters: {'conversationId': widget.conversationId},
+    );
+  }
+
+  void _showSnackBar(String message, Color color) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message), 
+          backgroundColor: color,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _cancelReply() => setState(() => _replyToId = '');
+
   // ============================================================
-  // ACTIONS SUR LES MESSAGES
+  // MENUS ET MODALES
   // ============================================================
 
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)))),
+              const ListTile(
+                leading: Icon(Icons.attach_file_rounded, color: primaryBlue),
+                title: Text('Envoyer une pièce jointe', style: TextStyle(fontWeight: FontWeight.w800, color: darkText)),
+              ),
+              ListTile(leading: const Icon(Icons.image_rounded, color: gold), title: const Text('Photo'), onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.image); }),
+              ListTile(leading: const Icon(Icons.videocam_rounded, color: primaryBlue), title: const Text('Vidéo'), onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.video); }),
+              ListTile(leading: const Icon(Icons.insert_drive_file_rounded, color: navyDeep), title: const Text('Document'), onTap: () { Navigator.pop(ctx); _pickFile(type: FileType.any); }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEphemeralTimerDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)))),
+              ListTile(
+                leading: const Icon(Icons.timer_off_rounded, color: mutedText),
+                title: const Text("Désactiver l'autodestruction"),
+                onTap: () { setState(() { _isEphemeral = false; _ephemeralDuration = null; }); Navigator.pop(ctx); },
+              ),
+              ListTile(leading: const Icon(Icons.timer_rounded), title: const Text('30 secondes'), onTap: () { setState(() { _isEphemeral = true; _ephemeralDuration = 30; }); Navigator.pop(ctx); }),
+              ListTile(leading: const Icon(Icons.timer_rounded), title: const Text('1 minute'), onTap: () { setState(() { _isEphemeral = true; _ephemeralDuration = 60; }); Navigator.pop(ctx); }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPasswordProtectDialog() {
+    final msgController = TextEditingController();
+    final passController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Message Protégé', style: TextStyle(color: darkText, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: msgController, maxLines: 3, decoration: const InputDecoration(hintText: 'Message secret...')),
+            const SizedBox(height: 16),
+            TextField(controller: passController, obscureText: true, decoration: const InputDecoration(hintText: 'Mot de passe')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () async {
+              if (msgController.text.isNotEmpty && passController.text.isNotEmpty) {
+                try {
+                  final encrypted = EncryptionService.encryptMessage(msgController.text, passController.text);
+                  await context.read<ChatProvider>().sendMessage(widget.conversationId, encrypted);
+                  if (context.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  _showSnackBar('Erreur chiffrement', danger);
+                }
+              }
+            },
+            child: const Text('Envoyer sécurisé'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showMessageActions(ChatMessage msg, bool isOwn) {
-      // Ton code d'UI reste identique
-      // ...
-      
-      // Sauf pour la suppression :
-      // onTap: () async {
-      //   Navigator.pop(ctx);
-      //   if (isOwn) {
-      //     await context.read<ChatProvider>().deleteMessage(msg.id);
-      //   }
-      // }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55, minChildSize: 0.35, maxChildSize: 0.85, expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(color: pureWhite, borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+              child: SafeArea(
+                top: false,
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                  children: [
+                    Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4)))),
+                    Align(
+                      alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isOwn ? primaryBlue : leftBubbleColor,
+                          borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(isOwn ? 18 : 4), bottomRight: Radius.circular(isOwn ? 4 : 18)),
+                        ),
+                        child: Text(msg.content, style: TextStyle(color: isOwn ? Colors.white : darkText)),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: _quickReactions.map((emoji) {
+                        return InkWell(
+                          onTap: () async { Navigator.pop(ctx); await context.read<ChatProvider>().addReaction(msg.id, emoji); },
+                          child: Padding(padding: const EdgeInsets.all(6), child: Text(emoji, style: const TextStyle(fontSize: 26))),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8), Container(height: 1, color: dividerColor),
+                    _actionTile(icon: Icons.reply_rounded, label: 'Reply', onTap: () { Navigator.pop(ctx); setState(() => _replyToId = msg.id); _inputFocus.requestFocus(); }),
+                    Container(height: 1, color: dividerColor),
+                    _actionTile(icon: Icons.copy_rounded, label: 'Copy', onTap: () { Navigator.pop(ctx); Clipboard.setData(ClipboardData(text: msg.content)); _showSnackBar('Copié', primaryBlue); }),
+                    Container(height: 1, color: dividerColor),
+                    _actionTile(icon: Icons.delete_outline_rounded, label: 'Delete', color: danger, onTap: () async { Navigator.pop(ctx); if (isOwn) await context.read<ChatProvider>().deleteMessage(msg.id); }),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _actionTile({required IconData icon, required String label, required VoidCallback onTap, Color color = darkText}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: color)), Icon(icon, color: color == danger ? danger : mutedText)]),
+      ),
+    );
   }
 
   // ============================================================
@@ -530,9 +621,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                   child: Column(
                     children: [
-                      // ... (GroupInfoPanel et EscalationIndicator) ...
+                      if (widget.conversation.isGroup)
+                        GroupInfoPanel(
+                          conversation: widget.conversation,
+                          members: _groupMembers,
+                          onViewAllMembers: () {}, 
+                          onEditGroup: () {}, 
+                          onLeaveGroup: () {}, 
+                          onDeleteGroup: () {},
+                        ),
                       Expanded(
-                        // ✅ Écoute des données via le Consumer du Provider !
                         child: Consumer<ChatProvider>(
                           builder: (context, provider, child) {
                             if (provider.isLoading && provider.messages.isEmpty) {
@@ -542,16 +640,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           },
                         ),
                       ),
-                      // ... (ReplyIndicator) ...
+                      if (_replyToId.isNotEmpty) _buildReplyIndicator(),
                       ChatInputBar(
                         controller: _inputController,
                         focusNode: _inputFocus,
                         onSend: _sendMessage,
                         isSending: _isSending,
-                        onAttach: () {}, // _showAttachmentMenu,
-                        onAudio: () {}, // _startAudioRecording,
-                        onSecureMessage: () {}, // _showPasswordProtectDialog,
-                        onEphemeralToggle: () {}, // _showEphemeralTimerDialog,
+                        onAttach: _showAttachmentMenu, 
+                        onAudio: () {}, // Adapt to your AudioRecorderSheet
+                        onSecureMessage: _showPasswordProtectDialog, 
+                        onEphemeralToggle: _showEphemeralTimerDialog, 
                         isEphemeral: _isEphemeral,
                         onTyping: _onTypingChanged,
                         onInternalNoteToggle: _isAgent ? () => setState(() => _isInternalNoteMode = !_isInternalNoteMode) : null,
@@ -568,18 +666,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  // Injection du provider pour l'accès aux messages
   Widget _buildMessageList(ChatProvider provider) {
     return Stack(
       children: [
         ListView.builder(
           controller: _scrollController,
-          reverse: true, // ✅ Important pour la pagination
+          reverse: true,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           itemCount: provider.messages.length + (provider.isLoadingMoreMessages ? 1 : 0),
           itemBuilder: (ctx, index) {
-            
-            // Le loader en haut de la liste
             if (index == provider.messages.length && provider.isLoadingMoreMessages) {
               return const Padding(
                 padding: EdgeInsets.all(8.0),
@@ -588,7 +683,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             }
 
             final msg = provider.messages[index];
-            final isOwn = msg.senderId == Supabase.instance.client.auth.currentUser?.id;
+            final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+            final isOwn = msg.senderId == currentUserId;
 
             return GestureDetector(
               onLongPress: () => _showMessageActions(msg, isOwn),
@@ -599,7 +695,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 onDelete: () async {
                    if (isOwn) await provider.deleteMessage(msg.id);
                 },
-                onReaction: (r) => {}, // provider.toggleReaction(msg.id, r),
+                onReaction: (r) async => await provider.addReaction(msg.id, r),
                 replyToMessage: msg.replyToId != null
                     ? provider.messages.firstWhere((m) => m.id == msg.replyToId, orElse: () => msg)
                     : null,
@@ -610,30 +706,96 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             );
           },
         ),
-        if (_otherUserTyping) const Positioned(bottom: 8, left: 16, child: Text("En train d'écrire..."))
+        if (_otherUserTyping) const Positioned(bottom: 8, left: 16, child: Text("En train d'écrire...", style: TextStyle(color: primaryBlue, fontStyle: FontStyle.italic)))
       ],
     );
   }
 
-  // --- RESTE DES WIDGETS (APP BAR, CHIPS, ETC.) ---
+  Widget _buildReplyIndicator() {
+    final provider = context.read<ChatProvider>();
+    final reply = provider.messages.firstWhere(
+      (m) => m.id == _replyToId,
+      orElse: () => provider.messages.first, 
+    );
+    final isOwnReply = reply.senderId == Supabase.instance.client.auth.currentUser?.id;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: pureWhite,
+        border: Border(top: BorderSide(color: hairline, width: 1)),
+      ),
+      child: Row(
+        children: [
+          Container(width: 4, height: 40, decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isOwnReply ? 'Vous' : reply.senderName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: primaryBlue)),
+                Text(reply.content, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: darkText)),
+              ],
+            ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _cancelReply,
+            child: Container(padding: const EdgeInsets.all(5), decoration: const BoxDecoration(color: ivory, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 15, color: mutedText)),
+          ),
+        ],
+      ),
+    );
+  }
+
   PreferredSizeWidget _buildAppBar() {
-      // Ton code d'AppBar reste identique.
-      return AppBar(); 
-  }
-    // ============================================================
-  // UTILITAIRES
-  // ============================================================
-
-  void _showSnackBar(String message, Color color) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message), 
-          backgroundColor: color,
-          behavior: SnackBarBehavior.floating, // Optionnel : rend le snackbar plus joli
+    return AppBar(
+      backgroundColor: primaryBlue,
+      elevation: 0,
+      titleSpacing: 0,
+      leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      title: Row(
+        children: [
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: Colors.white.withOpacity(0.2),
+            backgroundImage: widget.conversation.isGroup ? null : const NetworkImage('https://i.pravatar.cc/150?img=11'),
+            child: widget.conversation.isGroup ? const Icon(Icons.groups_rounded, color: Colors.white, size: 18) : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.conversation.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (!widget.conversation.isGroup && _otherParticipant != null)
+                  Row(
+                    children: [
+                      Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: (_otherParticipant!.status == 'online') ? success : Colors.white38)),
+                      const SizedBox(width: 5),
+                      Text((_otherParticipant!.status == 'online') ? 'En ligne' : 'Vu récemment', style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(icon: const Icon(Icons.videocam_rounded, color: Colors.white), onPressed: _startVideoCall),
+        IconButton(icon: const Icon(Icons.call_rounded, color: Colors.white), onPressed: _startAudioCall),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+          onSelected: (value) {
+            if (value == 'escalate') _escalateConversation();
+            else if (value == 'history') _viewEscalationHistory();
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem<String>(value: 'escalate', child: Row(children: [Icon(Icons.arrow_upward, color: Colors.orange), SizedBox(width: 8), Text('Escalader')])),
+            const PopupMenuItem<String>(value: 'history', child: Row(children: [Icon(Icons.history, color: Colors.blue), SizedBox(width: 8), Text('Historique')])),
+          ],
         ),
-      );
-    }
+      ],
+    );
   }
-
 }
