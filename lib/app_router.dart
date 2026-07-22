@@ -253,6 +253,8 @@ import 'presentation/admin/admin_home_page.dart' as thix_admin;
 import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
 import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
 
+import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
+
 class NoTransitionPage<T> extends Page<T> {
   final Widget child;
   const NoTransitionPage({required this.child, super.key});
@@ -600,7 +602,13 @@ class AppRouter {
           GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => NoTransitionPage(child: const LivePage())),
           GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => NoTransitionPage(child: const CreateLivePage())),
         ]),
+    GoRoute(
+      path: '/thix_ia',
+      name: 'thix_ia', // Optionnel mais recommandé
+      builder: (context, state) => const ThixIaScreen(),
+    ),
 
+        
         GoRoute(path: '/admin', builder: (context, state) => const thix_admin.AdminHomePage()),
         GoRoute(path: '/admin/articles', builder: (context, state) => const thix_admin_list.AdminArticlesListPage()),
         GoRoute(path: '/admin/articles/new', builder: (context, state) => const thix_admin_form.AdminArticleFormPage()),
