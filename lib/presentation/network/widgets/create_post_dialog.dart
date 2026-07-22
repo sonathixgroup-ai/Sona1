@@ -8,7 +8,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
-import 'package:thix_id/services/ai/ai_service.dart'; // 🛡️ Import de ton service IA
+import 'package:thix_id/services/ai/ai_service.dart';
 
 class _DialogColors {
   static const Color background = Color(0xFFF6F9FF);
@@ -236,7 +236,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     });
   }
 
-  // ─── PUBLICATION AVEC FACT-CHECKING AUTOMATIQUE PAR L'IA ───
+  // ─── PUBLICATION AVEC FACT-CHECKING AUTOMATIQUE ET RECHERCHE SUPABASE RPC (TAVILY) ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
     if (textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
@@ -250,20 +250,42 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       final networkService = Provider.of<NetworkService>(context, listen: false);
       final feedProvider = Provider.of<FeedProvider>(context, listen: false);
 
-      // 🛡️ 1. ANALYSE FACT-CHECKING AUTOMATIQUE AVANT L'ENVOI
       bool isMisinformation = false;
       String? factCheckMessage;
       String? factCheckSeverity;
 
       if (textContent.isNotEmpty) {
         try {
+          // 🌐 1. RECHERCHE WEB EN TEMPS RÉEL VIA LA FONCTION SUPABASE SECOURISÉE
+          List<String> webSources = [];
+          try {
+            final response = await Supabase.instance.client.rpc(
+              'search_tavily',
+              params: {'search_query': textContent},
+            );
+
+            if (response != null && response['results'] != null) {
+              final results = response['results'] as List;
+              for (var r in results) {
+                webSources.add("- ${r['title']}: ${r['content']}");
+              }
+            }
+          } catch (searchError) {
+            debugPrint('Erreur recherche web Supabase (non bloquante) : $searchError');
+          }
+
+          final contextSources = webSources.isNotEmpty 
+              ? "SOURCES WEB TROUVÉES EN TEMPS RÉEL :\n${webSources.join('\n')}" 
+              : "Aucune source web spécifique trouvée.";
+
           final aiService = AiService(Supabase.instance.client);
-          
           final today = DateTime.now();
           final currentDateString = "${today.day}/${today.month}/${today.year}";
 
           final prompt = """
 Date actuelle : $currentDateString
+
+$contextSources
 
 Tu es un moteur de FACT-CHECKING professionnel.
 Ta mission est d'analyser UNIQUEMENT la véracité des affirmations factuelles présentes dans la publication suivante.
@@ -298,13 +320,14 @@ Vérifie uniquement les affirmations portant sur :
 • annonces gouvernementales
 
 ====================================================
-NE PAS SIGNALER
+NE PAS SIGNALER (RÉPONDRE SAFE)
 ====================================================
 Toujours répondre SAFE si la publication est :
 • une opinion, une émotion, une prédiction, une hypothèse, une question
 • une blague, une satire, une publicité
 • une expérience personnelle, une présentation personnelle
 • une description d'entreprise, une offre d'emploi, une publication marketing
+• Si les sources web ne permettent pas de prouver formellement qu'il s'agit d'un mensonge (bénéfice du doute accordé par défaut).
 
 Ne jamais remettre en cause :
 - le métier, le poste, le titre professionnel
@@ -314,17 +337,10 @@ Par exemple : "Je suis CEO", "Notre entreprise..." => SAFE
 ====================================================
 FAKE UNIQUEMENT SI
 ====================================================
-Réponds FAKE seulement si l'affirmation est clairement contredite par des faits publics largement établis.
+Réponds FAKE seulement si l'affirmation est clairement et formellement contredite par les faits ou les sources officielles.
 Exemples :
 "Les Congolais peuvent entrer aux USA sans visa." => FAKE
 "La RDC fait partie de l'Union Européenne." => FAKE
-"La Tanzanie a officiellement supprimé le visa pour tous les Congolais." => FAKE uniquement si cette annonce officielle n'existe pas.
-
-====================================================
-INFORMATIONS RÉCENTES
-====================================================
-Si l'affirmation concerne une décision récente ou un événement que tu ne peux pas confirmer avec certitude, réponds : INCERTAIN
-Ne jamais inventer ni supposer.
 
 ====================================================
 FORMAT DE RÉPONSE
@@ -333,50 +349,22 @@ Tu dois répondre UNIQUEMENT par l'un des formats suivants :
 
 SAFE
 ou
-INCERTAIN: [raison très courte]
-ou
-FAKE: [raison très courte]
+FAKE: [raison très courte basée sur les faits]
 
 Ne produis aucun texte supplémentaire.
 """;
 
           final systemPrompt = """
 Tu es THIX Fact-Check AI.
-
 Tu es un moteur de vérification des faits.
-
 Tu analyses uniquement les affirmations factuelles.
-
-Tu ignores totalement :
-
-- orthographe
-- grammaire
-- style
-- opinions
-- humour
-- satire
-- expériences personnelles
-- identité professionnelle
-- postes
-- entreprises
-- publicités
-
-Tu ne dois jamais inventer une information.
-
-Tu ne dois jamais deviner.
-
-Tu ne dois répondre FAKE que lorsqu'un fait public est clairement faux avec un niveau de certitude supérieur à 95 %.
-
-Sinon réponds SAFE ou INCERTAIN.
-
+Tu ignores totalement : orthographe, grammaire, style, opinions, humour, satire, expériences personnelles, identité professionnelle, postes, entreprises, publicités.
+Tu ne dois jamais inventer. 
+Si une information n'est pas prouvée fausse par les sources, réponds SAFE par défaut.
 Tu réponds uniquement avec :
-
 SAFE
-
+ou
 FAKE: raison
-
-INCERTAIN: raison
-
 Aucun autre texte n'est autorisé.
 """;
 
@@ -391,13 +379,7 @@ Aucun autre texte n'est autorisé.
           if (responseText.startsWith("FAKE:")) {
             isMisinformation = true;
             factCheckSeverity = "fake";
-            // On récupère le texte après "FAKE:" en gardant la casse d'origine de la réponse
             factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
-          } 
-          else if (responseText.startsWith("INCERTAIN:")) {
-            isMisinformation = true;
-            factCheckSeverity = "warning"; // Niveau de sévérité différent pour afficher une couleur orange par exemple
-            factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("INCERTAIN:") + 10).trim();
           }
 
         } catch (aiError) {
