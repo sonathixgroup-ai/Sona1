@@ -11,7 +11,6 @@ import 'package:thix_id/models/chat/user_status.dart';
 
 // Assure-toi que ces classes (Story, Space, ChatStats) sont bien dans ce fichier.
 // Sinon, modifie cet import pour pointer vers le bon fichier.
-import 'package:thix_id/presentation/chat/core/chat_models.dart'; 
 
 class ChatProvider extends ChangeNotifier {
   final ChatService _chatService;
