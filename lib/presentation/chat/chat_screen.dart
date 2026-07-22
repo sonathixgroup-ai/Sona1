@@ -498,4 +498,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Ton code d'AppBar reste identique.
       return AppBar(); 
   }
+    // ============================================================
+  // UTILITAIRES
+  // ============================================================
+
+  void _showSnackBar(String message, Color color) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message), 
+          backgroundColor: color,
+          behavior: SnackBarBehavior.floating, // Optionnel : rend le snackbar plus joli
+        ),
+      );
+    }
+  }
+
 }
