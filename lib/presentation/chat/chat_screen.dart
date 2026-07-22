@@ -280,7 +280,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _startCall(CallType type) { final otherId = widget.conversation.participantIds.firstWhere((id)=>id!=_chatService.currentUserId, orElse:()=>''); context.read<CallProvider>().start(channel: widget.conversationId, calleeId: otherId, callType: type); Navigator.push(context, MaterialPageRoute(builder: (_)=>CallPage(channel: widget.conversationId, name: widget.conversation.displayName, type: type, isCaller: true))); }
   void _startAudio() async { if(kIsWeb) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audio non supporté sur web'))); return; } if(await Permission.microphone.request().isGranted) { if(!mounted) return; showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx)=>Container(padding: const EdgeInsets.all(20), child: AudioRecorderWidget(audioService: _audioService, onRecordingComplete: (p,d) async { Navigator.pop(ctx); try{ final file = await FilePicker.platform.pickFiles(); }catch(_){} }, onRecordingCanceled: ()=>Navigator.pop(ctx), maxDuration: 120))); } }
   void _showSecureDialog() { final m=TextEditingController(); final p=TextEditingController(); showDialog(context: context, builder: (_)=>AlertDialog(title: const Text('Message Protégé'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: m, maxLines: 4, decoration: const InputDecoration(hintText: 'Message secret')), TextField(controller: p, obscureText: true, decoration: const InputDecoration(hintText: 'Mot de passe'))]), actions: [TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('Annuler')), ElevatedButton(onPressed: () async { final enc=EncryptionService.encryptMessage(m.text, p.text); await _chatService.sendMessage(conversationId: widget.conversationId, content: enc); if(mounted) Navigator.pop(context); }, child: const Text('Envoyer'))])); }
-  void _showEphemeralDialog() { showModalBottomSheet(context: context, builder: (_)=>Column(mainAxisSize: MainAxisSize.min, children: [[10,'10 sec'], [30,'30 sec'], [60,'1 min'], [300,'5 min'], [3600,'1 heure']].map((e)=>ListTile(title: Text(e[1] as String), onTap: (){ setState(()=>_isEphemeral=true); _ephemeralDuration=e[0] as int; Navigator.pop(context); })).toList())); }
+  
+  void _showEphemeralDialog() {
+  final customCtrl = TextEditingController();
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (_) => Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE7EAF3), borderRadius: BorderRadius.circular(4))),
+        const SizedBox(height: 16),
+        Row(children: [Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.timer_rounded, size: 16, color: Colors.white)), const SizedBox(width: 10), const Text("Messages éphémères", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))]),
+        const SizedBox(height: 16),
+        ListTile(leading: Icon(Icons.timer_off_rounded, color:!_isEphemeral? primaryBlue : Colors.grey), title: Text("Désactiver - Envoyer sans éphémère", style: TextStyle(fontWeight:!_isEphemeral? FontWeight.w800 : FontWeight.w500, color:!_isEphemeral? primaryBlue : Colors.black)), trailing:!_isEphemeral? const Icon(Icons.check_circle_rounded, color: primaryBlue) : null, onTap: (){ setState((){ _isEphemeral=false; _ephemeralDuration=null; }); Navigator.pop(context); }),
+        const Divider(),
+       ...[[10,'10 secondes'], [30,'30 secondes'], [60,'1 minute'], [300,'5 minutes'], [3600,'1 heure'], [86400,'24 heures']].map((e){
+          final sec = e[0] as int; final label = e[1] as String; final sel = _isEphemeral && _ephemeralDuration==sec;
+          return ListTile(leading: Icon(Icons.timer_rounded, color: sel? primaryBlue : Colors.black), title: Text(label, style: TextStyle(fontWeight: sel? FontWeight.w800 : FontWeight.w500, color: sel? primaryBlue : Colors.black)), trailing: sel? const Icon(Icons.check_circle_rounded, color: primaryBlue) : null, onTap: (){ setState((){ _isEphemeral=true; _ephemeralDuration=sec; }); Navigator.pop(context); });
+        }),
+        const Divider(),
+        Row(children: [
+          Expanded(child: TextField(controller: customCtrl, keyboardType: TextInputType.number, decoration: InputDecoration(hintText: 'Temps perso en secondes (ex: 120)', filled: true, fillColor: const Color(0xFFF3F5FA), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
+          const SizedBox(width: 8),
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: primaryBlue), onPressed: (){ final v=int.tryParse(customCtrl.text); if(v!=null&&v>0){ setState((){ _isEphemeral=true; _ephemeralDuration=v; }); Navigator.pop(context); } }, child: const Text('OK', style: TextStyle(color: Colors.white))),
+        ]),
+      ]),
+    ),
+  );
+}
   void _showMessageActions(ChatMessage msg, bool isOwn) {
     showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (ctx)=>Container(decoration: const BoxDecoration(color: pureWhite, borderRadius: BorderRadius.vertical(top: Radius.circular(26))), padding: const EdgeInsets.all(18), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Container(width: 40, height: 4, decoration: BoxDecoration(color: hairline, borderRadius: BorderRadius.circular(4))), const SizedBox(height: 16),
