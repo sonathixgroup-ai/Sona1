@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/formatter.dart';
 import '../utils/constants.dart';
-import '../utils/validators.dart';
 
 class InvestmentModel {
   final String id;
@@ -14,7 +13,7 @@ class InvestmentModel {
   final String description;
   final int amount;
   final double roi;
-  final String statut; // actif, cloture, en_attente
+  final String statut;
   final String devise;
   final String riskLevel;
   final String category;
@@ -83,7 +82,6 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage> {
   Future<String> _getVerifiedThixId() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) throw Exception('Non connecté');
-    // VÉRIFICATION SOURCE DE VÉRITÉ dans profiles.thix_id
     final profile = await Supabase.instance.client.from('profiles').select('thix_id').eq('id', user.id).single();
     final thixId = profile['thix_id'] as String?;
     if (thixId == null || thixId.isEmpty || thixId == 'THIX-PENDING') throw Exception('THIX ID non vérifié');
@@ -96,11 +94,15 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage> {
     setState(() => refresh? _loading = true : _loadingMore = true);
     try {
       final thixId = await _getVerifiedThixId();
-      var query = Supabase.instance.client.from('thix_investments').select().eq('thix_id', thixId).order('created_at', ascending: false).range(_page * _limit, (_page + 1) * _limit - 1);
-      if (_filter != 'Tous') query = Supabase.instance.client.from('thix_investments').select().eq('thix_id', thixId).eq('statut', _filter.toLowerCase()).order('created_at', ascending: false).range(_page * _limit, (_page + 1) * _limit - 1);
-      
-      final res = await query;
-      final fetched = (res as List).map((e) => InvestmentModel.fromJson(e)).toList();
+      final start = _page * _limit;
+      final end = start + _limit - 1;
+      dynamic query;
+      if (_filter == 'Tous') {
+        query = await Supabase.instance.client.from('thix_investments').select().eq('thix_id', thixId).order('created_at', ascending: false).range(start, end);
+      } else {
+        query = await Supabase.instance.client.from('thix_investments').select().eq('thix_id', thixId).eq('statut', _filter.toLowerCase()).order('created_at', ascending: false).range(start, end);
+      }
+      final fetched = (query as List).map((e) => InvestmentModel.fromJson(e)).toList();
       setState(() {
         if (refresh) _items = fetched; else _items.addAll(fetched);
         _hasMore = fetched.length == _limit;
@@ -121,11 +123,10 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _items;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FF),
-      appBar: AppBar(title: const Text('Investissements', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.white, elevation: 0, actions: [IconButton(icon: const Icon(Icons.filter_list), onPressed: () => _showFilter())]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: () => _showCreateSheet(), backgroundColor: ThixConstants.primary, label: const Text('Nouveau', style: TextStyle(color: Colors.white)), icon: const Icon(Icons.add, color: Colors.white)),
+      appBar: AppBar(title: const Text('Investissements', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.white, elevation: 0, actions: [IconButton(icon: const Icon(Icons.filter_list), onPressed: _showFilter)]),
+      floatingActionButton: FloatingActionButton.extended(onPressed: _showCreateSheet, backgroundColor: ThixConstants.primary, label: const Text('Nouveau', style: TextStyle(color: Colors.white)), icon: const Icon(Icons.add, color: Colors.white)),
       body: RefreshIndicator(
         onRefresh: () => _load(refresh: true),
         child: CustomScrollView(
@@ -152,21 +153,21 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage> {
               ),
             ),
             if (_loading) const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))) else if (_items.isEmpty)
-              SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 80), child: Column(children: [Icon(Icons.trending_up, size: 64, color: Colors.grey.shade300), const SizedBox(height: 12), const Text('Aucun investissement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), const SizedBox(height: 4), const Text('Chaque investissement est lié à votre THIX ID vérifié en base', style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center)]))))
+              SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 80), child: Column(children: [Icon(Icons.trending_up, size: 64, color: Colors.grey), SizedBox(height: 12), Text('Aucun investissement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), SizedBox(height: 4), Text('Chaque investissement est lié à votre THIX ID vérifié en base', style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center)]))))
             else
               SliverList.builder(
-                itemCount: filtered.length + (_hasMore? 1 : 0),
+                itemCount: _items.length + (_hasMore? 1 : 0),
                 itemBuilder: (_, i) {
-                  if (i == filtered.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
-                  final inv = filtered[i];
+                  if (i == _items.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+                  final inv = _items[i];
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100)),
                     child: ListTile(
                       onTap: () => _showDetail(inv),
-                      leading: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: inv.riskLevel == 'élevé'? Colors.red.withOpacity(0.1) : inv.riskLevel == 'modéré'? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(inv.category == 'immobilier'? Icons.home : inv.category == 'agriculture'? Icons.agriculture : Icons.show_chart, color: inv.riskLevel == 'élevé'? Colors.red : inv.riskLevel == 'modéré'? Colors.orange : Colors.green)),
-                      title: Row(children: [Expanded(child: Text(inv.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: inv.statut == 'actif'? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(inv.statut, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: inv.statut == 'actif'? Colors.green : Colors.grey)))]),
-                      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const SizedBox(height: 2), Text('${inv.roi}% ROI • Risque ${inv.riskLevel} • ${ThixFormatter.formatAmount(inv.projectedGain, inv.devise)} gains', style: const TextStyle(fontSize: 11, color: Colors.grey)), const SizedBox(height: 6), LinearProgressIndicator(value: 0.6, backgroundColor: Colors.grey.shade200, color: ThixConstants.primary, minHeight: 4)]),
+                      leading: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: ThixConstants.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.show_chart, color: ThixConstants.primary)),
+                      title: Row(children: [Expanded(child: Text(inv.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(inv.statut, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.green)))]),
+                      subtitle: Text('${inv.roi}% ROI • Risque ${inv.riskLevel} • ${ThixFormatter.formatAmount(inv.projectedGain, inv.devise)} gains', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [Text(ThixFormatter.formatAmount(inv.amount, inv.devise), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), Text(ThixFormatter.formatDate(inv.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey))]),
                     ),
                   );
@@ -180,7 +181,23 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage> {
   }
 
   void _showFilter() {
-    showModalBottomSheet(context: context, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (_) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [['Tous', 'actif', 'cloture', 'en_attente'].map((f) => ListTile(title: Text(f), trailing: _filter == f? const Icon(Icons.check, color: ThixConstants.primary) : null, onTap: () { setState(() => _filter = f); Navigator.pop(context); _load(refresh: true); })).toList().expand((e) => e)])));
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ['Tous', 'actif', 'cloture', 'en_attente'].map((f) {
+            return ListTile(
+              title: Text(f),
+              trailing: _filter == f ? const Icon(Icons.check, color: ThixConstants.primary) : null,
+              onTap: () { setState(() => _filter = f); Navigator.pop(context); _load(refresh: true); },
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   void _showDetail(InvestmentModel inv) {
@@ -194,7 +211,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage> {
       const SizedBox(height: 12),
       Row(children: [Expanded(child: _DetailCard(label: 'Total retour', value: ThixFormatter.formatAmount(inv.totalReturn, inv.devise))), const SizedBox(width: 8), Expanded(child: _DetailCard(label: 'ROI', value: '${inv.roi}%'))]),
       const SizedBox(height: 16),
-      Text('Description', style: const TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 6), Text(inv.description.isEmpty? 'Investissement THIX lié à votre thix_id, sécurisé et traçable.' : inv.description, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+      const Text('Description', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 6), Text(inv.description.isEmpty? 'Investissement THIX lié à votre thix_id, sécurisé et traçable.' : inv.description, style: const TextStyle(color: Colors.grey, fontSize: 13)),
       const SizedBox(height: 24),
       SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: ThixConstants.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), child: const Text('Fermer', style: TextStyle(color: Colors.white)))),
     ]))));
