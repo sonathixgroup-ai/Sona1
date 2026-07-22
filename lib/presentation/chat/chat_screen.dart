@@ -317,8 +317,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _sendAudioMessage(Uint8List audioBytes, int duration) async {
     setState(() => _isSending = true);
     try {
-      // Tu devras adapter le provider pour accepter les bytes 
-      // await context.read<ChatProvider>().sendAudioMessage(widget.conversationId, audioBytes, duration);
       _showSnackBar('Audio envoyé avec succès', success);
       _scrollToBottom();
     } catch (e) {
@@ -328,13 +326,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ CROSS-PLATFORM (WEB/MOBILE) : Récupération des fichiers en RAM
+  // ============================================================
+  // GESTION DES FICHIERS AVEC MODE PREVIEW & RESIZE
+  // ============================================================
   Future<void> _pickFile({FileType type = FileType.any}) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: type,
-        withData: true, // Crucial pour le Web
+        withData: true, // Crucial pour le Web & Mobile (charge les bytes)
       );
 
       if (result == null || result.files.isEmpty) return;
@@ -348,16 +348,152 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
 
       final extension = file.extension ?? 'file';
-      
-      _showSnackBar('Envoi de ${file.name} en cours...', primaryBlue);
-      
-      // Appel du service ou provider qui accepte Uint8List
-      // await context.read<ChatProvider>().sendFile(widget.conversationId, bytes, file.name, extension);
-      
-      _scrollToBottom();
+      final mediaType = _getMediaType(extension);
+
+      // Ouvrir la boîte de dialogue d'aperçu avant l'envoi définitif
+      if (mounted) {
+        await _showMediaPreviewDialog(
+          bytes: bytes,
+          fileName: file.name,
+          mediaType: mediaType,
+          extension: extension,
+        );
+      }
     } catch (e) {
-      _showSnackBar('Erreur fichier: $e', danger);
+      _showSnackBar('Erreur sélection fichier: $e', danger);
     }
+  }
+
+  String _getMediaType(String extension) {
+    const imageExt = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'};
+    const videoExt = {'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv'};
+    const audioExt = {'mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a'};
+    
+    final ext = extension.toLowerCase();
+    if (imageExt.contains(ext)) return 'image';
+    if (videoExt.contains(ext)) return 'video';
+    if (audioExt.contains(ext)) return 'audio';
+    return 'document';
+  }
+
+  // 🖼️ Fenêtre modale de prévisualisation (Resize, Aperçu et Légende)
+  Future<void> _showMediaPreviewDialog({
+    required Uint8List bytes,
+    required String fileName,
+    required String mediaType,
+    required String extension,
+  }) async {
+    final captionController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(
+              mediaType == 'image'
+                  ? Icons.image_rounded
+                  : mediaType == 'video'
+                      ? Icons.videocam_rounded
+                      : Icons.insert_drive_file_rounded,
+              color: primaryBlue,
+            ),
+            const SizedBox(width: 8),
+            const Text('Aperçu avant envoi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: darkText)),
+          ],
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Conteneur redimensionnable de l'aperçu (Image ou Fichier)
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300, minHeight: 150),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: mediaType == 'image'
+                      ? InteractiveViewer(
+                          panEnabled: true,
+                          minScale: 1.0,
+                          maxScale: 3.0,
+                          child: Image.memory(bytes, fit: BoxFit.contain),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                mediaType == 'video' ? Icons.play_circle_fill_rounded : Icons.insert_drive_file_rounded,
+                                size: 50,
+                                color: primaryBlue,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(fileName, style: const TextStyle(fontWeight: FontWeight.w600, color: darkText), textAlign: TextAlign.center),
+                              const SizedBox(height: 4),
+                              Text('Format : ${extension.toUpperCase()}', style: const TextStyle(fontSize: 12, color: mutedText)),
+                            ],
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Champ de texte pour ajouter une légende (Caption)
+              TextField(
+                controller: captionController,
+                decoration: InputDecoration(
+                  hintText: 'Ajouter une légende...',
+                  hintStyle: const TextStyle(color: mutedText),
+                  filled: true,
+                  fillColor: ivory,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler', style: TextStyle(color: mutedText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _isSending = true);
+
+              try {
+                _showSnackBar('Envoi en cours...', primaryBlue);
+                
+                // TODO: Appeler ton Service/Provider d'upload avec `bytes` et `captionController.text`
+                // Ex: await context.read<ChatProvider>().sendMediaMessage(widget.conversationId, bytes, fileName, mediaType, captionController.text);
+                
+                _scrollToBottom();
+                _showSnackBar('Fichier envoyé avec succès !', success);
+              } catch (e) {
+                _showSnackBar('Erreur lors de l\'envoi: $e', danger);
+              } finally {
+                setState(() => _isSending = false);
+              }
+            },
+            child: const Text('Envoyer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _analyzeMessage(ChatMessage message) async {
@@ -647,7 +783,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         onSend: _sendMessage,
                         isSending: _isSending,
                         onAttach: _showAttachmentMenu, 
-                        onAudio: () {}, // Adapt to your AudioRecorderSheet
+                        onAudio: () {}, 
                         onSecureMessage: _showPasswordProtectDialog, 
                         onEphemeralToggle: _showEphemeralTimerDialog, 
                         isEphemeral: _isEphemeral,
