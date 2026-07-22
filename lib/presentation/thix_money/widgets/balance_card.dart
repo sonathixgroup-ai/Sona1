@@ -29,7 +29,7 @@ class _BalanceCardState extends ConsumerState<BalanceCard> {
         loading: () => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: Colors.white))),
         error: (e, _) => Text('Erreur: $e', style: const TextStyle(color: Colors.white)),
         data: (w) {
-          final isCdf = w.devisePref == 'CDF';
+          final isCdf = w.devisePref == 'CDF' || w.soldeCdf >= 0;
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Row(children: [
