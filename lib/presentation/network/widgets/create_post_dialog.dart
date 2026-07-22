@@ -1,11 +1,14 @@
+// lib/presentation/network/create_post_dialog.dart
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/providers/feed_provider.dart';
 import 'package:thix_id/services/network_service.dart';
+import 'package:thix_id/services/ai/ai_service.dart'; // 🛡️ Import de ton service IA
 
 class _DialogColors {
   static const Color background = Color(0xFFF6F9FF);
@@ -20,7 +23,6 @@ class _DialogColors {
   static const Color shadow = Color(0x142D6CDF);
 }
 
-/// Compression d'image (utilisable dans un Isolate si besoin)
 Future<Uint8List> compressImageBytes(Uint8List bytes) async {
   return FlutterImageCompress.compressWithList(
     bytes,
@@ -33,7 +35,7 @@ Future<Uint8List> compressImageBytes(Uint8List bytes) async {
 
 class _MediaItem {
   final Uint8List bytes;
-  final String name; // pour l'extension
+  final String name;
   final bool isVideo;
   const _MediaItem(this.bytes, this.name, {this.isVideo = false});
 }
@@ -160,7 +162,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     _wrapSelection('{c:$hex}', '{c}');
   }
 
-  // ─── Sélection de fichiers (toujours avec bytes) ───
   Future<void> _pickImages() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -235,9 +236,10 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     });
   }
 
-  // ─── Publication ───
+  // ─── PUBLICATION AVEC FACT-CHECKING AUTOMATIQUE PAR L'IA ───
   Future<void> _publishPost() async {
-    if (_contentController.text.trim().isEmpty && _images.isEmpty && _videos.isEmpty) {
+    final textContent = _contentController.text.trim();
+    if (textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
       setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
       return;
     }
@@ -248,11 +250,43 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       final networkService = Provider.of<NetworkService>(context, listen: false);
       final feedProvider = Provider.of<FeedProvider>(context, listen: false);
 
-      // Compression + upload des images
+      // 🛡️ 1. ANALYSE FACT-CHECKING AUTOMATIQUE AVANT L'ENVOI
+      bool isMisinformation = false;
+      String? factCheckMessage;
+      String? factCheckSeverity;
+
+      if (textContent.isNotEmpty) {
+        try {
+          final aiService = AiService(Supabase.instance.client);
+          final prompt = """
+Analyse cette publication pour un réseau social professionnel officiel. Vérifie si elle contient de fausses informations, des rumeurs, ou une désinformation grave concernant les autorités ou les institutions :
+"$textContent"
+
+Réponds STRICTEMENT sous forme de texte brut avec l'un des deux formats :
+- Si tout est correct : SAFE
+- Si c'est suspect ou faux : FAKE: [Explique en une phrase courte pourquoi c'est une désinformation potentielle]
+""";
+
+          final aiResponse = await aiService.askAi(
+            prompt: prompt,
+            provider: AiProvider.mistral,
+            systemPrompt: "Tu es un agent de modération et de fact-checking strict pour un réseau institutionnel.",
+          );
+
+          if (aiResponse.toUpperCase().contains("FAKE:")) {
+            isMisinformation = true;
+            factCheckMessage = aiResponse.replaceAll(RegExp(r'FAKE:\s*', caseSensitive: false), '').trim();
+            factCheckSeverity = "fake";
+          }
+        } catch (aiError) {
+          debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
+        }
+      }
+
+      // 2. Upload des images
       final imageUrls = <String>[];
       for (final item in _images) {
         try {
-          // Compression dans un Isolate (mobile) ou direct (web)
           final compressed = await compute(compressImageBytes, item.bytes);
           final ext = item.name.split('.').last;
           final url = await networkService.uploadImageBytes(compressed, fileExtension: ext);
@@ -262,7 +296,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
         }
       }
 
-      // Upload des vidéos (sans compression pour l'instant)
+      // 3. Upload des vidéos
       final videoUrls = <String>[];
       for (final item in _videos) {
         try {
@@ -275,7 +309,23 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       }
 
       final allMedia = [...imageUrls, ...videoUrls];
-      final postId = await networkService.createPost(_contentController.text.trim(), allMedia);
+      
+      // 4. Insertion dans Supabase avec les données de Fact-Checking
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception("Utilisateur non authentifié");
+
+      final responseMap = await Supabase.instance.client.from('posts').insert({
+        'user_id': user.id,
+        'content': textContent,
+        'media_urls': allMedia,
+        'community_id': widget.communityId,
+        'is_fact_checked': true,
+        'is_misinformation': isMisinformation,
+        'fact_check_message': factCheckMessage,
+        'fact_check_severity': factCheckSeverity,
+      }).select('id').maybeSingle();
+
+      final postId = responseMap?['id']?.toString() ?? '';
 
       if (postId.isNotEmpty) {
         await Future.delayed(const Duration(milliseconds: 500));
@@ -287,7 +337,10 @@ class _CreatePostDialogState extends State<CreatePostDialog>
         widget.onPostCreated?.call();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Publication réussie!'), backgroundColor: _DialogColors.primary),
+            SnackBar(
+              content: Text(isMisinformation ? 'Publication publiée avec avertissement Fact-Check.' : 'Publication réussie !'),
+              backgroundColor: isMisinformation ? Colors.orange : _DialogColors.primary,
+            ),
           );
           Navigator.pop(context, true);
         }
@@ -302,7 +355,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     }
   }
 
-  // ─── Interface ───
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -319,7 +371,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
@@ -365,11 +416,9 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                   ]),
                 ),
 
-              // Corps scrollable
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    // Barre de formatage
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
@@ -415,7 +464,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                     ),
                     const SizedBox(height: 10),
 
-                    // Champ de texte
                     Container(
                       decoration: BoxDecoration(
                         color: _DialogColors.background,
@@ -430,7 +478,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                         maxLines: 14,
                         style: const TextStyle(fontSize: 15, color: _DialogColors.textDark, height: 1.4),
                         decoration: const InputDecoration(
-                          hintText: 'Quoi de neuf dans votre monde pro ?\n\nUtilisez la barre ci-dessus pour mettre en gras, italique ou en couleur.',
+                          hintText: 'Quoi de neuf dans votre monde pro ?\n\nL\'IA de Fact-Checking THIX analysera automatiquement votre publication.',
                           hintStyle: TextStyle(color: _DialogColors.textSecondary, fontSize: 13.5, height: 1.4),
                           border: InputBorder.none,
                           isCollapsed: true,
@@ -439,7 +487,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                     ),
                     const SizedBox(height: 12),
 
-                    // Mentions
                     if (_showMentions && _mentionSuggestions.isNotEmpty)
                       Container(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -479,7 +526,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                         ),
                       ),
 
-                    // Prévisualisation des images (Image.memory)
                     if (_images.isNotEmpty)
                       Wrap(
                         spacing: 8,
@@ -520,7 +566,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
                         }).toList(),
                       ),
 
-                    // Prévisualisation des vidéos
                     if (_videos.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -566,7 +611,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
               ),
 
               const SizedBox(height: 12),
-              // Footer
               Row(children: [
                 _mediaBtn(Icons.photo_rounded, _pickImages, const Color(0xFF059669)),
                 _mediaBtn(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)),
@@ -587,7 +631,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
               ]),
               const SizedBox(height: 12),
 
-              // Bouton Publier
               Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [_DialogColors.gold, Color(0xFFEFC777)]),
