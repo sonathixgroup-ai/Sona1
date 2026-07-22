@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// Assure-toi que ce chemin correspond bien à l'emplacement de ton fichier AiService
 import '../../services/ai/ai_service.dart'; 
 
 class ThixIaScreen extends StatefulWidget {
@@ -19,7 +18,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
   final List<Map<String, String>> _messages = [];
   bool _isLoading = false;
   
-  // Par défaut, le mode ULTRA ou Mistral
   AiProvider _selectedProvider = AiProvider.mistral; 
   String _userName = "Utilisateur";
 
@@ -41,7 +39,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
       if (profile != null && mounted) {
         setState(() {
           _userName = profile['display_name'] ?? profile['full_name'] ?? "Utilisateur";
-          // On garde le premier mot (le prénom)
           _userName = _userName.split(' ').first; 
         });
       }
@@ -106,7 +103,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Couleurs du thème clair basées sur ton app
     const bgColor = Color(0xFFF7F9FF);
     const primaryBlue = Color(0xFF1877F2);
     const darkText = Color(0xFF111827);
@@ -120,10 +116,10 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
         iconTheme: const IconThemeData(color: darkText),
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.auto_awesome, color: primaryBlue, size: 22),
-            const SizedBox(width: 8),
-            const Text(
+          children: const [
+            Icon(Icons.auto_awesome, color: primaryBlue, size: 22),
+            SizedBox(width: 8),
+            Text(
               'THIX IA', 
               style: TextStyle(fontWeight: FontWeight.w900, color: darkText, fontSize: 18, letterSpacing: -0.5),
             ),
@@ -152,10 +148,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                     DropdownMenuItem(value: AiProvider.mistral, child: Text('Mistral')),
                     DropdownMenuItem(value: AiProvider.openai, child: Text('OpenAI')),
                     DropdownMenuItem(value: AiProvider.anthropic, child: Text('Claude')),
-                    //DropdownMenuItem(
-                     // value: AiProvider.ultra, 
-                      //child: Text('ULTRA ⚡', style: TextStyle(color: Colors.purple, fontWeight: FontWeight.w900)),
-                    ),
                   ],
                 ),
               ),
@@ -183,20 +175,14 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
               ),
             ),
 
-          // Suggestions rapides
           if (_messages.isEmpty)
              _buildQuickActions(),
 
-          // Zone de saisie
           _buildInputArea(primaryBlue),
         ],
       ),
     );
   }
-
-  // ==========================================
-  // COMPOSANTS DE L'INTERFACE
-  // ==========================================
 
   Widget _buildWelcomeScreen(Color primary, Color darkText) {
     return Center(
@@ -271,7 +257,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
             ),
           );
         } else {
-          // Bulle IA Premium
           return Align(
             alignment: Alignment.centerLeft,
             child: Container(
@@ -340,7 +325,7 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
 
   Widget _buildInputArea(Color primary) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), // Plus de padding en bas pour la safe area
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -351,7 +336,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Bouton Plus (Pièces jointes)
               Container(
                 margin: const EdgeInsets.only(bottom: 2, right: 10),
                 decoration: BoxDecoration(color: primary.withOpacity(0.1), shape: BoxShape.circle),
@@ -363,8 +347,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                   },
                 ),
               ),
-              
-              // Champ de texte
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -389,7 +371,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
                           ),
                         ),
                       ),
-                      // Bouton Envoyer intégré
                       Padding(
                         padding: const EdgeInsets.all(4.0),
                         child: CircleAvatar(
@@ -409,7 +390,6 @@ class _ThixIaScreenState extends State<ThixIaScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Texte de prévention
           Text(
             "THIX IA peut faire des erreurs. Vérifiez les informations importantes.",
             style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
