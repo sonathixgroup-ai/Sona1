@@ -1,81 +1,75 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:thix_id/services/chat_service.dart' as chat_service;
-import 'package:thix_id/presentation/chat/core/chat_models.dart';
+
+// === SERVICES ===
+import 'package:thix_id/services/chat/chat_service.dart';
+
+// === MODÈLES (UNIFIÉS) ===
+import 'package:thix_id/models/chat/chat_conversation.dart';
+import 'package:thix_id/models/chat/chat_message.dart';
+import 'package:thix_id/models/chat/user_status.dart';
+
+// Assure-toi que ces classes (Story, Space, ChatStats) sont bien dans ce fichier.
+// Sinon, modifie cet import pour pointer vers le bon fichier.
+import 'package:thix_id/presentation/chat/core/chat_models.dart'; 
 
 class ChatProvider extends ChangeNotifier {
-  final chat_service.ChatService _chatService;
+  final ChatService _chatService;
 
-  // États
-  List<Conversation> _conversations = [];
-  List<Conversation> _archivedConversations = [];
-  List<chat_service.ChatMessage> _messages = [];
-  List<chat_service.Story> _stories = [];
-  List<chat_service.Space> _spaces = [];
-  chat_service.ChatStats _stats = const chat_service.ChatStats();
+  // États principaux utilisant les VRAIS modèles du service
+  List<ChatConversation> _conversations = [];
+  List<ChatConversation> _archivedConversations = [];
+  List<ChatMessage> _messages = [];
+  
+  // Modèles secondaires (Assure-toi qu'ils existent dans chat_models.dart)
+  List<dynamic> _stories = []; // Remplacer dynamic par Story si le modèle existe
+  List<dynamic> _spaces = [];  // Remplacer dynamic par Space si le modèle existe
+  dynamic _stats;              // Remplacer dynamic par ChatStats() si le modèle existe
 
   bool _isLoading = false;
   String? _error;
 
-  // 🔥 Nouveaux états pour la pagination des conversations
+  // Pagination Conversations
   bool _isLoadingMore = false;
   bool _hasMoreConversations = true;
   final int _pageSize = 20;
 
-  // 🔥 Nouveaux états pour la pagination des messages
+  // Pagination Messages
   bool _isLoadingMoreMessages = false;
   bool _hasMoreMessages = true;
 
   // Getters
-  List<Conversation> get conversations => _conversations;
-  List<Conversation> get archivedConversations => _archivedConversations;
-  List<chat_service.ChatMessage> get messages => _messages;
-  List<chat_service.Story> get stories => _stories;
-  List<chat_service.Space> get spaces => _spaces;
-  chat_service.ChatStats get stats => _stats;
+  List<ChatConversation> get conversations => _conversations;
+  List<ChatConversation> get archivedConversations => _archivedConversations;
+  List<ChatMessage> get messages => _messages;
+  List<dynamic> get stories => _stories;
+  List<dynamic> get spaces => _spaces;
+  dynamic get stats => _stats;
   
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
+  bool get isLoadingMoreMessages => _isLoadingMoreMessages;
   bool get hasMoreConversations => _hasMoreConversations;
+  bool get hasMoreMessages => _hasMoreMessages;
   String? get error => _error;
 
   ChatProvider(this._chatService);
 
   // ============================================================
-  // CONVERTER (CORRIGÉ : on ne perd plus les données)
-  // ============================================================
-  Conversation _toUIConversation(chat_service.ChatConversation s) {
-    return Conversation(
-      id: s.id,
-      name: s.displayName ?? 'Inconnu', // S'adapte au groupe ou au contact
-      avatarUrl: s.displayAvatar,
-      isGroup: s.isGroup,
-      participantIds: s.participantIds,
-      lastMessage: s.lastMessage?.content ?? '', // ✅ Récupère le dernier message
-      lastMessageTime: s.lastMessage?.createdAt ?? s.updatedAt,
-      unreadCount: s.unreadCount, // ✅ Ne plus coder en dur à 0 !
-      isArchived: false, // À mapper si géré dans ton service
-      isOnline: false, // Géré par le PresenceService
-    );
-  }
-
-  // ============================================================
-  // CONVERSATIONS (PAGINÉES)
+  // CONVERSATIONS
   // ============================================================
 
-  /// Charge la première page (Refresh)
   Future<void> loadConversations() async {
     _setLoading(true);
     _hasMoreConversations = true;
-    
     try {
+      // Plus besoin de mapper, on utilise directement ChatConversation !
       final serviceConvs = await _chatService.getConversations(limit: _pageSize, offset: 0);
-      _conversations = serviceConvs.map(_toUIConversation).toList();
+      _conversations = serviceConvs;
       
       if (serviceConvs.length < _pageSize) {
         _hasMoreConversations = false;
       }
-      
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -84,7 +78,6 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  /// Charge la page suivante (Infinite Scroll)
   Future<void> loadMoreConversations() async {
     if (_isLoadingMore || !_hasMoreConversations) return;
     
@@ -98,7 +91,7 @@ class ChatProvider extends ChangeNotifier {
       if (serviceConvs.isEmpty) {
         _hasMoreConversations = false;
       } else {
-        _conversations.addAll(serviceConvs.map(_toUIConversation));
+        _conversations.addAll(serviceConvs);
         if (serviceConvs.length < _pageSize) {
           _hasMoreConversations = false;
         }
@@ -113,10 +106,9 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // ============================================================
-  // MESSAGES (PAGINÉS)
+  // MESSAGES
   // ============================================================
 
-  /// Charge la première page de messages en ouvrant le chat
   Future<void> loadMessages(String conversationId) async {
     _setLoading(true);
     _hasMoreMessages = true;
@@ -131,7 +123,6 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  /// Charge les messages plus anciens quand on scroll vers le haut
   Future<void> loadMoreMessages(String conversationId) async {
     if (_isLoadingMoreMessages || !_hasMoreMessages) return;
 
@@ -145,7 +136,7 @@ class ChatProvider extends ChangeNotifier {
       if (olderMessages.isEmpty) {
         _hasMoreMessages = false;
       } else {
-        _messages.addAll(olderMessages); // Attention: vérifie l'ordre d'affichage (reversed ou non) dans ton UI
+        _messages.addAll(olderMessages); 
         if (olderMessages.length < 50) _hasMoreMessages = false;
       }
       _error = null;
@@ -157,13 +148,13 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<chat_service.ChatMessage> sendMessage(String conversationId, String content) async {
+  Future<ChatMessage> sendMessage(String conversationId, String content) async {
     try {
       final msg = await _chatService.sendMessage(
         conversationId: conversationId, 
         content: content
       );
-      _messages.insert(0, msg); // Insère en haut de la liste locale
+      _messages.insert(0, msg);
       _error = null;
       notifyListeners();
       return msg;
@@ -178,21 +169,22 @@ class ChatProvider extends ChangeNotifier {
     try {
       await _chatService.markAsRead(conversationId);
       
-      // ✅ Mise à jour locale (optimiste) pour l'UI sans recharger toute la DB
       final index = _conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
         final conv = _conversations[index];
-        _conversations[index] = Conversation(
+        // ✅ On réinstancie le bon modèle pour forcer la mise à jour UI
+        _conversations[index] = ChatConversation(
           id: conv.id,
-          name: conv.name,
-          avatarUrl: conv.avatarUrl,
           isGroup: conv.isGroup,
+          groupName: conv.groupName,
+          groupAvatar: conv.groupAvatar,
           participantIds: conv.participantIds,
+          otherParticipantName: conv.otherParticipantName,
+          otherParticipantAvatar: conv.otherParticipantAvatar,
           lastMessage: conv.lastMessage,
-          lastMessageTime: conv.lastMessageTime,
           unreadCount: 0, // Remise à zéro locale
-          isArchived: conv.isArchived,
-          isOnline: conv.isOnline,
+          updatedAt: conv.updatedAt,
+          isPinned: conv.isPinned,
         );
         notifyListeners();
       }
@@ -202,8 +194,25 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // --- Le reste de tes méthodes (Stories, Spaces, etc.) reste inchangé ---
-  // ...
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      await _chatService.deleteMessage(messageId);
+      _messages.removeWhere((m) => m.id == messageId);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> addReaction(String messageId, String emoji) async {
+    try {
+      await _chatService.toggleReaction(messageId, emoji);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
 
   // ============================================================
   // UTILITAIRES
@@ -225,7 +234,7 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _stories = [];
     _spaces = [];
-    _stats = const chat_service.ChatStats();
+    _stats = null;
     _isLoading = false;
     _isLoadingMore = false;
     _hasMoreConversations = true;
