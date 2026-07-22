@@ -210,7 +210,6 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
-  // ─── NAVIGATION VERS LE PROFIL DE L'AUTEUR (avatar / nom) ───
   void _navigateToAuthorProfile() {
     try {
       Navigator.pushNamed(context, '/profile/${_post.userId}');
@@ -231,7 +230,6 @@ class _PostCardState extends State<PostCard> {
     ).then((_) => widget.onRefresh?.call());
   }
 
-  // ─── OUVRIR LA VISIONNEUSE PLEIN ÉCRAN ───
   void _openFullScreenGallery(int initialIndex) {
     Navigator.push(
       context,
@@ -286,9 +284,6 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  // Enveloppe une vignette avec un tap dédié vers la visionneuse plein écran.
-  // alignment = topCenter par défaut : quand un recadrage cover est nécessaire,
-  // on préserve la partie haute du sujet (têtes, visages) plutôt que de centrer.
   Widget _tappableImage(String url, int index, {required double height, BoxFit fit = BoxFit.cover, Alignment alignment = Alignment.topCenter}) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -300,14 +295,12 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  // ─── GRILLE DE PHOTOS STYLE FACEBOOK ───
   Widget _buildImageGrid(List<String> urls) {
     if (urls.isEmpty) return const SizedBox.shrink();
 
     const double spacing = 4;
     final radius = BorderRadius.circular(12);
 
-    // 1 photo → hauteur adaptée au ratio réel de l'image, photo entière visible
     if (urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
@@ -322,8 +315,6 @@ class _PostCardState extends State<PostCard> {
       );
     }
 
-    // 2 photos → côte à côte, hauteur commune calculée sur le ratio moyen réel
-    // des deux images (bien plus fidèle qu'une hauteur fixe arbitraire)
     if (urls.length == 2) {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -359,7 +350,6 @@ class _PostCardState extends State<PostCard> {
       );
     }
 
-    // 3 photos → 1 grande à gauche + 2 empilées à droite
     if (urls.length == 3) {
       return SizedBox(
         height: 240,
@@ -381,7 +371,6 @@ class _PostCardState extends State<PostCard> {
       );
     }
 
-    // 4 photos → grille 2x2
     if (urls.length == 4) {
       return SizedBox(
         height: 320,
@@ -405,7 +394,6 @@ class _PostCardState extends State<PostCard> {
       );
     }
 
-    // 5 photos ou plus → 2 en haut + 3 en bas, "+N" sur la dernière si > 5
     final int remaining = urls.length - 5;
     return SizedBox(
       height: 320,
@@ -461,7 +449,6 @@ class _PostCardState extends State<PostCard> {
     return count.toString();
   }
 
-  // Actions
   Future<void> _toggleLike() async {
     final newIsLiked = !_post.isLiked;
     final newCount = _post.likesCount + (newIsLiked ? 1 : -1);
@@ -489,6 +476,54 @@ class _PostCardState extends State<PostCard> {
             SnackBar(content: Text('Erreur: $e'), backgroundColor: _PostColors.red));
       }
     }
+  }
+
+  // 🚨 BANNIÈRE D'ALERTE FACT-CHECK AUTOMATIQUE
+  Widget _buildFactCheckBanner(bool isMisinformation, String? message) {
+    if (!isMisinformation || message == null || message.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade200),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Alerte Fact-Check THIX : Désinformation potentielle",
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  style: TextStyle(
+                    color: Colors.red.shade900,
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _toggleSave() async {
@@ -736,7 +771,7 @@ class _PostCardState extends State<PostCard> {
               const SizedBox(height: 12),
               if (_post.content.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -761,6 +796,11 @@ class _PostCardState extends State<PostCard> {
                     ],
                   ),
                 ),
+              
+              // 🚨 Intégration automatique de la bannière Fact-Check IA sous le texte
+              _buildFactCheckBanner(_post.isMisinformation, _post.factCheckMessage),
+              const SizedBox(height: 4),
+
               if (_post.imageUrls.isNotEmpty) ...[
                 _buildImageGrid(_post.imageUrls),
                 const SizedBox(height: 12),
@@ -857,7 +897,6 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
-  // ─── BARRE D'ACTIONS : Like, Comment, Repost, Share ───
   Widget _buildActions() {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -956,7 +995,6 @@ class _PostCardState extends State<PostCard> {
   }
 }
 
-// ─── IMAGE UNIQUE ADAPTATIVE : hauteur de carte calquée sur le ratio réel ───
 class _AdaptiveSingleImage extends StatefulWidget {
   final String imageUrl;
   const _AdaptiveSingleImage({required this.imageUrl});
@@ -1057,14 +1095,9 @@ class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
   }
 }
 
-// ─── PAIRE D'IMAGES ADAPTATIVE (grille à 2 photos) ───
-// Calcule une hauteur commune à partir du ratio réel de CHAQUE image du duo,
-// en prenant la plus contraignante (celle qui a besoin du moins de recadrage),
-// bornée pour rester lisible sur mobile. Chaque case garde alignment topCenter
-// pour ne pas couper les têtes lors d'un léger recadrage résiduel.
 class _AdaptivePairImage extends StatefulWidget {
   final String imageUrl;
-  final List<String> groupKey; // les 2 urls du duo, pour resynchroniser la hauteur si l'une change
+  final List<String> groupKey;
   const _AdaptivePairImage({required this.imageUrl, required this.groupKey});
 
   @override
@@ -1165,7 +1198,6 @@ class _AdaptivePairImageState extends State<_AdaptivePairImage> {
   }
 }
 
-// ─── VISIONNEUSE PLEIN ÉCRAN AVEC SCROLL LATÉRAL ───
 class _FullScreenGallery extends StatefulWidget {
   final List<String> imageUrls;
   final int initialIndex;
