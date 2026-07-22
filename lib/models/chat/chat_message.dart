@@ -1,35 +1,22 @@
-// lib/models/chat/chat_message.dart
+import 'sentiment.dart';
 
-import 'sentiment.dart'; // 👈 IMPORT AJOUTÉ ICI
-
-// Déclaration de la classe MessageReaction qui manquait
 class MessageReaction {
   final String reaction;
   final String userId;
-
-  MessageReaction({required this.reaction, required this.userId});
-
-  factory MessageReaction.fromJson(Map<String, dynamic> json) {
-    return MessageReaction(
-      reaction: json['reaction'] ?? '',
-      userId: json['user_id'] ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'reaction': reaction,
-      'user_id': userId,
-    };
-  }
+  const MessageReaction({required this.reaction, required this.userId});
+  factory MessageReaction.fromJson(Map<String, dynamic> json) => MessageReaction(
+    reaction: (json['reaction']??'').toString(),
+    userId: (json['user_id']??'').toString(),
+  );
+  Map<String, dynamic> toJson() => {'reaction': reaction, 'user_id': userId};
 }
 
 class ChatMessage {
   final String id;
   final String conversationId;
   final String senderId;
-  final String senderName;  
-  final String? senderAvatar;  
+  final String senderName;
+  final String? senderAvatar;
   final String content;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -46,15 +33,15 @@ class ChatMessage {
   final String? codeLanguage;
   final String? codeContent;
   final List<MessageReaction> reactions;
-  final bool isInternalNote; 
-  final SentimentResult? sentiment; // 👈 PROPRIÉTÉ AJOUTÉE ICI
+  final bool isInternalNote;
+  final SentimentResult? sentiment;
 
-  ChatMessage({
+  const ChatMessage({
     required this.id,
     required this.conversationId,
     required this.senderId,
-    required this.senderName,  
-    this.senderAvatar,  
+    required this.senderName,
+    this.senderAvatar,
     required this.content,
     required this.createdAt,
     this.updatedAt,
@@ -71,46 +58,61 @@ class ChatMessage {
     this.codeLanguage,
     this.codeContent,
     this.reactions = const [],
-    this.isInternalNote = false, 
-    this.sentiment, // 👈 PARAMÈTRE AJOUTÉ ICI
+    this.isInternalNote = false,
+    this.sentiment,
   });
 
+  static DateTime? _parseDate(dynamic v) {
+    if(v==null) return null;
+    if(v is DateTime) return v;
+    if(v is String && v.isNotEmpty) return DateTime.tryParse(v);
+    return null;
+  }
+
+  static SentimentResult? _parseSentiment(dynamic value) {
+    if(value==null) return null;
+    final str = value.toString().trim().toLowerCase();
+    if(str.isEmpty) return null;
+    for(var s in SentimentResult.values) {
+      if(s.name.toLowerCase() == str) return s;
+    }
+    return null;
+  }
+
+  static List<MessageReaction> _parseReactions(dynamic value) {
+    if(value==null) return [];
+    if(value is! List) return [];
+    return value.whereType<Map<String,dynamic>>().map((e) {
+      try { return MessageReaction.fromJson(e); } catch(_) { return null; }
+    }).whereType<MessageReaction>().toList();
+  }
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    final profile = json['profiles'] as Map<String, dynamic>?;
-    
+    final profile = json['profiles'] as Map<String, dynamic>? ?? json['sender'] as Map<String, dynamic>?;
     return ChatMessage(
-      id: json['id'] ?? '',
-      conversationId: json['conversation_id'] ?? '',
-      senderId: json['sender_id'] ?? '',
-      senderName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu',  
-      senderAvatar: profile?['avatar_url'],  
-      content: json['content'] ?? '',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : null,
-      mediaUrl: json['media_url'],
-      mediaType: json['media_type'],
-      isRead: json['is_read'] ?? false,
-      isDelivered: json['is_delivered'] ?? false,
-      replyToId: json['reply_to_id'],
-      isDeleted: json['is_deleted'] ?? false,
-      isEphemeral: json['is_ephemeral'] ?? false,
-      ephemeralDuration: json['ephemeral_duration'],
-      deleteAt: json['delete_at'] != null
-          ? DateTime.parse(json['delete_at'])
-          : null,
-      isCodeSnippet: json['is_code_snippet'] ?? false,
-      codeLanguage: json['code_language'],
-      codeContent: json['code_content'],
-      reactions: (json['reactions'] as List?)
-              ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
-              .toList() ??
-          [],
-      isInternalNote: json['is_internal_note'] ?? false, 
-      sentiment: json['sentiment'] != null ? json['sentiment'] as SentimentResult : null, // 👈 PARSING AJOUTÉ ICI
+      id: (json['id']??'').toString(),
+      conversationId: (json['conversation_id']??'').toString(),
+      senderId: (json['sender_id']??'').toString(),
+      senderName: (profile?['display_name'] ?? profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur').toString(),
+      senderAvatar: profile?['avatar_url']?.toString(),
+      content: (json['content']??'').toString(),
+      createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updated_at']),
+      mediaUrl: json['media_url']?.toString(),
+      mediaType: json['media_type']?.toString(),
+      isRead: json['is_read']==true,
+      isDelivered: json['is_delivered']==true,
+      replyToId: json['reply_to_id']?.toString(),
+      isDeleted: json['is_deleted']==true,
+      isEphemeral: json['is_ephemeral']==true,
+      ephemeralDuration: json['ephemeral_duration'] is int ? json['ephemeral_duration'] : int.tryParse('${json['ephemeral_duration']??''}'),
+      deleteAt: _parseDate(json['delete_at']),
+      isCodeSnippet: json['is_code_snippet']==true,
+      codeLanguage: json['code_language']?.toString(),
+      codeContent: json['code_content']?.toString(),
+      reactions: _parseReactions(json['reactions']),
+      isInternalNote: json['is_internal_note']==true,
+      sentiment: _parseSentiment(json['sentiment']),
     );
   }
 
@@ -134,16 +136,17 @@ class ChatMessage {
     'code_language': codeLanguage,
     'code_content': codeContent,
     'reactions': reactions.map((r) => r.toJson()).toList(),
-    'is_internal_note': isInternalNote, 
-    'sentiment': sentiment, // 👈 SÉRIALISATION AJOUTÉE ICI
+    'is_internal_note': isInternalNote,
+    'sentiment': sentiment?.name,
   };
 
+  // FIX 1M: Permet de mettre sentiment à null avec un wrapper
   ChatMessage copyWith({
     String? id,
     String? conversationId,
     String? senderId,
-    String? senderName,  
-    String? senderAvatar,  
+    String? senderName,
+    String? senderAvatar,
     String? content,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -160,15 +163,16 @@ class ChatMessage {
     String? codeLanguage,
     String? codeContent,
     List<MessageReaction>? reactions,
-    bool? isInternalNote, 
-    SentimentResult? sentiment, // 👈 PARAMÈTRE AJOUTÉ ICI
+    bool? isInternalNote,
+    SentimentResult? sentiment,
+    bool clearSentiment = false, // FIX: permet de clear
   }) {
     return ChatMessage(
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
       senderId: senderId ?? this.senderId,
-      senderName: senderName ?? this.senderName,  
-      senderAvatar: senderAvatar ?? this.senderAvatar,  
+      senderName: senderName ?? this.senderName,
+      senderAvatar: senderAvatar ?? this.senderAvatar,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -185,10 +189,10 @@ class ChatMessage {
       codeLanguage: codeLanguage ?? this.codeLanguage,
       codeContent: codeContent ?? this.codeContent,
       reactions: reactions ?? this.reactions,
-      isInternalNote: isInternalNote ?? this.isInternalNote, 
-      sentiment: sentiment ?? this.sentiment, // 👈 AFFECTATION AJOUTÉE ICI
+      isInternalNote: isInternalNote ?? this.isInternalNote,
+      sentiment: clearSentiment ? null : sentiment ?? this.sentiment,
     );
   }
 
-  bool get isActive => !isDeleted && (deleteAt == null || deleteAt!.isAfter(DateTime.now()));
+  bool get isActive =>!isDeleted && (deleteAt==null || deleteAt!.isAfter(DateTime.now()));
 }
