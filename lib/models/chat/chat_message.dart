@@ -1,24 +1,17 @@
+// lib/models/chat/chat_message.dart - FINAL 10/10 WEB + MOBILE FIX 3463
 import 'sentiment.dart'; 
 
 class MessageReaction {
   final String reaction;
   final String userId;
-
-  MessageReaction({required this.reaction, required this.userId});
-
+  const MessageReaction({required this.reaction, required this.userId});
   factory MessageReaction.fromJson(Map<String, dynamic> json) {
     return MessageReaction(
-      reaction: json['reaction'] ?? '',
-      userId: json['user_id'] ?? '',
+      reaction: (json['reaction'] ?? '').toString(),
+      userId: (json['user_id'] ?? '').toString(),
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'reaction': reaction,
-      'user_id': userId,
-    };
-  }
+  Map<String, dynamic> toJson() => {'reaction': reaction, 'user_id': userId};
 }
 
 class ChatMessage {
@@ -32,6 +25,9 @@ class ChatMessage {
   final DateTime? updatedAt;
   final String? mediaUrl;
   final String? mediaType;
+  final String? mediaName; // AJOUTE
+  final int? mediaSize; // AJOUTE
+  final String? mimeType; // AJOUTE
   final bool isRead;
   final bool isDelivered;
   final String? replyToId;
@@ -46,7 +42,7 @@ class ChatMessage {
   final bool isInternalNote; 
   final SentimentResult? sentiment; 
 
-  ChatMessage({
+  const ChatMessage({
     required this.id,
     required this.conversationId,
     required this.senderId,
@@ -57,6 +53,9 @@ class ChatMessage {
     this.updatedAt,
     this.mediaUrl,
     this.mediaType,
+    this.mediaName,
+    this.mediaSize,
+    this.mimeType,
     this.isRead = false,
     this.isDelivered = false,
     this.replyToId,
@@ -72,50 +71,63 @@ class ChatMessage {
     this.sentiment, 
   });
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    final profile = json['profiles'] as Map<String, dynamic>?;
-    
-    // ✅ PARSING SÉCURISÉ : On tente de récupérer le type sans assumer que c'est un Enum
-    SentimentResult? parsedSentiment;
-    try {
-      parsedSentiment = json['sentiment'] as SentimentResult?;
-    } catch (_) {
-      parsedSentiment = null; // Si Supabase renvoie un format inattendu, on évite le crash
-    }
+  static DateTime? _parseDate(dynamic v) {
+    if(v==null) return null;
+    if(v is DateTime) return v;
+    if(v is String && v.isNotEmpty) return DateTime.tryParse(v);
+    return null;
+  }
 
+  static SentimentResult? _parseSentiment(dynamic value) {
+    if(value==null) return null;
+    final str = value.toString().trim().toLowerCase();
+    if(str.isEmpty || str=='null') return null;
+    for(var s in SentimentResult.values) {
+      if(s.name.toLowerCase() == str) return s;
+      if(s.toString().split('.').last.toLowerCase() == str) return s;
+    }
+    return null;
+  }
+
+  static List<MessageReaction> _parseReactions(dynamic value) {
+    if(value==null) return [];
+    if(value is! List) return [];
+    return value.whereType<Map<String,dynamic>>().map((e){
+      try{ return MessageReaction.fromJson(e); }catch(_){ return null; }
+    }).whereType<MessageReaction>().toList();
+  }
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final profile = json['profiles'] as Map<String, dynamic>? ?? json['sender'] as Map<String, dynamic>?;
+    
     return ChatMessage(
-      id: json['id'] ?? '',
-      conversationId: json['conversation_id'] ?? '',
-      senderId: json['sender_id'] ?? '',
-      senderName: profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu',  
-      senderAvatar: profile?['avatar_url'],  
-      content: json['content'] ?? '',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : null,
-      mediaUrl: json['media_url'],
-      mediaType: json['media_type'],
-      isRead: json['is_read'] ?? false,
-      isDelivered: json['is_delivered'] ?? false,
-      replyToId: json['reply_to_id'],
-      isDeleted: json['is_deleted'] ?? false,
-      isEphemeral: json['is_ephemeral'] ?? false,
-      ephemeralDuration: json['ephemeral_duration'],
-      deleteAt: json['delete_at'] != null
-          ? DateTime.parse(json['delete_at'])
-          : null,
-      isCodeSnippet: json['is_code_snippet'] ?? false,
-      codeLanguage: json['code_language'],
-      codeContent: json['code_content'],
-      reactions: (json['reactions'] as List?)
-              ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
-              .toList() ??
-          [],
-      isInternalNote: json['is_internal_note'] ?? false, 
-      sentiment: parsedSentiment,
+      id: (json['id'] ?? '').toString(),
+      conversationId: (json['conversation_id'] ?? json['conversationId'] ?? '').toString(),
+      senderId: (json['sender_id'] ?? json['senderId'] ?? '').toString(),
+      senderName: (profile?['display_name'] ?? profile?['full_name'] ?? profile?['username'] ?? 'Utilisateur inconnu').toString(),  
+      senderAvatar: (profile?['avatar_url'] ?? profile?['avatarUrl'])?.toString(),  
+      content: (json['content'] ?? '').toString(),
+      createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updated_at']),
+      // FIX PHOTO INVISIBLE: fallback file_url, attachment_url, url
+      mediaUrl: (json['media_url'] ?? json['file_url'] ?? json['attachment_url'] ?? json['url'] ?? json['mediaUrl'])?.toString(),
+      mediaType: (json['media_type'] ?? json['type'])?.toString(),
+      mediaName: (json['media_name'] ?? json['file_name'] ?? json['name'])?.toString(),
+      mediaSize: json['media_size'] is int ? json['media_size'] : int.tryParse('${json['media_size']?? json['file_size']??''}'),
+      mimeType: (json['mime_type'] ?? json['mimeType'])?.toString(),
+      isRead: json['is_read'] == true || json['isRead'] == true,
+      isDelivered: json['is_delivered'] == true || json['isDelivered'] == true,
+      replyToId: (json['reply_to_id'] ?? json['replyToId'])?.toString(),
+      isDeleted: json['is_deleted'] == true,
+      isEphemeral: json['is_ephemeral'] == true,
+      ephemeralDuration: json['ephemeral_duration'] is int ? json['ephemeral_duration'] : int.tryParse('${json['ephemeral_duration']??''}'),
+      deleteAt: _parseDate(json['delete_at']),
+      isCodeSnippet: json['is_code_snippet'] == true,
+      codeLanguage: json['code_language']?.toString(),
+      codeContent: json['code_content']?.toString(),
+      reactions: _parseReactions(json['reactions']),
+      isInternalNote: json['is_internal_note'] == true, 
+      sentiment: _parseSentiment(json['sentiment']),
     );
   }
 
@@ -128,6 +140,9 @@ class ChatMessage {
     'updated_at': updatedAt?.toIso8601String(),
     'media_url': mediaUrl,
     'media_type': mediaType,
+    'media_name': mediaName,
+    'media_size': mediaSize,
+    'mime_type': mimeType,
     'is_read': isRead,
     'is_delivered': isDelivered,
     'reply_to_id': replyToId,
@@ -140,8 +155,7 @@ class ChatMessage {
     'code_content': codeContent,
     'reactions': reactions.map((r) => r.toJson()).toList(),
     'is_internal_note': isInternalNote, 
-    // ✅ SÉRIALISATION UNIVERSELLE : On utilise toString() qui fonctionne sur les classes et les enums
-    'sentiment': sentiment?.toString().split('.').last, 
+    'sentiment': sentiment?.name, 
   };
 
   ChatMessage copyWith({
@@ -155,6 +169,9 @@ class ChatMessage {
     DateTime? updatedAt,
     String? mediaUrl,
     String? mediaType,
+    String? mediaName,
+    int? mediaSize,
+    String? mimeType,
     bool? isRead,
     bool? isDelivered,
     String? replyToId,
@@ -167,7 +184,9 @@ class ChatMessage {
     String? codeContent,
     List<MessageReaction>? reactions,
     bool? isInternalNote, 
-    SentimentResult? sentiment, 
+    SentimentResult? sentiment,
+    bool clearSentiment = false,
+    bool clearMedia = false,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -178,8 +197,11 @@ class ChatMessage {
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      mediaUrl: mediaUrl ?? this.mediaUrl,
-      mediaType: mediaType ?? this.mediaType,
+      mediaUrl: clearMedia ? null : mediaUrl ?? this.mediaUrl,
+      mediaType: clearMedia ? null : mediaType ?? this.mediaType,
+      mediaName: clearMedia ? null : mediaName ?? this.mediaName,
+      mediaSize: clearMedia ? null : mediaSize ?? this.mediaSize,
+      mimeType: clearMedia ? null : mimeType ?? this.mimeType,
       isRead: isRead ?? this.isRead,
       isDelivered: isDelivered ?? this.isDelivered,
       replyToId: replyToId ?? this.replyToId,
@@ -192,7 +214,7 @@ class ChatMessage {
       codeContent: codeContent ?? this.codeContent,
       reactions: reactions ?? this.reactions,
       isInternalNote: isInternalNote ?? this.isInternalNote, 
-      sentiment: sentiment ?? this.sentiment, 
+      sentiment: clearSentiment ? null : sentiment ?? this.sentiment, 
     );
   }
 
