@@ -206,11 +206,46 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   }
 
   Widget _buildMediaContent() {
-    if(widget.message.mediaType=='image') {
-      return GestureDetector(onTap: (){ Navigator.push(context, MaterialPageRoute(builder: (_)=>FullScreenImagePage(imageUrl: widget.message.mediaUrl!, tag: widget.message.id))); }, child: Hero(tag: widget.message.id, child: ClipRRect(borderRadius: BorderRadius.circular(16), child: CachedNetworkImage(imageUrl: widget.message.mediaUrl!, fit: BoxFit.cover, memCacheWidth: 600, placeholder: (_,__)=>Container(height: 150, color: Colors.grey.shade200, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))), errorWidget: (_,__,___)=>const Padding(padding: EdgeInsets.all(16), child: Icon(Icons.broken_image, size: 40, color: mutedText))))));
-    }
-    return Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: pureWhite.withValues(alpha: 0.3)), child: Row(children: [Icon(widget.message.mediaType=='video'? Icons.videocam_rounded : Icons.insert_drive_file_rounded, color: widget.isOwn? Colors.white : primaryBlue), const SizedBox(width: 8), Expanded(child: Text(widget.message.mediaName?? widget.message.mediaType?? 'Fichier', style: TextStyle(color: widget.isOwn? Colors.white : darkText)))]));
+  final url = widget.message.mediaUrl;
+  final type = widget.message.mediaType ?? 'file';
+  final content = widget.message.content;
+  
+  if(url == null || url.isEmpty) {
+    return Text(content.isNotEmpty ? content : '📷 Photo', style: TextStyle(color: widget.isOwn? Colors.white : darkText));
   }
+
+  if(type == 'image') {
+    return GestureDetector(
+      onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (_)=>FullScreenImagePage(imageUrl: url, tag: widget.message.id))),
+      child: Hero(
+        tag: widget.message.id,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.cover,
+            memCacheWidth: 600,
+            placeholder: (_,__)=>Container(height: 150, width: 200, color: Colors.grey.shade200, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+            errorWidget: (_,__,___)=>Container(height: 120, width: 200, color: leftBubbleColor, child: const Center(child: Icon(Icons.broken_image, size: 30, color: mutedText))),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // FIX 3462: plus de mediaName
+  return Container(
+    padding: const EdgeInsets.all(12), 
+    decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: pureWhite.withValues(alpha: 0.3)), 
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(type=='video'? Icons.videocam_rounded : Icons.insert_drive_file_rounded, color: widget.isOwn? Colors.white : primaryBlue), 
+        const SizedBox(width: 8), 
+        Flexible(child: Text(content.isNotEmpty ? content : type, style: TextStyle(color: widget.isOwn? Colors.white : darkText), overflow: TextOverflow.ellipsis))
+      ]
+    )
+  );
 }
 
 class FullScreenImagePage extends StatelessWidget {
