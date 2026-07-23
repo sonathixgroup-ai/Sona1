@@ -494,7 +494,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ),
     ),
   );
-
+}
 class _NavIcon extends StatelessWidget {
   final IconData icon;
   final bool isActive;
