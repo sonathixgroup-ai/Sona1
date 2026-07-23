@@ -1,1257 +1,237 @@
-// lib/presentation/mon_pays/admin/admin_authority_form_page.dart
-// Formulaire complet pour la création/modification d'une autorité
-// Avec gestion des études, parcours, réalisations, photos, vidéos, documents, dates de mandat, etc.
+// lib/presentation/mon_pays/pages/authorities/authorities_page.dart
+// Liste complète des autorités avec filtres, recherche, favoris et pagination
+// Affichage des 4 plus hautes autorités (Président, Sénat, AN, Première Ministre)
 
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import '../../utils/constants.dart';
+import '../../providers/authorities_provider.dart';
+import '../../providers/favorites_provider.dart';
 import '../../models/authority.dart';
-import '../providers/authorities_provider.dart';
-import '../utils/validators.dart';
+import '../../cards/authority_card.dart';
 
-class AdminAuthorityFormPage extends ConsumerStatefulWidget {
-  final Authority? authority;
+class AuthoritiesPage extends ConsumerStatefulWidget {
+  final String? initialCategory;
 
-  const AdminAuthorityFormPage({super.key, this.authority});
+  const AuthoritiesPage({super.key, this.initialCategory});
 
   @override
-  ConsumerState<AdminAuthorityFormPage> createState() => _AdminAuthorityFormPageState();
+  ConsumerState<AuthoritiesPage> createState() => _AuthoritiesPageState();
 }
 
-class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage> {
-  final _formKey = GlobalKey<FormState>();
+class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  String _selectedCategory = 'Tous';
 
-  // ---- Champs principaux ----
-  late TextEditingController _categoryController;
-  late TextEditingController _nameController;
-  late TextEditingController _titleController;
-  late TextEditingController _biographyController;
-  late TextEditingController _explanationController;
-  late TextEditingController _mandateController;
-  late TextEditingController _partyController;
-  late TextEditingController _imageUrlController;
-  late TextEditingController _coverImageUrlController;
-  DateTime? _mandateStart;
-  DateTime? _mandateEnd;
-  bool _isActive = true;
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF6F7FB);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color darkText = Color(0xFF10182B);
+  static const Color mutedText = Color(0xFF6B7690);
+  static const Color danger = Color(0xFFD64545);
+  static const Color hairline = Color(0xFFE7EAF3);
 
-  // ---- Listes dynamiques ----
-  final List<Education> _educationList = [];
-  final List<Career> _careerList = [];
-  final List<Achievement> _achievementList = [];
-  final List<AuthorityPhoto> _photoList = [];
-  final List<AuthorityVideo> _videoList = [];
-  final List<AuthorityDocument> _documentList = [];
-
-  bool _isUploadingFile = false;
+  // Les 4 titres principaux (pour l'affichage)
+  static const Set<String> topTitles = {
+    'Président de la République',
+    'Président du Sénat',
+    'Président de l\'Assemblée Nationale',
+    'Première Ministre',
+  };
 
   @override
   void initState() {
     super.initState();
-    final a = widget.authority;
-    _categoryController = TextEditingController(text: a?.category ?? 'Gouvernement');
-    _nameController = TextEditingController(text: a?.name ?? '');
-    _titleController = TextEditingController(text: a?.title ?? '');
-    _biographyController = TextEditingController(text: a?.biography ?? '');
-    _explanationController = TextEditingController(text: a?.explanation ?? '');
-    _mandateController = TextEditingController(text: a?.mandate ?? '');
-    _partyController = TextEditingController(text: a?.party ?? '');
-    _imageUrlController = TextEditingController(text: a?.imageUrl ?? '');
-    _coverImageUrlController = TextEditingController(text: a?.coverImageUrl ?? '');
-    _mandateStart = a?.mandateStart;
-    _mandateEnd = a?.mandateEnd;
-    _isActive = a?.isActive ?? true;
-
-    if (a != null) {
-      _educationList.addAll(a.education);
-      _careerList.addAll(a.career);
-      _achievementList.addAll(a.achievements);
-      _photoList.addAll(a.photos);
-      _videoList.addAll(a.videos);
-      _documentList.addAll(a.documents);
-    }
+    _selectedCategory = widget.initialCategory ?? 'Tous';
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _categoryController.dispose();
-    _nameController.dispose();
-    _titleController.dispose();
-    _biographyController.dispose();
-    _explanationController.dispose();
-    _mandateController.dispose();
-    _partyController.dispose();
-    _imageUrlController.dispose();
-    _coverImageUrlController.dispose();
+    _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  // ============================================================
-  // UPLOAD FICHIERS
-  // ============================================================
-
-  Future<void> _pickAndUploadImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
-      if (result != null && result.files.first.bytes != null) {
-        setState(() => _isUploadingFile = true);
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes);
-        setState(() {
-          _imageUrlController.text = url;
-          _isUploadingFile = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo de profil uploadée avec succès'), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      setState(() => _isUploadingFile = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur upload: ${e.toString()}'), backgroundColor: Colors.red),
-      );
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final notifier = ref.read(authoritiesPaginatedProvider.notifier);
+      notifier.loadNextPage();
     }
   }
 
-  Future<void> _pickAndUploadCover() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
-      if (result != null && result.files.first.bytes != null) {
-        setState(() => _isUploadingFile = true);
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'covers');
-        setState(() {
-          _coverImageUrlController.text = url;
-          _isUploadingFile = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo de couverture uploadée avec succès'), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      setState(() => _isUploadingFile = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur upload: ${e.toString()}'), backgroundColor: Colors.red),
-      );
-    }
+  Future<void> _refreshData() async {
+    final notifier = ref.read(authoritiesPaginatedProvider.notifier);
+    await notifier.refreshData();
   }
 
-  // ============================================================
-  // AJOUT / SUPPRESSION DYNAMIQUES
-  // ============================================================
-
-  void _addEducation() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _EducationFormDialog(
-        onSave: (edu) => setState(() => _educationList.add(edu)),
-      ),
+  void _applyFilters() {
+    final notifier = ref.read(authoritiesPaginatedProvider.notifier);
+    final category = _selectedCategory == 'Tous' ? null : _selectedCategory;
+    final search = _searchController.text.trim();
+    notifier.loadFirstPage(
+      category: category,
+      search: search.isEmpty ? null : search,
+      activeOnly: true, // On affiche que les actifs
     );
   }
-
-  void _addCareer() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _CareerFormDialog(
-        onSave: (career) => setState(() => _careerList.add(career)),
-      ),
-    );
-  }
-
-  void _addAchievement() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _AchievementFormDialog(
-        onSave: (ach) => setState(() => _achievementList.add(ach)),
-      ),
-    );
-  }
-
-  void _addPhoto() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _PhotoFormDialog(
-        onSave: (photo) => setState(() => _photoList.add(photo)),
-      ),
-    );
-  }
-
-  void _addVideo() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _VideoFormDialog(
-        onSave: (video) => setState(() => _videoList.add(video)),
-      ),
-    );
-  }
-
-  void _addDocument() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _DocumentFormDialog(
-        onSave: (doc) => setState(() => _documentList.add(doc)),
-      ),
-    );
-  }
-
-  void _removeEducation(int index) => setState(() => _educationList.removeAt(index));
-  void _removeCareer(int index) => setState(() => _careerList.removeAt(index));
-  void _removeAchievement(int index) => setState(() => _achievementList.removeAt(index));
-  void _removePhoto(int index) => setState(() => _photoList.removeAt(index));
-  void _removeVideo(int index) => setState(() => _videoList.removeAt(index));
-  void _removeDocument(int index) => setState(() => _documentList.removeAt(index));
-
-  // ============================================================
-  // BUILD PRINCIPAL
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
-    final isSaving = ref.watch(adminAuthoritiesProvider).isLoading;
-    final isBusy = isSaving || _isUploadingFile;
-    final isEditing = widget.authority != null;
+    final paginatedState = ref.watch(authoritiesPaginatedProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Modifier l\'autorité' : 'Nouvelle autorité'),
-        backgroundColor: Colors.red.shade700,
-        foregroundColor: Colors.white,
-      ),
-      body: Stack(
+      backgroundColor: ivory,
+      appBar: _buildAppBar(),
+      body: Column(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildGeneralSection(isBusy),
-                  const Divider(height: 32),
-                  _buildEducationSection(),
-                  const Divider(height: 32),
-                  _buildCareerSection(),
-                  const Divider(height: 32),
-                  _buildAchievementSection(),
-                  const Divider(height: 32),
-                  _buildPhotoSection(),
-                  const Divider(height: 32),
-                  _buildVideoSection(),
-                  const Divider(height: 32),
-                  _buildDocumentSection(),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: isBusy ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(
-                      isEditing ? 'Modifier' : 'Créer',
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (isBusy) const Center(child: CircularProgressIndicator()),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // SECTIONS
-  // ============================================================
-
-  Widget _buildGeneralSection(bool isBusy) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Informations générales', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _categoryController.text.isNotEmpty ? _categoryController.text : null,
-          decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder()),
-          items: [
-            'Président de la République',
-            'Présidence',
-            'Gouvernement',
-            'Assemblée Nationale',
-            'Sénat',
-            'Cours et Tribunaux',
-            'Entreprises Publiques',
-            'Gouverneurs',
-            'Figures Historiques',
-            'Autres'
-          ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-          onChanged: (val) => setState(() => _categoryController.text = val ?? ''),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _nameController,
-          decoration: const InputDecoration(labelText: 'Nom complet *', border: OutlineInputBorder()),
-          validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _titleController,
-          decoration: const InputDecoration(labelText: 'Titre / Fonction *', border: OutlineInputBorder()),
-          validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(labelText: 'Photo de profil (URL)', border: OutlineInputBorder()),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: isBusy ? null : _pickAndUploadImage,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5276),
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _coverImageUrlController,
-                decoration: const InputDecoration(labelText: 'Photo de couverture (URL)', border: OutlineInputBorder()),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: isBusy ? null : _pickAndUploadCover,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5276),
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _partyController,
-          decoration: const InputDecoration(labelText: 'Parti politique', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _mandateController,
-          decoration: const InputDecoration(labelText: 'Mandat (ex: 2019 - 2028)', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _mandateStart ?? DateTime.now(),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime(2100),
+          _buildSearchBar(),
+          _buildCategoryFilters(),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshData,
+              color: navy,
+              child: paginatedState.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: navy),
+                ),
+                error: (error, _) => Center(
+                  child: Text('Erreur: $error', style: const TextStyle(color: danger)),
+                ),
+                data: (result) {
+                  if (result.data.isEmpty) {
+                    return const Center(
+                      child: Text('Aucune autorité enregistrée',
+                          style: TextStyle(color: mutedText)),
+                    );
+                  }
+                  return ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    itemCount: result.data.length + (result.hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= result.data.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      final authority = result.data[index];
+                      return AuthorityCard(
+                        authority: authority,
+                        onTap: () => context.go('/mon-pays/authority/${authority.id}'),
+                      );
+                    },
                   );
-                  if (date != null) setState(() => _mandateStart = date);
                 },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Début du mandat', border: OutlineInputBorder()),
-                  child: Text(_mandateStart != null ? DateFormat('dd/MM/yyyy').format(_mandateStart!) : 'Sélectionner une date'),
-                ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _mandateEnd ?? DateTime.now(),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date != null) setState(() => _mandateEnd = date);
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Fin du mandat', border: OutlineInputBorder()),
-                  child: Text(_mandateEnd != null ? DateFormat('dd/MM/yyyy').format(_mandateEnd!) : 'Sélectionner une date'),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          title: const Text('Actif (mandat en cours)'),
-          value: _isActive,
-          onChanged: (v) => setState(() => _isActive = v),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _biographyController,
-          decoration: const InputDecoration(labelText: 'Biographie', border: OutlineInputBorder()),
-          maxLines: 5,
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _explanationController,
-          decoration: const InputDecoration(labelText: 'Rôle & Explication (Optionnel)', border: OutlineInputBorder()),
-          maxLines: 4,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEducationSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Études', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addEducation, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
-        ),
-        if (_educationList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune étude renseignée', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._educationList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final edu = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(edu.degree),
-              subtitle: Text('${edu.institution} (${edu.startYear ?? ''} - ${edu.endYear ?? 'Présent'})'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeEducation(i),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildCareerSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Parcours professionnel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addCareer, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
-        ),
-        if (_careerList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucun parcours renseigné', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._careerList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final c = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(c.title),
-              subtitle: Text('${c.organization} (${c.startDate} - ${c.endDate ?? 'Présent'})'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeCareer(i),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildAchievementSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Réalisations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addAchievement, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
-        ),
-        if (_achievementList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune réalisation renseignée', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._achievementList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final a = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(a.title),
-              subtitle: Text('${a.category ?? ''} - ${a.date ?? ''}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeAchievement(i),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildPhotoSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Galerie photos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addPhoto, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
-        ),
-        if (_photoList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune photo', style: TextStyle(color: Colors.grey)),
-          ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _photoList.asMap().entries.map((entry) {
-            final i = entry.key;
-            final p = entry.value;
-            return Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    p.url,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.grey.shade300,
-                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                    ),
-                  ),
-                ),
-                if (p.isCover)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      color: Colors.amber,
-                      child: const Text('COUV', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                  ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: GestureDetector(
-                    onTap: () => _removePhoto(i),
-                    child: Container(
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      child: const Icon(Icons.close, size: 16, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVideoSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Vidéos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addVideo, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
-        ),
-        if (_videoList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune vidéo', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._videoList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final v = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: const Icon(Icons.video_library, color: Colors.blue),
-              title: Text(v.title),
-              subtitle: Text(v.url),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeVideo(i),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildDocumentSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Documents', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addDocument, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
-        ),
-        if (_documentList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucun document', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._documentList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final d = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: Icon(
-                d.type == 'PDF' ? Icons.picture_as_pdf :
-                d.type == 'DOC' ? Icons.description :
-                Icons.insert_drive_file,
-                color: Colors.blue,
-              ),
-              title: Text(d.title),
-              subtitle: Text('${d.type} - ${d.url}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeDocument(i),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  // ============================================================
-  // SAUVEGARDE
-  // ============================================================
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final authority = Authority(
-      id: widget.authority?.id ?? '',
-      category: _categoryController.text.trim(),
-      name: _nameController.text.trim(),
-      title: _titleController.text.trim(),
-      imageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
-      coverImageUrl: _coverImageUrlController.text.trim().isEmpty ? null : _coverImageUrlController.text.trim(),
-      biography: _biographyController.text.trim(),
-      explanation: _explanationController.text.trim().isEmpty ? null : _explanationController.text.trim(),
-      mandate: _mandateController.text.trim(),
-      mandateStart: _mandateStart,
-      mandateEnd: _mandateEnd,
-      party: _partyController.text.trim(),
-      isActive: _isActive,
-      education: _educationList,
-      career: _careerList,
-      achievements: _achievementList,
-      photos: _photoList,
-      videos: _videoList,
-      documents: _documentList,
-      speeches: [],
-      publications: [],
-      socialNetworks: {},
-      agenda: [],
-    );
-
-    try {
-      if (widget.authority != null) {
-        await ref.read(adminAuthoritiesProvider.notifier).updateAuthority(authority);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Autorité modifiée avec succès'), backgroundColor: Colors.green),
-        );
-      } else {
-        await ref.read(adminAuthoritiesProvider.notifier).createAuthority(authority);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Autorité créée avec succès'), backgroundColor: Colors.green),
-        );
-      }
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-}
-
-// ============================================================
-// DIALOGUES POUR L'AJOUT DYNAMIQUE
-// ============================================================
-
-class _EducationFormDialog extends StatefulWidget {
-  final void Function(Education) onSave;
-  const _EducationFormDialog({required this.onSave});
-
-  @override
-  State<_EducationFormDialog> createState() => _EducationFormDialogState();
-}
-
-class _EducationFormDialogState extends State<_EducationFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _institutionCtrl = TextEditingController();
-  final _degreeCtrl = TextEditingController();
-  final _fieldCtrl = TextEditingController();
-  final _startYearCtrl = TextEditingController();
-  final _endYearCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _institutionCtrl.dispose();
-    _degreeCtrl.dispose();
-    _fieldCtrl.dispose();
-    _startYearCtrl.dispose();
-    _endYearCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Ajouter une étude'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _institutionCtrl,
-                decoration: const InputDecoration(labelText: 'Institution *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _degreeCtrl,
-                decoration: const InputDecoration(labelText: 'Diplôme *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _fieldCtrl,
-                decoration: const InputDecoration(labelText: 'Domaine'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _startYearCtrl,
-                decoration: const InputDecoration(labelText: 'Année début'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _endYearCtrl,
-                decoration: const InputDecoration(labelText: 'Année fin'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSave(
-                Education(
-                  id: '',
-                  institution: _institutionCtrl.text,
-                  degree: _degreeCtrl.text,
-                  field: _fieldCtrl.text.isNotEmpty ? _fieldCtrl.text : null,
-                  startYear: _startYearCtrl.text.isNotEmpty ? _startYearCtrl.text : null,
-                  endYear: _endYearCtrl.text.isNotEmpty ? _endYearCtrl.text : null,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
-      ],
-    );
-  }
-}
-
-class _CareerFormDialog extends StatefulWidget {
-  final void Function(Career) onSave;
-  const _CareerFormDialog({required this.onSave});
-
-  @override
-  State<_CareerFormDialog> createState() => _CareerFormDialogState();
-}
-
-class _CareerFormDialogState extends State<_CareerFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController();
-  final _orgCtrl = TextEditingController();
-  final _startCtrl = TextEditingController();
-  final _endCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _orgCtrl.dispose();
-    _startCtrl.dispose();
-    _endCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Ajouter un parcours'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Titre *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _orgCtrl,
-                decoration: const InputDecoration(labelText: 'Organisation *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _startCtrl,
-                decoration: const InputDecoration(labelText: 'Date début *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _endCtrl,
-                decoration: const InputDecoration(labelText: 'Date fin (vide = présent)'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSave(
-                Career(
-                  id: '',
-                  title: _titleCtrl.text,
-                  organization: _orgCtrl.text,
-                  startDate: _startCtrl.text,
-                  endDate: _endCtrl.text.isNotEmpty ? _endCtrl.text : null,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
-      ],
-    );
-  }
-}
-
-class _AchievementFormDialog extends StatefulWidget {
-  final void Function(Achievement) onSave;
-  const _AchievementFormDialog({required this.onSave});
-
-  @override
-  State<_AchievementFormDialog> createState() => _AchievementFormDialogState();
-}
-
-class _AchievementFormDialogState extends State<_AchievementFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-  final _dateCtrl = TextEditingController();
-  final _categoryCtrl = TextEditingController();
-  final _imageUrlCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _descCtrl.dispose();
-    _dateCtrl.dispose();
-    _categoryCtrl.dispose();
-    _imageUrlCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Ajouter une réalisation'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Titre *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _dateCtrl,
-                decoration: const InputDecoration(labelText: 'Date'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _categoryCtrl.text.isNotEmpty ? _categoryCtrl.text : null,
-                decoration: const InputDecoration(labelText: 'Catégorie'),
-                items: [
-                  'Infrastructure',
-                  'Santé',
-                  'Éducation',
-                  'Agriculture',
-                  'Économie',
-                  'Tourisme',
-                  'Culture',
-                  'Sport',
-                  'Environnement',
-                  'Autre'
-                ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (v) => _categoryCtrl.text = v ?? '',
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _imageUrlCtrl,
-                decoration: const InputDecoration(labelText: 'URL de l\'image'),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSave(
-                Achievement(
-                  id: '',
-                  title: _titleCtrl.text,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                  date: _dateCtrl.text.isNotEmpty ? _dateCtrl.text : null,
-                  category: _categoryCtrl.text.isNotEmpty ? _categoryCtrl.text : null,
-                  imageUrl: _imageUrlCtrl.text.isNotEmpty ? _imageUrlCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
-      ],
-    );
-  }
-}
-
-class _PhotoFormDialog extends StatefulWidget {
-  final void Function(AuthorityPhoto) onSave;
-  const _PhotoFormDialog({required this.onSave});
-
-  @override
-  State<_PhotoFormDialog> createState() => _PhotoFormDialogState();
-}
-
-class _PhotoFormDialogState extends State<_PhotoFormDialog> {
-  final _urlCtrl = TextEditingController();
-  final _titleCtrl = TextEditingController();
-  bool _isCover = false;
-
-  @override
-  void dispose() {
-    _urlCtrl.dispose();
-    _titleCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Ajouter une photo'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextFormField(
-            controller: _urlCtrl,
-            decoration: const InputDecoration(labelText: 'URL *'),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _titleCtrl,
-            decoration: const InputDecoration(labelText: 'Titre'),
-          ),
-          SwitchListTile(
-            title: const Text('Photo de couverture'),
-            value: _isCover,
-            onChanged: (v) => setState(() => _isCover = v),
           ),
         ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_urlCtrl.text.isNotEmpty) {
-              widget.onSave(
-                AuthorityPhoto(
-                  id: '',
-                  url: _urlCtrl.text,
-                  title: _titleCtrl.text.isNotEmpty ? _titleCtrl.text : null,
-                  isCover: _isCover,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
-      ],
     );
   }
-}
 
-class _VideoFormDialog extends StatefulWidget {
-  final void Function(AuthorityVideo) onSave;
-  const _VideoFormDialog({required this.onSave});
-
-  @override
-  State<_VideoFormDialog> createState() => _VideoFormDialogState();
-}
-
-class _VideoFormDialogState extends State<_VideoFormDialog> {
-  final _titleCtrl = TextEditingController();
-  final _urlCtrl = TextEditingController();
-  final _thumbCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _urlCtrl.dispose();
-    _thumbCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Ajouter une vidéo'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _titleCtrl,
-              decoration: const InputDecoration(labelText: 'Titre *'),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _urlCtrl,
-              decoration: const InputDecoration(labelText: 'URL *'),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _thumbCtrl,
-              decoration: const InputDecoration(labelText: 'URL miniature'),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Description'),
-              maxLines: 2,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_titleCtrl.text.isNotEmpty && _urlCtrl.text.isNotEmpty) {
-              widget.onSave(
-                AuthorityVideo(
-                  id: '',
-                  title: _titleCtrl.text,
-                  url: _urlCtrl.text,
-                  thumbnailUrl: _thumbCtrl.text.isNotEmpty ? _thumbCtrl.text : null,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
-      ],
-    );
-  }
-}
-
-class _DocumentFormDialog extends StatefulWidget {
-  final void Function(AuthorityDocument) onSave;
-  const _DocumentFormDialog({required this.onSave});
-
-  @override
-  State<_DocumentFormDialog> createState() => _DocumentFormDialogState();
-}
-
-class _DocumentFormDialogState extends State<_DocumentFormDialog> {
-  final _titleCtrl = TextEditingController();
-  final _urlCtrl = TextEditingController();
-  final _typeCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _urlCtrl.dispose();
-    _typeCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Ajouter un document'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: navyDeep,
+      elevation: 0,
+      title: Row(
         children: [
-          TextFormField(
-            controller: _titleCtrl,
-            decoration: const InputDecoration(labelText: 'Titre *'),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: gold.withOpacity(0.5)),
+            ),
+            child: const Icon(Icons.account_balance_rounded, color: gold, size: 16),
           ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _urlCtrl,
-            decoration: const InputDecoration(labelText: 'URL *'),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _typeCtrl.text.isNotEmpty ? _typeCtrl.text : null,
-            decoration: const InputDecoration(labelText: 'Type *'),
-            items: ['PDF', 'DOC', 'XLS', 'PPT', 'Autre']
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                .toList(),
-            onChanged: (v) => _typeCtrl.text = v ?? '',
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _descCtrl,
-            decoration: const InputDecoration(labelText: 'Description'),
-            maxLines: 2,
-          ),
+          const SizedBox(width: 10),
+          const Text('Autorités', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_titleCtrl.text.isNotEmpty && _urlCtrl.text.isNotEmpty && _typeCtrl.text.isNotEmpty) {
-              widget.onSave(
-                AuthorityDocument(
-                  id: '',
-                  title: _titleCtrl.text,
-                  url: _urlCtrl.text,
-                  type: _typeCtrl.text,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          onPressed: _refreshData,
+          tooltip: 'Actualiser',
         ),
       ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: hairline),
+        ),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Rechercher une autorité…',
+            prefixIcon: const Icon(Icons.search_rounded, color: navy, size: 20),
+            border: InputBorder.none,
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      _applyFilters();
+                    },
+                  )
+                : null,
+          ),
+          onChanged: (_) => _applyFilters(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilters() {
+    return SizedBox(
+      height: 42,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: MonPaysConstants.authorityCategories.length,
+        itemBuilder: (context, index) {
+          final cat = MonPaysConstants.authorityCategories[index];
+          final isSelected = cat == _selectedCategory;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: ChoiceChip(
+              label: Text(cat, style: TextStyle(color: isSelected ? gold : darkText, fontWeight: FontWeight.bold)),
+              selected: isSelected,
+              selectedColor: navyDeep,
+              backgroundColor: pureWhite,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() {
+                    _selectedCategory = cat;
+                  });
+                  _applyFilters();
+                }
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 }
