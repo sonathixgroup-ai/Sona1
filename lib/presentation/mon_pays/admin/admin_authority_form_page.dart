@@ -7,9 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
-import '../../models/authority.dart';
-import '../providers/authorities_provider.dart';
-import '../utils/validators.dart';
+
+// Imports corrigés avec des chemins absolus (sûrs à 100%)
+import 'package:thix_id/presentation/mon_pays/models/authority.dart';
+import 'package:thix_id/presentation/mon_pays/providers/authorities_provider.dart';
+import 'package:thix_id/presentation/mon_pays/utils/validators.dart';
+
 
 class AdminAuthorityFormPage extends ConsumerStatefulWidget {
   final Authority? authority;
