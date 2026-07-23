@@ -15,11 +15,6 @@ import 'package:thix_id/theme.dart';
 // ============================================================================
 // THIX ID — GÉNÉRATION & VALIDATION (déterministe, avec clé de contrôle réelle)
 // ============================================================================
-//
-// Format : THIX-<PAYS>-<MMAA>-<5 chiffres>-<3 lettres>-<clé>
-// La clé de contrôle est calculée à partir des autres segments (checksum),
-// pas tirée au hasard : elle permet de VALIDER un THIX ID a posteriori
-// (ex: scan d'un QR code, support client) sans requête serveur.
 class ThixIdGenerator {
   static const _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   static final _secureRandom = Random.secure();
@@ -55,9 +50,6 @@ class ThixIdGenerator {
     }
   }
 
-  /// Calcule la clé de contrôle (0-9) à partir du corps de l'identifiant.
-  /// Algorithme simple pondéré (type Luhn simplifié) — suffisant pour
-  /// détecter une faute de frappe ou un ID falsifié côté client.
   static int _checkDigit(String body) {
     var sum = 0;
     for (var i = 0; i < body.length; i++) {
@@ -68,9 +60,6 @@ class ThixIdGenerator {
     return sum % 10;
   }
 
-  /// Génère un nouveau THIX ID. Ne garantit pas l'unicité globale à lui
-  /// seul : l'appelant doit retenter en cas de conflit d'unicité en base
-  /// (contrainte UNIQUE requise sur la colonne thix_id).
   static String generate(String countryName) {
     final codePays = _countryCode(countryName);
 
@@ -78,7 +67,7 @@ class ThixIdGenerator {
     final dateStr =
         '${now.month.toString().padLeft(2, '0')}${now.year.toString().substring(2)}';
 
-    final variable = _secureRandom.nextInt(90000) + 10000; // 10000-99999
+    final variable = _secureRandom.nextInt(90000) + 10000;
 
     final codeCompl = String.fromCharCodes(
       Iterable.generate(
@@ -94,8 +83,6 @@ class ThixIdGenerator {
   }
 }
 
-/// Validateur autonome — utilisable ailleurs dans l'app (scan QR, écran
-/// support) sans dépendre du Supabase client.
 class ThixIdValidator {
   static bool isValid(String thixId) {
     final parts = thixId.split('-');
@@ -104,6 +91,167 @@ class ThixIdValidator {
     final expected = ThixIdGenerator._checkDigit(body);
     final actual = int.tryParse(parts[5]);
     return actual != null && actual == expected;
+  }
+}
+
+// ============================================================================
+// DESIGN — champs compacts façon app native
+// ============================================================================
+class _FormColors {
+  static const Color navy = Color(0xFF0A3D62);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color border = Color(0xFFE5E7EB);
+  static const Color fieldBg = Color(0xFFFFFFFF);
+}
+
+class _CompactField extends StatefulWidget {
+  final String label;
+  final String hint;
+  final IconData icon;
+  final TextEditingController controller;
+  final bool isPassword;
+  final TextInputType keyboardType;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  const _CompactField({
+    required this.label,
+    this.hint = '',
+    required this.icon,
+    required this.controller,
+    this.isPassword = false,
+    this.keyboardType = TextInputType.text,
+    this.readOnly = false,
+    this.onTap,
+    this.trailing,
+  });
+
+  @override
+  State<_CompactField> createState() => _CompactFieldState();
+}
+
+class _CompactFieldState extends State<_CompactField> {
+  late bool _obscured = widget.isPassword;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.label,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: _FormColors.navy,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: _FormColors.fieldBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _FormColors.border),
+          ),
+          child: TextField(
+            controller: widget.controller,
+            obscureText: _obscured,
+            keyboardType: widget.keyboardType,
+            readOnly: widget.readOnly,
+            onTap: widget.onTap,
+            style: const TextStyle(fontSize: 13.5, color: _FormColors.navy),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: widget.hint,
+              hintStyle: const TextStyle(fontSize: 13, color: _FormColors.textSecondary),
+              prefixIcon: Icon(widget.icon, size: 17, color: _FormColors.textSecondary),
+              prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 20),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              suffixIcon: widget.trailing ??
+                  (widget.isPassword
+                      ? IconButton(
+                          splashRadius: 16,
+                          icon: Icon(
+                            _obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 16,
+                            color: _FormColors.textSecondary,
+                          ),
+                          onPressed: () => setState(() => _obscured = !_obscured),
+                        )
+                      : null),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactDropdown extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final String? value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+
+  const _CompactDropdown({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: _FormColors.navy,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: _FormColors.fieldBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _FormColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 17, color: _FormColors.textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: value,
+                    isExpanded: true,
+                    isDense: true,
+                    icon: const Icon(Icons.expand_more_rounded, size: 18, color: _FormColors.textSecondary),
+                    style: const TextStyle(fontSize: 13.5, color: _FormColors.navy),
+                    hint: const Text('Sélectionner', style: TextStyle(fontSize: 13, color: _FormColors.textSecondary)),
+                    items: items
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    onChanged: onChanged,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -123,13 +271,11 @@ class PersonalRegistrationPage extends StatefulWidget {
 class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   final _userService = UserService(Supabase.instance.client);
 
-  // ---------- Étape 1 : Profil ----------
   final _nameC = TextEditingController();
   final _dobC = TextEditingController();
   String? _country;
   final _occupationC = TextEditingController();
 
-  // ---------- Étape 2 : Compte et vérification ----------
   final _emailC = TextEditingController();
   final _passwordC = TextEditingController();
   final _confirmC = TextEditingController();
@@ -140,11 +286,11 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   String _uid = '';
   bool _isLoading = false;
   bool _otpSent = false;
-  bool _isNavigating = false; // garde anti double-tap pour la navigation d'étape
+  bool _isNavigating = false;
   int _step = 1;
 
   Timer? _resendTimer;
-  int _resendCooldown = 0; // secondes restantes avant de pouvoir renvoyer l'OTP
+  int _resendCooldown = 0;
   static const int _resendCooldownDuration = 45;
 
   static const List<String> _countryList = [
@@ -187,14 +333,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     );
   }
 
-  // ---------- Traduction des erreurs techniques en messages utilisateur ----------
-  // Les messages bruts de Supabase (codes internes, contraintes SQL...) ne
-  // doivent jamais remonter tels quels à l'utilisateur : on les journalise
-  // pour le debug et on renvoie un message générique et rassurant.
   String _userFacingError(Object e) {
-    if (kDebugMode) {
-      debugPrint('[PersonalRegistration] erreur brute: $e');
-    }
+    debugPrint('[PersonalRegistration] erreur brute: $e');
     if (e is AuthException) {
       final msg = e.message.toLowerCase();
       if (msg.contains('already registered') || msg.contains('already exists')) {
@@ -220,7 +360,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return 'Une erreur inattendue est survenue. Réessayez.';
   }
 
-  // ---------- Validation ----------
   bool _isValidEmail(String email) =>
       RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
 
@@ -233,12 +372,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
   }
 
   bool _isValidThixChat(String chat) {
-    // Format attendu : @ + 3 à 20 caractères parmi lettres minuscules,
-    // chiffres, point et underscore.
     return RegExp(r'^@[a-z0-9._]{3,20}$').hasMatch(chat);
   }
 
-  // ---------- Navigation étape 1 → 2 ----------
   Future<void> _goToStep2() async {
     if (_isNavigating) return;
     final name = _nameC.text.trim();
@@ -269,7 +405,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     });
   }
 
-  // ---------- Envoi du code OTP (inscription) ----------
   Future<void> _sendOtp() async {
     if (_isLoading || _resendCooldown > 0) return;
 
@@ -321,7 +456,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     }
   }
 
-  // ---------- Vérification du code OTP et finalisation ----------
   Future<void> _verifyAndRegister() async {
     if (_isLoading) return;
 
@@ -353,13 +487,8 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         throw Exception('Utilisateur introuvable après vérification.');
       }
 
-      // Réservation du THIX CHAT (unique) — la logique d'unicité est gérée
-      // côté service / contrainte UNIQUE en base.
       final claimed = await _userService.ensureThixChat(uid: me.id, desired: desiredChat);
 
-      // Génération + assignation du THIX ID avec retry en cas de collision.
-      // Nécessite une contrainte UNIQUE sur la colonne thix_id côté Supabase :
-      // en cas de conflit, Postgres renvoie le code d'erreur '23505'.
       const maxAttempts = 5;
       String officialThixId = '';
       var assigned = false;
@@ -376,7 +505,7 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
         } on PostgrestException catch (e) {
           final isUniqueViolation = e.code == '23505';
           if (isUniqueViolation && attempt < maxAttempts - 1) {
-            continue; // collision sur thix_id, on retente avec un nouvel ID
+            continue;
           }
           rethrow;
         }
@@ -405,7 +534,6 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     return candidate.length > 21 ? candidate.substring(0, 21) : candidate;
   }
 
-  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -465,10 +593,10 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
                   const SizedBox(height: 16),
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.06),
@@ -668,85 +796,47 @@ class _Step1Profile extends StatelessWidget {
         const Text(
           'Informations personnelles',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0A3D62),
+            color: _FormColors.navy,
           ),
         ),
-        const SizedBox(height: 16),
-        TextField(
+        const SizedBox(height: 14),
+        _CompactField(
+          label: 'Nom complet *',
+          hint: 'Ex : Jean Mukendi',
+          icon: Icons.person_outline_rounded,
           controller: nameC,
-          decoration: InputDecoration(
-            labelText: 'Nom complet *',
-            prefixIcon: const Icon(Icons.person_outline),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
         ),
-        const SizedBox(height: 12),
-        GestureDetector(
+        const SizedBox(height: 10),
+        _CompactField(
+          label: 'Date de naissance *',
+          hint: 'JJ-MM-AAAA',
+          icon: Icons.calendar_today_rounded,
+          controller: dobC,
+          readOnly: true,
           onTap: onPickDob,
-          child: AbsorbPointer(
-            child: TextField(
-              controller: dobC,
-              decoration: InputDecoration(
-                labelText: 'Date de naissance *',
-                prefixIcon: const Icon(Icons.calendar_today),
-                suffixIcon: const Icon(Icons.arrow_drop_down),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
+          trailing: const Icon(Icons.expand_more_rounded, size: 18, color: _FormColors.textSecondary),
         ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
+        const SizedBox(height: 10),
+        _CompactDropdown(
+          label: 'Pays *',
+          icon: Icons.public_rounded,
           value: country,
-          isExpanded: true,
-          decoration: InputDecoration(
-            labelText: 'Pays *',
-            prefixIcon: const Icon(Icons.public),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          items: const [
-            DropdownMenuItem(
-                value: 'République Démocratique du Congo',
-                child: Text('République Démocratique du Congo')),
-            DropdownMenuItem(value: 'Rwanda', child: Text('Rwanda')),
-            DropdownMenuItem(value: 'Burundi', child: Text('Burundi')),
-            DropdownMenuItem(value: 'Ouganda', child: Text('Ouganda')),
-            DropdownMenuItem(value: 'Angola', child: Text('Angola')),
-            DropdownMenuItem(
-                value: "Côte d'Ivoire", child: Text("Côte d'Ivoire")),
-            DropdownMenuItem(value: 'Sénégal', child: Text('Sénégal')),
-            DropdownMenuItem(value: 'Cameroun', child: Text('Cameroun')),
-            DropdownMenuItem(value: 'France', child: Text('France')),
-            DropdownMenuItem(value: 'Belgique', child: Text('Belgique')),
-            DropdownMenuItem(value: 'Canada', child: Text('Canada')),
-            DropdownMenuItem(value: 'États-Unis', child: Text('États-Unis')),
-            DropdownMenuItem(value: 'Autre', child: Text('Autre')),
-          ],
+          items: _PersonalRegistrationPageState._countryList,
           onChanged: onCountryChanged,
         ),
-        const SizedBox(height: 12),
-        TextField(
+        const SizedBox(height: 10),
+        _CompactField(
+          label: 'Occupation (facultatif)',
+          hint: 'Ex : Étudiant, Entrepreneur...',
+          icon: Icons.work_outline_rounded,
           controller: occupationC,
-          decoration: InputDecoration(
-            labelText: 'Occupation (facultatif)',
-            prefixIcon: const Icon(Icons.work_outline),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           'Ces informations permettront de générer votre identifiant THIX ID unique.',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5),
         ),
       ],
     );
@@ -780,90 +870,74 @@ class _Step2Account extends StatelessWidget {
         const Text(
           'Création du compte',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0A3D62),
+            color: _FormColors.navy,
           ),
         ),
-        const SizedBox(height: 16),
-        TextField(
+        const SizedBox(height: 14),
+        _CompactField(
+          label: 'Email *',
+          hint: 'votre@email.com',
+          icon: Icons.email_outlined,
           controller: emailC,
           keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            labelText: 'Email *',
-            prefixIcon: const Icon(Icons.email_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
         ),
-        const SizedBox(height: 12),
-        TextField(
+        const SizedBox(height: 10),
+        _CompactField(
+          label: 'Mot de passe * (8 car. min, 1 lettre + 1 chiffre)',
+          hint: '••••••••',
+          icon: Icons.lock_outline_rounded,
           controller: passwordC,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Mot de passe * (8 car. min, 1 lettre + 1 chiffre)',
-            prefixIcon: const Icon(Icons.lock_outline),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
+          isPassword: true,
         ),
-        const SizedBox(height: 12),
-        TextField(
+        const SizedBox(height: 10),
+        _CompactField(
+          label: 'Confirmer le mot de passe *',
+          hint: '••••••••',
+          icon: Icons.lock_outline_rounded,
           controller: confirmC,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Confirmer le mot de passe *',
-            prefixIcon: const Icon(Icons.lock_outline),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
+          isPassword: true,
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: canResend ? onSendOtp : null,
-                icon: Icon(
-                  isOtpSent ? Icons.refresh : Icons.send,
-                  size: 18,
-                ),
-                label: Text(
-                  !canResend && resendCooldown > 0
-                      ? 'Renvoyer dans ${resendCooldown}s'
-                      : (isOtpSent ? 'Renvoyer le code OTP' : 'Envoyer le code OTP'),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightModeColors.accent,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: LightModeColors.accent.withValues(alpha: 0.4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 46,
+          child: ElevatedButton.icon(
+            onPressed: canResend ? onSendOtp : null,
+            icon: Icon(
+              isOtpSent ? Icons.refresh_rounded : Icons.send_rounded,
+              size: 16,
+            ),
+            label: Text(
+              !canResend && resendCooldown > 0
+                  ? 'Renvoyer dans ${resendCooldown}s'
+                  : (isOtpSent ? 'Renvoyer le code OTP' : 'Envoyer le code OTP'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: LightModeColors.accent,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: LightModeColors.accent.withValues(alpha: 0.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
-          ],
+          ),
         ),
         if (isOtpSent) ...[
-          const SizedBox(height: 12),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.all(14),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.blue.shade100),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.mark_email_read_outlined, color: Colors.blue.shade700),
-                const SizedBox(width: 10),
+                Icon(Icons.mark_email_read_outlined, color: Colors.blue.shade700, size: 18),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,13 +947,13 @@ class _Step2Account extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.blue.shade800,
                           fontWeight: FontWeight.w700,
-                          fontSize: 13,
+                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Vérifiez aussi vos spams. Le code expire après quelques minutes.',
-                        style: TextStyle(color: Colors.blue.shade700, fontSize: 11.5),
+                        style: TextStyle(color: Colors.blue.shade700, fontSize: 10.5),
                       ),
                     ],
                   ),
@@ -888,34 +962,25 @@ class _Step2Account extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 16),
-        TextField(
+        const SizedBox(height: 14),
+        _CompactField(
+          label: 'Code de vérification reçu par email *',
+          hint: '000000',
+          icon: Icons.confirmation_number_outlined,
           controller: otpC,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'Code de vérification reçu par email *',
-            prefixIcon: const Icon(Icons.confirmation_number_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
         ),
-        const SizedBox(height: 12),
-        TextField(
+        const SizedBox(height: 10),
+        _CompactField(
+          label: 'THIX CHAT (nom d\'utilisateur public) *',
+          hint: '@john_doe_123',
+          icon: Icons.chat_outlined,
           controller: thixChatC,
-          decoration: InputDecoration(
-            labelText: 'THIX CHAT (nom d\'utilisateur public) *',
-            hintText: '@john_doe_123',
-            prefixIcon: const Icon(Icons.chat_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
         ),
         const SizedBox(height: 8),
         Text(
           'Choisissez un identifiant unique pour vos discussions. (3 à 20 caractères : lettres, chiffres, "." ou "_")',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
         ),
       ],
     );
@@ -966,8 +1031,6 @@ class _Step3Final extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        // Liste groupée style natif (une seule carte, lignes séparées par
-        // des dividers) plutôt que 3 blocs colorés séparés.
         _NativeInfoGroup(
           rows: [
             _NativeInfoRow(
@@ -1023,7 +1086,6 @@ class _Step3Final extends StatelessWidget {
   }
 }
 
-/// Ligne d'information réutilisable pour une liste groupée native.
 class _NativeInfoRow {
   final String label;
   final String value;
@@ -1040,9 +1102,6 @@ class _NativeInfoRow {
   });
 }
 
-/// Groupe de lignes façon "Réglages iOS" / Material grouped list :
-/// une seule carte blanche arrondie, lignes séparées par de fins dividers,
-/// icône ronde colorée à gauche, label + valeur, bouton copier à droite.
 class _NativeInfoGroup extends StatelessWidget {
   final List<_NativeInfoRow> rows;
   const _NativeInfoGroup({required this.rows});
