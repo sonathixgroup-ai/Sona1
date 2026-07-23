@@ -1,4 +1,7 @@
-// lib/presentation/mon_pays/services/authorities_service.dart
+// ============================================================
+// FICHIER 2 : lib/presentation/mon_pays/services/authorities_service.dart
+// SERVICE COMPLET AVEC PAGINATION SCALABLE
+// ============================================================
 
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,96 +14,151 @@ class AuthoritiesService {
   // STORAGE (UPLOAD FICHIERS)
   // ============================================================
 
-  Future<String> uploadMedia(String fileName, Uint8List fileBytes, {bool isVideo = false}) async {
+  Future<String> uploadMedia(String fileName, Uint8List fileBytes,
+      {String folder = 'photos'}) async {
     try {
-      final folder = isVideo ? 'videos' : 'photos';
-      final path = 'authorities/$folder/${DateTime.now().millisecondsSinceEpoch}_$fileName';
-      
+      final path =
+          'authorities/$folder/${DateTime.now().millisecondsSinceEpoch}_$fileName';
       await _client.storage.from('media').uploadBinary(
-        path, 
-        fileBytes,
-        fileOptions: FileOptions(
-          upsert: true,
-          contentType: isVideo ? 'video/mp4' : 'image/jpeg',
-        ),
-      );
-      
+            path,
+            fileBytes,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType:
+                  folder == 'videos' ? 'video/mp4' : 'image/jpeg',
+            ),
+          );
       return _client.storage.from('media').getPublicUrl(path);
     } catch (e) {
-      throw Exception('Erreur lors du téléchargement du média: $e');
+      throw Exception('Erreur upload média: $e');
     }
   }
 
   // ============================================================
-  // READ
+  // READ AVEC PAGINATION SCALABLE
   // ============================================================
 
-  Future<List<Authority>> getAuthorities({String? category}) async {
-  try {
-    var query = _client.from('authorities').select('*');
-    
-    // ✅ Filtre sur 'title' (car c'est le champ qui contient la fonction)
-    if (category != null && category != 'Tous' && category != 'Toutes') {
-      query = query.eq('title', category);
-    }
-    
-    final response = await query.order('name');
-    return response.map((json) => Authority.fromJson(json)).toList();
-  } catch (e) {
-    throw Exception('Erreur lors du chargement des autorités: $e');
-  }
-}
-
-  Future<Authority> getAuthorityById(String id) async {
+  /// Récupère les autorités avec pagination et filtres optimisés
+  Future<PaginatedResult<Authority>> getAuthoritiesPaginated({
+    int page = 0,
+    int limit = 20,
+    String? category,
+    String? search,
+    bool? activeOnly,
+  }) async {
     try {
-      final response = await _client.from('authorities').select('*').eq('id', id).single();
+      final offset = page * limit;
+      var query = _client
+          .from('authorities')
+          .select(
+              '*, education:authority_education(*), career:authority_career(*), achievements:authority_achievements(*), photos:authority_photos(*), videos:authority_videos(*), documents:authority_documents(*)',
+              count: CountOption.exact)
+          .range(offset, offset + limit - 1);
+
+      if (category != null && category != 'Tous') {
+        query = query.eq('title', category);
+      }
+
+      if (activeOnly == true) {
+        query = query.eq('is_active', true);
+      } else if (activeOnly == false) {
+        query = query.eq('is_active', false);
+      }
+
+      if (search != null && search.trim().isNotEmpty) {
+        query = query.or('name.ilike.%$search%,title.ilike.%$search%');
+      }
+
+      final response = await query.order('name');
+
+      // Note : le count est accessible via response.length (avec CountOption.exact)
+      final totalCount = response.length;
+      final data = response.map((json) => Authority.fromJson(json)).toList();
+
+      return PaginatedResult(
+        data: data,
+        total: totalCount,
+        page: page,
+        limit: limit,
+        hasMore: (offset + limit) < totalCount,
+      );
+    } catch (e) {
+      throw Exception('Erreur chargement autorités: $e');
+    }
+  }
+
+  /// Récupère une autorité avec toutes ses relations
+  Future<Authority> getAuthorityWithRelations(String id) async {
+    try {
+      final response = await _client
+          .from('authorities')
+          .select(
+              '*, education:authority_education(*), career:authority_career(*), achievements:authority_achievements(*), photos:authority_photos(*), videos:authority_videos(*), documents:authority_documents(*)')
+          .eq('id', id)
+          .single();
       return Authority.fromJson(response);
     } catch (e) {
-      throw Exception('Erreur lors du chargement de l\'autorité: $e');
+      throw Exception('Erreur chargement autorité: $e');
     }
   }
 
-  Future<List<Authority>> searchAuthorities(String query) async {
+  /// Récupère les autorités actives uniquement (pour l'affichage principal)
+  Future<List<Authority>> getActiveAuthorities() async {
     try {
-      if (query.trim().isEmpty) return [];
       final response = await _client
           .from('authorities')
           .select('*')
-          .ilike('name', '%$query%')
+          .eq('is_active', true)
           .order('name');
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
-      throw Exception('Erreur lors de la recherche: $e');
+      throw Exception('Erreur chargement autorités actives: $e');
     }
   }
 
-  Future<List<Authority>> getAuthoritiesByParty(String party) async {
+  /// Récupère les autorités historiques (mandat terminé)
+  Future<List<Authority>> getHistoricalAuthorities() async {
     try {
-      if (party.trim().isEmpty) return [];
-      final response = await _client.from('authorities').select('*').eq('party', party).order('name');
+      final response = await _client
+          .from('authorities')
+          .select('*')
+          .eq('is_active', false)
+          .order('mandate_end', ascending: false);
       return response.map((json) => Authority.fromJson(json)).toList();
     } catch (e) {
-      throw Exception('Erreur lors du chargement par parti: $e');
+      throw Exception('Erreur chargement autorités historiques: $e');
     }
   }
 
   // ============================================================
-  // CREATE & UPDATE & DELETE
+  // CREATE / UPDATE / DELETE
   // ============================================================
 
   Future<Authority> createAuthority(Authority authority) async {
     try {
-      final authData = authority.toJson();
-      if (authData['id'] == null || authData['id'] == '') {
-        authData.remove('id');
-      }
+      final data = authority.toJson();
+      data.remove('id');
+
+      // Détacher les relations pour l'insertion principale
+      data.remove('education');
+      data.remove('career');
+      data.remove('achievements');
+      data.remove('photos');
+      data.remove('videos');
+      data.remove('documents');
 
       final response = await _client
           .from('authorities')
-          .insert(authData)
+          .insert(data)
           .select()
           .single();
-      return Authority.fromJson(response);
+
+      final newAuthority = Authority.fromJson(response);
+
+      // Insérer les relations (education, career, etc.)
+      await _insertRelations(newAuthority.id, authority);
+
+      return await getAuthorityWithRelations(newAuthority.id);
     } catch (e) {
       throw Exception('Erreur lors de la création: $e');
     }
@@ -108,23 +166,126 @@ class AuthoritiesService {
 
   Future<Authority> updateAuthority(Authority authority) async {
     try {
-      final response = await _client
+      final data = authority.toJson();
+      data.remove('education');
+      data.remove('career');
+      data.remove('achievements');
+      data.remove('photos');
+      data.remove('videos');
+      data.remove('documents');
+
+      await _client
           .from('authorities')
-          .update(authority.toJson())
-          .eq('id', authority.id)
-          .select()
-          .single();
-      return Authority.fromJson(response);
+          .update(data)
+          .eq('id', authority.id);
+
+      // Mettre à jour les relations (on supprime et on réinsère)
+      await _deleteRelations(authority.id);
+      await _insertRelations(authority.id, authority);
+
+      return await getAuthorityWithRelations(authority.id);
     } catch (e) {
-      throw Exception('Erreur lors de la mise à jour: $e');
+      throw Exception('Erreur mise à jour: $e');
     }
   }
 
   Future<void> deleteAuthority(String id) async {
     try {
+      await _deleteRelations(id);
       await _client.from('authorities').delete().eq('id', id);
     } catch (e) {
-      throw Exception('Erreur lors de la suppression: $e');
+      throw Exception('Erreur suppression: $e');
     }
   }
+
+  Future<void> archiveAuthority(String id) async {
+    try {
+      await _client
+          .from('authorities')
+          .update({'is_active': false})
+          .eq('id', id);
+    } catch (e) {
+      throw Exception('Erreur archivage: $e');
+    }
+  }
+
+  // ============================================================
+  // RELATIONS PRIVÉES
+  // ============================================================
+
+  Future<void> _insertRelations(String authorityId, Authority authority) async {
+    // Education
+    for (var item in authority.education) {
+      final data = item.toJson();
+      data.remove('id');
+      data['authority_id'] = authorityId;
+      await _client.from('authority_education').insert(data);
+    }
+
+    // Career
+    for (var item in authority.career) {
+      final data = item.toJson();
+      data.remove('id');
+      data['authority_id'] = authorityId;
+      await _client.from('authority_career').insert(data);
+    }
+
+    // Achievements
+    for (var item in authority.achievements) {
+      final data = item.toJson();
+      data.remove('id');
+      data['authority_id'] = authorityId;
+      await _client.from('authority_achievements').insert(data);
+    }
+
+    // Photos
+    for (var item in authority.photos) {
+      final data = item.toJson();
+      data.remove('id');
+      data['authority_id'] = authorityId;
+      await _client.from('authority_photos').insert(data);
+    }
+
+    // Videos
+    for (var item in authority.videos) {
+      final data = item.toJson();
+      data.remove('id');
+      data['authority_id'] = authorityId;
+      await _client.from('authority_videos').insert(data);
+    }
+
+    // Documents
+    for (var item in authority.documents) {
+      final data = item.toJson();
+      data.remove('id');
+      data['authority_id'] = authorityId;
+      await _client.from('authority_documents').insert(data);
+    }
+  }
+
+  Future<void> _deleteRelations(String authorityId) async {
+    await _client.from('authority_education').delete().eq('authority_id', authorityId);
+    await _client.from('authority_career').delete().eq('authority_id', authorityId);
+    await _client.from('authority_achievements').delete().eq('authority_id', authorityId);
+    await _client.from('authority_photos').delete().eq('authority_id', authorityId);
+    await _client.from('authority_videos').delete().eq('authority_id', authorityId);
+    await _client.from('authority_documents').delete().eq('authority_id', authorityId);
+  }
+}
+
+// ---- Classe utilitaire pour la pagination ----
+class PaginatedResult<T> {
+  final List<T> data;
+  final int total;
+  final int page;
+  final int limit;
+  final bool hasMore;
+
+  PaginatedResult({
+    required this.data,
+    required this.total,
+    required this.page,
+    required this.limit,
+    required this.hasMore,
+  });
 }
