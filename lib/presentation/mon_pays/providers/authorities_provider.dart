@@ -1,4 +1,7 @@
-// lib/presentation/mon_pays/providers/authorities_provider.dart
+// ============================================================
+// FICHIER 3 : lib/presentation/mon_pays/providers/authorities_provider.dart
+// PROVIDER AVEC GESTION D'ÉTAT ET PAGINATION
+// ============================================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/authority.dart';
@@ -6,37 +9,95 @@ import '../services/authorities_service.dart';
 
 final authoritiesServiceProvider = Provider((ref) => AuthoritiesService());
 
-// Liste publique par catégorie
-final authoritiesProvider = FutureProvider.family<List<Authority>, String?>((ref, category) async {
-  final service = ref.watch(authoritiesServiceProvider);
-  return service.getAuthorities(category: category);
-});
+// ============================================================
+// PAGINATION AVEC STATE NOTIFIER
+// ============================================================
 
-// Détail d'une autorité
-final authorityDetailProvider = FutureProvider.family<Authority, String>((ref, id) async {
-  final service = ref.watch(authoritiesServiceProvider);
-  return service.getAuthorityById(id);
-});
+final authoritiesPaginatedProvider = StateNotifierProvider<
+    AuthoritiesPaginatedNotifier,
+    AsyncValue<PaginatedResult<Authority>>>(
+  (ref) => AuthoritiesPaginatedNotifier(ref),
+);
 
-// Recherche publique
-final searchAuthoritiesProvider = FutureProvider.family<List<Authority>, String>((ref, query) async {
-  final service = ref.watch(authoritiesServiceProvider);
-  if (query.isEmpty) return [];
-  return service.searchAuthorities(query);
-});
+class AuthoritiesPaginatedNotifier
+    extends StateNotifier<AsyncValue<PaginatedResult<Authority>>> {
+  final Ref _ref;
+  String? _currentCategory;
+  String? _currentSearch;
+  bool? _activeOnly;
+  int _currentPage = 0;
+  final int _limit = 20;
+  bool _hasMore = true;
 
-// Par parti politique
-final authoritiesByPartyProvider = FutureProvider.family<List<Authority>, String>((ref, party) async {
-  final service = ref.watch(authoritiesServiceProvider);
-  return service.getAuthoritiesByParty(party);
-});
+  AuthoritiesPaginatedNotifier(this._ref) : super(const AsyncValue.loading()) {
+    loadFirstPage();
+  }
 
-// ════════════════════════════════════════════════════════════════
-// Hautes Autorités (4 principales)
-// ════════════════════════════════════════════════════════════════
+  Future<void> loadFirstPage({
+    String? category,
+    String? search,
+    bool? activeOnly,
+  }) async {
+    _currentPage = 0;
+    _currentCategory = category;
+    _currentSearch = search;
+    _activeOnly = activeOnly;
+    _hasMore = true;
+    await _loadPage();
+  }
+
+  Future<void> loadNextPage() async {
+    if (!_hasMore) return;
+    _currentPage++;
+    await _loadPage(append: true);
+  }
+
+  Future<void> refreshData() async {
+    _currentPage = 0;
+    _hasMore = true;
+    await _loadPage();
+  }
+
+  Future<void> _loadPage({bool append = false}) async {
+    try {
+      final service = _ref.read(authoritiesServiceProvider);
+      final result = await service.getAuthoritiesPaginated(
+        page: _currentPage,
+        limit: _limit,
+        category: _currentCategory,
+        search: _currentSearch,
+        activeOnly: _activeOnly,
+      );
+
+      _hasMore = result.hasMore;
+
+      if (append && state.hasValue) {
+        final currentData = state.value!;
+        final combined = PaginatedResult(
+          data: [...currentData.data, ...result.data],
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          hasMore: result.hasMore,
+        );
+        state = AsyncValue.data(combined);
+      } else {
+        state = AsyncValue.data(result);
+      }
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+}
+
+// ============================================================
+// AUTRES PROVIDERS
+// ============================================================
+
+/// Les 4 plus hautes autorités (actives)
 final topAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
   final service = ref.watch(authoritiesServiceProvider);
-  final all = await service.getAuthorities();
+  final all = await service.getActiveAuthorities();
   const topTitles = {
     'Président de la République',
     'Président du Sénat',
@@ -46,10 +107,26 @@ final topAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
   return all.where((a) => topTitles.contains(a.title)).toList();
 });
 
-// --- ADMIN STATE NOTIFIER ---
-final adminAuthoritiesProvider = StateNotifierProvider<AdminAuthoritiesNotifier, AsyncValue<List<Authority>>>((ref) {
-  return AdminAuthoritiesNotifier(ref);
+/// Détail d'une autorité avec toutes ses relations
+final authorityDetailProvider = FutureProvider.family<Authority, String>((ref, id) async {
+  final service = ref.watch(authoritiesServiceProvider);
+  return service.getAuthorityWithRelations(id);
 });
+
+/// Autorités historiques (inactives)
+final historicalAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
+  final service = ref.watch(authoritiesServiceProvider);
+  return service.getHistoricalAuthorities();
+});
+
+// ============================================================
+// ADMIN
+// ============================================================
+
+final adminAuthoritiesProvider =
+    StateNotifierProvider<AdminAuthoritiesNotifier, AsyncValue<List<Authority>>>(
+  (ref) => AdminAuthoritiesNotifier(ref),
+);
 
 class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>> {
   final Ref _ref;
@@ -62,7 +139,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     state = const AsyncValue.loading();
     try {
       final service = _ref.read(authoritiesServiceProvider);
-      final list = await service.getAuthorities();
+      final list = await service.getActiveAuthorities();
       state = AsyncValue.data(list);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -73,7 +150,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.createAuthority(authority);
-      _ref.invalidate(authoritiesProvider);
+      _ref.invalidate(topAuthoritiesProvider);
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -84,7 +161,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.updateAuthority(authority);
-      _ref.invalidate(authoritiesProvider);
+      _ref.invalidate(topAuthoritiesProvider);
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -95,7 +172,18 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.deleteAuthority(id);
-      _ref.invalidate(authoritiesProvider);
+      _ref.invalidate(topAuthoritiesProvider);
+      await loadAuthorities();
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> archiveAuthority(String id) async {
+    try {
+      final service = _ref.read(authoritiesServiceProvider);
+      await service.archiveAuthority(id);
+      _ref.invalidate(topAuthoritiesProvider);
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
