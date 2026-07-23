@@ -60,21 +60,22 @@ class _SendPageState extends ConsumerState<SendPage> {
       final db = Supabase.instance.client;
       Map<String, dynamic>? res;
 
+      // Correction : 'photo_url' a été retiré des sélections
       res = await db.from('profiles')
-          .select('thix_id, display_name, photo_url, thix_chat, contact_phone')
+          .select('thix_id, display_name, thix_chat, contact_phone')
           .ilike('thix_id', input)
           .maybeSingle();
 
       if (res == null) {
         res = await db.from('profiles')
-            .select('thix_id, display_name, photo_url, thix_chat, contact_phone')
+            .select('thix_id, display_name, thix_chat, contact_phone')
             .ilike('thix_chat', input.replaceAll('@', ''))
             .maybeSingle();
       }
 
       if (res == null && input.length >= 9) {
         res = await db.from('profiles')
-            .select('thix_id, display_name, photo_url, thix_chat, contact_phone')
+            .select('thix_id, display_name, thix_chat, contact_phone')
             .eq('contact_phone', input)
             .maybeSingle();
       }
