@@ -1,6 +1,4 @@
-// ============================================================
-// FICHIER : lib/presentation/mon_pays/services/authorities_service.dart
-// ============================================================
+// lib/presentation/mon_pays/services/authorities_service.dart
 
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +6,45 @@ import '../models/authority.dart';
 
 class AuthoritiesService {
   final SupabaseClient _client = Supabase.instance.client;
+
+  // ============================================================
+  // ASSISTANT IA (Tavily + Astral IA)
+  // ============================================================
+
+  /// Interroge vos agents IA (Tavily + Astral IA) pour récupérer 
+  /// et structurer les informations d'une personnalité au format JSON
+  Future<Map<String, dynamic>> fetchAuthorityDataWithAi(String query) async {
+    try {
+      // ⚠️ Branchez ici votre appel HTTP vers votre backend ou votre service IA existant
+      // Exemple :
+      // final response = await http.post(
+      //   Uri.parse('VOTRE_ENDPOINT_API_THIX_IA'),
+      //   headers: {'Authorization': 'Bearer VOTRE_TOKEN', 'Content-Type': 'application/json'},
+      //   body: jsonEncode({'query': query, 'use_tavily': true}),
+      // );
+      // if (response.statusCode == 200) {
+      //   return jsonDecode(response.body);
+      // }
+
+      // Simulation en attendant le raccordement de vos endpoints :
+      await Future.delayed(const Duration(seconds: 2));
+
+      return {
+        'name': query,
+        'title': 'Ministre / Haute Autorité',
+        'category': 'Gouvernement',
+        'biography': 'Biographie officielle récupérée et recoupée par Tavily et structurée par Astral IA.',
+        'mandate': '2024 - Présent',
+        'party': 'Union Sacrée',
+        'imageUrl': 'https://i.pravatar.cc/300?u=$query',
+        'education': [],
+        'career': [],
+        'achievements': [],
+      };
+    } catch (e) {
+      throw Exception('Erreur de l\'assistant Thix IA: $e');
+    }
+  }
 
   // ============================================================
   // STORAGE (UPLOAD FICHIERS)
@@ -48,14 +85,12 @@ class AuthoritiesService {
     try {
       final offset = page * limit;
       
-      // 1. On initialise la requête SANS le .range()
       var query = _client
           .from('authorities')
           .select(
               '*, education:authority_education(*), career:authority_career(*), achievements:authority_achievements(*), photos:authority_photos(*), videos:authority_videos(*), documents:authority_documents(*)'
           );
 
-      // 2. On applique tous les filtres d'abord
       if (category != null && category != 'Tous') {
         query = query.eq('title', category);
       }
@@ -68,10 +103,8 @@ class AuthoritiesService {
         query = query.or('name.ilike.%$search%,title.ilike.%$search%');
       }
 
-      // 3. On applique l'ordre et la pagination (.order et .range) à la fin
       final response = await query.order('name').range(offset, offset + limit - 1);
 
-      // Requête séparée pour le total
       var countQuery = _client.from('authorities').select();
       if (category != null && category != 'Tous') {
         countQuery = countQuery.eq('title', category);
@@ -153,7 +186,6 @@ class AuthoritiesService {
       final data = authority.toJson();
       data.remove('id');
 
-      // Détacher les relations pour l'insertion principale
       data.remove('education');
       data.remove('career');
       data.remove('achievements');
@@ -169,7 +201,6 @@ class AuthoritiesService {
 
       final newAuthority = Authority.fromJson(response);
 
-      // Insérer les relations (education, career, etc.)
       await _insertRelations(newAuthority.id, authority);
 
       return await getAuthorityWithRelations(newAuthority.id);
@@ -193,7 +224,6 @@ class AuthoritiesService {
           .update(data)
           .eq('id', authority.id);
 
-      // Mettre à jour les relations (on supprime et on réinsère)
       await _deleteRelations(authority.id);
       await _insertRelations(authority.id, authority);
 
@@ -228,7 +258,6 @@ class AuthoritiesService {
   // ============================================================
 
   Future<void> _insertRelations(String authorityId, Authority authority) async {
-    // Education
     for (var item in authority.education) {
       final data = item.toJson();
       data.remove('id');
@@ -236,7 +265,6 @@ class AuthoritiesService {
       await _client.from('authority_education').insert(data);
     }
 
-    // Career
     for (var item in authority.career) {
       final data = item.toJson();
       data.remove('id');
@@ -244,7 +272,6 @@ class AuthoritiesService {
       await _client.from('authority_career').insert(data);
     }
 
-    // Achievements
     for (var item in authority.achievements) {
       final data = item.toJson();
       data.remove('id');
@@ -252,7 +279,6 @@ class AuthoritiesService {
       await _client.from('authority_achievements').insert(data);
     }
 
-    // Photos
     for (var item in authority.photos) {
       final data = item.toJson();
       data.remove('id');
@@ -260,7 +286,6 @@ class AuthoritiesService {
       await _client.from('authority_photos').insert(data);
     }
 
-    // Videos
     for (var item in authority.videos) {
       final data = item.toJson();
       data.remove('id');
@@ -268,7 +293,6 @@ class AuthoritiesService {
       await _client.from('authority_videos').insert(data);
     }
 
-    // Documents
     for (var item in authority.documents) {
       final data = item.toJson();
       data.remove('id');
