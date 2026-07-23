@@ -99,25 +99,29 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // OTP
-Future<void> verifyOTP({
-  required String email,
-  required String token,
-}) async {
-  await _auth.verifyOTP(email: email, token: token);
-  notifyListeners();
-}
+  // ==========================================================================
+  // GESTION OTP
+  // ==========================================================================
 
-/// Force le rechargement de l'utilisateur après la vérification OTP
-Future<AppUser> refreshCurrentUser() async {
-  final user = await _auth.refreshCurrentUser();
-  notifyListeners();
-  return user;
-}
+  Future<void> verifyOTP({
+    required String email,
+    required String token,
+  }) async {
+    await _auth.verifyOTP(email: email, token: token);
+    notifyListeners();
+  }
 
-Future<void> resendOTP({
-  required String email,
-}) async {
-  await _auth.resendOTP(email: email);
-  notifyListeners();
-}
+  /// Force le rechargement de l'utilisateur après la vérification OTP
+  Future<AppUser> refreshCurrentUser() async {
+    final user = await _auth.refreshCurrentUser();
+    notifyListeners();
+    return user;
+  }
+
+  Future<void> resendOTP({
+    required String email,
+  }) async {
+    await _auth.resendOTP(email: email);
+    notifyListeners();
+  }
+} 
