@@ -1043,57 +1043,126 @@ class _PhotoFormDialog extends StatefulWidget {
   State<_PhotoFormDialog> createState() => _PhotoFormDialogState();
 }
 
-class _PhotoFormDialogState extends State<_PhotoFormDialog> {
-  final _urlCtrl = TextEditingController();
+// ============================================================
+// DIALOGUE PHOTO AVEC UPLOAD LOCAL
+// ============================================================
+
+class _PhotoFormDialog extends ConsumerStatefulWidget {
+  final void Function(AuthorityPhoto) onSave;
+  const _PhotoFormDialog({required this.onSave});
+
+  @override
+  ConsumerState<_PhotoFormDialog> createState() => _PhotoFormDialogState();
+}
+
+class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
   final _titleCtrl = TextEditingController();
+  String? _uploadedUrl;
   bool _isCover = false;
+  bool _isUploading = false;
 
   @override
   void dispose() {
-    _urlCtrl.dispose();
     _titleCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploading = true);
+        final bytes = result.files.first.bytes!;
+        final name = result.files.first.name;
+
+        // Upload via votre service Supabase
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'gallery');
+
+        setState(() {
+          _uploadedUrl = url;
+          _isUploading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur upload: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter une photo'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextFormField(
-            controller: _urlCtrl,
-            decoration: const InputDecoration(labelText: 'URL *'),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _titleCtrl,
-            decoration: const InputDecoration(labelText: 'Titre'),
-          ),
-          SwitchListTile(
-            title: const Text('Photo de couverture'),
-            value: _isCover,
-            onChanged: (v) => setState(() => _isCover = v),
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Affichage de l'image ou du bouton d'upload
+            if (_uploadedUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(_uploadedUrl!, height: 120, width: double.infinity, fit: BoxFit.cover),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _isUploading ? null : _pickAndUploadPhoto,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Changer la photo'),
+              )
+            ] else ...[
+              ElevatedButton.icon(
+                onPressed: _isUploading ? null : _pickAndUploadPhoto,
+                icon: _isUploading 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.upload_file),
+                label: Text(_isUploading ? 'Upload en cours...' : 'Parcourir les fichiers...'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A5276),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 45),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(labelText: 'Titre de la photo (Optionnel)'),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              title: const Text('Photo de couverture'),
+              value: _isCover,
+              onChanged: (v) => setState(() => _isCover = v),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ElevatedButton(
-          onPressed: () {
-            if (_urlCtrl.text.isNotEmpty) {
-              widget.onSave(
-                AuthorityPhoto(
-                  id: '',
-                  url: _urlCtrl.text,
-                  title: _titleCtrl.text.isNotEmpty ? _titleCtrl.text : null,
-                  isCover: _isCover,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
+          // On désactive le bouton Ajouter si aucune photo n'est uploadée ou si c'est en cours
+          onPressed: _uploadedUrl == null || _isUploading
+              ? null
+              : () {
+                  widget.onSave(
+                    AuthorityPhoto(
+                      id: '',
+                      url: _uploadedUrl!,
+                      title: _titleCtrl.text.isNotEmpty ? _titleCtrl.text : null,
+                      isCover: _isCover,
+                    ),
+                  );
+                  Navigator.pop(context);
+                },
           child: const Text('Ajouter'),
         ),
       ],
@@ -1101,27 +1170,64 @@ class _PhotoFormDialogState extends State<_PhotoFormDialog> {
   }
 }
 
-class _VideoFormDialog extends StatefulWidget {
+
+// ============================================================
+// DIALOGUE VIDÉO AVEC UPLOAD LOCAL
+// ============================================================
+
+class _VideoFormDialog extends ConsumerStatefulWidget {
   final void Function(AuthorityVideo) onSave;
   const _VideoFormDialog({required this.onSave});
 
   @override
-  State<_VideoFormDialog> createState() => _VideoFormDialogState();
+  ConsumerState<_VideoFormDialog> createState() => _VideoFormDialogState();
 }
 
-class _VideoFormDialogState extends State<_VideoFormDialog> {
+class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
   final _titleCtrl = TextEditingController();
-  final _urlCtrl = TextEditingController();
   final _thumbCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  
+  String? _uploadedUrl;
+  bool _isUploading = false;
 
   @override
   void dispose() {
     _titleCtrl.dispose();
-    _urlCtrl.dispose();
     _thumbCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadVideo() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.video, // 👉 Filtre spécifique pour les vidéos
+        withData: true,
+      );
+
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploading = true);
+        final bytes = result.files.first.bytes!;
+        final name = result.files.first.name;
+
+        // 👉 Upload via Supabase dans le dossier 'videos'
+        // (Votre méthode uploadMedia gère déjà le contentType 'video/mp4' grâce à ça)
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'videos');
+
+        setState(() {
+          _uploadedUrl = url;
+          _isUploading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur upload vidéo: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
@@ -1135,21 +1241,57 @@ class _VideoFormDialogState extends State<_VideoFormDialog> {
             TextFormField(
               controller: _titleCtrl,
               decoration: const InputDecoration(labelText: 'Titre *'),
+              onChanged: (v) => setState(() {}), // Rafraîchit l'UI pour le bouton Ajouter
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _urlCtrl,
-              decoration: const InputDecoration(labelText: 'URL *'),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            
+            // Affichage vidéo ou bouton d'upload
+            if (_uploadedUrl != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Vidéo uploadée avec succès', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _isUploading ? null : _pickAndUploadVideo,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Changer la vidéo'),
+              )
+            ] else ...[
+              ElevatedButton.icon(
+                onPressed: _isUploading ? null : _pickAndUploadVideo,
+                icon: _isUploading 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.video_call),
+                label: Text(_isUploading ? 'Upload en cours...' : 'Uploader la vidéo...'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A5276),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 45),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            
             TextFormField(
               controller: _thumbCtrl,
-              decoration: const InputDecoration(labelText: 'URL miniature'),
+              decoration: const InputDecoration(labelText: 'URL miniature (Optionnel)'),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Description'),
+              decoration: const InputDecoration(labelText: 'Description (Optionnel)'),
               maxLines: 2,
             ),
           ],
@@ -1158,26 +1300,28 @@ class _VideoFormDialogState extends State<_VideoFormDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ElevatedButton(
-          onPressed: () {
-            if (_titleCtrl.text.isNotEmpty && _urlCtrl.text.isNotEmpty) {
-              widget.onSave(
-                AuthorityVideo(
-                  id: '',
-                  title: _titleCtrl.text,
-                  url: _urlCtrl.text,
-                  thumbnailUrl: _thumbCtrl.text.isNotEmpty ? _thumbCtrl.text : null,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
+          // On s'assure qu'il y a un titre ET une vidéo uploadée
+          onPressed: _titleCtrl.text.isEmpty || _uploadedUrl == null || _isUploading
+              ? null
+              : () {
+                  widget.onSave(
+                    AuthorityVideo(
+                      id: '',
+                      title: _titleCtrl.text,
+                      url: _uploadedUrl!,
+                      thumbnailUrl: _thumbCtrl.text.isNotEmpty ? _thumbCtrl.text : null,
+                      description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
+                    ),
+                  );
+                  Navigator.pop(context);
+                },
           child: const Text('Ajouter'),
         ),
       ],
     );
   }
 }
+
 
 class _DocumentFormDialog extends StatefulWidget {
   final void Function(AuthorityDocument) onSave;
