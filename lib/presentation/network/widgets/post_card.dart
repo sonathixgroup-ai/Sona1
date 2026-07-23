@@ -67,6 +67,7 @@ class _PostCardState extends State<PostCard> {
   final TextEditingController _quoteController = TextEditingController();
 
   static const int _maxContentChars = 250;
+  static const double _cardHorizontalPadding = 14;
 
   static final RegExp _richContentRegex = RegExp(
     r'\{c:(#[0-9A-Fa-f]{6,8})\}([\s\S]*?)\{c\}'
@@ -478,24 +479,32 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
-  // 🚨 BANNIÈRE D'ALERTE FACT-CHECK AUTOMATIQUE
+  // 🚨 BANNIÈRE D'ALERTE FACT-CHECK — pleine largeur, rectangulaire, séparée par des bordures
   Widget _buildFactCheckBanner(bool isMisinformation, String? message) {
     if (!isMisinformation || message == null || message.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 8),
-      padding: const EdgeInsets.all(10),
+      // Marge horizontale négative pour "sortir" du padding de 14 du parent
+      // et venir se coller aux bords intérieurs de la carte (forme rectangulaire, sans espace superflu).
+      margin: const EdgeInsets.symmetric(vertical: 8).copyWith(
+        left: -_cardHorizontalPadding,
+        right: -_cardHorizontalPadding,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: _cardHorizontalPadding, vertical: 9),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
-        border: Border.all(color: Colors.red.shade200),
-        borderRadius: BorderRadius.circular(10),
+        border: Border(
+          top: BorderSide(color: Colors.red.shade200, width: 1),
+          bottom: BorderSide(color: Colors.red.shade200, width: 1),
+        ),
+        // Pas de borderRadius : forme rectangulaire nette, collée aux bords de la carte
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+          const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -506,7 +515,7 @@ class _PostCardState extends State<PostCard> {
                   style: TextStyle(
                     color: Colors.red,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 11.5,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -758,55 +767,58 @@ class _PostCardState extends State<PostCard> {
                 offset: Offset(0, _isPressed ? 2 : 8)),
           ],
         ),
-        child: InkWell(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) => setState(() => _isPressed = false),
-          onTapCancel: () => setState(() => _isPressed = false),
-          onTap: widget.onTap ?? _openPostDetails,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(22),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _buildHeader(isOwner),
-              const SizedBox(height: 12),
-              if (_post.content.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          children: _isExpanded ? (_cachedFullSpans ?? []) : (_cachedTruncatedSpans ?? []),
-                        ),
-                      ),
-                      if (_isTruncatable)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 3),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => setState(() => _isExpanded = !_isExpanded),
-                            child: Text(
-                              _isExpanded ? 'Voir moins' : 'Voir plus',
-                              style: const TextStyle(
-                                  color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700),
-                            ),
+          child: InkWell(
+            onTapDown: (_) => setState(() => _isPressed = true),
+            onTapUp: (_) => setState(() => _isPressed = false),
+            onTapCancel: () => setState(() => _isPressed = false),
+            onTap: widget.onTap ?? _openPostDetails,
+            child: Padding(
+              padding: const EdgeInsets.all(_cardHorizontalPadding),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _buildHeader(isOwner),
+                const SizedBox(height: 12),
+                if (_post.content.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            children: _isExpanded ? (_cachedFullSpans ?? []) : (_cachedTruncatedSpans ?? []),
                           ),
                         ),
-                    ],
+                        if (_isTruncatable)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() => _isExpanded = !_isExpanded),
+                              child: Text(
+                                _isExpanded ? 'Voir moins' : 'Voir plus',
+                                style: const TextStyle(
+                                    color: _PostColors.primary, fontSize: 12.5, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              
-              // 🚨 Intégration automatique de la bannière Fact-Check IA sous le texte
-              _buildFactCheckBanner(_post.isMisinformation, _post.factCheckMessage),
-              const SizedBox(height: 4),
 
-              if (_post.imageUrls.isNotEmpty) ...[
-                _buildImageGrid(_post.imageUrls),
-                const SizedBox(height: 12),
-              ],
-              _buildActions(),
-            ]),
+                // 🚨 Bannière Fact-Check IA — pleine largeur, rectangulaire, sous le texte
+                _buildFactCheckBanner(_post.isMisinformation, _post.factCheckMessage),
+
+                if (_post.imageUrls.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _buildImageGrid(_post.imageUrls),
+                  const SizedBox(height: 12),
+                ] else
+                  const SizedBox(height: 4),
+                _buildActions(),
+              ]),
+            ),
           ),
         ),
       ),
