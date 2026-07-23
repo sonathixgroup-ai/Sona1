@@ -1,287 +1,395 @@
-// lib/presentation/mon_pays/sections/authorities_section.dart
-// Section affichant les 4 plus hautes autorités (Président, Sénat, AN, Première Ministre)
+// ============================================================
+// FICHIER CORRIGÉ : admin_authority_form_page.dart
+// ============================================================
 
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../providers/authorities_provider.dart';
-import '../providers/favorites_provider.dart';
-import '../cards/authority_card.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import '../models/authority.dart';
+import '../providers/authorities_provider.dart';
+import '../utils/validators.dart';
 
-class AuthoritiesSection extends ConsumerWidget {
-  const AuthoritiesSection({super.key});
+class AdminAuthorityFormPage extends ConsumerStatefulWidget {
+  final Authority? authority;
 
-  // Couleurs de la charte
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
-  static const Color gold = Color(0xFFE3B23C);
-  static const Color ivory = Color(0xFFF6F7FB);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color danger = Color(0xFFD64545);
-  static const Color hairline = Color(0xFFE7EAF3);
+  const AdminAuthorityFormPage({super.key, this.authority});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authoritiesAsync = ref.watch(topAuthoritiesProvider);
+  ConsumerState<AdminAuthorityFormPage> createState() => _AdminAuthorityFormPageState();
+}
 
+class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  // ---- Champs principaux ----
+  late TextEditingController _categoryController;
+  late TextEditingController _nameController;
+  late TextEditingController _titleController;
+  late TextEditingController _biographyController;
+  late TextEditingController _explanationController;
+  late TextEditingController _mandateController;
+  late TextEditingController _partyController;
+  late TextEditingController _imageUrlController;
+  late TextEditingController _coverImageUrlController;
+  DateTime? _mandateStart;
+  DateTime? _mandateEnd;
+  bool _isActive = true;
+
+  // ---- Listes dynamiques ----
+  final List<Education> _educationList = [];
+  final List<Career> _careerList = [];
+  final List<Achievement> _achievementList = [];
+  final List<AuthorityPhoto> _photoList = [];
+  final List<AuthorityVideo> _videoList = [];
+  final List<AuthorityDocument> _documentList = [];
+
+  bool _isUploadingFile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final a = widget.authority;
+    _categoryController = TextEditingController(text: a?.category ?? 'Gouvernement');
+    _nameController = TextEditingController(text: a?.name ?? '');
+    _titleController = TextEditingController(text: a?.title ?? '');
+    _biographyController = TextEditingController(text: a?.biography ?? '');
+    _explanationController = TextEditingController(text: a?.explanation ?? '');
+    _mandateController = TextEditingController(text: a?.mandate ?? '');
+    _partyController = TextEditingController(text: a?.party ?? '');
+    _imageUrlController = TextEditingController(text: a?.imageUrl ?? '');
+    _coverImageUrlController = TextEditingController(text: a?.coverImageUrl ?? '');
+    _mandateStart = a?.mandateStart;
+    _mandateEnd = a?.mandateEnd;
+    _isActive = a?.isActive ?? true;
+
+    if (a != null) {
+      _educationList.addAll(a.education);
+      _careerList.addAll(a.career);
+      _achievementList.addAll(a.achievements);
+      _photoList.addAll(a.photos);
+      _videoList.addAll(a.videos);
+      _documentList.addAll(a.documents);
+    }
+  }
+
+  @override
+  void dispose() {
+    _categoryController.dispose();
+    _nameController.dispose();
+    _titleController.dispose();
+    _biographyController.dispose();
+    _explanationController.dispose();
+    _mandateController.dispose();
+    _partyController.dispose();
+    _imageUrlController.dispose();
+    _coverImageUrlController.dispose();
+    super.dispose();
+  }
+
+  // ---- Upload ----
+  Future<void> _pickAndUploadImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploadingFile = true);
+        final bytes = result.files.first.bytes!;
+        final name = result.files.first.name;
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes);
+        setState(() {
+          _imageUrlController.text = url;
+          _isUploadingFile = false;
+        });
+      }
+    } catch (_) {
+      setState(() => _isUploadingFile = false);
+    }
+  }
+
+  Future<void> _pickAndUploadCover() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploadingFile = true);
+        final bytes = result.files.first.bytes!;
+        final name = result.files.first.name;
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'covers');
+        setState(() {
+          _coverImageUrlController.text = url;
+          _isUploadingFile = false;
+        });
+      }
+    } catch (_) {
+      setState(() => _isUploadingFile = false);
+    }
+  }
+
+  // ---- Ajout / suppression dynamiques ----
+  void _addEducation() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _EducationFormDialog(
+        onSave: (edu) => setState(() => _educationList.add(edu)),
+      ),
+    );
+  }
+
+  void _addCareer() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _CareerFormDialog(
+        onSave: (career) => setState(() => _careerList.add(career)),
+      ),
+    );
+  }
+
+  void _addAchievement() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _AchievementFormDialog(
+        onSave: (ach) => setState(() => _achievementList.add(ach)),
+      ),
+    );
+  }
+
+  void _addPhoto() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _PhotoFormDialog(
+        onSave: (photo) => setState(() => _photoList.add(photo)),
+      ),
+    );
+  }
+
+  void _addVideo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _VideoFormDialog(
+        onSave: (video) => setState(() => _videoList.add(video)),
+      ),
+    );
+  }
+
+  void _addDocument() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DocumentFormDialog(
+        onSave: (doc) => setState(() => _documentList.add(doc)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSaving = ref.watch(adminAuthoritiesProvider).isLoading;
+    final isBusy = isSaving || _isUploadingFile;
+
+    final isEditing = widget.authority != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? 'Modifier l\'autorité' : 'Nouvelle autorité'),
+        backgroundColor: Colors.red.shade700,
+        foregroundColor: Colors.white,
+      ),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildGeneralSection(isBusy),
+                  const Divider(height: 32),
+                  _buildEducationSection(),
+                  const Divider(height: 32),
+                  _buildCareerSection(),
+                  const Divider(height: 32),
+                  _buildAchievementSection(),
+                  const Divider(height: 32),
+                  _buildPhotoSection(),
+                  const Divider(height: 32),
+                  _buildVideoSection(),
+                  const Divider(height: 32),
+                  _buildDocumentSection(),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: isBusy ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      isEditing ? 'Modifier' : 'Créer',
+                      style: const TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isBusy) const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+
+  // ---- Sections (avec paramètre isBusy) ----
+  Widget _buildGeneralSection(bool isBusy) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: navy.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance,
-                      color: navy,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '🏛 Autorités',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              InkWell(
-                onTap: () {
-                  context.push('/mon-pays/authorities');
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: navy.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    children: [
-                      Text(
-                        'Voir tout',
-                        style: TextStyle(
-                          color: navy,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: navy,
-                        size: 12,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        const Text('Informations générales', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _categoryController.text.isNotEmpty ? _categoryController.text : null,
+          decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder()),
+          items: [
+            'Président de la République',
+            'Présidence',
+            'Gouvernement',
+            'Assemblée Nationale',
+            'Sénat',
+            'Cours et Tribunaux',
+            'Entreprises Publiques',
+            'Gouverneurs',
+            'Figures Historiques',
+            'Autres'
+          ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+          onChanged: (val) => setState(() => _categoryController.text = val ?? ''),
         ),
         const SizedBox(height: 12),
-        authoritiesAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(navy),
-                strokeWidth: 2,
-              ),
-            ),
-          ),
-          error: (error, stack) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: danger.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.error_outline,
-                      color: danger,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Impossible de charger les autorités',
-                    style: TextStyle(
-                      color: mutedText,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      ref.invalidate(topAuthoritiesProvider);
-                    },
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Réessayer'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: navy,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          data: (authorities) {
-            if (authorities.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-                child: const Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 48,
-                        color: mutedText,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Aucune autorité enregistrée',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: mutedText,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Les autorités seront bientôt disponibles',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: mutedText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            // On affiche les 4 autorités en horizontal
-            final displayList = authorities.take(4).toList();
-            return SizedBox(
-              height: 150,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: displayList.length,
-                itemBuilder: (context, index) {
-                  final authority = displayList[index];
-                  return Container(
-                    width: 140,
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      color: pureWhite,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: hairline),
-                      boxShadow: [
-                        BoxShadow(
-                          color: navyDeep.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        context.push('/mon-pays/authority/${authority.id}');
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Photo de profil ou initiales
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: gold, width: 2),
-                                color: ivory,
-                                image: authority.imageUrl != null && authority.imageUrl!.isNotEmpty
-                                    ? DecorationImage(
-                                        image: NetworkImage(authority.imageUrl!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
-                              ),
-                              child: authority.imageUrl == null || authority.imageUrl!.isEmpty
-                                  ? Center(
-                                      child: Text(
-                                        authority.name.isNotEmpty
-                                            ? authority.name[0].toUpperCase()
-                                            : '?',
-                                        style: const TextStyle(
-                                          color: navy,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 22,
-                                        ),
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              authority.name,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: darkText,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              authority.title,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: mutedText,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+        TextFormField(
+          controller: _nameController,
+          decoration: const InputDecoration(labelText: 'Nom complet *', border: OutlineInputBorder()),
+          validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
         ),
-        // Séparateur visuel
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Divider(height: 1),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _titleController,
+          decoration: const InputDecoration(labelText: 'Titre / Fonction *', border: OutlineInputBorder()),
+          validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _imageUrlController,
+                decoration: const InputDecoration(labelText: 'Photo de profil (URL)', border: OutlineInputBorder()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: isBusy ? null : _pickAndUploadImage,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _coverImageUrlController,
+                decoration: const InputDecoration(labelText: 'Photo de couverture (URL)', border: OutlineInputBorder()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: isBusy ? null : _pickAndUploadCover,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _partyController,
+          decoration: const InputDecoration(labelText: 'Parti politique', border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _mandateController,
+          decoration: const InputDecoration(labelText: 'Mandat (ex: 2019 - 2028)', border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _mandateStart ?? DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) setState(() => _mandateStart = date);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Début du mandat', border: OutlineInputBorder()),
+                  child: Text(_mandateStart != null ? DateFormat('dd/MM/yyyy').format(_mandateStart!) : 'Sélectionner une date'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _mandateEnd ?? DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) setState(() => _mandateEnd = date);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Fin du mandat', border: OutlineInputBorder()),
+                  child: Text(_mandateEnd != null ? DateFormat('dd/MM/yyyy').format(_mandateEnd!) : 'Sélectionner une date'),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          title: const Text('Actif (mandat en cours)'),
+          value: _isActive,
+          onChanged: (v) => setState(() => _isActive = v),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _biographyController,
+          decoration: const InputDecoration(labelText: 'Biographie', border: OutlineInputBorder()),
+          maxLines: 5,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _explanationController,
+          decoration: const InputDecoration(labelText: 'Rôle & Explication (Optionnel)', border: OutlineInputBorder()),
+          maxLines: 4,
         ),
       ],
     );
   }
+
+  // ... Les autres sections (Education, Career, Achievements, Photos, Videos, Documents) restent inchangées ...
+  // Elles sont déjà définies dans le code précédent et ne nécessitent pas de paramètre isBusy.
+  // Je les ai omises ici pour la concision, mais elles doivent être présentes dans votre fichier final.
+  // Vous pouvez copier les mêmes que dans la version précédente.
 }
