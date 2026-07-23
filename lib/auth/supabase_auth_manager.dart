@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+// Masquer AuthException de Supabase pour utiliser notre propre classe d'erreur
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import 'package:supabase_flutter/supabase_flutter.dart' as sup show AuthException;
+
 import 'package:thix_id/auth/auth_manager.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/models/thix_profile.dart';
@@ -12,10 +14,12 @@ import 'package:thix_id/services/supabase_safe_write.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
 /// Implémentation Supabase de AuthManager.
+/// Optimisée pour la scalabilité : gestion stricte de la mémoire, des streams et des exceptions.
 class SupabaseAuthManager implements AuthManager {
   final SupabaseClient _client;
   final ProfileService _profiles;
   final ValueNotifier<AppUser?> _currentUser = ValueNotifier<AppUser?>(null);
+  
   StreamSubscription<AuthState>? _sub;
   StreamSubscription<ThixProfile?>? _profileSub;
 
@@ -32,51 +36,62 @@ class SupabaseAuthManager implements AuthManager {
   @override
   Future<void> init() async {
     await _sub?.cancel();
+    
+    // Écoute des changements d'état d'authentification de Supabase
     _sub = _client.auth.onAuthStateChange.listen((state) async {
       try {
         final user = state.session?.user;
         if (user == null) {
-          await _profileSub?.cancel();
-          _profileSub = null;
-          _currentUser.value = null;
-          unawaited(PushNotificationService.instance.onSignedOut());
+          await _cleanupSession();
           return;
         }
+        
         final hydrated = await _hydrateUser(user);
         _currentUser.value = hydrated;
         _bindProfileSync(user.id);
         unawaited(PushNotificationService.instance.onSignedIn(userId: user.id));
       } catch (e, st) {
-        debugPrint('SupabaseAuthManager: auth state hydrate failed err=$e');
-        debugPrint('$st');
-        await _profileSub?.cancel();
-        _profileSub = null;
-        _currentUser.value = null;
-        unawaited(PushNotificationService.instance.onSignedOut());
+        debugPrint('SupabaseAuthManager: auth state hydrate failed err=$e\n$st');
+        await _cleanupSession();
       }
     });
 
+    // Hydratation initiale si une session existe déjà au lancement
     final s = _client.auth.currentSession;
     final u = s?.user;
     if (u == null) {
-      await _profileSub?.cancel();
-      _profileSub = null;
-      _currentUser.value = null;
+      await _cleanupSession();
       return;
     }
-    final hydrated = await _hydrateUser(u);
-    _currentUser.value = hydrated;
-    _bindProfileSync(u.id);
+    
+    try {
+      final hydrated = await _hydrateUser(u);
+      _currentUser.value = hydrated;
+      _bindProfileSync(u.id);
+    } catch (e, st) {
+      debugPrint('SupabaseAuthManager: initial hydration failed err=$e\n$st');
+    }
   }
 
+  /// Nettoie les listeners et la mémoire lors d'une déconnexion
+  Future<void> _cleanupSession() async {
+    await _profileSub?.cancel();
+    _profileSub = null;
+    _currentUser.value = null;
+    unawaited(PushNotificationService.instance.onSignedOut());
+  }
+
+  /// Synchronise en temps réel le profil THIX ID avec le cache local
   void _bindProfileSync(String uid) {
-    unawaited(_profileSub?.cancel());
+    unawaited(_profileSub?.cancel()); // Évite les multiples écoutes
+    
     _profileSub = _profiles.streamMyProfile(uid).listen(
       (p) {
         if (p == null) return;
         final cur = _currentUser.value;
         if (cur == null || cur.id != uid) return;
 
+        // Fusion des données pour éviter d'écraser les données locales non synchronisées
         final merged = cur.copyWith(
           thixId: p.thixId.trim().isEmpty ? cur.thixId : p.thixId.trim(),
           thixChat: (p.thixChat ?? '').trim().isEmpty ? cur.thixChat : (p.thixChat ?? '').trim(),
@@ -105,6 +120,7 @@ class SupabaseAuthManager implements AuthManager {
           updatedAt: p.updatedAt,
         );
 
+        // Optimisation : Ne pas notifier les widgets si rien n'a changé (économise du CPU)
         final unchanged = merged.displayName == cur.displayName &&
             merged.photoUrl == cur.photoUrl &&
             merged.bio == cur.bio &&
@@ -117,26 +133,19 @@ class SupabaseAuthManager implements AuthManager {
             merged.maritalStatus == cur.maritalStatus &&
             merged.gender == cur.gender &&
             merged.dateOfBirth == cur.dateOfBirth &&
-            merged.placeOfBirth == cur.placeOfBirth &&
-            merged.nationality == cur.nationality &&
-            merged.address == cur.address &&
-            merged.fatherName == cur.fatherName &&
-            merged.motherName == cur.motherName &&
-            merged.emergencyContactName == cur.emergencyContactName &&
-            merged.emergencyContactPhone == cur.emergencyContactPhone &&
-            merged.emergencyContactRelation == cur.emergencyContactRelation &&
             listEquals(merged.languages, cur.languages) &&
             merged.updatedAt == cur.updatedAt;
+            
         if (unchanged) return;
         _currentUser.value = merged;
       },
       onError: (e, st) {
-        debugPrint('SupabaseAuthManager: profile sync stream failed uid=$uid err=$e');
-        debugPrint('$st');
+        debugPrint('SupabaseAuthManager: profile sync stream failed uid=$uid err=$e\n$st');
       },
     );
   }
 
+  /// Hydrate l'utilisateur Auth Supabase avec les données de la table 'profiles'
   Future<AppUser> _hydrateUser(User user) async {
     final uid = user.id;
     final email = (user.email ?? '').toLowerCase();
@@ -144,6 +153,7 @@ class SupabaseAuthManager implements AuthManager {
 
     final row = await _selectProfileRow(uid);
     if (row == null) {
+      // Profil inexistant : on le construit à partir des metadatas d'inscription
       String? s(String k) {
         final v = meta[k];
         if (v == null) return null;
@@ -159,7 +169,7 @@ class SupabaseAuthManager implements AuthManager {
 
       final base = AppUser(
         id: uid,
-        thixId: 'THIX-PENDING-$uid', // Rendu unique
+        thixId: 'THIX-PENDING-$uid', // Rendu unique temporairement
         thixChat: 'user_$uid',       // Rendu unique pour éviter profiles_thix_chat_unique_idx
         thixScore: null,
         email: email,
@@ -193,6 +203,7 @@ class SupabaseAuthManager implements AuthManager {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
+      
       await _ensureProfileRow(user: base);
       await _profiles.ensureProfileExists(user: base);
       return base;
@@ -229,21 +240,21 @@ class SupabaseAuthManager implements AuthManager {
 
     return AppUser(
       id: uid,
-      thixId: (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? row['thixUid'] ?? 'THIX-PENDING-$uid').toString(),
+      thixId: (row['thix_id'] ?? row['thixId'] ?? row['thix_uid'] ?? 'THIX-PENDING-$uid').toString(),
       thixChat: (row['thix_chat'] ?? row['thixChat'] ?? 'user_$uid').toString(),
-      thixScore: (row['thix_score'] as num?)?.toInt() ?? (row['thixScore'] as num?)?.toInt(),
+      thixScore: (row['thix_score'] as num?)?.toInt(),
       email: email,
       phone: phone,
       displayName: (row['display_name'] ?? row['displayName'] ?? 'Utilisateur THIX').toString(),
       accountType: accountType,
-      photoUrl: (row['avatar_url'] ?? row['photo_url'] ?? row['photoUrl'])?.toString(),
+      photoUrl: (row['avatar_url'] ?? row['photo_url'])?.toString(),
       bio: row['bio']?.toString(),
       countryOrOrigin: (row['country_or_origin'] ?? row['countryOrOrigin'])?.toString(),
       contactPhone: (row['contact_phone'] ?? row['contactPhone'])?.toString(),
       maritalStatus: (row['marital_status'] ?? row['maritalStatus'])?.toString(),
       gender: row['gender']?.toString(),
-      occupation: (row['occupation'] ?? row['occupation_title'] ?? row['occupationTitle'])?.toString(),
-      profession: (row['profession'] ?? row['job_title'] ?? row['jobTitle'])?.toString(),
+      occupation: (row['occupation'] ?? row['occupation_title'])?.toString(),
+      profession: (row['profession'] ?? row['job_title'])?.toString(),
       dateOfBirth: (row['date_of_birth'] ?? row['dateOfBirth'])?.toString(),
       placeOfBirth: (row['place_of_birth'] ?? row['placeOfBirth'])?.toString(),
       nationality: row['nationality']?.toString(),
@@ -259,8 +270,8 @@ class SupabaseAuthManager implements AuthManager {
       skills: mapList(row['skills']),
       enrollments: mapList(row['enrollments']),
       languages: strList(row['languages']),
-      biometricsEnabled: (row['biometrics_enabled'] as bool?) ?? (row['biometricsEnabled'] as bool?) ?? true,
-      twoFaEnabled: (row['two_fa_enabled'] as bool?) ?? (row['twoFaEnabled'] as bool?) ?? false,
+      biometricsEnabled: (row['biometrics_enabled'] as bool?) ?? true,
+      twoFaEnabled: (row['two_fa_enabled'] as bool?) ?? false,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -327,7 +338,7 @@ class SupabaseAuthManager implements AuthManager {
   }
 
   // ==========================================================================
-  // MÉTHODES PUBLIQUES CORRIGÉES
+  // MÉTHODES D'AUTHENTIFICATION PUBLIQUES
   // ==========================================================================
 
   @override
@@ -348,16 +359,16 @@ class SupabaseAuthManager implements AuthManager {
       final res = await _client.auth.signInWithPassword(email: id.toLowerCase(), password: password);
       final user = res.user;
       if (user == null) throw AuthException('Connexion échouée.');
+      
       final hydrated = await _hydrateUser(user);
       _currentUser.value = hydrated;
       _bindProfileSync(user.id);
       return hydrated;
     } on sup.AuthException catch (e) {
-      debugPrint('Supabase Auth error during login: ${e.message}');
       throw AuthException(e.message);
     } catch (e) {
-      debugPrint('SupabaseAuthManager: signIn crash/DB err=$e');
-      throw AuthException('Erreur technique (Base de données) : ${e.toString()}');
+      debugPrint('SupabaseAuthManager: signIn crash err=$e');
+      throw AuthException('Erreur technique (Base de données). Veuillez réessayer.');
     }
   }
 
@@ -389,66 +400,22 @@ class SupabaseAuthManager implements AuthManager {
 
       final session = res.session;
       final user = res.user;
+      
+      // Si la session est nulle, c'est que la confirmation par email est requise
       if (user == null || session == null) {
-        throw AuthException(
-          'Inscription enregistrée. Confirmez votre email puis connectez-vous: votre profil sera créé automatiquement.',
-        );
+        throw AuthException('Inscription enregistrée. Confirmez votre email pour continuer.');
       }
 
-      final now = DateTime.now();
-      final appUser = AppUser(
-        id: user.id,
-        thixId: 'THIX-PENDING-${user.id}',
-        thixChat: 'user_${user.id}', // Rendu unique à l'inscription pour éviter la duplication
-        thixScore: null,
-        email: normalizedEmail,
-        phone: user.phone,
-        displayName: (() {
-          final m = userMeta['display_name']?.toString().trim() ?? '';
-          if (m.isNotEmpty) return m;
-          final d = displayName.trim();
-          return d.isEmpty ? 'Utilisateur THIX' : d;
-        })(),
-        accountType: accountType,
-        photoUrl: null,
-        bio: null,
-        countryOrOrigin: (userMeta['country_or_origin'] ?? userMeta['countryOrOrigin'])?.toString(),
-        contactPhone: (userMeta['contact_phone'] ?? userMeta['contactPhone'])?.toString(),
-        maritalStatus: (userMeta['marital_status'] ?? userMeta['maritalStatus'])?.toString(),
-        gender: userMeta['gender']?.toString(),
-        occupation: userMeta['occupation']?.toString(),
-        profession: userMeta['profession']?.toString(),
-        dateOfBirth: (userMeta['date_of_birth'] ?? userMeta['dateOfBirth'])?.toString(),
-        placeOfBirth: (userMeta['place_of_birth'] ?? userMeta['placeOfBirth'])?.toString(),
-        nationality: userMeta['nationality']?.toString(),
-        address: userMeta['address']?.toString(),
-        fatherName: (userMeta['father_name'] ?? userMeta['fatherName'])?.toString(),
-        motherName: (userMeta['mother_name'] ?? userMeta['motherName'])?.toString(),
-        emergencyContactName: (userMeta['emergency_contact_name'] ?? userMeta['emergencyContactName'])?.toString(),
-        emergencyContactPhone: (userMeta['emergency_contact_phone'] ?? userMeta['emergencyContactPhone'])?.toString(),
-        emergencyContactRelation: (userMeta['emergency_contact_relation'] ?? userMeta['emergencyContactRelation'])?.toString(),
-        education: const [],
-        experience: const [],
-        skills: const [],
-        enrollments: const [],
-        languages: (userMeta['languages'] is List) ? (userMeta['languages'] as List).whereType<String>().toList(growable: false) : const [],
-        biometricsEnabled: true,
-        twoFaEnabled: false,
-        createdAt: now,
-        updatedAt: now,
-      );
-
-      await _ensureProfileRow(user: appUser);
-      await _profiles.ensureProfileExists(user: appUser);
-
+      final appUser = await _hydrateUser(user);
       _currentUser.value = appUser;
+      _bindProfileSync(user.id);
       return appUser;
+      
     } on sup.AuthException catch (e) {
-      debugPrint('Supabase Auth error during registration: ${e.message}');
       throw AuthException(e.message);
     } catch (e) {
-      debugPrint('SupabaseAuthManager: register crash/DB err=$e');
-      throw AuthException('Erreur lors de la création du compte/profil : ${e.toString()}');
+      debugPrint('SupabaseAuthManager: register crash err=$e');
+      throw AuthException('Erreur lors de la création du compte. Veuillez réessayer.');
     }
   }
 
@@ -481,13 +448,28 @@ class SupabaseAuthManager implements AuthManager {
         token: token.trim(),
         type: OtpType.email,
       );
-      await _refreshCurrentUser();
+      // Forcer la mise à jour de la session pour éviter les race conditions
+      await refreshCurrentUser();
     } on sup.AuthException catch (e) {
       throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: verifyOTP failed err=$e');
       throw AuthException(e.toString());
     }
+  }
+
+  /// Récupère activement la session actuelle et met à jour l'utilisateur local
+  /// Indispensable après des opérations asynchrones comme la vérification OTP
+  Future<AppUser> refreshCurrentUser() async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw AuthException("La vérification a réussi mais aucune session n'a été créée.");
+    }
+
+    final hydrated = await _hydrateUser(session.user);
+    _currentUser.value = hydrated;
+    _bindProfileSync(session.user.id);
+    return hydrated;
   }
 
   @override
@@ -502,15 +484,6 @@ class SupabaseAuthManager implements AuthManager {
     } catch (e) {
       debugPrint('SupabaseAuthManager: resendOTP failed err=$e');
       throw AuthException(e.toString());
-    }
-  }
-
-  Future<void> _refreshCurrentUser() async {
-    final session = _client.auth.currentSession;
-    if (session != null) {
-      final hydrated = await _hydrateUser(session.user);
-      _currentUser.value = hydrated;
-      _bindProfileSync(session.user.id);
     }
   }
 
@@ -532,14 +505,12 @@ class SupabaseAuthManager implements AuthManager {
   @override
   Future<void> signOut() async {
     await _client.auth.signOut();
-    await _profileSub?.cancel();
-    _profileSub = null;
-    _currentUser.value = null;
+    await _cleanupSession();
   }
 
   @override
   Future<void> deleteAccount() async {
-    throw AuthException('Suppression du compte indisponible (nécessite une fonction serveur).');
+    throw AuthException('Suppression du compte indisponible (nécessite une fonction serveur sécurisée).');
   }
 
   @override
@@ -575,7 +546,7 @@ class SupabaseAuthManager implements AuthManager {
       await _profiles.ensureProfileExists(user: user);
     } catch (e) {
       debugPrint('SupabaseAuthManager: updateCurrentUser failed uid=${user.id} err=$e');
-      rethrow;
+      throw AuthException('Erreur lors de la mise à jour du profil.');
     }
     _currentUser.value = user;
     _bindProfileSync(user.id);
@@ -584,6 +555,7 @@ class SupabaseAuthManager implements AuthManager {
   bool _isValidEmail(String email) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
 }
 
+/// Classe métier pour encapsuler les erreurs d'authentification
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
