@@ -172,7 +172,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
       spacing: 8,
       runSpacing: 8,
       children: [
-        _buildBadgeItem(Icons.category, authority.category, navy),
+        _buildBadgeItem(Icons.category, authority.category ?? 'Non défini', navy),
         if (authority.party.isNotEmpty) _buildBadgeItem(Icons.people, authority.party, const Color(0xFF1A5276)),
         if (authority.mandate.isNotEmpty) _buildBadgeItem(Icons.calendar_today, authority.mandate, Colors.orange.shade700),
       ],
