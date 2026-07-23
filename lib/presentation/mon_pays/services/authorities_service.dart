@@ -1,5 +1,6 @@
 // lib/presentation/mon_pays/services/authorities_service.dart
 
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/authority.dart';
@@ -8,38 +9,60 @@ class AuthoritiesService {
   final SupabaseClient _client = Supabase.instance.client;
 
   // ============================================================
-  // ASSISTANT IA (Tavily + Astral IA)
+  // ASSISTANT IA (Tavily + Astral IA) AVEC PROMPT SOLIDE
   // ============================================================
 
-  /// Interroge vos agents IA (Tavily + Astral IA) pour récupérer 
-  /// et structurer les informations d'une personnalité au format JSON
+  /// Interroge vos agents IA (Tavily + Astral IA) avec un prompt structuré
+  /// pour récupérer et formater précisément les informations d'une personnalité
   Future<Map<String, dynamic>> fetchAuthorityDataWithAi(String query) async {
     try {
-      // ⚠️ Branchez ici votre appel HTTP vers votre backend ou votre service IA existant
+      const String systemPrompt = '''
+Tu es l'assistant officiel de la plateforme Thix ID et Mon Pays, spécialisé dans la recherche politique et institutionnelle (RDC et international). 
+Ton rôle est d'analyser la requête utilisateur, d'utiliser la recherche web (Tavily) pour trouver des informations factuelles, vérifiées et à jour sur la personnalité demandée, et de les structurer.
+
+Tu dois impérativement retourner ta réponse sous la forme d'un objet JSON strict, sans markdown (pas de ```json ... ```), avec exactement les clés suivantes :
+
+{
+  "name": "Nom complet et officiel de la personnalité",
+  "title": "Titre ou fonction exacte (ex: Président de la République, Ministre de l'Économie, etc.)",
+  "category": "Doit obligatoirement être l'une de ces valeurs exactes : ['Président de la République', 'Présidence', 'Gouvernement', 'Assemblée Nationale', 'Sénat', 'Cours et Tribunaux', 'Entreprises Publiques', 'Gouverneurs', 'Figures Historiques', 'Autres']",
+  "biography": "Une biographie professionnelle détaillée, factuelle et neutre de 3 à 5 phrases maximum.",
+  "mandate": "La période du mandat au format texte (ex: 2019 - Présent)",
+  "party": "Le parti politique ou regroupement (laisser vide si indépendant ou non applicable)",
+  "imageUrl": "L'URL directe d'une photo officielle de portrait de la personnalité si trouvée, sinon null"
+}
+
+Si tu ne trouves pas une information précise, mets une chaîne vide "" ou null, mais respecte scrupuleusement la structure JSON. N'ajoute aucun commentaire textuel en dehors du JSON.
+''';
+
+      // ⚠️ Remplacez cette section par votre appel HTTP réel vers votre API d'agent Thix IA / Astral IA
       // Exemple :
       // final response = await http.post(
       //   Uri.parse('VOTRE_ENDPOINT_API_THIX_IA'),
       //   headers: {'Authorization': 'Bearer VOTRE_TOKEN', 'Content-Type': 'application/json'},
-      //   body: jsonEncode({'query': query, 'use_tavily': true}),
+      //   body: jsonEncode({
+      //     'system_prompt': systemPrompt,
+      //     'query': query,
+      //     'use_tavily': true,
+      //   }),
       // );
       // if (response.statusCode == 200) {
-      //   return jsonDecode(response.body);
+      //   final decoded = jsonDecode(response.body);
+      //   // Si votre API renvoie une chaîne brute JSON, décodez-la :
+      //   return decoded is String ? jsonDecode(decoded) : decoded;
       // }
 
-      // Simulation en attendant le raccordement de vos endpoints :
+      // Simulation de traitement par l'IA avec un JSON propre respectant le prompt :
       await Future.delayed(const Duration(seconds: 2));
 
       return {
         'name': query,
-        'title': 'Ministre / Haute Autorité',
-        'category': 'Gouvernement',
-        'biography': 'Biographie officielle récupérée et recoupée par Tavily et structurée par Astral IA.',
-        'mandate': '2024 - Présent',
-        'party': 'Union Sacrée',
-        'imageUrl': 'https://i.pravatar.cc/300?u=$query',
-        'education': [],
-        'career': [],
-        'achievements': [],
+        'title': 'Président de la République',
+        'category': 'Président de la République',
+        'biography': 'Personnalité politique majeure de la République Démocratique du Congo, engagée dans la gouvernance et le développement institutionnel du pays.',
+        'mandate': '2019 - Présent',
+        'party': 'UDPS',
+        'imageUrl': null,
       };
     } catch (e) {
       throw Exception('Erreur de l\'assistant Thix IA: $e');
@@ -74,7 +97,6 @@ class AuthoritiesService {
   // READ AVEC PAGINATION SCALABLE
   // ============================================================
 
-  /// Récupère les autorités avec pagination et filtres optimisés
   Future<PaginatedResult<Authority>> getAuthoritiesPaginated({
     int page = 0,
     int limit = 20,
@@ -134,7 +156,6 @@ class AuthoritiesService {
     }
   }
 
-  /// Récupère une autorité avec toutes ses relations
   Future<Authority> getAuthorityWithRelations(String id) async {
     try {
       final response = await _client
@@ -149,7 +170,6 @@ class AuthoritiesService {
     }
   }
 
-  /// Récupère les autorités actives uniquement (pour l'affichage principal)
   Future<List<Authority>> getActiveAuthorities() async {
     try {
       final response = await _client
@@ -163,7 +183,6 @@ class AuthoritiesService {
     }
   }
 
-  /// Récupère les autorités historiques (mandat terminé)
   Future<List<Authority>> getHistoricalAuthorities() async {
     try {
       final response = await _client
@@ -311,7 +330,6 @@ class AuthoritiesService {
   }
 }
 
-// ---- Classe utilitaire pour la pagination ----
 class PaginatedResult<T> {
   final List<T> data;
   final int total;
