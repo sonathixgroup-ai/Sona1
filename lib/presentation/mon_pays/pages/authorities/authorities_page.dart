@@ -35,14 +35,6 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
   static const Color danger = Color(0xFFD64545);
   static const Color hairline = Color(0xFFE7EAF3);
 
-  // Les 4 titres principaux (pour l'affichage)
-  static const Set<String> topTitles = {
-    'Président de la République',
-    'Président du Sénat',
-    'Président de l\'Assemblée Nationale',
-    'Première Ministre',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -77,7 +69,7 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     notifier.loadFirstPage(
       category: category,
       search: search.isEmpty ? null : search,
-      activeOnly: true, // On affiche que les actifs
+      activeOnly: true,
     );
   }
 
@@ -131,7 +123,11 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
                       final authority = result.data[index];
                       return AuthorityCard(
                         authority: authority,
-                        onTap: () => context.go('/mon-pays/authority/${authority.id}'),
+                        onTap: () {
+                          // ✅ Navigation vers le détail
+                          print('🖱️ Clic sur ${authority.name}');
+                          context.go('/mon-pays/authority/${authority.id}');
+                        },
                       );
                     },
                   );
