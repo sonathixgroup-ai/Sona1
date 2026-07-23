@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/authorities_provider.dart';
 import '../../models/authority.dart';
 
@@ -17,7 +18,6 @@ class AuthorityProfilePage extends ConsumerStatefulWidget {
 }
 
 class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
-  // Charte THIX ID (Couleurs)
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
   static const Color gold = Color(0xFFE3B23C);
@@ -40,25 +40,22 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
     );
   }
 
-  // ==================== ÉTAT D'ERREUR ====================
+  // ==================== ÉTAT D'ERREUR (CORRIGÉ) ====================
   Widget _buildErrorState(Object error) {
-    return Scaffold(
-      appBar: AppBar(backgroundColor: navyDeep, foregroundColor: Colors.white),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text('Impossible de charger le profil', style: TextStyle(color: Colors.grey.shade700)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => ref.invalidate(authorityDetailProvider(widget.authorityId)),
-              style: ElevatedButton.styleFrom(backgroundColor: navy),
-              child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          Text('Impossible de charger le profil', style: TextStyle(color: Colors.grey.shade700)),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => ref.invalidate(authorityDetailProvider(widget.authorityId)),
+            style: ElevatedButton.styleFrom(backgroundColor: navy),
+            child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -95,7 +92,6 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                   const SizedBox(height: 24),
                 ],
 
-                // L'affichage des vidéos est maintenant correctement intégré dans la liste
                 if (authority.videos.isNotEmpty) ...[
                   _buildSectionTitle(Icons.video_library, 'Vidéos'),
                   ...authority.videos.map((video) => _buildVideoCard(video)),
@@ -148,9 +144,13 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
           fit: StackFit.expand,
           children: [
             authority.imageUrl != null && authority.imageUrl!.isNotEmpty
-                ? Image.network(authority.imageUrl!, fit: BoxFit.cover)
+                ? CachedNetworkImage(
+                    imageUrl: authority.imageUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(color: Colors.grey.shade300),
+                    errorWidget: (_, __, ___) => Container(color: navy, child: const Icon(Icons.person, size: 100, color: Colors.white24)),
+                  )
                 : Container(color: navy, child: const Icon(Icons.person, size: 100, color: Colors.white24)),
-            // Dégradé noir pour rendre le texte lisible
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -166,7 +166,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
     );
   }
 
-  // ==================== BADGES (Catégorie, Parti, Mandat) ====================
+  // ==================== BADGES ====================
   Widget _buildBadges(Authority authority) {
     return Wrap(
       spacing: 8,
@@ -175,6 +175,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
         _buildBadgeItem(Icons.category, authority.category ?? 'Non défini', navy),
         if (authority.party.isNotEmpty) _buildBadgeItem(Icons.people, authority.party, const Color(0xFF1A5276)),
         if (authority.mandate.isNotEmpty) _buildBadgeItem(Icons.calendar_today, authority.mandate, Colors.orange.shade700),
+        if (!authority.isCurrentlyActive) _buildBadgeItem(Icons.history, 'Mandat terminé', Colors.red),
       ],
     );
   }
@@ -236,7 +237,6 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
     );
   }
 
-  // La méthode _buildVideoCard est maintenant à sa place, hors de la hiérarchie des Widgets
   Widget _buildVideoCard(AuthorityVideo video) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
