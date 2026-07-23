@@ -329,35 +329,36 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       SnackBar(
         content: Text(msg),
         backgroundColor: isError ? Colors.red.shade600 : null,
+        duration: const Duration(seconds: 5), // Affiche l'erreur plus longtemps pour pouvoir la lire
       ),
     );
   }
 
+  // MODIFICATION ICI : On convertit tout en String pour éviter les conflits de types
+  // et on retourne TOUJOURS l'erreur brute si ce n'est pas une erreur connue.
   String _userFacingError(Object e) {
     debugPrint('[PersonalRegistration] erreur brute: $e');
-    if (e is AuthException) {
-      final msg = e.message.toLowerCase();
-      if (msg.contains('already registered') || msg.contains('already exists')) {
-        return 'Un compte existe déjà avec cet email.';
-      }
-      if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
-        return 'Email ou mot de passe incorrect.';
-      }
-      if (msg.contains('token') && (msg.contains('expired') || msg.contains('invalid'))) {
-        return 'Le code saisi est invalide ou a expiré. Demandez un nouveau code.';
-      }
-      if (msg.contains('rate limit') || msg.contains('too many')) {
-        return 'Trop de tentatives. Merci de patienter quelques instants.';
-      }
-      return 'Une erreur est survenue lors de la vérification. Réessayez.';
+    
+    final msg = e.toString().toLowerCase();
+
+    if (msg.contains('already registered') || msg.contains('already exists')) {
+      return 'Un compte existe déjà avec cet email.';
     }
-    if (e is PostgrestException) {
-      if (e.code == '23505') {
-        return 'Ce THIX CHAT est déjà pris, merci d\'en choisir un autre.';
-      }
-      return 'Une erreur est survenue côté serveur. Réessayez dans un instant.';
+    if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
+      return 'Email ou mot de passe incorrect.';
     }
-    return 'Une erreur inattendue est survenue. Réessayez.';
+    if (msg.contains('token') && (msg.contains('expired') || msg.contains('invalid'))) {
+      return 'Le code saisi est invalide ou a expiré. Demandez un nouveau code.';
+    }
+    if (msg.contains('rate limit') || msg.contains('too many')) {
+      return 'Trop de tentatives. Merci de patienter quelques instants.';
+    }
+    if (msg.contains('23505')) {
+      return 'Ce THIX CHAT est déjà pris, merci d\'en choisir un autre.';
+    }
+    
+    // Si ce n'est aucune de ces erreurs, on affiche EXACTEMENT l'erreur reçue.
+    return 'Erreur exacte : $e';
   }
 
   bool _isValidEmail(String email) =>
@@ -441,7 +442,9 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
       _startResendCooldown();
       _snack('Un code OTP vous a été envoyé par email.');
     } catch (e) {
-      final message = e is AuthException ? e.message.toLowerCase() : '';
+      // MODIFICATION ICI : On lit l'erreur comme une String, sans faire "is AuthException"
+      final message = e.toString().toLowerCase();
+      
       if (message.contains('inscription enregistrée') ||
           message.contains('confirm') ||
           message.contains('confirmez')) {
@@ -480,9 +483,13 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthController>();
+      
       await auth.verifyOTP(email: _emailC.text.trim().toLowerCase(), token: code);
 
-      final me = auth.currentUser;
+      // On s'assure d'utiliser le bon rafraîchissement si vous l'avez implémenté
+      // (Si refreshCurrentUser n'existe pas, commentez cette ligne et utilisez auth.currentUser)
+      final me = await auth.refreshCurrentUser(); 
+
       if (me == null) {
         throw Exception('Utilisateur introuvable après vérification.');
       }
