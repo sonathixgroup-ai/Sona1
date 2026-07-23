@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'providers/provinces_provider.dart';
-import 'providers/authorities_provider.dart';
+import 'package:thix_id/presentation/mon_pays/providers/authorities_provider.dart';
 import 'sections/authorities_section.dart';
 
 class MonPaysPage extends ConsumerStatefulWidget {
