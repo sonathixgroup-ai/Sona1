@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
-import '../models/authority.dart';
+import '../../models/authority.dart';
 import '../providers/authorities_provider.dart';
 import '../utils/validators.dart';
 
