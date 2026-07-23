@@ -93,17 +93,36 @@ class AuthoritiesPaginatedNotifier extends StateNotifier<AsyncValue<PaginatedRes
 // AUTRES PROVIDERS PUBLICS
 // ============================================================
 
-/// Les 4 plus hautes autorités (actives)
+/// Les 4 plus hautes autorités (actives) – avec normalisation des titres
 final topAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
   final service = ref.watch(authoritiesServiceProvider);
   final all = await service.getActiveAuthorities();
-  const topTitles = {
-    'Président de la République',
-    'Président du Sénat',
-    'Président de l\'Assemblée Nationale',
-    'Première Ministre',
+
+  // Fonction de normalisation : minuscule, trim, suppression des accents
+  String normalize(String s) {
+    s = s.toLowerCase().trim();
+    const accents = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
+    const sansAccents = 'aaaaaaceeeeiiiinooooouuuuyy';
+    final sb = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final index = accents.indexOf(s[i]);
+      if (index != -1) {
+        sb.write(sansAccents[index]);
+      } else {
+        sb.write(s[i]);
+      }
+    }
+    return sb.toString();
+  }
+
+  final normalizedTitles = <String>{
+    normalize('Président de la République'),
+    normalize('Président du Sénat'),
+    normalize('Président de l\'Assemblée Nationale'),
+    normalize('Première Ministre'),
   };
-  return all.where((a) => topTitles.contains(a.title)).toList();
+
+  return all.where((a) => normalizedTitles.contains(normalize(a.title))).toList();
 });
 
 /// Détail d'une autorité avec toutes ses relations
