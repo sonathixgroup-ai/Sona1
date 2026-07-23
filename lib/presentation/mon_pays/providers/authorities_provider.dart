@@ -31,6 +31,21 @@ final authoritiesByPartyProvider = FutureProvider.family<List<Authority>, String
   return service.getAuthoritiesByParty(party);
 });
 
+// ════════════════════════════════════════════════════════════════
+// Hautes Autorités (4 principales)
+// ════════════════════════════════════════════════════════════════
+final topAuthoritiesProvider = FutureProvider<List<Authority>>((ref) async {
+  final service = ref.watch(authoritiesServiceProvider);
+  final all = await service.getAuthorities();
+  const topTitles = {
+    'Président de la République',
+    'Président du Sénat',
+    'Président de l\'Assemblée Nationale',
+    'Première Ministre',
+  };
+  return all.where((a) => topTitles.contains(a.title)).toList();
+});
+
 // --- ADMIN STATE NOTIFIER ---
 final adminAuthoritiesProvider = StateNotifierProvider<AdminAuthoritiesNotifier, AsyncValue<List<Authority>>>((ref) {
   return AdminAuthoritiesNotifier(ref);
@@ -58,7 +73,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.createAuthority(authority);
-      _ref.invalidate(authoritiesProvider); // Force l'Espace citoyen à s'actualiser
+      _ref.invalidate(authoritiesProvider);
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -69,7 +84,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.updateAuthority(authority);
-      _ref.invalidate(authoritiesProvider); // Force l'Espace citoyen à s'actualiser
+      _ref.invalidate(authoritiesProvider);
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -80,7 +95,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.deleteAuthority(id);
-      _ref.invalidate(authoritiesProvider); // Force l'Espace citoyen à s'actualiser
+      _ref.invalidate(authoritiesProvider);
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
