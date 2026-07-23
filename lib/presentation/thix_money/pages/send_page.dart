@@ -41,7 +41,7 @@ class _SendPageState extends ConsumerState<SendPage> {
   void _onChanged() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      if (_destCtrl.text.trim().length >= 5) {
+      if (_destCtrl.text.trim().length >= 3) {
         _verify();
       } else {
         setState(() => _recipient = null);
@@ -62,7 +62,7 @@ class _SendPageState extends ConsumerState<SendPage> {
 
       res = await db.from('profiles')
           .select('thix_id, display_name, photo_url, thix_chat, contact_phone')
-          .eq('thix_id', input.toUpperCase())
+          .ilike('thix_id', input)
           .maybeSingle();
 
       if (res == null) {
