@@ -1,6 +1,7 @@
 // lib/presentation/mon_pays/admin/admin_authority_form_page.dart
 // Formulaire complet pour la création/modification d'une autorité
 // Avec gestion des études, parcours, réalisations, photos, vidéos, documents, dates de mandat, etc.
+// + Assistant IA (Tavily + Astral IA)
 
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -12,7 +13,6 @@ import 'package:intl/intl.dart';
 import 'package:thix_id/presentation/mon_pays/models/authority.dart';
 import 'package:thix_id/presentation/mon_pays/providers/authorities_provider.dart';
 import 'package:thix_id/presentation/mon_pays/utils/validators.dart';
-
 
 class AdminAuthorityFormPage extends ConsumerStatefulWidget {
   final Authority? authority;
@@ -40,6 +40,9 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   DateTime? _mandateEnd;
   bool _isActive = true;
 
+  // ---- Contrôleur pour la recherche IA ----
+  final TextEditingController _aiSearchController = TextEditingController();
+
   // ---- Listes dynamiques ----
   final List<Education> _educationList = [];
   final List<Career> _careerList = [];
@@ -49,6 +52,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   final List<AuthorityDocument> _documentList = [];
 
   bool _isUploadingFile = false;
+  bool _isAiLoading = false;
 
   @override
   void initState() {
@@ -88,7 +92,53 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     _partyController.dispose();
     _imageUrlController.dispose();
     _coverImageUrlController.dispose();
+    _aiSearchController.dispose();
     super.dispose();
+  }
+
+  // ============================================================
+  // INTEGRATION IA (Tavily + Astral IA)
+  // ============================================================
+
+  Future<void> _fillWithAi() async {
+    final query = _aiSearchController.text.trim();
+    if (query.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez entrer un nom ou un sujet pour l\'IA'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    setState(() => _isAiLoading = true);
+
+    try {
+      // ⚠️ Ici, vous connecterez votre service Tavily / Astral IA existant
+      // Exemple : final aiData = await ref.read(authoritiesServiceProvider).fetchAuthorityDataWithAi(query);
+      
+      // Simulation d'appel API le temps de brancher vos services réels :
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Exemple de remplissage automatique des champs suite au retour de l'IA :
+      setState(() {
+        _nameController.text = query;
+        _biographyController.text = "Biographie générée automatiquement par Thix IA via Tavily pour $query...";
+        _titleController.text = "Ministre / Haute Autorité";
+        _isAiLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Informations pré-remplies avec succès par l\'IA !'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      setState(() => _isAiLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur IA: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   // ============================================================
@@ -221,7 +271,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   @override
   Widget build(BuildContext context) {
     final isSaving = ref.watch(adminAuthoritiesProvider).isLoading;
-    final isBusy = isSaving || _isUploadingFile;
+    final isBusy = isSaving || _isUploadingFile || _isAiLoading;
     final isEditing = widget.authority != null;
 
     return Scaffold(
@@ -239,6 +289,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 👉 CHAMP ASSISTANT IA (Tavily + Astral IA)
+                  if (!isEditing) _buildAiAssistantSection(),
+                  if (!isEditing) const Divider(height: 32),
+
                   _buildGeneralSection(isBusy),
                   const Divider(height: 32),
                   _buildEducationSection(),
@@ -269,14 +323,93 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               ),
             ),
           ),
-          if (isBusy) const Center(child: CircularProgressIndicator()),
+          if (isBusy)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 12),
+                    Text(
+                      _isAiLoading ? 'Thix IA interroge Tavily...' : 'Chargement...',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   // ============================================================
-  // SECTIONS
+  // SECTION ASSISTANT IA
+  // ============================================================
+
+  Widget _buildAiAssistantSection() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F4F8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1A5276).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome, color: Color(0xFF1A5276)),
+              SizedBox(width: 8),
+              Text(
+                'Assistant Thix IA & Tavily',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A5276)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Entrez le nom complet de la personnalité pour pré-remplir automatiquement le formulaire.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _aiSearchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom de la personnalité',
+                    hintText: 'Ex: Félix Tshisekedi',
+                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _isAiLoading ? null : _fillWithAi,
+                icon: const Icon(Icons.psychology),
+                label: const Text('Rechercher'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A5276),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTIONS GENERALES ET DYNAMIQUES
   // ============================================================
 
   Widget _buildGeneralSection(bool isBusy) {
@@ -735,7 +868,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
 }
 
 // ============================================================
-// DIALOGUES POUR L'AJOUT DYNAMIQUE
+// DIALOGUES DYNAMIQUES
 // ============================================================
 
 class _EducationFormDialog extends StatefulWidget {
@@ -1035,18 +1168,6 @@ class _AchievementFormDialogState extends State<_AchievementFormDialog> {
   }
 }
 
-class _PhotoFormDialog extends StatefulWidget {
-  final void Function(AuthorityPhoto) onSave;
-  const _PhotoFormDialog({required this.onSave});
-
-  @override
-  State<_PhotoFormDialog> createState() => _PhotoFormDialogState();
-}
-
-// ============================================================
-// DIALOGUE PHOTO AVEC UPLOAD LOCAL
-// ============================================================
-
 class _PhotoFormDialog extends ConsumerStatefulWidget {
   final void Function(AuthorityPhoto) onSave;
   const _PhotoFormDialog({required this.onSave});
@@ -1166,10 +1287,6 @@ class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
     );
   }
 }
-
-// ============================================================
-// DIALOGUE VIDÉO AVEC UPLOAD LOCAL
-// ============================================================
 
 class _VideoFormDialog extends ConsumerStatefulWidget {
   final void Function(AuthorityVideo) onSave;
@@ -1311,10 +1428,6 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
     );
   }
 }
-
-// ============================================================
-// DIALOGUE DOCUMENT
-// ============================================================
 
 class _DocumentFormDialog extends StatefulWidget {
   final void Function(AuthorityDocument) onSave;
