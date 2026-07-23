@@ -95,11 +95,40 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                   const SizedBox(height: 24),
                 ],
 
-                if (authority.videos.isNotEmpty) ...[
-                  _buildSectionTitle(Icons.video_library, 'Vidéos'),
-                  ...authority.videos.map((url) => _buildLinkCard(url, Icons.play_circle_fill, 'Voir la vidéo')),
-                  const SizedBox(height: 24),
-                ],
+                Widget _buildVideoCard(AuthorityVideo video) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: hairline),
+    ),
+    child: InkWell(
+      onTap: () => _launchUrl(video.url),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: navy.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.play_circle_fill, color: Colors.red, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(video.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (video.description != null) Text(video.description!, style: const TextStyle(fontSize: 12, color: mutedText)),
+              ],
+            ),
+          ),
+          const Icon(Icons.open_in_new, color: mutedText, size: 16),
+        ],
+      ),
+    ),
+  );
+}
 
                 if (authority.publications.isNotEmpty) ...[
                   _buildSectionTitle(Icons.article, 'Publications'),
