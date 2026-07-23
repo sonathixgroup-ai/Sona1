@@ -2,11 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/service_grid.dart';
 import '../providers/wallet_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/wallet_service.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -19,17 +20,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FF),
-      appBar: AppBar(title: const Text('THIX MONEY', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: const Text('Votre argent, votre liberté', style: TextStyle(fontSize: 11)), backgroundColor: Colors.white, elevation: 0),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+          Text('THIX MONEY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text('Votre argent, votre liberté', style: TextStyle(fontSize: 11, color: Colors.grey)),
+        ]),
+      ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(walletStreamProvider),
         child: CustomScrollView(slivers: [
-          SliverToBoxAdapter(child: BalanceCard()),
+          const SliverToBoxAdapter(child: BalanceCard()),
           SliverToBoxAdapter(child: _QuickActions()),
           SliverToBoxAdapter(child: _SummaryCards()),
           const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Dernières transactions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text('Voir tout >', style: TextStyle(color: Colors.blue, fontSize: 12))]))),
           SliverToBoxAdapter(child: _LastTransactions()),
           const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text('Services financiers', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)))),
-          SliverToBoxAdapter(child: ServiceGrid()),
+          const SliverToBoxAdapter(child: ServiceGrid()),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ]),
       ),
@@ -43,10 +51,10 @@ class _QuickActions extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        _Action(icon: Icons.send, label: 'Envoyer', color: Color(0xFFE3F2FD), iconColor: Colors.blue, onTap: () => context.push(AppRoutes.thixMoneySend)),
-        _Action(icon: Icons.add, label: 'Recharger', color: Color(0xFFE8F5E9), iconColor: Colors.green, onTap: () => context.push(AppRoutes.thixMoneyRecharge)),
-        _Action(icon: Icons.qr_code_scanner, label: 'Scanner', color: Color(0xFFEDE7F6), iconColor: Colors.deepPurple, onTap: () => context.push(AppRoutes.thixMoneyScanner)),
-        _Action(icon: Icons.money, label: 'Retrait', color: Color(0xFFFFF3E0), iconColor: Colors.orange, onTap: () => context.push(AppRoutes.thixMoneyRetrait)),
+        _Action(icon: Icons.send, label: 'Envoyer', color: const Color(0xFFE3F2FD), iconColor: Colors.blue, onTap: () => context.push(AppRoutes.thixMoneySend)),
+        _Action(icon: Icons.add, label: 'Recharger', color: const Color(0xFFE8F5E9), iconColor: Colors.green, onTap: () => context.push(AppRoutes.thixMoneyRecharge)),
+        _Action(icon: Icons.qr_code_scanner, label: 'Scanner', color: const Color(0xFFEDE7F6), iconColor: Colors.deepPurple, onTap: () => context.push(AppRoutes.thixMoneyScanner)),
+        _Action(icon: Icons.money, label: 'Retrait', color: const Color(0xFFFFF3E0), iconColor: Colors.orange, onTap: () => context.push(AppRoutes.thixMoneyRetrait)),
       ]),
     );
   }
@@ -84,14 +92,22 @@ class _SumCard extends StatelessWidget {
 class _LastTransactions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder(future: Future(() async {
-      final thixId = await ref.read(ref.read(walletServiceProvider).getVerifiedThixId());
-      return await Supabase.instance.client.from('thix_transactions').select().eq('thix_id', thixId).order('created_at', ascending: false).limit(3);
-    }), builder: (_, snap) {
-      if (!snap.hasData) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
-      final list = snap.data as List;
-      if (list.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('Aucune transaction', style: TextStyle(color: Colors.grey, fontSize: 12)));
-      return Column(children: list.map((e) => ListTile(leading: const CircleAvatar(child: Icon(Icons.receipt, size: 14)), title: Text(e['type'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), subtitle: Text(e['ref_transa'], style: const TextStyle(fontSize: 10)), trailing: Text('${e['montant']} ${e['devise']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))).toList());
-    });
+    final walletService = ref.read(walletServiceProvider);
+    return FutureBuilder<String>(
+      future: walletService.getVerifiedThixId(),
+      builder: (context, thixSnap) {
+        if (!thixSnap.hasData) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
+        final thixId = thixSnap.data!;
+        return FutureBuilder(
+          future: Supabase.instance.client.from('thix_transactions').select().eq('thix_id', thixId).order('created_at', ascending: false).limit(3),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
+            final list = (snap.data as List?) ?? [];
+            if (list.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('Aucune transaction', style: TextStyle(color: Colors.grey, fontSize: 12)));
+            return Column(children: list.map<Widget>((e) => ListTile(leading: const CircleAvatar(child: Icon(Icons.receipt, size: 14)), title: Text(e['type'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), subtitle: Text(e['ref_transa'] ?? '', style: const TextStyle(fontSize: 10)), trailing: Text('${e['montant']} ${e['devise']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))).toList());
+          },
+        );
+      },
+    );
   }
 }
