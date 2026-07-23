@@ -631,30 +631,68 @@ class _AdminAuthoritiesPageState extends ConsumerState<AdminAuthoritiesPage> {
     );
   }
 
-  // ==================== DELETE CONFIRMATION ====================
+// ==================== DELETE CONFIRMATION ====================
 
-  void _showDeleteConfirmation(BuildContext context, String id) {
-    AdminConfirmationDialog.show(
-      context,
-      title: 'Suppression d\'une autorité',
-      message: 'Voulez-vous vraiment supprimer cette autorité ? Cette action est irréversible.',
-      confirmText: 'Supprimer',
-      cancelText: 'Annuler',
-      isDestructive: true,
-    ).then((confirmed) {
-      if (confirmed == true) {
-        ref.read(adminAuthoritiesProvider.notifier).deleteAuthority(id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Autorité supprimée avec succès'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+void _showDeleteConfirmation(BuildContext context, String id) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Confirmer la suppression'),
+      content: const Text(
+        'Voulez-vous vraiment supprimer cette autorité ?\n\nCette action est irréversible.',
+        style: TextStyle(fontSize: 14),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            // Fermer le dialogue
+            Navigator.pop(ctx);
+            // Afficher un indicateur de chargement
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Suppression en cours...'),
+                duration: Duration(milliseconds: 500),
+              ),
+            );
+            try {
+              // Appeler la suppression
+              await ref.read(adminAuthoritiesProvider.notifier).deleteAuthority(id);
+              // Notification de succès
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Autorité supprimée avec succès'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            } catch (e) {
+              // Gestion d'erreur
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Erreur lors de la suppression : ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+            foregroundColor: Colors.white,
           ),
-        );
-      }
-    });
-  }
-
+          child: const Text('Supprimer'),
+        ),
+      ],
+    ),
+  );
+}
   // ==================== HELP DIALOG ====================
 
   void _showHelpDialog(BuildContext context) {
