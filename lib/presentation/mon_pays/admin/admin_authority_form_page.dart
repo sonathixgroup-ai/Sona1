@@ -1,10 +1,13 @@
 // lib/presentation/mon_pays/admin/admin_authority_form_page.dart
+// Formulaire complet pour la création/modification d'une autorité
+// Avec gestion des études, parcours, réalisations, photos, vidéos, documents, dates de mandat, etc.
+
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
-import '../models/authority.dart';
+import '../../models/authority.dart';
 import '../providers/authorities_provider.dart';
 import '../utils/validators.dart';
 
@@ -19,7 +22,7 @@ class AdminAuthorityFormPage extends ConsumerStatefulWidget {
 
 class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage> {
   final _formKey = GlobalKey<FormState>();
-  
+
   // ---- Champs principaux ----
   late TextEditingController _categoryController;
   late TextEditingController _nameController;
@@ -41,9 +44,6 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   final List<AuthorityPhoto> _photoList = [];
   final List<AuthorityVideo> _videoList = [];
   final List<AuthorityDocument> _documentList = [];
-
-  // Contrôleurs pour les formulaires d'ajout (on les recrée à chaque ajout)
-  // On utilisera des maps pour stocker les contrôleurs temporaires
 
   bool _isUploadingFile = false;
 
@@ -88,7 +88,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     super.dispose();
   }
 
-  // ---- Upload ----
+  // ============================================================
+  // UPLOAD FICHIERS
+  // ============================================================
+
   Future<void> _pickAndUploadImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -104,21 +107,49 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
           _imageUrlController.text = url;
           _isUploadingFile = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo de profil uploadée avec succès'), backgroundColor: Colors.green),
+        );
       }
-    } catch (_) {
+    } catch (e) {
       setState(() => _isUploadingFile = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur upload: ${e.toString()}'), backgroundColor: Colors.red),
+      );
     }
   }
 
-  Future<String?> _uploadFile(String fileName, Uint8List bytes, {String folder = 'photos'}) async {
+  Future<void> _pickAndUploadCover() async {
     try {
-      return await ref.read(authoritiesServiceProvider).uploadMedia(fileName, bytes, folder: folder);
-    } catch (_) {
-      return null;
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploadingFile = true);
+        final bytes = result.files.first.bytes!;
+        final name = result.files.first.name;
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'covers');
+        setState(() {
+          _coverImageUrlController.text = url;
+          _isUploadingFile = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo de couverture uploadée avec succès'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploadingFile = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur upload: ${e.toString()}'), backgroundColor: Colors.red),
+      );
     }
   }
 
-  // ---- Ajout / suppression dynamiques ----
+  // ============================================================
+  // AJOUT / SUPPRESSION DYNAMIQUES
+  // ============================================================
+
   void _addEducation() {
     showDialog(
       context: context,
@@ -173,11 +204,22 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     );
   }
 
+  void _removeEducation(int index) => setState(() => _educationList.removeAt(index));
+  void _removeCareer(int index) => setState(() => _careerList.removeAt(index));
+  void _removeAchievement(int index) => setState(() => _achievementList.removeAt(index));
+  void _removePhoto(int index) => setState(() => _photoList.removeAt(index));
+  void _removeVideo(int index) => setState(() => _videoList.removeAt(index));
+  void _removeDocument(int index) => setState(() => _documentList.removeAt(index));
+
+  // ============================================================
+  // BUILD PRINCIPAL
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.authority != null;
     final isSaving = ref.watch(adminAuthoritiesProvider).isLoading;
     final isBusy = isSaving || _isUploadingFile;
+    final isEditing = widget.authority != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -194,7 +236,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildGeneralSection(),
+                  _buildGeneralSection(isBusy),
                   const Divider(height: 32),
                   _buildEducationSection(),
                   const Divider(height: 32),
@@ -230,8 +272,11 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     );
   }
 
-  // ---- Sections ----
-  Widget _buildGeneralSection() {
+  // ============================================================
+  // SECTIONS
+  // ============================================================
+
+  Widget _buildGeneralSection(bool isBusy) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -280,7 +325,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               onPressed: isBusy ? null : _pickAndUploadImage,
               icon: const Icon(Icons.upload_file),
               label: const Text('Upload'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A5276),
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -295,29 +343,13 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
             ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
-              onPressed: isBusy ? null : () async {
-                // upload cover
-                try {
-                  FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
-                  if (result != null && result.files.first.bytes != null) {
-                    setState(() => _isUploadingFile = true);
-                    final url = await ref.read(authoritiesServiceProvider).uploadMedia(
-                      result.files.first.name,
-                      result.files.first.bytes!,
-                      folder: 'covers',
-                    );
-                    setState(() {
-                      _coverImageUrlController.text = url;
-                      _isUploadingFile = false;
-                    });
-                  }
-                } catch (_) {
-                  setState(() => _isUploadingFile = false);
-                }
-              },
+              onPressed: isBusy ? null : _pickAndUploadCover,
               icon: const Icon(Icons.upload_file),
               label: const Text('Upload'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A5276),
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -419,7 +451,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               subtitle: Text('${edu.institution} (${edu.startYear ?? ''} - ${edu.endYear ?? 'Présent'})'),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => setState(() => _educationList.removeAt(i)),
+                onPressed: () => _removeEducation(i),
               ),
             ),
           );
@@ -454,7 +486,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               subtitle: Text('${c.organization} (${c.startDate} - ${c.endDate ?? 'Présent'})'),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => setState(() => _careerList.removeAt(i)),
+                onPressed: () => _removeCareer(i),
               ),
             ),
           );
@@ -489,7 +521,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               subtitle: Text('${a.category ?? ''} - ${a.date ?? ''}'),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => setState(() => _achievementList.removeAt(i)),
+                onPressed: () => _removeAchievement(i),
               ),
             ),
           );
@@ -524,13 +556,34 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(p.url, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Colors.grey)),
+                  child: Image.network(
+                    p.url,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                    ),
+                  ),
                 ),
+                if (p.isCover)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      color: Colors.amber,
+                      child: const Text('COUV', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ),
                 Positioned(
                   right: 0,
                   top: 0,
                   child: GestureDetector(
-                    onTap: () => setState(() => _photoList.removeAt(i)),
+                    onTap: () => _removePhoto(i),
                     child: Container(
                       decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                       child: const Icon(Icons.close, size: 16, color: Colors.white),
@@ -564,13 +617,16 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
         ..._videoList.asMap().entries.map((entry) {
           final i = entry.key;
           final v = entry.value;
-          return ListTile(
-            leading: const Icon(Icons.video_library),
-            title: Text(v.title),
-            subtitle: Text(v.url),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => setState(() => _videoList.removeAt(i)),
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              leading: const Icon(Icons.video_library, color: Colors.blue),
+              title: Text(v.title),
+              subtitle: Text(v.url),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                onPressed: () => _removeVideo(i),
+              ),
             ),
           );
         }),
@@ -597,13 +653,21 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
         ..._documentList.asMap().entries.map((entry) {
           final i = entry.key;
           final d = entry.value;
-          return ListTile(
-            leading: const Icon(Icons.insert_drive_file),
-            title: Text(d.title),
-            subtitle: Text('${d.type} - ${d.url}'),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => setState(() => _documentList.removeAt(i)),
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              leading: Icon(
+                d.type == 'PDF' ? Icons.picture_as_pdf :
+                d.type == 'DOC' ? Icons.description :
+                Icons.insert_drive_file,
+                color: Colors.blue,
+              ),
+              title: Text(d.title),
+              subtitle: Text('${d.type} - ${d.url}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                onPressed: () => _removeDocument(i),
+              ),
             ),
           );
         }),
@@ -611,7 +675,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     );
   }
 
-  // ---- Save ----
+  // ============================================================
+  // SAUVEGARDE
+  // ============================================================
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -644,15 +711,29 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     try {
       if (widget.authority != null) {
         await ref.read(adminAuthoritiesProvider.notifier).updateAuthority(authority);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Autorité modifiée avec succès'), backgroundColor: Colors.green),
+        );
       } else {
         await ref.read(adminAuthoritiesProvider.notifier).createAuthority(authority);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Autorité créée avec succès'), backgroundColor: Colors.green),
+        );
       }
       if (mounted) Navigator.pop(context);
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 
-// ---- Dialogues pour l'ajout dynamique ----
+// ============================================================
+// DIALOGUES POUR L'AJOUT DYNAMIQUE
+// ============================================================
 
 class _EducationFormDialog extends StatefulWidget {
   final void Function(Education) onSave;
@@ -692,12 +773,38 @@ class _EducationFormDialogState extends State<_EducationFormDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(controller: _institutionCtrl, decoration: const InputDecoration(labelText: 'Institution *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
-              TextFormField(controller: _degreeCtrl, decoration: const InputDecoration(labelText: 'Diplôme *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
-              TextFormField(controller: _fieldCtrl, decoration: const InputDecoration(labelText: 'Domaine')),
-              TextFormField(controller: _startYearCtrl, decoration: const InputDecoration(labelText: 'Année début')),
-              TextFormField(controller: _endYearCtrl, decoration: const InputDecoration(labelText: 'Année fin')),
-              TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
+              TextFormField(
+                controller: _institutionCtrl,
+                decoration: const InputDecoration(labelText: 'Institution *'),
+                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _degreeCtrl,
+                decoration: const InputDecoration(labelText: 'Diplôme *'),
+                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _fieldCtrl,
+                decoration: const InputDecoration(labelText: 'Domaine'),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _startYearCtrl,
+                decoration: const InputDecoration(labelText: 'Année début'),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _endYearCtrl,
+                decoration: const InputDecoration(labelText: 'Année fin'),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 2,
+              ),
             ],
           ),
         ),
@@ -728,12 +835,6 @@ class _EducationFormDialogState extends State<_EducationFormDialog> {
   }
 }
 
-// ---- Autres dialogues similaires (Career, Achievement, Photo, Video, Document) ----
-// Pour gagner de la place, on peut les implémenter de manière similaire.
-// Je vais les écrire en version courte pour ne pas alourdir le message.
-
-// (Note : dans un vrai projet, on créerait des widgets séparés, mais ici on va les écrire rapidement)
-
 class _CareerFormDialog extends StatefulWidget {
   final void Function(Career) onSave;
   const _CareerFormDialog({required this.onSave});
@@ -741,10 +842,25 @@ class _CareerFormDialog extends StatefulWidget {
   @override
   State<_CareerFormDialog> createState() => _CareerFormDialogState();
 }
+
 class _CareerFormDialogState extends State<_CareerFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController(), _orgCtrl = TextEditingController(), _startCtrl = TextEditingController(), _endCtrl = TextEditingController(), _descCtrl = TextEditingController();
-  @override void dispose() { _titleCtrl.dispose(); _orgCtrl.dispose(); _startCtrl.dispose(); _endCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
+  final _titleCtrl = TextEditingController();
+  final _orgCtrl = TextEditingController();
+  final _startCtrl = TextEditingController();
+  final _endCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _orgCtrl.dispose();
+    _startCtrl.dispose();
+    _endCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -755,11 +871,34 @@ class _CareerFormDialogState extends State<_CareerFormDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
-              TextFormField(controller: _orgCtrl, decoration: const InputDecoration(labelText: 'Organisation *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
-              TextFormField(controller: _startCtrl, decoration: const InputDecoration(labelText: 'Date début *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
-              TextFormField(controller: _endCtrl, decoration: const InputDecoration(labelText: 'Date fin (vide = présent)')),
-              TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
+              TextFormField(
+                controller: _titleCtrl,
+                decoration: const InputDecoration(labelText: 'Titre *'),
+                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _orgCtrl,
+                decoration: const InputDecoration(labelText: 'Organisation *'),
+                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _startCtrl,
+                decoration: const InputDecoration(labelText: 'Date début *'),
+                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _endCtrl,
+                decoration: const InputDecoration(labelText: 'Date fin (vide = présent)'),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 2,
+              ),
             ],
           ),
         ),
@@ -789,7 +928,6 @@ class _CareerFormDialogState extends State<_CareerFormDialog> {
   }
 }
 
-// Achievement
 class _AchievementFormDialog extends StatefulWidget {
   final void Function(Achievement) onSave;
   const _AchievementFormDialog({required this.onSave});
@@ -797,10 +935,25 @@ class _AchievementFormDialog extends StatefulWidget {
   @override
   State<_AchievementFormDialog> createState() => _AchievementFormDialogState();
 }
+
 class _AchievementFormDialogState extends State<_AchievementFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController(), _descCtrl = TextEditingController(), _dateCtrl = TextEditingController(), _categoryCtrl = TextEditingController(), _imageUrlCtrl = TextEditingController();
-  @override void dispose() { _titleCtrl.dispose(); _descCtrl.dispose(); _dateCtrl.dispose(); _categoryCtrl.dispose(); _imageUrlCtrl.dispose(); super.dispose(); }
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _dateCtrl = TextEditingController();
+  final _categoryCtrl = TextEditingController();
+  final _imageUrlCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _dateCtrl.dispose();
+    _categoryCtrl.dispose();
+    _imageUrlCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -811,17 +964,45 @@ class _AchievementFormDialogState extends State<_AchievementFormDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
-              TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
-              TextFormField(controller: _dateCtrl, decoration: const InputDecoration(labelText: 'Date')),
+              TextFormField(
+                controller: _titleCtrl,
+                decoration: const InputDecoration(labelText: 'Titre *'),
+                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _dateCtrl,
+                decoration: const InputDecoration(labelText: 'Date'),
+              ),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _categoryCtrl.text.isNotEmpty ? _categoryCtrl.text : null,
                 decoration: const InputDecoration(labelText: 'Catégorie'),
-                items: ['Infrastructure', 'Santé', 'Éducation', 'Agriculture', 'Économie', 'Tourisme', 'Culture', 'Sport', 'Environnement', 'Autre']
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: [
+                  'Infrastructure',
+                  'Santé',
+                  'Éducation',
+                  'Agriculture',
+                  'Économie',
+                  'Tourisme',
+                  'Culture',
+                  'Sport',
+                  'Environnement',
+                  'Autre'
+                ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                 onChanged: (v) => _categoryCtrl.text = v ?? '',
               ),
-              TextFormField(controller: _imageUrlCtrl, decoration: const InputDecoration(labelText: 'URL de l\'image')),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _imageUrlCtrl,
+                decoration: const InputDecoration(labelText: 'URL de l\'image'),
+              ),
             ],
           ),
         ),
@@ -851,7 +1032,6 @@ class _AchievementFormDialogState extends State<_AchievementFormDialog> {
   }
 }
 
-// Photo
 class _PhotoFormDialog extends StatefulWidget {
   final void Function(AuthorityPhoto) onSave;
   const _PhotoFormDialog({required this.onSave});
@@ -859,11 +1039,19 @@ class _PhotoFormDialog extends StatefulWidget {
   @override
   State<_PhotoFormDialog> createState() => _PhotoFormDialogState();
 }
+
 class _PhotoFormDialogState extends State<_PhotoFormDialog> {
   final _urlCtrl = TextEditingController();
   final _titleCtrl = TextEditingController();
   bool _isCover = false;
-  @override void dispose() { _urlCtrl.dispose(); _titleCtrl.dispose(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    _titleCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -871,9 +1059,20 @@ class _PhotoFormDialogState extends State<_PhotoFormDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextFormField(controller: _urlCtrl, decoration: const InputDecoration(labelText: 'URL *')),
-          TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre')),
-          SwitchListTile(title: const Text('Photo de couverture'), value: _isCover, onChanged: (v) => setState(() => _isCover = v)),
+          TextFormField(
+            controller: _urlCtrl,
+            decoration: const InputDecoration(labelText: 'URL *'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(labelText: 'Titre'),
+          ),
+          SwitchListTile(
+            title: const Text('Photo de couverture'),
+            value: _isCover,
+            onChanged: (v) => setState(() => _isCover = v),
+          ),
         ],
       ),
       actions: [
@@ -899,7 +1098,6 @@ class _PhotoFormDialogState extends State<_PhotoFormDialog> {
   }
 }
 
-// Video
 class _VideoFormDialog extends StatefulWidget {
   final void Function(AuthorityVideo) onSave;
   const _VideoFormDialog({required this.onSave});
@@ -907,9 +1105,22 @@ class _VideoFormDialog extends StatefulWidget {
   @override
   State<_VideoFormDialog> createState() => _VideoFormDialogState();
 }
+
 class _VideoFormDialogState extends State<_VideoFormDialog> {
-  final _titleCtrl = TextEditingController(), _urlCtrl = TextEditingController(), _thumbCtrl = TextEditingController(), _descCtrl = TextEditingController();
-  @override void dispose() { _titleCtrl.dispose(); _urlCtrl.dispose(); _thumbCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
+  final _titleCtrl = TextEditingController();
+  final _urlCtrl = TextEditingController();
+  final _thumbCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _urlCtrl.dispose();
+    _thumbCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -918,10 +1129,26 @@ class _VideoFormDialogState extends State<_VideoFormDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *')),
-            TextFormField(controller: _urlCtrl, decoration: const InputDecoration(labelText: 'URL *')),
-            TextFormField(controller: _thumbCtrl, decoration: const InputDecoration(labelText: 'URL miniature')),
-            TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
+            TextFormField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(labelText: 'Titre *'),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _urlCtrl,
+              decoration: const InputDecoration(labelText: 'URL *'),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _thumbCtrl,
+              decoration: const InputDecoration(labelText: 'URL miniature'),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _descCtrl,
+              decoration: const InputDecoration(labelText: 'Description'),
+              maxLines: 2,
+            ),
           ],
         ),
       ),
@@ -949,7 +1176,6 @@ class _VideoFormDialogState extends State<_VideoFormDialog> {
   }
 }
 
-// Document
 class _DocumentFormDialog extends StatefulWidget {
   final void Function(AuthorityDocument) onSave;
   const _DocumentFormDialog({required this.onSave});
@@ -957,9 +1183,22 @@ class _DocumentFormDialog extends StatefulWidget {
   @override
   State<_DocumentFormDialog> createState() => _DocumentFormDialogState();
 }
+
 class _DocumentFormDialogState extends State<_DocumentFormDialog> {
-  final _titleCtrl = TextEditingController(), _urlCtrl = TextEditingController(), _typeCtrl = TextEditingController(), _descCtrl = TextEditingController();
-  @override void dispose() { _titleCtrl.dispose(); _urlCtrl.dispose(); _typeCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
+  final _titleCtrl = TextEditingController();
+  final _urlCtrl = TextEditingController();
+  final _typeCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _urlCtrl.dispose();
+    _typeCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -967,15 +1206,30 @@ class _DocumentFormDialogState extends State<_DocumentFormDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *')),
-          TextFormField(controller: _urlCtrl, decoration: const InputDecoration(labelText: 'URL *')),
+          TextFormField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(labelText: 'Titre *'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _urlCtrl,
+            decoration: const InputDecoration(labelText: 'URL *'),
+          ),
+          const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: _typeCtrl.text.isNotEmpty ? _typeCtrl.text : null,
             decoration: const InputDecoration(labelText: 'Type *'),
-            items: ['PDF', 'DOC', 'XLS', 'PPT', 'Autre'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            items: ['PDF', 'DOC', 'XLS', 'PPT', 'Autre']
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
             onChanged: (v) => _typeCtrl.text = v ?? '',
           ),
-          TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _descCtrl,
+            decoration: const InputDecoration(labelText: 'Description'),
+            maxLines: 2,
+          ),
         ],
       ),
       actions: [
