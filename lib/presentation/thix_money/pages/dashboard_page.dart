@@ -435,16 +435,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
   );
 
+   // ==========================================
+  // BOTTOM NAV : VERRE DÉPOLI (CORRIGÉ)
   // ==========================================
-  // BOTTOM NAV : VERRE DÉPOLI (FROSTED GLASS)
-  // ==========================================
-  Widget _nav() => Positioned(
-    bottom: 24,
-    left: 20,
-    right: 20,
-    child: SafeArea(
+  Widget _nav() => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(35), 
           boxShadow: [
@@ -497,7 +494,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ),
     ),
   );
-}
 
 class _NavIcon extends StatelessWidget {
   final IconData icon;
