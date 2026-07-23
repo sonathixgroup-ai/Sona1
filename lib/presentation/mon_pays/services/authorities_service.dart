@@ -1,6 +1,5 @@
 // ============================================================
-// FICHIER 2 : lib/presentation/mon_pays/services/authorities_service.dart
-// SERVICE COMPLET AVEC PAGINATION SCALABLE
+// FICHIER : lib/presentation/mon_pays/services/authorities_service.dart
 // ============================================================
 
 import 'dart:typed_data';
@@ -48,13 +47,15 @@ class AuthoritiesService {
   }) async {
     try {
       final offset = page * limit;
+      
+      // 1. On initialise la requête SANS le .range()
       var query = _client
           .from('authorities')
           .select(
               '*, education:authority_education(*), career:authority_career(*), achievements:authority_achievements(*), photos:authority_photos(*), videos:authority_videos(*), documents:authority_documents(*)'
-          )
-          .range(offset, offset + limit - 1);
+          );
 
+      // 2. On applique tous les filtres d'abord
       if (category != null && category != 'Tous') {
         query = query.eq('title', category);
       }
@@ -67,9 +68,10 @@ class AuthoritiesService {
         query = query.or('name.ilike.%$search%,title.ilike.%$search%');
       }
 
-      final response = await query.order('name');
+      // 3. On applique l'ordre et la pagination (.order et .range) à la fin
+      final response = await query.order('name').range(offset, offset + limit - 1);
 
-      // Requête séparée pour le total (Correction syntaxe Supabase v2)
+      // Requête séparée pour le total
       var countQuery = _client.from('authorities').select();
       if (category != null && category != 'Tous') {
         countQuery = countQuery.eq('title', category);
