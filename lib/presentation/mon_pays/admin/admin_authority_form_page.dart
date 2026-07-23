@@ -1079,7 +1079,6 @@ class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
         final bytes = result.files.first.bytes!;
         final name = result.files.first.name;
 
-        // Upload via votre service Supabase
         final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'gallery');
 
         setState(() {
@@ -1105,7 +1104,6 @@ class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Affichage de l'image ou du bouton d'upload
             if (_uploadedUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -1149,7 +1147,6 @@ class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ElevatedButton(
-          // On désactive le bouton Ajouter si aucune photo n'est uploadée ou si c'est en cours
           onPressed: _uploadedUrl == null || _isUploading
               ? null
               : () {
@@ -1169,7 +1166,6 @@ class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
     );
   }
 }
-
 
 // ============================================================
 // DIALOGUE VIDÉO AVEC UPLOAD LOCAL
@@ -1202,7 +1198,7 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
   Future<void> _pickAndUploadVideo() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.video, // 👉 Filtre spécifique pour les vidéos
+        type: FileType.video,
         withData: true,
       );
 
@@ -1211,8 +1207,6 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
         final bytes = result.files.first.bytes!;
         final name = result.files.first.name;
 
-        // 👉 Upload via Supabase dans le dossier 'videos'
-        // (Votre méthode uploadMedia gère déjà le contentType 'video/mp4' grâce à ça)
         final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'videos');
 
         setState(() {
@@ -1241,11 +1235,9 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
             TextFormField(
               controller: _titleCtrl,
               decoration: const InputDecoration(labelText: 'Titre *'),
-              onChanged: (v) => setState(() {}), // Rafraîchit l'UI pour le bouton Ajouter
+              onChanged: (v) => setState(() {}),
             ),
             const SizedBox(height: 16),
-            
-            // Affichage vidéo ou bouton d'upload
             if (_uploadedUrl != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1283,7 +1275,6 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
               ),
             ],
             const SizedBox(height: 16),
-            
             TextFormField(
               controller: _thumbCtrl,
               decoration: const InputDecoration(labelText: 'URL miniature (Optionnel)'),
@@ -1300,7 +1291,6 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ElevatedButton(
-          // On s'assure qu'il y a un titre ET une vidéo uploadée
           onPressed: _titleCtrl.text.isEmpty || _uploadedUrl == null || _isUploading
               ? null
               : () {
@@ -1322,6 +1312,9 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
   }
 }
 
+// ============================================================
+// DIALOGUE DOCUMENT
+// ============================================================
 
 class _DocumentFormDialog extends StatefulWidget {
   final void Function(AuthorityDocument) onSave;
