@@ -218,7 +218,9 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
   }
 
   Widget _buildAutoritesFullWidth() {
-    final authAsync = ref.watch(authoritiesProvider(null));
+    // 👉 C'EST ICI QUE LE CHANGEMENT A ÉTÉ FAIT 👈
+    final authAsync = ref.watch(topAuthoritiesProvider);
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: cardBorder)),
@@ -471,7 +473,7 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
         scrollDirection: Axis.horizontal, 
         itemCount: items.length, 
         separatorBuilder: (_, __) => const SizedBox(width: 10), 
-        itemBuilder: (c, i) => InkWell( // <--- AJOUT DU BOUTON CLIQUABLE ICI
+        itemBuilder: (c, i) => InkWell(
           onTap: () {
             if (items[i]['route'] != null) {
               context.push(items[i]['route'] as String);
