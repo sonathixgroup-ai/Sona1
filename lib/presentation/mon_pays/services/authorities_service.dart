@@ -40,52 +40,65 @@ class AuthoritiesService {
 
   /// Récupère les autorités avec pagination et filtres optimisés
   Future<PaginatedResult<Authority>> getAuthoritiesPaginated({
-    int page = 0,
-    int limit = 20,
-    String? category,
-    String? search,
-    bool? activeOnly,
-  }) async {
-    try {
-      final offset = page * limit;
-      var query = _client
-          .from('authorities')
-          .select(
-              '*, education:authority_education(*), career:authority_career(*), achievements:authority_achievements(*), photos:authority_photos(*), videos:authority_videos(*), documents:authority_documents(*)',
-              count: CountOption.exact)
-          .range(offset, offset + limit - 1);
+  Future<PaginatedResult<Authority>> getAuthoritiesPaginated({
+  int page = 0,
+  int limit = 20,
+  String? category,
+  String? search,
+  bool? activeOnly,
+}) async {
+  try {
+    final offset = page * limit;
+    var query = _client
+        .from('authorities')
+        .select(
+            '*, education:authority_education(*), career:authority_career(*), achievements:authority_achievements(*), photos:authority_photos(*), videos:authority_videos(*), documents:authority_documents(*)'
+        )
+        .range(offset, offset + limit - 1);
 
-      if (category != null && category != 'Tous') {
-        query = query.eq('title', category);
-      }
-
-      if (activeOnly == true) {
-        query = query.eq('is_active', true);
-      } else if (activeOnly == false) {
-        query = query.eq('is_active', false);
-      }
-
-      if (search != null && search.trim().isNotEmpty) {
-        query = query.or('name.ilike.%$search%,title.ilike.%$search%');
-      }
-
-      final response = await query.order('name');
-
-      // Note : le count est accessible via response.length (avec CountOption.exact)
-      final totalCount = response.length;
-      final data = response.map((json) => Authority.fromJson(json)).toList();
-
-      return PaginatedResult(
-        data: data,
-        total: totalCount,
-        page: page,
-        limit: limit,
-        hasMore: (offset + limit) < totalCount,
-      );
-    } catch (e) {
-      throw Exception('Erreur chargement autorités: $e');
+    if (category != null && category != 'Tous') {
+      query = query.eq('title', category);
     }
+    if (activeOnly == true) {
+      query = query.eq('is_active', true);
+    } else if (activeOnly == false) {
+      query = query.eq('is_active', false);
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      query = query.or('name.ilike.%$search%,title.ilike.%$search%');
+    }
+
+    final response = await query.order('name');
+
+    // Requête séparée pour le total
+    var countQuery = _client.from('authorities').select('*', count: CountOption.exact);
+    if (category != null && category != 'Tous') {
+      countQuery = countQuery.eq('title', category);
+    }
+    if (activeOnly == true) {
+      countQuery = countQuery.eq('is_active', true);
+    } else if (activeOnly == false) {
+      countQuery = countQuery.eq('is_active', false);
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      countQuery = countQuery.or('name.ilike.%$search%,title.ilike.%$search%');
+    }
+    final countResponse = await countQuery;
+    final totalCount = countResponse.length;
+
+    final data = response.map((json) => Authority.fromJson(json)).toList();
+
+    return PaginatedResult(
+      data: data,
+      total: totalCount,
+      page: page,
+      limit: limit,
+      hasMore: (offset + limit) < totalCount,
+    );
+  } catch (e) {
+    throw Exception('Erreur chargement autorités: $e');
   }
+}
 
   /// Récupère une autorité avec toutes ses relations
   Future<Authority> getAuthorityWithRelations(String id) async {
