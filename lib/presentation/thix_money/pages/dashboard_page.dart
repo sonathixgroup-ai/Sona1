@@ -240,7 +240,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       {'l': 'Assurance', 'c': const Color(0xFF22A57D), 'i': Icons.shield_rounded, 'r': ''},
       {'l': 'Épargne\nplanifiée', 'c': const Color(0xFFE3B23C), 'i': Icons.savings_rounded, 'r': AppRoutes.thixMoneySavings},
       {'l': 'Change', 'c': const Color(0xFF9B5CF6), 'i': Icons.swap_horiz_rounded, 'r': ''},
-      {'l': 'Marchand', 'c': const Color(0xFFDC7A2B), 'i': Icons.storefront_rounded, 'r': AppRoutes.thixMoneyMerchant},
+      {'l': 'Marchand', 'c': const Color(0xFFDC7A2B), 'i': Icons.storefront_rounded, 'r': ''},
       {'l': 'Dons &\nContrib.', 'c': const Color(0xFFE84A7A), 'i': Icons.volunteer_activism_rounded, 'r': ''},
       {'l': 'Ma Tontine', 'c': const Color(0xFF2D9CDB), 'i': Icons.groups_rounded, 'r': AppRoutes.thixMoneyTontines},
       {'l': 'Éducation', 'c': const Color(0xFF3AB6D9), 'i': Icons.school_rounded, 'r': ''},
