@@ -36,20 +36,20 @@ class AuthoritiesService {
   // ============================================================
 
   Future<List<Authority>> getAuthorities({String? category}) async {
-    try {
-      var query = _client.from('authorities').select('*');
-      
-      // CORRECTION : On filtre bien sur la colonne 'category'
-      if (category != null && category != 'Tous' && category != 'Toutes') {
-        query = query.eq('category', category);
-      }
-      
-      final response = await query.order('name');
-      return response.map((json) => Authority.fromJson(json)).toList();
-    } catch (e) {
-      throw Exception('Erreur lors du chargement des autorités: $e');
+  try {
+    var query = _client.from('authorities').select('*');
+    
+    // ✅ Filtre sur 'title' (car c'est le champ qui contient la fonction)
+    if (category != null && category != 'Tous' && category != 'Toutes') {
+      query = query.eq('title', category);
     }
+    
+    final response = await query.order('name');
+    return response.map((json) => Authority.fromJson(json)).toList();
+  } catch (e) {
+    throw Exception('Erreur lors du chargement des autorités: $e');
   }
+}
 
   Future<Authority> getAuthorityById(String id) async {
     try {
