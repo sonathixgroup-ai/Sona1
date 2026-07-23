@@ -44,6 +44,10 @@ abstract class AuthManager {
     required String token,
   });
 
+  /// Force la récupération et l'hydratation de l'utilisateur depuis la session actuelle.
+  /// Indispensable après des opérations asynchrones comme verifyOTP.
+  Future<AppUser> refreshCurrentUser();
+
   /// Renvoie un code OTP par email.
   Future<void> resendOTP({required String email});
 
