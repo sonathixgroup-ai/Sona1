@@ -39,6 +39,9 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
   bool _loadingStories = true;
   List<dynamic> _suggestions = [];
 
+  // Contrôle de la visibilité de la barre de navigation basse au scroll
+  bool _navVisible = true;
+
   @override bool get wantKeepAlive => true;
 
   @override
@@ -49,8 +52,21 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 600) {
+    final pos = _scrollController.position;
+
+    if (pos.pixels >= pos.maxScrollExtent - 600) {
       context.read<FeedProvider>().loadMore();
+    }
+
+    // On cache la barre basse quand on scrolle vers le bas,
+    // on la réaffiche quand on scrolle vers le haut ou en haut de la liste.
+    final direction = pos.userScrollDirection;
+    if (direction == ScrollDirection.reverse && _navVisible) {
+      setState(() => _navVisible = false);
+    } else if (direction == ScrollDirection.forward && !_navVisible) {
+      setState(() => _navVisible = true);
+    } else if (pos.pixels <= 0 && !_navVisible) {
+      setState(() => _navVisible = true);
     }
   }
 
@@ -97,72 +113,94 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
 
     return Scaffold(
       backgroundColor: ThixColors.background,
-      appBar: _buildAppBar(context),
-      body: Consumer<FeedProvider>(
-        builder: (context, feed, _) {
-          return RefreshIndicator(
-            color: ThixColors.primary,
-            onRefresh: _onRefresh,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              slivers: [
-                SliverToBoxAdapter(child: _buildStories(auth.currentUser!.id)),
-                SliverToBoxAdapter(child: _buildFilters(feed)),
-                SliverToBoxAdapter(child: _buildCreatePostBar()),
+      body: Stack(
+        children: [
+          Consumer<FeedProvider>(
+            builder: (context, feed, _) {
+              return RefreshIndicator(
+                color: ThixColors.primary,
+                onRefresh: _onRefresh,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  slivers: [
+                    _buildSliverAppBar(),
+                    SliverToBoxAdapter(child: _buildStories(auth.currentUser!.id)),
+                    SliverToBoxAdapter(child: _buildFilters(feed)),
+                    SliverToBoxAdapter(child: _buildCreatePostBar()),
 
-                if (feed.isLoading && feed.posts.isEmpty)
-                  SliverToBoxAdapter(child: _buildShimmerFeed())
-                else if (feed.posts.isEmpty)
-                  SliverToBoxAdapter(child: _buildEmpty())
-                else
-                  SliverList.builder(
-                    itemCount: feed.posts.length,
-                    itemBuilder: (c, i) {
-                      final post = feed.posts[i];
-                      return PostCard(
-                        key: ValueKey(post.id),
-                        post: post,
-                        currentProfileId: auth.currentUser!.id,
-                        onLike: () => feed.toggleLike(post.id),
-                        onComment: () => context.push('/network/comments/${post.id}'),
-                        onShare: () => _showShareSheet(post),
-                        onDelete: () => feed.loadFeed(force: true),
-                      );
-                    },
-                  ),
+                    if (feed.isLoading && feed.posts.isEmpty)
+                      SliverToBoxAdapter(child: _buildShimmerFeed())
+                    else if (feed.posts.isEmpty)
+                      SliverToBoxAdapter(child: _buildEmpty())
+                    else
+                      SliverList.builder(
+                        itemCount: feed.posts.length,
+                        itemBuilder: (c, i) {
+                          final post = feed.posts[i];
+                          return PostCard(
+                            key: ValueKey(post.id),
+                            post: post,
+                            currentProfileId: auth.currentUser!.id,
+                            onLike: () => feed.toggleLike(post.id),
+                            onComment: () => context.push('/network/comments/${post.id}'),
+                            onShare: () => _showShareSheet(post),
+                            onDelete: () => feed.loadFeed(force: true),
+                          );
+                        },
+                      ),
 
-                if (feed.isLoadingMore)
-                  const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))),
+                    if (feed.isLoadingMore)
+                      const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))),
 
-                if (_suggestions.isNotEmpty)
-                  SliverToBoxAdapter(child: _buildSuggestions()),
+                    if (_suggestions.isNotEmpty)
+                      SliverToBoxAdapter(child: _buildSuggestions()),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
-            ),
-          );
-        },
+                    const SliverToBoxAdapter(child: SizedBox(height: 110)),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Barre de navigation basse flottante, rétractable au scroll
+          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomNav()),
+        ],
       ),
-      floatingActionButton: _buildFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // ─── APP BAR ───
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: ThixColors.white, elevation: 0, scrolledUnderElevation: 1,
+  // ─── APP BAR (en sliver, se rétracte au scroll vers le bas, réapparaît vers le haut) ───
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      backgroundColor: ThixColors.white,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      floating: true,
+      snap: true,
+      toolbarHeight: 50,
+      titleSpacing: 16,
       title: ShaderMask(
         shaderCallback: (b) => const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]).createShader(b),
-        child: const Text('THIX PRO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19, letterSpacing: -0.5)),
+        child: const Text('THIX PRO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.5)),
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.search_rounded, color: ThixColors.textDark), onPressed: ()=> context.push('/network/search')),
-        IconButton(icon: const Badge(label: Text('3'), child: Icon(Icons.notifications_none_rounded, color: ThixColors.textDark)), onPressed: ()=> context.push('/network/notifications')),
-        const SizedBox(width: 8),
-        Padding(padding: const EdgeInsets.only(right: 12), child: GestureDetector(onTap: ()=> context.push('/profile'), child: const CircleAvatar(radius: 16, backgroundColor: ThixColors.softBlue, child: Icon(Icons.person, size: 18)))),
+        IconButton(
+          icon: const Icon(Icons.search_rounded, size: 21, color: ThixColors.textDark),
+          onPressed: () => context.push('/network/search'),
+        ),
+        IconButton(
+          icon: const Badge(label: Text('3'), child: Icon(Icons.notifications_none_rounded, size: 21, color: ThixColors.textDark)),
+          onPressed: () => context.push('/network/notifications'),
+        ),
+        const SizedBox(width: 2),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: const CircleAvatar(radius: 14, backgroundColor: ThixColors.softBlue, child: Icon(Icons.person, size: 15)),
+          ),
+        ),
       ],
     );
   }
@@ -249,18 +287,90 @@ class _NetworkProHomeState extends State<NetworkProHome> with AutomaticKeepAlive
     );
   }
 
-  Widget _buildFab() => Container(decoration: BoxDecoration(shape: BoxShape.circle, gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]), boxShadow: [BoxShadow(color: ThixColors.primary.withValues(alpha:0.4), blurRadius: 12, offset: const Offset(0,6))]),
-    child: FloatingActionButton(elevation: 0, backgroundColor: Colors.transparent, onPressed: ()=> showDialog(context: context, builder: (_)=> const CreatePostDialog()), child: const Icon(Icons.add_rounded, size: 28, color: Colors.white)));
+  // ─── BARRE DE NAVIGATION BASSE (compacte + FAB intégré, se rétracte au scroll) ───
+  Widget _buildBottomNav() {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubic,
+      offset: _navVisible ? Offset.zero : const Offset(0, 1.6),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: _navVisible ? 1 : 0,
+        child: IgnorePointer(
+          ignoring: !_navVisible,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: SizedBox(
+                height: 56,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: ThixColors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [BoxShadow(color: ThixColors.shadow, blurRadius: 14, offset: const Offset(0, 5))],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _navBtn(Icons.home_rounded, 'Accueil', true,
+                              () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
+                          _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
+                          const SizedBox(width: 42),
+                          _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
+                          _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
+                        ],
+                      ),
+                    ),
+                    Positioned(top: -12, child: _buildFab()),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-  Widget _buildBottomNav() => BottomAppBar(height: 64, shape: const CircularNotchedRectangle(), notchMargin: 8, child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-    _NavBtn(Icons.home_rounded, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
-    _NavBtn(Icons.explore_outlined, 'Découvrir', false, ()=> context.push('/network/discover')),
-    const SizedBox(width: 40),
-    _NavBtn(Icons.groups_outlined, 'Réseau', false, ()=> context.push('/network/connections')),
-    _NavBtn(Icons.person_outline, 'Profil', false, ()=> context.push('/profile')),
-  ]));
+  Widget _buildFab() => SizedBox(
+    width: 48,
+    height: 48,
+    child: Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(colors: [ThixColors.primaryDeep, ThixColors.primary]),
+        boxShadow: [BoxShadow(color: ThixColors.primary.withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: FloatingActionButton(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        onPressed: () => showDialog(context: context, builder: (_) => const CreatePostDialog()),
+        child: const Icon(Icons.add_rounded, size: 24, color: Colors.white),
+      ),
+    ),
+  );
 
-  Widget _NavBtn(IconData ic, String label, bool active, VoidCallback tap) => InkWell(onTap: tap, borderRadius: BorderRadius.circular(12), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(ic, size: 22, color: active? ThixColors.primary: ThixColors.textSecondary), Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: active? ThixColors.primary: ThixColors.textSecondary))])));
+  Widget _navBtn(IconData ic, String label, bool active, VoidCallback tap) => InkWell(
+    onTap: tap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(ic, size: 19, color: active ? ThixColors.primary : ThixColors.textSecondary),
+          const SizedBox(height: 1),
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: active ? ThixColors.primary : ThixColors.textSecondary)),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildShimmerFeed() => Column(children: List.generate(3, (i)=> Container(margin: const EdgeInsets.all(14), height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)))));
   Widget _buildEmpty() => const Padding(padding: EdgeInsets.all(60), child: Column(children: [Icon(Icons.feed_outlined, size: 48, color: ThixColors.textSecondary), SizedBox(height: 12), Text('Aucune publication pour ce filtre', style: TextStyle(color: ThixColors.textSecondary))]));
