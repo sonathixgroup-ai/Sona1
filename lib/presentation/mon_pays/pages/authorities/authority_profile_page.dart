@@ -24,7 +24,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
   static const Color ivory = Color(0xFFF6F7FB);
   static const Color darkText = Color(0xFF10182B);
   static const Color mutedText = Color(0xFF6B7690);
-  static const Color hairline = Color(0xFFE7EAF3); // <- LA LIGNE QUI MANQUAIT
+  static const Color hairline = Color(0xFFE7EAF3);
 
   @override
   Widget build(BuildContext context) {
@@ -95,40 +95,12 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                   const SizedBox(height: 24),
                 ],
 
-                Widget _buildVideoCard(AuthorityVideo video) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: hairline),
-    ),
-    child: InkWell(
-      onTap: () => _launchUrl(video.url),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: navy.withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.play_circle_fill, color: Colors.red, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(video.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                if (video.description != null) Text(video.description!, style: const TextStyle(fontSize: 12, color: mutedText)),
-              ],
-            ),
-          ),
-          const Icon(Icons.open_in_new, color: mutedText, size: 16),
-        ],
-      ),
-    ),
-  );
-}
+                // L'affichage des vidéos est maintenant correctement intégré dans la liste
+                if (authority.videos.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.video_library, 'Vidéos'),
+                  ...authority.videos.map((video) => _buildVideoCard(video)),
+                  const SizedBox(height: 24),
+                ],
 
                 if (authority.publications.isNotEmpty) ...[
                   _buildSectionTitle(Icons.article, 'Publications'),
@@ -257,6 +229,42 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
             Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: navy.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: navy, size: 20)),
             const SizedBox(width: 12),
             Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: darkText))),
+            const Icon(Icons.open_in_new, color: mutedText, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // La méthode _buildVideoCard est maintenant à sa place, hors de la hiérarchie des Widgets
+  Widget _buildVideoCard(AuthorityVideo video) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: hairline),
+      ),
+      child: InkWell(
+        onTap: () => _launchUrl(video.url),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: navy.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.play_circle_fill, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(video.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  if (video.description != null) Text(video.description!, style: const TextStyle(fontSize: 12, color: mutedText)),
+                ],
+              ),
+            ),
             const Icon(Icons.open_in_new, color: mutedText, size: 16),
           ],
         ),
