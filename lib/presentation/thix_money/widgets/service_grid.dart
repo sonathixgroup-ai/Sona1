@@ -5,7 +5,7 @@ import 'package:thix_id/nav.dart';
 
 class _Service {
   final String label;
-  final Color color; // Remplacement du gradient par une couleur unique forte
+  final Color color; 
   final IconData icon;
   final String? route;
   const _Service({required this.label, required this.color, required this.icon, this.route});
@@ -14,78 +14,86 @@ class _Service {
 class ServiceGrid extends StatelessWidget {
   const ServiceGrid({super.key});
 
-  // Utilisation des couleurs dominantes pour chaque service
+  // Utilisation des icônes "_outlined" (plus fines, plus élégantes, style Apple/Premium)
   static const _services = [
-    _Service(label: 'Crédit\ninstantané', color: Color(0xFF2D6CDF), icon: Icons.bolt_rounded, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Assurance', color: Color(0xFF22A57D), icon: Icons.shield_rounded, route: null),
-    _Service(label: 'Épargne\nplanifiée', color: Color(0xFFE3B23C), icon: Icons.savings_rounded, route: AppRoutes.thixMoneySavings),
-    _Service(label: 'Change', color: Color(0xFF9B5CF6), icon: Icons.swap_horiz_rounded, route: null),
-    _Service(label: 'Marchand', color: Color(0xFFDC7A2B), icon: Icons.storefront_rounded, route: AppRoutes.thixMarket),
-    _Service(label: 'Don &\nContributions', color: Color(0xFFE84A7A), icon: Icons.volunteer_activism_rounded, route: null),
-    _Service(label: 'Ma Tontine', color: Color(0xFF2D9CDB), icon: Icons.groups_rounded, route: AppRoutes.thixMoneyTontines),
-    _Service(label: 'Éducation', color: Color(0xFF3AB6D9), icon: Icons.school_rounded, route: AppRoutes.education),
-    _Service(label: 'Virement\ninternational', color: Color(0xFF1E3A8A), icon: Icons.public_rounded, route: AppRoutes.thixMoneySend),
-    _Service(label: 'Microfinance', color: Color(0xFF4CAF50), icon: Icons.account_balance_rounded, route: AppRoutes.thixMoneyLoans),
-    _Service(label: 'Investissement', color: Color(0xFFD4A72C), icon: Icons.trending_up_rounded, route: AppRoutes.thixMoneyInvestments),
-    _Service(label: 'Planification', color: Color(0xFF123B7A), icon: Icons.calendar_month_rounded, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Crédit\ninstantané', color: Color(0xFF2D6CDF), icon: Icons.bolt_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Assurance', color: Color(0xFF22A57D), icon: Icons.security_outlined, route: null),
+    _Service(label: 'Épargne', color: Color(0xFFE3B23C), icon: Icons.savings_outlined, route: AppRoutes.thixMoneySavings),
+    _Service(label: 'Change', color: Color(0xFF9B5CF6), icon: Icons.currency_exchange_outlined, route: null),
+    _Service(label: 'Marchand', color: Color(0xFFDC7A2B), icon: Icons.storefront_outlined, route: AppRoutes.thixMarket),
+    _Service(label: 'Dons', color: Color(0xFFE84A7A), icon: Icons.favorite_border_rounded, route: null), // Cœur fin
+    _Service(label: 'Ma Tontine', color: Color(0xFF2D9CDB), icon: Icons.groups_outlined, route: AppRoutes.thixMoneyTontines),
+    _Service(label: 'Éducation', color: Color(0xFF3AB6D9), icon: Icons.school_outlined, route: AppRoutes.education),
+    _Service(label: 'Virement', color: Color(0xFF1E3A8A), icon: Icons.language_outlined, route: AppRoutes.thixMoneySend), // Globe fin
+    _Service(label: 'Microfinance', color: Color(0xFF4CAF50), icon: Icons.account_balance_outlined, route: AppRoutes.thixMoneyLoans),
+    _Service(label: 'Investir', color: Color(0xFFD4A72C), icon: Icons.show_chart_rounded, route: AppRoutes.thixMoneyInvestments), // Graphique fin
+    _Service(label: 'Planifier', color: Color(0xFF123B7A), icon: Icons.calendar_month_outlined, route: AppRoutes.thixMoneySavings),
   ];
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        mainAxisSpacing: 12, // Espacement vertical réduit
-        crossAxisSpacing: 8,  // Espacement horizontal réduit
-        childAspectRatio: 0.80, // Ajusté pour rapprocher le texte de l'icône
+        mainAxisSpacing: 8, // ESPACE VERTICAL RÉDUIT
+        crossAxisSpacing: 4, // ESPACE HORIZONTAL RÉDUIT
+        childAspectRatio: 0.88, // AUGMENTÉ (rapproche visuellement le texte du cercle)
       ),
       itemCount: _services.length,
       itemBuilder: (_, i) {
         final s = _services[i];
-        return InkWell(
-          onTap: () => s.route != null ? context.push(s.route!) : null,
-          splashColor: s.color.withOpacity(0.1),
-          highlightColor: s.color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(20),
+        
+        return GestureDetector(
+          // HitTestBehavior.opaque force Flutter à détecter le clic même sur les espaces transparents
+          behavior: HitTestBehavior.opaque, 
+          onTap: () {
+            if (s.route != null && s.route!.isNotEmpty) {
+              context.push(s.route!);
+            } else {
+              // Preuve visuelle que le clic fonctionne sur les boutons inactifs
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${s.label.replaceAll('\n', ' ')} sera bientôt disponible !'),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            }
+          },
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Container(
-                width: 52, // Légèrement plus grand pour bien respirer en cercle
-                height: 52,
+                width: 50, 
+                height: 50,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  shape: BoxShape.circle, // Forme circulaire comme sur la photo
+                  shape: BoxShape.circle,
                   boxShadow: [
-                    // Ombre douce colorée (Glow effect)
+                    // Ombre lumineuse très douce
                     BoxShadow(
-                      color: s.color.withOpacity(0.15), 
-                      blurRadius: 12, 
+                      color: s.color.withOpacity(0.18), 
+                      blurRadius: 10, 
                       offset: const Offset(0, 4)
-                    ),
-                    // Ombre grise très subtile pour la profondeur
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03), 
-                      blurRadius: 4, 
-                      offset: const Offset(0, 1)
                     ),
                   ],
                 ),
-                child: Icon(s.icon, color: s.color, size: 24), // L'icône prend la couleur
+                child: Icon(s.icon, color: s.color, size: 24), // Taille de l'icône équilibrée
               ),
-              const SizedBox(height: 6), // Espace réduit entre l'icône et le texte
+              const SizedBox(height: 6), // Espace très réduit entre l'icône et le texte
               Text(
                 s.label,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 style: const TextStyle(
-                  fontSize: 9.5, 
+                  fontSize: 10, 
                   fontWeight: FontWeight.w600, 
                   color: Color(0xFF0A1F44), 
-                  height: 1.15, 
+                  height: 1.1, 
                   letterSpacing: -0.2
                 ),
               ),
