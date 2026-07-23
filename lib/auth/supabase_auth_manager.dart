@@ -415,7 +415,8 @@ class SupabaseAuthManager implements AuthManager {
       throw AuthException(e.message);
     } catch (e) {
       debugPrint('SupabaseAuthManager: register crash err=$e');
-      throw AuthException('Erreur lors de la création du compte. Veuillez réessayer.');
+      // MODIFICATION ICI : On remonte la vraie erreur au lieu du message générique
+      throw AuthException('Erreur Base/Code : $e');
     }
   }
 
