@@ -19,7 +19,6 @@ class AuthoritiesPage extends ConsumerStatefulWidget {
 }
 
 class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
-  String _selectedCategory = 'Tous';
   final TextEditingController _searchController = TextEditingController();
 
   static const Color navyDeep = Color(0xFF0A1F44);
@@ -33,11 +32,13 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
   static const Color danger = Color(0xFFD64545);
   static const Color hairline = Color(0xFFE7EAF3);
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedCategory = widget.initialCategory ?? 'Tous';
-  }
+  // Les 4 titres principaux à afficher
+  static const Set<String> topTitles = {
+    'Président de la République',
+    'Président du Sénat',
+    'Président de l\'Assemblée Nationale',
+    'Première Ministre',
+  };
 
   @override
   void dispose() {
@@ -45,20 +46,15 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     super.dispose();
   }
 
-  // Permet de forcer le rechargement de la page pour éviter le cache
+  // Rafraîchir les données
   Future<void> _refreshData() async {
-    ref.invalidate(authoritiesProvider);
-    ref.invalidate(searchAuthoritiesProvider);
+    ref.invalidate(topAuthoritiesProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    final searchText = _searchController.text.trim();
-    final isSearching = searchText.isNotEmpty;
-
-    final authoritiesAsync = ref.watch(
-      isSearching ? searchAuthoritiesProvider(searchText) : authoritiesProvider(_selectedCategory),
-    );
+    final searchText = _searchController.text.trim().toLowerCase();
+    final authoritiesAsync = ref.watch(topAuthoritiesProvider);
 
     return Scaffold(
       backgroundColor: ivory,
@@ -66,7 +62,8 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
       body: Column(
         children: [
           _buildSearchBar(),
-          _buildCategoryFilters(),
+          const SizedBox(height: 4),
+          _buildSubtitle(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refreshData,
@@ -78,7 +75,17 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
                 error: (error, _) => Center(
                   child: Text('Erreur: $error', style: const TextStyle(color: danger)),
                 ),
-                data: (authorities) => _buildAuthorityList(authorities, isSearching),
+                data: (authorities) {
+                  // Filtre local par recherche
+                  List<Authority> filtered = authorities;
+                  if (searchText.isNotEmpty) {
+                    filtered = authorities.where((a) =>
+                      a.name.toLowerCase().contains(searchText) ||
+                      a.title.toLowerCase().contains(searchText)
+                    ).toList();
+                  }
+                  return _buildAuthorityList(filtered, searchText.isNotEmpty);
+                },
               ),
             ),
           ),
@@ -95,15 +102,21 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(9), border: Border.all(color: gold.withOpacity(0.5))),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: gold.withOpacity(0.5)),
+            ),
             child: const Icon(Icons.account_balance_rounded, color: gold, size: 16),
           ),
           const SizedBox(width: 10),
-          const Text('Autorités', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
+          const Text(
+            'Hautes Autorités',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
+          ),
         ],
       ),
       actions: [
-        // Bouton Rafraîchir pour nettoyer le cache
         IconButton(
           icon: const Icon(Icons.refresh_rounded, color: Colors.white),
           onPressed: _refreshData,
@@ -117,48 +130,54 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       child: Container(
-        decoration: BoxDecoration(color: pureWhite, borderRadius: BorderRadius.circular(14), border: Border.all(color: hairline)),
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: hairline),
+        ),
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Rechercher une autorité, un titre…',
+            hintText: 'Rechercher une autorité…',
             prefixIcon: const Icon(Icons.search_rounded, color: navy, size: 20),
             border: InputBorder.none,
-            suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _searchController.clear())) : null,
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(() => _searchController.clear()),
+                  )
+                : null,
           ),
-          onChanged: (v) => setState(() {}),
+          onChanged: (_) => setState(() {}),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryFilters() {
-    return SizedBox(
-      height: 42,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: MonPaysConstants.authorityCategories.length,
-        itemBuilder: (context, index) {
-          final cat = MonPaysConstants.authorityCategories[index];
-          final isSelected = cat == _selectedCategory;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ChoiceChip(
-              label: Text(cat, style: TextStyle(color: isSelected ? gold : darkText, fontWeight: FontWeight.bold)),
-              selected: isSelected,
-              selectedColor: navyDeep,
-              backgroundColor: pureWhite,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() {
-                    _selectedCategory = cat;
-                    _searchController.clear();
-                  });
-                }
-              },
+  Widget _buildSubtitle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Président de la République • Président du Sénat • Président de l\'AN • Première Ministre',
+              style: TextStyle(fontSize: 11, color: mutedText),
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: navy.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '4 autorités',
+              style: TextStyle(fontSize: 10, color: navy, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -172,8 +191,8 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              isSearching ? 'Aucun résultat trouvé' : 'Aucune autorité enregistrée', 
-              style: const TextStyle(fontWeight: FontWeight.bold, color: darkText)
+              isSearching ? 'Aucun résultat trouvé' : 'Aucune autorité enregistrée',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: darkText),
             ),
           ),
         ],
@@ -181,7 +200,7 @@ class _AuthoritiesPageState extends ConsumerState<AuthoritiesPage> {
     }
 
     return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(), // Important pour que le RefreshIndicator fonctionne
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       itemCount: authorities.length,
       itemBuilder: (context, index) {
