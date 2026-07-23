@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:http/http.dart' as http; // N'oubliez pas cette importation !
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/authority.dart';
 
@@ -35,35 +36,43 @@ Tu dois impérativement retourner ta réponse sous la forme d'un objet JSON stri
 Si tu ne trouves pas une information précise, mets une chaîne vide "" ou null, mais respecte scrupuleusement la structure JSON. N'ajoute aucun commentaire textuel en dehors du JSON.
 ''';
 
-      // ⚠️ Remplacez cette section par votre appel HTTP réel vers votre API d'agent Thix IA / Astral IA
-      // Exemple :
-      // final response = await http.post(
-      //   Uri.parse('VOTRE_ENDPOINT_API_THIX_IA'),
-      //   headers: {'Authorization': 'Bearer VOTRE_TOKEN', 'Content-Type': 'application/json'},
-      //   body: jsonEncode({
-      //     'system_prompt': systemPrompt,
-      //     'query': query,
-      //     'use_tavily': true,
-      //   }),
-      // );
-      // if (response.statusCode == 200) {
-      //   final decoded = jsonDecode(response.body);
-      //   // Si votre API renvoie une chaîne brute JSON, décodez-la :
-      //   return decoded is String ? jsonDecode(decoded) : decoded;
-      // }
+      // ⚠️ DÉFINISSEZ VOS IDENTIFIANTS API ICI (Ceux de Thix IA / Astral IA)
+      final String apiUrl = '[https://votre-api-thix-ia.com/votre-endpoint](https://votre-api-thix-ia.com/votre-endpoint)'; // <- Remplacez par votre vrai lien
+      final String apiToken = 'VOTRE_CLE_API_ICI'; // <- Remplacez par votre vrai Token
 
-      // Simulation de traitement par l'IA avec un JSON propre respectant le prompt :
-      await Future.delayed(const Duration(seconds: 2));
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiToken',
+        },
+        body: jsonEncode({
+          // Adaptez la structure du body selon ce qu'attend votre API exacte
+          'system_prompt': systemPrompt,
+          'query': 'Recherche les informations factuelles sur : $query',
+          'use_tavily': true, 
+        }),
+      );
 
-      return {
-        'name': query,
-        'title': 'Président de la République',
-        'category': 'Président de la République',
-        'biography': 'Personnalité politique majeure de la République Démocratique du Congo, engagée dans la gouvernance et le développement institutionnel du pays.',
-        'mandate': '2019 - Présent',
-        'party': 'UDPS',
-        'imageUrl': null,
-      };
+      if (response.statusCode == 200) {
+        // Récupération de la réponse brute
+        String rawBody = response.body;
+        
+        // Parfois, l'API renvoie le JSON encapsulé dans une clé spécifique (ex: data['response'] ou data['choices'][0]['message']['content'])
+        // Si c'est le cas pour votre API, décodez d'abord la réponse globale :
+        // final decodedResponse = jsonDecode(rawBody);
+        // rawBody = decodedResponse['votre_cle_de_reponse']; 
+
+        // 1. Nettoyage de la réponse (pour enlever les éventuelles balises markdown générées par l'IA)
+        rawBody = rawBody.replaceAll('```json', '').replaceAll('```', '').trim();
+
+        // 2. Décodage du JSON propre
+        final Map<String, dynamic> aiData = jsonDecode(rawBody);
+        
+        return aiData;
+      } else {
+        throw Exception('Erreur serveur API (${response.statusCode}): ${response.body}');
+      }
     } catch (e) {
       throw Exception('Erreur de l\'assistant Thix IA: $e');
     }
