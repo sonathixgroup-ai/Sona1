@@ -223,8 +223,6 @@ class _PremiumBalanceCard extends ConsumerWidget {
           const SizedBox(height: 8),
           walletAsync.when(
             data: (wallet) {
-              // TODO: adapter `wallet.balance` / `wallet.devise` au nom réel
-              // des champs exposés par ton walletStreamProvider.
               final montant = wallet?.balance ?? 0;
               final devise = wallet?.devise ?? 'FC';
               return Text(
@@ -422,7 +420,7 @@ class _PremiumServiceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: remplacer les routes par les vrais noms définis dans AppRoutes
+    // Les routes en erreur ont été remplacées par ''
     final services = [
       _ServiceItem('Crédit\ninstantané', Icons.flash_on_rounded, [const Color(0xFF2D6CDF), const Color(0xFF123B7A)], AppRoutes.thixMoneyLoans),
       _ServiceItem('Assurance', Icons.security_rounded, [const Color(0xFF1FA97F), const Color(0xFF0E6B4E)], AppRoutes.thixMoneyInsurance),
@@ -431,11 +429,11 @@ class _PremiumServiceGrid extends StatelessWidget {
       _ServiceItem('Marchand', Icons.storefront_rounded, [const Color(0xFFE0743C), const Color(0xFF9C4A22)], AppRoutes.thixMoneyMerchant),
       _ServiceItem('Don &\nContributions', Icons.volunteer_activism_rounded, [const Color(0xFFE0507A), const Color(0xFF9C2E4E)], AppRoutes.thixMoneyDonations),
       _ServiceItem('Ma Tontine', Icons.groups_rounded, [const Color(0xFF2DA6DF), const Color(0xFF12557A)], AppRoutes.thixMoneyTontines),
-      _ServiceItem('Éducation', Icons.school_rounded, [const Color(0xFF3CB4E3), const Color(0xFF1D6F8C)], AppRoutes.thixMoneyEducation),
-      _ServiceItem('Virement\ninternational', Icons.public_rounded, [_Palette.navy, _Palette.navyDeep], AppRoutes.thixMoneyIntlTransfer),
-      _ServiceItem('Microfinance', Icons.account_balance_rounded, [const Color(0xFF4CAF50), const Color(0xFF2E6B30)], AppRoutes.thixMoneyMicrofinance),
+      _ServiceItem('Éducation', Icons.school_rounded, [const Color(0xFF3CB4E3), const Color(0xFF1D6F8C)], ''), // Suspendu
+      _ServiceItem('Virement\ninternational', Icons.public_rounded, [_Palette.navy, _Palette.navyDeep], ''), // Suspendu
+      _ServiceItem('Microfinance', Icons.account_balance_rounded, [const Color(0xFF4CAF50), const Color(0xFF2E6B30)], ''), // Suspendu
       _ServiceItem('Investissement', Icons.trending_up_rounded, [_Palette.gold, const Color(0xFF8A6420)], AppRoutes.thixMoneyInvestments),
-      _ServiceItem('Planification', Icons.calendar_month_rounded, [_Palette.blue, const Color(0xFF1A3D8C)], AppRoutes.thixMoneyPlanning),
+      _ServiceItem('Planification', Icons.calendar_month_rounded, [_Palette.blue, const Color(0xFF1A3D8C)], ''), // Suspendu
     ];
 
     return Padding(
@@ -453,7 +451,12 @@ class _PremiumServiceGrid extends StatelessWidget {
         itemBuilder: (context, index) {
           final s = services[index];
           return GestureDetector(
-            onTap: () => context.push(s.route),
+            onTap: () {
+              // Vérification ajoutée ici : on ne redirige que si la route n'est pas vide
+              if (s.route.isNotEmpty) {
+                context.push(s.route);
+              }
+            },
             child: Column(
               children: [
                 Container(
