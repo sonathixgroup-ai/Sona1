@@ -21,7 +21,6 @@ class AdminProvinceFormPage extends ConsumerStatefulWidget {
 class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   final _formKey = GlobalKey<FormState>();
   
-  // Champs existants
   late TextEditingController _nameController;
   late TextEditingController _codeController;
   late TextEditingController _capitalController;
@@ -34,7 +33,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   late TextEditingController _mapUrlController;
   late TextEditingController _websiteController;
 
-  // Nouveaux champs
   late TextEditingController _governorController;
   late TextEditingController _viceGovernorController;
   late TextEditingController _languagesController;
@@ -59,7 +57,19 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _nameController = TextEditingController(text: p?.name ?? '');
     _codeController = TextEditingController(text: p?.code ?? '');
     _capitalController = TextEditingController(text: p?.capital ?? '');
-    _regionController = TextEditingController(text: p?.region ?? 'Centre');
+    
+    // 🛡️ SÉCURISATION DU DROPDOWN DE LA RÉGION (Anti-crash)
+    String safeRegion = (p?.region ?? 'Centre').trim();
+    if (safeRegion.isNotEmpty) {
+      // Met la première lettre en majuscule, le reste en minuscule (ex: "SUD" -> "Sud")
+      safeRegion = safeRegion[0].toUpperCase() + safeRegion.substring(1).toLowerCase();
+    }
+    final validRegions = ['Centre', 'Est', 'Ouest', 'Nord', 'Sud'];
+    if (!validRegions.contains(safeRegion)) {
+      safeRegion = 'Centre'; // Valeur par défaut si la donnée en DB est corrompue
+    }
+    _regionController = TextEditingController(text: safeRegion);
+
     _areaController = TextEditingController(text: p?.area?.toString() ?? '');
     _populationController = TextEditingController(text: p?.population?.toString() ?? '');
     _descriptionController = TextEditingController(text: p?.description ?? '');
@@ -68,7 +78,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _mapUrlController = TextEditingController(text: p?.mapUrl ?? '');
     _websiteController = TextEditingController(text: p?.website ?? '');
 
-    // 🚀 L'erreur venait d'ici : on utilise maintenant l'accès direct et sécurisé au modèle mis à jour
     _governorController = TextEditingController(text: p?.governor ?? '');
     _viceGovernorController = TextEditingController(text: p?.viceGovernor ?? '');
     _languagesController = TextEditingController(text: p?.languages ?? '');
@@ -152,7 +161,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: _regionController.text.isNotEmpty ? _regionController.text : null,
+                        value: _regionController.text.isNotEmpty ? _regionController.text : 'Centre',
                         decoration: _inputDecoration('Région géographique *', Icons.explore),
                         items: const [
                           DropdownMenuItem(value: 'Centre', child: Text('Centre')),
@@ -161,7 +170,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                           DropdownMenuItem(value: 'Nord', child: Text('Nord')),
                           DropdownMenuItem(value: 'Sud', child: Text('Sud')),
                         ],
-                        onChanged: (value) => _regionController.text = value ?? '',
+                        onChanged: (value) => _regionController.text = value ?? 'Centre',
                         validator: (v) => v == null ? 'Champ requis' : null,
                       ),
                     ],
