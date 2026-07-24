@@ -172,6 +172,7 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀 Permet au formulaire d'attraper l'erreur !
     }
   }
 
@@ -179,10 +180,15 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.updateAuthority(authority);
+      
+      // 🚀 Vide les caches pour forcer l'interface à se rafraîchir !
       _ref.invalidate(topAuthoritiesProvider);
+      _ref.invalidate(authorityDetailProvider(authority.id)); 
+      
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀 Permet au formulaire d'attraper l'erreur !
     }
   }
 
@@ -190,10 +196,14 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.deleteAuthority(id);
+      
       _ref.invalidate(topAuthoritiesProvider);
+      _ref.invalidate(authorityDetailProvider(id));
+      
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -201,10 +211,14 @@ class AdminAuthoritiesNotifier extends StateNotifier<AsyncValue<List<Authority>>
     try {
       final service = _ref.read(authoritiesServiceProvider);
       await service.archiveAuthority(id);
+      
       _ref.invalidate(topAuthoritiesProvider);
+      _ref.invalidate(authorityDetailProvider(id));
+      
       await loadAuthorities();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 }
