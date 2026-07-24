@@ -21,12 +21,14 @@ class ProvincesService {
   Future<List<Province>> getProvinces({String? region, String? search}) async {
     try {
       var query = _client.from('provinces').select('*');
+      
       if (region != null && region.isNotEmpty && region != 'Toutes') {
         query = query.eq('region', region);
       }
       if (search != null && search.trim().isNotEmpty) {
         query = query.or('name.ilike.%$search%,capital.ilike.%$search%');
       }
+      
       final response = await query.order('name');
       return response.map((json) => Province.fromJson(json)).toList();
     } catch (e) {
@@ -59,6 +61,7 @@ class ProvincesService {
           .select('*, ministers:province_ministers(*)')
           .eq('province_id', id)
           .maybeSingle();
+          
       ProvinceGovernment? government;
       if (gov != null) {
         government = ProvinceGovernment.fromJson(gov);
@@ -127,6 +130,7 @@ class ProvincesService {
   Future<Province> createProvince(Province province) async {
     try {
       final data = province.toJson();
+      // On retire l'ID (généré par Supabase) et les relations
       data.remove('id');
       data.remove('government');
       data.remove('cities');
@@ -135,11 +139,13 @@ class ProvincesService {
       data.remove('tourism_sites');
       data.remove('emergency_contacts');
       data.remove('administrative_divisions');
+      
       final response = await _client
           .from('provinces')
           .insert(data)
           .select()
           .single();
+          
       return Province.fromJson(response);
     } catch (e) {
       throw Exception('Erreur création province: $e');
@@ -149,6 +155,7 @@ class ProvincesService {
   Future<Province> updateProvince(Province province) async {
     try {
       final data = province.toJson();
+      // On retire les relations pour ne mettre à jour que la table 'provinces'
       data.remove('government');
       data.remove('cities');
       data.remove('economic_resources');
@@ -156,12 +163,14 @@ class ProvincesService {
       data.remove('tourism_sites');
       data.remove('emergency_contacts');
       data.remove('administrative_divisions');
+      
       final response = await _client
           .from('provinces')
           .update(data)
           .eq('id', province.id)
           .select()
           .single();
+          
       return Province.fromJson(response);
     } catch (e) {
       throw Exception('Erreur mise à jour province: $e');
@@ -176,64 +185,6 @@ class ProvincesService {
     }
   }
 
-// Ajouter ces méthodes à la fin de la classe ProvincesService
-
-// Update methods for sub-resources
-Future<void> updateEconomicResource(ProvinceEconomicResource resource) async {
-  try {
-    await _client
-        .from('province_economic_resources')
-        .update(resource.toJson())
-        .eq('id', resource.id);
-  } catch (e) {
-    throw Exception('Erreur mise à jour ressource économique: $e');
-  }
-}
-
-Future<void> updateBudgetPriority(ProvinceBudgetPriority budget) async {
-  try {
-    await _client
-        .from('province_budget_priorities')
-        .update(budget.toJson())
-        .eq('id', budget.id);
-  } catch (e) {
-    throw Exception('Erreur mise à jour priorité budgétaire: $e');
-  }
-}
-
-Future<void> updateTourismSite(ProvinceTourism site) async {
-  try {
-    await _client
-        .from('province_tourism')
-        .update(site.toJson())
-        .eq('id', site.id);
-  } catch (e) {
-    throw Exception('Erreur mise à jour site touristique: $e');
-  }
-}
-
-Future<void> updateEmergencyContact(ProvinceEmergencyContact contact) async {
-  try {
-    await _client
-        .from('province_emergency_contacts')
-        .update(contact.toJson())
-        .eq('id', contact.id);
-  } catch (e) {
-    throw Exception('Erreur mise à jour contact d\'urgence: $e');
-  }
-}
-
-Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision division) async {
-  try {
-    await _client
-        .from('province_administrative_divisions')
-        .update(division.toJson())
-        .eq('id', division.id);
-  } catch (e) {
-    throw Exception('Erreur mise à jour division administrative: $e');
-  }
-}
-  
   // ============================================================
   // GOUVERNEMENT
   // ============================================================
@@ -245,10 +196,11 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
           .select('*, ministers:province_ministers(*)')
           .eq('province_id', provinceId)
           .maybeSingle();
+          
       if (response == null) return null;
       return ProvinceGovernment.fromJson(response);
     } catch (e) {
-      return null;
+      return null; // On retourne null silencieusement si pas de gouvernement
     }
   }
 
@@ -257,11 +209,13 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
       final data = gov.toJson();
       data.remove('id');
       data.remove('ministers');
+      
       final response = await _client
           .from('province_governments')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceGovernment.fromJson(response);
     } catch (e) {
       throw Exception('Erreur création gouvernement: $e');
@@ -272,10 +226,12 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = gov.toJson();
       data.remove('ministers');
+      
       await _client
           .from('province_governments')
           .update(data)
           .eq('id', gov.id);
+          
       return gov;
     } catch (e) {
       throw Exception('Erreur mise à jour gouvernement: $e');
@@ -290,11 +246,13 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = minister.toJson();
       data.remove('id');
+      
       final response = await _client
           .from('province_ministers')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceMinister.fromJson(response);
     } catch (e) {
       throw Exception('Erreur ajout ministre: $e');
@@ -320,6 +278,7 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
           .select('*')
           .eq('province_id', provinceId)
           .order('is_key_sector', ascending: false);
+          
       return response.map((e) => ProvinceEconomicResource.fromJson(e)).toList();
     } catch (e) {
       throw Exception('Erreur chargement ressources économiques: $e');
@@ -330,14 +289,27 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = resource.toJson();
       data.remove('id');
+      
       final response = await _client
           .from('province_economic_resources')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceEconomicResource.fromJson(response);
     } catch (e) {
       throw Exception('Erreur ajout ressource économique: $e');
+    }
+  }
+
+  Future<void> updateEconomicResource(ProvinceEconomicResource resource) async {
+    try {
+      await _client
+          .from('province_economic_resources')
+          .update(resource.toJson())
+          .eq('id', resource.id);
+    } catch (e) {
+      throw Exception('Erreur mise à jour ressource économique: $e');
     }
   }
 
@@ -360,6 +332,7 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
           .select('*')
           .eq('province_id', provinceId)
           .order('year', ascending: false);
+          
       return response.map((e) => ProvinceBudgetPriority.fromJson(e)).toList();
     } catch (e) {
       throw Exception('Erreur chargement budget: $e');
@@ -370,14 +343,27 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = budget.toJson();
       data.remove('id');
+      
       final response = await _client
           .from('province_budget_priorities')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceBudgetPriority.fromJson(response);
     } catch (e) {
       throw Exception('Erreur ajout priorité budgétaire: $e');
+    }
+  }
+
+  Future<void> updateBudgetPriority(ProvinceBudgetPriority budget) async {
+    try {
+      await _client
+          .from('province_budget_priorities')
+          .update(budget.toJson())
+          .eq('id', budget.id);
+    } catch (e) {
+      throw Exception('Erreur mise à jour priorité budgétaire: $e');
     }
   }
 
@@ -399,6 +385,7 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
           .from('province_tourism')
           .select('*')
           .eq('province_id', provinceId);
+          
       return response.map((e) => ProvinceTourism.fromJson(e)).toList();
     } catch (e) {
       throw Exception('Erreur chargement sites touristiques: $e');
@@ -409,14 +396,27 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = site.toJson();
       data.remove('id');
+      
       final response = await _client
           .from('province_tourism')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceTourism.fromJson(response);
     } catch (e) {
       throw Exception('Erreur ajout site touristique: $e');
+    }
+  }
+
+  Future<void> updateTourismSite(ProvinceTourism site) async {
+    try {
+      await _client
+          .from('province_tourism')
+          .update(site.toJson())
+          .eq('id', site.id);
+    } catch (e) {
+      throw Exception('Erreur mise à jour site touristique: $e');
     }
   }
 
@@ -438,6 +438,7 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
           .from('province_emergency_contacts')
           .select('*')
           .eq('province_id', provinceId);
+          
       return response.map((e) => ProvinceEmergencyContact.fromJson(e)).toList();
     } catch (e) {
       throw Exception('Erreur chargement contacts d\'urgence: $e');
@@ -448,14 +449,27 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = contact.toJson();
       data.remove('id');
+      
       final response = await _client
           .from('province_emergency_contacts')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceEmergencyContact.fromJson(response);
     } catch (e) {
       throw Exception('Erreur ajout contact d\'urgence: $e');
+    }
+  }
+
+  Future<void> updateEmergencyContact(ProvinceEmergencyContact contact) async {
+    try {
+      await _client
+          .from('province_emergency_contacts')
+          .update(contact.toJson())
+          .eq('id', contact.id);
+    } catch (e) {
+      throw Exception('Erreur mise à jour contact d\'urgence: $e');
     }
   }
 
@@ -477,6 +491,7 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
           .from('province_administrative_divisions')
           .select('*')
           .eq('province_id', provinceId);
+          
       return response.map((e) => ProvinceAdministrativeDivision.fromJson(e)).toList();
     } catch (e) {
       throw Exception('Erreur chargement découpage administratif: $e');
@@ -487,14 +502,27 @@ Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision divisio
     try {
       final data = division.toJson();
       data.remove('id');
+      
       final response = await _client
           .from('province_administrative_divisions')
           .insert(data)
           .select()
           .single();
+          
       return ProvinceAdministrativeDivision.fromJson(response);
     } catch (e) {
       throw Exception('Erreur ajout division administrative: $e');
+    }
+  }
+
+  Future<void> updateAdministrativeDivision(ProvinceAdministrativeDivision division) async {
+    try {
+      await _client
+          .from('province_administrative_divisions')
+          .update(division.toJson())
+          .eq('id', division.id);
+    } catch (e) {
+      throw Exception('Erreur mise à jour division administrative: $e');
     }
   }
 
