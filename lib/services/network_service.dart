@@ -276,6 +276,84 @@ class NetworkService extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────
+  // SONDAGES & CHALLENGES
+  // ─────────────────────────────────────────────
+  Future<String> createPollPost({
+    required String content,
+    required List<String> options,
+    List<String> images = const [],
+  }) async {
+    final formattedOptions = options.map((opt) => {'text': opt, 'votes': <String>[]}).toList();
+    
+    final res = await _supabase.from('posts').insert({
+      'user_id': currentUserId,
+      'content': content.trim(),
+      'media_urls': images,
+      'post_type': 'poll',
+      'poll_data': {'options': formattedOptions},
+      'is_public': true,
+    }).select('id').single();
+    
+    notifyListeners();
+    return res['id'] as String;
+  }
+
+  Future<String> createChallengePost({
+    required String title,
+    required String description,
+    required DateTime endDate,
+    List<String> images = const [],
+  }) async {
+    final res = await _supabase.from('posts').insert({
+      'user_id': currentUserId,
+      'content': title.trim(),
+      'media_urls': images,
+      'post_type': 'challenge',
+      'challenge_data': {
+        'description': description,
+        'end_date': endDate.toIso8601String(),
+        'participants_count': 0,
+      },
+      'is_public': true,
+    }).select('id').single();
+    
+    notifyListeners();
+    return res['id'] as String;
+  }
+
+  Future<void> votePoll(String postId, int optionIndex) async {
+    // Récupération sécurisée du post et mise à jour des votes du sondage côté client/supabase
+    final postRes = await _supabase.from('posts').select('poll_data').eq('id', postId).single();
+    final pollData = postRes['poll_data'] as Map<String, dynamic>?;
+    if (pollData == null) return;
+
+    final options = List<Map<String, dynamic>>.from(pollData['options'] ?? []);
+    
+    // Vérifier si l'utilisateur a déjà voté pour une option quelconque et le retirer (vote unique)
+    for (var opt in options) {
+      final votes = List<String>.from(opt['votes'] ?? []);
+      votes.remove(currentUserId);
+      opt['votes'] = votes;
+    }
+
+    // Ajouter le vote de l'utilisateur à l'option ciblée
+    if (optionIndex >= 0 && optionIndex < options.length) {
+      final targetVotes = List<String>.from(options[optionIndex]['votes'] ?? []);
+      if (!targetVotes.contains(currentUserId)) {
+        targetVotes.add(currentUserId);
+      }
+      options[optionIndex]['votes'] = targetVotes;
+    }
+
+    await _supabase.from('posts').update({
+      'poll_data': {'options': options}
+    }).eq('id', postId);
+
+    notifyListeners();
+  }
+
+  
+  // ─────────────────────────────────────────────
   // STORIES & HIGHLIGHTS
   // ─────────────────────────────────────────────
   Future<List<NetworkStory>> getActiveStories() async {
