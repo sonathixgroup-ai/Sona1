@@ -319,7 +319,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              // CORRECTION ICI : spaceBetween au lieu de between
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep)),
@@ -490,7 +489,8 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
             : Column(
                 children: achievements.map((a) => ListTile(
                   title: Text(a.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(a.description),
+                  // CORRECTION ICI : Gestion du cas null avec '?? '' '
+                  subtitle: Text(a.description ?? ''),
                 )).toList(),
               ),
         );
