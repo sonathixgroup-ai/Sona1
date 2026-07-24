@@ -1,9 +1,6 @@
 // ============================================================
 // PROVIDERS – PHASE 2B
 // ============================================================
-// Fichiers 13 à 16
-// ============================================================
-
 // Fichier n°13 : providers/provinces_provider.dart
 // lib/presentation/mon_pays/providers/provinces_provider.dart
 
@@ -115,9 +112,11 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.createProvince(province);
+      _ref.invalidate(provincesProvider); // Rafraîchir la liste publique
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀 Indispensable pour que le formulaire affiche l'erreur
     }
   }
 
@@ -125,9 +124,12 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.updateProvince(province);
+      _ref.invalidate(provincesProvider);
+      _ref.invalidate(provinceWithAllRelationsProvider(province.id)); // Rafraîchir les détails
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -135,32 +137,42 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.deleteProvince(id);
+      _ref.invalidate(provincesProvider);
+      _ref.invalidate(provinceWithAllRelationsProvider(id));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion du gouvernement
+  // ==========================================
   Future<void> updateGovernment(ProvinceGovernment gov) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.updateGovernment(gov);
-      // Recharger la province concernée
+      _ref.invalidate(provinceWithAllRelationsProvider(gov.provinceId));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion des ministres
+  // ==========================================
   Future<void> addMinister(ProvinceMinister minister) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.addMinister(minister);
+      // Impossible d'invalider précisément sans l'ID de la province ici, mais loadProvinces s'en occupe pour l'admin
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -171,17 +183,22 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion des ressources économiques
+  // ==========================================
   Future<void> addEconomicResource(ProvinceEconomicResource resource) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.addEconomicResource(resource);
+      _ref.invalidate(provinceWithAllRelationsProvider(resource.provinceId));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -192,17 +209,22 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion du budget
+  // ==========================================
   Future<void> addBudgetPriority(ProvinceBudgetPriority budget) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.addBudgetPriority(budget);
+      _ref.invalidate(provinceWithAllRelationsProvider(budget.provinceId));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -213,17 +235,22 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion du tourisme
+  // ==========================================
   Future<void> addTourismSite(ProvinceTourism site) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.addTourismSite(site);
+      _ref.invalidate(provinceWithAllRelationsProvider(site.provinceId));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -234,17 +261,22 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion des urgences
+  // ==========================================
   Future<void> addEmergencyContact(ProvinceEmergencyContact contact) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.addEmergencyContact(contact);
+      _ref.invalidate(provinceWithAllRelationsProvider(contact.provinceId));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -255,17 +287,22 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
+  // ==========================================
   // Gestion du découpage administratif
+  // ==========================================
   Future<void> addAdministrativeDivision(ProvinceAdministrativeDivision division) async {
     try {
       final service = _ref.read(provincesServiceProvider);
       await service.addAdministrativeDivision(division);
+      _ref.invalidate(provinceWithAllRelationsProvider(division.provinceId));
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -276,6 +313,7 @@ class AdminProvincesNotifier extends StateNotifier<AsyncValue<List<Province>>> {
       await loadProvinces();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 }
