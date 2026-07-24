@@ -32,13 +32,16 @@ class GovernmentService {
     }
   }
 
-  Future<Government> getCurrentGovernment() async {
+  Future<Government?> getCurrentGovernment() async {
     try {
+      // Utilisation de maybeSingle() pour éviter un crash s'il n'y a pas de gouvernement actuel
       final response = await _client
           .from('governments')
           .select('*')
           .eq('is_current', true)
-          .single();
+          .maybeSingle();
+          
+      if (response == null) return null;
       return Government.fromJson(response);
     } catch (e) {
       throw Exception('Erreur lors du chargement du gouvernement actuel: $e');
@@ -47,28 +50,36 @@ class GovernmentService {
 
   Future<Government> createGovernment(Government government) async {
     try {
+      final data = government.toJson();
+      // On retire l'ID pour laisser Supabase générer un UUID valide
+      data.remove('id');
+
       final response = await _client
           .from('governments')
-          .insert(government.toJson())
+          .insert(data)
           .select()
           .single();
       return Government.fromJson(response);
     } catch (e) {
-      throw Exception('Erreur lors de la création: $e');
+      throw Exception('Erreur lors de la création du gouvernement: $e');
     }
   }
 
   Future<Government> updateGovernment(Government government) async {
     try {
+      final data = government.toJson();
+      // On retire l'ID du payload de mise à jour
+      data.remove('id');
+
       final response = await _client
           .from('governments')
-          .update(government.toJson())
+          .update(data)
           .eq('id', government.id)
           .select()
           .single();
       return Government.fromJson(response);
     } catch (e) {
-      throw Exception('Erreur lors de la mise à jour: $e');
+      throw Exception('Erreur lors de la mise à jour du gouvernement: $e');
     }
   }
 
@@ -76,7 +87,7 @@ class GovernmentService {
     try {
       await _client.from('governments').delete().eq('id', id);
     } catch (e) {
-      throw Exception('Erreur lors de la suppression: $e');
+      throw Exception('Erreur lors de la suppression du gouvernement: $e');
     }
   }
 }
