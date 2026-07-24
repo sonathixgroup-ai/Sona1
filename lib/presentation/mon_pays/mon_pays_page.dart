@@ -447,83 +447,88 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
 
               return Column(
                 children: [
-                  // ── Carte du président ──
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: lightBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: gold.withOpacity(0.6),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: gold,
-                          ),
-                          child: CircleAvatar(
-                            radius: 42,
-                            backgroundImage: NetworkImage(
-                              president.imageUrl ??
-                                  'https://i.pravatar.cc/200?u=president',
-                            ),
-                            onBackgroundImageError: (_, __) {},
-                          ),
+                  // ── Carte du président (Cliquable) ──
+                  InkWell(
+                    onTap: () => context.push('/mon-pays/authorities/${president.id}'),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: lightBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: gold.withOpacity(0.6),
+                          width: 1.2,
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: primaryBlue,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  'PRÉSIDENT DE LA RÉPUBLIQUE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: gold,
+                            ),
+                            child: CircleAvatar(
+                              radius: 42,
+                              backgroundImage: NetworkImage(
+                                president.imageUrl ??
+                                    'https://i.pravatar.cc/200?u=president',
+                              ),
+                              onBackgroundImageError: (_, __) {},
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: primaryBlue,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'PRÉSIDENT DE LA RÉPUBLIQUE',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                president.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 17,
-                                  color: darkText,
+                                const SizedBox(height: 6),
+                                Text(
+                                  president.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 17,
+                                    color: darkText,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                president.title ?? 'Président de la République',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: mutedText,
-                                  fontWeight: FontWeight.w600,
+                                Text(
+                                  president.title ?? 'Président de la République',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: mutedText,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  // ── Grille des 3 autres ──
+                  
+                  // ── Grille des 3 autres (Cliquables également) ──
                   if (others.isNotEmpty)
                     GridView.builder(
                       shrinkWrap: true,
@@ -538,45 +543,50 @@ class _MonPaysPageState extends ConsumerState<MonPaysPage> {
                       itemCount: others.length,
                       itemBuilder: (context, i) {
                         final a = others[i];
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(2.5),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: gold, width: 1.5),
-                              ),
-                              child: CircleAvatar(
-                                radius: 34,
-                                backgroundImage: NetworkImage(
-                                  a.imageUrl ??
-                                      'https://i.pravatar.cc/100?u=$i',
+                        return InkWell(
+                          onTap: () => context.push('/mon-pays/authorities/${a.id}'),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(2.5),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: gold, width: 1.5),
                                 ),
-                                onBackgroundImageError: (_, __) {},
+                                child: CircleAvatar(
+                                  radius: 34,
+                                  backgroundImage: NetworkImage(
+                                    a.imageUrl ??
+                                        'https://i.pravatar.cc/100?u=$i',
+                                  ),
+                                  onBackgroundImageError: (_, __) {},
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              a.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
+                              const SizedBox(height: 6),
+                              Text(
+                                a.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
                               ),
-                            ),
-                            Text(
-                              a.title ?? '',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                color: mutedText,
+                              Text(
+                                a.title ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: mutedText,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         );
                       },
                     ),
