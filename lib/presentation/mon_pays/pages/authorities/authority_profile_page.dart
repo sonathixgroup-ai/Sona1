@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/authorities_provider.dart';
@@ -40,7 +39,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
     );
   }
 
-  // ==================== ÉTAT D'ERREUR (CORRIGÉ) ====================
+  // ==================== ÉTAT D'ERREUR ====================
   Widget _buildErrorState(Object error) {
     return Center(
       child: Column(
@@ -74,36 +73,89 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
                 _buildBadges(authority),
                 const SizedBox(height: 24),
                 
+                // 1. Biographie
                 if (authority.biography.isNotEmpty) ...[
                   _buildSectionTitle(Icons.history_edu, 'Biographie'),
                   _buildTextCard(authority.biography),
                   const SizedBox(height: 24),
                 ],
 
+                // 2. Rôle et Explication
                 if (authority.explanation != null && authority.explanation!.isNotEmpty) ...[
                   _buildSectionTitle(Icons.lightbulb_outline, 'Rôle & Missions'),
                   _buildTextCard(authority.explanation!),
                   const SizedBox(height: 24),
                 ],
 
-                if (authority.speeches.isNotEmpty) ...[
-                  _buildSectionTitle(Icons.mic, 'Discours Officiels'),
-                  ...authority.speeches.map((url) => _buildLinkCard(url, Icons.mic, 'Discours')),
+                // 3. Études
+                if (authority.education.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.school, 'Études & Formations'),
+                  ...authority.education.map((edu) => _buildTimelineCard(
+                    title: edu.degree,
+                    subtitle: edu.institution,
+                    dateRange: '${edu.startYear ?? ''} - ${edu.endYear ?? 'Présent'}'.trim(),
+                    description: edu.description,
+                    icon: Icons.school_outlined,
+                  )),
                   const SizedBox(height: 24),
                 ],
 
+                // 4. Parcours Professionnel (Carrière)
+                if (authority.career.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.work, 'Parcours Professionnel'),
+                  ...authority.career.map((career) => _buildTimelineCard(
+                    title: career.title,
+                    subtitle: career.organization,
+                    dateRange: '${career.startDate} - ${career.endDate ?? 'Présent'}'.trim(),
+                    description: career.description,
+                    icon: Icons.business_center_outlined,
+                  )),
+                  const SizedBox(height: 24),
+                ],
+
+                // 5. Réalisations
+                if (authority.achievements.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.emoji_events, 'Réalisations'),
+                  ...authority.achievements.map((ach) => _buildAchievementCard(ach)),
+                  const SizedBox(height: 24),
+                ],
+
+                // 6. Galerie Photos
+                if (authority.photos.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.photo_library, 'Galerie Photos'),
+                  _buildPhotoGallery(authority.photos),
+                  const SizedBox(height: 24),
+                ],
+
+                // 7. Vidéos
                 if (authority.videos.isNotEmpty) ...[
                   _buildSectionTitle(Icons.video_library, 'Vidéos'),
                   ...authority.videos.map((video) => _buildVideoCard(video)),
                   const SizedBox(height: 24),
                 ],
 
+                // 8. Discours
+                if (authority.speeches.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.mic, 'Discours Officiels'),
+                  ...authority.speeches.map((url) => _buildLinkCard(url, Icons.mic, 'Écouter le discours')),
+                  const SizedBox(height: 24),
+                ],
+
+                // 9. Documents
+                if (authority.documents.isNotEmpty) ...[
+                  _buildSectionTitle(Icons.folder, 'Documents'),
+                  ...authority.documents.map((doc) => _buildDocumentCard(doc)),
+                  const SizedBox(height: 24),
+                ],
+
+                // 10. Publications
                 if (authority.publications.isNotEmpty) ...[
                   _buildSectionTitle(Icons.article, 'Publications'),
                   ...authority.publications.map((url) => _buildLinkCard(url, Icons.article, 'Lire la publication')),
                   const SizedBox(height: 24),
                 ],
 
+                // 11. Réseaux Sociaux
                 if (authority.socialNetworks.isNotEmpty) ...[
                   _buildSectionTitle(Icons.public, 'Réseaux Sociaux'),
                   _buildSocialNetworks(authority.socialNetworks),
@@ -119,6 +171,9 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
 
   // ==================== EN-TÊTE IMAGE (APP BAR) ====================
   Widget _buildSliverAppBar(Authority authority) {
+    // On privilégie l'image de couverture pour le fond, sinon l'image de profil
+    final bgImage = authority.coverImageUrl ?? authority.imageUrl;
+    
     return SliverAppBar(
       expandedHeight: 320,
       pinned: true,
@@ -126,37 +181,66 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
       iconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 16),
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              authority.name,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
-            ),
-            Text(
-              authority.title,
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: gold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
+            if (authority.imageUrl != null) ...[
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: gold, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundImage: CachedNetworkImageProvider(authority.imageUrl!),
+                  backgroundColor: navy,
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    authority.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
+                  ),
+                  Text(
+                    authority.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: gold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         background: Stack(
           fit: StackFit.expand,
           children: [
-            authority.imageUrl != null && authority.imageUrl!.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: authority.imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: Colors.grey.shade300),
-                    errorWidget: (_, __, ___) => Container(color: navy, child: const Icon(Icons.person, size: 100, color: Colors.white24)),
-                  )
-                : Container(color: navy, child: const Icon(Icons.person, size: 100, color: Colors.white24)),
+            if (bgImage != null && bgImage.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: bgImage,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: Colors.grey.shade300),
+                errorWidget: (_, __, ___) => Container(color: navy, child: const Icon(Icons.account_balance, size: 80, color: Colors.white24)),
+              )
+            else
+              Container(color: navy, child: const Icon(Icons.account_balance, size: 80, color: Colors.white24)),
+            
+            // Dégradé sombre pour lisibilité du texte
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, navyDeep.withOpacity(0.9)],
+                  colors: [Colors.transparent, navyDeep.withOpacity(0.95)],
+                  stops: const [0.4, 1.0],
                 ),
               ),
             ),
@@ -196,6 +280,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
   }
 
   // ==================== ÉLÉMENTS DE DESIGN ====================
+  
   Widget _buildSectionTitle(IconData icon, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -203,7 +288,9 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
         children: [
           Icon(icon, color: gold, size: 22),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep)),
+          Expanded(
+            child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep)),
+          ),
         ],
       ),
     );
@@ -215,6 +302,208 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline), boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
       child: Text(text, style: const TextStyle(fontSize: 14, color: darkText, height: 1.6)),
+    );
+  }
+
+  // Composant pour Études & Carrière
+  Widget _buildTimelineCard({required String title, required String subtitle, required String dateRange, String? description, required IconData icon}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: hairline),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: navy.withOpacity(0.08), shape: BoxShape.circle),
+            child: Icon(icon, color: navy, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: darkText)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: navy)),
+                if (dateRange.isNotEmpty && dateRange != '-') ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_month, size: 12, color: mutedText),
+                      const SizedBox(width: 4),
+                      Text(dateRange, style: const TextStyle(fontSize: 12, color: mutedText)),
+                    ],
+                  ),
+                ],
+                if (description != null && description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(description, style: const TextStyle(fontSize: 13, color: darkText, height: 1.4)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Composant pour Réalisations
+  Widget _buildAchievementCard(Achievement achievement) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: hairline),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (achievement.imageUrl != null && achievement.imageUrl!.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: CachedNetworkImage(
+                imageUrl: achievement.imageUrl!,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(height: 140, color: Colors.grey.shade200),
+                errorWidget: (context, url, error) => const SizedBox.shrink(),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (achievement.category != null && achievement.category!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: gold.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                        child: Text(achievement.category!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: navyDeep)),
+                      ),
+                    const Spacer(),
+                    if (achievement.date != null && achievement.date!.isNotEmpty)
+                      Text(achievement.date!, style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(achievement.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: navyDeep)),
+                if (achievement.description != null && achievement.description!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(achievement.description!, style: const TextStyle(fontSize: 13, color: darkText, height: 1.4)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Composant pour les Documents
+  Widget _buildDocumentCard(AuthorityDocument doc) {
+    IconData docIcon;
+    switch (doc.type.toUpperCase()) {
+      case 'PDF': docIcon = Icons.picture_as_pdf; break;
+      case 'DOC':
+      case 'DOCX': docIcon = Icons.description; break;
+      case 'XLS':
+      case 'XLSX': docIcon = Icons.table_chart; break;
+      default: docIcon = Icons.insert_drive_file;
+    }
+
+    return InkWell(
+      onTap: () => _launchUrl(doc.url),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: hairline)),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              child: Icon(docIcon, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(doc.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: darkText)),
+                  if (doc.description != null && doc.description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(doc.description!, style: const TextStyle(fontSize: 12, color: mutedText)),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(Icons.download_rounded, color: navy, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Composant pour la Galerie de Photos
+  Widget _buildPhotoGallery(List<AuthorityPhoto> photos) {
+    return SizedBox(
+      height: 140,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: photos.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final photo = photos[index];
+          return Container(
+            width: 140,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: hairline),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: photo.url,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                    errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                  if (photo.title != null && photo.title!.isNotEmpty)
+                    Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                          ),
+                        ),
+                        child: Text(photo.title!, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -241,11 +530,7 @@ class _AuthorityProfilePageState extends ConsumerState<AuthorityProfilePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: hairline),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: hairline)),
       child: InkWell(
         onTap: () => _launchUrl(video.url),
         child: Row(
