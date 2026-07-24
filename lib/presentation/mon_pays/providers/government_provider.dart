@@ -56,9 +56,15 @@ class AdminGovernmentsNotifier extends StateNotifier<AsyncValue<List<Government>
     try {
       final service = _ref.read(governmentServiceProvider);
       await service.createGovernment(government);
+      
+      // 🚀 Invalider les caches publics
+      _ref.invalidate(governmentsProvider);
+      _ref.invalidate(currentGovernmentProvider);
+      
       await loadGovernments();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀 Permet au formulaire d'attraper l'erreur !
     }
   }
 
@@ -66,9 +72,16 @@ class AdminGovernmentsNotifier extends StateNotifier<AsyncValue<List<Government>
     try {
       final service = _ref.read(governmentServiceProvider);
       await service.updateGovernment(government);
+      
+      // 🚀 Invalider les caches publics et le détail de ce gouvernement spécifique
+      _ref.invalidate(governmentsProvider);
+      _ref.invalidate(currentGovernmentProvider);
+      _ref.invalidate(governmentDetailProvider(government.id));
+      
       await loadGovernments();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 
@@ -76,9 +89,16 @@ class AdminGovernmentsNotifier extends StateNotifier<AsyncValue<List<Government>
     try {
       final service = _ref.read(governmentServiceProvider);
       await service.deleteGovernment(id);
+      
+      // 🚀 Invalider les caches publics
+      _ref.invalidate(governmentsProvider);
+      _ref.invalidate(currentGovernmentProvider);
+      _ref.invalidate(governmentDetailProvider(id));
+      
       await loadGovernments();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+      throw e; // 🚀
     }
   }
 }
