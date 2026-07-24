@@ -34,7 +34,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   late TextEditingController _mapUrlController;
   late TextEditingController _websiteController;
 
-  // NOUVEAUX CHAMPS AJOUTÉS
+  // Nouveaux champs
   late TextEditingController _governorController;
   late TextEditingController _viceGovernorController;
   late TextEditingController _languagesController;
@@ -56,7 +56,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _isEditing = p != null;
     _provinceId = p?.id;
     
-    // Initialisation champs existants
     _nameController = TextEditingController(text: p?.name ?? '');
     _codeController = TextEditingController(text: p?.code ?? '');
     _capitalController = TextEditingController(text: p?.capital ?? '');
@@ -69,13 +68,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _mapUrlController = TextEditingController(text: p?.mapUrl ?? '');
     _websiteController = TextEditingController(text: p?.website ?? '');
 
-    // Initialisation des nouveaux champs (Ajoutez-les dans votre model Province !)
-    // J'utilise une syntaxe prudente au cas où votre modèle n'est pas encore à jour
-    _governorController = TextEditingController(text: (p as dynamic).tryCastGovernor() ?? '');
-    _viceGovernorController = TextEditingController(text: (p as dynamic).tryCastViceGovernor() ?? '');
-    _languagesController = TextEditingController(text: (p as dynamic).tryCastLanguages() ?? '');
-    _resourcesController = TextEditingController(text: (p as dynamic).tryCastResources() ?? '');
-    _territoriesCountController = TextEditingController(text: (p as dynamic).tryCastTerritories()?.toString() ?? '');
+    // 🚀 L'erreur venait d'ici : on utilise maintenant l'accès direct et sécurisé au modèle mis à jour
+    _governorController = TextEditingController(text: p?.governor ?? '');
+    _viceGovernorController = TextEditingController(text: p?.viceGovernor ?? '');
+    _languagesController = TextEditingController(text: p?.languages ?? '');
+    _resourcesController = TextEditingController(text: p?.resources ?? '');
+    _territoriesCountController = TextEditingController(text: p?.territoriesCount?.toString() ?? '');
   }
 
   @override
@@ -105,7 +103,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isBusy = true);
         
-        // ⚠️ Remplacez par votre vrai service d'upload
+        // Simulation d'upload
         await Future.delayed(const Duration(seconds: 2));
         final url = 'https://picsum.photos/800/600?random=${DateTime.now().millisecondsSinceEpoch}';
 
@@ -170,7 +168,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // SECTION 2 : GOUVERNANCE (NOUVEAU)
+                  // SECTION 2 : GOUVERNANCE
                   _buildSectionCard(
                     title: 'Gouvernance & Administration',
                     icon: Icons.account_balance,
@@ -307,36 +305,25 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isBusy = true);
 
-    // ⚠️ ATTENTION : Assurez-vous d'ajouter ces nouveaux champs (governor, etc.) 
-    // dans la définition de votre classe Province (models/province.dart) !
-    // Si votre classe ne les supporte pas encore, ajoutez les paramètres optionnels 
-    // ou retirez-les de cet appel temporairement.
-    
-    // Exemple d'intégration (adapté selon votre modèle)
-    final provinceMap = {
-      'id': _provinceId ?? '',
-      'name': _nameController.text.trim(),
-      'code': _codeController.text.trim(),
-      'capital': _capitalController.text.trim(),
-      'region': _regionController.text.trim(),
-      'area': int.tryParse(_areaController.text.trim()),
-      'population': int.tryParse(_populationController.text.trim()),
-      'description': _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-      'coverImageUrl': _coverImageUrlController.text.trim().isEmpty ? null : _coverImageUrlController.text.trim(),
-      'coatOfArmsUrl': _coatOfArmsUrlController.text.trim().isEmpty ? null : _coatOfArmsUrlController.text.trim(),
-      'mapUrl': _mapUrlController.text.trim().isEmpty ? null : _mapUrlController.text.trim(),
-      'website': _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
-      // Nouvelles données :
-      'governor': _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
-      'viceGovernor': _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
-      'languages': _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
-      'resources': _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
-      'territoriesCount': int.tryParse(_territoriesCountController.text.trim()),
-    };
-
-    // Création de l'objet via une potentielle méthode fromJson ou constructeur
-    // Remplacez cette ligne par l'instanciation correcte de votre Province
-    final province = Province.fromJson(provinceMap); 
+    final province = Province(
+      id: _provinceId ?? '',
+      name: _nameController.text.trim(),
+      code: _codeController.text.trim(),
+      capital: _capitalController.text.trim(),
+      region: _regionController.text.trim(),
+      area: int.tryParse(_areaController.text.trim()),
+      population: int.tryParse(_populationController.text.trim()),
+      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+      coverImageUrl: _coverImageUrlController.text.trim().isEmpty ? null : _coverImageUrlController.text.trim(),
+      coatOfArmsUrl: _coatOfArmsUrlController.text.trim().isEmpty ? null : _coatOfArmsUrlController.text.trim(),
+      mapUrl: _mapUrlController.text.trim().isEmpty ? null : _mapUrlController.text.trim(),
+      website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+      governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
+      viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
+      languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
+      resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
+      territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
+    );
     
     final notifier = ref.read(adminProvincesProvider.notifier);
     
@@ -352,17 +339,4 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
     }
   }
-}
-
-// ----------------------------------------------------
-// HELPER EXTENSION POUR ÉVITER LES CRASHS SI LE MODÈLE 
-// N'EST PAS ENCORE À JOUR. 
-// À SUPPRIMER QUAND VOTRE MODÈLE EST À JOUR.
-// ----------------------------------------------------
-extension ProvinceSafeExtract on dynamic {
-  String? tryCastGovernor() { try { return this.governor; } catch (_) { return null; } }
-  String? tryCastViceGovernor() { try { return this.viceGovernor; } catch (_) { return null; } }
-  String? tryCastLanguages() { try { return this.languages; } catch (_) { return null; } }
-  String? tryCastResources() { try { return this.resources; } catch (_) { return null; } }
-  int? tryCastTerritories() { try { return this.territoriesCount; } catch (_) { return null; } }
 }
