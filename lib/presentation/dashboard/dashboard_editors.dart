@@ -65,7 +65,6 @@ class _ProfileEditorBody extends StatefulWidget {
 }
 
 class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
-  // --- Controllers ---
   late final TextEditingController _nameC, _competenceC, _bioC, _countryOriginC;
   late final TextEditingController _contactPhoneC, _dobC, _pobC, _nationalityC;
   late final TextEditingController _maritalC, _genderC, _occupationC, _addressC;
@@ -91,7 +90,6 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
 
   late final TextEditingController _langAddC, _langLevelC;
 
-  // --- State Variables ---
   bool _hasDisability = false;
   PlatformFile? _idFront, _idBack, _idSelfie;
   String? _idFrontDocId, _idBackDocId, _idSelfieDocId;
@@ -105,7 +103,6 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
   String? _originProvince, _originTerritory;
   String? _residenceCountry, _residenceProvince, _residenceTerritory, _residenceCity, _residenceCommune;
 
-  // --- Services ---
   final _photos = ProfilePhotoService();
   final _userService = UserService(Supabase.instance.client);
   final _docs = DocumentService();
@@ -450,12 +447,12 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(AppRadius.xl),
             topRight: Radius.circular(AppRadius.xl),
           ),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: SingleChildScrollView(
@@ -465,7 +462,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Modifier mon profil', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  Text('Modifier mon profil', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                   IconButton(onPressed: _saving ? null : () => context.pop(), icon: const Icon(Icons.close_rounded))
                 ],
               ),
@@ -514,9 +511,9 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: context.theme.scaffoldBackgroundColor,
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: context.theme.dividerColor),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -525,12 +522,12 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                       children: [
                         const Icon(Icons.translate_rounded, size: 18),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('Langues', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900))),
+                        Expanded(child: Text('Langues', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900))),
                       ],
                     ),
                     const SizedBox(height: 8),
                     if (_languages.isEmpty)
-                      Text('Aucune langue.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                      Text('Aucune langue.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
                     else
                       Wrap(
                         spacing: 6,
@@ -577,7 +574,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
               TextField(controller: _addressC, maxLines: 2, decoration: InputDecoration(labelText: 'Adresse', prefixIcon: const Icon(Icons.home_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               
               const SizedBox(height: 16),
-              Text('Origine', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Origine', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               TextField(controller: _originProvinceC, decoration: InputDecoration(labelText: 'Province origine', prefixIcon: const Icon(Icons.map_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               const SizedBox(height: 12),
@@ -586,7 +583,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
               TextField(controller: _originSectorC, decoration: InputDecoration(labelText: 'Secteur', prefixIcon: const Icon(Icons.account_tree_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               
               const SizedBox(height: 16),
-              Text('Résidence actuelle', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Résidence actuelle', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               TextField(controller: _residenceCountryC, decoration: InputDecoration(labelText: 'Pays', prefixIcon: const Icon(Icons.public_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               const SizedBox(height: 12),
@@ -629,7 +626,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
               ),
               
               const SizedBox(height: 16),
-              Text('Infos physiques', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Infos physiques', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -652,7 +649,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                 TextField(controller: _disabilityDescC, maxLines: 2, decoration: InputDecoration(labelText: 'Description', prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               
               const SizedBox(height: 16),
-              Text('Identité nationale', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Identité nationale', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               TextField(controller: _nationalIdNumberC, decoration: InputDecoration(labelText: 'Numéro identité', prefixIcon: const Icon(Icons.badge_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
               const SizedBox(height: 12),
@@ -672,9 +669,9 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: context.theme.scaffoldBackgroundColor,
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: context.theme.dividerColor),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -683,7 +680,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                       children: [
                         const Icon(Icons.verified_user_rounded, size: 18),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('Pièces identité (photo/PDF)', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900))),
+                        Expanded(child: Text('Pièces identité (photo/PDF)', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900))),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
@@ -723,7 +720,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                   icon: _saving
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
                       : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
-                  label: Text('SAUVEGARDER', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                  label: Text('SAUVEGARDER', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: LightModeColors.accent,
                     foregroundColor: const Color(0xFF123B7A),
@@ -856,9 +853,9 @@ class _ParcoursEditorBodyState extends State<_ParcoursEditorBody> {
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: SafeArea(
           top: false,
@@ -870,7 +867,7 @@ class _ParcoursEditorBodyState extends State<_ParcoursEditorBody> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Mon parcours', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text('Mon parcours', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                     IconButton(onPressed: _saving ? null : () => context.pop(), icon: const Icon(Icons.close_rounded))
                   ],
                 ),
@@ -879,7 +876,7 @@ class _ParcoursEditorBodyState extends State<_ParcoursEditorBody> {
                   stream: widget.profileService.streamMyProfile(widget.profile.userId),
                   builder: (context, snap) {
                     return ParcoursForm(
-                      header: Text('Compétences', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+                      header: Text('Compétences', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
                       bioC: _bioC,
                       competenceC: _competenceC,
                       education: _education,
@@ -906,7 +903,7 @@ class _ParcoursEditorBodyState extends State<_ParcoursEditorBody> {
                     icon: _saving
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
                         : const Icon(Icons.save_rounded, color: Color(0xFF123B7A)),
-                    label: Text('SAUVEGARDER', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                    label: Text('SAUVEGARDER', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: LightModeColors.accent,
                       foregroundColor: const Color(0xFF123B7A),
@@ -1080,9 +1077,9 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         padding: const EdgeInsets.all(16),
         child: StreamBuilder<ThixProfile?>(
@@ -1096,7 +1093,7 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(_editingIndex == null ? 'Ajouter une expérience' : 'Modifier', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(_editingIndex == null ? 'Ajouter une expérience' : 'Modifier', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                     IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
                   ],
                 ),
@@ -1104,14 +1101,14 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: context.theme.scaffoldBackgroundColor,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: context.theme.dividerColor),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Vos expériences', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
+                        Text('Vos expériences', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
                         ...List.generate(existing.length, (i) {
                           final e = existing[i];
@@ -1124,7 +1121,7 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                             decoration: BoxDecoration(
                               color: selected ? LightModeColors.accent.withOpacity(0.12) : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: selected ? LightModeColors.accent : context.theme.dividerColor),
+                              border: Border.all(color: selected ? LightModeColors.accent : Theme.of(context).dividerColor),
                             ),
                             child: ListTile(
                               dense: true,
@@ -1161,9 +1158,9 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: context.theme.scaffoldBackgroundColor,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: context.theme.dividerColor),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1172,12 +1169,12 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                         children: [
                           const Icon(Icons.attachment_rounded, size: 18),
                           const SizedBox(width: 8),
-                          Expanded(child: Text('Pièces obtenues', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900))),
+                          Expanded(child: Text('Pièces obtenues', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900))),
                           OutlinedButton.icon(onPressed: _saving ? null : _pickEvidence, icon: const Icon(Icons.upload_file_rounded), label: const Text('Ajouter'))
                         ],
                       ),
                       if (_evidence.isEmpty)
-                        Text('Aucune pièce.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                        Text('Aucune pièce.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
                       else
                         ..._evidence.map((e) => Row(
                           children: [
@@ -1317,9 +1314,9 @@ class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         padding: const EdgeInsets.all(16),
         child: StreamBuilder<ThixProfile?>(
@@ -1333,7 +1330,7 @@ class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(_editingIndex == null ? 'Ajouter compétence' : 'Modifier compétence', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(_editingIndex == null ? 'Ajouter compétence' : 'Modifier compétence', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                     IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
                   ],
                 ),
@@ -1341,9 +1338,9 @@ class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: context.theme.scaffoldBackgroundColor,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: context.theme.dividerColor),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Column(
                       children: List.generate(existing.length, (i) {
@@ -1356,7 +1353,7 @@ class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
                           decoration: BoxDecoration(
                             color: selected ? LightModeColors.accent.withOpacity(0.12) : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: selected ? LightModeColors.accent : context.theme.dividerColor),
+                            border: Border.all(color: selected ? LightModeColors.accent : Theme.of(context).dividerColor),
                           ),
                           child: ListTile(
                             dense: true,
@@ -1511,9 +1508,9 @@ class _EmergencyContactsEditorBodyState extends State<_EmergencyContactsEditorBo
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         padding: const EdgeInsets.all(16),
         child: StreamBuilder<ThixProfile?>(
@@ -1527,7 +1524,7 @@ class _EmergencyContactsEditorBodyState extends State<_EmergencyContactsEditorBo
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(_editingIndex == null ? 'Ajouter contact' : 'Modifier contact', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(_editingIndex == null ? 'Ajouter contact' : 'Modifier contact', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                     IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
                   ],
                 ),
@@ -1535,9 +1532,9 @@ class _EmergencyContactsEditorBodyState extends State<_EmergencyContactsEditorBo
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: context.theme.scaffoldBackgroundColor,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: context.theme.dividerColor),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Column(
                       children: List.generate(existing.length, (i) {
@@ -1550,7 +1547,7 @@ class _EmergencyContactsEditorBodyState extends State<_EmergencyContactsEditorBo
                           decoration: BoxDecoration(
                             color: selected ? LightModeColors.accent.withOpacity(0.12) : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: selected ? LightModeColors.accent : context.theme.dividerColor),
+                            border: Border.all(color: selected ? LightModeColors.accent : Theme.of(context).dividerColor),
                           ),
                           child: ListTile(
                             dense: true,
