@@ -1,3 +1,6 @@
+// ============================================================
+// FICHIER : pages/provinces/provinces_page.dart
+// ============================================================
 // lib/presentation/mon_pays/pages/provinces/provinces_page.dart
 
 import 'package:flutter/material.dart';
@@ -156,7 +159,7 @@ class _ProvincesPageState extends ConsumerState<ProvincesPage> {
                     Text('Erreur de chargement', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: () => ref.invalidate(provincesProvider),
+                      onPressed: () => ref.invalidate(provincesProvider(region)),
                       style: ElevatedButton.styleFrom(backgroundColor: navyDeep),
                       child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
                     ),
