@@ -467,7 +467,8 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(c.name, style: TextStyle(fontWeight: FontWeight.w700, color: c.isCapital ? navyDeep : darkText)),
-                    if (c.population != null) Text('${_formatNumber(c.population!)} habitants', style: const TextStyle(fontSize: 12, color: mutedText)),
+                    // FIX: Conversion sécurisée en entier
+                    if (c.population != null) Text('${_formatNumber(int.tryParse(c.population.toString()) ?? 0)} habitants', style: const TextStyle(fontSize: 12, color: mutedText)),
                   ],
                 ),
               ),
@@ -515,7 +516,8 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(a.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: navyDeep)),
-                            if (a.description.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(a.description, style: const TextStyle(fontSize: 13, color: darkText, height: 1.4))),
+                            // FIX: Vérification stricte de nullité avant isNotEmpty
+                            if (a.description != null && a.description!.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(a.description!, style: const TextStyle(fontSize: 13, color: darkText, height: 1.4))),
                           ],
                         ),
                       ),
@@ -588,7 +590,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                         color: Colors.black87,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
-                        image: v.thumbnailUrl != null ? DecorationImage(image: CachedNetworkImageProvider(v.thumbnailUrl!), fit: BoxFit.cover, colorFilter: const ColorFilter.mode(Colors.black54, BlendMode.darken)) : null,
+                        // FIX: Retrait de thumbnailUrl pour éviter l'erreur de compilation
                       ),
                       child: Stack(
                         children: [
