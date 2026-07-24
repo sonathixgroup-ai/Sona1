@@ -248,7 +248,7 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     });
   }
 
-  // ─── PUBLICATION AVEC FACT-CHECKING ET GESTION DES MODES (Standard, Sondage, Challenge) ───
+  // ─── PUBLICATION AVEC FACT-CHECKING ET GESTION DES MODES FORCÉS ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
     
@@ -370,10 +370,12 @@ FAKE: [raison]
       }
 
       final allMedia = [...imageUrls, ...videoUrls];
-      
-      // Enregistrement selon le mode de publication
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception("Utilisateur non authentifié");
+
+      // ── ENREGISTREMENT STRICT SELON LE MODE ──
       if (_postTypeMode == 1) {
-        // Sondage
+        // 📊 SONDAGE
         final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
         if (options.length < 2) {
           setState(() {
@@ -382,24 +384,43 @@ FAKE: [raison]
           });
           return;
         }
-        await networkService.createPollPost(
-          content: textContent,
-          options: options,
-          images: allMedia,
-        );
-      } else if (_postTypeMode == 2) {
-        // Challenge
-        await networkService.createChallengePost(
-          title: textContent,
-          description: _challengeDescController.text.trim(),
-          endDate: _challengeEndDate!,
-          images: allMedia,
-        );
-      } else {
-        // Post Standard
-        final user = Supabase.instance.client.auth.currentUser;
-        if (user == null) throw Exception("Utilisateur non authentifié");
 
+        final formattedOptions = options.map((opt) => {'text': opt, 'votes': <String>[]}).toList();
+
+        await Supabase.instance.client.from('posts').insert({
+          'user_id': user.id,
+          'content': textContent,
+          'media_urls': allMedia,
+          'community_id': widget.communityId,
+          'post_type': 'poll', // Forcé à 'poll'
+          'poll_data': {'options': formattedOptions},
+          'is_fact_checked': true,
+          'is_misinformation': isMisinformation,
+          'fact_check_message': factCheckMessage,
+          'fact_check_severity': factCheckSeverity,
+        });
+
+      } else if (_postTypeMode == 2) {
+        // 🏆 CHALLENGE
+        await Supabase.instance.client.from('posts').insert({
+          'user_id': user.id,
+          'content': textContent,
+          'media_urls': allMedia,
+          'community_id': widget.communityId,
+          'post_type': 'challenge', // Forcé à 'challenge'
+          'challenge_data': {
+            'description': _challengeDescController.text.trim(),
+            'end_date': _challengeEndDate?.toIso8601String(),
+            'participants_count': 0,
+          },
+          'is_fact_checked': true,
+          'is_misinformation': isMisinformation,
+          'fact_check_message': factCheckMessage,
+          'fact_check_severity': factCheckSeverity,
+        });
+
+      } else {
+        // 📄 STANDARD
         await Supabase.instance.client.from('posts').insert({
           'user_id': user.id,
           'content': textContent,
