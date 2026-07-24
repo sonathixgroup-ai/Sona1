@@ -94,15 +94,62 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 24),
                 ],
                 
-                _buildGovernmentSection(province),
-                _buildCitiesSection(province),
-                _buildAdministrativeSection(province),
-                _buildEconomySection(province),
-                _buildBudgetSection(province),
-                _buildTourismSection(province),
-                _buildEmergencySection(province),
-                _buildAchievementsSection(province),
-                _buildMediaSection(province),
+                // Sections cliquables interactives
+                _buildClickableSectionCard(
+                  title: 'Gouvernement & Administration',
+                  subtitle: province.governor != null ? 'Gouverneur : ${province.governor}' : 'Voir l\'exécutif provincial',
+                  icon: Icons.account_balance,
+                  onTap: () => _showGovernmentDetailsModal(context, province),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Villes Principales',
+                  subtitle: '${province.cities.length} ville(s) enregistrée(s)',
+                  icon: Icons.location_city,
+                  onTap: () => _showCitiesModal(context, province.cities),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Culture & Géographie',
+                  subtitle: province.languages != null ? 'Langues : ${province.languages}' : 'Voir les détails culturels',
+                  icon: Icons.public,
+                  onTap: () => _showCultureModal(context, province),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Économie & Ressources',
+                  subtitle: province.resources != null ? 'Ressources : ${province.resources}' : '${province.economicResources.length} secteur(s) clé(s)',
+                  icon: Icons.monetization_on,
+                  onTap: () => _showEconomyModal(context, province),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Tourisme & Sites',
+                  subtitle: '${province.tourismSites.length} site(s) touristique(s)',
+                  icon: Icons.landscape,
+                  onTap: () => _showTourismModal(context, province.tourismSites),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Urgences & Contacts',
+                  subtitle: '${province.emergencyContacts.length} numéro(s) d\'urgence',
+                  icon: Icons.emergency,
+                  onTap: () => _showEmergencyModal(context, province.emergencyContacts),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Découpage Administratif',
+                  subtitle: '${province.administrativeDivisions.length} division(s)',
+                  icon: Icons.dashboard_customize,
+                  onTap: () => _showAdministrativeModal(context, province.administrativeDivisions),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Réalisations Majeures',
+                  subtitle: 'Projets et accomplissements',
+                  icon: Icons.emoji_events,
+                  onTap: () => _showAchievementsModal(context),
+                ),
+                _buildClickableSectionCard(
+                  title: 'Média & Galerie',
+                  subtitle: 'Photos et vidéos de la province',
+                  icon: Icons.perm_media,
+                  onTap: () => _showMediaModal(context),
+                ),
+
                 const SizedBox(height: 40),
               ],
             ),
@@ -171,10 +218,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  // ============================================================
-  // SECTIONS
-  // ============================================================
-
   Widget _buildIdentitySection(Province province) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -190,15 +233,11 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
             children: [
               if (province.coatOfArmsUrl != null && province.coatOfArmsUrl!.isNotEmpty)
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 60, height: 60,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: hairline),
-                    image: DecorationImage(
-                      image: CachedNetworkImageProvider(province.coatOfArmsUrl!),
-                      fit: BoxFit.contain,
-                    ),
+                    image: DecorationImage(image: CachedNetworkImageProvider(province.coatOfArmsUrl!), fit: BoxFit.contain),
                   ),
                 )
               else
@@ -244,381 +283,271 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  Widget _buildGovernmentSection(Province province) {
-    if (province.government == null) return const SizedBox.shrink();
-    final gov = province.government!;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(Icons.account_balance, 'Gouvernement Provincial'),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (gov.governorId != null && gov.governorId!.isNotEmpty)
-                _buildGovRoleRow(Icons.person, 'Gouverneur', 'ID: ${gov.governorId}'),
-              if (gov.viceGovernorId != null && gov.viceGovernorId!.isNotEmpty) ...[
-                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1, color: hairline)),
-                _buildGovRoleRow(Icons.person_outline, 'Vice-Gouverneur', 'ID: ${gov.viceGovernorId}'),
-              ],
-              if (gov.ministers.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text('Ministres', style: TextStyle(fontWeight: FontWeight.w800, color: navyDeep, fontSize: 14)),
-                const SizedBox(height: 8),
-                ...gov.ministers.map((m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.work, size: 16, color: mutedText),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(m.portfolio, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText))),
-                    ],
-                  ),
-                )),
-              ],
-            ],
-          ),
+  Widget _buildClickableSectionCard({required String title, required String subtitle, required IconData icon, required VoidCallback onTap}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: hairline),
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: navyDeep.withOpacity(0.08), shape: BoxShape.circle),
+          child: Icon(icon, color: navyDeep, size: 22),
         ),
-        const SizedBox(height: 24),
-      ],
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: navyDeep)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: mutedText)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: mutedText),
+      ),
     );
   }
 
-  Widget _buildEconomySection(Province province) {
-    if (province.economicResources.isEmpty) return const SizedBox.shrink();
-    return Column(
+  // ============================================================
+  // MODALS (POPUP DÉTAILS)
+  // ============================================================
+
+  void _showModal(BuildContext context, String title, Widget content) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.between,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep)),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const Divider(height: 20),
+            Expanded(child: SingleChildScrollView(child: content)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showGovernmentDetailsModal(BuildContext context, Province province) {
+    _showModal(context, 'Gouvernement & Administration', Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(Icons.monetization_on, 'Économie & Ressources'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: province.economicResources.map((r) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: r.isKeySector ? gold.withOpacity(0.15) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: r.isKeySector ? gold : hairline),
-              ),
+        if (province.governor != null) _modalRow(Icons.person, 'Gouverneur', province.governor!),
+        if (province.viceGovernor != null) ...[
+          const Divider(),
+          _modalRow(Icons.person_outline, 'Vice-Gouverneur', province.viceGovernor!),
+        ],
+        if (province.territoriesCount != null) ...[
+          const Divider(),
+          _modalRow(Icons.map, 'Nombre de territoires / Villes', '${province.territoriesCount}'),
+        ],
+        if (province.government != null) ...[
+          if (province.government!.mandate != null) ...[
+            const Divider(),
+            _modalRow(Icons.calendar_today, 'Mandat', province.government!.mandate!),
+          ],
+          if (province.government!.ministers.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('Ministres provinciaux :', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
+            const SizedBox(height: 8),
+            ...province.government!.ministers.map((m) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (r.iconUrl != null && r.iconUrl!.isNotEmpty) ...[
-                    CachedNetworkImage(imageUrl: r.iconUrl!, width: 16, height: 16),
-                    const SizedBox(width: 6),
-                  ] else
-                    Icon(r.isKeySector ? Icons.star : Icons.circle, size: 12, color: r.isKeySector ? gold : mutedText),
-                  const SizedBox(width: 4),
-                  Text(r.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: r.isKeySector ? navyDeep : darkText)),
+                  const Icon(Icons.work, size: 16, color: mutedText),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(m.portfolio, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
                 ],
               ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 24),
+            )),
+          ],
+        ],
+        if (province.governor == null && province.government == null)
+          const Text('Aucune information gouvernementale enregistrée.', style: TextStyle(color: mutedText, fontStyle: FontStyle.italic)),
       ],
-    );
+    ));
   }
 
-  Widget _buildBudgetSection(Province province) {
-    if (province.budgetPriorities.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(Icons.account_balance_wallet, 'Priorités Budgétaires'),
-        ...province.budgetPriorities.map((b) => Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: hairline)),
-          child: Row(
-            children: [
-              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.show_chart, color: Colors.green, size: 20)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(b.title, style: const TextStyle(fontWeight: FontWeight.w700, color: darkText)),
-                    Text('${b.year} ${b.allocatedAmount != null ? '• ${_formatNumber(b.allocatedAmount!.toInt())} USD' : ''}', style: const TextStyle(fontSize: 12, color: mutedText)),
-                  ],
-                ),
-              ),
-              if (b.pdfUrl != null && b.pdfUrl!.isNotEmpty)
-                IconButton(icon: const Icon(Icons.picture_as_pdf, color: redThix), onPressed: () => _launchUrl(b.pdfUrl!)),
-            ],
-          ),
-        )),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildTourismSection(Province province) {
-    if (province.tourismSites.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(Icons.landscape, 'Tourisme & Culture'),
-        SizedBox(
-          height: 180,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: province.tourismSites.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) {
-              final t = province.tourismSites[i];
-              return Container(
-                width: 140,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: t.imageUrl != null && t.imageUrl!.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: t.imageUrl!, height: 100, width: 140, fit: BoxFit.cover)
-                          : Container(height: 100, width: 140, color: navyDeep.withOpacity(0.1), child: const Icon(Icons.landscape, color: navy)),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(t.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text(t.type, style: const TextStyle(fontSize: 10, color: mutedText)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildEmergencySection(Province province) {
-    if (province.emergencyContacts.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(Icons.emergency, 'Urgences & Contacts'),
-        ...province.emergencyContacts.map((e) => Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: redThix.withOpacity(0.3))),
-          child: ListTile(
-            leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: redThix.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.phone, color: redThix, size: 20)),
-            title: Text(e.service, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(e.phone, style: const TextStyle(color: navy, fontWeight: FontWeight.w600)),
-            trailing: IconButton(icon: const Icon(Icons.call, color: Colors.green), onPressed: () => _launchUrl('tel:${e.phone}')),
-          ),
-        )),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildAdministrativeSection(Province province) {
-    if (province.administrativeDivisions.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(Icons.dashboard_customize, 'Découpage Administratif'),
-        Wrap(
-          spacing: 8, runSpacing: 8,
-          children: province.administrativeDivisions.map((d) {
-            return Chip(
-              label: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-              avatar: const Icon(Icons.map, size: 14, color: navy),
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: hairline)),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildCitiesSection(Province province) {
-    if (province.cities.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle(Icons.location_city, 'Villes Principales'),
-        ...province.cities.map((c) => Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: hairline)),
-          child: Row(
-            children: [
-              Icon(c.isCapital ? Icons.star : Icons.location_on, color: c.isCapital ? gold : navy, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c.name, style: TextStyle(fontWeight: FontWeight.w700, color: c.isCapital ? navyDeep : darkText)),
-                    // FIX: Conversion sécurisée en entier
-                    if (c.population != null) Text('${_formatNumber(int.tryParse(c.population.toString()) ?? 0)} habitants', style: const TextStyle(fontSize: 12, color: mutedText)),
-                  ],
-                ),
-              ),
-              if (c.isCapital) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: gold.withOpacity(0.2), borderRadius: BorderRadius.circular(4)), child: const Text('Chef-lieu', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: navyDeep))),
-            ],
-          ),
-        )),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildAchievementsSection(Province province) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final achievementsAsync = ref.watch(achievementsByProvinceProvider(widget.provinceId));
-        return achievementsAsync.when(
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (achievements) {
-            if (achievements.isEmpty) return const SizedBox.shrink();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  void _showCitiesModal(BuildContext context, List<City> cities) {
+    _showModal(context, 'Villes Principales', cities.isEmpty 
+      ? const Text('Aucune ville enregistrée.')
+      : Column(
+          children: cities.map((c) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: ivory, borderRadius: BorderRadius.circular(12), border: Border.all(color: hairline)),
+            child: Row(
               children: [
-                _buildSectionTitle(Icons.emoji_events, 'Réalisations Majeures'),
-                ...achievements.map((a) => Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))]),
+                Icon(c.isCapital ? Icons.star : Icons.location_city, color: c.isCapital ? gold : navy),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (a.coverImageUrl != null && a.coverImageUrl!.isNotEmpty)
-                        ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: CachedNetworkImage(imageUrl: a.coverImageUrl!, height: 140, width: double.infinity, fit: BoxFit.cover)),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: gold.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Text(a.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: navyDeep))),
-                                const Spacer(),
-                                if (a.date != null) Text(a.date!.toLocal().toString().split(' ')[0], style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(a.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: navyDeep)),
-                            // FIX: Vérification stricte de nullité avant isNotEmpty
-                            if (a.description != null && a.description!.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(a.description!, style: const TextStyle(fontSize: 13, color: darkText, height: 1.4))),
-                          ],
-                        ),
-                      ),
+                      Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (c.population != null) Text('${c.population} hab.', style: const TextStyle(fontSize: 12, color: mutedText)),
                     ],
                   ),
-                )),
-                const SizedBox(height: 24),
+                ),
+                if (c.isCapital) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: gold.withOpacity(0.2), borderRadius: BorderRadius.circular(4)), child: const Text('Capitale', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: navyDeep))),
               ],
-            );
-          },
-        );
-      },
+            ),
+          )).toList(),
+        ),
     );
   }
 
-  Widget _buildMediaSection(Province province) {
-    return Consumer(
+  void _showCultureModal(BuildContext context, Province province) {
+    _showModal(context, 'Culture & Géographie', Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modalRow(Icons.chat_bubble_outline, 'Langues parlées', province.languages ?? 'Non spécifié'),
+        const Divider(),
+        _modalRow(Icons.explore, 'Région', province.region),
+        const Divider(),
+        _modalRow(Icons.square_foot, 'Superficie', province.area != null ? '${_formatNumber(province.area!)} km²' : 'Non spécifié'),
+      ],
+    ));
+  }
+
+  void _showEconomyModal(BuildContext context, Province province) {
+    _showModal(context, 'Économie & Ressources', Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modalRow(Icons.diamond, 'Ressources principales', province.resources ?? 'Non spécifié'),
+        if (province.economicResources.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Secteurs économiques :', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: province.economicResources.map((r) => Chip(
+              label: Text(r.name),
+              backgroundColor: r.isKeySector ? gold.withOpacity(0.2) : ivory,
+            )).toList(),
+          ),
+        ],
+      ],
+    ));
+  }
+
+  void _showTourismModal(BuildContext context, List<ProvinceTourism> sites) {
+    _showModal(context, 'Tourisme & Sites', sites.isEmpty 
+      ? const Text('Aucun site touristique enregistré.')
+      : Column(
+          children: sites.map((t) => ListTile(
+            leading: t.imageUrl != null ? CachedNetworkImage(imageUrl: t.imageUrl!, width: 50, height: 50, fit: BoxFit.cover) : const Icon(Icons.landscape),
+            title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(t.type),
+          )).toList(),
+        ),
+    );
+  }
+
+  void _showEmergencyModal(BuildContext context, List<ProvinceEmergencyContact> contacts) {
+    _showModal(context, 'Numéros d\'urgence', contacts.isEmpty 
+      ? const Text('Aucun contact d\'urgence enregistré.')
+      : Column(
+          children: contacts.map((e) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(color: ivory, borderRadius: BorderRadius.circular(12), border: Border.all(color: redThix.withOpacity(0.3))),
+            child: ListTile(
+              leading: const Icon(Icons.phone, color: redThix),
+              title: Text(e.service, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(e.phone, style: const TextStyle(color: navy, fontWeight: FontWeight.bold)),
+              trailing: IconButton(icon: const Icon(Icons.call, color: Colors.green), onPressed: () => _launchUrl('tel:${e.phone}')),
+            ),
+          )).toList(),
+        ),
+    );
+  }
+
+  void _showAdministrativeModal(BuildContext context, List<ProvinceAdministrativeDivision> divisions) {
+    _showModal(context, 'Découpage Administratif', divisions.isEmpty 
+      ? const Text('Aucune division administrative enregistrée.')
+      : Wrap(
+          spacing: 8, runSpacing: 8,
+          children: divisions.map((d) => Chip(label: Text('${d.type} : ${d.name}'))).toList(),
+        ),
+    );
+  }
+
+  void _showAchievementsModal(BuildContext context) {
+    _showModal(context, 'Réalisations Majeures', Consumer(
+      builder: (context, ref, child) {
+        final achievementsAsync = ref.watch(achievementsByProvinceProvider(widget.provinceId));
+        return achievementsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => const Text('Erreur de chargement.'),
+          data: (achievements) => achievements.isEmpty 
+            ? const Text('Aucune réalisation enregistrée.')
+            : Column(
+                children: achievements.map((a) => ListTile(
+                  title: Text(a.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(a.description ?? ''),
+                )).toList(),
+              ),
+        );
+      },
+    ));
+  }
+
+  void _showMediaModal(BuildContext context) {
+    _showModal(context, 'Média & Galerie', Consumer(
       builder: (context, ref, child) {
         final mediaAsync = ref.watch(mediaByProvinceProvider(widget.provinceId));
         return mediaAsync.when(
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (media) {
-            if (media.isEmpty) return const SizedBox.shrink();
-            final photos = media.where((m) => m.type == 'photo').toList();
-            final videos = media.where((m) => m.type == 'video').toList();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (photos.isNotEmpty) ...[
-                  _buildSectionTitle(Icons.photo_library, 'Galerie Photos'),
-                  SizedBox(
-                    height: 140,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: photos.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, i) {
-                        final photo = photos[i];
-                        return GestureDetector(
-                          onTap: () => _showFullScreenPhoto(context, photo.url, photo.title),
-                          child: Container(
-                            width: 140, decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline)),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  CachedNetworkImage(imageUrl: photo.url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200)),
-                                  if (photo.title != null && photo.title!.isNotEmpty)
-                                    Positioned(bottom: 0, left: 0, right: 0, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.8), Colors.transparent])), child: Text(photo.title!, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis))),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                if (videos.isNotEmpty) ...[
-                  _buildSectionTitle(Icons.video_library, 'Vidéos de la province'),
-                  ...videos.map((v) => GestureDetector(
-                    onTap: () => _launchUrl(v.url),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      height: 180, width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
-                        // FIX: Retrait de thumbnailUrl pour éviter l'erreur de compilation
-                      ),
-                      child: Stack(
-                        children: [
-                          const Center(child: Icon(Icons.play_circle_fill, size: 64, color: Colors.white70)),
-                          Positioned(
-                            bottom: 0, left: 0, right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)), gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.9), Colors.transparent])),
-                              child: Text(v.title ?? 'Vidéo de présentation', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-                ],
-              ],
-            );
-          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => const Text('Erreur de chargement.'),
+          data: (media) => media.isEmpty 
+            ? const Text('Aucun média disponible.')
+            : GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8),
+                itemCount: media.length,
+                itemBuilder: (_, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(imageUrl: media[i].url, fit: BoxFit.cover),
+                ),
+              ),
         );
       },
-    );
+    ));
   }
 
-  // ============================================================
-  // UTILITAIRES & WIDGETS
-  // ============================================================
+  Widget _modalRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: navy),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 12, color: mutedText)),
+                const SizedBox(height: 2),
+                Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkText)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSectionTitle(IconData icon, String title) {
     return Padding(
@@ -650,39 +579,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: darkText)),
         Text(label, style: const TextStyle(fontSize: 11, color: mutedText)),
       ],
-    );
-  }
-
-  Widget _buildGovRoleRow(IconData icon, String role, String name) {
-    return Row(
-      children: [
-        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: navyDeep.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: navyDeep, size: 18)),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(role, style: const TextStyle(fontSize: 12, color: mutedText)),
-            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: navyDeep)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _showFullScreenPhoto(BuildContext context, String url, String? title) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent, insetPadding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            InteractiveViewer(child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain, height: double.infinity, width: double.infinity)),
-            Positioned(top: 40, right: 20, child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 30), onPressed: () => Navigator.pop(ctx))),
-            if (title != null && title.isNotEmpty)
-              Positioned(bottom: 40, left: 20, right: 20, child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), textAlign: TextAlign.center)),
-          ],
-        ),
-      ),
     );
   }
 
