@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -444,6 +445,148 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
+  // 📊 WIDGET SONDAGE INTÉGRÉ
+  Widget _buildPollWidget() {
+    final pollData = _post.pollData ?? {};
+    final options = (pollData['options'] as List?) ?? [];
+    if (options.isEmpty) return const SizedBox.shrink();
+
+    int totalVotes = 0;
+    for (var opt in options) {
+      totalVotes += ((opt['votes'] as List?)?.length ?? 0);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: options.asMap().entries.map((entry) {
+        final index = entry.key;
+        final opt = entry.value;
+        final text = opt['text'] ?? '';
+        final voters = (opt['votes'] as List?) ?? [];
+        final voteCount = voters.length;
+        final double percentage = totalVotes > 0 ? voteCount / totalVotes : 0.0;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            onTap: () async {
+              try {
+                await _networkService.votePoll(_post.id, index);
+                widget.onRefresh?.call();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur vote: $e'), backgroundColor: _PostColors.red),
+                  );
+                }
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _PostColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _PostColors.border),
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: percentage,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _PostColors.primary.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          text,
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: _PostColors.textDark),
+                        ),
+                      ),
+                      Text(
+                        '${(percentage * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _PostColors.primary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // 🏆 WIDGET CHALLENGE INTÉGRÉ
+  Widget _buildChallengeWidget() {
+    final challengeData = _post.challengeData ?? {};
+    final description = challengeData['description'] ?? '';
+    final participantsCount = challengeData['participants_count'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _PostColors.softBlue,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _PostColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (description.isNotEmpty) ...[
+            Text(description, style: const TextStyle(fontSize: 13.5, height: 1.4, color: _PostColors.textDark)),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.emoji_events_rounded, color: _PostColors.gold, size: 20),
+                  SizedBox(width: 6),
+                  Text('Challenge Actif', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _PostColors.textDark)),
+                ],
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.people_alt_rounded, color: _PostColors.primary, size: 18),
+                  const SizedBox(width: 6),
+                  Text('$participantsCount participants', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: _PostColors.textSecondary)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Participation au challenge enregistrée !'), backgroundColor: _PostColors.green),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _PostColors.primaryDeep,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+            label: const Text('RELEVER LE DÉFI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.3)),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatCount(int count) {
     if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
@@ -479,15 +622,12 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
-  // 🚨 BANNIÈRE D'ALERTE FACT-CHECK — pleine largeur, rectangulaire, séparée par des bordures
   Widget _buildFactCheckBanner(bool isMisinformation, String? message) {
     if (!isMisinformation || message == null || message.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Container(
-      // Marge horizontale négative pour "sortir" du padding de 14 du parent
-      // et venir se coller aux bords intérieurs de la carte (forme rectangulaire, sans espace superflu).
       margin: const EdgeInsets.symmetric(vertical: 8).copyWith(
         left: -_cardHorizontalPadding,
         right: -_cardHorizontalPadding,
@@ -499,7 +639,6 @@ class _PostCardState extends State<PostCard> {
           top: BorderSide(color: Colors.red.shade200, width: 1),
           bottom: BorderSide(color: Colors.red.shade200, width: 1),
         ),
-        // Pas de borderRadius : forme rectangulaire nette, collée aux bords de la carte
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,20 +651,12 @@ class _PostCardState extends State<PostCard> {
               children: [
                 const Text(
                   "Alerte Fact-Check THIX : Désinformation potentielle",
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11.5,
-                  ),
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   message,
-                  style: TextStyle(
-                    color: Colors.red.shade900,
-                    fontSize: 11,
-                    height: 1.3,
-                  ),
+                  style: TextStyle(color: Colors.red.shade900, fontSize: 11, height: 1.3),
                 ),
               ],
             ),
@@ -807,15 +938,32 @@ class _PostCardState extends State<PostCard> {
                     ),
                   ),
 
-                // 🚨 Bannière Fact-Check IA — pleine largeur, rectangulaire, sous le texte
                 _buildFactCheckBanner(_post.isMisinformation, _post.factCheckMessage),
 
-                if (_post.imageUrls.isNotEmpty) ...[
+                // Gestion dynamique selon le type de post (Standard, Sondage ou Challenge)
+                if (_post.postType == 'poll') ...[
+                  const SizedBox(height: 8),
+                  if (_post.imageUrls.isNotEmpty) ...[
+                    _buildImageGrid(_post.imageUrls),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildPollWidget(),
+                  const SizedBox(height: 12),
+                ] else if (_post.postType == 'challenge') ...[
+                  const SizedBox(height: 8),
+                  if (_post.imageUrls.isNotEmpty) ...[
+                    _buildImageGrid(_post.imageUrls),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildChallengeWidget(),
+                  const SizedBox(height: 12),
+                ] else if (_post.imageUrls.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _buildImageGrid(_post.imageUrls),
                   const SizedBox(height: 12),
                 ] else
                   const SizedBox(height: 4),
+
                 _buildActions(),
               ]),
             ),
