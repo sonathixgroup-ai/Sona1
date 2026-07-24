@@ -21,6 +21,7 @@ import '../../models/province_emergency.dart';
 import '../../models/province_tourism.dart';
 import '../../models/province_administrative.dart';
 import '../../models/province_budget.dart';
+import '../../models/province_minister.dart';
 
 class ProvinceDetailPage extends ConsumerStatefulWidget {
   final String provinceId;
@@ -123,6 +124,14 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 // 2. Villes principales affichées directement
                 _buildCitiesCardSection(province),
                 const SizedBox(height: 16),
+
+                // 3. Carte des Gouverneurs (Tête de l'Exécutif)
+                _buildExecutiveCardSection(province),
+                const SizedBox(height: 16),
+
+                // 4. Carte des Ministres
+                _buildMinistersCardSection(province),
+                const SizedBox(height: 16),
                 
                 if (province.description != null && province.description!.isNotEmpty) ...[
                   _buildSectionTitle(Icons.info_outline, 'À propos de la province'),
@@ -131,12 +140,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 ],
                 
                 // Autres sections cliquables
-                _buildCardSection(
-                  title: 'Gouvernement & Administration',
-                  icon: Icons.account_balance,
-                  subtitle: province.governor != null ? 'Gouverneur : ${province.governor}' : 'Voir l\'exécutif provincial',
-                  onTap: () => _showGovernmentDetailsModal(context, province),
-                ),
                 _buildCardSection(
                   title: 'Culture & Géographie',
                   icon: Icons.public,
@@ -305,6 +308,138 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
           },
         );
       },
+    );
+  }
+
+  // CARTE : TÊTE DE L'EXÉCUTIF (GOUVERNEURS)
+  Widget _buildExecutiveCardSection(Province province) {
+    final hasGovernor = province.governor != null && province.governor!.isNotEmpty;
+    final hasViceGovernor = province.viceGovernor != null && province.viceGovernor!.isNotEmpty;
+
+    if (!hasGovernor && !hasViceGovernor) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: hairline),
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: navyDeep.withOpacity(0.08), shape: BoxShape.circle),
+                  child: const Icon(Icons.account_balance, color: navyDeep, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text("Tête de l'Exécutif", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: navyDeep)),
+                ),
+              ],
+            ),
+            const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: hairline)),
+            
+            if (hasGovernor)
+              _buildPersonRow(Icons.person, "Gouverneur", province.governor!),
+            
+            if (hasGovernor && hasViceGovernor)
+              const SizedBox(height: 12),
+              
+            if (hasViceGovernor)
+              _buildPersonRow(Icons.person_outline, "Vice-Gouverneur", province.viceGovernor!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // CARTE : MINISTRES PROVINCIAUX
+  Widget _buildMinistersCardSection(Province province) {
+    final ministers = province.government?.ministers ?? [];
+
+    if (ministers.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: hairline),
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: gold.withOpacity(0.15), shape: BoxShape.circle),
+                  child: const Icon(Icons.groups, color: gold, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text("Ministres Provinciaux (${ministers.length})", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: navyDeep)),
+                ),
+              ],
+            ),
+            const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: hairline)),
+            
+            ...ministers.map((m) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 2),
+                    child: const Icon(Icons.work, size: 16, color: mutedText),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(m.portfolio, style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
+                        Text(m.name ?? 'Nom non renseigné', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkText)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonRow(IconData icon, String role, String name) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          backgroundColor: ivory,
+          radius: 18,
+          child: Icon(icon, size: 20, color: navy),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(role, style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
+              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: darkText)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -492,38 +627,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
         ),
       ),
     );
-  }
-
-  void _showGovernmentDetailsModal(BuildContext context, Province province) {
-    _showModal(context, 'Gouvernement & Administration', Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (province.governor != null) _modalRow(Icons.person, 'Gouverneur', province.governor!),
-        if (province.viceGovernor != null) ...[
-          const Divider(),
-          _modalRow(Icons.person_outline, 'Vice-Gouverneur', province.viceGovernor!),
-        ],
-        if (province.territoriesCount != null) ...[
-          const Divider(),
-          _modalRow(Icons.map, 'Nombre de territoires / Villes', '${province.territoriesCount}'),
-        ],
-        if (province.government != null && province.government!.ministers.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Text('Ministres provinciaux :', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
-          const SizedBox(height: 8),
-          ...province.government!.ministers.map((m) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                const Icon(Icons.work, size: 16, color: mutedText),
-                const SizedBox(width: 8),
-                Expanded(child: Text(m.portfolio, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-              ],
-            ),
-          )),
-        ],
-      ],
-    ));
   }
 
   void _showCitiesModal(BuildContext context, List<City> cities) {
