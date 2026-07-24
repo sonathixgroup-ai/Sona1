@@ -80,7 +80,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         if (snap.connectionState == ConnectionState.waiting && DashboardCache().lastProfile == null) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        final profile = snap.data?? DashboardCache().lastProfile?? ThixProfile.fallback(userId: me.id, thixId: me.thixId, displayName: me.displayName);
+        final profile = snap.data ?? DashboardCache().lastProfile ?? ThixProfile.fallback(userId: me.id, thixId: me.thixId, displayName: me.displayName);
         if (snap.hasData) { DashboardCache().lastProfile = snap.data; DashboardCache().lastFetch = DateTime.now(); }
 
         // Merge une seule fois - pas dans chaque build de tab
@@ -89,12 +89,12 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
           countryOrOrigin: profile.countryOrOrigin, occupation: profile.occupation,
           thixChat: profile.thixChat, languages: profile.languages,
         );
-        final score = me.thixScore?? _computeScore(me, profile);
+        final score = me.thixScore ?? _computeScore(me, profile);
 
         return DefaultTabController(
           length: 7,
           child: Scaffold(
-            backgroundColor: context.theme.scaffoldBackgroundColor,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: SafeArea(
               child: Stack(children: [
                 const DashboardBackground(),
@@ -112,7 +112,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                   Expanded(
                     child: TabBarView(
                       children: [
-                        KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService)),
+                        KeepAliveWrapper(child: ProfileTab(authUser: me, profile: profile, score: score, profileService: _profileService, userService: _userService)),
                         KeepAliveWrapper(child: ValueListenableBuilder(valueListenable: _docFilter, builder: (_, filter, __) => DocumentsTab(uid: me.id, docs: _docs, userService: _userService, filter: filter, onChangeFilter: (v) => _docFilter.value = v))),
                         KeepAliveWrapper(child: ExperienceSkillsTab(profile: profile, profileService: _profileService)),
                         KeepAliveWrapper(child: FormationsTab(user: me, userService: _userService)),
@@ -129,7 +129,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             floatingActionButton: FloatingActionButton.extended(
               onPressed: () => ThixIdentitySheets.showQrScanSheet(context),
               icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF123B7A)),
-              label: Text("Scanner ID", style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+              label: Text("Scanner ID", style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
               backgroundColor: LightModeColors.accent,
             ),
           ),
@@ -141,8 +141,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   int _computeScore(AppUser u, ThixProfile p) {
     var pts = 0;
     if (u.displayName.trim().isNotEmpty) pts += 10;
-    if ((p.bio?? '').trim().length > 40) pts += 15;
-    if ((p.occupation?? '').trim().isNotEmpty) pts += 10;
+    if ((p.bio ?? '').trim().length > 40) pts += 15;
+    if ((p.occupation ?? '').trim().isNotEmpty) pts += 10;
     if (p.education.isNotEmpty) pts += 20;
     if (p.experience.isNotEmpty) pts += 20;
     if (p.skills.isNotEmpty) pts += 15;
