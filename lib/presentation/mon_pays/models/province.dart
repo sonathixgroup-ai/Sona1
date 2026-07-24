@@ -22,9 +22,13 @@ class Province {
   final String? mapUrl;
   final String? website;
   
-  // Nouveaux champs ajoutés :
+  // Gouvernance de base & photos
   final String? governor;
+  final String? governorPhotoUrl;
   final String? viceGovernor;
+  final String? viceGovernorPhotoUrl;
+  final List<Map<String, dynamic>>? ministers; // Liste des ministres provinciaux
+  
   final String? languages;
   final String? resources;
   final int? territoriesCount;
@@ -39,7 +43,7 @@ class Province {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  Province({
+  const Province({
     required this.id,
     required this.name,
     required this.code,
@@ -53,7 +57,10 @@ class Province {
     this.mapUrl,
     this.website,
     this.governor,
+    this.governorPhotoUrl,
     this.viceGovernor,
+    this.viceGovernorPhotoUrl,
+    this.ministers,
     this.languages,
     this.resources,
     this.territoriesCount,
@@ -85,7 +92,11 @@ class Province {
       
       // Prise en charge du camelCase (Formulaire App) et du snake_case (Supabase)
       governor: json['governor'] as String?,
+      governorPhotoUrl: json['governorPhotoUrl'] as String? ?? json['governor_photo_url'] as String?,
       viceGovernor: json['viceGovernor'] as String? ?? json['vice_governor'] as String?,
+      viceGovernorPhotoUrl: json['viceGovernorPhotoUrl'] as String? ?? json['vice_governor_photo_url'] as String?,
+      ministers: json['ministers'] != null ? List<Map<String, dynamic>>.from(json['ministers']) : null,
+
       languages: json['languages'] as String?,
       resources: json['resources'] as String?,
       territoriesCount: json['territoriesCount'] as int? ?? json['territories_count'] as int?,
@@ -120,7 +131,11 @@ class Province {
     
     // Enregistrement en snake_case pour la BDD Supabase
     'governor': governor,
+    'governor_photo_url': governorPhotoUrl,
     'vice_governor': viceGovernor,
+    'vice_governor_photo_url': viceGovernorPhotoUrl,
+    'ministers': ministers,
+
     'languages': languages,
     'resources': resources,
     'territories_count': territoriesCount,
@@ -136,7 +151,10 @@ class Province {
 
   Province copyWith({
     String? governor,
+    String? governorPhotoUrl,
     String? viceGovernor,
+    String? viceGovernorPhotoUrl,
+    List<Map<String, dynamic>>? ministers,
     String? languages,
     String? resources,
     int? territoriesCount,
@@ -163,7 +181,11 @@ class Province {
       website: website,
       
       governor: governor ?? this.governor,
+      governorPhotoUrl: governorPhotoUrl ?? this.governorPhotoUrl,
       viceGovernor: viceGovernor ?? this.viceGovernor,
+      viceGovernorPhotoUrl: viceGovernorPhotoUrl ?? this.viceGovernorPhotoUrl,
+      ministers: ministers ?? this.ministers,
+
       languages: languages ?? this.languages,
       resources: resources ?? this.resources,
       territoriesCount: territoriesCount ?? this.territoriesCount,
