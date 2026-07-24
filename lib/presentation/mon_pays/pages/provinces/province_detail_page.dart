@@ -3,6 +3,7 @@
 // ============================================================
 // lib/presentation/mon_pays/pages/provinces/province_detail_page.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,6 +32,9 @@ class ProvinceDetailPage extends ConsumerStatefulWidget {
 
 class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
   final ScrollController _scrollController = ScrollController();
+  final PageController _autoScrollController = PageController();
+  Timer? _autoScrollTimer;
+  int _currentPage = 0;
 
   static const Color navyDeep = Color(0xFF0A1F44);
   static const Color navy = Color(0xFF123B7A);
@@ -40,6 +44,30 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
   static const Color mutedText = Color(0xFF6B7690);
   static const Color hairline = Color(0xFFE7EAF3);
   static const Color redThix = Color(0xFFD32F2F);
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _autoScrollController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll(int itemCount) {
+    if (itemCount <= 1) return;
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted) return;
+      if (_autoScrollController.hasClients) {
+        _currentPage = (_currentPage + 1) % itemCount;
+        _autoScrollController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,59 +122,90 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 24),
                 ],
                 
-                _buildClickableSectionCard(
+                // CARTES VISUELLES (STYLE "DR CARTE")
+                _buildAutoScrollMediaBanner(province.id),
+                const SizedBox(height: 16),
+
+                _buildCardSection(
                   title: 'Gouvernement & Administration',
-                  subtitle: province.governor != null ? 'Gouverneur : ${province.governor}' : 'Voir l\'exécutif provincial',
                   icon: Icons.account_balance,
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (province.governor != null) Text('Gouverneur : ${province.governor}', style: const TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
+                      if (province.viceGovernor != null) Text('Vice-Gouverneur : ${province.viceGovernor}', style: const TextStyle(fontSize: 13, color: mutedText)),
+                      if (province.governor == null) const Text('Aucun exécutif renseigné', style: TextStyle(color: mutedText, fontStyle: FontStyle.italic)),
+                    ],
+                  ),
                   onTap: () => _showGovernmentDetailsModal(context, province),
                 ),
-                _buildClickableSectionCard(
+
+                _buildCardSection(
                   title: 'Villes Principales',
-                  subtitle: '${province.cities.length} ville(s) enregistrée(s)',
                   icon: Icons.location_city,
+                  content: province.cities.isEmpty
+                      ? const Text('Aucune ville enregistrée', style: TextStyle(color: mutedText, fontStyle: FontStyle.italic))
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: province.cities.take(3).map((c) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              children: [
+                                Icon(c.isCapital ? Icons.star : Icons.location_on, size: 14, color: c.isCapital ? gold : navy),
+                                const SizedBox(width: 6),
+                                Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText)),
+                                if (c.isCapital) ...[
+                                  const SizedBox(width: 6),
+                                  const Text('(Chef-lieu)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: gold)),
+                                ],
+                              ],
+                            ),
+                          )).toList(),
+                        ),
                   onTap: () => _showCitiesModal(context, province.cities),
                 ),
-                _buildClickableSectionCard(
+
+                _buildCardSection(
                   title: 'Culture & Géographie',
-                  subtitle: province.languages != null ? 'Langues : ${province.languages}' : 'Voir les détails culturels',
                   icon: Icons.public,
+                  content: Text(
+                    province.languages != null ? 'Langues : ${province.languages}' : 'Région : ${province.region}',
+                    style: const TextStyle(fontSize: 13, color: darkText),
+                  ),
                   onTap: () => _showCultureModal(context, province),
                 ),
-                _buildClickableSectionCard(
+
+                _buildCardSection(
                   title: 'Économie & Ressources',
-                  subtitle: province.resources != null ? 'Ressources : ${province.resources}' : '${province.economicResources.length} secteur(s) clé(s)',
                   icon: Icons.monetization_on,
+                  content: Text(
+                    province.resources ?? 'Aucune ressource majeure renseignée',
+                    style: const TextStyle(fontSize: 13, color: darkText),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   onTap: () => _showEconomyModal(context, province),
                 ),
-                _buildClickableSectionCard(
+
+                _buildCardSection(
                   title: 'Tourisme & Sites',
-                  subtitle: '${province.tourismSites.length} site(s) touristique(s)',
                   icon: Icons.landscape,
+                  content: Text('${province.tourismSites.length} site(s) touristique(s) répertorié(s)', style: const TextStyle(fontSize: 13, color: mutedText)),
                   onTap: () => _showTourismModal(context, province.tourismSites),
                 ),
-                _buildClickableSectionCard(
+
+                _buildCardSection(
                   title: 'Urgences & Contacts',
-                  subtitle: '${province.emergencyContacts.length} numéro(s) d\'urgence',
                   icon: Icons.emergency,
+                  content: Text('${province.emergencyContacts.length} numéro(s) d\'urgence disponible(s)', style: const TextStyle(fontSize: 13, color: mutedText)),
                   onTap: () => _showEmergencyModal(context, province.emergencyContacts),
                 ),
-                _buildClickableSectionCard(
+
+                _buildCardSection(
                   title: 'Découpage Administratif',
-                  subtitle: '${province.administrativeDivisions.length} division(s)',
                   icon: Icons.dashboard_customize,
+                  content: Text('${province.administrativeDivisions.length} division(s) administrative(s)', style: const TextStyle(fontSize: 13, color: mutedText)),
                   onTap: () => _showAdministrativeModal(context, province.administrativeDivisions),
-                ),
-                _buildClickableSectionCard(
-                  title: 'Réalisations Majeures',
-                  subtitle: 'Projets et accomplissements',
-                  icon: Icons.emoji_events,
-                  onTap: () => _showAchievementsModal(context),
-                ),
-                _buildClickableSectionCard(
-                  title: 'Média & Galerie',
-                  subtitle: 'Photos et vidéos de la province',
-                  icon: Icons.perm_media,
-                  onTap: () => _showMediaModal(context),
                 ),
 
                 const SizedBox(height: 40),
@@ -189,9 +248,9 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                     imageUrl: province.coverImageUrl!,
                     fit: BoxFit.cover,
                     placeholder: (_, __) => Container(color: Colors.grey.shade300),
-                    errorWidget: (_, __, ___) => _buildCoverPlaceholder(province),
+                    errorWidget: (_, __, ___) => _buildCoverPlaceholder(),
                   )
-                : _buildCoverPlaceholder(province),
+                : _buildCoverPlaceholder(),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -208,11 +267,116 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  Widget _buildCoverPlaceholder(Province province) {
+  Widget _buildCoverPlaceholder() {
     return Container(
       color: navy,
       child: Center(
         child: Icon(Icons.map, size: 80, color: Colors.white.withOpacity(0.2)),
+      ),
+    );
+  }
+
+  // EN-TÊTE AUTO-SCROLLING PHOTOS
+  Widget _buildAutoScrollMediaBanner(String provinceId) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final mediaAsync = ref.watch(mediaByProvinceProvider(provinceId));
+        return mediaAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (media) {
+            final photos = media.where((m) => m.type == 'photo').toList();
+            if (photos.isEmpty) return const SizedBox.shrink();
+
+            _startAutoScroll(photos.length);
+
+            return Container(
+              height: 180,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: PageView.builder(
+                  controller: _autoScrollController,
+                  itemCount: photos.length,
+                  itemBuilder: (context, index) {
+                    final photo = photos[index];
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(imageUrl: photo.url, fit: BoxFit.cover),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                        if (photo.title != null && photo.title!.isNotEmpty)
+                          Positioned(
+                            bottom: 12, left: 16, right: 16,
+                            child: Text(
+                              photo.title!,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // CARTE STRUCTURELLE DE STYLE "DR CARTE"
+  Widget _buildCardSection({required String title, required IconData icon, required Widget content, required VoidCallback onTap}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: hairline),
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: navyDeep.withOpacity(0.08), shape: BoxShape.circle),
+                      child: Icon(icon, color: navyDeep, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: navyDeep)),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 14, color: mutedText),
+                  ],
+                ),
+                const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: hairline)),
+                content,
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -282,30 +446,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  Widget _buildClickableSectionCard({required String title, required String subtitle, required IconData icon, required VoidCallback onTap}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: hairline),
-        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: navyDeep.withOpacity(0.08), shape: BoxShape.circle),
-          child: Icon(icon, color: navyDeep, size: 22),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: navyDeep)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: mutedText)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: mutedText),
-      ),
-    );
-  }
-
   void _showModal(BuildContext context, String title, Widget content) {
     showModalBottomSheet(
       context: context,
@@ -346,29 +486,21 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
           const Divider(),
           _modalRow(Icons.map, 'Nombre de territoires / Villes', '${province.territoriesCount}'),
         ],
-        if (province.government != null) ...[
-          if (province.government!.mandate != null) ...[
-            const Divider(),
-            _modalRow(Icons.calendar_today, 'Mandat', province.government!.mandate!),
-          ],
-          if (province.government!.ministers.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Text('Ministres provinciaux :', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
-            const SizedBox(height: 8),
-            ...province.government!.ministers.map((m) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  const Icon(Icons.work, size: 16, color: mutedText),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(m.portfolio, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-                ],
-              ),
-            )),
-          ],
+        if (province.government != null && province.government!.ministers.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Ministres provinciaux :', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
+          const SizedBox(height: 8),
+          ...province.government!.ministers.map((m) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.work, size: 16, color: mutedText),
+                const SizedBox(width: 8),
+                Expanded(child: Text(m.portfolio, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+              ],
+            ),
+          )),
         ],
-        if (province.governor == null && province.government == null)
-          const Text('Aucune information gouvernementale enregistrée.', style: TextStyle(color: mutedText, fontStyle: FontStyle.italic)),
       ],
     ));
   }
@@ -409,8 +541,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
         _modalRow(Icons.chat_bubble_outline, 'Langues parlées', province.languages ?? 'Non spécifié'),
         const Divider(),
         _modalRow(Icons.explore, 'Région', province.region),
-        const Divider(),
-        _modalRow(Icons.square_foot, 'Superficie', province.area != null ? '${_formatNumber(province.area!)} km²' : 'Non spécifié'),
       ],
     ));
   }
@@ -420,18 +550,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _modalRow(Icons.diamond, 'Ressources principales', province.resources ?? 'Non spécifié'),
-        if (province.economicResources.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Text('Secteurs économiques :', style: TextStyle(fontWeight: FontWeight.bold, color: navyDeep)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8, runSpacing: 8,
-            children: province.economicResources.map((r) => Chip(
-              label: Text(r.name),
-              backgroundColor: r.isKeySector ? gold.withOpacity(0.2) : ivory,
-            )).toList(),
-          ),
-        ],
       ],
     ));
   }
@@ -475,51 +593,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
           children: divisions.map((d) => Chip(label: Text('${d.type} : ${d.name}'))).toList(),
         ),
     );
-  }
-
-  void _showAchievementsModal(BuildContext context) {
-    _showModal(context, 'Réalisations Majeures', Consumer(
-      builder: (context, ref, child) {
-        final achievementsAsync = ref.watch(achievementsByProvinceProvider(widget.provinceId));
-        return achievementsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => const Text('Erreur de chargement.'),
-          data: (achievements) => achievements.isEmpty 
-            ? const Text('Aucune réalisation enregistrée.')
-            : Column(
-                children: achievements.map((a) => ListTile(
-                  title: Text(a.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  // CORRECTION ICI : Gestion du cas null avec '?? '' '
-                  subtitle: Text(a.description ?? ''),
-                )).toList(),
-              ),
-        );
-      },
-    ));
-  }
-
-  void _showMediaModal(BuildContext context) {
-    _showModal(context, 'Média & Galerie', Consumer(
-      builder: (context, ref, child) {
-        final mediaAsync = ref.watch(mediaByProvinceProvider(widget.provinceId));
-        return mediaAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => const Text('Erreur de chargement.'),
-          data: (media) => media.isEmpty 
-            ? const Text('Aucun média disponible.')
-            : GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8),
-                itemCount: media.length,
-                itemBuilder: (_, i) => ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(imageUrl: media[i].url, fit: BoxFit.cover),
-                ),
-              ),
-        );
-      },
-    ));
   }
 
   Widget _modalRow(IconData icon, String label, String value) {
