@@ -21,7 +21,6 @@ import '../../models/province_emergency.dart';
 import '../../models/province_tourism.dart';
 import '../../models/province_administrative.dart';
 import '../../models/province_budget.dart';
-import '../../models/province_minister.dart';
 
 class ProvinceDetailPage extends ConsumerStatefulWidget {
   final String provinceId;
@@ -125,11 +124,11 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 _buildCitiesCardSection(province),
                 const SizedBox(height: 16),
 
-                // 3. Carte des Gouverneurs (Tête de l'Exécutif)
+                // 3. Grosses cartes de l'Exécutif (Gouverneur & Vice-Gouverneur)
                 _buildExecutiveCardSection(province),
                 const SizedBox(height: 16),
 
-                // 4. Carte des Ministres
+                // 4. Carte des Ministres (Corrigée pour s'afficher correctement)
                 _buildMinistersCardSection(province),
                 const SizedBox(height: 16),
                 
@@ -311,57 +310,82 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  // CARTE : TÊTE DE L'EXÉCUTIF (GOUVERNEURS)
+  // GROSSES CARTES POUR LA TÊTE DE L'EXÉCUTIF (GOUVERNEUR & VICE-GOUVERNEUR)
   Widget _buildExecutiveCardSection(Province province) {
     final hasGovernor = province.governor != null && province.governor!.isNotEmpty;
     final hasViceGovernor = province.viceGovernor != null && province.viceGovernor!.isNotEmpty;
 
     if (!hasGovernor && !hasViceGovernor) return const SizedBox.shrink();
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10, left: 4),
+          child: Text("Tête de l'Exécutif", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep)),
+        ),
+        if (hasGovernor)
+          _buildBigExecutiveCard("Gouverneur de Province", province.governor!, province.governorPhotoUrl, gold),
+        if (hasGovernor && hasViceGovernor)
+          const SizedBox(height: 12),
+        if (hasViceGovernor)
+          _buildBigExecutiveCard("Vice-Gouverneur", province.viceGovernor!, province.viceGovernorPhotoUrl, navy),
+      ],
+    );
+  }
+
+  // DESIGN DE LA GROSSE CARTE EXÉCUTIF
+  Widget _buildBigExecutiveCard(String title, String name, String? photoUrl, Color badgeColor) {
+    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: hairline),
-        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [BoxShadow(color: navyDeep.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: badgeColor, width: 2.5),
+            ),
+            child: CircleAvatar(
+              backgroundColor: ivory,
+              radius: 36,
+              backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null,
+              child: !hasPhoto ? const Icon(Icons.person, size: 36, color: navy) : null,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: navyDeep.withOpacity(0.08), shape: BoxShape.circle),
-                  child: const Icon(Icons.account_balance, color: navyDeep, size: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: badgeColor.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                  child: Text(title.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor == gold ? const Color(0xFF8A6B00) : navy)),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text("Tête de l'Exécutif", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: navyDeep)),
+                const SizedBox(height: 6),
+                Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: darkText),
                 ),
               ],
             ),
-            const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: hairline)),
-            
-            if (hasGovernor)
-              _buildPersonRow(Icons.person, "Gouverneur", province.governor!, province.governorPhotoUrl),
-            
-            if (hasGovernor && hasViceGovernor)
-              const SizedBox(height: 12),
-              
-            if (hasViceGovernor)
-              _buildPersonRow(Icons.person_outline, "Vice-Gouverneur", province.viceGovernor!, province.viceGovernorPhotoUrl),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // CARTE : MINISTRES PROVINCIAUX
+  // CARTE : MINISTRES PROVINCIAUX (Corrigée pour lire province.ministers)
   Widget _buildMinistersCardSection(Province province) {
-    final ministers = province.government?.ministers ?? [];
+    final ministers = province.ministers ?? [];
 
     if (ministers.isEmpty) return const SizedBox.shrink();
 
@@ -392,57 +416,40 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
             ),
             const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: hairline)),
             
-            ...ministers.map((m) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    child: const Icon(Icons.work, size: 16, color: mutedText),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(m.portfolio, style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
-                        Text(m.name ?? 'Nom non renseigné', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkText)),
-                      ],
+            ...ministers.map((m) {
+              final name = m['name']?.toString() ?? 'Nom non renseigné';
+              final role = m['role']?.toString() ?? 'Portefeuille non spécifié';
+              final photoUrl = m['photoUrl']?.toString() ?? '';
+              final hasPhoto = photoUrl.trim().isNotEmpty;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: ivory,
+                      backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl) : null,
+                      child: !hasPhoto ? const Icon(Icons.person, size: 20, color: mutedText) : null,
                     ),
-                  ),
-                ],
-              ),
-            )),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(role, style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
+                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: darkText)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPersonRow(IconData icon, String role, String name, String? photoUrl) {
-    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        CircleAvatar(
-          backgroundColor: ivory,
-          radius: 24,
-          backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null,
-          child: !hasPhoto ? Icon(icon, size: 22, color: navy) : null,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(role, style: const TextStyle(fontSize: 12, color: mutedText, fontWeight: FontWeight.w600)),
-              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: darkText)),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -822,7 +829,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-    Future<void> _launchUrl(String urlString) async {
+  Future<void> _launchUrl(String urlString) async {
     final Uri url = Uri.parse(urlString);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible d\'ouvrir ce lien.'), backgroundColor: Colors.red));
