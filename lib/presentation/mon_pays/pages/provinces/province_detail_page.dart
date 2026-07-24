@@ -346,13 +346,13 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
             const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: hairline)),
             
             if (hasGovernor)
-              _buildPersonRow(Icons.person, "Gouverneur", province.governor!),
+              _buildPersonRow(Icons.person, "Gouverneur", province.governor!, province.governorPhotoUrl),
             
             if (hasGovernor && hasViceGovernor)
               const SizedBox(height: 12),
               
             if (hasViceGovernor)
-              _buildPersonRow(Icons.person_outline, "Vice-Gouverneur", province.viceGovernor!),
+              _buildPersonRow(Icons.person_outline, "Vice-Gouverneur", province.viceGovernor!, province.viceGovernorPhotoUrl),
           ],
         ),
       ),
@@ -420,14 +420,17 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  Widget _buildPersonRow(IconData icon, String role, String name) {
+  Widget _buildPersonRow(IconData icon, String role, String name, String? photoUrl) {
+    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         CircleAvatar(
           backgroundColor: ivory,
-          radius: 18,
-          child: Icon(icon, size: 20, color: navy),
+          radius: 24,
+          backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null,
+          child: !hasPhoto ? Icon(icon, size: 22, color: navy) : null,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -819,7 +822,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  Future<void> _launchUrl(String urlString) async {
+    Future<void> _launchUrl(String urlString) async {
     final Uri url = Uri.parse(urlString);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible d\'ouvrir ce lien.'), backgroundColor: Colors.red));
