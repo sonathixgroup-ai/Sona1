@@ -231,6 +231,7 @@ class AuthorityDocument extends Equatable {
 // ---- MODÈLE PRINCIPAL AUTHORITY ----
 class Authority extends Equatable {
   final String id;
+  final String? provinceId; // 🚀 NOUVEAU CHAMP AJOUTÉ ICI
   final String name;
   final String title;
   final String? imageUrl;
@@ -261,6 +262,7 @@ class Authority extends Equatable {
 
   const Authority({
     required this.id,
+    this.provinceId, // 🚀 AJOUTÉ AU CONSTRUCTEUR
     required this.name,
     required this.title,
     this.imageUrl,
@@ -296,6 +298,7 @@ class Authority extends Equatable {
   factory Authority.fromJson(Map<String, dynamic> json) {
     return Authority(
       id: json['id'] as String,
+      provinceId: json['province_id'] as String?, // 🚀 PARSÉ DEPUIS LE JSON
       name: json['name'] as String,
       title: json['title'] as String,
       imageUrl: json['image_url'] as String?,
@@ -354,6 +357,7 @@ class Authority extends Equatable {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'province_id': provinceId, // 🚀 AJOUTÉ AU TOJSON
         'name': name,
         'title': title,
         'image_url': imageUrl,
