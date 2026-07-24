@@ -1,7 +1,4 @@
 // lib/presentation/mon_pays/admin/admin_authority_form_page.dart
-// Formulaire complet pour la création/modification d'une autorité
-// Avec gestion des études, parcours, réalisations, photos, vidéos, documents, dates de mandat, etc.
-// + Assistant IA (Tavily + Astral IA)
 
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -9,10 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
-// Imports corrigés avec des chemins absolus (sûrs à 100%)
 import 'package:thix_id/presentation/mon_pays/models/authority.dart';
 import 'package:thix_id/presentation/mon_pays/providers/authorities_provider.dart';
-import 'package:thix_id/presentation/mon_pays/utils/validators.dart';
 
 class AdminAuthorityFormPage extends ConsumerStatefulWidget {
   final Authority? authority;
@@ -53,6 +48,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
 
   bool _isUploadingFile = false;
   bool _isAiLoading = false;
+  bool _isLoadingFullData = false;
 
   @override
   void initState() {
@@ -71,13 +67,30 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     _mandateEnd = a?.mandateEnd;
     _isActive = a?.isActive ?? true;
 
-    if (a != null) {
-      _educationList.addAll(a.education);
-      _careerList.addAll(a.career);
-      _achievementList.addAll(a.achievements);
-      _photoList.addAll(a.photos);
-      _videoList.addAll(a.videos);
-      _documentList.addAll(a.documents);
+    // Si on modifie une autorité, on force le téléchargement de ses relations complètes
+    if (a != null && a.id.isNotEmpty) {
+      _fetchFullDetails(a.id);
+    }
+  }
+
+  // FORCE LE CHARGEMENT DES LISTES DEPUIS SUPABASE
+  Future<void> _fetchFullDetails(String id) async {
+    setState(() => _isLoadingFullData = true);
+    try {
+      final fullAuth = await ref.read(authorityDetailProvider(id).future);
+      if (mounted) {
+        setState(() {
+          _educationList.clear(); _educationList.addAll(fullAuth.education);
+          _careerList.clear(); _careerList.addAll(fullAuth.career);
+          _achievementList.clear(); _achievementList.addAll(fullAuth.achievements);
+          _photoList.clear(); _photoList.addAll(fullAuth.photos);
+          _videoList.clear(); _videoList.addAll(fullAuth.videos);
+          _documentList.clear(); _documentList.addAll(fullAuth.documents);
+          _isLoadingFullData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingFullData = false);
     }
   }
 
@@ -97,47 +110,30 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   }
 
   // ============================================================
-  // INTEGRATION IA (Tavily + Astral IA)
+  // INTEGRATION IA
   // ============================================================
 
   Future<void> _fillWithAi() async {
     final query = _aiSearchController.text.trim();
     if (query.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez entrer un nom ou un sujet pour l\'IA'), backgroundColor: Colors.orange),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez entrer un nom ou un sujet pour l\'IA'), backgroundColor: Colors.orange));
       return;
     }
-
     setState(() => _isAiLoading = true);
-
     try {
-      // ⚠️ Ici, vous connecterez votre service Tavily / Astral IA existant
-      // Exemple : final aiData = await ref.read(authoritiesServiceProvider).fetchAuthorityDataWithAi(query);
-      
-      // Simulation d'appel API le temps de brancher vos services réels :
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Exemple de remplissage automatique des champs suite au retour de l'IA :
+      await Future.delayed(const Duration(seconds: 2)); // Simulation
       setState(() {
         _nameController.text = query;
         _biographyController.text = "Biographie générée automatiquement par Thix IA via Tavily pour $query...";
         _titleController.text = "Ministre / Haute Autorité";
         _isAiLoading = false;
       });
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Informations pré-remplies avec succès par l\'IA !'), backgroundColor: Colors.green),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Informations pré-remplies avec succès par l\'IA !'), backgroundColor: Colors.green));
       }
     } catch (e) {
       setState(() => _isAiLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur IA: $e'), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur IA: $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -147,55 +143,31 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
 
   Future<void> _pickAndUploadImage() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isUploadingFile = true);
         final bytes = result.files.first.bytes!;
         final name = result.files.first.name;
         final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes);
-        setState(() {
-          _imageUrlController.text = url;
-          _isUploadingFile = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo de profil uploadée avec succès'), backgroundColor: Colors.green),
-        );
+        setState(() { _imageUrlController.text = url; _isUploadingFile = false; });
       }
     } catch (e) {
       setState(() => _isUploadingFile = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur upload: ${e.toString()}'), backgroundColor: Colors.red),
-      );
     }
   }
 
   Future<void> _pickAndUploadCover() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isUploadingFile = true);
         final bytes = result.files.first.bytes!;
         final name = result.files.first.name;
         final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'covers');
-        setState(() {
-          _coverImageUrlController.text = url;
-          _isUploadingFile = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo de couverture uploadée avec succès'), backgroundColor: Colors.green),
-        );
+        setState(() { _coverImageUrlController.text = url; _isUploadingFile = false; });
       }
     } catch (e) {
       setState(() => _isUploadingFile = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur upload: ${e.toString()}'), backgroundColor: Colors.red),
-      );
     }
   }
 
@@ -203,59 +175,12 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   // AJOUT / SUPPRESSION DYNAMIQUES
   // ============================================================
 
-  void _addEducation() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _EducationFormDialog(
-        onSave: (edu) => setState(() => _educationList.add(edu)),
-      ),
-    );
-  }
-
-  void _addCareer() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _CareerFormDialog(
-        onSave: (career) => setState(() => _careerList.add(career)),
-      ),
-    );
-  }
-
-  void _addAchievement() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _AchievementFormDialog(
-        onSave: (ach) => setState(() => _achievementList.add(ach)),
-      ),
-    );
-  }
-
-  void _addPhoto() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _PhotoFormDialog(
-        onSave: (photo) => setState(() => _photoList.add(photo)),
-      ),
-    );
-  }
-
-  void _addVideo() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _VideoFormDialog(
-        onSave: (video) => setState(() => _videoList.add(video)),
-      ),
-    );
-  }
-
-  void _addDocument() {
-    showDialog(
-      context: context,
-      builder: (ctx) => _DocumentFormDialog(
-        onSave: (doc) => setState(() => _documentList.add(doc)),
-      ),
-    );
-  }
+  void _addEducation() => showDialog(context: context, builder: (ctx) => _EducationFormDialog(onSave: (edu) => setState(() => _educationList.add(edu))));
+  void _addCareer() => showDialog(context: context, builder: (ctx) => _CareerFormDialog(onSave: (career) => setState(() => _careerList.add(career))));
+  void _addAchievement() => showDialog(context: context, builder: (ctx) => _AchievementFormDialog(ref: ref, onSave: (ach) => setState(() => _achievementList.add(ach))));
+  void _addPhoto() => showDialog(context: context, builder: (ctx) => _PhotoFormDialog(onSave: (photo) => setState(() => _photoList.add(photo))));
+  void _addVideo() => showDialog(context: context, builder: (ctx) => _VideoFormDialog(onSave: (video) => setState(() => _videoList.add(video))));
+  void _addDocument() => showDialog(context: context, builder: (ctx) => _DocumentFormDialog(onSave: (doc) => setState(() => _documentList.add(doc))));
 
   void _removeEducation(int index) => setState(() => _educationList.removeAt(index));
   void _removeCareer(int index) => setState(() => _careerList.removeAt(index));
@@ -271,15 +196,11 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   @override
   Widget build(BuildContext context) {
     final isSaving = ref.watch(adminAuthoritiesProvider).isLoading;
-    final isBusy = isSaving || _isUploadingFile || _isAiLoading;
+    final isBusy = isSaving || _isUploadingFile || _isAiLoading || _isLoadingFullData;
     final isEditing = widget.authority != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Modifier l\'autorité' : 'Nouvelle autorité'),
-        backgroundColor: Colors.red.shade700,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: Text(isEditing ? 'Modifier l\'autorité' : 'Nouvelle autorité'), backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -289,10 +210,8 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 👉 CHAMP ASSISTANT IA (Tavily + Astral IA)
                   if (!isEditing) _buildAiAssistantSection(),
                   if (!isEditing) const Divider(height: 32),
-
                   _buildGeneralSection(isBusy),
                   const Divider(height: 32),
                   _buildEducationSection(),
@@ -309,108 +228,40 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: isBusy ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(
-                      isEditing ? 'Modifier' : 'Créer',
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    child: Text(isEditing ? 'Sauvegarder les modifications' : 'Créer', style: const TextStyle(fontSize: 16, color: Colors.white)),
                   ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
-          if (isBusy)
-            Container(
-              color: Colors.black.withOpacity(0.3),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(color: Colors.white),
-                    const SizedBox(height: 12),
-                    Text(
-                      _isAiLoading ? 'Thix IA interroge Tavily...' : 'Chargement...',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          if (isBusy) Container(color: Colors.black.withOpacity(0.3), child: const Center(child: CircularProgressIndicator(color: Colors.white))),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // SECTION ASSISTANT IA
-  // ============================================================
 
   Widget _buildAiAssistantSection() {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F4F8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF1A5276).withOpacity(0.3)),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF0F4F8), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF1A5276).withOpacity(0.3))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: Color(0xFF1A5276)),
-              SizedBox(width: 8),
-              Text(
-                'Assistant Thix IA & Tavily',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A5276)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Entrez le nom complet de la personnalité pour pré-remplir automatiquement le formulaire.',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
-          ),
+          const Row(children: [Icon(Icons.auto_awesome, color: Color(0xFF1A5276)), SizedBox(width: 8), Text('Assistant Thix IA & Tavily', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A5276)))]),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _aiSearchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom de la personnalité',
-                    hintText: 'Ex: Félix Tshisekedi',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                ),
-              ),
+              Expanded(child: TextFormField(controller: _aiSearchController, decoration: const InputDecoration(labelText: 'Nom de la personnalité', filled: true, fillColor: Colors.white))),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: _isAiLoading ? null : _fillWithAi,
-                icon: const Icon(Icons.psychology),
-                label: const Text('Rechercher'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5276),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
-              ),
+              ElevatedButton(onPressed: _isAiLoading ? null : _fillWithAi, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)), child: const Text('Rechercher')),
             ],
           ),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // SECTIONS GENERALES ET DYNAMIQUES
-  // ============================================================
 
   Widget _buildGeneralSection(bool isBusy) {
     return Column(
@@ -421,142 +272,37 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
         DropdownButtonFormField<String>(
           value: _categoryController.text.isNotEmpty ? _categoryController.text : null,
           decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder()),
-          items: [
-            'Président de la République',
-            'Présidence',
-            'Gouvernement',
-            'Assemblée Nationale',
-            'Sénat',
-            'Cours et Tribunaux',
-            'Entreprises Publiques',
-            'Gouverneurs',
-            'Figures Historiques',
-            'Autres'
-          ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+          items: ['Président de la République', 'Présidence', 'Gouvernement', 'Assemblée Nationale', 'Sénat', 'Cours et Tribunaux', 'Entreprises Publiques', 'Gouverneurs', 'Figures Historiques', 'Autres'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
           onChanged: (val) => setState(() => _categoryController.text = val ?? ''),
         ),
         const SizedBox(height: 12),
-        TextFormField(
-          controller: _nameController,
-          decoration: const InputDecoration(labelText: 'Nom complet *', border: OutlineInputBorder()),
-          validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-        ),
+        TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Nom complet *', border: OutlineInputBorder()), validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null),
         const SizedBox(height: 12),
-        TextFormField(
-          controller: _titleController,
-          decoration: const InputDecoration(labelText: 'Titre / Fonction *', border: OutlineInputBorder()),
-          validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-        ),
+        TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Titre / Fonction *', border: OutlineInputBorder()), validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: TextFormField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(labelText: 'Photo de profil (URL)', border: OutlineInputBorder()),
-              ),
-            ),
+            Expanded(child: TextFormField(controller: _imageUrlController, decoration: const InputDecoration(labelText: 'Photo de profil (URL)', border: OutlineInputBorder()))),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: isBusy ? null : _pickAndUploadImage,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5276),
-                foregroundColor: Colors.white,
-              ),
-            ),
+            ElevatedButton(onPressed: isBusy ? null : _pickAndUploadImage, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white), child: const Text('Upload')),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: TextFormField(
-                controller: _coverImageUrlController,
-                decoration: const InputDecoration(labelText: 'Photo de couverture (URL)', border: OutlineInputBorder()),
-              ),
-            ),
+            Expanded(child: TextFormField(controller: _coverImageUrlController, decoration: const InputDecoration(labelText: 'Photo de couverture (URL)', border: OutlineInputBorder()))),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: isBusy ? null : _pickAndUploadCover,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5276),
-                foregroundColor: Colors.white,
-              ),
-            ),
+            ElevatedButton(onPressed: isBusy ? null : _pickAndUploadCover, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white), child: const Text('Upload')),
           ],
         ),
         const SizedBox(height: 12),
-        TextFormField(
-          controller: _partyController,
-          decoration: const InputDecoration(labelText: 'Parti politique', border: OutlineInputBorder()),
-        ),
+        TextFormField(controller: _partyController, decoration: const InputDecoration(labelText: 'Parti politique', border: OutlineInputBorder())),
         const SizedBox(height: 12),
-        TextFormField(
-          controller: _mandateController,
-          decoration: const InputDecoration(labelText: 'Mandat (ex: 2019 - 2028)', border: OutlineInputBorder()),
-        ),
+        TextFormField(controller: _mandateController, decoration: const InputDecoration(labelText: 'Mandat (ex: 2019 - 2028)', border: OutlineInputBorder())),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _mandateStart ?? DateTime.now(),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date != null) setState(() => _mandateStart = date);
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Début du mandat', border: OutlineInputBorder()),
-                  child: Text(_mandateStart != null ? DateFormat('dd/MM/yyyy').format(_mandateStart!) : 'Sélectionner une date'),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _mandateEnd ?? DateTime.now(),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date != null) setState(() => _mandateEnd = date);
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Fin du mandat', border: OutlineInputBorder()),
-                  child: Text(_mandateEnd != null ? DateFormat('dd/MM/yyyy').format(_mandateEnd!) : 'Sélectionner une date'),
-                ),
-              ),
-            ),
-          ],
-        ),
+        SwitchListTile(title: const Text('Actif (mandat en cours)'), value: _isActive, onChanged: (v) => setState(() => _isActive = v)),
         const SizedBox(height: 12),
-        SwitchListTile(
-          title: const Text('Actif (mandat en cours)'),
-          value: _isActive,
-          onChanged: (v) => setState(() => _isActive = v),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _biographyController,
-          decoration: const InputDecoration(labelText: 'Biographie', border: OutlineInputBorder()),
-          maxLines: 5,
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _explanationController,
-          decoration: const InputDecoration(labelText: 'Rôle & Explication (Optionnel)', border: OutlineInputBorder()),
-          maxLines: 4,
-        ),
+        TextFormField(controller: _biographyController, decoration: const InputDecoration(labelText: 'Biographie', border: OutlineInputBorder()), maxLines: 5),
       ],
     );
   }
@@ -567,31 +313,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Études', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addEducation, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
+          children: [const Text('Études', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), TextButton.icon(onPressed: _addEducation, icon: const Icon(Icons.add), label: const Text('Ajouter'))],
         ),
-        if (_educationList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune étude renseignée', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._educationList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final edu = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(edu.degree),
-              subtitle: Text('${edu.institution} (${edu.startYear ?? ''} - ${edu.endYear ?? 'Présent'})'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeEducation(i),
-              ),
-            ),
-          );
-        }),
+        if (_educationList.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Aucune étude renseignée', style: TextStyle(color: Colors.grey))),
+        ..._educationList.asMap().entries.map((entry) => Card(margin: const EdgeInsets.symmetric(vertical: 4), child: ListTile(title: Text(entry.value.degree), subtitle: Text(entry.value.institution), trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeEducation(entry.key))))),
       ],
     );
   }
@@ -602,31 +327,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Parcours professionnel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addCareer, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
+          children: [const Text('Parcours professionnel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), TextButton.icon(onPressed: _addCareer, icon: const Icon(Icons.add), label: const Text('Ajouter'))],
         ),
-        if (_careerList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucun parcours renseigné', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._careerList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final c = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(c.title),
-              subtitle: Text('${c.organization} (${c.startDate} - ${c.endDate ?? 'Présent'})'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeCareer(i),
-              ),
-            ),
-          );
-        }),
+        if (_careerList.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Aucun parcours renseigné', style: TextStyle(color: Colors.grey))),
+        ..._careerList.asMap().entries.map((entry) => Card(margin: const EdgeInsets.symmetric(vertical: 4), child: ListTile(title: Text(entry.value.title), subtitle: Text(entry.value.organization), trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeCareer(entry.key))))),
       ],
     );
   }
@@ -637,31 +341,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Réalisations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addAchievement, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
+          children: [const Text('Réalisations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), TextButton.icon(onPressed: _addAchievement, icon: const Icon(Icons.add), label: const Text('Ajouter'))],
         ),
-        if (_achievementList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune réalisation renseignée', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._achievementList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final a = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(a.title),
-              subtitle: Text('${a.category ?? ''} - ${a.date ?? ''}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeAchievement(i),
-              ),
-            ),
-          );
-        }),
+        if (_achievementList.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Aucune réalisation renseignée', style: TextStyle(color: Colors.grey))),
+        ..._achievementList.asMap().entries.map((entry) => Card(margin: const EdgeInsets.symmetric(vertical: 4), child: ListTile(title: Text(entry.value.title), subtitle: Text(entry.value.category ?? ''), trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeAchievement(entry.key))))),
       ],
     );
   }
@@ -672,60 +355,16 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Galerie photos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addPhoto, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
+          children: [const Text('Galerie photos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), TextButton.icon(onPressed: _addPhoto, icon: const Icon(Icons.add), label: const Text('Ajouter'))],
         ),
-        if (_photoList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune photo', style: TextStyle(color: Colors.grey)),
-          ),
+        if (_photoList.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Aucune photo', style: TextStyle(color: Colors.grey))),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 8, runSpacing: 8,
           children: _photoList.asMap().entries.map((entry) {
-            final i = entry.key;
-            final p = entry.value;
             return Stack(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    p.url,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.grey.shade300,
-                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                    ),
-                  ),
-                ),
-                if (p.isCover)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      color: Colors.amber,
-                      child: const Text('COUV', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                  ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: GestureDetector(
-                    onTap: () => _removePhoto(i),
-                    child: Container(
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      child: const Icon(Icons.close, size: 16, color: Colors.white),
-                    ),
-                  ),
-                ),
+                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(entry.value.url, width: 80, height: 80, fit: BoxFit.cover)),
+                Positioned(right: 0, top: 0, child: GestureDetector(onTap: () => _removePhoto(entry.key), child: Container(decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), child: const Icon(Icons.close, size: 16, color: Colors.white)))),
               ],
             );
           }).toList(),
@@ -740,32 +379,10 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Vidéos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addVideo, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
+          children: [const Text('Vidéos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), TextButton.icon(onPressed: _addVideo, icon: const Icon(Icons.add), label: const Text('Ajouter'))],
         ),
-        if (_videoList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucune vidéo', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._videoList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final v = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: const Icon(Icons.video_library, color: Colors.blue),
-              title: Text(v.title),
-              subtitle: Text(v.url),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeVideo(i),
-              ),
-            ),
-          );
-        }),
+        if (_videoList.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Aucune vidéo', style: TextStyle(color: Colors.grey))),
+        ..._videoList.asMap().entries.map((entry) => Card(margin: const EdgeInsets.symmetric(vertical: 4), child: ListTile(leading: const Icon(Icons.video_library, color: Colors.blue), title: Text(entry.value.title), trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeVideo(entry.key))))),
       ],
     );
   }
@@ -776,48 +393,16 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Documents', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(onPressed: _addDocument, icon: const Icon(Icons.add), label: const Text('Ajouter')),
-          ],
+          children: [const Text('Documents', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), TextButton.icon(onPressed: _addDocument, icon: const Icon(Icons.add), label: const Text('Ajouter'))],
         ),
-        if (_documentList.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucun document', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._documentList.asMap().entries.map((entry) {
-          final i = entry.key;
-          final d = entry.value;
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: Icon(
-                d.type == 'PDF' ? Icons.picture_as_pdf :
-                d.type == 'DOC' ? Icons.description :
-                Icons.insert_drive_file,
-                color: Colors.blue,
-              ),
-              title: Text(d.title),
-              subtitle: Text('${d.type} - ${d.url}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                onPressed: () => _removeDocument(i),
-              ),
-            ),
-          );
-        }),
+        if (_documentList.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Aucun document', style: TextStyle(color: Colors.grey))),
+        ..._documentList.asMap().entries.map((entry) => Card(margin: const EdgeInsets.symmetric(vertical: 4), child: ListTile(leading: const Icon(Icons.picture_as_pdf, color: Colors.blue), title: Text(entry.value.title), trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeDocument(entry.key))))),
       ],
     );
   }
 
-  // ============================================================
-  // SAUVEGARDE
-  // ============================================================
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
     final authority = Authority(
       id: widget.authority?.id ?? '',
       category: _categoryController.text.trim(),
@@ -838,134 +423,52 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       photos: _photoList,
       videos: _videoList,
       documents: _documentList,
-      speeches: [],
-      publications: [],
-      socialNetworks: {},
-      agenda: [],
+      speeches: [], publications: [], socialNetworks: {}, agenda: [],
     );
-
     try {
       if (widget.authority != null) {
         await ref.read(adminAuthoritiesProvider.notifier).updateAuthority(authority);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Autorité modifiée avec succès'), backgroundColor: Colors.green),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Autorité modifiée avec succès'), backgroundColor: Colors.green));
       } else {
         await ref.read(adminAuthoritiesProvider.notifier).createAuthority(authority);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Autorité créée avec succès'), backgroundColor: Colors.green),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Autorité créée avec succès'), backgroundColor: Colors.green));
       }
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red));
     }
   }
 }
 
-// ============================================================
+// ------------------------------------------------------------
 // DIALOGUES DYNAMIQUES
-// ============================================================
+// ------------------------------------------------------------
 
 class _EducationFormDialog extends StatefulWidget {
   final void Function(Education) onSave;
   const _EducationFormDialog({required this.onSave});
-
-  @override
-  State<_EducationFormDialog> createState() => _EducationFormDialogState();
+  @override State<_EducationFormDialog> createState() => _EducationFormDialogState();
 }
-
 class _EducationFormDialogState extends State<_EducationFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _institutionCtrl = TextEditingController();
   final _degreeCtrl = TextEditingController();
-  final _fieldCtrl = TextEditingController();
   final _startYearCtrl = TextEditingController();
   final _endYearCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _institutionCtrl.dispose();
-    _degreeCtrl.dispose();
-    _fieldCtrl.dispose();
-    _startYearCtrl.dispose();
-    _endYearCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter une étude'),
       content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _institutionCtrl,
-                decoration: const InputDecoration(labelText: 'Institution *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _degreeCtrl,
-                decoration: const InputDecoration(labelText: 'Diplôme *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _fieldCtrl,
-                decoration: const InputDecoration(labelText: 'Domaine'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _startYearCtrl,
-                decoration: const InputDecoration(labelText: 'Année début'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _endYearCtrl,
-                decoration: const InputDecoration(labelText: 'Année fin'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
+        child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextFormField(controller: _institutionCtrl, decoration: const InputDecoration(labelText: 'Institution *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
+          TextFormField(controller: _degreeCtrl, decoration: const InputDecoration(labelText: 'Diplôme *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
+          TextFormField(controller: _startYearCtrl, decoration: const InputDecoration(labelText: 'Année début')),
+          TextFormField(controller: _endYearCtrl, decoration: const InputDecoration(labelText: 'Année fin')),
+        ])),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSave(
-                Education(
-                  id: '',
-                  institution: _institutionCtrl.text,
-                  degree: _degreeCtrl.text,
-                  field: _fieldCtrl.text.isNotEmpty ? _fieldCtrl.text : null,
-                  startYear: _startYearCtrl.text.isNotEmpty ? _startYearCtrl.text : null,
-                  endYear: _endYearCtrl.text.isNotEmpty ? _endYearCtrl.text : null,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
+        ElevatedButton(onPressed: () { if (_formKey.currentState!.validate()) { widget.onSave(Education(id: '', institution: _institutionCtrl.text, degree: _degreeCtrl.text, startYear: _startYearCtrl.text, endYear: _endYearCtrl.text)); Navigator.pop(context); } }, child: const Text('Ajouter')),
       ],
     );
   }
@@ -974,195 +477,91 @@ class _EducationFormDialogState extends State<_EducationFormDialog> {
 class _CareerFormDialog extends StatefulWidget {
   final void Function(Career) onSave;
   const _CareerFormDialog({required this.onSave});
-
-  @override
-  State<_CareerFormDialog> createState() => _CareerFormDialogState();
+  @override State<_CareerFormDialog> createState() => _CareerFormDialogState();
 }
-
 class _CareerFormDialogState extends State<_CareerFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _orgCtrl = TextEditingController();
   final _startCtrl = TextEditingController();
   final _endCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _orgCtrl.dispose();
-    _startCtrl.dispose();
-    _endCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter un parcours'),
       content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Titre *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _orgCtrl,
-                decoration: const InputDecoration(labelText: 'Organisation *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _startCtrl,
-                decoration: const InputDecoration(labelText: 'Date début *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _endCtrl,
-                decoration: const InputDecoration(labelText: 'Date fin (vide = présent)'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
+        child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
+          TextFormField(controller: _orgCtrl, decoration: const InputDecoration(labelText: 'Organisation *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
+          TextFormField(controller: _startCtrl, decoration: const InputDecoration(labelText: 'Date début *')),
+          TextFormField(controller: _endCtrl, decoration: const InputDecoration(labelText: 'Date fin')),
+        ])),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSave(
-                Career(
-                  id: '',
-                  title: _titleCtrl.text,
-                  organization: _orgCtrl.text,
-                  startDate: _startCtrl.text,
-                  endDate: _endCtrl.text.isNotEmpty ? _endCtrl.text : null,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
+        ElevatedButton(onPressed: () { if (_formKey.currentState!.validate()) { widget.onSave(Career(id: '', title: _titleCtrl.text, organization: _orgCtrl.text, startDate: _startCtrl.text, endDate: _endCtrl.text)); Navigator.pop(context); } }, child: const Text('Ajouter')),
       ],
     );
   }
 }
 
+// 👉 RÉALISATIONS : AVEC BOUTON D'UPLOAD D'IMAGE !
 class _AchievementFormDialog extends StatefulWidget {
   final void Function(Achievement) onSave;
-  const _AchievementFormDialog({required this.onSave});
-
-  @override
-  State<_AchievementFormDialog> createState() => _AchievementFormDialogState();
+  final WidgetRef ref;
+  const _AchievementFormDialog({required this.onSave, required this.ref});
+  @override State<_AchievementFormDialog> createState() => _AchievementFormDialogState();
 }
-
 class _AchievementFormDialogState extends State<_AchievementFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
-  final _imageUrlCtrl = TextEditingController();
+  String? _uploadedImageUrl;
+  bool _isUploading = false;
 
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _descCtrl.dispose();
-    _dateCtrl.dispose();
-    _categoryCtrl.dispose();
-    _imageUrlCtrl.dispose();
-    super.dispose();
+  Future<void> _pickAndUploadPhoto() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploading = true);
+        final url = await widget.ref.read(authoritiesServiceProvider).uploadMedia(result.files.first.name, result.files.first.bytes!, folder: 'achievements');
+        setState(() { _uploadedImageUrl = url; _isUploading = false; });
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter une réalisation'),
       content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Titre *'),
-                validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _dateCtrl,
-                decoration: const InputDecoration(labelText: 'Date'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _categoryCtrl.text.isNotEmpty ? _categoryCtrl.text : null,
-                decoration: const InputDecoration(labelText: 'Catégorie'),
-                items: [
-                  'Infrastructure',
-                  'Santé',
-                  'Éducation',
-                  'Agriculture',
-                  'Économie',
-                  'Tourisme',
-                  'Culture',
-                  'Sport',
-                  'Environnement',
-                  'Autre'
-                ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (v) => _categoryCtrl.text = v ?? '',
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _imageUrlCtrl,
-                decoration: const InputDecoration(labelText: 'URL de l\'image'),
-              ),
-            ],
+        child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *'), validator: (v) => v?.isEmpty ?? true ? 'Requis' : null),
+          TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
+          TextFormField(controller: _dateCtrl, decoration: const InputDecoration(labelText: 'Date (ex: 2023)')),
+          DropdownButtonFormField<String>(
+            value: _categoryCtrl.text.isNotEmpty ? _categoryCtrl.text : null,
+            decoration: const InputDecoration(labelText: 'Catégorie'),
+            items: ['Infrastructure', 'Santé', 'Éducation', 'Agriculture', 'Économie', 'Autre'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            onChanged: (v) => _categoryCtrl.text = v ?? '',
           ),
-        ),
+          const SizedBox(height: 16),
+          if (_uploadedImageUrl != null) ...[
+            Image.network(_uploadedImageUrl!, height: 80, fit: BoxFit.cover),
+            TextButton(onPressed: _isUploading ? null : _pickAndUploadPhoto, child: const Text('Changer la photo'))
+          ] else
+            ElevatedButton.icon(
+              onPressed: _isUploading ? null : _pickAndUploadPhoto,
+              icon: _isUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
+              label: Text(_isUploading ? 'Upload...' : 'Uploader une photo (Optionnel)'),
+            )
+        ])),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSave(
-                Achievement(
-                  id: '',
-                  title: _titleCtrl.text,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                  date: _dateCtrl.text.isNotEmpty ? _dateCtrl.text : null,
-                  category: _categoryCtrl.text.isNotEmpty ? _categoryCtrl.text : null,
-                  imageUrl: _imageUrlCtrl.text.isNotEmpty ? _imageUrlCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
+        ElevatedButton(onPressed: () { if (_formKey.currentState!.validate()) { widget.onSave(Achievement(id: '', title: _titleCtrl.text, description: _descCtrl.text, date: _dateCtrl.text, category: _categoryCtrl.text, imageUrl: _uploadedImageUrl)); Navigator.pop(context); } }, child: const Text('Ajouter')),
       ],
     );
   }
@@ -1171,118 +570,39 @@ class _AchievementFormDialogState extends State<_AchievementFormDialog> {
 class _PhotoFormDialog extends ConsumerStatefulWidget {
   final void Function(AuthorityPhoto) onSave;
   const _PhotoFormDialog({required this.onSave});
-
-  @override
-  ConsumerState<_PhotoFormDialog> createState() => _PhotoFormDialogState();
+  @override ConsumerState<_PhotoFormDialog> createState() => _PhotoFormDialogState();
 }
-
 class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
   final _titleCtrl = TextEditingController();
   String? _uploadedUrl;
-  bool _isCover = false;
   bool _isUploading = false;
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _pickAndUploadPhoto() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
-
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isUploading = true);
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'gallery');
-
-        setState(() {
-          _uploadedUrl = url;
-          _isUploading = false;
-        });
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(result.files.first.name, result.files.first.bytes!, folder: 'gallery');
+        setState(() { _uploadedUrl = url; _isUploading = false; });
       }
-    } catch (e) {
-      setState(() => _isUploading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur upload: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+    } catch (e) { setState(() => _isUploading = false); }
   }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter une photo'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_uploadedUrl != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(_uploadedUrl!, height: 120, width: double.infinity, fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: _isUploading ? null : _pickAndUploadPhoto,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Changer la photo'),
-              )
-            ] else ...[
-              ElevatedButton.icon(
-                onPressed: _isUploading ? null : _pickAndUploadPhoto,
-                icon: _isUploading 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.upload_file),
-                label: Text(_isUploading ? 'Upload en cours...' : 'Parcourir les fichiers...'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5276),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _titleCtrl,
-              decoration: const InputDecoration(labelText: 'Titre de la photo (Optionnel)'),
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              title: const Text('Photo de couverture'),
-              value: _isCover,
-              onChanged: (v) => setState(() => _isCover = v),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (_uploadedUrl != null) ...[
+            Image.network(_uploadedUrl!, height: 120, fit: BoxFit.cover),
+            TextButton(onPressed: _isUploading ? null : _pickAndUploadPhoto, child: const Text('Changer'))
+          ] else
+            ElevatedButton.icon(onPressed: _isUploading ? null : _pickAndUploadPhoto, icon: const Icon(Icons.upload), label: Text(_isUploading ? 'Upload...' : 'Parcourir...')),
+          const SizedBox(height: 16),
+          TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre (Optionnel)')),
+        ]),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: _uploadedUrl == null || _isUploading
-              ? null
-              : () {
-                  widget.onSave(
-                    AuthorityPhoto(
-                      id: '',
-                      url: _uploadedUrl!,
-                      title: _titleCtrl.text.isNotEmpty ? _titleCtrl.text : null,
-                      isCover: _isCover,
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-          child: const Text('Ajouter'),
-        ),
+        ElevatedButton(onPressed: _uploadedUrl == null ? null : () { widget.onSave(AuthorityPhoto(id: '', url: _uploadedUrl!, title: _titleCtrl.text, isCover: false)); Navigator.pop(context); }, child: const Text('Ajouter')),
       ],
     );
   }
@@ -1291,139 +611,38 @@ class _PhotoFormDialogState extends ConsumerState<_PhotoFormDialog> {
 class _VideoFormDialog extends ConsumerStatefulWidget {
   final void Function(AuthorityVideo) onSave;
   const _VideoFormDialog({required this.onSave});
-
-  @override
-  ConsumerState<_VideoFormDialog> createState() => _VideoFormDialogState();
+  @override ConsumerState<_VideoFormDialog> createState() => _VideoFormDialogState();
 }
-
 class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
   final _titleCtrl = TextEditingController();
-  final _thumbCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-  
   String? _uploadedUrl;
   bool _isUploading = false;
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _thumbCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _pickAndUploadVideo() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.video,
-        withData: true,
-      );
-
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.video, withData: true);
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isUploading = true);
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'videos');
-
-        setState(() {
-          _uploadedUrl = url;
-          _isUploading = false;
-        });
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(result.files.first.name, result.files.first.bytes!, folder: 'videos');
+        setState(() { _uploadedUrl = url; _isUploading = false; });
       }
-    } catch (e) {
-      setState(() => _isUploading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur upload vidéo: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+    } catch (e) { setState(() => _isUploading = false); }
   }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter une vidéo'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _titleCtrl,
-              decoration: const InputDecoration(labelText: 'Titre *'),
-              onChanged: (v) => setState(() {}),
-            ),
-            const SizedBox(height: 16),
-            if (_uploadedUrl != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green),
-                    SizedBox(width: 8),
-                    Expanded(child: Text('Vidéo uploadée avec succès', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: _isUploading ? null : _pickAndUploadVideo,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Changer la vidéo'),
-              )
-            ] else ...[
-              ElevatedButton.icon(
-                onPressed: _isUploading ? null : _pickAndUploadVideo,
-                icon: _isUploading 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.video_call),
-                label: Text(_isUploading ? 'Upload en cours...' : 'Uploader la vidéo...'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5276),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _thumbCtrl,
-              decoration: const InputDecoration(labelText: 'URL miniature (Optionnel)'),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Description (Optionnel)'),
-              maxLines: 2,
-            ),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *'), onChanged: (v) => setState((){})),
+          const SizedBox(height: 16),
+          if (_uploadedUrl != null)
+             const Text('Vidéo prête !', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
+          else
+            ElevatedButton.icon(onPressed: _isUploading ? null : _pickAndUploadVideo, icon: const Icon(Icons.video_call), label: Text(_isUploading ? 'Upload...' : 'Uploader la vidéo...')),
+        ]),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: _titleCtrl.text.isEmpty || _uploadedUrl == null || _isUploading
-              ? null
-              : () {
-                  widget.onSave(
-                    AuthorityVideo(
-                      id: '',
-                      title: _titleCtrl.text,
-                      url: _uploadedUrl!,
-                      thumbnailUrl: _thumbCtrl.text.isNotEmpty ? _thumbCtrl.text : null,
-                      description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-          child: const Text('Ajouter'),
-        ),
+        ElevatedButton(onPressed: _titleCtrl.text.isEmpty || _uploadedUrl == null ? null : () { widget.onSave(AuthorityVideo(id: '', title: _titleCtrl.text, url: _uploadedUrl!)); Navigator.pop(context); }, child: const Text('Ajouter')),
       ],
     );
   }
@@ -1432,78 +651,21 @@ class _VideoFormDialogState extends ConsumerState<_VideoFormDialog> {
 class _DocumentFormDialog extends StatefulWidget {
   final void Function(AuthorityDocument) onSave;
   const _DocumentFormDialog({required this.onSave});
-
-  @override
-  State<_DocumentFormDialog> createState() => _DocumentFormDialogState();
+  @override State<_DocumentFormDialog> createState() => _DocumentFormDialogState();
 }
-
 class _DocumentFormDialogState extends State<_DocumentFormDialog> {
   final _titleCtrl = TextEditingController();
   final _urlCtrl = TextEditingController();
-  final _typeCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _urlCtrl.dispose();
-    _typeCtrl.dispose();
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ajouter un document'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextFormField(
-            controller: _titleCtrl,
-            decoration: const InputDecoration(labelText: 'Titre *'),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _urlCtrl,
-            decoration: const InputDecoration(labelText: 'URL *'),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _typeCtrl.text.isNotEmpty ? _typeCtrl.text : null,
-            decoration: const InputDecoration(labelText: 'Type *'),
-            items: ['PDF', 'DOC', 'XLS', 'PPT', 'Autre']
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                .toList(),
-            onChanged: (v) => _typeCtrl.text = v ?? '',
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _descCtrl,
-            decoration: const InputDecoration(labelText: 'Description'),
-            maxLines: 2,
-          ),
-        ],
-      ),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextFormField(controller: _titleCtrl, decoration: const InputDecoration(labelText: 'Titre *')),
+        TextFormField(controller: _urlCtrl, decoration: const InputDecoration(labelText: 'URL *')),
+      ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ElevatedButton(
-          onPressed: () {
-            if (_titleCtrl.text.isNotEmpty && _urlCtrl.text.isNotEmpty && _typeCtrl.text.isNotEmpty) {
-              widget.onSave(
-                AuthorityDocument(
-                  id: '',
-                  title: _titleCtrl.text,
-                  url: _urlCtrl.text,
-                  type: _typeCtrl.text,
-                  description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          child: const Text('Ajouter'),
-        ),
+        ElevatedButton(onPressed: () { if (_titleCtrl.text.isNotEmpty && _urlCtrl.text.isNotEmpty) { widget.onSave(AuthorityDocument(id: '', title: _titleCtrl.text, url: _urlCtrl.text, type: 'PDF')); Navigator.pop(context); } }, child: const Text('Ajouter')),
       ],
     );
   }
