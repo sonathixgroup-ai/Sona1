@@ -21,6 +21,14 @@ class Province {
   final String? coatOfArmsUrl;
   final String? mapUrl;
   final String? website;
+  
+  // Nouveaux champs ajoutés :
+  final String? governor;
+  final String? viceGovernor;
+  final String? languages;
+  final String? resources;
+  final int? territoriesCount;
+
   final ProvinceGovernment? government; // relation 1-1
   final List<City> cities; // villes
   final List<ProvinceEconomicResource> economicResources; // ressources économiques
@@ -44,6 +52,11 @@ class Province {
     this.coatOfArmsUrl,
     this.mapUrl,
     this.website,
+    this.governor,
+    this.viceGovernor,
+    this.languages,
+    this.resources,
+    this.territoriesCount,
     this.government,
     this.cities = const [],
     this.economicResources = const [],
@@ -69,6 +82,14 @@ class Province {
       coatOfArmsUrl: json['coat_of_arms_url'] as String?,
       mapUrl: json['map_url'] as String?,
       website: json['website'] as String?,
+      
+      // Prise en charge du camelCase (Formulaire App) et du snake_case (Supabase)
+      governor: json['governor'] as String?,
+      viceGovernor: json['viceGovernor'] as String? ?? json['vice_governor'] as String?,
+      languages: json['languages'] as String?,
+      resources: json['resources'] as String?,
+      territoriesCount: json['territoriesCount'] as int? ?? json['territories_count'] as int?,
+
       government: json['government'] != null
           ? ProvinceGovernment.fromJson(json['government'])
           : null,
@@ -96,6 +117,14 @@ class Province {
     'coat_of_arms_url': coatOfArmsUrl,
     'map_url': mapUrl,
     'website': website,
+    
+    // Enregistrement en snake_case pour la BDD Supabase
+    'governor': governor,
+    'vice_governor': viceGovernor,
+    'languages': languages,
+    'resources': resources,
+    'territories_count': territoriesCount,
+
     'government': government?.toJson(),
     'cities': cities.map((e) => e.toJson()).toList(),
     'economic_resources': economicResources.map((e) => e.toJson()).toList(),
@@ -106,6 +135,11 @@ class Province {
   };
 
   Province copyWith({
+    String? governor,
+    String? viceGovernor,
+    String? languages,
+    String? resources,
+    int? territoriesCount,
     ProvinceGovernment? government,
     List<City>? cities,
     List<ProvinceEconomicResource>? economicResources,
@@ -127,6 +161,13 @@ class Province {
       coatOfArmsUrl: coatOfArmsUrl,
       mapUrl: mapUrl,
       website: website,
+      
+      governor: governor ?? this.governor,
+      viceGovernor: viceGovernor ?? this.viceGovernor,
+      languages: languages ?? this.languages,
+      resources: resources ?? this.resources,
+      territoriesCount: territoriesCount ?? this.territoriesCount,
+
       government: government ?? this.government,
       cities: cities ?? this.cities,
       economicResources: economicResources ?? this.economicResources,
