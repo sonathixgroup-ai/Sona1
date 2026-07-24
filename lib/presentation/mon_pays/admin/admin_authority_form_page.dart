@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 
 import 'package:thix_id/presentation/mon_pays/models/authority.dart';
 import 'package:thix_id/presentation/mon_pays/providers/authorities_provider.dart';
+// 🚀 NOUVEL IMPORT POUR LES PROVINCES
+import 'package:thix_id/presentation/mon_pays/providers/provinces_provider.dart';
 
 class AdminAuthorityFormPage extends ConsumerStatefulWidget {
   final Authority? authority;
@@ -22,6 +24,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   final _formKey = GlobalKey<FormState>();
 
   // ---- Champs principaux ----
+  String? _selectedProvinceId; // 🚀 NOUVEAU CHAMP POUR CLASSER LA PROVINCE
   late TextEditingController _categoryController;
   late TextEditingController _nameController;
   late TextEditingController _titleController;
@@ -54,6 +57,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   void initState() {
     super.initState();
     final a = widget.authority;
+    _selectedProvinceId = a?.provinceId; // 🚀 RECUPERATION DE LA PROVINCE
     _categoryController = TextEditingController(text: a?.category ?? 'Gouvernement');
     _nameController = TextEditingController(text: a?.name ?? '');
     _titleController = TextEditingController(text: a?.title ?? '');
@@ -67,13 +71,11 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     _mandateEnd = a?.mandateEnd;
     _isActive = a?.isActive ?? true;
 
-    // Si on modifie une autorité, on force le téléchargement de ses relations complètes
     if (a != null && a.id.isNotEmpty) {
       _fetchFullDetails(a.id);
     }
   }
 
-  // FORCE LE CHARGEMENT DES LISTES DEPUIS SUPABASE
   Future<void> _fetchFullDetails(String id) async {
     setState(() => _isLoadingFullData = true);
     try {
@@ -109,10 +111,6 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     super.dispose();
   }
 
-  // ============================================================
-  // INTEGRATION IA
-  // ============================================================
-
   Future<void> _fillWithAi() async {
     final query = _aiSearchController.text.trim();
     if (query.isEmpty) {
@@ -121,39 +119,29 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     }
     setState(() => _isAiLoading = true);
     try {
-      await Future.delayed(const Duration(seconds: 2)); // Simulation
+      await Future.delayed(const Duration(seconds: 2));
       setState(() {
         _nameController.text = query;
         _biographyController.text = "Biographie générée automatiquement par Thix IA via Tavily pour $query...";
-        _titleController.text = "Ministre / Haute Autorité";
+        _titleController.text = "Gouverneur / Ministre Provincial";
         _isAiLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Informations pré-remplies avec succès par l\'IA !'), backgroundColor: Colors.green));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Informations pré-remplies avec succès par l\'IA !'), backgroundColor: Colors.green));
     } catch (e) {
       setState(() => _isAiLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur IA: $e'), backgroundColor: Colors.red));
     }
   }
 
-  // ============================================================
-  // UPLOAD FICHIERS
-  // ============================================================
-
   Future<void> _pickAndUploadImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isUploadingFile = true);
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes);
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(result.files.first.name, result.files.first.bytes!);
         setState(() { _imageUrlController.text = url; _isUploadingFile = false; });
       }
-    } catch (e) {
-      setState(() => _isUploadingFile = false);
-    }
+    } catch (e) { setState(() => _isUploadingFile = false); }
   }
 
   Future<void> _pickAndUploadCover() async {
@@ -161,19 +149,11 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
       FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
       if (result != null && result.files.first.bytes != null) {
         setState(() => _isUploadingFile = true);
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'covers');
+        final url = await ref.read(authoritiesServiceProvider).uploadMedia(result.files.first.name, result.files.first.bytes!, folder: 'covers');
         setState(() { _coverImageUrlController.text = url; _isUploadingFile = false; });
       }
-    } catch (e) {
-      setState(() => _isUploadingFile = false);
-    }
+    } catch (e) { setState(() => _isUploadingFile = false); }
   }
-
-  // ============================================================
-  // AJOUT / SUPPRESSION DYNAMIQUES
-  // ============================================================
 
   void _addEducation() => showDialog(context: context, builder: (ctx) => _EducationFormDialog(onSave: (edu) => setState(() => _educationList.add(edu))));
   void _addCareer() => showDialog(context: context, builder: (ctx) => _CareerFormDialog(onSave: (career) => setState(() => _careerList.add(career))));
@@ -188,10 +168,6 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   void _removePhoto(int index) => setState(() => _photoList.removeAt(index));
   void _removeVideo(int index) => setState(() => _videoList.removeAt(index));
   void _removeDocument(int index) => setState(() => _documentList.removeAt(index));
-
-  // ============================================================
-  // BUILD PRINCIPAL
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -253,7 +229,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: TextFormField(controller: _aiSearchController, decoration: const InputDecoration(labelText: 'Nom de la personnalité', filled: true, fillColor: Colors.white))),
+              Expanded(child: TextFormField(controller: _aiSearchController, decoration: const InputDecoration(labelText: 'Nom du Gouverneur / Ministre', filled: true, fillColor: Colors.white))),
               const SizedBox(width: 8),
               ElevatedButton(onPressed: _isAiLoading ? null : _fillWithAi, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)), child: const Text('Rechercher')),
             ],
@@ -264,46 +240,73 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
   }
 
   Widget _buildGeneralSection(bool isBusy) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Informations générales', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _categoryController.text.isNotEmpty ? _categoryController.text : null,
-          decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder()),
-          items: ['Président de la République', 'Présidence', 'Gouvernement', 'Assemblée Nationale', 'Sénat', 'Cours et Tribunaux', 'Entreprises Publiques', 'Gouverneurs', 'Figures Historiques', 'Autres'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-          onChanged: (val) => setState(() => _categoryController.text = val ?? ''),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Nom complet *', border: OutlineInputBorder()), validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null),
-        const SizedBox(height: 12),
-        TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Titre / Fonction *', border: OutlineInputBorder()), validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null),
-        const SizedBox(height: 12),
-        Row(
+    return Consumer(
+      builder: (context, ref, child) {
+        final provincesAsync = ref.watch(provincesProvider(null));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: TextFormField(controller: _imageUrlController, decoration: const InputDecoration(labelText: 'Photo de profil (URL)', border: OutlineInputBorder()))),
-            const SizedBox(width: 8),
-            ElevatedButton(onPressed: isBusy ? null : _pickAndUploadImage, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white), child: const Text('Upload')),
+            const Text('Informations générales', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            
+            // 🚀 MENU DÉROULANT POUR SÉLECTIONNER LA PROVINCE 🚀
+            provincesAsync.when(
+              data: (provinces) => DropdownButtonFormField<String>(
+                value: _selectedProvinceId,
+                decoration: const InputDecoration(
+                  labelText: 'Classer dans une province (Optionnel)', 
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.map, color: Colors.grey),
+                ),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Nationale / Non provincial')),
+                  ...provinces.map((p) => DropdownMenuItem(value: p.id, child: Text('${p.name} (${p.region})'))),
+                ],
+                onChanged: (val) => setState(() => _selectedProvinceId = val),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('Erreur provinces: $e', style: const TextStyle(color: Colors.red)),
+            ),
+            const SizedBox(height: 12),
+
+            DropdownButtonFormField<String>(
+              value: _categoryController.text.isNotEmpty ? _categoryController.text : null,
+              decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder()),
+              items: ['Gouverneurs', 'Ministre Provincial', 'Président de la République', 'Présidence', 'Gouvernement', 'Assemblée Nationale', 'Sénat', 'Cours et Tribunaux', 'Entreprises Publiques', 'Figures Historiques', 'Autres'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              onChanged: (val) => setState(() => _categoryController.text = val ?? ''),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Nom complet *', border: OutlineInputBorder()), validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null),
+            const SizedBox(height: 12),
+            TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Titre / Fonction *', border: OutlineInputBorder()), validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextFormField(controller: _imageUrlController, decoration: const InputDecoration(labelText: 'Photo de profil (URL)', border: OutlineInputBorder()))),
+                const SizedBox(width: 8),
+                ElevatedButton(onPressed: isBusy ? null : _pickAndUploadImage, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white), child: const Text('Upload')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextFormField(controller: _coverImageUrlController, decoration: const InputDecoration(labelText: 'Photo de couverture (URL)', border: OutlineInputBorder()))),
+                const SizedBox(width: 8),
+                ElevatedButton(onPressed: isBusy ? null : _pickAndUploadCover, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white), child: const Text('Upload')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextFormField(controller: _partyController, decoration: const InputDecoration(labelText: 'Parti politique', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextFormField(controller: _mandateController, decoration: const InputDecoration(labelText: 'Mandat (ex: 2024 - 2028)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            SwitchListTile(title: const Text('Actif (mandat en cours)'), value: _isActive, onChanged: (v) => setState(() => _isActive = v)),
+            const SizedBox(height: 12),
+            TextFormField(controller: _biographyController, decoration: const InputDecoration(labelText: 'Biographie', border: OutlineInputBorder()), maxLines: 5),
           ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: TextFormField(controller: _coverImageUrlController, decoration: const InputDecoration(labelText: 'Photo de couverture (URL)', border: OutlineInputBorder()))),
-            const SizedBox(width: 8),
-            ElevatedButton(onPressed: isBusy ? null : _pickAndUploadCover, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A5276), foregroundColor: Colors.white), child: const Text('Upload')),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextFormField(controller: _partyController, decoration: const InputDecoration(labelText: 'Parti politique', border: OutlineInputBorder())),
-        const SizedBox(height: 12),
-        TextFormField(controller: _mandateController, decoration: const InputDecoration(labelText: 'Mandat (ex: 2019 - 2028)', border: OutlineInputBorder())),
-        const SizedBox(height: 12),
-        SwitchListTile(title: const Text('Actif (mandat en cours)'), value: _isActive, onChanged: (v) => setState(() => _isActive = v)),
-        const SizedBox(height: 12),
-        TextFormField(controller: _biographyController, decoration: const InputDecoration(labelText: 'Biographie', border: OutlineInputBorder()), maxLines: 5),
-      ],
+        );
+      },
     );
   }
 
@@ -405,6 +408,7 @@ class _AdminAuthorityFormPageState extends ConsumerState<AdminAuthorityFormPage>
     if (!_formKey.currentState!.validate()) return;
     final authority = Authority(
       id: widget.authority?.id ?? '',
+      provinceId: _selectedProvinceId, // 🚀 SAUVEGARDE DE LA PROVINCE
       category: _categoryController.text.trim(),
       name: _nameController.text.trim(),
       title: _titleController.text.trim(),
