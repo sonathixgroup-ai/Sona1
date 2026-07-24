@@ -94,7 +94,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                   const SizedBox(height: 24),
                 ],
                 
-                // Sections cliquables interactives
                 _buildClickableSectionCard(
                   title: 'Gouvernement & Administration',
                   subtitle: province.governor != null ? 'Gouverneur : ${province.governor}' : 'Voir l\'exécutif provincial',
@@ -307,10 +306,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  // ============================================================
-  // MODALS (POPUP DÉTAILS)
-  // ============================================================
-
   void _showModal(BuildContext context, String title, Widget content) {
     showModalBottomSheet(
       context: context,
@@ -324,7 +319,8 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              // CORRECTION ICI : spaceBetween au lieu de between
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navyDeep)),
                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
@@ -494,7 +490,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
             : Column(
                 children: achievements.map((a) => ListTile(
                   title: Text(a.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(a.description ?? ''),
+                  subtitle: Text(a.description),
                 )).toList(),
               ),
         );
