@@ -619,7 +619,7 @@ class AppRouter {
           // Dans app_router.dart, remplacez la route existante par celle-ci :
 
 GoRoute(
-  path: 'authority/:id',
+  path: 'authorities/:id', // <-- Remplacé par le pluriel pour correspondre à votre bouton !
   name: 'monPaysAuthorityProfile',
   pageBuilder: (_, state) {
     final id = state.pathParameters['id'];
@@ -632,6 +632,7 @@ GoRoute(
     return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
   },
 ),
+
           GoRoute(path: 'laws', name: 'monPaysLaws', pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage())),
           GoRoute(path: 'laws/:type', name: 'monPaysArticleType', pageBuilder: (_, state) => NoTransitionPage(child: ArticleTypePage(type: ArticleType.fromString(state.pathParameters['type']!), title: ArticleType.fromString(state.pathParameters['type']!).label))),
           GoRoute(path: 'laws/article/:id', name: 'monPaysArticleDetail', pageBuilder: (_, state) => NoTransitionPage(child: monPaysArticle.ArticleDetailPage(articleId: state.pathParameters['id']!))),
