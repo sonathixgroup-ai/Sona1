@@ -20,89 +20,201 @@ class _ProvincesPageState extends ConsumerState<ProvincesPage> {
 
   static const List<String> _regions = ['Toutes', 'Centre', 'Est', 'Ouest', 'Nord', 'Sud'];
 
+  // Charte graphique "Mon Pays"
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color redThix = Color(0xFFD32F2F);
+  static const Color lightBg = Color(0xFFF6F7FB);
+  static const Color mutedText = Color(0xFF6B7690);
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final region = _selectedRegion == 'Toutes' ? null : _selectedRegion;
     final provincesAsync = ref.watch(provincesProvider(region));
 
     return Scaffold(
+      backgroundColor: lightBg,
       appBar: AppBar(
-        title: const Text('Provinces de la RDC'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // focus sur la recherche
-            },
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
+        title: const Text('Provinces de la RDC', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: redThix,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      body: Column(
+        children: [
+          // En-tête avec Recherche et Filtres
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            decoration: BoxDecoration(
+              color: redThix,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Column(
               children: [
-                Expanded(
+                // Barre de recherche modernisée
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'Rechercher une province...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    ),
                     onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher une province, capitale...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search, color: navyDeep),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.grey),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: _selectedRegion,
-                  items: _regions.map((r) {
-                    return DropdownMenuItem(value: r, child: Text(r));
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedRegion = value!);
-                  },
+                const SizedBox(height: 16),
+                
+                // Filtres par région (Chips horizontaux)
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _regions.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final r = _regions[index];
+                      final isSelected = _selectedRegion == r;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedRegion = r),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              r,
+                              style: TextStyle(
+                                color: isSelected ? redThix : Colors.white,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-      body: provincesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Erreur : $err')),
-        data: (provinces) {
-          final query = _searchController.text.trim().toLowerCase();
-          List<Province> filtered = provinces;
-          if (query.isNotEmpty) {
-            filtered = provinces.where((p) =>
-                p.name.toLowerCase().contains(query) ||
-                p.capital.toLowerCase().contains(query) ||
-                p.code.toLowerCase().contains(query)
-            ).toList();
-          }
-          if (filtered.isEmpty) {
-            return const Center(child: Text('Aucune province trouvée.'));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.only(top: 8, bottom: 16),
-            itemCount: filtered.length,
-            itemBuilder: (_, i) {
-              final province = filtered[i];
-              return ProvinceCard(
-                province: province,
-                onTap: () {
-                  context.push('/mon-pays/provinces/${province.id}');
-                },
-              );
-            },
-          );
-        },
+
+          // Liste des provinces
+          Expanded(
+            child: provincesAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: navyDeep),
+              ),
+              error: (err, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                    const SizedBox(height: 16),
+                    Text('Erreur de chargement', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(provincesProvider),
+                      style: ElevatedButton.styleFrom(backgroundColor: navyDeep),
+                      child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+              data: (provinces) {
+                final query = _searchController.text.trim().toLowerCase();
+                List<Province> filtered = provinces;
+                
+                if (query.isNotEmpty) {
+                  filtered = provinces.where((p) =>
+                      p.name.toLowerCase().contains(query) ||
+                      p.capital.toLowerCase().contains(query) ||
+                      p.code.toLowerCase().contains(query)
+                  ).toList();
+                }
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Aucune province trouvée.',
+                          style: TextStyle(fontSize: 16, color: mutedText, fontWeight: FontWeight.w600),
+                        ),
+                        if (query.isNotEmpty)
+                          Text(
+                            'Essayez un autre mot-clé',
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                          ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final province = filtered[i];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ProvinceCard(
+                        province: province,
+                        onTap: () => context.push('/mon-pays/provinces/${province.id}'),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
