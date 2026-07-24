@@ -10,7 +10,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../models/province_tourism.dart';
 import '../providers/provinces_provider.dart';
-import '../providers/authorities_provider.dart'; // Pour utiliser le service d'upload de médias
+import '../providers/authorities_provider.dart';
 
 class AdminTourismFormPage extends ConsumerStatefulWidget {
   final String provinceId;
@@ -34,7 +34,7 @@ class _AdminTourismFormPageState extends ConsumerState<AdminTourismFormPage> {
   
   bool _isEditing = false;
   String? _siteId;
-  bool _isBusy = false; // Gère le chargement global (upload ou sauvegarde)
+  bool _isBusy = false; 
 
   // Couleurs de la charte
   static const Color navyDeep = Color(0xFF0A1F44);
@@ -68,36 +68,59 @@ class _AdminTourismFormPageState extends ConsumerState<AdminTourismFormPage> {
   }
 
   // ============================================================
-  // UPLOAD D'IMAGE
+  // UPLOAD DE FICHIERS (MULTIPLE & PHOTO/VIDÉO)
   // ============================================================
-  Future<void> _pickAndUploadImage() async {
+  Future<void> _pickAndUploadFiles({bool isVideo = false}) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: isVideo ? FileType.video : FileType.image,
+        allowMultiple: true, // 🚀 Permet de sélectionner plusieurs photos/vidéos
         withData: true,
       );
-      if (result != null && result.files.first.bytes != null) {
+
+      if (result != null && result.files.isNotEmpty) {
         setState(() => _isBusy = true);
         
-        final bytes = result.files.first.bytes!;
-        final name = result.files.first.name;
-        
-        // Appel au service pour uploader le fichier
-        final url = await ref.read(authoritiesServiceProvider).uploadMedia(name, bytes, folder: 'tourism');
+        List<String> uploadedUrls = [];
+        final service = ref.read(authoritiesServiceProvider);
 
+        // Si le champ contient déjà une URL, on la récupère pour l'enchaîner si besoin
+        if (_imageUrlController.text.trim().isNotEmpty) {
+          uploadedUrls.add(_imageUrlController.text.trim());
+        }
+
+        for (var file in result.files) {
+          if (file.bytes != null) {
+            final name = file.name;
+            final bytes = file.bytes!;
+            
+            // Appel au service d'upload
+            final url = await service.uploadMedia(name, bytes, folder: isVideo ? 'tourism_videos' : 'tourism_photos');
+            uploadedUrls.add(url);
+          }
+        }
+
+        // Si plusieurs fichiers, on les sépare par des virgules ou on garde la première/principale
         setState(() {
-          _imageUrlController.text = url;
+          _imageUrlController.text = uploadedUrls.join(',');
           _isBusy = false;
         });
-        
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image uploadée avec succès'), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${result.files.length} fichier(s) uploadé(s) avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
       }
     } catch (e) {
       setState(() => _isBusy = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur d\'upload : $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur d\'upload : $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -151,14 +174,14 @@ class _AdminTourismFormPageState extends ConsumerState<AdminTourismFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // SECTION 2 : DÉTAILS & MÉDIAS
+                  // SECTION 2 : DÉTAILS & MÉDIAS (Multi-photos / Vidéo)
                   _buildSectionCard(
-                    title: 'Détails & Médias',
+                    title: 'Détails & Médias (Photos / Vidéos)',
                     icon: Icons.description_outlined,
                     children: [
                       _buildTextField(_descriptionController, 'Description du site', Icons.article_outlined, maxLines: 4),
                       const SizedBox(height: 12),
-                      _buildUrlWithUploadField(_imageUrlController, 'Photo du site', Icons.image),
+                      _buildUrlWithMultiUploadField(_imageUrlController),
                       const SizedBox(height: 12),
                       _buildTextField(_websiteController, 'Site Web officiel ou lien externe', Icons.language),
                     ],
@@ -244,25 +267,39 @@ class _AdminTourismFormPageState extends ConsumerState<AdminTourismFormPage> {
     );
   }
 
-  Widget _buildUrlWithUploadField(TextEditingController controller, String label, IconData icon) {
-    return Row(
+  // Widget personnalisé pour gérer l'upload multiple (Photos ou Vidéos)
+  Widget _buildUrlWithMultiUploadField(TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _buildTextField(controller, label, icon),
-        ),
-        const SizedBox(width: 8),
-        InkWell(
-          onTap: () => _pickAndUploadImage(),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: navyDeep.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: navyDeep.withOpacity(0.3)),
+        _buildTextField(controller, 'URLs des médias (séparées par des virgules)', Icons.image),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _pickAndUploadFiles(isVideo: false),
+                icon: const Icon(Icons.add_photo_alternate, color: navyDeep),
+                label: const Text('Ajouter des photos', style: TextStyle(color: navyDeep)),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: navyDeep),
+                ),
+              ),
             ),
-            child: const Icon(Icons.upload_file, color: navyDeep, size: 24),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _pickAndUploadFiles(isVideo: true),
+                icon: const Icon(Icons.video_call, color: redThix),
+                label: const Text('Ajouter une vidéo', style: TextStyle(color: redThix)),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: redThix),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
