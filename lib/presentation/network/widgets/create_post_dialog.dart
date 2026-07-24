@@ -54,11 +54,21 @@ class _CreatePostDialogState extends State<CreatePostDialog>
   final TextEditingController _contentController = TextEditingController();
   final FocusNode _contentFocusNode = FocusNode();
 
+  // Contrôleurs spécifiques Sondages et Challenges
+  final List<TextEditingController> _pollOptionControllers = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
+  final TextEditingController _challengeDescController = TextEditingController();
+  DateTime? _challengeEndDate;
+
+  // 0 = Standard, 1 = Sondage, 2 = Challenge
+  int _postTypeMode = 0;
+
   final List<_MediaItem> _images = [];
   final List<_MediaItem> _videos = [];
   bool _isUploading = false;
   String? _errorMessage;
-  int _selectedPostType = 0;
 
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
@@ -77,9 +87,9 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     super.initState();
     _contentController.addListener(_onContentChanged);
     _animationController = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 300));
+        vsync: this, duration: const Duration(milliseconds: 300));
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+        CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
     _animationController.forward();
   }
 
@@ -88,6 +98,10 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     _contentController.removeListener(_onContentChanged);
     _contentController.dispose();
     _contentFocusNode.dispose();
+    _challengeDescController.dispose();
+    for (var c in _pollOptionControllers) {
+      c.dispose();
+    }
     _animationController.dispose();
     super.dispose();
   }
@@ -176,7 +190,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
               _images.add(_MediaItem(f.bytes!, f.name));
             }
           }
-          _selectedPostType = _images.isNotEmpty ? 1 : 0;
         });
       }
     } catch (e) {
@@ -199,7 +212,6 @@ class _CreatePostDialogState extends State<CreatePostDialog>
               _videos.add(_MediaItem(f.bytes!, f.name, isVideo: true));
             }
           }
-          _selectedPostType = 2;
         });
       }
     } catch (e) {
@@ -236,11 +248,21 @@ class _CreatePostDialogState extends State<CreatePostDialog>
     });
   }
 
-  // ─── PUBLICATION AVEC FACT-CHECKING AUTOMATIQUE ET RECHERCHE SUPABASE RPC (TAVILY) ───
+  // ─── PUBLICATION AVEC FACT-CHECKING ET GESTION DES MODES (Standard, Sondage, Challenge) ───
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
-    if (textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
+    
+    // Validations selon le mode
+    if (_postTypeMode == 0 && textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
       setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
+      return;
+    }
+    if (_postTypeMode == 1 && textContent.isEmpty) {
+      setState(() => _errorMessage = 'Veuillez saisir la question du sondage');
+      return;
+    }
+    if (_postTypeMode == 2 && (textContent.isEmpty || _challengeEndDate == null)) {
+      setState(() => _errorMessage = 'Veuillez remplir le titre et la date de fin du challenge');
       return;
     }
 
@@ -254,9 +276,9 @@ class _CreatePostDialogState extends State<CreatePostDialog>
       String? factCheckMessage;
       String? factCheckSeverity;
 
+      // Fact-Checking uniquement sur le texte principal si présent
       if (textContent.isNotEmpty) {
         try {
-          // 🌐 1. RECHERCHE WEB EN TEMPS RÉEL VIA LA FONCTION SUPABASE SECOURISÉE
           List<String> webSources = [];
           try {
             final response = await Supabase.instance.client.rpc(
@@ -297,97 +319,32 @@ PUBLICATION :
 RÈGLES ABSOLUES
 ====================================================
 Analyse uniquement le FOND.
-Ignore totalement :
-- fautes d'orthographe
-- fautes de frappe
-- grammaire
-- ponctuation
-- style d'écriture
-- emojis
-- répétitions
-- formulation maladroite
-- langue utilisée
-Ces éléments ne sont JAMAIS de la désinformation.
-
-====================================================
-À VÉRIFIER
-====================================================
-Vérifie uniquement les affirmations portant sur :
-• lois, visas, immigration, gouvernements, décisions officielles, élections
-• géopolitique, guerres, décès, catastrophes, santé publique, justice
-• économie, entreprises publiques, organisations internationales
-• personnalités publiques, chiffres officiels, événements historiques
-• annonces gouvernementales
-
-====================================================
-NE PAS SIGNALER (RÉPONDRE SAFE)
-====================================================
-Toujours répondre SAFE si la publication est :
-• une opinion, une émotion, une prédiction, une hypothèse, une question
-• une blague, une satire, une publicité
-• une expérience personnelle, une présentation personnelle
-• une description d'entreprise, une offre d'emploi, une publication marketing
-• Si les sources web ne permettent pas de prouver formellement qu'il s'agit d'un mensonge (bénéfice du doute accordé par défaut).
-
-Ne jamais remettre en cause :
-- le métier, le poste, le titre professionnel
-- l'entreprise, le rôle revendiqué par l'auteur
-Par exemple : "Je suis CEO", "Notre entreprise..." => SAFE
-
-====================================================
-FAKE UNIQUEMENT SI
-====================================================
-Réponds FAKE seulement si l'affirmation est clairement et formellement contredite par les faits ou les sources officielles.
-Exemples :
-"Les Congolais peuvent entrer aux USA sans visa." => FAKE
-"La RDC fait partie de l'Union Européenne." => FAKE
-
-====================================================
-FORMAT DE RÉPONSE
-====================================================
-Tu dois répondre UNIQUEMENT par l'un des formats suivants :
-
+Ignore totalement : fautes, style, emojis, opinions, satire, présentations personnelles.
+Réponds SAFE par défaut si non prouvé faux.
+Format de réponse :
 SAFE
 ou
-FAKE: [raison très courte basée sur les faits]
-
-Ne produis aucun texte supplémentaire.
-""";
-
-          final systemPrompt = """
-Tu es THIX Fact-Check AI.
-Tu es un moteur de vérification des faits.
-Tu analyses uniquement les affirmations factuelles.
-Tu ignores totalement : orthographe, grammaire, style, opinions, humour, satire, expériences personnelles, identité professionnelle, postes, entreprises, publicités.
-Tu ne dois jamais inventer. 
-Si une information n'est pas prouvée fausse par les sources, réponds SAFE par défaut.
-Tu réponds uniquement avec :
-SAFE
-ou
-FAKE: raison
-Aucun autre texte n'est autorisé.
+FAKE: [raison]
 """;
 
           final aiResponse = await aiService.askAi(
             prompt: prompt,
             provider: AiProvider.mistral,
-            systemPrompt: systemPrompt,
+            systemPrompt: "Tu es THIX Fact-Check AI. Réponds uniquement par SAFE ou FAKE: raison.",
           );
 
           final responseText = aiResponse.trim().toUpperCase();
-
           if (responseText.startsWith("FAKE:")) {
             isMisinformation = true;
             factCheckSeverity = "fake";
             factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
           }
-
         } catch (aiError) {
           debugPrint('Erreur Fact-Check IA (non bloquante) : $aiError');
         }
       }
 
-      // 2. Upload des images
+      // Upload des images
       final imageUrls = <String>[];
       for (final item in _images) {
         try {
@@ -400,7 +357,7 @@ Aucun autre texte n'est autorisé.
         }
       }
 
-      // 3. Upload des vidéos
+      // Upload des vidéos
       final videoUrls = <String>[];
       for (final item in _videos) {
         try {
@@ -414,42 +371,63 @@ Aucun autre texte n'est autorisé.
 
       final allMedia = [...imageUrls, ...videoUrls];
       
-      // 4. Insertion dans Supabase avec les données de Fact-Checking
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) throw Exception("Utilisateur non authentifié");
-
-      final responseMap = await Supabase.instance.client.from('posts').insert({
-        'user_id': user.id,
-        'content': textContent,
-        'media_urls': allMedia,
-        'community_id': widget.communityId,
-        'is_fact_checked': true,
-        'is_misinformation': isMisinformation,
-        'fact_check_message': factCheckMessage,
-        'fact_check_severity': factCheckSeverity,
-      }).select('id').maybeSingle();
-
-      final postId = responseMap?['id']?.toString() ?? '';
-
-      if (postId.isNotEmpty) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        try {
-          await feedProvider.loadFeed(force: true);
-        } catch (e) {
-          debugPrint('Feed reload error: $e');
+      // Enregistrement selon le mode de publication
+      if (_postTypeMode == 1) {
+        // Sondage
+        final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+        if (options.length < 2) {
+          setState(() {
+            _errorMessage = 'Un sondage doit contenir au moins 2 options valides.';
+            _isUploading = false;
+          });
+          return;
         }
-        widget.onPostCreated?.call();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isMisinformation ? 'Publication publiée avec avertissement Fact-Check.' : 'Publication réussie !'),
-              backgroundColor: isMisinformation ? Colors.orange : _DialogColors.primary,
-            ),
-          );
-          Navigator.pop(context, true);
-        }
+        await networkService.createPollPost(
+          content: textContent,
+          options: options,
+          images: allMedia,
+        );
+      } else if (_postTypeMode == 2) {
+        // Challenge
+        await networkService.createChallengePost(
+          title: textContent,
+          description: _challengeDescController.text.trim(),
+          endDate: _challengeEndDate!,
+          images: allMedia,
+        );
       } else {
-        if (mounted) setState(() => _errorMessage = 'Erreur lors de la publication');
+        // Post Standard
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) throw Exception("Utilisateur non authentifié");
+
+        await Supabase.instance.client.from('posts').insert({
+          'user_id': user.id,
+          'content': textContent,
+          'media_urls': allMedia,
+          'community_id': widget.communityId,
+          'post_type': 'standard',
+          'is_fact_checked': true,
+          'is_misinformation': isMisinformation,
+          'fact_check_message': factCheckMessage,
+          'fact_check_severity': factCheckSeverity,
+        });
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      try {
+        await feedProvider.loadFeed(force: true);
+      } catch (e) {
+        debugPrint('Feed reload error: $e');
+      }
+      widget.onPostCreated?.call();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isMisinformation ? 'Publication publiée avec avertissement Fact-Check.' : 'Publication réussie !'),
+            backgroundColor: isMisinformation ? Colors.orange : _DialogColors.primary,
+          ),
+        );
+        Navigator.pop(context, true);
       }
     } catch (e) {
       debugPrint('Error publishing post: $e');
@@ -469,7 +447,7 @@ Aucun autre texte n'est autorisé.
         opacity: _fadeAnimation,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.94,
-          constraints: const BoxConstraints(maxHeight: 720),
+          constraints: const BoxConstraints(maxHeight: 750),
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -503,7 +481,19 @@ Aucun autre texte n'est autorisé.
                   ),
                 ),
               ]),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+
+              // Onglets de choix (Publication / Sondage / Challenge)
+              Row(
+                children: [
+                  _buildTypeTab('Publication', 0, Icons.article_rounded),
+                  const SizedBox(width: 6),
+                  _buildTypeTab('Sondage', 1, Icons.poll_rounded),
+                  const SizedBox(width: 6),
+                  _buildTypeTab('Challenge', 2, Icons.emoji_events_rounded),
+                ],
+              ),
+              const SizedBox(height: 12),
 
               if (_errorMessage != null)
                 Container(
@@ -523,50 +513,52 @@ Aucun autre texte n'est autorisé.
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _DialogColors.softBlue,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(children: [
-                        _formatBtn(
-                          child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-                          onTap: _applyBold,
-                          tooltip: 'Gras',
+                    if (_postTypeMode == 0) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _DialogColors.softBlue,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        const SizedBox(width: 6),
-                        _formatBtn(
-                          child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800, fontSize: 14)),
-                          onTap: _applyItalic,
-                          tooltip: 'Italique',
-                        ),
-                        Container(width: 1, height: 20, color: _DialogColors.border, margin: const EdgeInsets.symmetric(horizontal: 8)),
-                        ..._textColors.map((color) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: GestureDetector(
-                            onTap: () => _applyColor(color),
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withOpacity(0.35),
-                                    blurRadius: 5,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                        child: Row(children: [
+                          _formatBtn(
+                            child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                            onTap: _applyBold,
+                            tooltip: 'Gras',
+                          ),
+                          const SizedBox(width: 6),
+                          _formatBtn(
+                            child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800, fontSize: 14)),
+                            onTap: _applyItalic,
+                            tooltip: 'Italique',
+                          ),
+                          Container(width: 1, height: 20, color: _DialogColors.border, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                          ..._textColors.map((color) => Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: GestureDetector(
+                              onTap: () => _applyColor(color),
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.35),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        )),
-                      ]),
-                    ),
-                    const SizedBox(height: 10),
+                          )),
+                        ]),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
 
                     Container(
                       decoration: BoxDecoration(
@@ -578,18 +570,88 @@ Aucun autre texte n'est autorisé.
                       child: TextField(
                         controller: _contentController,
                         focusNode: _contentFocusNode,
-                        minLines: 8,
-                        maxLines: 14,
+                        minLines: _postTypeMode == 2 ? 1 : 6,
+                        maxLines: 10,
                         style: const TextStyle(fontSize: 15, color: _DialogColors.textDark, height: 1.4),
-                        decoration: const InputDecoration(
-                          hintText: 'Quoi de neuf dans votre monde pro ?\n\nL\'IA de Fact-Checking THIX analysera automatiquement votre publication.',
-                          hintStyle: TextStyle(color: _DialogColors.textSecondary, fontSize: 13.5, height: 1.4),
+                        decoration: InputDecoration(
+                          hintText: _postTypeMode == 1
+                              ? 'Posez votre question de sondage...'
+                              : _postTypeMode == 2
+                                  ? 'Titre du challenge...'
+                                  : 'Quoi de neuf dans votre monde pro ?\n\nL\'IA de Fact-Checking THIX analysera automatiquement votre publication.',
+                          hintStyle: const TextStyle(color: _DialogColors.textSecondary, fontSize: 13.5, height: 1.4),
                           border: InputBorder.none,
                           isCollapsed: true,
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    // Spécifique SONDAGE
+                    if (_postTypeMode == 1) ...[
+                      const Text('Options du sondage :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
+                      const SizedBox(height: 6),
+                      ..._pollOptionControllers.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: TextField(
+                            controller: entry.value,
+                            decoration: InputDecoration(
+                              hintText: 'Option ${index + 1}',
+                              isDense: true,
+                              filled: true,
+                              fillColor: _DialogColors.background,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            ),
+                          ),
+                        );
+                      }),
+                      if (_pollOptionControllers.length < 4)
+                        TextButton.icon(
+                          onPressed: () => setState(() => _pollOptionControllers.add(TextEditingController())),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Ajouter une option'),
+                        ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Spécifique CHALLENGE
+                    if (_postTypeMode == 2) ...[
+                      const Text('Description et Règles :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _challengeDescController,
+                        minLines: 3,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          hintText: 'Décrivez les règles du challenge...',
+                          filled: true,
+                          fillColor: _DialogColors.background,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Text('Date de fin : ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          TextButton.icon(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.now().add(const Duration(days: 7)),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) setState(() => _challengeEndDate = picked);
+                            },
+                            icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                            label: Text(_challengeEndDate == null ? 'Choisir une date' : '${_challengeEndDate!.day}/${_challengeEndDate!.month}/${_challengeEndDate!.year}'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     if (_showMentions && _mentionSuggestions.isNotEmpty)
                       Container(
@@ -765,6 +827,31 @@ Aucun autre texte n'est autorisé.
                       : const Text('PUBLIER', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.4)),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeTab(String label, int modeIndex, IconData icon) {
+    final isSelected = _postTypeMode == modeIndex;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _postTypeMode = modeIndex),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? _DialogColors.primary : _DialogColors.softBlue,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? Colors.white : _DialogColors.primaryDeep),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : _DialogColors.textDark)),
             ],
           ),
         ),
