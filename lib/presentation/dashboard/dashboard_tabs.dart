@@ -121,7 +121,7 @@ class ProfileTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (user.education.isEmpty)
-              Text('Aucune formation enregistrée.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+              Text('Aucune formation enregistrée.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
             else
               ...user.education.take(3).map((e) {
                 final inst = (e['institution'] as String?) ?? (e['school'] as String?) ?? '—';
@@ -136,8 +136,8 @@ class ProfileTab extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   leading: const Icon(Icons.school_rounded, color: LightModeColors.secondaryText),
-                  title: Text(inst, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  subtitle: meta.isEmpty ? null : Text(meta, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                  title: Text(inst, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  subtitle: meta.isEmpty ? null : Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                 );
               }),
             const SizedBox(height: 8),
@@ -182,7 +182,7 @@ class ProfileTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (user.experience.isEmpty)
-              Text('Aucune expérience enregistrée.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+              Text('Aucune expérience enregistrée.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
             else
               ...user.experience.take(3).map((e) {
                 final title = (e['title'] as String?) ?? '—';
@@ -194,8 +194,8 @@ class ProfileTab extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   leading: const Icon(Icons.work_rounded, color: LightModeColors.secondaryText),
-                  title: Text(title, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  subtitle: meta.isEmpty ? null : Text(meta, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                  title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  subtitle: meta.isEmpty ? null : Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                 );
               }),
             Align(
@@ -225,7 +225,7 @@ class ProfileTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('THIX Score: $score/100', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Text('THIX Score: $score/100', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(30),
@@ -239,7 +239,7 @@ class ProfileTab extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Complétez Bio, Compétences, Formations et Documents pour améliorer votre score.',
-              style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35),
             ),
           ],
         ),
@@ -278,7 +278,7 @@ class _VisibilityToggle extends StatelessWidget {
     final child = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w900)),
+        Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w900)),
         const SizedBox(width: 8),
         Switch(value: value, onChanged: onChanged, activeColor: LightModeColors.success),
       ],
@@ -309,7 +309,7 @@ class _ExpandableTextRowState extends State<_ExpandableTextRow> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.label, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+            Text(widget.label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
             TextButton(
               onPressed: text == '—' ? null : () => setState(() => _expanded = !_expanded),
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -317,7 +317,7 @@ class _ExpandableTextRowState extends State<_ExpandableTextRow> {
             ),
           ],
         ),
-        Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: context.textStyles.bodyMedium?.copyWith(color: context.theme.colorScheme.onSurface, height: 1.4)),
+        Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface, height: 1.4)),
       ],
     );
   }
@@ -334,10 +334,10 @@ class _LanguagesRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Langues', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+        Text('Langues', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         if (list.isEmpty)
-          Text('—', style: context.textStyles.bodyMedium?.copyWith(color: context.theme.colorScheme.onSurface))
+          Text('—', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface))
         else
           Wrap(
             spacing: 8,
@@ -345,11 +345,11 @@ class _LanguagesRow extends StatelessWidget {
             children: list.map((l) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: context.theme.scaffoldBackgroundColor,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: context.theme.dividerColor),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
-              child: Text(l, style: context.textStyles.labelSmall?.copyWith(fontWeight: FontWeight.w900)),
+              child: Text(l, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900)),
             )).toList(),
           ),
       ],
@@ -392,11 +392,11 @@ class DocumentsTab extends StatelessWidget {
                 selected: filter == f,
                 onSelected: (_) => onChangeFilter(f),
                 selectedColor: LightModeColors.accent.withOpacity(0.18),
-                labelStyle: context.textStyles.labelSmall?.copyWith(
+                labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: filter == f ? LightModeColors.accent : context.theme.colorScheme.onSurface,
+                  color: filter == f ? LightModeColors.accent : Theme.of(context).colorScheme.onSurface,
                 ),
-                side: BorderSide(color: filter == f ? LightModeColors.accent : context.theme.dividerColor),
+                side: BorderSide(color: filter == f ? LightModeColors.accent : Theme.of(context).dividerColor),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               )).toList(),
             ),
@@ -414,7 +414,7 @@ class DocumentsTab extends StatelessWidget {
                 if (filtered.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text('Aucun document pour ce filtre.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                    child: Text('Aucun document pour ce filtre.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                   );
                 }
 
@@ -514,7 +514,7 @@ class ExperienceSkillsTab extends StatelessWidget {
           child: Column(
             children: [
               if (user.experience.isEmpty)
-                Text('Aucune expérience. Ajoutez votre parcours.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                Text('Aucune expérience. Ajoutez votre parcours.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
               else
                 ...user.experience.map((e) {
                   final title = (e['title'] as String?) ?? '—';
@@ -527,10 +527,10 @@ class ExperienceSkillsTab extends StatelessWidget {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.work_rounded, color: LightModeColors.secondaryText),
-                    title: Text(title, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
                     subtitle: Text(
                       [meta, tasks.trim().isEmpty ? '' : _truncate(tasks, 90)].where((v) => v.trim().isNotEmpty).join('\n'),
-                      style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35),
                     ),
                   );
                 }),
@@ -555,7 +555,7 @@ class ExperienceSkillsTab extends StatelessWidget {
           child: Column(
             children: [
               if (user.skills.isEmpty)
-                Text('Aucune compétence.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                Text('Aucune compétence.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
               else
                 ...user.skills.map((s) {
                   final name = (s['name'] as String?) ?? '—';
@@ -566,9 +566,9 @@ class ExperienceSkillsTab extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: context.theme.scaffoldBackgroundColor,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: context.theme.dividerColor),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Row(
                       children: [
@@ -578,10 +578,10 @@ class ExperienceSkillsTab extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
+                              Text(name, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
                               if (details.trim().isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                Text(_truncate(details, 110), style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35)),
+                                Text(_truncate(details, 110), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35)),
                               ]
                             ],
                           ),
@@ -599,7 +599,7 @@ class ExperienceSkillsTab extends StatelessWidget {
                   onPressed: () => SkillsEditorSheet.show(context, profile: user, profileService: profileService),
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Ajouter une compétence'),
-                  style: OutlinedButton.styleFrom(foregroundColor: context.theme.colorScheme.primary, side: BorderSide(color: context.theme.colorScheme.primary)),
+                  style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -633,7 +633,7 @@ class FormationsTab extends StatelessWidget {
         child: Column(
           children: [
             if (user.enrollments.isEmpty)
-              Text('Aucune formation en cours. Inscrivez-vous à une formation officielle.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+              Text('Aucune formation en cours. Inscrivez-vous à une formation officielle.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
             else
               ...user.enrollments.map((e) {
                 final title = (e['title'] as String?) ?? 'Formation';
@@ -644,16 +644,16 @@ class FormationsTab extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: context.theme.scaffoldBackgroundColor,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: context.theme.dividerColor),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
-                          Expanded(child: Text(title, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w900))),
+                          Expanded(child: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900))),
                           const SizedBox(width: 8),
                           StatusChip(
                             label: status,
@@ -673,7 +673,7 @@ class FormationsTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text('$progress%', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+                      Text('$progress%', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
                     ],
                   ),
                 );
@@ -763,38 +763,38 @@ class _CvTabState extends State<CvTab> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: context.theme.scaffoldBackgroundColor,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.theme.dividerColor),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(widget.user.displayName, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(widget.user.displayName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 6),
                   Text(
                     [widget.user.occupation, widget.user.countryOrOrigin].where((v) => (v ?? '').trim().isNotEmpty).map((v) => v!.trim()).join(' • '),
-                    style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     (widget.user.bio ?? '').trim().isEmpty ? 'Bio non renseignée.' : widget.user.bio!.trim(),
                     maxLines: 5,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textStyles.bodyMedium?.copyWith(height: 1.35),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.35),
                   ),
                   const SizedBox(height: 12),
-                  Text('Expériences', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900)),
+                  Text('Expériences', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 6),
                   if (widget.user.experience.isEmpty)
-                    Text('—', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                    Text('—', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
                   else
                     ...widget.user.experience.take(3).map((e) {
                       final title = (e['title'] as String?) ?? '—';
                       final org = (e['org'] as String?) ?? '';
                       return Text(
                         '• $title${org.trim().isEmpty ? '' : ' — $org'}',
-                        style: context.textStyles.bodySmall?.copyWith(color: context.theme.colorScheme.onSurface, height: 1.4),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface, height: 1.4),
                       );
                     }),
                 ],
@@ -820,7 +820,7 @@ class _CvTabState extends State<CvTab> {
                 icon: _exporting
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
                     : const Icon(Icons.download_rounded, color: Color(0xFF123B7A)),
-                label: Text('Télécharger CV Numérique (PDF)', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                label: Text('Télécharger CV Numérique (PDF)', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: LightModeColors.accent,
                   foregroundColor: const Color(0xFF123B7A),
@@ -853,7 +853,7 @@ class PaymentsTab extends StatelessWidget {
           stream: userService.streamPayments(uid),
           builder: (context, snap) {
             final list = snap.data ?? [];
-            if (list.isEmpty) return Text('Aucune transaction enregistrée.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText));
+            if (list.isEmpty) return Text('Aucune transaction enregistrée.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText));
 
             return Column(
               children: list.take(15).map((data) {
@@ -874,12 +874,12 @@ class PaymentsTab extends StatelessWidget {
                     status == 'paid' ? Icons.check_circle_rounded : Icons.hourglass_bottom_rounded,
                     color: status == 'paid' ? LightModeColors.success : LightModeColors.accent,
                   ),
-                  title: Text(title, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  subtitle: Text('$dateStr • $method', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                  title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  subtitle: Text('$dateStr • $method', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(amountStr, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
+                      Text(amountStr, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
                       const SizedBox(width: 6),
                       IconButton(
                         tooltip: 'Reçu (PDF)',
@@ -989,12 +989,12 @@ class SecurityTab extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            Divider(color: context.theme.dividerColor),
+            Divider(color: Theme.of(context).dividerColor),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Historique des connexions', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.w900)),
+                Text('Historique des connexions', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900)),
                 TextButton.icon(
                   onPressed: () => context.push(AppRoutes.settings),
                   icon: const Icon(Icons.settings_rounded, size: 18),
@@ -1009,7 +1009,7 @@ class SecurityTab extends StatelessWidget {
                 if (list.isEmpty) {
                   return Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Aucun événement.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                    child: Text('Aucun événement.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                   );
                 }
 
@@ -1024,8 +1024,8 @@ class SecurityTab extends StatelessWidget {
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.history_rounded, color: LightModeColors.secondaryText),
-                      title: Text(label, style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
-                      subtitle: Text(dateStr, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                      title: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
+                      subtitle: Text(dateStr, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
                     );
                   }).toList(),
                 );
@@ -1039,8 +1039,8 @@ class SecurityTab extends StatelessWidget {
                 icon: const Icon(Icons.lock_rounded),
                 label: const Text('Gestion avancée (2FA, appareils, etc.)'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: context.theme.colorScheme.primary,
-                  side: BorderSide(color: context.theme.colorScheme.primary),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
                 ),
               ),
             ),
@@ -1067,7 +1067,7 @@ class _SecurityToggleRow extends StatelessWidget {
         children: [
           Icon(icon, color: LightModeColors.secondaryText, size: 20),
           const SizedBox(width: 12),
-          Text(title, style: context.textStyles.bodyMedium?.copyWith(color: context.theme.colorScheme.onSurface, fontWeight: FontWeight.w700)),
+          Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700)),
         ],
       ),
       Switch(value: value, onChanged: onChanged, activeColor: LightModeColors.success),
@@ -1088,9 +1088,9 @@ class ConfirmFeeSheet {
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
-          border: Border.all(color: context.theme.dividerColor),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1100,19 +1100,19 @@ class ConfirmFeeSheet {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: Text(title, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w900), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 IconButton(onPressed: () => context.pop(false), icon: const Icon(Icons.close_rounded)),
               ],
             ),
             const SizedBox(height: 8),
-            Text(description, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+            Text(description, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
             const SizedBox(height: 16),
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
                 onPressed: () => context.pop(true),
                 icon: const Icon(Icons.payments_rounded, color: Color(0xFF123B7A)),
-                label: Text(amountLabel, style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
+                label: Text(amountLabel, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: LightModeColors.accent,
                   foregroundColor: const Color(0xFF123B7A),
