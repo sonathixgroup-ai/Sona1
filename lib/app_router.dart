@@ -616,7 +616,22 @@ class AppRouter {
 
         GoRoute(path: AppRoutes.monPays, name: 'monPays', pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()), routes: [
           GoRoute(path: 'authorities', name: 'monPaysAuthorities', pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage())),
-          GoRoute(path: 'authority/:id', name: 'monPaysAuthorityProfile', pageBuilder: (_, state) => NoTransitionPage(child: AuthorityProfilePage(authorityId: state.pathParameters['id']!))),
+          // Dans app_router.dart, remplacez la route existante par celle-ci :
+
+GoRoute(
+  path: 'authority/:id',
+  name: 'monPaysAuthorityProfile',
+  pageBuilder: (_, state) {
+    final id = state.pathParameters['id'];
+    if (id == null || id.isEmpty) {
+      // Redirection sécurisée vers la liste des autorités
+      return const NoTransitionPage(child: AuthoritiesPage());
+    }
+    // Log pour confirmer le passage
+    print('🔗 Navigation vers AuthorityProfilePage avec ID: $id');
+    return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
+  },
+),
           GoRoute(path: 'laws', name: 'monPaysLaws', pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage())),
           GoRoute(path: 'laws/:type', name: 'monPaysArticleType', pageBuilder: (_, state) => NoTransitionPage(child: ArticleTypePage(type: ArticleType.fromString(state.pathParameters['type']!), title: ArticleType.fromString(state.pathParameters['type']!).label))),
           GoRoute(path: 'laws/article/:id', name: 'monPaysArticleDetail', pageBuilder: (_, state) => NoTransitionPage(child: monPaysArticle.ArticleDetailPage(articleId: state.pathParameters['id']!))),
