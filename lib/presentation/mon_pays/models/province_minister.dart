@@ -5,33 +5,39 @@ class ProvinceMinister {
   final String governmentId;
   final String? authorityId;
   final String portfolio;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  
+  // Nouveaux champs ajoutés
+  final String? name;
+  final String? biography;
 
   ProvinceMinister({
     required this.id,
     required this.governmentId,
     this.authorityId,
     required this.portfolio,
-    this.createdAt,
-    this.updatedAt,
+    this.name,
+    this.biography,
   });
 
   factory ProvinceMinister.fromJson(Map<String, dynamic> json) {
     return ProvinceMinister(
-      id: json['id'] as String,
-      governmentId: json['government_id'] as String,
+      id: json['id'] as String? ?? '',
+      governmentId: json['government_id'] as String? ?? '',
       authorityId: json['authority_id'] as String?,
-      portfolio: json['portfolio'] as String,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      portfolio: json['portfolio'] as String? ?? '',
+      name: json['name'] as String?,
+      biography: json['biography'] as String?,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'government_id': governmentId,
-    'authority_id': authorityId,
-    'portfolio': portfolio,
-  };
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'government_id': governmentId,
+      'authority_id': authorityId,
+      'portfolio': portfolio,
+      'name': name,
+      'biography': biography,
+    };
+  }
 }
