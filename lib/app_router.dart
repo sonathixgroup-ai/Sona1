@@ -329,18 +329,33 @@ class AppRouter {
         ]),
 
         // THIX URGENT
-        GoRoute(path: '/thix-urgent', name: 'thixUrgent', pageBuilder: (_, __) => NoTransitionPage(child: ThixUrgentProviders.wrap(const ThixUrgentScreen()))),
-        GoRoute(path: '/thix-urgent/chambre-de-crise', name: 'chambreDeCrise', pageBuilder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final criseId = extra?['criseId'] as String??? 'crise_${DateTime.now().millisecondsSinceEpoch}';
-          final type = extra?['type'] as EmergencyType??? EmergencyType.police;
-          return NoTransitionPage(child: ChambreDeCriseScreen(criseId: criseId, type: type));
-        }),
+                GoRoute(
+          path: '/thix-urgent',
+          name: 'thixUrgent',
+          pageBuilder: (_, __) => const NoTransitionPage(
+            child: ThixUrgentProviders.wrap(ThixUrgentScreen()),
+          ),
+        ),
         GoRoute(
-  path: '/thix-urgent/config/gardiens',
-  name: 'thixUrgentGardiens',
-  pageBuilder: (_, __) => NoTransitionPage(child: GardiensConfigPage()),
-),
+          path: '/thix-urgent/chambre-de-crise',
+          name: 'chambreDeCrise',
+          pageBuilder: (_, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            final criseId = (extra?['criseId'] as String?) ?? 'crise_${DateTime.now().millisecondsSinceEpoch}';
+            final type = (extra?['type'] as EmergencyType?) ?? EmergencyType.police;
+            return NoTransitionPage(
+              child: ChambreDeCriseScreen(criseId: criseId, type: type),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/thix-urgent/config/gardiens',
+          name: 'thixUrgentGardiens',
+          pageBuilder: (_, __) => const NoTransitionPage(
+            child: GardiensConfigPage(),
+          ),
+        ),
+
 
         // CHAT
         GoRoute(path: AppRoutes.chat, name: 'chat', pageBuilder: (_, __) => const NoTransitionPage(child: ChatListPage())),
