@@ -1,4 +1,4 @@
-// lib/app_router.dart - BUILD VERT - FIX SYNTAXE - TOUTES ROUTES CONSERVEES
+// lib/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,7 +15,7 @@ import 'presentation/auth/enterprise_registration_page.dart';
 import 'presentation/payment/payment_gateway_page.dart';
 import 'presentation/payment/activation_receipt_page.dart';
 import 'presentation/profile/public_profile_page.dart' as public_profile;
-import 'presentation/dashboard/user_dashboard_page.dart' as user_dashboard;
+import 'presentation/dashboard/user_dashboard_page.dart'; // Préfixe retiré ici
 import 'presentation/enterprise/enterprise_dashboard_page.dart';
 import 'package:thix_id/presentation/enterprise/enterprise_portal_page.dart';
 import 'package:thix_id/presentation/enterprise/enterprise_dashboard_shell_page.dart';
@@ -270,7 +270,7 @@ class NoTransitionPage<T> extends Page<T> {
 
 class AppRouter {
   static GoRouter create(AuthController auth, {Listenable? extraRefreshListenable}) {
-    final refresh = extraRefreshListenable?? auth;
+    final refresh = extraRefreshListenable ?? auth;
     return GoRouter(
       initialLocation: AppRoutes.home,
       refreshListenable: refresh,
@@ -288,52 +288,55 @@ class AppRouter {
             loc.startsWith('/thix-event') ||
             loc.startsWith('/thix-urgent') ||
             loc.startsWith('/thix-reservation/delivery');
-        if (!logged &&!isPublic &&!isAuth) return AppRoutes.login;
-        if (isAdmin &&!logged) return AppRoutes.login;
+        if (!logged && !isPublic && !isAuth) return AppRoutes.login;
+        if (isAdmin && !logged) return AppRoutes.login;
         if (logged) {
           final t = auth.currentUser?.accountType;
           if (loc == AppRoutes.userDashboard && t == AccountType.enterprise) return AppRoutes.enterpriseDashboard;
           if (loc == AppRoutes.enterpriseDashboard && t == AccountType.personal) return AppRoutes.userDashboard;
         }
         if (logged && isAuth) {
-          return auth.currentUser?.accountType == AccountType.enterprise? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
+          return auth.currentUser?.accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.userDashboard;
         }
         if (isPortal) return null;
         return null;
       },
       routes: [
-        GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => NoTransitionPage(child: ThixIdStartPage())),
-        GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => NoTransitionPage(child: HomePagePremium())),
-        GoRoute(path: AppRoutes.login, name: 'login', pageBuilder: (_, __) => NoTransitionPage(child: LoginPage())),
+        GoRoute(path: AppRoutes.start, name: 'start', pageBuilder: (_, __) => const NoTransitionPage(child: ThixIdStartPage())),
+        GoRoute(path: AppRoutes.home, name: 'home', pageBuilder: (_, __) => const NoTransitionPage(child: HomePagePremium())),
+        GoRoute(path: AppRoutes.login, name: 'login', pageBuilder: (_, __) => const NoTransitionPage(child: LoginPage())),
         GoRoute(path: AppRoutes.personalReg, name: 'personalReg', pageBuilder: (_, state) {
-          final step = int.tryParse(state.uri.queryParameters['step']?? '')?? 1;
+          final step = int.tryParse(state.uri.queryParameters['step'] ?? '') ?? 1;
           return NoTransitionPage(child: PersonalRegistrationPage(initialStep: step));
         }),
-        GoRoute(path: AppRoutes.enterpriseReg, name: 'enterpriseReg', pageBuilder: (_, __) => NoTransitionPage(child: EnterpriseRegistrationPage())),
+        GoRoute(path: AppRoutes.enterpriseReg, name: 'enterpriseReg', pageBuilder: (_, __) => const NoTransitionPage(child: EnterpriseRegistrationPage())),
         GoRoute(path: AppRoutes.payment, name: 'payment', pageBuilder: (_, state) => NoTransitionPage(child: PaymentGatewayPage(returnTo: state.uri.queryParameters['returnTo']))),
         GoRoute(path: AppRoutes.activationReceipt, name: 'activationReceipt', pageBuilder: (_, state) {
           final qp = state.uri.queryParameters;
-          return NoTransitionPage(child: ActivationReceiptPage(txRef: qp['txRef'], method: qp['method'], amount: qp['amount'], currency: qp['currency'], paidAt: DateTime.tryParse(qp['paidAt']?? '')));
+          return NoTransitionPage(child: ActivationReceiptPage(txRef: qp['txRef'], method: qp['method'], amount: qp['amount'], currency: qp['currency'], paidAt: DateTime.tryParse(qp['paidAt'] ?? '')));
         }),
         GoRoute(path: AppRoutes.publicProfile, name: 'publicProfile', pageBuilder: (_, state) => NoTransitionPage(child: public_profile.PublicProfilePage(initialThixId: state.uri.queryParameters['thixId']))),
-        GoRoute(path: '/user/dashboard', name: 'userDashboard', pageBuilder: (_, __) => NoTransitionPage(child: user_dashboard.UserDashboardPage())),
-        GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => NoTransitionPage(child: EnterpriseDashboardPage())),
+        
+        // CORRECTION DE L'ERREUR 1 ICI : Suppression du préfixe 'user_dashboard.'
+        GoRoute(path: '/user/dashboard', name: 'userDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: UserDashboardPage())),
+        
+        GoRoute(path: AppRoutes.enterpriseDashboard, name: 'enterpriseDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: EnterpriseDashboardPage())),
         GoRoute(path: AppRoutes.enterprise, name: 'enterpriseEntry', redirect: (_, __) {
           if (!auth.isAuthenticated) return AppRoutes.login;
-          return auth.currentUser?.accountType == AccountType.enterprise? AppRoutes.enterpriseDashboard : AppRoutes.enterpriseReg;
+          return auth.currentUser?.accountType == AccountType.enterprise ? AppRoutes.enterpriseDashboard : AppRoutes.enterpriseReg;
         }),
         GoRoute(path: '/entreprise/:slug', name: 'enterprisePortalAliasFr', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
         GoRoute(path: '${AppRoutes.enterprisePortalBasePath}/:slug', name: 'enterprisePortal', pageBuilder: (_, state) => NoTransitionPage(child: EnterprisePortalPage(companySlug: state.pathParameters['slug']!)), routes: [
-          GoRoute(path: 'dashboard/:section', name: 'enterprisePortalDashboard', pageBuilder: (_, state) => NoTransitionPage(child: EnterpriseDashboardShellPage(companySlug: state.pathParameters['slug']!, section: state.pathParameters['section']?? 'overview'))),
+          GoRoute(path: 'dashboard/:section', name: 'enterprisePortalDashboard', pageBuilder: (_, state) => NoTransitionPage(child: EnterpriseDashboardShellPage(companySlug: state.pathParameters['slug']!, section: state.pathParameters['section'] ?? 'overview'))),
           GoRoute(path: 'dashboard', name: 'enterprisePortalDashboardRoot', redirect: (_, state) => '${AppRoutes.enterprisePortalBase(state.pathParameters['slug']!)}/dashboard/overview'),
         ]),
 
-        // THIX URGENT
-                GoRoute(
+        // THIX URGENT - CORRECTION DE L'ERREUR 2 ICI : Retrait du 'const'
+        GoRoute(
           path: '/thix-urgent',
           name: 'thixUrgent',
-          pageBuilder: (_, __) => const NoTransitionPage(
-            child: ThixUrgentProviders.wrap(ThixUrgentScreen()),
+          pageBuilder: (_, __) => NoTransitionPage(
+            child: ThixUrgentProviders.wrap(const ThixUrgentScreen()),
           ),
         ),
         GoRoute(
@@ -366,7 +369,7 @@ class AppRouter {
           return NoTransitionPage(child: ThixChat.ChatScreen(conversationId: convId, conversation: conv));
         }),
         GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c,s) => IncomingCallPage(invite: s.extra as CallInvite)),
-        GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c,s) { final e=s.extra as Map<String,dynamic>; return CallPage(channel:e['channel'], name:e['name'], type:e['type']=='video'?CallType.video:CallType.audio, inviteId:e['inviteId'], isCaller:e['isCaller']?? true, avatarUrl:e['avatarUrl']); }),
+        GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c,s) { final e=s.extra as Map<String,dynamic>; return CallPage(channel:e['channel'], name:e['name'], type:e['type']=='video'?CallType.video:CallType.audio, inviteId:e['inviteId'], isCaller:e['isCaller'] ?? true, avatarUrl:e['avatarUrl']); }),
         GoRoute(path: AppRoutes.callHistory, name: AppRoutes.callHistoryName, builder: (c,s) => const Scaffold(body: Center(child: Text('Historique')))),
         GoRoute(path: AppRoutes.groupCreate, name: 'group_create', pageBuilder: (_, __) => const NoTransitionPage(child: GroupCreatePage())),
         GoRoute(path: AppRoutes.groupInfo, name: 'group_info', pageBuilder: (_, state) => NoTransitionPage(child: GroupInfoPage(groupId: state.pathParameters['groupId']!))),
@@ -382,14 +385,14 @@ class AppRouter {
         GoRoute(path: AppRoutes.chatData, name: 'chatData', pageBuilder: (context, state) => const NoTransitionPage(child: ChatDataSettings())),
         GoRoute(path: AppRoutes.chatEscalate, name: 'chatEscalate', pageBuilder: (context, state) {
           final conversationId = state.pathParameters['conversationId']!;
-          final fromAgentId = state.uri.queryParameters['agentId']?? '';
+          final fromAgentId = state.uri.queryParameters['agentId'] ?? '';
           final fromAgentName = state.uri.queryParameters['agentName'];
           return NoTransitionPage(child: EscalateConversationPage(conversationId: conversationId, fromAgentId: fromAgentId, fromAgentName: fromAgentName));
         }),
         GoRoute(path: '/connections', name: 'connections', pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsPage())),
         GoRoute(path: AppRoutes.chatEscalationHandle, name: 'chatEscalationHandle', pageBuilder: (context, state) {
           final escalationId = state.pathParameters['escalationId']!;
-          final agentId = state.uri.queryParameters['agentId']?? '';
+          final agentId = state.uri.queryParameters['agentId'] ?? '';
           return NoTransitionPage(child: HandleEscalationPage(escalationId: escalationId, agentId: agentId));
         }),
         GoRoute(path: AppRoutes.chatEscalationHistory, name: 'chatEscalationHistory', pageBuilder: (context, state) {
@@ -397,20 +400,20 @@ class AppRouter {
           return NoTransitionPage(child: EscalationHistoryPage(conversationId: conversationId));
         }),
         GoRoute(path: AppRoutes.chatEscalationDashboard, name: 'chatEscalationDashboard', pageBuilder: (context, state) {
-          final agentId = state.uri.queryParameters['agentId']?? '';
-          final levelIndex = int.tryParse(state.uri.queryParameters['level']?? '0')?? 0;
+          final agentId = state.uri.queryParameters['agentId'] ?? '';
+          final levelIndex = int.tryParse(state.uri.queryParameters['level'] ?? '0') ?? 0;
           final level = EscalationLevel.values[levelIndex];
           return NoTransitionPage(child: EscalationDashboardPage(agentId: agentId, agentLevel: level));
         }),
-        GoRoute(path: AppRoutes.chatEscalationReceived, name: 'chatEscalationReceived', pageBuilder: (context, state) => NoTransitionPage(child: const ReceivedEscalationsPage())),
-        GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => NoTransitionPage(child: DocumentVaultPage())),
-        GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => NoTransitionPage(child: SettingsPage())),
+        GoRoute(path: AppRoutes.chatEscalationReceived, name: 'chatEscalationReceived', pageBuilder: (context, state) => const NoTransitionPage(child: ReceivedEscalationsPage())),
+        GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
+        GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
 
         // Reseau
-        GoRoute(path: AppRoutes.network, name: 'network', pageBuilder: (_, __) => NoTransitionPage(child: NetworkProHome())),
-        GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => NoTransitionPage(child: SearchNetworkPage())),
-        GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => NoTransitionPage(child: NotificationsPage())),
-        GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => NoTransitionPage(child: ConversationsList())),
+        GoRoute(path: AppRoutes.network, name: 'network', pageBuilder: (_, __) => const NoTransitionPage(child: NetworkProHome())),
+        GoRoute(path: AppRoutes.networkSearch, name: 'networkSearch', pageBuilder: (_, __) => const NoTransitionPage(child: SearchNetworkPage())),
+        GoRoute(path: AppRoutes.networkNotifications, name: 'networkNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationsPage())),
+        GoRoute(path: AppRoutes.networkMessages, name: 'networkMessages', pageBuilder: (_, __) => const NoTransitionPage(child: ConversationsList())),
         GoRoute(path: '${AppRoutes.networkChatBasePath}/:userId', name: 'networkChat', pageBuilder: (_, state) {
           final uid = state.pathParameters['userId']!;
           final extra = state.extra;
@@ -418,125 +421,125 @@ class AppRouter {
           if (extra is String) { name = extra; } else if (extra is Map) { name = (extra['userName'] as String?) ?? name; avatar = extra['userAvatar'] as String?; }
           return NoTransitionPage(child: network_chat.ChatScreen(userId: uid, userName: name, userAvatar: avatar));
         }),
-        GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => NoTransitionPage(child: ConnectionsListPage())),
-        GoRoute(path: AppRoutes.networkProfileSettings, name: 'networkProfileSettings', pageBuilder: (_, __) => NoTransitionPage(child: ProfileSettingsPage())),
-        GoRoute(path: AppRoutes.networkBlockedUsers, name: 'networkBlockedUsers', pageBuilder: (_, __) => NoTransitionPage(child: BlockedUsersPage())),
-        GoRoute(path: '/network/discover', name: 'networkDiscover', pageBuilder: (_, __) => NoTransitionPage(child: const DiscoverTab())),
-        GoRoute(path: '/network/communities', name: 'networkCommunities', pageBuilder: (_, __) => NoTransitionPage(child: const CommunitiesListPage())),
-        GoRoute(path: '/network/community/create', name: 'networkCommunityCreate', pageBuilder: (_, __) => NoTransitionPage(child: const CreateCommunityPage())),
+        GoRoute(path: AppRoutes.networkConnections, name: 'networkConnections', pageBuilder: (_, __) => const NoTransitionPage(child: ConnectionsListPage())),
+        GoRoute(path: AppRoutes.networkProfileSettings, name: 'networkProfileSettings', pageBuilder: (_, __) => const NoTransitionPage(child: ProfileSettingsPage())),
+        GoRoute(path: AppRoutes.networkBlockedUsers, name: 'networkBlockedUsers', pageBuilder: (_, __) => const NoTransitionPage(child: BlockedUsersPage())),
+        GoRoute(path: '/network/discover', name: 'networkDiscover', pageBuilder: (_, __) => const NoTransitionPage(child: DiscoverTab())),
+        GoRoute(path: '/network/communities', name: 'networkCommunities', pageBuilder: (_, __) => const NoTransitionPage(child: CommunitiesListPage())),
+        GoRoute(path: '/network/community/create', name: 'networkCommunityCreate', pageBuilder: (_, __) => const NoTransitionPage(child: CreateCommunityPage())),
         GoRoute(path: '${AppRoutes.networkCommunityBasePath}/:communityId', name: 'networkCommunityDetail', pageBuilder: (_, state) => NoTransitionPage(child: CommunityDetailPage(communityId: state.pathParameters['communityId']!))),
         GoRoute(path: '/network/story/:storyId', name: 'networkStoryViewer', pageBuilder: (_, state) => NoTransitionPage(child: StoryViewerScreen(storyId: state.pathParameters['storyId']!))),
-        GoRoute(path: '/network/comments/:postId', name: 'networkComments', pageBuilder: (_, state) => NoTransitionPage(child: CommentsPage(postId: state.pathParameters['postId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id?? ''))),
+        GoRoute(path: '/network/comments/:postId', name: 'networkComments', pageBuilder: (_, state) => NoTransitionPage(child: CommentsPage(postId: state.pathParameters['postId']!, currentProfileId: Supabase.instance.client.auth.currentUser?.id ?? ''))),
         GoRoute(path: '/network/hashtag/:tag', name: 'networkHashtag', pageBuilder: (_, state) => NoTransitionPage(child: HashtagPage(tag: state.pathParameters['tag']!))),
         GoRoute(path: '${AppRoutes.networkPostBasePath}/:postId', name: 'networkPostDetail', pageBuilder: (context, state) {
           final auth = context.read<AuthController>();
-          return NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id?? ''));
+          return NoTransitionPage(child: PostDetailPage(postId: state.pathParameters['postId']!, currentProfileId: auth.currentUser?.id ?? ''));
         }),
         GoRoute(path: '${AppRoutes.networkProfileBasePath}/:userId', name: 'networkProfile', pageBuilder: (_, state) => NoTransitionPage(child: ProfilePage(userId: state.pathParameters['userId']!))),
-        GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => NoTransitionPage(child: ProfilePage())),
+        GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
 
         // THIX SANTE
         GoRoute(path: AppRoutes.thixSante, redirect: (_, __) => AppRoutes.thixSanteDashboard),
-        GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c, s) => PatientDashboardPage()),
-        GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c, s) => MonMedecinTraitantPage()),
-        GoRoute(path: AppRoutes.santeDossierFamille, builder: (c, s) => DossierFamillePage()),
-        GoRoute(path: AppRoutes.santeSecondAvis, builder: (c, s) => SecondAvisPage()),
-        GoRoute(path: AppRoutes.santeDossierMedical, builder: (c, s) => DossierMedicalPage()),
-        GoRoute(path: AppRoutes.santeOrdonnances, builder: (c, s) => MesOrdonnancesPage()),
-        GoRoute(path: AppRoutes.santeResultatsExamens, builder: (c, s) => ResultatsExamensPage()),
-        GoRoute(path: AppRoutes.santePrendreRdv, builder: (c, s) => PrendreRdvPage()),
-        GoRoute(path: AppRoutes.santeTeleconsultation, builder: (c, s) => TeleconsultationPage()),
-        GoRoute(path: AppRoutes.santeTrouverHopital, builder: (c, s) => TrouverHopitalPage()),
-        GoRoute(path: AppRoutes.santeTrouverMedicament, builder: (c, s) => TrouverMedicamentPage()),
-        GoRoute(path: AppRoutes.santePharmaciesProches, builder: (c, s) => PharmaciesProchesPage()),
-        GoRoute(path: AppRoutes.santeUrgencesProches, builder: (c, s) => UrgencesProchesPage()),
-        GoRoute(path: AppRoutes.santeEpidemies, builder: (c, s) => EpidemiesPage()),
-        GoRoute(path: AppRoutes.santeDonSang, builder: (c, s) => DonSangPage()),
-        GoRoute(path: AppRoutes.santeEnfants, builder: (c, s) => SanteEnfantsPage()),
-        GoRoute(path: AppRoutes.santeCarnetVaccination, builder: (c, s) => CarnetVaccinationPage()),
-        GoRoute(path: AppRoutes.santeSuiviGrossesse, builder: (c, s) => SuiviGrossessePage()),
-        GoRoute(path: AppRoutes.santeAnalysePredictive, builder: (c, s) => AnalysePredictivePage()),
-        GoRoute(path: AppRoutes.santeBienEtreMental, builder: (c, s) => BienEtreMentalPage()),
-        GoRoute(path: AppRoutes.santeNutrition, builder: (c, s) => NutritionPage()),
-        GoRoute(path: AppRoutes.santeActivitePhysique, builder: (c, s) => ActivitePhysiquePage()),
-        GoRoute(path: AppRoutes.santeGestionStress, builder: (c, s) => GestionStressPage()),
-        GoRoute(path: AppRoutes.santeAssuranceSanteDetail, builder: (c, s) => AssuranceSantePage()),
-        GoRoute(path: AppRoutes.santePlusServices, builder: (c, s) => PlusServicesPage()),
+        GoRoute(path: AppRoutes.thixSanteDashboard, builder: (c, s) => const PatientDashboardPage()),
+        GoRoute(path: AppRoutes.santeMonMedecinTraitant, builder: (c, s) => const MonMedecinTraitantPage()),
+        GoRoute(path: AppRoutes.santeDossierFamille, builder: (c, s) => const DossierFamillePage()),
+        GoRoute(path: AppRoutes.santeSecondAvis, builder: (c, s) => const SecondAvisPage()),
+        GoRoute(path: AppRoutes.santeDossierMedical, builder: (c, s) => const DossierMedicalPage()),
+        GoRoute(path: AppRoutes.santeOrdonnances, builder: (c, s) => const MesOrdonnancesPage()),
+        GoRoute(path: AppRoutes.santeResultatsExamens, builder: (c, s) => const ResultatsExamensPage()),
+        GoRoute(path: AppRoutes.santePrendreRdv, builder: (c, s) => const PrendreRdvPage()),
+        GoRoute(path: AppRoutes.santeTeleconsultation, builder: (c, s) => const TeleconsultationPage()),
+        GoRoute(path: AppRoutes.santeTrouverHopital, builder: (c, s) => const TrouverHopitalPage()),
+        GoRoute(path: AppRoutes.santeTrouverMedicament, builder: (c, s) => const TrouverMedicamentPage()),
+        GoRoute(path: AppRoutes.santePharmaciesProches, builder: (c, s) => const PharmaciesProchesPage()),
+        GoRoute(path: AppRoutes.santeUrgencesProches, builder: (c, s) => const UrgencesProchesPage()),
+        GoRoute(path: AppRoutes.santeEpidemies, builder: (c, s) => const EpidemiesPage()),
+        GoRoute(path: AppRoutes.santeDonSang, builder: (c, s) => const DonSangPage()),
+        GoRoute(path: AppRoutes.santeEnfants, builder: (c, s) => const SanteEnfantsPage()),
+        GoRoute(path: AppRoutes.santeCarnetVaccination, builder: (c, s) => const CarnetVaccinationPage()),
+        GoRoute(path: AppRoutes.santeSuiviGrossesse, builder: (c, s) => const SuiviGrossessePage()),
+        GoRoute(path: AppRoutes.santeAnalysePredictive, builder: (c, s) => const AnalysePredictivePage()),
+        GoRoute(path: AppRoutes.santeBienEtreMental, builder: (c, s) => const BienEtreMentalPage()),
+        GoRoute(path: AppRoutes.santeNutrition, builder: (c, s) => const NutritionPage()),
+        GoRoute(path: AppRoutes.santeActivitePhysique, builder: (c, s) => const ActivitePhysiquePage()),
+        GoRoute(path: AppRoutes.santeGestionStress, builder: (c, s) => const GestionStressPage()),
+        GoRoute(path: AppRoutes.santeAssuranceSanteDetail, builder: (c, s) => const AssuranceSantePage()),
+        GoRoute(path: AppRoutes.santePlusServices, builder: (c, s) => const PlusServicesPage()),
 
         // Jobs & Opportunites
-        GoRoute(path: AppRoutes.jobs, name: 'jobs', pageBuilder: (_, __) => NoTransitionPage(child: JobsPage())),
-        GoRoute(path: AppRoutes.jobDashboard, name: 'jobDashboard', pageBuilder: (_, __) => NoTransitionPage(child: JobDashboardPage())),
-        GoRoute(path: AppRoutes.recruiter, name: 'recruiter', pageBuilder: (_, __) => NoTransitionPage(child: RecruiterPortalPage())),
-        GoRoute(path: AppRoutes.opportunities, name: 'opportunities', pageBuilder: (_, __) => NoTransitionPage(child: OpportunitiesPage())),
+        GoRoute(path: AppRoutes.jobs, name: 'jobs', pageBuilder: (_, __) => const NoTransitionPage(child: JobsPage())),
+        GoRoute(path: AppRoutes.jobDashboard, name: 'jobDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: JobDashboardPage())),
+        GoRoute(path: AppRoutes.recruiter, name: 'recruiter', pageBuilder: (_, __) => const NoTransitionPage(child: RecruiterPortalPage())),
+        GoRoute(path: AppRoutes.opportunities, name: 'opportunities', pageBuilder: (_, __) => const NoTransitionPage(child: OpportunitiesPage())),
         GoRoute(path: '/opportunities/:opportunityId', name: 'opportunityDetails', pageBuilder: (_, state) {
-          final oppId = state.pathParameters['opportunityId']?? '';
-          final applied = (state.uri.queryParameters['applied']?? '').trim() == '1';
+          final oppId = state.pathParameters['opportunityId'] ?? '';
+          final applied = (state.uri.queryParameters['applied'] ?? '').trim() == '1';
           return NoTransitionPage(child: OpportunityDetailsPage(opportunityId: oppId, applied: applied));
         }),
         GoRoute(path: '/opportunities/:opportunityId/apply', name: 'opportunityApply', pageBuilder: (_, state) {
-          return NoTransitionPage(child: OpportunityApplyPage(opportunityId: state.pathParameters['opportunityId']?? ''));
+          return NoTransitionPage(child: OpportunityApplyPage(opportunityId: state.pathParameters['opportunityId'] ?? ''));
         }),
         GoRoute(path: '/jobs/:jobId', name: 'jobDetails', pageBuilder: (_, state) {
-          final jobId = state.pathParameters['jobId']?? '';
-          final applied = (state.uri.queryParameters['applied']?? '').trim() == '1';
+          final jobId = state.pathParameters['jobId'] ?? '';
+          final applied = (state.uri.queryParameters['applied'] ?? '').trim() == '1';
           return NoTransitionPage(child: JobDetailsPage(jobId: jobId, applied: applied));
         }),
         GoRoute(path: '/jobs/:jobId/apply', name: 'jobApply', pageBuilder: (_, state) {
-          return NoTransitionPage(child: JobApplyPage(jobId: state.pathParameters['jobId']?? ''));
+          return NoTransitionPage(child: JobApplyPage(jobId: state.pathParameters['jobId'] ?? ''));
         }),
 
       ...educationRoutes,
       ...instructorRoutes,
       ...ThixMoneyRouter.routes,
         // THIX Info
-        GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => NoTransitionPage(child: const ThixInfoHome())),
+        GoRoute(path: AppRoutes.thixInfo, name: 'thixInfo', pageBuilder: (_, __) => const NoTransitionPage(child: ThixInfoHome())),
         GoRoute(path: AppRoutes.thixInfoArticle, name: 'thixInfoArticle', pageBuilder: (_, state) => NoTransitionPage(child: thixInfoArticle.ArticleDetailPage(articleId: state.pathParameters['articleId']!))),
-        GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => NoTransitionPage(child: const infoSearch.SearchPage())),
+        GoRoute(path: AppRoutes.thixInfoSearch, name: 'thixInfoSearch', pageBuilder: (_, __) => const NoTransitionPage(child: infoSearch.SearchPage())),
         GoRoute(path: AppRoutes.thixInfoCategory, name: 'thixInfoCategory', pageBuilder: (_, state) => NoTransitionPage(child: CategoryArticlesPage(category: state.pathParameters['category']!))),
-        GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => NoTransitionPage(child: const SavedArticlesPage())),
-        GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => NoTransitionPage(child: const BreakingNewsPage())),
+        GoRoute(path: AppRoutes.thixInfoSaved, name: 'thixInfoSaved', pageBuilder: (_, __) => const NoTransitionPage(child: SavedArticlesPage())),
+        GoRoute(path: AppRoutes.thixInfoBreaking, name: 'thixInfoBreaking', pageBuilder: (_, __) => const NoTransitionPage(child: BreakingNewsPage())),
 
         // THIX Money, Media
 
-        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaPage()), routes: [
-          GoRoute(path: 'admin', name: 'thixMediaAdmin', pageBuilder: (_, __) => NoTransitionPage(child: ThixMediaAdminPage())),
+        GoRoute(path: AppRoutes.thixMedia, name: 'thixMedia', pageBuilder: (_, __) => const NoTransitionPage(child: ThixMediaPage()), routes: [
+          GoRoute(path: 'admin', name: 'thixMediaAdmin', pageBuilder: (_, __) => const NoTransitionPage(child: ThixMediaAdminPage())),
         ]),
         GoRoute(path: AppRoutes.thixMediaVideo, name: 'thixMediaVideo', pageBuilder: (_, state) {
-          final title = (state.uri.queryParameters['title']?? '').trim();
-          final url = (state.uri.queryParameters['url']?? '').trim();
-          return NoTransitionPage(child: VideoPlayerPage(title: title.isEmpty? 'Lecture vidéo' : title, videoUrl: url));
+          final title = (state.uri.queryParameters['title'] ?? '').trim();
+          final url = (state.uri.queryParameters['url'] ?? '').trim();
+          return NoTransitionPage(child: VideoPlayerPage(title: title.isEmpty ? 'Lecture vidéo' : title, videoUrl: url));
         }),
         GoRoute(path: AppRoutes.reservation, name: 'thixreservation', pageBuilder: (_, __) => const NoTransitionPage(child: ThixReservationHomePage())),
 
         // THIX Evenement
-        GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => NoTransitionPage(child: ThixEventHome())),
+        GoRoute(path: AppRoutes.thixEvent, name: 'thixEvent', pageBuilder: (_, __) => const NoTransitionPage(child: ThixEventHome())),
         GoRoute(path: AppRoutes.thixEventDetail, name: 'thixEventDetail', pageBuilder: (_, state) => NoTransitionPage(child: EventDetailPage(eventId: state.pathParameters['eventId']!))),
-        GoRoute(path: AppRoutes.thixEventSearch, name: 'thixEventSearch', pageBuilder: (_, __) => NoTransitionPage(child: EventSearchPage())),
+        GoRoute(path: AppRoutes.thixEventSearch, name: 'thixEventSearch', pageBuilder: (_, __) => const NoTransitionPage(child: EventSearchPage())),
         GoRoute(path: AppRoutes.thixEventCategory, name: 'thixEventCategory', pageBuilder: (_, state) => NoTransitionPage(child: EventCategoryPage(category: state.pathParameters['category']!))),
         GoRoute(path: AppRoutes.thixEventReservation, name: 'thixEventReservation', pageBuilder: (_, state) {
           final eventId = state.pathParameters['eventId']!;
-          final quantity = int.tryParse(state.uri.queryParameters['quantity']?? '1')?? 1;
+          final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
           return NoTransitionPage(child: EventReservationPage(eventId: eventId, quantity: quantity));
         }),
-        GoRoute(path: AppRoutes.thixEventMyTickets, name: 'thixEventMyTickets', pageBuilder: (_, __) => NoTransitionPage(child: MyTicketsPage())),
-        GoRoute(path: AppRoutes.thixEventFavorites, name: 'thixEventFavorites', pageBuilder: (_, __) => NoTransitionPage(child: FavoriteEventsPage())),
+        GoRoute(path: AppRoutes.thixEventMyTickets, name: 'thixEventMyTickets', pageBuilder: (_, __) => const NoTransitionPage(child: MyTicketsPage())),
+        GoRoute(path: AppRoutes.thixEventFavorites, name: 'thixEventFavorites', pageBuilder: (_, __) => const NoTransitionPage(child: FavoriteEventsPage())),
         GoRoute(path: AppRoutes.thixEventSeatSelection, name: 'thixEventSeatSelection', pageBuilder: (_, state) => NoTransitionPage(child: SeatSelectionPage(eventId: state.pathParameters['eventId']!))),
         GoRoute(path: AppRoutes.thixEventWaitingQueue, name: 'thixEventWaitingQueue', pageBuilder: (_, state) {
           final eventId = state.pathParameters['eventId']!;
-          final quantity = int.tryParse(state.uri.queryParameters['quantity']?? '1')?? 1;
+          final quantity = int.tryParse(state.uri.queryParameters['quantity'] ?? '1') ?? 1;
           return NoTransitionPage(child: WaitingQueuePage(eventId: eventId, requestedQuantity: quantity));
         }),
-        GoRoute(path: '/thix-event/admin', name: 'thixEventAdmin', pageBuilder: (_, __) => NoTransitionPage(child: AdminDashboard())),
-        GoRoute(path: '/thix-event/admin/events', name: 'thixEventAdminEvents', pageBuilder: (_, __) => NoTransitionPage(child: EventListAdminPage())),
+        GoRoute(path: '/thix-event/admin', name: 'thixEventAdmin', pageBuilder: (_, __) => const NoTransitionPage(child: AdminDashboard())),
+        GoRoute(path: '/thix-event/admin/events', name: 'thixEventAdminEvents', pageBuilder: (_, __) => const NoTransitionPage(child: EventListAdminPage())),
         GoRoute(path: '/thix-event/admin/events/create', name: 'thixEventAdminCreate', pageBuilder: (context, state) {
           final event = state.extra as dynamic;
           return NoTransitionPage(child: EventCreateEditPage(eventToEdit: event));
         }),
-        GoRoute(path: '/thix-event/admin/seats', name: 'thixEventAdminSeats', pageBuilder: (_, __) => NoTransitionPage(child: SeatMapAdminPage())),
-        GoRoute(path: '/thix-event/admin/bookings', name: 'thixEventAdminBookings', pageBuilder: (_, __) => NoTransitionPage(child: BookingManagementPage())),
-        GoRoute(path: '/thix-event/admin/queue', name: 'thixEventAdminQueue', pageBuilder: (_, __) => NoTransitionPage(child: admin_queue.WaitingQueuePage())),
-        GoRoute(path: '/thix-event/admin/limits', name: 'thixEventAdminLimits', pageBuilder: (_, __) => NoTransitionPage(child: BookingLimitsPage())),
-        GoRoute(path: '/thix-event/admin/analytics', name: 'thixEventAdminAnalytics', pageBuilder: (_, __) => NoTransitionPage(child: AnalyticsPage())),
+        GoRoute(path: '/thix-event/admin/seats', name: 'thixEventAdminSeats', pageBuilder: (_, __) => const NoTransitionPage(child: SeatMapAdminPage())),
+        GoRoute(path: '/thix-event/admin/bookings', name: 'thixEventAdminBookings', pageBuilder: (_, __) => const NoTransitionPage(child: BookingManagementPage())),
+        GoRoute(path: '/thix-event/admin/queue', name: 'thixEventAdminQueue', pageBuilder: (_, __) => const NoTransitionPage(child: admin_queue.WaitingQueuePage())),
+        GoRoute(path: '/thix-event/admin/limits', name: 'thixEventAdminLimits', pageBuilder: (_, __) => const NoTransitionPage(child: BookingLimitsPage())),
+        GoRoute(path: '/thix-event/admin/analytics', name: 'thixEventAdminAnalytics', pageBuilder: (_, __) => const NoTransitionPage(child: AnalyticsPage())),
         GoRoute(path: '/thix-event/payment', builder: (context, state) {
           final extra = (state.extra as Map<String, dynamic>?) ?? {};
           return EventPaymentPage(bookingId: (extra['bookingId'] as String?) ?? '', amount: (extra['amount'] as num?)?.toDouble() ?? 0.0, currency: (extra['currency'] as String?) ?? 'USD');
@@ -544,7 +547,7 @@ class AppRouter {
         GoRoute(path: '/thix-event/ticket/:id', builder: (context, state) => EventTicketPage(bookingId: state.pathParameters['id']!)),
 
         // BUS
-        GoRoute(path: '/thix-reservation/bus', name: 'bus-home', pageBuilder: (_, __) => NoTransitionPage(child: BusHomePage())),
+        GoRoute(path: '/thix-reservation/bus', name: 'bus-home', pageBuilder: (_, __) => const NoTransitionPage(child: BusHomePage())),
         GoRoute(path: '/thix-reservation/bus/search', name: 'bus-search', pageBuilder: (_, __) => const NoTransitionPage(child: BusSearchResultPage())),
         GoRoute(path: '/thix-reservation/bus/detail', name: 'bus-detail', pageBuilder: (_, state) => NoTransitionPage(child: BusTripDetailPage(trip: state.extra as BusTripModel))),
         GoRoute(path: '/thix-reservation/bus/seats', name: 'bus-seats', pageBuilder: (_, state) => NoTransitionPage(child: BusSeatSelectionPage(trip: state.extra as BusTripModel))),
@@ -576,14 +579,14 @@ class AppRouter {
         GoRoute(path: AppRoutes.deliveryAdminScan, name: 'delivery-admin-scan', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryAdminScanPage())),
 
         // MARKET
-        GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage()), routes: [
-          GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => NoTransitionPage(child: const MarketHomePage())),
-          GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => NoTransitionPage(child: const marketSearch.SearchPage())),
-          GoRoute(path: 'shops', name: 'marketShops', pageBuilder: (_, __) => NoTransitionPage(child: const ShopsPage())),
-          GoRoute(path: 'buy', name: 'marketBuy', pageBuilder: (_, __) => NoTransitionPage(child: const BuyPage())),
-          GoRoute(path: 'sell', name: 'marketSell', pageBuilder: (_, __) => NoTransitionPage(child: const SellPage())),
-          GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => NoTransitionPage(child: const ProductComparatorPage())),
-          GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => NoTransitionPage(child: const PriceAlertsPage())),
+        GoRoute(path: AppRoutes.thixMarket, name: 'thixMarket', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage()), routes: [
+          GoRoute(path: 'home', name: 'marketHome', pageBuilder: (_, __) => const NoTransitionPage(child: MarketHomePage())),
+          GoRoute(path: 'search', name: 'marketSearch', pageBuilder: (_, __) => const NoTransitionPage(child: marketSearch.SearchPage())),
+          GoRoute(path: 'shops', name: 'marketShops', pageBuilder: (_, __) => const NoTransitionPage(child: ShopsPage())),
+          GoRoute(path: 'buy', name: 'marketBuy', pageBuilder: (_, __) => const NoTransitionPage(child: BuyPage())),
+          GoRoute(path: 'sell', name: 'marketSell', pageBuilder: (_, __) => const NoTransitionPage(child: SellPage())),
+          GoRoute(path: 'compare', name: 'marketProductComparator', pageBuilder: (_, __) => const NoTransitionPage(child: ProductComparatorPage())),
+          GoRoute(path: 'price-alerts', name: 'marketPriceAlerts', pageBuilder: (_, __) => const NoTransitionPage(child: PriceAlertsPage())),
           GoRoute(path: 'wishlist', name: 'marketWishlist', pageBuilder: (_, __) => const NoTransitionPage(child: WishlistPage())),
           GoRoute(path: 'cart', name: 'marketCart', pageBuilder: (_, __) => const NoTransitionPage(child: CartPage())),
           GoRoute(path: 'orders', name: 'marketOrders', pageBuilder: (_, __) => const NoTransitionPage(child: OrderHistoryPage())),
@@ -602,26 +605,26 @@ class AppRouter {
           GoRoute(path: 'chat/seller/:shopId', name: 'marketChatSeller', pageBuilder: (_, state) {
             final shopId = state.pathParameters['shopId']!;
             final extra = state.extra as Map?;
-            return NoTransitionPage(child: ChatPage(conversationId: '', shopId: shopId, title: extra?['title']?? 'Vendeur', avatar: extra?['avatar']));
+            return NoTransitionPage(child: ChatPage(conversationId: '', shopId: shopId, title: extra?['title'] ?? 'Vendeur', avatar: extra?['avatar']));
           }),
           GoRoute(path: 'shop/:shopId', name: 'marketShopDetail', pageBuilder: (_, state) => NoTransitionPage(child: ShopDetailPage(shopId: state.pathParameters['shopId']!))),
-          GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => NoTransitionPage(child: const MessagesPage())),
-          GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => NoTransitionPage(child: const NotificationPage())),
-          GoRoute(path: 'activity', name: 'marketActivity', pageBuilder: (_, __) => NoTransitionPage(child: const MyActivityPage())),
-          GoRoute(path: 'settings', name: 'marketSettings', pageBuilder: (_, __) => NoTransitionPage(child: const MarketSettingsPage())),
-          GoRoute(path: 'help', name: 'marketHelp', pageBuilder: (_, __) => NoTransitionPage(child: const HelpSupportPage())),
-          GoRoute(path: 'vendor/dashboard', name: 'vendorDashboard', pageBuilder: (_, __) => NoTransitionPage(child: const VendorDashboard())),
-          GoRoute(path: 'shop/create', name: 'marketCreateShop', pageBuilder: (_, __) => NoTransitionPage(child: const CreateShopPage())),
-          GoRoute(path: 'announcement/publish', name: 'marketPublishAnnouncement', pageBuilder: (_, __) => NoTransitionPage(child: const PublishAnnouncementPage())),
-          GoRoute(path: 'deliveries', name: 'deliveryManagement', pageBuilder: (_, __) => NoTransitionPage(child: const DeliveryManagementPage())),
-          GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => NoTransitionPage(child: const LivePage())),
-          GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => NoTransitionPage(child: const CreateLivePage())),
+          GoRoute(path: 'messages', name: 'marketMessages', pageBuilder: (_, __) => const NoTransitionPage(child: MessagesPage())),
+          GoRoute(path: 'notifications', name: 'marketNotifications', pageBuilder: (_, __) => const NoTransitionPage(child: NotificationPage())),
+          GoRoute(path: 'activity', name: 'marketActivity', pageBuilder: (_, __) => const NoTransitionPage(child: MyActivityPage())),
+          GoRoute(path: 'settings', name: 'marketSettings', pageBuilder: (_, __) => const NoTransitionPage(child: MarketSettingsPage())),
+          GoRoute(path: 'help', name: 'marketHelp', pageBuilder: (_, __) => const NoTransitionPage(child: HelpSupportPage())),
+          GoRoute(path: 'vendor/dashboard', name: 'vendorDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: VendorDashboard())),
+          GoRoute(path: 'shop/create', name: 'marketCreateShop', pageBuilder: (_, __) => const NoTransitionPage(child: CreateShopPage())),
+          GoRoute(path: 'announcement/publish', name: 'marketPublishAnnouncement', pageBuilder: (_, __) => const NoTransitionPage(child: PublishAnnouncementPage())),
+          GoRoute(path: 'deliveries', name: 'deliveryManagement', pageBuilder: (_, __) => const NoTransitionPage(child: DeliveryManagementPage())),
+          GoRoute(path: 'live', name: 'marketLive', pageBuilder: (_, __) => const NoTransitionPage(child: LivePage())),
+          GoRoute(path: 'live/create', name: 'marketCreateLive', pageBuilder: (_, __) => const NoTransitionPage(child: CreateLivePage())),
         ]),
-    GoRoute(
-      path: '/thix_ia',
-      name: 'thix_ia',
-      builder: (context, state) => const ThixIaScreen(),
-    ),
+        GoRoute(
+          path: '/thix_ia',
+          name: 'thix_ia',
+          builder: (context, state) => const ThixIaScreen(),
+        ),
 
         GoRoute(path: '/admin', builder: (context, state) => const thix_admin.AdminHomePage()),
         GoRoute(path: '/admin/articles', builder: (context, state) => const thix_admin_list.AdminArticlesListPage()),
@@ -631,18 +634,16 @@ class AppRouter {
         GoRoute(path: AppRoutes.monPays, name: 'monPays', pageBuilder: (_, __) => const NoTransitionPage(child: MonPaysPage()), routes: [
           GoRoute(path: 'authorities', name: 'monPaysAuthorities', pageBuilder: (_, __) => const NoTransitionPage(child: AuthoritiesPage())),
           GoRoute(
-  path: 'authorities/:id',
-  name: 'monPaysAuthorityProfile',
-  pageBuilder: (_, state) {
-    final id = state.pathParameters['id'];
-    if (id == null || id.isEmpty) {
-      return const NoTransitionPage(child: AuthoritiesPage());
-    }
-    print('🔗 Navigation vers AuthorityProfilePage avec ID: $id');
-    return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
-  },
-),
-
+            path: 'authorities/:id',
+            name: 'monPaysAuthorityProfile',
+            pageBuilder: (_, state) {
+              final id = state.pathParameters['id'];
+              if (id == null || id.isEmpty) {
+                return const NoTransitionPage(child: AuthoritiesPage());
+              }
+              return NoTransitionPage(child: AuthorityProfilePage(authorityId: id));
+            },
+          ),
           GoRoute(path: 'laws', name: 'monPaysLaws', pageBuilder: (_, __) => const NoTransitionPage(child: LawsPage())),
           GoRoute(path: 'laws/:type', name: 'monPaysArticleType', pageBuilder: (_, state) => NoTransitionPage(child: ArticleTypePage(type: ArticleType.fromString(state.pathParameters['type']!), title: ArticleType.fromString(state.pathParameters['type']!).label))),
           GoRoute(path: 'laws/article/:id', name: 'monPaysArticleDetail', pageBuilder: (_, state) => NoTransitionPage(child: monPaysArticle.ArticleDetailPage(articleId: state.pathParameters['id']!))),
