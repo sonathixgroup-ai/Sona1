@@ -36,6 +36,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   late TextEditingController _populationController;
   late TextEditingController _descriptionController;
 
+  // Nouveaux champs institutionnels et historiques majeurs
+  late TextEditingController _historyController;
+  late TextEditingController _climateController;
+  late TextEditingController _infrastructureController;
+  late TextEditingController _educationController;
+
   // Identité visuelle
   String? _coverImageUrl;
   String? _coatOfArmsUrl;
@@ -56,6 +62,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   List<Map<String, dynamic>> _emergencyContacts = [];
   List<Map<String, dynamic>> _administrativeDivisions = [];
   List<Map<String, dynamic>> _achievements = [];
+  List<Map<String, dynamic>> _tribes = []; // Rubrique Culture & Tribus enrichie
   List<Map<String, dynamic>> _galleryMedia = [];
 
   late TextEditingController _languagesController;
@@ -92,6 +99,12 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     _areaController = TextEditingController(text: p?.area?.toString() ?? '');
     _populationController = TextEditingController(text: p?.population?.toString() ?? '');
     _descriptionController = TextEditingController(text: p?.description ?? '');
+
+    // Initialisation des nouveaux grands champs
+    _historyController = TextEditingController(text: p?.history ?? '');
+    _climateController = TextEditingController(text: p?.climate ?? '');
+    _infrastructureController = TextEditingController(text: p?.infrastructure ?? '');
+    _educationController = TextEditingController(text: p?.education ?? '');
     
     _coverImageUrl = p?.coverImageUrl;
     _coatOfArmsUrl = p?.coatOfArmsUrl;
@@ -134,6 +147,14 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
       'media': a['media'] != null ? List<Map<String, dynamic>>.from(a['media']) : (a['imageUrl'] != null ? [{'url': a['imageUrl'], 'type': 'photo'}] : []),
     }).toList() ?? [];
 
+    // Chargement des tribus et peuples
+    _tribes = p?.tribes?.map((tr) => {
+      'name': tr['name'] ?? '',
+      'zone': tr['zone'] ?? '',
+      'history': tr['history'] ?? '',
+      'media': tr['media'] != null ? List<Map<String, dynamic>>.from(tr['media']) : [],
+    }).toList() ?? [];
+
     _galleryMedia = p?.galleryMedia?.map((m) => Map<String, dynamic>.from(m)).toList() ?? [];
 
     _languagesController = TextEditingController(text: p?.languages ?? '');
@@ -145,9 +166,10 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   void dispose() {
     _nameController.dispose(); _codeController.dispose(); _capitalController.dispose();
     _regionController.dispose(); _areaController.dispose(); _populationController.dispose();
-    _descriptionController.dispose(); _websiteController.dispose(); _governorController.dispose();
-    _viceGovernorController.dispose(); _languagesController.dispose(); _resourcesController.dispose();
-    _territoriesCountController.dispose();
+    _descriptionController.dispose(); _historyController.dispose(); _climateController.dispose();
+    _infrastructureController.dispose(); _educationController.dispose(); _websiteController.dispose();
+    _governorController.dispose(); _viceGovernorController.dispose(); _languagesController.dispose();
+    _resourcesController.dispose(); _territoriesCountController.dispose();
     super.dispose();
   }
 
@@ -228,6 +250,18 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     ),
                   ]),
                   const SizedBox(height: 16),
+
+                  // 🏛️ NOUVEAUX CHAMPS INSTITUTIONNELS & HISTORIQUES MAJEURS
+                  _buildSectionCard(title: 'Histoire, Climat & Infrastructures', icon: Icons.history_edu, children: [
+                    _buildTextField(_historyController, 'Historique complet & Origines de la province', Icons.menu_book, maxLines: 4),
+                    const SizedBox(height: 12),
+                    _buildTextField(_climateController, 'Climat, Relief & Environnement', Icons.wb_sunny, maxLines: 3),
+                    const SizedBox(height: 12),
+                    _buildTextField(_infrastructureController, 'Infrastructures, Transports & Énergie', Icons.bolt, maxLines: 3),
+                    const SizedBox(height: 12),
+                    _buildTextField(_educationController, 'Éducation, Recherche & Santé', Icons.school, maxLines: 3),
+                  ]),
+                  const SizedBox(height: 16),
                   
                   _buildSectionCard(title: 'Gouvernance & Exécutif Provincial', icon: Icons.account_balance, children: [
                     _buildTextField(_governorController, 'Nom du Gouverneur', Icons.person), const SizedBox(height: 8),
@@ -257,6 +291,39 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ]),
                   const SizedBox(height: 16),
 
+                  // 🌍 CULTURE & TRIBUS ENRICHIES (Nom, Zone, Histoire, Galerie Photos & Vidéos)
+                  _buildSectionCard(title: 'Culture, Langues & Peuples / Tribus', icon: Icons.people, children: [
+                    _buildTextField(_languagesController, 'Langues parlées', Icons.chat_bubble_outline), const SizedBox(height: 12),
+                    _buildTextField(_resourcesController, 'Ressources principales', Icons.diamond), const SizedBox(height: 12),
+                    _buildTextField(_descriptionController, 'Description générale & Traditions', Icons.description, maxLines: 3),
+                    const Divider(height: 32),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Peuples & Tribus de la Province', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: navyDeep)),
+                      ElevatedButton.icon(
+                        onPressed: () => setState(() => _tribes.add({'name': '', 'zone': '', 'history': '', 'media': []})),
+                        icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une tribu'),
+                        style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    ..._tribes.asMap().entries.map((entry) {
+                      int index = entry.key; var tribe = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+                        child: Column(children: [
+                          Row(children: [Text('Tribu / Peuple #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: navyDeep)), const Spacer(), IconButton(icon: const Icon(Icons.delete, color: redThix, size: 20), onPressed: () => setState(() => _tribes.removeAt(index)))]),
+                          const SizedBox(height: 8),
+                          TextFormField(initialValue: tribe['name'], onChanged: (v) => _tribes[index]['name'] = v, decoration: _inputDecoration('Nom de la tribu / ethnie', Icons.group)), const SizedBox(height: 8),
+                          TextFormField(initialValue: tribe['zone'], onChanged: (v) => _tribes[index]['zone'] = v, decoration: _inputDecoration('Zone géographique / Territoire d\'origine', Icons.place)), const SizedBox(height: 8),
+                          TextFormField(initialValue: tribe['history'], onChanged: (v) => _tribes[index]['history'] = v, maxLines: 3, decoration: _inputDecoration('Histoire, origines & coutumes', Icons.menu_book)), const SizedBox(height: 8),
+                          _buildMultiMediaGallery('Photos & Vidéos de la tribu', tribe['media'], 'tribes', () => setState((){})),
+                        ]),
+                      );
+                    }),
+                  ]),
+                  const SizedBox(height: 16),
+
                   _buildSectionCard(title: 'Villes Principales (avec Galerie)', icon: Icons.location_city, children: [
                     Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: () => setState(() => _cities.add({'name': '', 'population': '', 'isCapital': false, 'mayor': '', 'mayorPhotoUrl': '', 'media': []})), icon: const Icon(Icons.add, size: 16), label: const Text('Ajouter une ville'), style: ElevatedButton.styleFrom(backgroundColor: navyDeep, foregroundColor: Colors.white))),
                     const SizedBox(height: 12),
@@ -276,13 +343,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                         ]),
                       );
                     }),
-                  ]),
-                  const SizedBox(height: 16),
-
-                  _buildSectionCard(title: 'Culture & Géographie', icon: Icons.public, children: [
-                    _buildTextField(_languagesController, 'Langues parlées', Icons.chat_bubble_outline), const SizedBox(height: 12),
-                    _buildTextField(_resourcesController, 'Ressources principales', Icons.diamond), const SizedBox(height: 12),
-                    _buildTextField(_descriptionController, 'Description générale & Traditions', Icons.description, maxLines: 3),
                   ]),
                   const SizedBox(height: 16),
 
@@ -478,22 +538,67 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isBusy = true);
 
-    // Mappage sécurisé avec la prise en charge des Listes Médias
-    final List<City> mappedCities = _cities.map<City>((c) => City(id: '', provinceId: _provinceId ?? '', name: c['name'] ?? '', population: c['population']?.toString(), isCapital: c['isCapital'] ?? false, mayor: c['mayor'], mayorPhotoUrl: c['mayorPhotoUrl'], media: List<Map<String, dynamic>>.from(c['media'] ?? []))).toList();
-    final mappedEconomy = _economicSectors.map((e) => ProvinceEconomicResource.fromJson({'id': '', 'province_id': _provinceId ?? '', 'name': e['name'], 'description': e['description'], 'media': e['media']})).toList();
-    final mappedTourism = _tourismSites.map((t) => ProvinceTourism.fromJson({'id': '', 'province_id': _provinceId ?? '', 'name': t['name'], 'type': t['type'], 'description': t['description'], 'media': t['media']})).toList();
-    final mappedEmergency = _emergencyContacts.map((e) => ProvinceEmergencyContact.fromJson({'id': '', 'province_id': _provinceId ?? '', 'service': e['service'], 'phone': e['phone']})).toList();
-    final mappedAdmin = _administrativeDivisions.map((a) => ProvinceAdministrativeDivision.fromJson({'id': '', 'province_id': _provinceId ?? '', 'type': a['type'], 'name': a['name'], 'capital': a['capital'], 'population': int.tryParse(a['population']), 'area': double.tryParse(a['area']), 'administrator': a['administrator'], 'media': a['media']})).toList();
+    final mappedCities = _cities.map((c) => {'name': c['name'] ?? '', 'population': c['population']?.toString(), 'isCapital': c['isCapital'] ?? false, 'mayor': c['mayor'], 'mayorPhotoUrl': c['mayorPhotoUrl'], 'media': c['media'] ?? []}).toList();
+    final mappedEconomy = _economicSectors.map((e) => {'name': e['name'] ?? '', 'description': e['description'], 'media': e['media'] ?? []}).toList();
+    final mappedTourism = _tourismSites.map((t) => {'name': t['name'] ?? '', 'type': t['type'] ?? '', 'description': t['description'], 'media': t['media'] ?? []}).toList();
+    final mappedEmergency = _emergencyContacts.map((e) => {'service': e['service'] ?? '', 'phone': e['phone'] ?? ''}).toList();
+    final mappedAdmin = _administrativeDivisions.map((a) => {'type': a['type'] ?? '', 'name': a['name'] ?? '', 'capital': a['capital'], 'population': a['population'], 'area': a['area'], 'administrator': a['administrator'], 'media': a['media'] ?? []}).toList();
+    
+    // Mappage des tribus enrichies
+    final mappedTribes = _tribes.map((tr) => {
+      'name': tr['name'] ?? '',
+      'zone': tr['zone'] ?? '',
+      'history': tr['history'] ?? '',
+      'media': tr['media'] ?? [],
+    }).toList();
 
     final province = Province(
-      id: _provinceId ?? '', name: _nameController.text.trim(), code: _codeController.text.trim(), capital: _capitalController.text.trim(), region: _regionController.text.trim(), area: int.tryParse(_areaController.text.trim()), population: int.tryParse(_populationController.text.trim()), description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(), coverImageUrl: _coverImageUrl, coatOfArmsUrl: _coatOfArmsUrl, mapUrl: _mapUrl, website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(), governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(), governorPhotoUrl: _governorPhotoUrl, viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(), viceGovernorPhotoUrl: _viceGovernorPhotoUrl, ministers: _ministers.where((m) => (m['name'] ?? '').trim().isNotEmpty).toList(),
-      cities: mappedCities, economicResources: mappedEconomy, tourismSites: mappedTourism, emergencyContacts: mappedEmergency, administrativeDivisions: mappedAdmin,
-      achievements: _achievements.where((a) => (a['title'] ?? '').trim().isNotEmpty).toList(), galleryMedia: _galleryMedia,
-      languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(), resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(), territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
+      id: _provinceId ?? '',
+      name: _nameController.text.trim(),
+      code: _codeController.text.trim(),
+      capital: _capitalController.text.trim(),
+      region: _regionController.text.trim(),
+      area: int.tryParse(_areaController.text.trim()),
+      population: int.tryParse(_populationController.text.trim()),
+      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+      
+      // Nouveaux champs institutionnels et historiques
+      history: _historyController.text.trim().isEmpty ? null : _historyController.text.trim(),
+      climate: _climateController.text.trim().isEmpty ? null : _climateController.text.trim(),
+      infrastructure: _infrastructureController.text.trim().isEmpty ? null : _infrastructureController.text.trim(),
+      education: _educationController.text.trim().isEmpty ? null : _educationController.text.trim(),
+
+      coverImageUrl: _coverImageUrl,
+      coatOfArmsUrl: _coatOfArmsUrl,
+      mapUrl: _mapUrl,
+      website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+      governor: _governorController.text.trim().isEmpty ? null : _governorController.text.trim(),
+      governorPhotoUrl: _governorPhotoUrl,
+      viceGovernor: _viceGovernorController.text.trim().isEmpty ? null : _viceGovernorController.text.trim(),
+      viceGovernorPhotoUrl: _viceGovernorPhotoUrl,
+      ministers: _ministers.where((m) => (m['name'] ?? '').trim().isNotEmpty).toList(),
+      
+      cities: mappedCities.map((c) => City.fromJson(c)).toList(),
+      economicResources: mappedEconomy.map((e) => ProvinceEconomicResource.fromJson(e)).toList(),
+      tourismSites: mappedTourism.map((t) => ProvinceTourism.fromJson(t)).toList(),
+      emergencyContacts: mappedEmergency.map((e) => ProvinceEmergencyContact.fromJson(e)).toList(),
+      administrativeDivisions: mappedAdmin.map((a) => ProvinceAdministrativeDivision.fromJson(a)).toList(),
+      
+      achievements: _achievements.where((a) => (a['title'] ?? '').trim().isNotEmpty).toList(),
+      tribes: mappedTribes, // Attribution des tribus enrichies
+      galleryMedia: _galleryMedia,
+
+      languages: _languagesController.text.trim().isEmpty ? null : _languagesController.text.trim(),
+      resources: _resourcesController.text.trim().isEmpty ? null : _resourcesController.text.trim(),
+      territoriesCount: int.tryParse(_territoriesCountController.text.trim()),
     );
     
     try {
-      if (_isEditing) await ref.read(adminProvincesProvider.notifier).updateProvince(province); else await ref.read(adminProvincesProvider.notifier).createProvince(province);
+      if (_isEditing) {
+        await ref.read(adminProvincesProvider.notifier).updateProvince(province);
+      } else {
+        await ref.read(adminProvincesProvider.notifier).createProvince(province);
+      }
       if (mounted) context.pop();
     } catch (e) {
       setState(() => _isBusy = false);
