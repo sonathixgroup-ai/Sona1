@@ -1,6 +1,6 @@
 // ============================================================
-// FICHIER 19 - PROD FIX : province_detail_page.dart - SCALABLE & FINAL
-// Design: Carrés/Rectangles + Navigation complète (onTap) + Admin Sync
+// FICHIER - PROD FIX : province_detail_page.dart - ULTIME & COMPLET
+// Design: Carrés/Rectangles + Navigation complète + Admin Sync
 // ============================================================
 
 import 'dart:async';
@@ -10,7 +10,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/provinces_provider.dart';
 import '../../providers/media_provider.dart';
-import '../../providers/achievements_provider.dart';
 import '../../models/province.dart';
 import '../../models/city.dart';
 import '../../models/province_media.dart';
@@ -80,41 +79,57 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 _AutoBanner(mediaAsync: mediaAsync, controller: _bannerCtrl, onReady: _startBanner),
                 const SizedBox(height: 20),
                 
-                // Description administrative ou générale
+                // 1. Description générale
                 if (province.description != null && province.description!.trim().isNotEmpty) ...[
-                  _SectionLabel('À propos'),
+                  _SectionLabel('À propos de la province'),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline)),
-                    child: Text(province.description!, style: const TextStyle(fontSize: 13, height: 1.5, color: darkText)),
-                  ),
+                  _InfoCard(content: province.description!),
                   const SizedBox(height: 20),
                 ],
 
+                // 2. Nouveaux Champs Institutionnels (Historique, Climat, Infrastructures, Éducation)
+                if (_hasInstitutionalInfo(province)) ...[
+                  _SectionLabel('Monographie & Aperçu Global'),
+                  const SizedBox(height: 12),
+                  _InstitutionalDetailsGrid(province: province),
+                  const SizedBox(height: 20),
+                ],
+
+                // 3. Exécutif Provincial
                 _SectionLabel('Exécutif Provincial'),
                 const SizedBox(height: 12),
                 _ExecutiveGrid(province: province),
                 const SizedBox(height: 20),
                 
+                // 4. Gouvernement (Ministres)
                 _SectionLabel('Gouvernement Provincial (Ministres)'),
                 const SizedBox(height: 12),
                 _MinistersGrid(ministers: province.ministers ?? []),
                 const SizedBox(height: 20),
 
-                // Section Réalisations (provenant du formulaire admin)
+                // 5. Peuples & Tribus (Nouveau)
+                if (province.tribes != null && province.tribes!.isNotEmpty) ...[
+                  _SectionLabel('Peuples & Tribus Autochtones'),
+                  const SizedBox(height: 12),
+                  _TribesList(tribes: province.tribes!),
+                  const SizedBox(height: 20),
+                ],
+
+                // 6. Réalisations & Projets
                 if (province.achievements != null && province.achievements!.isNotEmpty) ...[
-                  _SectionLabel('Réalisations & Projets'),
+                  _SectionLabel('Réalisations & Projets Majeurs'),
                   const SizedBox(height: 12),
                   _AchievementsList(achievements: province.achievements!),
                   const SizedBox(height: 20),
                 ],
 
+                // 7. Villes Principales
                 _SectionLabel('Villes Principales'),
                 const SizedBox(height: 12),
                 _CitiesGrid(cities: province.cities),
                 const SizedBox(height: 20),
                 
+                // 8. Grille d'exploration interactive
                 _SectionLabel('Explorer la province'),
                 const SizedBox(height: 12),
                 _ExploreGrid(province: province, mediaAsync: mediaAsync),
@@ -125,6 +140,13 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
         ),
       ),
     );
+  }
+
+  bool _hasInstitutionalInfo(Province p) {
+    return (p.history?.trim().isNotEmpty == true) ||
+           (p.climate?.trim().isNotEmpty == true) ||
+           (p.infrastructure?.trim().isNotEmpty == true) ||
+           (p.education?.trim().isNotEmpty == true);
   }
 }
 
@@ -156,7 +178,7 @@ class _SliverHeader extends StatelessWidget {
 class _IdentitySquare extends StatelessWidget {
   final Province province;
   const _IdentitySquare({required this.province});
-  static const navyDeep = Color(0xFF0A1F44); static const hairline = Color(0xFFE7EAF3); static const mutedText = Color(0xFF6B7690);
+  static const navyDeep = Color(0xFF0A1F44); static const hairline = Color(0xFFE7EAF3);
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -170,7 +192,7 @@ class _IdentitySquare extends StatelessWidget {
             Text(province.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: navyDeep)),
             const SizedBox(height: 4),
             Row(children: [ _Chip(text: province.code, color: const Color(0xFFD32F2F)), const SizedBox(width: 8), Text('Région ${province.region}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF123B7A))) ]),
-          ])),
+          ]),
         ]),
         const Divider(height: 24, color: hairline),
         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
@@ -185,6 +207,47 @@ class _IdentitySquare extends StatelessWidget {
 }
 class _Stat extends StatelessWidget { final IconData icon; final String label, value; const _Stat({required this.icon, required this.label, required this.value}); @override Widget build(BuildContext context) => Column(children: [Icon(icon, size: 20, color: const Color(0xFF123B7A)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF6B7690)))]); }
 class _Chip extends StatelessWidget { final String text; final Color color; const _Chip({required this.text, required this.color}); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)), child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white))); }
+
+// ==================== INSTITUTIONAL & HISTORICAL DETAILS ====================
+class _InstitutionalDetailsGrid extends StatelessWidget {
+  final Province province;
+  const _InstitutionalDetailsGrid({required this.province});
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = <Widget>[];
+    if (province.history?.trim().isNotEmpty == true) {
+      cards.add(_buildCard('Historique & Origines', province.history!, Icons.history_edu, const Color(0xFF123B7A)));
+    }
+    if (province.climate?.trim().isNotEmpty == true) {
+      cards.add(_buildCard('Climat & Environnement', province.climate!, Icons.wb_sunny, const Color(0xFFE3B23C)));
+    }
+    if (province.infrastructure?.trim().isNotEmpty == true) {
+      cards.add(_buildCard('Infrastructures & Énergie', province.infrastructure!, Icons.bolt, const Color(0xFF2E7D32)));
+    }
+    if (province.education?.trim().isNotEmpty == true) {
+      cards.add(_buildCard('Éducation & Santé', province.education!, Icons.school, const Color(0xFF6A1B9A)));
+    }
+
+    return Column(children: cards.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)).toList());
+  }
+
+  Widget _buildCard(String title, String content, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EAF3))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: color, size: 20)),
+          const SizedBox(width: 10),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0A1F44))),
+        ]),
+        const SizedBox(height: 10),
+        Text(content, style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF10182B))),
+      ]),
+    );
+  }
+}
 
 // ==================== BANNER AUTO SCROLL ====================
 class _AutoBanner extends StatelessWidget {
@@ -219,7 +282,7 @@ class _AutoBanner extends StatelessWidget {
   }
 }
 
-// ==================== EXECUTIF: 2 CARRES COTE A COTE ====================
+// ==================== EXECUTIF ====================
 class _ExecutiveGrid extends StatelessWidget {
   final Province province;
   const _ExecutiveGrid({required this.province});
@@ -260,7 +323,7 @@ class _SquareExecutiveCard extends StatelessWidget {
   }
 }
 
-// ==================== MINISTRES: 3 PAR LIGNE, CARRES ====================
+// ==================== MINISTRES ====================
 class _MinistersGrid extends StatelessWidget {
   final List<dynamic> ministers;
   const _MinistersGrid({required this.ministers});
@@ -299,7 +362,67 @@ class _SquareMinisterCard extends StatelessWidget {
   }
 }
 
-// ==================== REALISATIONS (ADMIN SYNC) ====================
+// ==================== TRIBES & PEUPLES ====================
+class _TribesList extends StatelessWidget {
+  final List<Map<String, dynamic>> tribes;
+  const _TribesList({required this.tribes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: tribes.map((t) {
+        final name = t['name']?.toString() ?? 'Tribu';
+        final zone = t['zone']?.toString() ?? '';
+        final history = t['history']?.toString() ?? '';
+        final mediaList = t['media'] as List? ?? [];
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EAF3))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF123B7A).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.groups_rounded, color: Color(0xFF123B7A), size: 20)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0A1F44)))),
+              if (zone.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)), child: Text(zone, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7690)))),
+            ]),
+            if (history.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(history, style: const TextStyle(fontSize: 12, color: Color(0xFF10182B), height: 1.4)),
+            ],
+            if (mediaList.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 60,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: mediaList.length,
+                  itemBuilder: (_, idx) {
+                    final m = mediaList[idx];
+                    final url = m['url']?.toString() ?? '';
+                    final isVideo = m['type'] == 'video';
+                    if (url.isEmpty) return const SizedBox.shrink();
+                    return Container(
+                      width: 60, height: 60, margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: isVideo ? const Center(child: Icon(Icons.videocam, color: Colors.grey)) : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]
+          ]),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==================== REALISATIONS ====================
 class _AchievementsList extends StatelessWidget {
   final List<Map<String, dynamic>> achievements;
   const _AchievementsList({required this.achievements});
@@ -334,7 +457,7 @@ class _AchievementsList extends StatelessWidget {
   }
 }
 
-// ==================== VILLES: 2 PAR LIGNE RECTANGLES ====================
+// ==================== VILLES ====================
 class _CitiesGrid extends StatelessWidget {
   final List<City> cities;
   const _CitiesGrid({required this.cities});
@@ -365,7 +488,7 @@ class _CitiesGrid extends StatelessWidget {
   }
 }
 
-// ==================== EXPLORE: INTERACTIF & COMPLET ====================
+// ==================== EXPLORE GRID ====================
 class _ExploreGrid extends StatelessWidget {
   final Province province;
   final AsyncValue<List<ProvinceMedia>> mediaAsync;
@@ -661,6 +784,16 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
   @override
   Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0A1F44)));
+}
+class _InfoCard extends StatelessWidget {
+  final String content;
+  const _InfoCard({required this.content});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EAF3))),
+    child: Text(content, style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF10182B))),
+  );
 }
 class _EmptyCard extends StatelessWidget {
   final String text;
