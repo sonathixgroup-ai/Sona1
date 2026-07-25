@@ -89,7 +89,7 @@ class PublicProfileCtrl extends ChangeNotifier {
 
   bool get canSeePrivate => accessState?.isActiveAt(DateTime.now().toUtc()) ?? false;
 
-  Future<void> requestAccess(String reqId) async {
+    Future<void> requestAccess(String reqId) async {
     if (profile == null) return;
     isRequestingAccess = true;
     notifyListeners();
@@ -97,11 +97,10 @@ class PublicProfileCtrl extends ChangeNotifier {
       await _access.requestAccess(requesterId: reqId, targetUserId: profile!.userId, thixId: profile!.thixId);
       // Mise à jour optimiste de l'interface en attendant le retour du stream
       accessState = AccessRequestState(
-  requestId: reqId, 
-  status: AccessStatus.pending, 
-  approvedUntil: DateTime.now().add(const Duration(days: 1))
-);
-
+        requestId: reqId, 
+        status: AccessRequestStatus.pending, // LA CORRECTION EST ICI
+        approvedUntil: DateTime.now().add(const Duration(days: 1))
+      );
     } catch (e) {
       // Gérer l'erreur silencieusement ou via un toast
     } finally {
@@ -117,7 +116,7 @@ class PublicProfileCtrl extends ChangeNotifier {
     _docSub?.cancel();
     super.dispose();
   }
-}
+
 
 // -----------------------------------------------------------------------------
 // PAGE PRINCIPALE
