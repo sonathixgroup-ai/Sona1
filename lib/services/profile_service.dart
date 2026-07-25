@@ -65,7 +65,7 @@ class ProfileService {
           .from(table)
           .select()
           .order('updated_at', ascending: false)
-          .range(start, end); // Pagination efficace côté BDD
+          .range(start, end);
 
       if (res is! List) return const [];
       
@@ -263,10 +263,7 @@ class ProfileService {
 
     final data = <String, dynamic>{};
     
-    // ------------------------------------------------------------------
-    // FIX CRITIQUE: Transforme les String vides ("") en null
-    // Cela évite l'erreur PostgreSQL 22007 (invalid input syntax for type date)
-    // ------------------------------------------------------------------
+    // Transforme les String vides ("") en null
     void put(String k, Object? v) {
       if (v is String) {
         final trimmed = v.trim();
@@ -354,7 +351,7 @@ class ProfileService {
 
     data['updated_at'] = DateTime.now().toUtc().toIso8601String();
 
-    if (data.keys.length <= 1) return; // Seulement updated_at
+    if (data.keys.length <= 1) return;
 
     try {
       await SupabaseSafeWrite.update(
@@ -365,7 +362,6 @@ class ProfileService {
         onUnknownColumn: _reloadSchemaCache,
       );
 
-      // Mise à jour des sous‑tables si fournies
       if (trainings != null || education != null) {
         final merged = <Map<String, dynamic>>[];
         merged.addAll(trainings ?? []);
@@ -570,10 +566,9 @@ class ProfileService {
     while (exists && attempts < 10) {
       final p = prefix ?? 'THIX';
       final cc = countryCode ?? 'CD';
-      // Format typique: THIX-CD-0726-12345-ABC-9
       final d = DateTime.now();
       final datePart = '${d.month.toString().padLeft(2, '0')}${d.year.toString().substring(2)}';
-      final numPart = (10000 + rand.nextInt(90000)).toString(); // 5 chiffres
+      final numPart = (10000 + rand.nextInt(90000)).toString(); 
       
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
       final alphaPart = String.fromCharCodes(Iterable.generate(3, (_) => chars.codeUnitAt(rand.nextInt(chars.length))));
@@ -587,7 +582,7 @@ class ProfileService {
           exists = false; 
         }
       } catch (e) {
-        exists = false; // Par sécurité on sort en cas d'erreur de parsing/offline
+        exists = false; 
       }
       attempts++;
     }
@@ -600,7 +595,7 @@ class ProfileService {
   }
 
   /// Réserve un pseudonyme THIX CHAT en vérifiant son unicité
-  Future<void> reserveThixChat({required String uid, required String handle}) async {
+  Future<void> reserveThixChat({required String userId, required String handle}) async {
     final formattedHandle = handle.startsWith('@') ? handle : '@$handle';
     
     try {
@@ -608,7 +603,7 @@ class ProfileService {
           .from(table)
           .select('id')
           .eq('thix_chat', formattedHandle)
-          .neq('id', uid)
+          .neq('id', userId)
           .maybeSingle();
           
       if (existing != null) {
@@ -618,7 +613,7 @@ class ProfileService {
       await SupabaseConfig.client.from(table).update({
         'thix_chat': formattedHandle,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', uid);
+      }).eq('id', userId);
       
     } catch (e) {
       debugPrint('Error reserveThixChat: $e');
