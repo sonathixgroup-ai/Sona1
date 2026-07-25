@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:thix_id/auth/auth_controller.dart';
@@ -13,6 +12,21 @@ import 'package:thix_id/services/document_service.dart';
 const _blue = Color(0xFF0D2CC1);
 const _blueDark = Color(0xFF0A1E8A);
 const _red = Color(0xFFD32F2F);
+
+// -----------------------------------------------------------------------------
+// HELPER: TRADUCTION DYNAMIQUE DES STATUTS (SANS CODAGE EN DUR)
+// -----------------------------------------------------------------------------
+String _translateStatus(String? status) {
+  if (status == null || status.trim().isEmpty) return 'Non renseigné';
+  switch (status.toLowerCase()) {
+    case 'pending': return 'En cours de vérification';
+    case 'verified': return 'Vérifié avec succès';
+    case 'rejected': return 'Rejeté / Invalide';
+    case 'active': return 'Actif';
+    case 'inactive': return 'Inactif';
+    default: return status; // Affiche dynamiquement le statut tel qu'il vient de la BDD
+  }
+}
 
 // -----------------------------------------------------------------------------
 // CONTROLLER
@@ -132,235 +146,246 @@ class _PState extends State<PublicProfilePage> {
           final canSee = isOwner || c.canSeePrivate;
 
           return CustomScrollView(slivers: [
-            SliverToBoxAdapter(child: _RefHeader(p: p, onBack: () => context.go(AppRoutes.home))),
+            SliverToBoxAdapter(child: _RefHeader(p: p, onBack: () => context.popOrGo(AppRoutes.home))),
             SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _RefStats(p: p))),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
             
             // Bouton de demande d'accès (rouge ou grisé)
             if (!canSee) SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _GateCard(ctrl: c))),
             
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(children: [
-                  // 1. Profil Professionnel
-                  _Cadre(
-                    title: 'Profil Professionnel',
-                    icon: Icons.work_outline_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _Row(label: 'Nom complet', value: p.fullName ?? p.displayName),
-                        _ExpandableRow(label: 'Bio', value: p.bio ?? '—'),
-                        _ExpandableRow(label: 'Compétence', value: p.competence ?? '—'),
-                        _Row(label: 'THIX CHAT', value: p.thixChat ?? '—'),
-                        _Row(label: 'Origine', value: p.countryOrOrigin ?? '—'),
-                        _Row(label: 'Profession', value: p.profession ?? p.occupation ?? '—'),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: (p.languagesDetailed.isNotEmpty ? p.languagesDetailed : p.languages.map((e) => {'name': e}).toList()).map((l) {
-                            final name = (l['name'] ?? '').toString();
-                            final level = l['level'] != null ? ' ${l['level']}' : '';
-                            return Chip(
-                              label: Text('$name$level', style: const TextStyle(fontSize: 11, color: _blueDark, fontWeight: FontWeight.bold)),
-                              backgroundColor: const Color(0xFFEFF4FF),
-                              side: BorderSide.none,
-                            );
-                          }).toList(),
-                        ),
-                      ]),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+            if (canSee)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(children: [
 
-                  // 2. Identité Civile
-                  _Cadre(
-                    title: 'Identité civile',
-                    icon: Icons.account_circle_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(children: [
-                        _Row(label: 'Date naissance', value: p.dateOfBirth ?? '—'),
-                        _Row(label: 'Lieu naissance', value: p.placeOfBirth ?? '—'),
-                        _Row(label: 'Nationalité', value: p.nationality ?? '—'),
-                        _Row(label: 'État civil', value: p.maritalStatus ?? '—'),
-                        _Row(label: 'Genre', value: p.gender ?? '—'),
-                        _Row(label: 'Adresse', value: p.address ?? '—'),
-                        _Row(label: 'Père', value: p.fatherName ?? '—'),
-                        _Row(label: 'Mère', value: p.motherName ?? '—'),
-                        _Row(label: 'Contact', value: p.contactPhone ?? '—'),
-                      ]),
+                    // 1. Identité Civile
+                    _Cadre(
+                      title: 'Identité civile',
+                      icon: Icons.account_circle_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(children: [
+                          _Row(label: 'Nom complet', value: p.fullName ?? p.displayName),
+                          _Row(label: 'Date naissance', value: p.dateOfBirth ?? '—'),
+                          _Row(label: 'Lieu naissance', value: p.placeOfBirth ?? '—'),
+                          _Row(label: 'Nationalité', value: p.nationality ?? '—'),
+                          _Row(label: 'État civil', value: p.maritalStatus ?? '—'),
+                          _Row(label: 'Genre', value: p.gender ?? '—'),
+                          _Row(label: 'Adresse', value: p.address ?? '—'),
+                          _Row(label: 'Père', value: p.fatherName ?? '—'),
+                          _Row(label: 'Mère', value: p.motherName ?? '—'),
+                          _Row(label: 'Contact', value: p.contactPhone ?? '—'),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 3. Origine
-                  _Cadre(
-                    title: 'Origine',
-                    icon: Icons.map_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(children: [
-                        _Row(label: 'Province origine', value: p.originProvince ?? '—'),
-                        _Row(label: 'Territoire', value: p.originTerritory ?? '—'),
-                        _Row(label: 'Secteur', value: p.originSector ?? '—'),
-                      ]),
+                    // 2. Origine
+                    _Cadre(
+                      title: 'Origine',
+                      icon: Icons.map_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(children: [
+                          _Row(label: 'Province origine', value: p.originProvince ?? '—'),
+                          _Row(label: 'Territoire', value: p.originTerritory ?? '—'),
+                          _Row(label: 'Secteur', value: p.originSector ?? '—'),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 4. Résidence actuelle
-                  _Cadre(
-                    title: 'Résidence actuelle',
-                    icon: Icons.home_work_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(children: [
-                        _Row(label: 'Pays', value: p.residenceCountry ?? '—'),
-                        _Row(label: 'Province', value: p.residenceProvince ?? '—'),
-                        _Row(label: 'Territoire', value: p.residenceTerritory ?? '—'),
-                        _Row(label: 'Ville', value: p.residenceCity ?? '—'),
-                        _Row(label: 'Commune', value: p.residenceCommune ?? '—'),
-                        _Row(label: 'Quartier', value: p.residenceQuarter ?? '—'),
-                        _Row(label: 'Avenue', value: p.residenceAvenue ?? '—'),
-                        _Row(label: 'Numéro', value: p.residenceNumber ?? '—'),
-                      ]),
+                    // 3. Résidence actuelle
+                    _Cadre(
+                      title: 'Résidence actuelle',
+                      icon: Icons.home_work_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(children: [
+                          _Row(label: 'Pays', value: p.residenceCountry ?? '—'),
+                          _Row(label: 'Province', value: p.residenceProvince ?? '—'),
+                          _Row(label: 'Territoire', value: p.residenceTerritory ?? '—'),
+                          _Row(label: 'Ville', value: p.residenceCity ?? '—'),
+                          _Row(label: 'Commune', value: p.residenceCommune ?? '—'),
+                          _Row(label: 'Quartier', value: p.residenceQuarter ?? '—'),
+                          _Row(label: 'Avenue', value: p.residenceAvenue ?? '—'),
+                          _Row(label: 'Numéro', value: p.residenceNumber ?? '—'),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 5. Contact urgence
-                  _Cadre(
-                    title: 'Contact urgence',
-                    icon: Icons.contact_emergency_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(children: [
-                        _Row(label: 'Nom', value: p.emergencyContactName ?? '—'),
-                        _Row(label: 'Téléphone', value: p.emergencyContactPhone ?? '—'),
-                        _Row(label: 'Lien', value: p.emergencyContactRelation ?? '—'),
-                        if (p.emergencyContacts.isNotEmpty)
-                          ...p.emergencyContacts.map((e) {
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text((e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              subtitle: Text('${e['relation'] ?? ''} - ${e['phone'] ?? ''}', style: const TextStyle(fontSize: 12)),
-                            );
-                          }),
-                      ]),
+                    // 4. Biographie (Dans son propre cadre avec bouton Voir Plus dynamisé)
+                    _Cadre(
+                      title: 'Biographie',
+                      icon: Icons.history_edu_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: _ExpandableTextBody(text: p.bio ?? 'Aucune biographie renseignée.'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 6. Infos physiques
-                  _Cadre(
-                    title: 'Infos physiques',
-                    icon: Icons.monitor_weight_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(children: [
-                        _Row(label: 'Taille cm', value: p.height ?? '—'),
-                        _Row(label: 'Poids kg', value: p.weight ?? '—'),
-                        _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'),
-                        _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non'),
-                      ]),
+                    // 5. Profil Professionnel
+                    _Cadre(
+                      title: 'Profil Professionnel',
+                      icon: Icons.work_outline_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          _Row(label: 'Profession', value: p.profession ?? p.occupation ?? '—'),
+                          _ExpandableRow(label: 'Compétence', value: p.competence ?? '—'),
+                          _Row(label: 'THIX CHAT', value: p.thixChat ?? '—'),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: (p.languagesDetailed.isNotEmpty ? p.languagesDetailed : p.languages.map((e) => {'name': e}).toList()).map((l) {
+                              final name = (l['name'] ?? '').toString();
+                              final level = l['level'] != null ? ' ${l['level']}' : '';
+                              return Chip(
+                                label: Text('$name$level', style: const TextStyle(fontSize: 11, color: _blueDark, fontWeight: FontWeight.bold)),
+                                backgroundColor: const Color(0xFFEFF4FF),
+                                side: BorderSide.none,
+                              );
+                            }).toList(),
+                          ),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 7. Identité nationale
-                  _Cadre(
-                    title: 'Identité nationale',
-                    icon: Icons.verified_user_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: Column(children: [
-                        _Row(label: 'Numéro', value: p.nationalIdNumber ?? '—'),
-                        _Row(label: 'Type', value: p.idDocumentType ?? '—'),
-                        _Row(label: 'Date émission', value: p.idDocumentIssueDate ?? '—'),
-                        _Row(label: 'Date expiration', value: p.idDocumentExpiryDate ?? '—'),
-                        _Row(label: 'Lieu émission', value: p.idDocumentIssuePlace ?? '—'),
-                        _Row(label: 'Statut', value: p.idVerificationStatus ?? 'En attente'),
-                      ]),
+                    // 6. Contact urgence
+                    _Cadre(
+                      title: 'Contact urgence',
+                      icon: Icons.contact_emergency_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(children: [
+                          _Row(label: 'Nom', value: p.emergencyContactName ?? '—'),
+                          _Row(label: 'Téléphone', value: p.emergencyContactPhone ?? '—'),
+                          _Row(label: 'Lien', value: p.emergencyContactRelation ?? '—'),
+                          if (p.emergencyContacts.isNotEmpty)
+                            ...p.emergencyContacts.map((e) {
+                              return ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text((e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                subtitle: Text('${e['relation'] ?? ''} - ${e['phone'] ?? ''}', style: const TextStyle(fontSize: 12)),
+                              );
+                            }),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 8. Parcours scolaire
-                  _Cadre(
-                    title: 'Parcours scolaire',
-                    icon: Icons.account_balance_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: p.education.isEmpty 
-                        ? const Text('Aucun parcours scolaire', style: TextStyle(fontSize: 12, color: Colors.black54)) 
-                        : Column(children: p.education.map((e) {
-                            return ListTile(
-                              dense: true, 
-                              contentPadding: EdgeInsets.zero, 
-                              title: Text((e['institution'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
-                              subtitle: Text('${e['degree'] ?? ''} ${e['city'] ?? ''} ${e['startYear'] ?? e['period'] ?? ''}'),
-                            );
-                          }).toList()),
+                    // 7. Infos physiques
+                    _Cadre(
+                      title: 'Infos physiques',
+                      icon: Icons.monitor_weight_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(children: [
+                          _Row(label: 'Taille cm', value: p.height ?? '—'),
+                          _Row(label: 'Poids kg', value: p.weight ?? '—'),
+                          _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'),
+                          _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non'),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // 9. Formations & Certifications
-                  _Cadre(
-                    title: 'Formations & Certifs',
-                    icon: Icons.school_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: p.trainings.isEmpty && p.certifications.isEmpty
-                        ? const Text('Aucune formation ou certification', style: TextStyle(fontSize: 12, color: Colors.black54)) 
-                        : Column(children: [
-                            ...p.trainings.map((e) {
+                    // 8. Identité nationale (Statut traduit dynamiquement)
+                    _Cadre(
+                      title: 'Identité nationale',
+                      icon: Icons.verified_user_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: Column(children: [
+                          _Row(label: 'Numéro', value: p.nationalIdNumber ?? '—'),
+                          _Row(label: 'Type', value: p.idDocumentType ?? '—'),
+                          _Row(label: 'Date émission', value: p.idDocumentIssueDate ?? '—'),
+                          _Row(label: 'Date expiration', value: p.idDocumentExpiryDate ?? '—'),
+                          _Row(label: 'Lieu émission', value: p.idDocumentIssuePlace ?? '—'),
+                          _Row(label: 'Statut', value: _translateStatus(p.idVerificationStatus)),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 9. Parcours scolaire
+                    _Cadre(
+                      title: 'Parcours scolaire',
+                      icon: Icons.account_balance_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: p.education.isEmpty 
+                          ? const Text('Aucun parcours scolaire enregistré', style: TextStyle(fontSize: 12, color: Colors.black54)) 
+                          : Column(children: p.education.map((e) {
                               return ListTile(
                                 dense: true, 
                                 contentPadding: EdgeInsets.zero, 
-                                title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
-                                subtitle: Text('${e['organizer'] ?? e['provider'] ?? ''}'),
+                                title: Text((e['institution'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
+                                subtitle: Text('${e['degree'] ?? ''} ${e['city'] ?? ''} ${e['startYear'] ?? e['period'] ?? ''}'),
                               );
-                            }),
-                            ...p.certifications.map((e) {
+                            }).toList()),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 10. Formations & Certifications
+                    _Cadre(
+                      title: 'Formations & Certifs',
+                      icon: Icons.school_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: p.trainings.isEmpty && p.certifications.isEmpty
+                          ? const Text('Aucune formation ou certification', style: TextStyle(fontSize: 12, color: Colors.black54)) 
+                          : Column(children: [
+                              ...p.trainings.map((e) {
+                                return ListTile(
+                                  dense: true, 
+                                  contentPadding: EdgeInsets.zero, 
+                                  title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
+                                  subtitle: Text('${e['organizer'] ?? e['provider'] ?? ''}'),
+                                );
+                              }),
+                              ...p.certifications.map((e) {
+                                return ListTile(
+                                  dense: true, 
+                                  contentPadding: EdgeInsets.zero, 
+                                  leading: const Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
+                                  title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
+                                  subtitle: Text('${e['issuer'] ?? e['org'] ?? ''}'),
+                                );
+                              }),
+                            ]),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 11. Expériences
+                    _Cadre(
+                      title: 'Expériences',
+                      icon: Icons.business_center_rounded,
+                      child: _MaskableContent(
+                        canSee: canSee,
+                        child: p.experience.isEmpty 
+                          ? const Text('Aucune expérience enregistrée', style: TextStyle(fontSize: 12, color: Colors.black54)) 
+                          : Column(children: p.experience.map((e) {
                               return ListTile(
                                 dense: true, 
                                 contentPadding: EdgeInsets.zero, 
-                                leading: const Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
-                                title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
-                                subtitle: Text('${e['issuer'] ?? e['org'] ?? ''}'),
+                                title: Text((e['title'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
+                                subtitle: Text('${e['company'] ?? e['org'] ?? ''} ${e['city'] ?? ''}'),
                               );
-                            }),
-                          ]),
+                            }).toList()),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 10. Expériences
-                  _Cadre(
-                    title: 'Expériences',
-                    icon: Icons.business_center_rounded,
-                    child: _MaskableContent(
-                      canSee: canSee,
-                      child: p.experience.isEmpty 
-                        ? const Text('Aucune expérience', style: TextStyle(fontSize: 12, color: Colors.black54)) 
-                        : Column(children: p.experience.map((e) {
-                            return ListTile(
-                              dense: true, 
-                              contentPadding: EdgeInsets.zero, 
-                              title: Text((e['title'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), 
-                              subtitle: Text('${e['company'] ?? e['org'] ?? ''} ${e['city'] ?? ''}'),
-                            );
-                          }).toList()),
-                    ),
-                  ),
-                ]),
+                  ]),
+                ),
               ),
-            ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ]);
         }),
@@ -418,6 +443,56 @@ class _Row extends StatelessWidget {
   }
 }
 
+/// Affiche un bloc de texte (comme la bio) avec un bouton "Voir plus" s'il dépasse une certaine longueur
+class _ExpandableTextBody extends StatefulWidget {
+  final String text;
+  const _ExpandableTextBody({required this.text});
+
+  @override
+  State<_ExpandableTextBody> createState() => _ExpandableTextBodyState();
+}
+
+class _ExpandableTextBodyState extends State<_ExpandableTextBody> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawText = widget.text.trim();
+    if (rawText.isEmpty || rawText == 'Aucune biographie renseignée.') {
+      return Text(rawText, style: const TextStyle(fontSize: 13, color: Colors.black54));
+    }
+
+    final isLong = rawText.length > 120; // Affiche le bouton si texte > 120 caractères
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          rawText,
+          maxLines: _expanded ? null : 3,
+          overflow: _expanded ? null : TextOverflow.fade,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.5, color: Colors.black87),
+        ),
+        if (isLong)
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Text(
+                  _expanded ? 'Voir moins' : 'Voir plus',
+                  style: const TextStyle(color: _blue, fontSize: 12, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// _ExpandableRow : Ancien widget gardé pour les champs type "Compétence" (Label à gauche, texte à droite)
 class _ExpandableRow extends StatefulWidget {
   final String label;
   final String value;
@@ -561,11 +636,13 @@ class _GateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = ctrl.accessState;
+    final rawStatus = s?.status?.name; // Accès au vrai statut dynamiquement
+    
     String label = "Demander l'accès";
-    bool isPending = s?.status == AccessRequestStatus.pending;
+    bool isPending = rawStatus == 'pending';
     
     if (isPending) label = 'Demande envoyée (En attente)';
-    if (s?.status == AccessRequestStatus.rejected) label = 'Refusé - Redemander';
+    if (rawStatus == 'rejected') label = 'Refusé - Redemander';
     
     // Le bouton doit être rouge par défaut. S'il a envoyé la requête, il devient grisé.
     final btnColor = isPending ? Colors.grey : _red;
