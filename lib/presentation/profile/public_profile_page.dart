@@ -1,3 +1,4 @@
+// lib/presentation/profile/public_profile_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -366,8 +367,10 @@ class _PState extends State<PublicProfilePage> {
                                 else periodStr = _get(e, ['period', 'periode']);
 
                                 return _DetailedListItem(
-                                  title: institution.isNotEmpty ? institution : '—',
-                                  subtitle: degree,
+                                  titleLabel: 'Diplôme / Titre',
+                                  title: degree.isNotEmpty ? degree : '—', // Diplôme en premier
+                                  subtitleLabel: 'Établissement',
+                                  subtitle: institution,
                                   location: city,
                                   period: periodStr,
                                   descriptionLabel: 'Description',
@@ -401,7 +404,9 @@ class _PState extends State<PublicProfilePage> {
                                 final locationStr = [sector, city].where((s) => s.isNotEmpty).join(' • ');
 
                                 return _DetailedListItem(
+                                  titleLabel: 'Titre / Poste',
                                   title: title.isNotEmpty ? title : '—',
+                                  subtitleLabel: 'Employeur / Org.',
                                   subtitle: company,
                                   location: locationStr,
                                   period: period,
@@ -713,7 +718,9 @@ class _LimitedListState extends State<_LimitedList> {
 
 /// Un élément de cursus/expérience qui affiche les labels corrects et les miniatures
 class _DetailedListItem extends StatelessWidget {
+  final String titleLabel; // NOUVEAU
   final String title;
+  final String subtitleLabel; // NOUVEAU
   final String subtitle;
   final String location;
   final String period;
@@ -722,7 +729,9 @@ class _DetailedListItem extends StatelessWidget {
   final List<String> documentUrls;
 
   const _DetailedListItem({
+    this.titleLabel = 'Titre / Poste',
     required this.title,
+    this.subtitleLabel = 'Organisation',
     required this.subtitle,
     required this.location,
     required this.period,
@@ -736,46 +745,57 @@ class _DetailedListItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Titre principal
-          _Row(label: title.contains('Établissement') ? 'Établissement' : 'Titre / Poste', value: title),
-          
-          if (subtitle.isNotEmpty)
-            _Row(label: 'Organisation', value: subtitle),
-            
-          if (location.isNotEmpty)
-            _Row(label: 'Lieu / Ville', value: location),
-            
-          if (period.isNotEmpty)
-            _Row(label: 'Période', value: period),
-          
-          if (description != null && description!.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (descriptionLabel != null) 
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Text(descriptionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
-                    ),
-                  _ExpandableTextBody(text: description!),
-                ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // COLONNE GAUCHE (Toutes les informations textuelles)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Row(label: titleLabel, value: title),
+                    
+                    if (subtitle.isNotEmpty)
+                      _Row(label: subtitleLabel, value: subtitle),
+                      
+                    if (location.isNotEmpty)
+                      _Row(label: 'Lieu / Ville', value: location),
+                      
+                    if (period.isNotEmpty)
+                      _Row(label: 'Période', value: period),
+                    
+                    if (description != null && description!.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (descriptionLabel != null) 
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4.0),
+                                child: Text(descriptionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                              ),
+                            _ExpandableTextBody(text: description!),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            
-          // Affichage des Preuves sous forme de miniatures photos
-          if (documentUrls.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12.0),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: documentUrls.map((url) => _ThumbnailViewerButton(label: 'Preuve', documentUrl: url)).toList(),
-              ),
-            ),
+
+              // COLONNE DROITE (Miniatures des preuves/diplômes empilées)
+              if (documentUrls.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Column(
+                  children: documentUrls.map((url) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: _ThumbnailViewerButton(label: 'Preuve', documentUrl: url),
+                  )).toList(),
+                ),
+              ],
+            ],
+          ),
           const Divider(height: 20, color: Color(0xFFF0F0F0)),
         ],
       ),
