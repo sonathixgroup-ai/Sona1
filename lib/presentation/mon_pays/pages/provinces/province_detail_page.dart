@@ -1,6 +1,5 @@
 // ============================================================
-// FICHIER - PROD FIX : province_detail_page.dart - ULTIME & COMPLET
-// Design: Carrés/Rectangles + Navigation complète + Admin Sync
+// FICHIER - PROD FIX : province_detail_page.dart - ULTIME & CORRIGÉ
 // ============================================================
 
 import 'dart:async';
@@ -107,7 +106,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 _MinistersGrid(ministers: province.ministers ?? []),
                 const SizedBox(height: 20),
 
-                // 5. Peuples & Tribus (Nouveau)
+                // 5. Peuples & Tribus
                 if (province.tribes != null && province.tribes!.isNotEmpty) ...[
                   _SectionLabel('Peuples & Tribus Autochtones'),
                   const SizedBox(height: 12),
@@ -178,7 +177,9 @@ class _SliverHeader extends StatelessWidget {
 class _IdentitySquare extends StatelessWidget {
   final Province province;
   const _IdentitySquare({required this.province});
-  static const navyDeep = Color(0xFF0A1F44); static const hairline = Color(0xFFE7EAF3);
+  static const navyDeep = Color(0xFF0A1F44); 
+  static const hairline = Color(0xFFE7EAF3);
+  
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -186,13 +187,28 @@ class _IdentitySquare extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         Row(children: [
-          Container(width: 64, height: 64, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: hairline), color: const Color(0xFFF6F7FB)), child: province.coatOfArmsUrl != null? ClipOval(child: CachedNetworkImage(imageUrl: province.coatOfArmsUrl!, fit: BoxFit.contain)) : const Icon(Icons.shield, color: navyDeep)),
+          Container(
+            width: 64, height: 64, 
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: hairline), color: const Color(0xFFF6F7FB)), 
+            child: province.coatOfArmsUrl != null 
+                ? ClipOval(child: CachedNetworkImage(imageUrl: province.coatOfArmsUrl!, fit: BoxFit.contain)) 
+                : const Icon(Icons.shield, color: navyDeep),
+          ),
           const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(province.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: navyDeep)),
-            const SizedBox(height: 4),
-            Row(children: [ _Chip(text: province.code, color: const Color(0xFFD32F2F)), const SizedBox(width: 8), Text('Région ${province.region}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF123B7A))) ]),
-          ]),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, 
+              children: [
+                Text(province.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: navyDeep)),
+                const SizedBox(height: 4),
+                Row(children: [ 
+                  _Chip(text: province.code, color: const Color(0xFFD32F2F)), 
+                  const SizedBox(width: 8), 
+                  Text('Région ${province.region}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF123B7A))) 
+                ]),
+              ],
+            ),
+          ),
         ]),
         const Divider(height: 24, color: hairline),
         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
@@ -205,8 +221,22 @@ class _IdentitySquare extends StatelessWidget {
   }
   String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
 }
-class _Stat extends StatelessWidget { final IconData icon; final String label, value; const _Stat({required this.icon, required this.label, required this.value}); @override Widget build(BuildContext context) => Column(children: [Icon(icon, size: 20, color: const Color(0xFF123B7A)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF6B7690)))]); }
-class _Chip extends StatelessWidget { final String text; final Color color; const _Chip({required this.text, required this.color}); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)), child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white))); }
+
+class _Stat extends StatelessWidget { 
+  final IconData icon; 
+  final String label, value; 
+  const _Stat({required this.icon, required this.label, required this.value}); 
+  @override 
+  Widget build(BuildContext context) => Column(children: [Icon(icon, size: 20, color: const Color(0xFF123B7A)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF6B7690)))]); 
+}
+
+class _Chip extends StatelessWidget { 
+  final String text; 
+  final Color color; 
+  const _Chip({required this.text, required this.color}); 
+  @override 
+  Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)), child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white))); 
+}
 
 // ==================== INSTITUTIONAL & HISTORICAL DETAILS ====================
 class _InstitutionalDetailsGrid extends StatelessWidget {
@@ -301,6 +331,7 @@ class _ExecutiveGrid extends StatelessWidget {
     );
   }
 }
+
 class _SquareExecutiveCard extends StatelessWidget {
   final String role, name; final String? photoUrl;
   const _SquareExecutiveCard({required this.role, required this.name, this.photoUrl});
@@ -341,6 +372,7 @@ class _MinistersGrid extends StatelessWidget {
     );
   }
 }
+
 class _SquareMinisterCard extends StatelessWidget {
   final String name, role; final String? photoUrl;
   const _SquareMinisterCard({required this.name, required this.role, this.photoUrl});
@@ -785,6 +817,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0A1F44)));
 }
+
 class _InfoCard extends StatelessWidget {
   final String content;
   const _InfoCard({required this.content});
@@ -795,12 +828,14 @@ class _InfoCard extends StatelessWidget {
     child: Text(content, style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF10182B))),
   );
 }
+
 class _EmptyCard extends StatelessWidget {
   final String text;
   const _EmptyCard({required this.text});
   @override
   Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EAF3))), child: Center(child: Text(text, style: const TextStyle(color: Color(0xFF6B7690), fontStyle: FontStyle.italic))));
 }
+
 class _ErrorView extends StatelessWidget {
   final VoidCallback onRetry;
   const _ErrorView({required this.onRetry});
