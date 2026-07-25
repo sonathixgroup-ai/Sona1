@@ -7,7 +7,8 @@ import 'package:thix_id/services/platform_file_from_path_stub.dart' if (dart.lib
 
 class DocumentService {
   static const String table = 'documents';
-  static const String bucket = 'this-documents';
+  static const String bucket = 'documents'; // ou 'thix-credentials'
+
   final SupabaseClient _client;
   DocumentService({SupabaseClient? client}) : _client = client?? SupabaseConfig.client;
   static final Map<String,_UrlCache> _urlCache={};
