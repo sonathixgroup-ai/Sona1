@@ -12,8 +12,11 @@ import 'dashboard_ui.dart';
 import 'dashboard_editors.dart';
 
 // ============================================================
-// DASHBOARD_TABS.DART - TOUS LES ONGLETS COMPLETS
+// CONSTANTES DESIGN & CHARTE GRAPHIQUE
 // ============================================================
+const _blue = Color(0xFF0D2CC1);
+const _blueDark = Color(0xFF0A1E8A);
+const _bgLight = Color(0xFFF5F6FB);
 
 String _truncate(String v, int max) {
   final s = v.trim();
@@ -21,6 +24,65 @@ String _truncate(String v, int max) {
   return '${s.substring(0, max).trim()}…';
 }
 
+// ============================================================
+// COMPOSANTS UI RÉUTILISABLES POUR LES ONGLETS
+// ============================================================
+class _TabSectionCard extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final Widget child;
+
+  const _TabSectionCard({required this.title, this.subtitle, required this.icon, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: _blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                alignment: Alignment.center,
+                child: Icon(icon, color: _blue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _blueDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (subtitle != null)
+                      Text(subtitle!, style: const TextStyle(color: Colors.black54, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// TAB: PROFIL (IDENTITÉ & SCORE)
+// ============================================================
 class ProfileTab extends StatelessWidget {
   final dynamic authUser, profile;
   final int score;
@@ -50,10 +112,10 @@ class ProfileTab extends StatelessWidget {
             context.go('${AppRoutes.payment}?returnTo=$receiptReturn');
           },
         ),
-      DashboardCard(
+      _TabSectionCard(
         icon: Icons.badge_rounded,
         title: 'Profil Professionnel',
-        subtitle: 'Données sécurisées liées à votre THIX ID',
+        subtitle: 'Données liées à votre THIX ID',
         child: Column(
           children: [
             DashboardInfoRow(label: 'THIX ID', value: user.thixId),
@@ -94,10 +156,10 @@ class ProfileTab extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 12),
-      DashboardCard(
+      _TabSectionCard(
         icon: Icons.account_circle_rounded,
         title: 'Identité civile',
-        subtitle: 'Informations sensibles (strictement protégées)',
+        subtitle: 'Informations sensibles protégées',
         child: Column(
           children: [
             DashboardInfoRow(label: 'Date de naissance', value: authUser.dateOfBirth ?? '—'),
@@ -113,7 +175,7 @@ class ProfileTab extends StatelessWidget {
     ];
 
     final right = <Widget>[
-      DashboardCard(
+      _TabSectionCard(
         icon: Icons.school_rounded,
         title: 'Cursus scolaire',
         subtitle: '${user.education.length} entrée(s)',
@@ -121,7 +183,7 @@ class ProfileTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (user.education.isEmpty)
-              Text('Aucune formation enregistrée.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+              const Text('Aucune formation enregistrée.', style: TextStyle(fontSize: 12, color: Colors.black54))
             else
               ...user.education.take(3).map((e) {
                 final inst = (e['institution'] as String?) ?? (e['school'] as String?) ?? '—';
@@ -135,111 +197,65 @@ class ProfileTab extends StatelessWidget {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  leading: const Icon(Icons.school_rounded, color: LightModeColors.secondaryText),
-                  title: Text(inst, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  subtitle: meta.isEmpty ? null : Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                  leading: const Icon(Icons.school_rounded, color: Colors.grey),
+                  title: Text(inst, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                  subtitle: meta.isEmpty ? null : Text(meta, style: const TextStyle(fontSize: 11, color: Colors.black54)),
                 );
               }),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: () => context.push(AppRoutes.education),
-                icon: const Icon(Icons.school_rounded, color: Color(0xFF123B7A)),
-                label: const Text('Ajouter une formation'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightModeColors.accent,
-                  foregroundColor: const Color(0xFF123B7A),
-                  elevation: 0,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => EducationEditorSheet.show(context, profile: user, profileService: profileService),
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Gérer', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _blueDark,
+                      side: BorderSide(color: _blue.withOpacity(0.3)),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => ParcoursEditorSheet.show(context, profile: user, profileService: profileService),
-                icon: const Icon(Icons.edit_rounded, size: 18),
-                label: const Text('Voir plus / Modifier'),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _VisibilityToggle(
-                label: 'Public',
-                value: user.visibility.education,
-                onChanged: (v) => profileService.updateVisibility(userId: user.userId, visibility: user.visibility.copyWith(education: v)),
-              ),
+                const SizedBox(width: 8),
+                _VisibilityToggle(
+                  label: 'Public',
+                  value: user.visibility.education,
+                  onChanged: (v) => profileService.updateVisibility(userId: user.userId, visibility: user.visibility.copyWith(education: v)),
+                ),
+              ],
             ),
           ],
         ),
       ),
       const SizedBox(height: 12),
-      DashboardCard(
-        icon: Icons.work_history_rounded,
-        title: 'Expérience professionnelle',
-        subtitle: '${user.experience.length} entrée(s)',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (user.experience.isEmpty)
-              Text('Aucune expérience enregistrée.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
-            else
-              ...user.experience.take(3).map((e) {
-                final title = (e['title'] as String?) ?? '—';
-                final company = (e['company'] as String?) ?? '';
-                final city = (e['city'] as String?) ?? '';
-                final meta = [company, city].where((v) => v.trim().isNotEmpty).join(' • ');
-
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  leading: const Icon(Icons.work_rounded, color: LightModeColors.secondaryText),
-                  title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  subtitle: meta.isEmpty ? null : Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
-                );
-              }),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => ParcoursEditorSheet.show(context, profile: user, profileService: profileService),
-                icon: const Icon(Icons.edit_rounded, size: 18),
-                label: const Text('Voir plus / Modifier'),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _VisibilityToggle(
-                label: 'Public',
-                value: user.visibility.experience,
-                onChanged: (v) => profileService.updateVisibility(userId: user.userId, visibility: user.visibility.copyWith(experience: v)),
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 12),
-      DashboardCard(
+      _TabSectionCard(
         icon: Icons.insights_rounded,
         title: 'Indice de confiance',
         subtitle: 'THIX Score + conformité',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('THIX Score: $score/100', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('THIX Score:', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black54)),
+                Text('$score/100', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _blueDark)),
+              ],
+            ),
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(30),
               child: LinearProgressIndicator(
                 value: (score.clamp(0, 100)) / 100.0,
-                backgroundColor: Colors.black.withOpacity(0.08),
-                valueColor: const AlwaysStoppedAnimation(LightModeColors.accent),
+                backgroundColor: Colors.grey.shade200,
+                valueColor: const AlwaysStoppedAnimation(Colors.green),
                 minHeight: 10,
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Complétez Bio, Compétences, Formations et Documents pour améliorer votre score.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35),
+            const Text(
+              'Complétez votre Bio, Compétences, Formations et Documents pour atteindre 100.',
+              style: TextStyle(fontSize: 11, color: Colors.black54, height: 1.35),
             ),
           ],
         ),
@@ -278,9 +294,14 @@ class _VisibilityToggle extends StatelessWidget {
     final child = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w900)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w800)),
         const SizedBox(width: 8),
-        Switch(value: value, onChanged: onChanged, activeColor: LightModeColors.success),
+        Switch(
+          value: value, 
+          onChanged: onChanged, 
+          activeColor: Colors.green,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
       ],
     );
     return tooltip == null ? child : Tooltip(message: tooltip!, child: child);
@@ -309,15 +330,17 @@ class _ExpandableTextRowState extends State<_ExpandableTextRow> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
-            TextButton(
-              onPressed: text == '—' ? null : () => setState(() => _expanded = !_expanded),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-              child: Text(_expanded ? 'Voir moins' : 'Voir plus'),
-            ),
+            Text(widget.label, style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w800)),
+            if (raw.length > 50)
+              TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                child: Text(_expanded ? 'Moins' : 'Plus', style: const TextStyle(fontSize: 11, color: _blue)),
+              ),
           ],
         ),
-        Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface, height: 1.4)),
+        const SizedBox(height: 4),
+        Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, height: 1.4)),
       ],
     );
   }
@@ -334,22 +357,22 @@ class _LanguagesRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Langues', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+        const Text('Langues', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         if (list.isEmpty)
-          Text('—', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface))
+          const Text('—', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))
         else
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: list.map((l) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
+                color: _bgLight,
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Theme.of(context).dividerColor),
+                border: Border.all(color: Colors.black12),
               ),
-              child: Text(l, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900)),
+              child: Text(l, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _blueDark)),
             )).toList(),
           ),
       ],
@@ -357,9 +380,13 @@ class _LanguagesRow extends StatelessWidget {
   }
 }
 
+// ============================================================
+// TAB: DOCUMENTS (SANS STREAM)
+// ============================================================
 class DocumentsTab extends StatelessWidget {
   final String uid;
-  final dynamic docs, userService;
+  final DocumentService docs;
+  final dynamic userService;
   final String filter;
   final ValueChanged<String> onChangeFilter;
 
@@ -377,10 +404,10 @@ class DocumentsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TabScaffold(
     children: [
-      DashboardCard(
+      _TabSectionCard(
         icon: Icons.folder_special_rounded,
-        title: 'Documents',
-        subtitle: 'Portefeuille documentaire sécurisé',
+        title: 'Documents Sécurisés',
+        subtitle: 'Votre portefeuille numérique certifié',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -391,19 +418,25 @@ class DocumentsTab extends StatelessWidget {
                 label: Text(f),
                 selected: filter == f,
                 onSelected: (_) => onChangeFilter(f),
-                selectedColor: LightModeColors.accent.withOpacity(0.18),
-                labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: filter == f ? LightModeColors.accent : Theme.of(context).colorScheme.onSurface,
+                selectedColor: _blue.withOpacity(0.1),
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  color: filter == f ? _blue : Colors.black87,
                 ),
-                side: BorderSide(color: filter == f ? LightModeColors.accent : Theme.of(context).dividerColor),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                side: BorderSide(color: filter == f ? _blue : Colors.black12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               )).toList(),
             ),
-            const SizedBox(height: 12),
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: docs.streamDocuments(uid),
+            const SizedBox(height: 16),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: docs.fetchDocuments(uid, limit: 50), // Remplace le stream
               builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                   return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+                }
+                
                 final all = snap.data ?? [];
                 final filtered = all.where((d) {
                   if (filter == 'Tous') return true;
@@ -412,14 +445,14 @@ class DocumentsTab extends StatelessWidget {
                 }).toList();
 
                 if (filtered.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text('Aucun document pour ce filtre.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: Text('Aucun document trouvé pour ce filtre.', style: TextStyle(color: Colors.black54, fontSize: 12))),
                   );
                 }
 
                 return Column(
-                  children: filtered.take(8).map((data) {
+                  children: filtered.take(10).map((data) {
                     final title = (data['title'] as String?) ?? (data['doc_id'] as String?) ?? 'Document';
                     final docId = (data['doc_id'] as String?) ?? '';
                     final status = (data['status'] as String?) ?? 'pending';
@@ -439,41 +472,42 @@ class DocumentsTab extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final confirmed = await ConfirmFeeSheet.show(
-                  context,
-                  title: 'Uploader un document',
-                  description: 'Frais institutionnels (simulation): 1 USD par dépôt.',
-                  amountLabel: 'Payer 1 USD et continuer',
-                );
-                
-                if (confirmed != true) return;
-                
-                try {
-                  await userService.addPaymentTransaction(
-                    uid: uid,
-                    title: 'Dépôt de document',
-                    amount: 1,
-                    currency: 'USD',
-                    method: 'Simulé',
-                    status: 'paid',
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final confirmed = await ConfirmFeeSheet.show(
+                    context,
+                    title: 'Uploader un document',
+                    description: 'Frais institutionnels de vérification: 1 USD par dépôt.',
+                    amountLabel: 'Payer 1 USD et continuer',
                   );
-                } catch (e) {
-                  debugPrint('DocumentsTab: addPaymentTransaction failed $e');
-                }
-                
-                if (!context.mounted) return;
-                context.push(AppRoutes.vault);
-              },
-              icon: const Icon(Icons.upload_rounded, color: Color(0xFF123B7A)),
-              label: const Text('Uploader un nouveau document (1 USD)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LightModeColors.accent,
-                foregroundColor: const Color(0xFF123B7A),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                  
+                  if (confirmed != true) return;
+                  
+                  try {
+                    await userService.addPaymentTransaction(
+                      uid: uid,
+                      title: 'Dépôt de document',
+                      amount: 1,
+                      currency: 'USD',
+                      method: 'Simulé',
+                      status: 'paid',
+                    );
+                  } catch (e) {
+                    debugPrint('DocumentsTab: addPaymentTransaction failed $e');
+                  }
+                  
+                  if (!context.mounted) return;
+                  context.push(AppRoutes.vault);
+                },
+                icon: const Icon(Icons.upload_rounded, size: 18),
+                label: const Text('Nouveau document (1 USD)', style: TextStyle(fontWeight: FontWeight.w900)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _blue,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                ),
               ),
             ),
           ],
@@ -491,12 +525,15 @@ class _DocStatusChip {
 
   factory _DocStatusChip.from(String raw) {
     final v = raw.trim().toLowerCase();
-    if (v == 'verified') return _DocStatusChip(label: 'Vérifié', bg: const Color(0xFFE6FFFA), fg: LightModeColors.success);
+    if (v == 'verified') return const _DocStatusChip(label: 'Vérifié', bg: Color(0xFFE6FFFA), fg: Colors.green);
     if (v == 'rejected') return _DocStatusChip(label: 'Rejeté', bg: Colors.red.shade50, fg: Colors.red.shade700);
-    return _DocStatusChip(label: 'En attente', bg: LightModeColors.accent.withOpacity(0.15), fg: const Color(0xFF8A6B00));
+    return _DocStatusChip(label: 'En attente', bg: Colors.orange.withOpacity(0.15), fg: Colors.orange.shade800);
   }
 }
 
+// ============================================================
+// TAB: EXPÉRIENCES & COMPÉTENCES
+// ============================================================
 class ExperienceSkillsTab extends StatelessWidget {
   final dynamic profile, profileService;
 
@@ -507,14 +544,14 @@ class ExperienceSkillsTab extends StatelessWidget {
     final user = profile;
     return TabScaffold(
       children: [
-        DashboardCard(
-          icon: Icons.work_history_rounded,
+        _TabSectionCard(
+          icon: Icons.business_center_rounded,
           title: 'Expériences professionnelles',
-          subtitle: '${user.experience.length} entrée(s)',
+          subtitle: '${user.experience.length} expérience(s)',
           child: Column(
             children: [
               if (user.experience.isEmpty)
-                Text('Aucune expérience. Ajoutez votre parcours.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                const Text('Aucune expérience. Ajoutez votre parcours.', style: TextStyle(fontSize: 12, color: Colors.black54))
               else
                 ...user.experience.map((e) {
                   final title = (e['title'] as String?) ?? '—';
@@ -523,39 +560,64 @@ class ExperienceSkillsTab extends StatelessWidget {
                   final tasks = (e['tasks'] as String?) ?? '';
                   final meta = [org, date].where((v) => v.trim().isNotEmpty).join(' • ');
 
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.work_rounded, color: LightModeColors.secondaryText),
-                    title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
-                    subtitle: Text(
-                      [meta, tasks.trim().isEmpty ? '' : _truncate(tasks, 90)].where((v) => v.trim().isNotEmpty).join('\n'),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.work_outline_rounded, color: Colors.grey, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                              if (meta.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(meta, style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w700)),
+                              ],
+                              if (tasks.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(_truncate(tasks, 120), style: const TextStyle(fontSize: 12, height: 1.3)),
+                              ]
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: () => ExperienceEditorSheet.show(context, profile: user, profileService: profileService),
-                  icon: const Icon(Icons.add_rounded, color: Color(0xFF123B7A)),
-                  label: const Text('Ajouter une expérience'),
-                  style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF123B7A), elevation: 0),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => ExperienceEditorSheet.show(context, profile: user, profileService: profileService),
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: const Text('Gérer', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(foregroundColor: _blueDark, side: BorderSide(color: _blue.withOpacity(0.3))),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _VisibilityToggle(
+                    label: 'Public',
+                    value: user.visibility.experience,
+                    onChanged: (v) => profileService.updateVisibility(userId: user.userId, visibility: user.visibility.copyWith(experience: v)),
+                  ),
+                ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 12),
-        DashboardCard(
+        _TabSectionCard(
           icon: Icons.psychology_rounded,
           title: 'Compétences',
           subtitle: '${user.skills.length} compétence(s)',
           child: Column(
             children: [
               if (user.skills.isEmpty)
-                Text('Aucune compétence.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+                const Text('Aucune compétence renseignée.', style: TextStyle(fontSize: 12, color: Colors.black54))
               else
                 ...user.skills.map((s) {
                   final name = (s['name'] as String?) ?? '—';
@@ -566,50 +628,50 @@ class ExperienceSkillsTab extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).scaffoldBackgroundColor,
+                      color: _bgLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Theme.of(context).dividerColor),
+                      border: Border.all(color: Colors.black12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: LightModeColors.secondaryText, size: 18),
+                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 18),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
+                              Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                               if (details.trim().isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                Text(_truncate(details, 110), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.35)),
+                                Text(_truncate(details, 110), style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.3)),
                               ]
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        StatusChip(label: level, bg: LightModeColors.accent.withOpacity(0.18), textColor: const Color(0xFF123B7A)),
+                        StatusChip(label: level, bg: _blue.withOpacity(0.1), textColor: _blueDark),
                       ],
                     ),
                   );
                 }),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: () => SkillsEditorSheet.show(context, profile: user, profileService: profileService),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Ajouter une compétence'),
-                  style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: _VisibilityToggle(
-                  label: 'Public',
-                  value: user.visibility.skills,
-                  onChanged: (v) => profileService.updateVisibility(userId: user.userId, visibility: user.visibility.copyWith(skills: v)),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => SkillsEditorSheet.show(context, profile: user, profileService: profileService),
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: const Text('Gérer', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(foregroundColor: _blueDark, side: BorderSide(color: _blue.withOpacity(0.3))),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _VisibilityToggle(
+                    label: 'Public',
+                    value: user.visibility.skills,
+                    onChanged: (v) => profileService.updateVisibility(userId: user.userId, visibility: user.visibility.copyWith(skills: v)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -619,6 +681,9 @@ class ExperienceSkillsTab extends StatelessWidget {
   }
 }
 
+// ============================================================
+// TAB: INSCRIPTIONS AUX FORMATIONS
+// ============================================================
 class FormationsTab extends StatelessWidget {
   final dynamic user, userService;
   const FormationsTab({super.key, required this.user, required this.userService});
@@ -626,14 +691,15 @@ class FormationsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TabScaffold(
     children: [
-      DashboardCard(
-        icon: Icons.school_rounded,
-        title: 'Formations',
-        subtitle: 'Suivi des inscriptions',
+      _TabSectionCard(
+        icon: Icons.cast_for_education_rounded,
+        title: 'Inscriptions en cours',
+        subtitle: 'Suivi de vos formations',
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (user.enrollments.isEmpty)
-              Text('Aucune formation en cours. Inscrivez-vous à une formation officielle.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
+              const Text('Vous n\'êtes inscrit à aucune formation THIX.', style: TextStyle(fontSize: 12, color: Colors.black54))
             else
               ...user.enrollments.map((e) {
                 final title = (e['title'] as String?) ?? 'Formation';
@@ -644,50 +710,52 @@ class FormationsTab extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
+                    color: _bgLight,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).dividerColor),
+                    border: Border.all(color: Colors.black12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
-                          Expanded(child: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900))),
+                          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14))),
                           const SizedBox(width: 8),
                           StatusChip(
                             label: status,
-                            bg: (status.toLowerCase().contains('compl') ? LightModeColors.success : LightModeColors.accent).withOpacity(0.18),
-                            textColor: const Color(0xFF123B7A),
+                            bg: (status.toLowerCase().contains('compl') ? Colors.green : Colors.orange).withOpacity(0.15),
+                            textColor: status.toLowerCase().contains('compl') ? Colors.green.shade800 : Colors.orange.shade800,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(30),
                         child: LinearProgressIndicator(
                           value: progress / 100.0,
-                          minHeight: 10,
-                          backgroundColor: Colors.black.withOpacity(0.08),
-                          valueColor: const AlwaysStoppedAnimation(LightModeColors.accent),
+                          minHeight: 8,
+                          backgroundColor: Colors.grey.shade300,
+                          valueColor: const AlwaysStoppedAnimation(_blue),
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text('$progress%', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, fontWeight: FontWeight.w800)),
+                      Text('$progress% complété', style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w800)),
                     ],
                   ),
                 );
               }),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () => context.push(AppRoutes.education),
-              icon: const Icon(Icons.explore_rounded, color: Color(0xFF123B7A)),
-              label: const Text('Parcourir et s’inscrire'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LightModeColors.accent,
-                foregroundColor: const Color(0xFF123B7A),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(AppRoutes.education),
+                icon: const Icon(Icons.search_rounded, size: 18),
+                label: const Text('Trouver une formation', style: TextStyle(fontWeight: FontWeight.w900)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _blueDark,
+                  side: BorderSide(color: _blue.withOpacity(0.4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                ),
               ),
             ),
           ],
@@ -697,6 +765,9 @@ class FormationsTab extends StatelessWidget {
   );
 }
 
+// ============================================================
+// TAB: CV NUMÉRIQUE
+// ============================================================
 class CvTab extends StatefulWidget {
   final dynamic user;
   const CvTab({super.key, required this.user});
@@ -753,57 +824,43 @@ class _CvTabState extends State<CvTab> {
   @override
   Widget build(BuildContext context) => TabScaffold(
     children: [
-      DashboardCard(
-        icon: Icons.description_rounded,
+      _TabSectionCard(
+        icon: Icons.picture_as_pdf_rounded,
         title: 'Portfolio / CV',
-        subtitle: 'CV numérique généré à partir de votre profil',
+        subtitle: 'Généré à partir de votre profil certifié',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
+                color: _bgLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).dividerColor),
+                border: Border.all(color: Colors.black12),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.user.displayName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 6),
+                  Text(widget.user.displayName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _blueDark)),
+                  const SizedBox(height: 4),
                   Text(
                     [widget.user.occupation, widget.user.countryOrOrigin].where((v) => (v ?? '').trim().isNotEmpty).map((v) => v!.trim()).join(' • '),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    (widget.user.bio ?? '').trim().isEmpty ? 'Bio non renseignée.' : widget.user.bio!.trim(),
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.35),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
-                  Text('Expériences', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 6),
-                  if (widget.user.experience.isEmpty)
-                    Text('—', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText))
-                  else
-                    ...widget.user.experience.take(3).map((e) {
-                      final title = (e['title'] as String?) ?? '—';
-                      final org = (e['org'] as String?) ?? '';
-                      return Text(
-                        '• $title${org.trim().isEmpty ? '' : ' — $org'}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface, height: 1.4),
-                      );
-                    }),
+                  Text(
+                    (widget.user.bio ?? '').trim().isEmpty ? 'Bio non renseignée.' : widget.user.bio!.trim(),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(height: 1.4, fontSize: 13),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
+              height: 48,
+              child: FilledButton.icon(
                 onPressed: _exporting ? null : () async {
                   setState(() => _exporting = true);
                   try {
@@ -818,14 +875,12 @@ class _CvTabState extends State<CvTab> {
                   }
                 },
                 icon: _exporting
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF123B7A)))
-                    : const Icon(Icons.download_rounded, color: Color(0xFF123B7A)),
-                label: Text('Télécharger CV Numérique (PDF)', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightModeColors.accent,
-                  foregroundColor: const Color(0xFF123B7A),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                    : const Icon(Icons.download_rounded, size: 18),
+                label: const Text('Générer mon CV (PDF)', style: TextStyle(fontWeight: FontWeight.w900)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _blue,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
               ),
             ),
@@ -836,6 +891,9 @@ class _CvTabState extends State<CvTab> {
   );
 }
 
+// ============================================================
+// TAB: PAIEMENTS (SANS STREAM)
+// ============================================================
 class PaymentsTab extends StatelessWidget {
   final String uid;
   final dynamic userService, user;
@@ -845,15 +903,21 @@ class PaymentsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TabScaffold(
     children: [
-      DashboardCard(
+      _TabSectionCard(
         icon: Icons.payments_rounded,
         title: 'Historique des Paiements',
-        subtitle: 'Transactions liées à votre identité',
-        child: StreamBuilder<List<Map<String, dynamic>>>(
-          stream: userService.streamPayments(uid),
+        subtitle: 'Transactions liées à votre THIX ID',
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: userService.fetchPayments(uid), // Remplacer streamPayments par fetchPayments dans le service
           builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+               return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+            }
+
             final list = snap.data ?? [];
-            if (list.isEmpty) return Text('Aucune transaction enregistrée.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText));
+            if (list.isEmpty) {
+              return const Text('Aucune transaction enregistrée.', style: TextStyle(fontSize: 12, color: Colors.black54));
+            }
 
             return Column(
               children: list.take(15).map((data) {
@@ -867,22 +931,32 @@ class PaymentsTab extends StatelessWidget {
                 final dateStr = dt == null ? '—' : '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
                 final amountStr = '${(amount is num ? amount.toStringAsFixed(2) : amount?.toString() ?? '0.00')} $currency';
 
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    status == 'paid' ? Icons.check_circle_rounded : Icons.hourglass_bottom_rounded,
-                    color: status == 'paid' ? LightModeColors.success : LightModeColors.accent,
-                  ),
-                  title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  subtitle: Text('$dateStr • $method', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
                     children: [
-                      Text(amountStr, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
-                      const SizedBox(width: 6),
+                      Icon(
+                        status == 'paid' ? Icons.check_circle_rounded : Icons.pending_rounded,
+                        color: status == 'paid' ? Colors.green : Colors.orange,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Text('$dateStr • $method', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                          ],
+                        ),
+                      ),
+                      Text(amountStr, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _blueDark)),
+                      const SizedBox(width: 4),
                       IconButton(
-                        tooltip: 'Reçu (PDF)',
+                        tooltip: 'Télécharger le reçu',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () async {
                           try {
                             final bytes = await _ReceiptPdf.build(user: user, tx: data);
@@ -892,7 +966,7 @@ class PaymentsTab extends StatelessWidget {
                             debugPrint('Receipt failed $e');
                           }
                         },
-                        icon: const Icon(Icons.download_rounded),
+                        icon: const Icon(Icons.download_rounded, color: _blue, size: 20),
                       ),
                     ],
                   ),
@@ -926,7 +1000,7 @@ class _ReceiptPdf {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('THIX ID — Reçu', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.Text('THIX ID — Reçu de Paiement', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 12),
               pw.Text('Utilisateur: ${user.displayName}'),
               pw.Text('THIX ID: ${user.thixId}'),
@@ -937,7 +1011,7 @@ class _ReceiptPdf {
               pw.Text('Statut: $status'),
               pw.Text('Date: $dateStr'),
               pw.SizedBox(height: 18),
-              pw.Text('Ce reçu est généré automatiquement (simulation).'),
+              pw.Text('Ce reçu est généré automatiquement.', style: const pw.TextStyle(color: PdfColors.grey)),
             ],
           ),
         ),
@@ -947,6 +1021,9 @@ class _ReceiptPdf {
   }
 }
 
+// ============================================================
+// TAB: SÉCURITÉ
+// ============================================================
 class SecurityTab extends StatelessWidget {
   final String uid;
   final dynamic user, userService;
@@ -956,16 +1033,16 @@ class SecurityTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TabScaffold(
     children: [
-      DashboardCard(
-        icon: Icons.security_rounded,
+      _TabSectionCard(
+        icon: Icons.shield_rounded,
         title: 'Sécurité du Compte',
-        subtitle: 'Paramètres de protection et journalisation',
+        subtitle: 'Paramètres et journalisation',
         child: Column(
           children: [
             _SecurityToggleRow(
               icon: Icons.fingerprint_rounded,
-              title: 'Biométrie (Face ID / Empreinte)',
-              value: user.biometricsEnabled,
+              title: 'Connexion Biométrique',
+              value: user.biometricsEnabled ?? false,
               onChanged: (v) async {
                 try {
                   await userService.updateProfile(uid: uid, biometricsEnabled: v);
@@ -975,10 +1052,11 @@ class SecurityTab extends StatelessWidget {
                 }
               },
             ),
+            const SizedBox(height: 12),
             _SecurityToggleRow(
               icon: Icons.vpn_key_rounded,
               title: 'Double Authentification (2FA)',
-              value: user.twoFaEnabled,
+              value: user.twoFaEnabled ?? false,
               onChanged: (v) async {
                 try {
                   await userService.updateProfile(uid: uid, twoFaEnabled: v);
@@ -988,61 +1066,59 @@ class SecurityTab extends StatelessWidget {
                 }
               },
             ),
-            const SizedBox(height: 12),
-            Divider(color: Theme.of(context).dividerColor),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFEEEEEE)),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Historique des connexions', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900)),
-                TextButton.icon(
+                const Text('Journal des connexions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                TextButton(
                   onPressed: () => context.push(AppRoutes.settings),
-                  icon: const Icon(Icons.settings_rounded, size: 18),
-                  label: const Text('Paramètres'),
+                  child: const Text('Plus de détails', style: TextStyle(color: _blue)),
                 ),
               ],
             ),
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: userService.streamSecurityEvents(uid),
+            const SizedBox(height: 8),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: userService.fetchSecurityEvents(uid), // Remplacer streamSecurityEvents par fetchSecurityEvents
               builder: (context, snap) {
                 final list = snap.data ?? [];
                 if (list.isEmpty) {
-                  return Align(
+                  return const Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Aucun événement.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                    child: Text('Aucun événement récent.', style: TextStyle(color: Colors.black54, fontSize: 12)),
                   );
                 }
 
                 return Column(
-                  children: list.take(8).map((data) {
-                    final label = (data['label'] as String?) ?? (data['type'] as String?) ?? 'Événement';
+                  children: list.take(5).map((data) {
+                    final label = (data['label'] as String?) ?? (data['type'] as String?) ?? 'Événement de sécurité';
                     final created = data['created_at'];
                     final dt = created is DateTime ? created : (created is String ? DateTime.tryParse(created) : null);
-                    final dateStr = dt == null ? '—' : '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} • ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                    final dateStr = dt == null ? '—' : '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
-                    return ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.history_rounded, color: LightModeColors.secondaryText),
-                      title: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w900)),
-                      subtitle: Text(dateStr, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText)),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.history_rounded, color: Colors.grey, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                Text(dateStr, style: const TextStyle(color: Colors.black54, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }).toList(),
                 );
               },
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                onPressed: () => context.push(AppRoutes.settings),
-                icon: const Icon(Icons.lock_rounded),
-                label: const Text('Gestion avancée (2FA, appareils, etc.)'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
-                ),
-              ),
             ),
           ],
         ),
@@ -1061,71 +1137,15 @@ class _SecurityToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      Row(
-        children: [
-          Icon(icon, color: LightModeColors.secondaryText, size: 20),
-          const SizedBox(width: 12),
-          Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700)),
-        ],
+      Icon(icon, color: Colors.black54, size: 22),
+      const SizedBox(width: 12),
+      Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
+      Switch(
+        value: value, 
+        onChanged: onChanged, 
+        activeColor: Colors.green,
       ),
-      Switch(value: value, onChanged: onChanged, activeColor: LightModeColors.success),
     ],
   );
-}
-
-class ConfirmFeeSheet {
-  static Future<bool?> show(
-    BuildContext context, {
-    required String title,
-    required String description,
-    required String amountLabel,
-  }) {
-    return showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                IconButton(onPressed: () => context.pop(false), icon: const Icon(Icons.close_rounded)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(description, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: () => context.pop(true),
-                icon: const Icon(Icons.payments_rounded, color: Color(0xFF123B7A)),
-                label: Text(amountLabel, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF123B7A), fontWeight: FontWeight.w900)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LightModeColors.accent,
-                  foregroundColor: const Color(0xFF123B7A),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(onPressed: () => context.pop(false), child: const Text('Annuler')),
-          ],
-        ),
-      ),
-    );
-  }
 }
