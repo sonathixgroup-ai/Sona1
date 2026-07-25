@@ -14,7 +14,7 @@ const _blueDark = Color(0xFF0A1E8A);
 const _red = Color(0xFFD32F2F);
 
 // -----------------------------------------------------------------------------
-// HELPERS
+// HELPERS & EXTRACTEURS DE DONNÉES (POUR ÉVITER LES CHAMPS VIDES)
 // -----------------------------------------------------------------------------
 String _translateStatus(String? status) {
   if (status == null || status.trim().isEmpty) return 'Non renseigné';
@@ -28,23 +28,46 @@ String _translateStatus(String? status) {
   }
 }
 
-/// Permet de récupérer toutes les URLs de documents/preuves attachées à une expérience ou formation
-List<String> _extractDocs(dynamic e) {
-  if (e is! Map) return [];
-  List<String> urls = [];
-  if (e['proofUrl'] != null && e['proofUrl'].toString().isNotEmpty) urls.add(e['proofUrl'].toString());
-  if (e['document'] != null && e['document'].toString().isNotEmpty) urls.add(e['document'].toString());
-  if (e['documents'] is List) {
-    for (var doc in (e['documents'] as List)) {
-      if (doc is String && doc.isNotEmpty) urls.add(doc);
-      if (doc is Map) {
-        if (doc['url'] != null && doc['url'].toString().isNotEmpty) urls.add(doc['url'].toString());
-        if (doc['download_url'] != null && doc['download_url'].toString().isNotEmpty) urls.add(doc['download_url'].toString());
-        if (doc['fileUrl'] != null && doc['fileUrl'].toString().isNotEmpty) urls.add(doc['fileUrl'].toString());
-      }
+/// Extracteur ultra-robuste qui cherche la valeur parmi plusieurs clés possibles
+String _get(dynamic map, List<String> keys) {
+  if (map is! Map) return '';
+  for (var k in keys) {
+    if (map[k] != null && map[k].toString().trim().isNotEmpty) {
+      return map[k].toString().trim();
     }
   }
-  return urls.toSet().toList(); // Supprime les doublons
+  return '';
+}
+
+/// Récupère toutes les URLs de documents/preuves attachées (peu importe le nom du champ)
+List<String> _extractDocs(dynamic e) {
+  if (e is! Map) return [];
+  Set<String> urls = {};
+  
+  // Cherche dans toutes ces clés potentielles
+  final possibleKeys = ['proofUrl', 'document', 'documents', 'proofs', 'pieces', 'file', 'files', 'photos', 'url', 'urls', 'preuves', 'preuve'];
+  
+  for (var key in possibleKeys) {
+    var val = e[key];
+    if (val == null) continue;
+    
+    if (val is String && val.trim().isNotEmpty) {
+      urls.add(val.trim());
+    } else if (val is List) {
+      for (var item in val) {
+        if (item is String && item.trim().isNotEmpty) urls.add(item.trim());
+        if (item is Map) {
+          if (item['url'] != null) urls.add(item['url'].toString());
+          if (item['download_url'] != null) urls.add(item['download_url'].toString());
+          if (item['fileUrl'] != null) urls.add(item['fileUrl'].toString());
+        }
+      }
+    } else if (val is Map) {
+       if (val['url'] != null) urls.add(val['url'].toString());
+       if (val['download_url'] != null) urls.add(val['download_url'].toString());
+    }
+  }
+  return urls.toList();
 }
 
 // -----------------------------------------------------------------------------
@@ -120,7 +143,7 @@ class PublicProfileCtrl extends ChangeNotifier {
         approvedUntil: DateTime.now().add(const Duration(days: 1))
       );
     } catch (e) {
-      // Gérer l'erreur silencieusement ou via un toast
+      // Gérer l'erreur silencieusement
     } finally {
       isRequestingAccess = false;
       notifyListeners();
@@ -186,7 +209,6 @@ class _PState extends State<PublicProfilePage> {
             SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _RefStats(p: p))),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
             
-            // Bouton de demande d'accès
             if (!canSee) SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _GateCard(ctrl: c))),
             
             if (canSee)
@@ -229,11 +251,11 @@ class _PState extends State<PublicProfilePage> {
                     _Cadre(title: 'Biographie', icon: Icons.history_edu_rounded, child: _MaskableContent(canSee: canSee, child: _ExpandableTextBody(text: p.bio ?? 'Aucune biographie renseignée.'))),
                     const SizedBox(height: 16),
                     
-                    // 5. Profil Professionnel (sans les langues)
+                    // 5. Profil Professionnel
                     _Cadre(title: 'Profil Professionnel', icon: Icons.work_outline_rounded, child: _MaskableContent(canSee: canSee, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Row(label: 'Profession', value: p.profession ?? p.occupation ?? '—'), _ExpandableRow(label: 'Compétence', value: p.competence ?? '—'), _Row(label: 'THIX CHAT', value: p.thixChat ?? '—')]))),
                     const SizedBox(height: 16),
 
-                    // 6. Langues (Nouveau cadre dédié)
+                    // 6. Langues
                     _Cadre(
                       title: 'Langues', 
                       icon: Icons.language_rounded, 
@@ -266,7 +288,7 @@ class _PState extends State<PublicProfilePage> {
                     _Cadre(title: 'Infos physiques', icon: Icons.monitor_weight_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Taille cm', value: p.height ?? '—'), _Row(label: 'Poids kg', value: p.weight ?? '—'), _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'), _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non')]))),
                     const SizedBox(height: 16),
 
-                    // 9. Identité nationale (Modifié pour coller au dashboard et afficher toutes les photos)
+                    // 9. Identité nationale (Avec toutes les photos cliquables)
                     _Cadre(
                       title: 'Identité nationale',
                       icon: Icons.verified_user_rounded,
@@ -282,15 +304,13 @@ class _PState extends State<PublicProfilePage> {
                             _Row(label: 'Lieu émission', value: p.idDocumentIssuePlace ?? '—'),
                             _Row(label: 'Statut', value: _translateStatus(p.idVerificationStatus)),
                             
-                            // Affichage dynamique des photos (Recto, Verso, Selfie...)
                             Builder(
                               builder: (context) {
                                 List<String> idUrls = [];
-                                
-                                // Recherche dans les remoteDocs pour les fichiers liés à l'identité
+                                // Capte largement toutes les pièces d'identité (Recto, Verso, Selfie...)
                                 for (var d in c.remoteDocs) {
                                   final type = (d['doc_type'] ?? '').toString().toLowerCase();
-                                  if (type.contains('id') || type.contains('identite') || type.contains('recto') || type.contains('verso') || type.contains('selfie')) {
+                                  if (type.contains('id') || type.contains('identit') || type.contains('recto') || type.contains('verso') || type.contains('selfie') || type.contains('carte') || type.contains('national')) {
                                     final url = d['download_url']?.toString() ?? '';
                                     if (url.isNotEmpty && !idUrls.contains(url)) idUrls.add(url);
                                   }
@@ -304,7 +324,6 @@ class _PState extends State<PublicProfilePage> {
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: idUrls.map((url) {
-                                      // Nom générique pour la pièce
                                       return _DocumentViewerButton(label: 'Voir la pièce d\'identité', documentUrl: url);
                                     }).toList(),
                                   ),
@@ -327,22 +346,29 @@ class _PState extends State<PublicProfilePage> {
                           ? const Text('Aucun parcours scolaire enregistré', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
                               children: p.education.map((e) {
-                                final start = e['startYear']?.toString() ?? e['debut']?.toString() ?? '';
-                                final end = e['endYear']?.toString() ?? e['fin']?.toString() ?? '';
+                                // Extraction robuste
+                                final title = _get(e, ['institution', 'ecole', 'etablissement', 'school']);
+                                final subtitle = _get(e, ['degree', 'diplome', 'titre', 'certification']);
+                                final city = _get(e, ['city', 'ville', 'lieu']);
+                                final start = _get(e, ['startYear', 'debut', 'start_year']);
+                                final end = _get(e, ['endYear', 'fin', 'end_year']);
+                                final fallbackPeriod = _get(e, ['period', 'periode']);
+                                final desc = _get(e, ['description', 'details']);
+
                                 String periodStr = '';
                                 if (start.isNotEmpty && end.isNotEmpty) periodStr = '$start - $end';
                                 else if (start.isNotEmpty) periodStr = start;
                                 else if (end.isNotEmpty) periodStr = end;
-                                else periodStr = e['period']?.toString() ?? '';
+                                else periodStr = fallbackPeriod;
 
                                 return _DetailedListItem(
-                                  title: e['institution']?.toString() ?? e['ecole']?.toString() ?? e['etablissement']?.toString() ?? '—',
-                                  subtitle: e['degree']?.toString() ?? e['diplome']?.toString() ?? e['titre']?.toString() ?? '',
-                                  location: e['city']?.toString() ?? e['ville']?.toString() ?? '',
+                                  title: title.isNotEmpty ? title : '—',
+                                  subtitle: subtitle,
+                                  location: city,
                                   period: periodStr,
-                                  descriptionLabel: 'Description', // Ajout du label spécifique
-                                  description: e['description']?.toString(),
-                                  documentUrls: _extractDocs(e), // Preuves multiples
+                                  descriptionLabel: 'Description',
+                                  description: desc,
+                                  documentUrls: _extractDocs(e),
                                 );
                               }).toList(),
                             ),
@@ -360,18 +386,24 @@ class _PState extends State<PublicProfilePage> {
                           ? const Text('Aucune expérience enregistrée', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
                               children: p.experience.map((e) {
-                                final sector = e['sector']?.toString() ?? e['secteur']?.toString() ?? '';
-                                final city = e['city']?.toString() ?? e['ville']?.toString() ?? '';
+                                // Extraction robuste
+                                final title = _get(e, ['title', 'poste', 'jobTitle']);
+                                final subtitle = _get(e, ['company', 'entreprise', 'organisation', 'org', 'employeur']);
+                                final sector = _get(e, ['sector', 'secteur', 'domaine']);
+                                final city = _get(e, ['city', 'ville', 'lieu']);
+                                final period = _get(e, ['period', 'periode', 'dates', 'duree']);
+                                final missions = _get(e, ['missions', 'realisations', 'description', 'tasks', 'taches']);
+                                
                                 final locationStr = [sector, city].where((s) => s.isNotEmpty).join(' • ');
 
                                 return _DetailedListItem(
-                                  title: e['title']?.toString() ?? e['poste']?.toString() ?? '—',
-                                  subtitle: e['company']?.toString() ?? e['entreprise']?.toString() ?? e['organisation']?.toString() ?? '',
+                                  title: title.isNotEmpty ? title : '—',
+                                  subtitle: subtitle,
                                   location: locationStr,
-                                  period: e['period']?.toString() ?? e['periode']?.toString() ?? '',
-                                  descriptionLabel: 'Missions et réalisations', // Ajout du label spécifique
-                                  description: e['missions']?.toString() ?? e['realisations']?.toString() ?? e['description']?.toString(),
-                                  documentUrls: _extractDocs(e), // Preuves multiples
+                                  period: period,
+                                  descriptionLabel: 'Missions et réalisations',
+                                  description: missions,
+                                  documentUrls: _extractDocs(e),
                                 );
                               }).toList(),
                             ),
@@ -637,9 +669,9 @@ class _DetailedListItem extends StatelessWidget {
   final String subtitle;
   final String location;
   final String period;
-  final String? descriptionLabel; // Nouveau paramètre pour afficher "Description" ou "Missions"
+  final String? descriptionLabel;
   final String? description;
-  final List<String> documentUrls; // Changé pour gérer plusieurs documents
+  final List<String> documentUrls;
 
   const _DetailedListItem({
     required this.title,
@@ -648,7 +680,7 @@ class _DetailedListItem extends StatelessWidget {
     required this.period,
     this.descriptionLabel,
     this.description,
-    this.documentUrls = const [], // Par défaut, liste vide
+    this.documentUrls = const [],
   });
 
   @override
@@ -659,8 +691,13 @@ class _DetailedListItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.black87)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _blueDark)),
+          
+          if (subtitle.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2.0),
+              child: Text(subtitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _blueDark)),
+            ),
+            
           if (location.isNotEmpty || period.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4.0),
@@ -670,7 +707,6 @@ class _DetailedListItem extends StatelessWidget {
               ),
             ),
           
-          // Bloc Description/Missions avec son label dédié (comme dans les screenshots)
           if (description != null && description!.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 10.0),
@@ -687,7 +723,6 @@ class _DetailedListItem extends StatelessWidget {
               ),
             ),
             
-          // Si on a des documents, on les affiche tous sous forme de boutons
           if (documentUrls.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
@@ -802,7 +837,6 @@ class _ThixIdCardWidget extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                // Filigrane fond (Empreinte simulée ou motif)
                 Positioned.fill(
                   child: Center(
                     child: Icon(Icons.fingerprint, size: 180, color: Colors.white.withOpacity(0.25)),
@@ -812,7 +846,6 @@ class _ThixIdCardWidget extends StatelessWidget {
                   padding: const EdgeInsets.all(12.0),
                   child: Column(
                     children: [
-                      // HEADER CARTE
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -833,11 +866,9 @@ class _ThixIdCardWidget extends StatelessWidget {
                         ],
                       ),
                       const Spacer(),
-                      // BODY CARTE
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          // Photo Principale
                           Container(
                             width: 85,
                             height: 110,
@@ -853,7 +884,6 @@ class _ThixIdCardWidget extends StatelessWidget {
                                 ? const Icon(Icons.person, color: Colors.grey, size: 50) : null,
                           ),
                           const SizedBox(width: 12),
-                          // Informations textuelles
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -866,7 +896,6 @@ class _ThixIdCardWidget extends StatelessWidget {
                               ],
                             ),
                           ),
-                          // Section Droite (QR Code & Petite photo)
                           Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -877,7 +906,7 @@ class _ThixIdCardWidget extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(2),
                                 color: Colors.white,
-                                child: const Icon(Icons.qr_code_2, size: 55, color: Color(0xFF8B0000)), // Faux QR pour le design
+                                child: const Icon(Icons.qr_code_2, size: 55, color: Color(0xFF8B0000)), // Faux QR
                               ),
                               const SizedBox(height: 4),
                               const Text('CONGOLAIS', style: TextStyle(color: Color(0xFF333333), fontWeight: FontWeight.w900, fontSize: 11)),
@@ -895,7 +924,6 @@ class _ThixIdCardWidget extends StatelessWidget {
             ),
           ),
         ),
-        // Mention de non-responsabilité
         const Padding(
           padding: EdgeInsets.only(top: 12.0, left: 8, right: 8),
           child: Text(
