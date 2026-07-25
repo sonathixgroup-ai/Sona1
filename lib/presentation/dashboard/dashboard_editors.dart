@@ -98,7 +98,7 @@ class _EditorSectionCard extends StatelessWidget {
 }
 
 // ============================================================
-// PROFILE EDITOR COMPLET (IDENTITÉ, ORIGINE, RÉSIDENCE, NAT ID)
+// PROFILE EDITOR COMPLET (RÉORGANISÉ + MENUS DÉROULANTS)
 // ============================================================
 class ProfileEditorSheet {
   static Future<void> show(BuildContext context, {required ThixProfile profile, required ProfileService profileService, required dynamic authUser}) {
@@ -125,6 +125,7 @@ class _ProfileEditorBody extends StatefulWidget {
 class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
   final ValueNotifier<bool> _saving = ValueNotifier(false);
 
+  // Contrôleurs
   late final TextEditingController _nameC, _competenceC, _bioC, _countryOriginC;
   late final TextEditingController _contactPhoneC, _dobC, _pobC, _nationalityC;
   late final TextEditingController _maritalC, _genderC, _occupationC, _addressC;
@@ -134,6 +135,8 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
   late final TextEditingController _residenceCountryC, _residenceProvinceC, _residenceCityC;
   late final TextEditingController _residenceTerritoryC, _residenceCommuneC;
   late final TextEditingController _residenceQuarterC, _residenceAvenueC, _residenceNumberC;
+
+  late final TextEditingController _emergencyNameC, _emergencyPhoneC, _emergencyRelationC;
 
   late final TextEditingController _heightC, _weightC, _bloodGroupC, _disabilityDescC;
   late final TextEditingController _nationalIdNumberC, _idDocTypeC, _idIssueDateC, _idExpiryDateC, _idIssuePlaceC;
@@ -184,6 +187,10 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
     _residenceAvenueC = TextEditingController(text: p.residenceAvenue ?? '');
     _residenceNumberC = TextEditingController(text: p.residenceNumber ?? '');
 
+    _emergencyNameC = TextEditingController(text: p.emergencyContactName ?? '');
+    _emergencyPhoneC = TextEditingController(text: p.emergencyContactPhone ?? '');
+    _emergencyRelationC = TextEditingController(text: p.emergencyContactRelation ?? '');
+
     _heightC = TextEditingController(text: p.height ?? '');
     _weightC = TextEditingController(text: p.weight ?? '');
     _bloodGroupC = TextEditingController(text: p.bloodGroup ?? '');
@@ -200,6 +207,69 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
     _idBackDocId = p.idDocumentBackDocId;
     _idSelfieDocId = p.idDocumentSelfieDocId;
     _idVerificationStatus = p.idVerificationStatus;
+  }
+
+  // Helper pour afficher le calendrier
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    final DateTime initialDate = DateTime.tryParse(controller.text) ?? DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: _blue,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        controller.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
+  // Helper pour les menus déroulants dynamiques
+  Widget _buildDropdown({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    required List<String> options,
+  }) {
+    String currentVal = controller.text.trim();
+    List<String> validOptions = List.from(options);
+    
+    // Si la valeur actuelle n'est pas vide et n'est pas dans la liste par défaut, on l'ajoute pour ne pas faire crasher le composant
+    if (currentVal.isNotEmpty && !validOptions.contains(currentVal)) {
+      validOptions.add(currentVal);
+    }
+
+    return DropdownButtonFormField<String>(
+      value: currentVal.isEmpty ? null : currentVal,
+      decoration: _inputDecor(label, icon),
+      items: validOptions.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value, style: const TextStyle(fontSize: 14)),
+        );
+      }).toList(),
+      onChanged: (newValue) {
+        if (newValue != null) {
+          setState(() {
+            controller.text = newValue;
+          });
+        }
+      },
+      dropdownColor: Colors.white,
+    );
   }
 
   Future<void> _pickIdFile(String kind) async {
@@ -252,8 +322,8 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
       await _uploadIdIfNeeded(uid: widget.profile.userId, kind: 'back');
       await _uploadIdIfNeeded(uid: widget.profile.userId, kind: 'selfie');
 
-      await _userService.updateProfile(
-        uid: widget.profile.userId,
+      await widget.profileService.updateProfile(
+        userId: widget.profile.userId,
         displayName: _nameC.text.trim(),
         fullName: _nameC.text.trim(),
         competence: _competenceC.text.trim(),
@@ -281,6 +351,9 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
         residenceQuarter: _residenceQuarterC.text.trim(),
         residenceAvenue: _residenceAvenueC.text.trim(),
         residenceNumber: _residenceNumberC.text.trim(),
+        emergencyContactName: _emergencyNameC.text.trim(),
+        emergencyContactPhone: _emergencyPhoneC.text.trim(),
+        emergencyContactRelation: _emergencyRelationC.text.trim(),
         height: _heightC.text.trim(),
         weight: _weightC.text.trim(),
         bloodGroup: _bloodGroupC.text.trim(),
@@ -374,7 +447,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Photo de profil
+                    // Avatar
                     Center(
                       child: Stack(
                         children: [
@@ -408,38 +481,42 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                     ),
                     const SizedBox(height: 24),
 
-                    // SECTION 1: PROFIL & BIO
+                    // SECTION 1: IDENTITÉ CIVILE
                     _EditorSectionCard(
-                      title: 'Profil Professionnel & Bio',
-                      icon: Icons.person_rounded,
+                      title: 'Identité Civile',
+                      icon: Icons.account_circle_rounded,
                       child: Column(children: [
                         TextField(controller: _nameC, decoration: _inputDecor('Nom complet', Icons.badge_rounded)),
                         const SizedBox(height: 12),
-                        TextField(controller: _occupationC, decoration: _inputDecor('Profession / Poste', Icons.work_rounded)),
-                        const SizedBox(height: 12),
-                        TextField(controller: _bioC, maxLines: 3, decoration: _inputDecor('Biographie', Icons.history_edu_rounded)),
-                        const SizedBox(height: 12),
-                        TextField(controller: _competenceC, maxLines: 2, decoration: _inputDecor('Résumé des compétences', Icons.psychology_rounded)),
-                        const SizedBox(height: 12),
-                        TextField(controller: _thixChatC, decoration: _inputDecor('THIX CHAT (@handle)', Icons.alternate_email_rounded)),
-                      ]),
-                    ),
-
-                    // SECTION 2: IDENTITÉ CIVILE
-                    _EditorSectionCard(
-                      title: 'Identité Civile',
-                      icon: Icons.assignment_ind_rounded,
-                      child: Column(children: [
-                        TextField(controller: _dobC, decoration: _inputDecor('Date de naissance', Icons.cake_rounded, hint: 'YYYY-MM-DD')),
+                        InkWell(
+                          onTap: () => _selectDate(context, _dobC),
+                          child: IgnorePointer(
+                            child: TextField(controller: _dobC, decoration: _inputDecor('Date de naissance', Icons.cake_rounded, hint: 'YYYY-MM-DD')),
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         TextField(controller: _pobC, decoration: _inputDecor('Lieu de naissance', Icons.place_rounded)),
                         const SizedBox(height: 12),
                         TextField(controller: _nationalityC, decoration: _inputDecor('Nationalité', Icons.flag_rounded)),
                         const SizedBox(height: 12),
                         Row(children: [
-                          Expanded(child: TextField(controller: _genderC, decoration: _inputDecor('Genre', Icons.wc_rounded))),
+                          Expanded(
+                            child: _buildDropdown(
+                              label: 'Genre', 
+                              icon: Icons.wc_rounded, 
+                              controller: _genderC, 
+                              options: ['Homme', 'Femme', 'Autre']
+                            ),
+                          ),
                           const SizedBox(width: 12),
-                          Expanded(child: TextField(controller: _maritalC, decoration: _inputDecor('État civil', Icons.favorite_rounded))),
+                          Expanded(
+                            child: _buildDropdown(
+                              label: 'État civil', 
+                              icon: Icons.favorite_rounded, 
+                              controller: _maritalC, 
+                              options: ['Célibataire', 'Marié(e)', 'Divorcé(e)', 'Veuf/Veuve']
+                            ),
+                          ),
                         ]),
                         const SizedBox(height: 12),
                         TextField(controller: _addressC, decoration: _inputDecor('Adresse physique', Icons.home_rounded)),
@@ -450,11 +527,11 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                           Expanded(child: TextField(controller: _motherNameC, decoration: _inputDecor('Nom de la mère', Icons.woman_rounded))),
                         ]),
                         const SizedBox(height: 12),
-                        TextField(controller: _contactPhoneC, keyboardType: TextInputType.phone, decoration: _inputDecor('Téléphone', Icons.call_rounded)),
+                        TextField(controller: _contactPhoneC, keyboardType: TextInputType.phone, decoration: _inputDecor('Téléphone de contact', Icons.call_rounded)),
                       ]),
                     ),
 
-                    // SECTION 3: ORIGINE
+                    // SECTION 2: ORIGINE
                     _EditorSectionCard(
                       title: 'Origine',
                       icon: Icons.map_rounded,
@@ -469,7 +546,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                       ]),
                     ),
 
-                    // SECTION 4: RÉSIDENCE ACTUELLE
+                    // SECTION 3: RÉSIDENCE ACTUELLE
                     _EditorSectionCard(
                       title: 'Résidence Actuelle',
                       icon: Icons.home_work_rounded,
@@ -498,7 +575,44 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                       ]),
                     ),
 
-                    // SECTION 5: INFOS PHYSIQUES
+                    // SECTION 4: BIOGRAPHIE
+                    _EditorSectionCard(
+                      title: 'Biographie',
+                      icon: Icons.history_edu_rounded,
+                      child: TextField(
+                        controller: _bioC, 
+                        maxLines: 5, 
+                        decoration: _inputDecor('Racontez votre parcours...', Icons.edit_note_rounded)
+                      ),
+                    ),
+
+                    // SECTION 5: PROFIL PROFESSIONNEL
+                    _EditorSectionCard(
+                      title: 'Profil Professionnel',
+                      icon: Icons.work_outline_rounded,
+                      child: Column(children: [
+                        TextField(controller: _occupationC, decoration: _inputDecor('Profession / Poste', Icons.work_rounded)),
+                        const SizedBox(height: 12),
+                        TextField(controller: _competenceC, maxLines: 3, decoration: _inputDecor('Résumé des compétences', Icons.psychology_rounded)),
+                        const SizedBox(height: 12),
+                        TextField(controller: _thixChatC, decoration: _inputDecor('THIX CHAT (@handle)', Icons.alternate_email_rounded)),
+                      ]),
+                    ),
+
+                    // SECTION 6: CONTACT URGENCE
+                    _EditorSectionCard(
+                      title: 'Contact Urgence',
+                      icon: Icons.contact_emergency_rounded,
+                      child: Column(children: [
+                        TextField(controller: _emergencyNameC, decoration: _inputDecor('Nom du contact', Icons.person_search_rounded)),
+                        const SizedBox(height: 12),
+                        TextField(controller: _emergencyPhoneC, keyboardType: TextInputType.phone, decoration: _inputDecor('Numéro de téléphone', Icons.phone_callback_rounded)),
+                        const SizedBox(height: 12),
+                        TextField(controller: _emergencyRelationC, decoration: _inputDecor('Lien (ex: Frère, Épouse)', Icons.family_restroom_rounded)),
+                      ]),
+                    ),
+
+                    // SECTION 7: INFOS PHYSIQUES
                     _EditorSectionCard(
                       title: 'Informations Physiques',
                       icon: Icons.monitor_weight_rounded,
@@ -509,33 +623,56 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                           Expanded(child: TextField(controller: _weightC, keyboardType: TextInputType.number, decoration: _inputDecor('Poids (kg)', Icons.scale_rounded))),
                         ]),
                         const SizedBox(height: 12),
-                        TextField(controller: _bloodGroupC, decoration: _inputDecor('Groupe sanguin', Icons.bloodtype_rounded, hint: 'A+, O-')),
+                        _buildDropdown(
+                          label: 'Groupe sanguin', 
+                          icon: Icons.bloodtype_rounded, 
+                          controller: _bloodGroupC, 
+                          options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+                        ),
                         const SizedBox(height: 12),
                         SwitchListTile(
                           value: _hasDisability,
                           activeColor: _blue,
                           onChanged: (v) => setState(() => _hasDisability = v),
                           title: const Text('Handicap physique', style: TextStyle(fontSize: 14)),
+                          contentPadding: EdgeInsets.zero,
                         ),
                         if (_hasDisability)
                           TextField(controller: _disabilityDescC, maxLines: 2, decoration: _inputDecor('Description du handicap', Icons.accessible_forward_rounded)),
                       ]),
                     ),
 
-                    // SECTION 6: IDENTITÉ NATIONALE
+                    // SECTION 8: IDENTITÉ NATIONALE
                     _EditorSectionCard(
                       title: 'Identité Nationale (Vérification)',
                       icon: Icons.admin_panel_settings_rounded,
                       child: Column(children: [
                         TextField(controller: _nationalIdNumberC, decoration: _inputDecor('Numéro de la pièce', Icons.numbers_rounded)),
                         const SizedBox(height: 12),
-                        TextField(controller: _idDocTypeC, decoration: _inputDecor('Type de pièce', Icons.credit_card_rounded, hint: 'Carte d\'identité, Passeport')),
+                        _buildDropdown(
+                          label: 'Type de pièce', 
+                          icon: Icons.credit_card_rounded, 
+                          controller: _idDocTypeC, 
+                          options: ['Carte d\'identité', 'Passeport', 'Permis de conduire', 'Carte d\'électeur', 'Autre']
+                        ),
                         const SizedBox(height: 12),
                         Row(children: [
-                          Expanded(child: TextField(controller: _idIssueDateC, decoration: _inputDecor('Émission', Icons.event_available_rounded, hint: 'YYYY-MM-DD'))),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _selectDate(context, _idIssueDateC),
+                              child: IgnorePointer(child: TextField(controller: _idIssueDateC, decoration: _inputDecor('Émission', Icons.event_available_rounded, hint: 'YYYY-MM-DD'))),
+                            ),
+                          ),
                           const SizedBox(width: 12),
-                          Expanded(child: TextField(controller: _idExpiryDateC, decoration: _inputDecor('Expiration', Icons.event_busy_rounded, hint: 'YYYY-MM-DD'))),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _selectDate(context, _idExpiryDateC),
+                              child: IgnorePointer(child: TextField(controller: _idExpiryDateC, decoration: _inputDecor('Expiration', Icons.event_busy_rounded, hint: 'YYYY-MM-DD'))),
+                            ),
+                          ),
                         ]),
+                        const SizedBox(height: 12),
+                        TextField(controller: _idIssuePlaceC, decoration: _inputDecor('Lieu d\'émission', Icons.location_city_rounded)),
                         const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -664,7 +801,7 @@ class _MultiFileUploadCard extends StatelessWidget {
 }
 
 // ============================================================
-// EDUCATION / CURSUS & FORMATIONS EDITOR (AVEC UPLOAD MULTIPLE)
+// EDUCATION / CURSUS & FORMATIONS EDITOR
 // ============================================================
 class EducationEditorSheet {
   static Future<void> show(BuildContext context, {required ThixProfile profile, required ProfileService profileService}) {
@@ -753,10 +890,9 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
       final uid = widget.profile.userId;
       final uploadedEvidences = <EvidenceFileRef>[..._existingEvidences];
       
-      // Upload des nouveaux fichiers
       for (final f in _newFiles) {
         final docId = 'EDU_${DateTime.now().millisecondsSinceEpoch}_${f.name}'.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '_').toUpperCase();
-        await _docs.uploadPickedFile(uid: uid, docId: docId, title: 'Preuve Cursus/Formation: ${f.name}', file: f, docType: 'credential_education');
+        await _docs.uploadPickedFile(uid: uid, docId: docId, title: 'Preuve Cursus: ${f.name}', file: f, docType: 'credential_education');
         uploadedEvidences.add(EvidenceFileRef(storagePathOrUrl: 'documents:$docId', label: f.name));
       }
 
@@ -773,10 +909,9 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
       if (_editingIndex != null) {
         _localEducation[_editingIndex!] = patch;
       } else {
-        _localEducation.insert(0, patch); // Ajout au début
+        _localEducation.insert(0, patch); 
       }
 
-      // Mise à jour optimiste + Backend
       await widget.profileService.updateProfile(userId: uid, education: _localEducation);
       
       if (!mounted) return;
@@ -795,7 +930,7 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
       _localEducation.removeAt(index);
       await widget.profileService.updateProfile(userId: widget.profile.userId, education: _localEducation);
       if (_editingIndex == index) _reset();
-      setState((){}); // Refresh list
+      setState((){});
     } finally {
       _saving.value = false;
     }
@@ -870,7 +1005,6 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
                         TextField(controller: _descriptionC, maxLines: 3, decoration: _inputDecor('Description (optionnel)', Icons.notes_rounded)),
                         const SizedBox(height: 16),
                         
-                        // Composant d'upload multiple (Web/Mobile)
                         ValueListenableBuilder<bool>(
                           valueListenable: _saving,
                           builder: (ctx, isSaving, _) => _MultiFileUploadCard(
@@ -923,7 +1057,7 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
 }
 
 // ============================================================
-// EXPERIENCE EDITOR (AVEC UPLOAD MULTIPLE)
+// EXPERIENCE EDITOR
 // ============================================================
 class ExperienceEditorSheet {
   static Future<void> show(BuildContext context, {required ThixProfile profile, required ProfileService profileService}) {
@@ -1158,6 +1292,270 @@ class _ExperienceEditorBodyState extends State<_ExperienceEditorBody> {
                           child: isSaving 
                               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                               : Text(_editingIndex == null ? 'AJOUTER L\'EXPÉRIENCE' : 'METTRE À JOUR', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// COMPOSANTS MANQUANTS : ConfirmFeeSheet & SkillsEditorSheet
+// ============================================================
+
+class ConfirmFeeSheet {
+  static Future<bool?> show(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required String amountLabel,
+  }) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1E8A)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                IconButton(onPressed: () => context.pop(false), icon: const Icon(Icons.close_rounded)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(description, style: const TextStyle(color: Colors.black54, height: 1.4)),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => context.pop(true),
+                icon: const Icon(Icons.payments_rounded, color: Colors.white),
+                label: Text(amountLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D2CC1),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: () => context.pop(false), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SkillsEditorSheet {
+  static Future<void> show(BuildContext context, {required ThixProfile profile, required dynamic profileService}) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SkillsEditorBody(profile: profile, profileService: profileService),
+    );
+  }
+}
+
+class _SkillsEditorBody extends StatefulWidget {
+  final ThixProfile profile;
+  final dynamic profileService;
+  const _SkillsEditorBody({required this.profile, required this.profileService});
+  @override
+  State<_SkillsEditorBody> createState() => _SkillsEditorBodyState();
+}
+
+class _SkillsEditorBodyState extends State<_SkillsEditorBody> {
+  final ValueNotifier<bool> _saving = ValueNotifier(false);
+  final _nameC = TextEditingController();
+  final _detailsC = TextEditingController();
+  String _level = 'Intermédiaire';
+  int? _editingIndex;
+  late List<Map<String, dynamic>> _localSkills;
+
+  @override
+  void initState() {
+    super.initState();
+    _localSkills = List<Map<String, dynamic>>.from(widget.profile.skills);
+  }
+
+  void _load(int index, Map<String, dynamic> entry) {
+    setState(() {
+      _editingIndex = index;
+      _nameC.text = (entry['name'] as String?) ?? '';
+      _level = (entry['level'] as String?) ?? 'Intermédiaire';
+      _detailsC.text = (entry['details'] as String?) ?? '';
+    });
+  }
+
+  void _reset() {
+    setState(() {
+      _editingIndex = null;
+      _nameC.clear(); _detailsC.clear(); _level = 'Intermédiaire';
+    });
+  }
+
+  Future<void> _save() async {
+    if (_nameC.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Le nom de la compétence est requis.')));
+      return;
+    }
+    
+    _saving.value = true;
+    try {
+      final patch = {
+        'name': _nameC.text.trim(),
+        'level': _level,
+        if (_detailsC.text.trim().isNotEmpty) 'details': _detailsC.text.trim(),
+      };
+
+      if (_editingIndex != null) {
+        _localSkills[_editingIndex!] = patch;
+      } else {
+        _localSkills.insert(0, patch);
+      }
+
+      await widget.profileService.updateProfile(userId: widget.profile.userId, skills: _localSkills);
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compétence mise à jour.')));
+      _reset();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    } finally {
+      _saving.value = false;
+    }
+  }
+
+  Future<void> _delete(int index) async {
+    _saving.value = true;
+    try {
+      _localSkills.removeAt(index);
+      await widget.profileService.updateProfile(userId: widget.profile.userId, skills: _localSkills);
+      if (_editingIndex == index) _reset();
+      setState((){});
+    } finally {
+      _saving.value = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(color: Color(0xFFF5F6FB), borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Compétences', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1E8A))),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _saving,
+                    builder: (ctx, isSaving, _) => IconButton(onPressed: isSaving ? null : () => context.pop(), icon: const Icon(Icons.close_rounded)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_localSkills.isNotEmpty) ...[
+                      const Text('Vos compétences enregistrées', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      ...List.generate(_localSkills.length, (i) {
+                        final e = _localSkills[i];
+                        final isEditing = _editingIndex == i;
+                        return Card(
+                          elevation: 0,
+                          color: isEditing ? const Color(0xFF0D2CC1).withOpacity(0.05) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isEditing ? const Color(0xFF0D2CC1) : Colors.black12)),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: Text(e['level'] ?? ''),
+                            trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _delete(i)),
+                            onTap: () => _load(i, e),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 24),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.black12)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_editingIndex == null ? 'Ajouter une compétence' : 'Modifier la compétence', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0A1E8A))),
+                          const Divider(height: 24),
+                          TextField(controller: _nameC, decoration: InputDecoration(labelText: 'Compétence', prefixIcon: const Icon(Icons.psychology_rounded, color: Colors.black54), filled: true, fillColor: Colors.grey.shade50, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _level,
+                            items: const [
+                              DropdownMenuItem(value: 'Débutant', child: Text('Débutant')),
+                              DropdownMenuItem(value: 'Intermédiaire', child: Text('Intermédiaire')),
+                              DropdownMenuItem(value: 'Avancé', child: Text('Avancé')),
+                              DropdownMenuItem(value: 'Expert', child: Text('Expert'))
+                            ],
+                            onChanged: (v) => setState(() => _level = v ?? 'Intermédiaire'),
+                            decoration: InputDecoration(labelText: 'Niveau', filled: true, fillColor: Colors.grey.shade50, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(controller: _detailsC, maxLines: 3, decoration: InputDecoration(labelText: 'Explication / Détails', filled: true, fillColor: Colors.grey.shade50, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  if (_editingIndex != null) ...[
+                    OutlinedButton(onPressed: _reset, style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('ANNULER')),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _saving,
+                      builder: (ctx, isSaving, _) => SizedBox(
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: isSaving ? null : _save,
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0D2CC1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+                          child: isSaving 
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : Text(_editingIndex == null ? 'AJOUTER' : 'METTRE À JOUR', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
                         ),
                       ),
                     ),
