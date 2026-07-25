@@ -33,6 +33,10 @@ class Province {
   final String? resources;
   final int? territoriesCount;
 
+  // Réalisations et Galerie média (Ajoutés pour l'administration)
+  final List<Map<String, dynamic>>? achievements;
+  final List<Map<String, dynamic>>? galleryMedia;
+
   final ProvinceGovernment? government; // relation 1-1
   final List<City> cities; // villes
   final List<ProvinceEconomicResource> economicResources; // ressources économiques
@@ -64,6 +68,8 @@ class Province {
     this.languages,
     this.resources,
     this.territoriesCount,
+    this.achievements,
+    this.galleryMedia,
     this.government,
     this.cities = const [],
     this.economicResources = const [],
@@ -85,9 +91,9 @@ class Province {
       area: json['area'] as int?,
       population: json['population'] as int?,
       description: json['description'] as String?,
-      coverImageUrl: json['cover_image_url'] as String?,
-      coatOfArmsUrl: json['coat_of_arms_url'] as String?,
-      mapUrl: json['map_url'] as String?,
+      coverImageUrl: json['cover_image_url'] as String? ?? json['coverImageUrl'] as String?,
+      coatOfArmsUrl: json['coat_of_arms_url'] as String? ?? json['coatOfArmsUrl'] as String?,
+      mapUrl: json['map_url'] as String? ?? json['mapUrl'] as String?,
       website: json['website'] as String?,
       
       // Prise en charge du camelCase (Formulaire App) et du snake_case (Supabase)
@@ -100,6 +106,13 @@ class Province {
       languages: json['languages'] as String?,
       resources: json['resources'] as String?,
       territoriesCount: json['territoriesCount'] as int? ?? json['territories_count'] as int?,
+
+      achievements: (json['achievements'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      galleryMedia: (json['gallery_media'] ?? json['galleryMedia'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e))
+          .toList(),
 
       government: json['government'] != null
           ? ProvinceGovernment.fromJson(json['government'])
@@ -140,6 +153,9 @@ class Province {
     'resources': resources,
     'territories_count': territoriesCount,
 
+    'achievements': achievements,
+    'gallery_media': galleryMedia,
+
     'government': government?.toJson(),
     'cities': cities.map((e) => e.toJson()).toList(),
     'economic_resources': economicResources.map((e) => e.toJson()).toList(),
@@ -158,6 +174,8 @@ class Province {
     String? languages,
     String? resources,
     int? territoriesCount,
+    List<Map<String, dynamic>>? achievements,
+    List<Map<String, dynamic>>? galleryMedia,
     ProvinceGovernment? government,
     List<City>? cities,
     List<ProvinceEconomicResource>? economicResources,
@@ -189,6 +207,9 @@ class Province {
       languages: languages ?? this.languages,
       resources: resources ?? this.resources,
       territoriesCount: territoriesCount ?? this.territoriesCount,
+
+      achievements: achievements ?? this.achievements,
+      galleryMedia: galleryMedia ?? this.galleryMedia,
 
       government: government ?? this.government,
       cities: cities ?? this.cities,
