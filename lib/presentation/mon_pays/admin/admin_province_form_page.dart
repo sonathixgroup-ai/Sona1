@@ -32,7 +32,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   late TextEditingController _populationController;
   late TextEditingController _descriptionController;
 
-  // Identité visuelle (URLs stockées en arrière-plan)
+  // Identité visuelle
   String? _coverImageUrl;
   String? _coatOfArmsUrl;
   String? _mapUrl;
@@ -63,7 +63,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
   bool _isBusy = false; 
 
   static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color navy = Color(0xFF123B7A);
   static const Color redThix = Color(0xFFD32F2F);
   static const Color lightBg = Color(0xFFF6F7FB);
 
@@ -102,7 +101,6 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     
     _ministers = p?.ministers?.map((m) => {'name': m['name'] ?? '', 'role': m['role'] ?? '', 'photoUrl': m['photoUrl'] ?? ''}).toList() ?? [];
     
-    // Charger les villes avec leurs détails et photo/maire si disponibles
     _cities = p?.cities.map((c) => {
       'name': c.name,
       'population': c.population?.toString() ?? '',
@@ -238,13 +236,11 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                     title: 'Gouvernance & Exécutif Provincial',
                     icon: Icons.account_balance,
                     children: [
-                      // Gouverneur
                       _buildTextField(_governorController, 'Nom du Gouverneur', Icons.person),
                       const SizedBox(height: 8),
                       _buildImagePickerRow('Photo du Gouverneur', _governorPhotoUrl, 'governors', (url) => setState(() => _governorPhotoUrl = url)),
                       const SizedBox(height: 16),
                       
-                      // Vice-Gouverneur
                       _buildTextField(_viceGovernorController, 'Nom du Vice-Gouverneur', Icons.person_outline),
                       const SizedBox(height: 8),
                       _buildImagePickerRow('Photo du Vice-Gouverneur', _viceGovernorPhotoUrl, 'governors', (url) => setState(() => _viceGovernorPhotoUrl = url)),
@@ -289,7 +285,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 0 : VILLES PRINCIPALES (Nom, Pop, Capitale, Autorité/Maire + Photos)
+                  // SECTION 3 : VILLES PRINCIPALES & AUTORITÉS
                   _buildSectionCard(
                     title: 'Villes Principales & Autorités',
                     icon: Icons.location_city,
@@ -343,7 +339,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 1 : CULTURE & GÉOGRAPHIE
+                  // SECTION 4 : CULTURE & GÉOGRAPHIE
                   _buildSectionCard(
                     title: 'Culture & Géographie',
                     icon: Icons.public,
@@ -357,7 +353,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 2 : ÉCONOMIE & SECTEURS CLÉS
+                  // SECTION 5 : ÉCONOMIE & SECTEURS CLÉS
                   _buildSectionCard(
                     title: 'Économie & Secteurs Clés',
                     icon: Icons.monetization_on,
@@ -395,7 +391,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 3 : TOURISME & SITES
+                  // SECTION 6 : TOURISME & SITES
                   _buildSectionCard(
                     title: 'Tourisme & Sites Remarquables',
                     icon: Icons.landscape,
@@ -435,7 +431,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 4 : URGENCES & CONTACTS UTILES
+                  // SECTION 7 : URGENCES & CONTACTS UTILES
                   _buildSectionCard(
                     title: 'Urgences & Contacts Utiles',
                     icon: Icons.emergency,
@@ -471,7 +467,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 5 : DÉCOUPAGE ADMINISTRATIF (Admin)
+                  // SECTION 8 : DÉCOUPAGE ADMINISTRATIF
                   _buildSectionCard(
                     title: 'Découpage Administratif',
                     icon: Icons.dashboard_customize,
@@ -507,7 +503,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 6 : RÉALISATIONS & PROJETS MAJEURS (Avec photos, texte, date, lieu)
+                  // SECTION 9 : RÉALISATIONS & PROJETS MAJEURS
                   _buildSectionCard(
                     title: 'Réalisations & Projets Majeurs',
                     icon: Icons.emoji_events,
@@ -542,7 +538,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                               const SizedBox(height: 8),
                               TextFormField(initialValue: ach['description'], onChanged: (v) => _achievements[index]['description'] = v, maxLines: 2, decoration: _inputDecoration('Description détaillée', Icons.description)),
                               const SizedBox(height: 8),
-                              _buildImagePickerRow('Photo de la réalisation', ach['imageUrl'], 'achievements', (url) => setState(() => _achievements[index]['imageUrl'] = url)),
+                              _buildImagePickerRow('Photo du projet', ach['imageUrl'], 'achievements', (url) => setState(() => _achievements[index]['imageUrl'] = url)),
                             ],
                           ),
                         );
@@ -551,7 +547,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // RUBRIQUE 7 : GALERIE (Photos & Vidéos Multi-Upload)
+                  // SECTION 10 : GALERIE PHOTOS & VIDÉOS
                   _buildSectionCard(
                     title: 'Galerie Photos & Vidéos',
                     icon: Icons.perm_media,
@@ -628,7 +624,7 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     );
   }
 
-  /// Widget professionnel avec aperçu miniature (Thumbnail) et bouton d'upload intégré
+  /// Widget professionnel avec aperçu miniature et bouton d'upload intégré
   Widget _buildImagePickerRow(String label, String? currentUrl, String folderName, Function(String url) onUpdated) {
     final hasImg = currentUrl != null && currentUrl.trim().isNotEmpty;
     return Container(
@@ -705,17 +701,19 @@ class _AdminProvinceFormPageState extends ConsumerState<AdminProvinceFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isBusy = true);
 
-    // Mappage des villes avec tous les attributs requis
-    final mappedCities = _cities.map((c) => City(
-      id: '',
-      provinceId: _provinceId ?? '',
-      name: c['name'] ?? '',
-      population: c['population'],
-      isCapital: c['isCapital'] ?? false,
-      imageUrl: c['imageUrl'],
-      mayor: c['mayor'],
-      mayorPhotoUrl: c['mayorPhotoUrl'],
-    )).toList();
+    // Mappage sécurisé et typé explicitement en List<City>
+    final List<City> mappedCities = _cities.map<City>((c) {
+      return City(
+        id: '',
+        provinceId: _provinceId ?? '',
+        name: c['name'] ?? '',
+        population: c['population']?.toString(),
+        isCapital: c['isCapital'] ?? false,
+        imageUrl: c['imageUrl']?.toString().trim().isEmpty == true ? null : c['imageUrl'],
+        mayor: c['mayor']?.toString().trim().isEmpty == true ? null : c['mayor'],
+        mayorPhotoUrl: c['mayorPhotoUrl']?.toString().trim().isEmpty == true ? null : c['mayorPhotoUrl'],
+      );
+    }).toList();
 
     final province = Province(
       id: _provinceId ?? '',
