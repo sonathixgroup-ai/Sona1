@@ -6,6 +6,9 @@ class ProvinceEconomicResource {
   final String name;
   final String? description;
   final String? imageUrl;
+  final String? category;
+  final String? iconUrl;
+  final bool isKeySector;
 
   const ProvinceEconomicResource({
     required this.id,
@@ -13,6 +16,9 @@ class ProvinceEconomicResource {
     required this.name,
     this.description,
     this.imageUrl,
+    this.category,
+    this.iconUrl,
+    this.isKeySector = false,
   });
 
   factory ProvinceEconomicResource.fromJson(Map<String, dynamic> json) {
@@ -22,6 +28,9 @@ class ProvinceEconomicResource {
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString(),
       imageUrl: json['image_url'] ?? json['imageUrl'],
+      category: json['category']?.toString(),
+      iconUrl: json['icon_url'] ?? json['iconUrl'],
+      isKeySector: json['is_key_sector'] ?? json['isKeySector'] ?? false,
     );
   }
 
@@ -31,5 +40,8 @@ class ProvinceEconomicResource {
     'name': name,
     'description': description,
     'image_url': imageUrl,
+    'category': category,
+    'icon_url': iconUrl,
+    'is_key_sector': isKeySector,
   };
 }
