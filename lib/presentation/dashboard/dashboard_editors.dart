@@ -7,12 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/models/thix_profile.dart';
-import 'package:thix_id/presentation/common/upload_document_preview.dart';
 import 'package:thix_id/services/document_service.dart';
 import 'package:thix_id/services/profile_photo_service.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/services/user_service.dart';
-import 'package:thix_id/services/verification_status.dart';
 import 'package:thix_id/services/platform_file_from_path_stub.dart' if (dart.library.io) 'package:thix_id/services/platform_file_from_path_io.dart';
 import '../../theme.dart';
 
@@ -36,10 +34,6 @@ InputDecoration _inputDecor(String label, IconData icon, {String? hint}) {
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
   );
 }
-
-// ============================================================
-// COMPOSANTS UI RÉUTILISABLES (SCALABILITÉ)
-// ============================================================
 
 class _EditorSectionCard extends StatelessWidget {
   final String title;
@@ -76,86 +70,6 @@ class _EditorSectionCard extends StatelessWidget {
   }
 }
 
-/// Gestionnaire Universel d'Upload Multiple Web/Mobile
-class _MultiFileUploadCard extends StatelessWidget {
-  final List<EvidenceFileRef> existingEvidences;
-  final List<PlatformFile> newFiles;
-  final bool isSaving;
-  final VoidCallback onPickFiles;
-  final Function(PlatformFile) onRemoveNew;
-  final Function(EvidenceFileRef) onRemoveExisting;
-
-  const _MultiFileUploadCard({
-    required this.existingEvidences,
-    required this.newFiles,
-    required this.isSaving,
-    required this.onPickFiles,
-    required this.onRemoveNew,
-    required this.onRemoveExisting,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _bgLight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Documents & Photos (Preuves)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-              OutlinedButton.icon(
-                onPressed: isSaving ? null : onPickFiles,
-                icon: const Icon(Icons.upload_file_rounded, size: 16),
-                label: const Text('Ajouter'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _blue,
-                  side: const BorderSide(color: _blue),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  minimumSize: const Size(0, 32),
-                ),
-              )
-            ],
-          ),
-          if (existingEvidences.isEmpty && newFiles.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('Aucun document chargé.', style: TextStyle(color: Colors.black54, fontSize: 12)),
-            ),
-          const SizedBox(height: 8),
-          ...existingEvidences.map((e) => _buildFileRow(label: e.label ?? 'Document', isNew: false, onRemove: () => onRemoveExisting(e))),
-          ...newFiles.map((f) => _buildFileRow(label: f.name, isNew: true, onRemove: () => onRemoveNew(f))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFileRow({required String label, required bool isNew, required VoidCallback onRemove}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(isNew ? Icons.cloud_upload_rounded : Icons.verified_rounded, size: 16, color: isNew ? Colors.orange : Colors.green),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, color: Colors.red, size: 16),
-            onPressed: isSaving ? null : onRemove,
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ============================================================
 // PROFILE EDITOR COMPLET (IDENTITÉ, ORIGINE, RÉSIDENCE, NAT ID)
 // ============================================================
@@ -182,13 +96,13 @@ class _ProfileEditorBody extends StatefulWidget {
 }
 
 class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
-  // ValueNotifier pour ne rafraîchir que le bouton de sauvegarde (Scalabilité des re-rendus)
   final ValueNotifier<bool> _saving = ValueNotifier(false);
 
+  // Déclaration de TOUS les contrôleurs
   late final TextEditingController _nameC, _competenceC, _bioC, _countryOriginC;
   late final TextEditingController _contactPhoneC, _dobC, _pobC, _nationalityC;
   late final TextEditingController _maritalC, _genderC, _occupationC, _addressC;
-  late final TextEditingController _thixChatC;
+  late final TextEditingController _fatherNameC, _motherNameC, _thixChatC;
   
   late final TextEditingController _originProvinceC, _originTerritoryC, _originSectorC;
   late final TextEditingController _residenceCountryC, _residenceProvinceC, _residenceCityC;
@@ -227,6 +141,8 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
     _genderC = TextEditingController(text: p.gender ?? a.gender ?? '');
     _occupationC = TextEditingController(text: (p.profession ?? p.occupation ?? a.profession ?? a.occupation) ?? '');
     _addressC = TextEditingController(text: p.address ?? a.address ?? '');
+    _fatherNameC = TextEditingController(text: p.fatherName ?? a.fatherName ?? '');
+    _motherNameC = TextEditingController(text: p.motherName ?? a.motherName ?? '');
     _thixChatC = TextEditingController(text: p.thixChat ?? '');
 
     _originProvinceC = TextEditingController(text: p.originProvince ?? '');
@@ -310,6 +226,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
       await _uploadIdIfNeeded(uid: widget.profile.userId, kind: 'back');
       await _uploadIdIfNeeded(uid: widget.profile.userId, kind: 'selfie');
 
+      // Le script SQL BLOC 1 doit avoir été exécuté pour que cette sauvegarde fonctionne.
       await _userService.updateProfile(
         uid: widget.profile.userId,
         displayName: _nameC.text.trim(),
@@ -326,6 +243,8 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
         placeOfBirth: _pobC.text.trim(),
         nationality: _nationalityC.text.trim(),
         address: _addressC.text.trim(),
+        fatherName: _fatherNameC.text.trim(),
+        motherName: _motherNameC.text.trim(),
         originProvince: _originProvinceC.text.trim(),
         originTerritory: _originTerritoryC.text.trim(),
         originSector: _originSectorC.text.trim(),
@@ -359,7 +278,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil mis à jour avec succès.')));
       context.pop();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur (Assurez-vous que le script SQL a été exécuté) : $e')));
     } finally {
       _saving.value = false;
     }
@@ -464,13 +383,14 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                     ),
                     const SizedBox(height: 24),
 
+                    // SECTION 1: PROFIL & BIO
                     _EditorSectionCard(
-                      title: 'Profil & Bio',
+                      title: 'Profil Professionnel & Bio',
                       icon: Icons.person_rounded,
                       child: Column(children: [
                         TextField(controller: _nameC, decoration: _inputDecor('Nom complet', Icons.badge_rounded)),
                         const SizedBox(height: 12),
-                        TextField(controller: _occupationC, decoration: _inputDecor('Profession / Titre', Icons.work_rounded)),
+                        TextField(controller: _occupationC, decoration: _inputDecor('Profession / Poste', Icons.work_rounded)),
                         const SizedBox(height: 12),
                         TextField(controller: _bioC, maxLines: 3, decoration: _inputDecor('Biographie', Icons.history_edu_rounded)),
                         const SizedBox(height: 12),
@@ -480,6 +400,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                       ]),
                     ),
 
+                    // SECTION 2: IDENTITÉ CIVILE
                     _EditorSectionCard(
                       title: 'Identité Civile',
                       icon: Icons.assignment_ind_rounded,
@@ -495,9 +416,64 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                           const SizedBox(width: 12),
                           Expanded(child: TextField(controller: _maritalC, decoration: _inputDecor('État civil', Icons.favorite_rounded))),
                         ]),
+                        const SizedBox(height: 12),
+                        TextField(controller: _addressC, decoration: _inputDecor('Adresse physique', Icons.home_rounded)),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: TextField(controller: _fatherNameC, decoration: _inputDecor('Nom du père', Icons.man_rounded))),
+                          const SizedBox(width: 12),
+                          Expanded(child: TextField(controller: _motherNameC, decoration: _inputDecor('Nom de la mère', Icons.woman_rounded))),
+                        ]),
+                        const SizedBox(height: 12),
+                        TextField(controller: _contactPhoneC, keyboardType: TextInputType.phone, decoration: _inputDecor('Téléphone', Icons.call_rounded)),
                       ]),
                     ),
 
+                    // SECTION 3: ORIGINE
+                    _EditorSectionCard(
+                      title: 'Origine',
+                      icon: Icons.map_rounded,
+                      child: Column(children: [
+                        TextField(controller: _originProvinceC, decoration: _inputDecor('Province d\'origine', Icons.location_on_rounded)),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: TextField(controller: _originTerritoryC, decoration: _inputDecor('Territoire', Icons.terrain_rounded))),
+                          const SizedBox(width: 12),
+                          Expanded(child: TextField(controller: _originSectorC, decoration: _inputDecor('Secteur', Icons.account_tree_rounded))),
+                        ]),
+                      ]),
+                    ),
+
+                    // SECTION 4: RÉSIDENCE ACTUELLE
+                    _EditorSectionCard(
+                      title: 'Résidence Actuelle',
+                      icon: Icons.home_work_rounded,
+                      child: Column(children: [
+                        TextField(controller: _residenceCountryC, decoration: _inputDecor('Pays', Icons.public_rounded)),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: TextField(controller: _residenceProvinceC, decoration: _inputDecor('Province', Icons.map_outlined))),
+                          const SizedBox(width: 12),
+                          Expanded(child: TextField(controller: _residenceTerritoryC, decoration: _inputDecor('Territoire', Icons.terrain_outlined))),
+                        ]),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: TextField(controller: _residenceCityC, decoration: _inputDecor('Ville', Icons.location_city_rounded))),
+                          const SizedBox(width: 12),
+                          Expanded(child: TextField(controller: _residenceCommuneC, decoration: _inputDecor('Commune', Icons.apartment_rounded))),
+                        ]),
+                        const SizedBox(height: 12),
+                        TextField(controller: _residenceQuarterC, decoration: _inputDecor('Quartier', Icons.streetview_rounded)),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: TextField(controller: _residenceAvenueC, decoration: _inputDecor('Avenue', Icons.route_rounded))),
+                          const SizedBox(width: 12),
+                          Expanded(child: TextField(controller: _residenceNumberC, decoration: _inputDecor('Numéro', Icons.numbers_rounded))),
+                        ]),
+                      ]),
+                    ),
+
+                    // SECTION 5: INFOS PHYSIQUES
                     _EditorSectionCard(
                       title: 'Informations Physiques',
                       icon: Icons.monitor_weight_rounded,
@@ -521,6 +497,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
                       ]),
                     ),
 
+                    // SECTION 6: IDENTITÉ NATIONALE
                     _EditorSectionCard(
                       title: 'Identité Nationale (Vérification)',
                       icon: Icons.admin_panel_settings_rounded,
@@ -576,6 +553,86 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Gestionnaire Universel d'Upload Multiple Web/Mobile
+class _MultiFileUploadCard extends StatelessWidget {
+  final List<EvidenceFileRef> existingEvidences;
+  final List<PlatformFile> newFiles;
+  final bool isSaving;
+  final VoidCallback onPickFiles;
+  final Function(PlatformFile) onRemoveNew;
+  final Function(EvidenceFileRef) onRemoveExisting;
+
+  const _MultiFileUploadCard({
+    required this.existingEvidences,
+    required this.newFiles,
+    required this.isSaving,
+    required this.onPickFiles,
+    required this.onRemoveNew,
+    required this.onRemoveExisting,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _bgLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Documents & Photos (Preuves)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              OutlinedButton.icon(
+                onPressed: isSaving ? null : onPickFiles,
+                icon: const Icon(Icons.upload_file_rounded, size: 16),
+                label: const Text('Ajouter'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _blue,
+                  side: const BorderSide(color: _blue),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  minimumSize: const Size(0, 32),
+                ),
+              )
+            ],
+          ),
+          if (existingEvidences.isEmpty && newFiles.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Aucun document chargé.', style: TextStyle(color: Colors.black54, fontSize: 12)),
+            ),
+          const SizedBox(height: 8),
+          ...existingEvidences.map((e) => _buildFileRow(label: e.label ?? 'Document', isNew: false, onRemove: () => onRemoveExisting(e))),
+          ...newFiles.map((f) => _buildFileRow(label: f.name, isNew: true, onRemove: () => onRemoveNew(f))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileRow({required String label, required bool isNew, required VoidCallback onRemove}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(isNew ? Icons.cloud_upload_rounded : Icons.verified_rounded, size: 16, color: isNew ? Colors.orange : Colors.green),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.red, size: 16),
+            onPressed: isSaving ? null : onRemove,
+            constraints: const BoxConstraints(),
+            padding: EdgeInsets.zero,
+          ),
+        ],
       ),
     );
   }
@@ -788,7 +845,6 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
                         TextField(controller: _descriptionC, maxLines: 3, decoration: _inputDecor('Description (optionnel)', Icons.notes_rounded)),
                         const SizedBox(height: 16),
                         
-                        // Composant d'upload multiple (Web/Mobile)
                         ValueListenableBuilder<bool>(
                           valueListenable: _saving,
                           builder: (ctx, isSaving, _) => _MultiFileUploadCard(
