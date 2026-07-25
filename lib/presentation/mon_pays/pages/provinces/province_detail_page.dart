@@ -1,6 +1,6 @@
 // ============================================================
-// FICHIER 19 - PROD FIX : province_detail_page.dart - SCALABLE
-// Design: Carrés/Rectangles exigés + Scalability 1M users
+// FICHIER 19 - PROD FIX : province_detail_page.dart - SCALABLE & FINAL
+// Design: Carrés/Rectangles + Navigation complète (onTap) + Admin Sync
 // ============================================================
 
 import 'dart:async';
@@ -79,18 +79,42 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
                 const SizedBox(height: 16),
                 _AutoBanner(mediaAsync: mediaAsync, controller: _bannerCtrl, onReady: _startBanner),
                 const SizedBox(height: 20),
+                
+                // Description administrative ou générale
+                if (province.description != null && province.description!.trim().isNotEmpty) ...[
+                  _SectionLabel('À propos'),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline)),
+                    child: Text(province.description!, style: const TextStyle(fontSize: 13, height: 1.5, color: darkText)),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 _SectionLabel('Exécutif Provincial'),
                 const SizedBox(height: 12),
                 _ExecutiveGrid(province: province),
                 const SizedBox(height: 20),
-                _SectionLabel('Gouvernement Provincial'),
+                
+                _SectionLabel('Gouvernement Provincial (Ministres)'),
                 const SizedBox(height: 12),
                 _MinistersGrid(ministers: province.ministers ?? []),
                 const SizedBox(height: 20),
+
+                // Section Réalisations (provenant du formulaire admin)
+                if (province.achievements != null && province.achievements!.isNotEmpty) ...[
+                  _SectionLabel('Réalisations & Projets'),
+                  const SizedBox(height: 12),
+                  _AchievementsList(achievements: province.achievements!),
+                  const SizedBox(height: 20),
+                ],
+
                 _SectionLabel('Villes Principales'),
                 const SizedBox(height: 12),
                 _CitiesGrid(cities: province.cities),
                 const SizedBox(height: 20),
+                
                 _SectionLabel('Explorer la province'),
                 const SizedBox(height: 12),
                 _ExploreGrid(province: province, mediaAsync: mediaAsync),
@@ -249,7 +273,7 @@ class _MinistersGrid extends StatelessWidget {
       itemCount: ministers.length,
       itemBuilder: (_, i) {
         final m = ministers[i] as Map;
-        return _SquareMinisterCard(name: m['name']?.toString() ?? '—', role: m['role']?.toString() ?? 'Ministre', photoUrl: m['photoUrl']?.toString());
+        return _SquareMinisterCard(name: m['name']?.toString() ?? '—', role: m['role']?.toString() ?? 'Ministre', photoUrl: m['photoUrl']?.toString() ?? m['photo_url']?.toString());
       },
     );
   }
@@ -275,17 +299,52 @@ class _SquareMinisterCard extends StatelessWidget {
   }
 }
 
+// ==================== REALISATIONS (ADMIN SYNC) ====================
+class _AchievementsList extends StatelessWidget {
+  final List<Map<String, dynamic>> achievements;
+  const _AchievementsList({required this.achievements});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: achievements.map((a) {
+        final title = a['title']?.toString() ?? 'Réalisation';
+        final desc = a['description']?.toString() ?? '';
+        final date = a['date']?.toString() ?? '';
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EAF3))),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF123B7A).withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.verified_rounded, color: Color(0xFF123B7A), size: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0A1F44)))),
+                if (date.isNotEmpty) Text(date, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7690))),
+              ]),
+              if (desc.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(desc, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7690), height: 1.4)),
+              ]
+            ])),
+          ]),
+        );
+      }).toList(),
+    );
+  }
+}
+
 // ==================== VILLES: 2 PAR LIGNE RECTANGLES ====================
 class _CitiesGrid extends StatelessWidget {
   final List<City> cities;
   const _CitiesGrid({required this.cities});
   @override
   Widget build(BuildContext context) {
-    if (cities.isEmpty) return const _EmptyCard(text: 'Aucune ville');
+    if (cities.isEmpty) return const _EmptyCard(text: 'Aucune ville enregistrée');
     return GridView.builder(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.6),
-      itemCount: cities.length > 6 ? 6 : cities.length,
+      itemCount: cities.length,
       itemBuilder: (_, i) {
         final c = cities[i];
         return Container(
@@ -306,7 +365,7 @@ class _CitiesGrid extends StatelessWidget {
   }
 }
 
-// ==================== EXPLORE: DEPENDANT UNIQUEMENT DES DONNEES ADMIN ====================
+// ==================== EXPLORE: INTERACTIF & COMPLET ====================
 class _ExploreGrid extends StatelessWidget {
   final Province province;
   final AsyncValue<List<ProvinceMedia>> mediaAsync;
@@ -314,7 +373,6 @@ class _ExploreGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Récupérer dynamiquement une image de fond (depuis la galerie ou couverture)
     final fallbackImage = province.coverImageUrl ?? '';
     
     final items = [
@@ -322,37 +380,43 @@ class _ExploreGrid extends StatelessWidget {
         title: 'Culture', 
         subtitle: province.languages?.trim().isNotEmpty == true ? province.languages! : 'Langues & Traditions', 
         bgImage: fallbackImage,
-        color: const Color(0xFF123B7A)
+        color: const Color(0xFF123B7A),
+        onTap: (ctx) => _showInfoModal(ctx, 'Culture & Langues', province.languages ?? 'Informations culturelles non renseignées.'),
       ),
       _ExploreItem(
         title: 'Économie', 
         subtitle: province.resources?.trim().isNotEmpty == true ? province.resources! : 'Ressources clés', 
         bgImage: fallbackImage,
-        color: const Color(0xFF2E7D32)
+        color: const Color(0xFF2E7D32),
+        onTap: (ctx) => _showInfoModal(ctx, 'Ressources Économiques', province.resources ?? 'Aucune ressource économique détaillée.'),
       ),
       _ExploreItem(
         title: 'Tourisme', 
         subtitle: '${province.tourismSites.length} site(s) enregistré(s)', 
         bgImage: province.tourismSites.isNotEmpty ? (province.tourismSites.first.imageUrl ?? fallbackImage) : fallbackImage,
-        color: const Color(0xFF1565C0)
+        color: const Color(0xFF1565C0),
+        onTap: (ctx) => _showTourismModal(ctx, province.tourismSites),
       ),
       _ExploreItem(
         title: 'Urgences', 
         subtitle: '${province.emergencyContacts.length} numéro(s) utiles', 
         bgImage: fallbackImage,
-        color: const Color(0xFFD32F2F)
+        color: const Color(0xFFD32F2F),
+        onTap: (ctx) => _showEmergencyModal(ctx, province.emergencyContacts),
       ),
       _ExploreItem(
         title: 'Admin', 
-        subtitle: '${province.territoriesCount ?? 0} Territoires/Villes', 
+        subtitle: '${province.territoriesCount ?? province.administrativeDivisions.length} Territoires', 
         bgImage: fallbackImage,
-        color: const Color(0xFF6A1B9A)
+        color: const Color(0xFF6A1B9A),
+        onTap: (ctx) => _showAdminModal(ctx, province.administrativeDivisions),
       ),
       _ExploreItem(
         title: 'Galerie', 
-        subtitle: 'Photos et vidéos', 
+        subtitle: 'Photos et médias', 
         bgImage: mediaAsync.valueOrNull?.where((m) => m.type == 'photo').map((m) => m.url).firstOrNull ?? fallbackImage,
-        color: const Color(0xFF00695C)
+        color: const Color(0xFF00695C),
+        onTap: (ctx) => _showGalleryModal(ctx, mediaAsync.valueOrNull ?? []),
       ),
     ];
 
@@ -363,12 +427,150 @@ class _ExploreGrid extends StatelessWidget {
       itemBuilder: (_, i) => _SquareExploreCard(item: items[i]),
     );
   }
+
+  void _showInfoModal(BuildContext context, String title, String content) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
+          const Divider(height: 20),
+          Text(content, style: const TextStyle(fontSize: 14, height: 1.5, color: Color(0xFF10182B))),
+          const SizedBox(height: 20),
+        ]),
+      ),
+    );
+  }
+
+  void _showTourismModal(BuildContext context, List<ProvinceTourism> sites) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.9, expand: false,
+        builder: (_, scrollCtrl) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Sites Touristiques & Culturels', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
+            const Divider(height: 20),
+            Expanded(
+              child: sites.isEmpty 
+                ? const Center(child: Text('Aucun site touristique répertorié.'))
+                : ListView.builder(
+                    controller: scrollCtrl,
+                    itemCount: sites.length,
+                    itemBuilder: (_, i) {
+                      final s = sites[i];
+                      return ListTile(
+                        leading: s.imageUrl != null ? CircleAvatar(backgroundImage: CachedNetworkImageProvider(s.imageUrl!)) : const Icon(Icons.place),
+                        title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(s.description ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
+                      );
+                    },
+                  ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showEmergencyModal(BuildContext context, List<ProvinceEmergencyContact> contacts) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Numéros d\'Urgence', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFFD32F2F))),
+          const Divider(height: 20),
+          contacts.isEmpty 
+            ? const Text('Aucun contact d\'urgence spécifique.')
+            : Column(
+                children: contacts.map((e) => ListTile(
+                  leading: const Icon(Icons.phone_in_talk, color: Color(0xFFD32F2F)),
+                  title: Text(e.serviceName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(e.phoneNumber),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.call, color: Colors.green),
+                    onPressed: () => launchUrl(Uri.parse('tel:${e.phoneNumber}')),
+                  ),
+                )).toList(),
+              ),
+        ]),
+      ),
+    );
+  }
+
+  void _showAdminModal(BuildContext context, List<ProvinceAdministrativeDivision> divs) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Découpage Administratif', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
+          const Divider(height: 20),
+          divs.isEmpty 
+            ? const Text('Aucun découpage administratif enregistré.')
+            : Column(
+                children: divs.map((d) => ListTile(
+                  leading: const Icon(Icons.account_balance, color: Color(0xFF123B7A)),
+                  title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Type: ${d.type}'),
+                )).toList(),
+              ),
+        ]),
+      ),
+    );
+  }
+
+  void _showGalleryModal(BuildContext context, List<ProvinceMedia> media) {
+    final photos = media.where((m) => m.type == 'photo').toList();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.95, expand: false,
+        builder: (_, scrollCtrl) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Galerie Multimédia', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
+            const Divider(height: 20),
+            Expanded(
+              child: photos.isEmpty 
+                ? const Center(child: Text('Aucune photo dans la galerie.'))
+                : GridView.builder(
+                    controller: scrollCtrl,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10),
+                    itemCount: photos.length,
+                    itemBuilder: (_, i) => ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(imageUrl: photos[i].url, fit: BoxFit.cover),
+                    ),
+                  ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 class _ExploreItem { 
   final String title, subtitle, bgImage; 
   final Color color; 
-  _ExploreItem({required this.title, required this.subtitle, required this.bgImage, required this.color}); 
+  final void Function(BuildContext) onTap;
+  _ExploreItem({required this.title, required this.subtitle, required this.bgImage, required this.color, required this.onTap}); 
 }
 
 class _SquareExploreCard extends StatelessWidget {
@@ -384,13 +586,10 @@ class _SquareExploreCard extends StatelessWidget {
       child: Material(
         color: Colors.white,
         child: InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Section : ${item.title}')));
-          },
+          onTap: () => item.onTap(context),
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Image de fond si disponible
               if (hasImg)
                 CachedNetworkImage(
                   imageUrl: item.bgImage,
@@ -398,7 +597,6 @@ class _SquareExploreCard extends StatelessWidget {
                   placeholder: (_, __) => Container(color: Colors.grey.shade200),
                   errorWidget: (_, __, ___) => Container(color: item.color.withOpacity(0.1)),
                 ),
-              // Voile sombre pour la lisibilité du texte
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -414,7 +612,6 @@ class _SquareExploreCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              // Contenu textuel
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
