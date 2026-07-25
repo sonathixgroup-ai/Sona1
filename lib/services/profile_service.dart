@@ -595,8 +595,8 @@ class ProfileService {
   }
 
   /// Réserve un pseudonyme THIX CHAT en vérifiant son unicité
-  Future<void> reserveThixChat({required String userId, required String handle}) async {
-    final formattedHandle = handle.startsWith('@') ? handle : '@$handle';
+  Future<void> reserveThixChat({required String userId, required String desired}) async {
+    final formattedHandle = desired.startsWith('@') ? desired : '@$desired';
     
     try {
       final existing = await SupabaseConfig.client
