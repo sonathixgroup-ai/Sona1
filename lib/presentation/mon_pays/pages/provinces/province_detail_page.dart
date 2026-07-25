@@ -493,15 +493,20 @@ class _ExploreGrid extends StatelessWidget {
           contacts.isEmpty 
             ? const Text('Aucun contact d\'urgence spécifique.')
             : Column(
-                children: contacts.map((e) => ListTile(
-                  leading: const Icon(Icons.phone_in_talk, color: Color(0xFFD32F2F)),
-                  title: Text(e.serviceName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(e.phoneNumber),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.call, color: Colors.green),
-                    onPressed: () => launchUrl(Uri.parse('tel:${e.phoneNumber}')),
-                  ),
-                )).toList(),
+                children: contacts.map((e) {
+                  final dynamic dyn = e;
+                  final serviceName = dyn.serviceName ?? dyn.name ?? dyn.title ?? 'Service d\'urgence';
+                  final phoneNumber = dyn.phoneNumber ?? dyn.phone ?? dyn.number ?? '';
+                  return ListTile(
+                    leading: const Icon(Icons.phone_in_talk, color: Color(0xFFD32F2F)),
+                    title: Text(serviceName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(phoneNumber),
+                    trailing: phoneNumber.isNotEmpty ? IconButton(
+                      icon: const Icon(Icons.call, color: Colors.green),
+                      onPressed: () => launchUrl(Uri.parse('tel:$phoneNumber')),
+                    ) : null,
+                  );
+                }).toList(),
               ),
         ]),
       ),
