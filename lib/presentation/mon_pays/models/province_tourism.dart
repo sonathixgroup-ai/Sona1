@@ -3,51 +3,43 @@
 class ProvinceTourism {
   final String id;
   final String provinceId;
-  final String type; // 'parc_national', 'site_historique', 'monument', 'musee', 'evenement'
   final String name;
+  final String type;
   final String? description;
-  final String? location;
   final String? imageUrl;
-  final String? website;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  
+  // NOUVEAU : Liste dynamique pour la galerie multimédia
+  final List<Map<String, dynamic>>? media;
 
-  ProvinceTourism({
+  const ProvinceTourism({
     required this.id,
     required this.provinceId,
-    required this.type,
     required this.name,
+    required this.type,
     this.description,
-    this.location,
     this.imageUrl,
-    this.website,
-    this.createdAt,
-    this.updatedAt,
+    this.media,
   });
 
   factory ProvinceTourism.fromJson(Map<String, dynamic> json) {
     return ProvinceTourism(
-      id: json['id'] as String,
-      provinceId: json['province_id'] as String,
-      type: json['type'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      location: json['location'] as String?,
-      imageUrl: json['image_url'] as String?,
-      website: json['website'] as String?,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      id: json['id']?.toString() ?? '',
+      provinceId: json['province_id']?.toString() ?? json['provinceId']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      type: json['type']?.toString() ?? '',
+      description: json['description']?.toString(),
+      imageUrl: json['image_url'] ?? json['imageUrl'],
+      media: json['media'] != null ? List<Map<String, dynamic>>.from(json['media']) : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
+    'id': id.isEmpty ? null : id,
     'province_id': provinceId,
-    'type': type,
     'name': name,
+    'type': type,
     'description': description,
-    'location': location,
     'image_url': imageUrl,
-    'website': website,
+    'media': media,
   };
 }
