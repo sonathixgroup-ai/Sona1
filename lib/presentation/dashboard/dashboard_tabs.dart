@@ -4,7 +4,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart'; // <-- AJOUTÉ: Pour PdfColors
 import 'package:pdf/widgets.dart' as pw;
+
+import 'package:thix_id/services/document_service.dart'; // <-- AJOUTÉ: Pour DocumentService
 
 import '../../theme.dart';
 import '../../nav.dart';
@@ -431,7 +434,7 @@ class DocumentsTab extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             FutureBuilder<List<Map<String, dynamic>>>(
-              future: docs.fetchDocuments(uid, limit: 50), // Remplace le stream
+              future: docs.fetchDocuments(uid, limit: 50),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                    return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
@@ -908,7 +911,7 @@ class PaymentsTab extends StatelessWidget {
         title: 'Historique des Paiements',
         subtitle: 'Transactions liées à votre THIX ID',
         child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: userService.fetchPayments(uid), // Remplacer streamPayments par fetchPayments dans le service
+          future: userService.fetchPayments(uid),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
                return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
@@ -1081,7 +1084,7 @@ class SecurityTab extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             FutureBuilder<List<Map<String, dynamic>>>(
-              future: userService.fetchSecurityEvents(uid), // Remplacer streamSecurityEvents par fetchSecurityEvents
+              future: userService.fetchSecurityEvents(uid), 
               builder: (context, snap) {
                 final list = snap.data ?? [];
                 if (list.isEmpty) {
