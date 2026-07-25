@@ -217,21 +217,56 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ... [Sections 2 à 7] ...
+                    // 2. Origine
                     _Cadre(title: 'Origine', icon: Icons.map_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Province origine', value: p.originProvince ?? '—'), _Row(label: 'Territoire', value: p.originTerritory ?? '—'), _Row(label: 'Secteur', value: p.originSector ?? '—')]))),
                     const SizedBox(height: 16),
+                    
+                    // 3. Résidence actuelle
                     _Cadre(title: 'Résidence actuelle', icon: Icons.home_work_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Pays', value: p.residenceCountry ?? '—'), _Row(label: 'Province', value: p.residenceProvince ?? '—'), _Row(label: 'Territoire', value: p.residenceTerritory ?? '—'), _Row(label: 'Ville', value: p.residenceCity ?? '—'), _Row(label: 'Commune', value: p.residenceCommune ?? '—'), _Row(label: 'Quartier', value: p.residenceQuarter ?? '—'), _Row(label: 'Avenue', value: p.residenceAvenue ?? '—'), _Row(label: 'Numéro', value: p.residenceNumber ?? '—')]))),
                     const SizedBox(height: 16),
+                    
+                    // 4. Biographie
                     _Cadre(title: 'Biographie', icon: Icons.history_edu_rounded, child: _MaskableContent(canSee: canSee, child: _ExpandableTextBody(text: p.bio ?? 'Aucune biographie renseignée.'))),
                     const SizedBox(height: 16),
-                    _Cadre(title: 'Profil Professionnel', icon: Icons.work_outline_rounded, child: _MaskableContent(canSee: canSee, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Row(label: 'Profession', value: p.profession ?? p.occupation ?? '—'), _ExpandableRow(label: 'Compétence', value: p.competence ?? '—'), _Row(label: 'THIX CHAT', value: p.thixChat ?? '—'), const SizedBox(height: 8), Wrap(spacing: 6, runSpacing: 6, children: (p.languagesDetailed.isNotEmpty ? p.languagesDetailed : p.languages.map((e) => {'name': e}).toList()).map((l) { final name = (l['name'] ?? '').toString(); final level = l['level'] != null ? ' ${l['level']}' : ''; return Chip(label: Text('$name$level', style: const TextStyle(fontSize: 11, color: _blueDark, fontWeight: FontWeight.bold)), backgroundColor: const Color(0xFFEFF4FF), side: BorderSide.none); }).toList())]))),
+                    
+                    // 5. Profil Professionnel (sans les langues)
+                    _Cadre(title: 'Profil Professionnel', icon: Icons.work_outline_rounded, child: _MaskableContent(canSee: canSee, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_Row(label: 'Profession', value: p.profession ?? p.occupation ?? '—'), _ExpandableRow(label: 'Compétence', value: p.competence ?? '—'), _Row(label: 'THIX CHAT', value: p.thixChat ?? '—')]))),
                     const SizedBox(height: 16),
+
+                    // 6. Langues (Nouveau cadre dédié)
+                    _Cadre(
+                      title: 'Langues', 
+                      icon: Icons.language_rounded, 
+                      child: _MaskableContent(
+                        canSee: canSee, 
+                        child: (p.languagesDetailed.isNotEmpty || p.languages.isNotEmpty)
+                          ? Wrap(
+                              spacing: 8, 
+                              runSpacing: 8, 
+                              children: (p.languagesDetailed.isNotEmpty ? p.languagesDetailed : p.languages.map((e) => {'name': e}).toList()).map((l) { 
+                                final name = (l['name'] ?? '').toString(); 
+                                final level = l['level'] != null && l['level'].toString().isNotEmpty ? ' - ${l['level']}' : ''; 
+                                return Chip(
+                                  label: Text('$name$level', style: const TextStyle(fontSize: 12, color: _blueDark, fontWeight: FontWeight.bold)), 
+                                  backgroundColor: const Color(0xFFEFF4FF), 
+                                  side: BorderSide.none,
+                                ); 
+                              }).toList()
+                            )
+                          : const Text('Aucune langue renseignée', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                      )
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 7. Contact urgence
                     _Cadre(title: 'Contact urgence', icon: Icons.contact_emergency_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Nom', value: p.emergencyContactName ?? '—'), _Row(label: 'Téléphone', value: p.emergencyContactPhone ?? '—'), _Row(label: 'Lien', value: p.emergencyContactRelation ?? '—'), if (p.emergencyContacts.isNotEmpty) ...p.emergencyContacts.map((e) => ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)), subtitle: Text('${e['relation'] ?? ''} - ${e['phone'] ?? ''}', style: const TextStyle(fontSize: 12))))]))),
                     const SizedBox(height: 16),
+                    
+                    // 8. Infos physiques
                     _Cadre(title: 'Infos physiques', icon: Icons.monitor_weight_rounded, child: _MaskableContent(canSee: canSee, child: Column(children: [_Row(label: 'Taille cm', value: p.height ?? '—'), _Row(label: 'Poids kg', value: p.weight ?? '—'), _Row(label: 'Groupe sanguin', value: p.bloodGroup ?? '—'), _Row(label: 'Handicap', value: (p.hasPhysicalDisability ?? false) ? 'Oui : ${p.physicalDisabilityDescription ?? ''}' : 'Non')]))),
                     const SizedBox(height: 16),
 
-                    // 8. Identité nationale (Avec visionneuse de tous les documents rattachés)
+                    // 9. Identité nationale (Modifié pour coller au dashboard et afficher toutes les photos)
                     _Cadre(
                       title: 'Identité nationale',
                       icon: Icons.verified_user_rounded,
@@ -250,30 +285,27 @@ class _PState extends State<PublicProfilePage> {
                             // Affichage dynamique des photos (Recto, Verso, Selfie...)
                             Builder(
                               builder: (context) {
-                                // On cherche tous les documents dont le type contient 'id' ou 'identite'
-                                final idDocs = c.remoteDocs.where((d) {
+                                List<String> idUrls = [];
+                                
+                                // Recherche dans les remoteDocs pour les fichiers liés à l'identité
+                                for (var d in c.remoteDocs) {
                                   final type = (d['doc_type'] ?? '').toString().toLowerCase();
-                                  return type.contains('id') || type.contains('identite');
-                                }).toList();
+                                  if (type.contains('id') || type.contains('identite') || type.contains('recto') || type.contains('verso') || type.contains('selfie')) {
+                                    final url = d['download_url']?.toString() ?? '';
+                                    if (url.isNotEmpty && !idUrls.contains(url)) idUrls.add(url);
+                                  }
+                                }
 
-                                if (idDocs.isEmpty) return const SizedBox.shrink();
+                                if (idUrls.isEmpty) return const SizedBox.shrink();
 
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 12),
                                   child: Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
-                                    children: idDocs.map((d) {
-                                      final url = d['download_url'] ?? '';
-                                      if (url.isEmpty) return const SizedBox.shrink();
-                                      
-                                      // Essaie de donner un nom sympa au bouton basé sur le doc_type (ex: Recto, Verso)
-                                      String label = 'Voir la pièce';
-                                      if (d['doc_type'].toString().toLowerCase().contains('recto')) label = 'Photo Recto';
-                                      if (d['doc_type'].toString().toLowerCase().contains('verso')) label = 'Photo Verso';
-                                      if (d['doc_type'].toString().toLowerCase().contains('selfie')) label = 'Selfie ID';
-
-                                      return _DocumentViewerButton(label: label, documentUrl: url);
+                                    children: idUrls.map((url) {
+                                      // Nom générique pour la pièce
+                                      return _DocumentViewerButton(label: 'Voir la pièce d\'identité', documentUrl: url);
                                     }).toList(),
                                   ),
                                 );
@@ -285,9 +317,9 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 9. Parcours scolaire (Complet avec dates, description et photos)
+                    // 10. Parcours scolaire (Cursus & Formations)
                     _Cadre(
-                      title: 'Parcours scolaire',
+                      title: 'Cursus & Formations',
                       icon: Icons.account_balance_rounded,
                       child: _MaskableContent(
                         canSee: canSee,
@@ -297,17 +329,20 @@ class _PState extends State<PublicProfilePage> {
                               children: p.education.map((e) {
                                 final start = e['startYear']?.toString() ?? e['debut']?.toString() ?? '';
                                 final end = e['endYear']?.toString() ?? e['fin']?.toString() ?? '';
-                                final periodStr = (start.isNotEmpty && end.isNotEmpty) 
-                                    ? '$start - $end' 
-                                    : (start.isNotEmpty ? start : (e['period']?.toString() ?? ''));
+                                String periodStr = '';
+                                if (start.isNotEmpty && end.isNotEmpty) periodStr = '$start - $end';
+                                else if (start.isNotEmpty) periodStr = start;
+                                else if (end.isNotEmpty) periodStr = end;
+                                else periodStr = e['period']?.toString() ?? '';
 
                                 return _DetailedListItem(
-                                  title: e['institution']?.toString() ?? e['ecole']?.toString() ?? '—',
-                                  subtitle: e['degree']?.toString() ?? e['diplome']?.toString() ?? '',
+                                  title: e['institution']?.toString() ?? e['ecole']?.toString() ?? e['etablissement']?.toString() ?? '—',
+                                  subtitle: e['degree']?.toString() ?? e['diplome']?.toString() ?? e['titre']?.toString() ?? '',
                                   location: e['city']?.toString() ?? e['ville']?.toString() ?? '',
                                   period: periodStr,
+                                  descriptionLabel: 'Description', // Ajout du label spécifique
                                   description: e['description']?.toString(),
-                                  documentUrls: _extractDocs(e),
+                                  documentUrls: _extractDocs(e), // Preuves multiples
                                 );
                               }).toList(),
                             ),
@@ -315,11 +350,7 @@ class _PState extends State<PublicProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 10. Formations & Certifications
-                    _Cadre(title: 'Formations & Certifs', icon: Icons.school_rounded, child: _MaskableContent(canSee: canSee, child: p.trainings.isEmpty && p.certifications.isEmpty ? const Text('Aucune formation ou certification', style: TextStyle(fontSize: 12, color: Colors.black54)) : Column(children: [...p.trainings.map((e) => ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), subtitle: Text('${e['organizer'] ?? e['provider'] ?? ''}'))), ...p.certifications.map((e) => ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.workspace_premium, color: Colors.amber, size: 20), title: Text((e['title'] ?? e['name'] ?? '—').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), subtitle: Text('${e['issuer'] ?? e['org'] ?? ''}')))]))),
-                    const SizedBox(height: 16),
-
-                    // 11. Expériences (Complet avec missions, ville et photos)
+                    // 11. Expériences Pro
                     _Cadre(
                       title: 'Expériences Pro',
                       icon: Icons.business_center_rounded,
@@ -329,13 +360,18 @@ class _PState extends State<PublicProfilePage> {
                           ? const Text('Aucune expérience enregistrée', style: TextStyle(fontSize: 12, color: Colors.black54)) 
                           : Column(
                               children: p.experience.map((e) {
+                                final sector = e['sector']?.toString() ?? e['secteur']?.toString() ?? '';
+                                final city = e['city']?.toString() ?? e['ville']?.toString() ?? '';
+                                final locationStr = [sector, city].where((s) => s.isNotEmpty).join(' • ');
+
                                 return _DetailedListItem(
                                   title: e['title']?.toString() ?? e['poste']?.toString() ?? '—',
-                                  subtitle: e['company']?.toString() ?? e['entreprise']?.toString() ?? e['org']?.toString() ?? '',
-                                  location: [e['sector']?.toString() ?? e['secteur']?.toString(), e['city']?.toString() ?? e['ville']?.toString()].where((s) => s != null && s.isNotEmpty).join(' • '),
+                                  subtitle: e['company']?.toString() ?? e['entreprise']?.toString() ?? e['organisation']?.toString() ?? '',
+                                  location: locationStr,
                                   period: e['period']?.toString() ?? e['periode']?.toString() ?? '',
-                                  description: e['missions']?.toString() ?? e['description']?.toString(),
-                                  documentUrls: _extractDocs(e),
+                                  descriptionLabel: 'Missions et réalisations', // Ajout du label spécifique
+                                  description: e['missions']?.toString() ?? e['realisations']?.toString() ?? e['description']?.toString(),
+                                  documentUrls: _extractDocs(e), // Preuves multiples
                                 );
                               }).toList(),
                             ),
@@ -601,6 +637,7 @@ class _DetailedListItem extends StatelessWidget {
   final String subtitle;
   final String location;
   final String period;
+  final String? descriptionLabel; // Nouveau paramètre pour afficher "Description" ou "Missions"
   final String? description;
   final List<String> documentUrls; // Changé pour gérer plusieurs documents
 
@@ -609,6 +646,7 @@ class _DetailedListItem extends StatelessWidget {
     required this.subtitle,
     required this.location,
     required this.period,
+    this.descriptionLabel,
     this.description,
     this.documentUrls = const [], // Par défaut, liste vide
   });
@@ -631,15 +669,28 @@ class _DetailedListItem extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
               ),
             ),
+          
+          // Bloc Description/Missions avec son label dédié (comme dans les screenshots)
           if (description != null && description!.trim().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: _ExpandableTextBody(text: description!),
+              padding: const EdgeInsets.only(top: 10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (descriptionLabel != null) 
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(descriptionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                    ),
+                  _ExpandableTextBody(text: description!),
+                ],
+              ),
             ),
+            
           // Si on a des documents, on les affiche tous sous forme de boutons
           if (documentUrls.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 8.0),
+              padding: const EdgeInsets.only(top: 12.0),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
