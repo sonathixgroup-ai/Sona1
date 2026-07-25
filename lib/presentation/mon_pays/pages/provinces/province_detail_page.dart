@@ -1,5 +1,6 @@
 // ============================================================
-// FICHIER - PROD FIX : province_detail_page.dart - ULTIME & CORRIGÉ
+// FICHIER - province_detail_page.dart (ULTIMATE & SELF-CONTAINED)
+// Basé exclusivement sur le modèle Province unifié et enrichi
 // ============================================================
 
 import 'dart:async';
@@ -7,31 +8,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../providers/provinces_provider.dart';
-import '../../providers/media_provider.dart';
 import '../../models/province.dart';
 import '../../models/city.dart';
-import '../../models/province_media.dart';
-import '../../models/province_emergency.dart';
 import '../../models/province_tourism.dart';
+import '../../models/province_emergency.dart';
 import '../../models/province_administrative.dart';
 
 class ProvinceDetailPage extends ConsumerStatefulWidget {
   final String provinceId;
   const ProvinceDetailPage({required this.provinceId, super.key});
+
   @override
   ConsumerState<ProvinceDetailPage> createState() => _ProvinceDetailPageState();
 }
 
 class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
-  static const navyDeep = Color(0xFF0A1F44);
-  static const navy = Color(0xFF123B7A);
-  static const gold = Color(0xFFE3B23C);
-  static const ivory = Color(0xFFF6F7FB);
-  static const darkText = Color(0xFF10182B);
-  static const mutedText = Color(0xFF6B7690);
-  static const hairline = Color(0xFFE7EAF3);
-  static const redThix = Color(0xFFD32F2F);
+  static const Color navyDeep = Color(0xFF0A1F44);
+  static const Color navy = Color(0xFF123B7A);
+  static const Color gold = Color(0xFFE3B23C);
+  static const Color ivory = Color(0xFFF6F7FB);
+  static const Color hairline = Color(0xFFE7EAF3);
+  static const Color redThix = Color(0xFFD32F2F);
 
   final ScrollController _scrollCtrl = ScrollController();
   final PageController _bannerCtrl = PageController();
@@ -59,7 +58,6 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
   @override
   Widget build(BuildContext context) {
     final provinceAsync = ref.watch(provinceWithAllRelationsProvider(widget.provinceId));
-    final mediaAsync = ref.watch(mediaByProvinceProvider(widget.provinceId));
 
     return Scaffold(
       backgroundColor: ivory,
@@ -69,69 +67,77 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
         data: (province) => CustomScrollView(
           controller: _scrollCtrl,
           slivers: [
-            _SliverHeader(province: province),
+            _ProvinceHeader(province: province),
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: SliverList.list(children: [
-                _IdentitySquare(province: province),
+                _ProvinceIdentityCard(province: province),
                 const SizedBox(height: 16),
-                _AutoBanner(mediaAsync: mediaAsync, controller: _bannerCtrl, onReady: _startBanner),
-                const SizedBox(height: 20),
                 
-                // 1. Description générale
+                // 1. Galerie Multimédia Globale (Auto-défilante)
+                if (province.galleryMedia != null && province.galleryMedia!.isNotEmpty) ...[
+                  _GalleryBanner(media: province.galleryMedia!, controller: _bannerCtrl, onReady: _startBanner),
+                  const SizedBox(height: 20),
+                ],
+
+                // 2. Description Générale
                 if (province.description != null && province.description!.trim().isNotEmpty) ...[
-                  _SectionLabel('À propos de la province'),
+                  const _SectionTitle('À propos de la province'),
                   const SizedBox(height: 8),
-                  _InfoCard(content: province.description!),
+                  _ContentCard(content: province.description!),
                   const SizedBox(height: 20),
                 ],
 
-                // 2. Nouveaux Champs Institutionnels (Historique, Climat, Infrastructures, Éducation)
-                if (_hasInstitutionalInfo(province)) ...[
-                  _SectionLabel('Monographie & Aperçu Global'),
+                // 3. Monographie & Aperçu Global (Histoire, Climat, Infrastructures, Éducation)
+                if (_hasInstitutionalData(province)) ...[
+                  const _SectionTitle('Monographie Institutionnelle'),
                   const SizedBox(height: 12),
-                  _InstitutionalDetailsGrid(province: province),
+                  _MonographySection(province: province),
                   const SizedBox(height: 20),
                 ],
 
-                // 3. Exécutif Provincial
-                _SectionLabel('Exécutif Provincial'),
+                // 4. Exécutif Provincial (Gouverneur & Vice-Gouverneur)
+                const _SectionTitle('Exécutif Provincial'),
                 const SizedBox(height: 12),
-                _ExecutiveGrid(province: province),
-                const SizedBox(height: 20),
-                
-                // 4. Gouvernement (Ministres)
-                _SectionLabel('Gouvernement Provincial (Ministres)'),
-                const SizedBox(height: 12),
-                _MinistersGrid(ministers: province.ministers ?? []),
+                _ExecutiveSection(province: province),
                 const SizedBox(height: 20),
 
-                // 5. Peuples & Tribus
+                // 5. Gouvernement (Ministres)
+                if (province.ministers != null && province.ministers!.isNotEmpty) ...[
+                  const _SectionTitle('Gouvernement Provincial (Ministres)'),
+                  const SizedBox(height: 12),
+                  _MinistersSection(ministers: province.ministers!),
+                  const SizedBox(height: 20),
+                ],
+
+                // 6. Peuples & Tribus Autochtones
                 if (province.tribes != null && province.tribes!.isNotEmpty) ...[
-                  _SectionLabel('Peuples & Tribus Autochtones'),
+                  const _SectionTitle('Peuples & Tribus Autochtones'),
                   const SizedBox(height: 12),
-                  _TribesList(tribes: province.tribes!),
+                  _TribesSection(tribes: province.tribes!),
                   const SizedBox(height: 20),
                 ],
 
-                // 6. Réalisations & Projets
+                // 7. Réalisations & Projets Majeurs
                 if (province.achievements != null && province.achievements!.isNotEmpty) ...[
-                  _SectionLabel('Réalisations & Projets Majeurs'),
+                  const _SectionTitle('Réalisations & Projets Majeurs'),
                   const SizedBox(height: 12),
-                  _AchievementsList(achievements: province.achievements!),
+                  _AchievementsSection(achievements: province.achievements!),
                   const SizedBox(height: 20),
                 ],
 
-                // 7. Villes Principales
-                _SectionLabel('Villes Principales'),
+                // 8. Villes Principales
+                if (province.cities.isNotEmpty) ...[
+                  const _SectionTitle('Villes Principales'),
+                  const SizedBox(height: 12),
+                  _CitiesSection(cities: province.cities),
+                  const SizedBox(height: 20),
+                ],
+
+                // 9. Grille d'Exploration Interactive (Culture, Économie, Tourisme, Urgences, Admin)
+                const _SectionTitle('Explorer la province'),
                 const SizedBox(height: 12),
-                _CitiesGrid(cities: province.cities),
-                const SizedBox(height: 20),
-                
-                // 8. Grille d'exploration interactive
-                _SectionLabel('Explorer la province'),
-                const SizedBox(height: 12),
-                _ExploreGrid(province: province, mediaAsync: mediaAsync),
+                _ExploreGridSection(province: province),
                 const SizedBox(height: 40),
               ]),
             ),
@@ -141,7 +147,7 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
     );
   }
 
-  bool _hasInstitutionalInfo(Province p) {
+  bool _hasInstitutionalData(Province p) {
     return (p.history?.trim().isNotEmpty == true) ||
            (p.climate?.trim().isNotEmpty == true) ||
            (p.infrastructure?.trim().isNotEmpty == true) ||
@@ -149,117 +155,156 @@ class _ProvinceDetailPageState extends ConsumerState<ProvinceDetailPage> {
   }
 }
 
-// ==================== HEADER ====================
-class _SliverHeader extends StatelessWidget {
+// ==================== 1. HEADER & IDENTITY ====================
+class _ProvinceHeader extends StatelessWidget {
   final Province province;
-  const _SliverHeader({required this.province});
-  static const navyDeep = Color(0xFF0A1F44);
+  const _ProvinceHeader({required this.province});
+
   @override
   Widget build(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 260, pinned: true, backgroundColor: navyDeep,
+      expandedHeight: 260,
+      pinned: true,
+      backgroundColor: const Color(0xFF0A1F44),
       iconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-        title: Text(province.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, shadows: [Shadow(blurRadius: 8, color: Colors.black54)])),
+        title: Text(
+          province.name,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, shadows: [Shadow(blurRadius: 8, color: Colors.black54)]),
+        ),
         background: Stack(fit: StackFit.expand, children: [
           province.coverImageUrl != null && province.coverImageUrl!.isNotEmpty
-             ? CachedNetworkImage(imageUrl: province.coverImageUrl!, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade800), errorWidget: (_, __, ___) => Container(color: navyDeep))
-              : Container(color: navyDeep),
-          Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, navyDeep.withOpacity(0.95)], stops: const [0.3, 1]))),
+              ? CachedNetworkImage(imageUrl: province.coverImageUrl!, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade800), errorWidget: (_, __, ___) => Container(color: const Color(0xFF0A1F44)))
+              : Container(color: const Color(0xFF0A1F44)),
+          Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, const Color(0xFF0A1F44).withOpacity(0.95)], stops: const [0.3, 1]))),
         ]),
       ),
     );
   }
 }
 
-// ==================== IDENTITY CARRE ====================
-class _IdentitySquare extends StatelessWidget {
+class _ProvinceIdentityCard extends StatelessWidget {
   final Province province;
-  const _IdentitySquare({required this.province});
-  static const navyDeep = Color(0xFF0A1F44); 
-  static const hairline = Color(0xFFE7EAF3);
-  
+  const _ProvinceIdentityCard({required this.province});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: hairline)),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE7EAF3))),
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         Row(children: [
           Container(
-            width: 64, height: 64, 
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: hairline), color: const Color(0xFFF6F7FB)), 
-            child: province.coatOfArmsUrl != null 
-                ? ClipOval(child: CachedNetworkImage(imageUrl: province.coatOfArmsUrl!, fit: BoxFit.contain)) 
-                : const Icon(Icons.shield, color: navyDeep),
+            width: 64, height: 64,
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE7EAF3)), color: const Color(0xFFF6F7FB)),
+            child: province.coatOfArmsUrl != null
+                ? ClipOval(child: CachedNetworkImage(imageUrl: province.coatOfArmsUrl!, fit: BoxFit.contain))
+                : const Icon(Icons.shield, color: Color(0xFF0A1F44)),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(province.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: navyDeep)),
+                Text(province.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0A1F44))),
                 const SizedBox(height: 4),
-                Row(children: [ 
-                  _Chip(text: province.code, color: const Color(0xFFD32F2F)), 
-                  const SizedBox(width: 8), 
-                  Text('Région ${province.region}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF123B7A))) 
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(6)),
+                    child: Text(province.code, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('Région ${province.region}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF123B7A))),
                 ]),
               ],
             ),
           ),
         ]),
-        const Divider(height: 24, color: hairline),
+        const Divider(height: 24, color: Color(0xFFE7EAF3)),
         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          _Stat(icon: Icons.location_city, label: 'Capitale', value: province.capital),
-          _Stat(icon: Icons.groups, label: 'Population', value: province.population != null ? '${_fmt(province.population!)} hab' : 'N/A'),
-          _Stat(icon: Icons.map, label: 'Superficie', value: province.area != null ? '${_fmt(province.area!)} km²' : 'N/A'),
+          _StatItem(icon: Icons.location_city, label: 'Capitale', value: province.capital),
+          _StatItem(icon: Icons.groups, label: 'Population', value: province.population != null ? '${_fmt(province.population!)} hab' : 'N/A'),
+          _StatItem(icon: Icons.map, label: 'Superficie', value: province.area != null ? '${_fmt(province.area!)} km²' : 'N/A'),
         ]),
       ]),
     );
   }
+
   String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
 }
 
-class _Stat extends StatelessWidget { 
-  final IconData icon; 
-  final String label, value; 
-  const _Stat({required this.icon, required this.label, required this.value}); 
-  @override 
-  Widget build(BuildContext context) => Column(children: [Icon(icon, size: 20, color: const Color(0xFF123B7A)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF6B7690)))]); 
+class _StatItem extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  const _StatItem({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Icon(icon, size: 20, color: const Color(0xFF123B7A)),
+    const SizedBox(height: 4),
+    Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF10182B))),
+    Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF6B7690))),
+  ]);
 }
 
-class _Chip extends StatelessWidget { 
-  final String text; 
-  final Color color; 
-  const _Chip({required this.text, required this.color}); 
-  @override 
-  Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)), child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white))); 
-}
+// ==================== 2. GALLERY BANNER ====================
+class _GalleryBanner extends StatelessWidget {
+  final List<Map<String, dynamic>> media;
+  final PageController controller;
+  final void Function(int) onReady;
 
-// ==================== INSTITUTIONAL & HISTORICAL DETAILS ====================
-class _InstitutionalDetailsGrid extends StatelessWidget {
-  final Province province;
-  const _InstitutionalDetailsGrid({required this.province});
+  const _GalleryBanner({required this.media, required this.controller, required this.onReady});
 
   @override
   Widget build(BuildContext context) {
-    final cards = <Widget>[];
+    final photos = media.where((m) => m['type'] == 'photo').toList();
+    if (photos.isEmpty) return const SizedBox.shrink();
+    WidgetsBinding.instance.addPostFrameCallback((_) => onReady(photos.length));
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(
+        height: 180,
+        child: PageView.builder(
+          controller: controller,
+          itemCount: photos.length,
+          itemBuilder: (_, i) {
+            final url = photos[i]['url']?.toString() ?? '';
+            return Stack(fit: StackFit.expand, children: [
+              CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(color: Colors.grey.shade300)),
+              Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.7), Colors.transparent]))),
+            ]);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 3. MONOGRAPHY SECTION ====================
+class _MonographySection extends StatelessWidget {
+  final Province province;
+  const _MonographySection({required this.province});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <Widget>[];
     if (province.history?.trim().isNotEmpty == true) {
-      cards.add(_buildCard('Historique & Origines', province.history!, Icons.history_edu, const Color(0xFF123B7A)));
+      items.add(_buildCard('Historique & Origines', province.history!, Icons.history_edu, const Color(0xFF123B7A)));
     }
     if (province.climate?.trim().isNotEmpty == true) {
-      cards.add(_buildCard('Climat & Environnement', province.climate!, Icons.wb_sunny, const Color(0xFFE3B23C)));
+      items.add(_buildCard('Climat & Environnement', province.climate!, Icons.wb_sunny, const Color(0xFFE3B23C)));
     }
     if (province.infrastructure?.trim().isNotEmpty == true) {
-      cards.add(_buildCard('Infrastructures & Énergie', province.infrastructure!, Icons.bolt, const Color(0xFF2E7D32)));
+      items.add(_buildCard('Infrastructures & Énergie', province.infrastructure!, Icons.bolt, const Color(0xFF2E7D32)));
     }
     if (province.education?.trim().isNotEmpty == true) {
-      cards.add(_buildCard('Éducation & Santé', province.education!, Icons.school, const Color(0xFF6A1B9A)));
+      items.add(_buildCard('Éducation & Santé', province.education!, Icons.school, const Color(0xFF6A1B9A)));
     }
 
-    return Column(children: cards.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)).toList());
+    return Column(children: items.map((w) => Padding(padding: const EdgeInsets.only(bottom: 12), child: w)).toList());
   }
 
   Widget _buildCard(String title, String content, IconData icon, Color color) {
@@ -279,74 +324,59 @@ class _InstitutionalDetailsGrid extends StatelessWidget {
   }
 }
 
-// ==================== BANNER AUTO SCROLL ====================
-class _AutoBanner extends StatelessWidget {
-  final AsyncValue<List<ProvinceMedia>> mediaAsync; final PageController controller; final void Function(int) onReady;
-  const _AutoBanner({required this.mediaAsync, required this.controller, required this.onReady});
-  @override
-  Widget build(BuildContext context) {
-    return mediaAsync.when(
-      loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (media) {
-        final photos = media.where((m) => m.type == 'photo').toList();
-        if (photos.isEmpty) return const SizedBox.shrink();
-        WidgetsBinding.instance.addPostFrameCallback((_) => onReady(photos.length));
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: SizedBox(
-            height: 180,
-            child: PageView.builder(
-              controller: controller,
-              itemCount: photos.length,
-              itemBuilder: (_, i) => Stack(fit: StackFit.expand, children: [
-                CachedNetworkImage(imageUrl: photos[i].url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(color: Colors.grey.shade300)),
-                Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.7), Colors.transparent]))),
-                if (photos[i].title != null) Positioned(bottom: 14, left: 16, right: 16, child: Text(photos[i].title!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14, shadows: [Shadow(blurRadius: 4, color: Colors.black)]), maxLines: 2, overflow: TextOverflow.ellipsis)),
-              ]),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ==================== EXECUTIF ====================
-class _ExecutiveGrid extends StatelessWidget {
+// ==================== 4. EXECUTIVE SECTION ====================
+class _ExecutiveSection extends StatelessWidget {
   final Province province;
-  const _ExecutiveGrid({required this.province});
+  const _ExecutiveSection({required this.province});
+
   @override
   Widget build(BuildContext context) {
     final items = <Map<String, String?>>[];
-    if (province.governor != null && province.governor!.isNotEmpty) items.add({'role': 'Gouverneur', 'name': province.governor, 'photo': province.governorPhotoUrl});
-    if (province.viceGovernor != null && province.viceGovernor!.isNotEmpty) items.add({'role': 'Vice-Gouverneur', 'name': province.viceGovernor, 'photo': province.viceGovernorPhotoUrl});
+    if (province.governor != null && province.governor!.isNotEmpty) {
+      items.add({'role': 'Gouverneur', 'name': province.governor, 'photo': province.governorPhotoUrl});
+    }
+    if (province.viceGovernor != null && province.viceGovernor!.isNotEmpty) {
+      items.add({'role': 'Vice-Gouverneur', 'name': province.viceGovernor, 'photo': province.viceGovernorPhotoUrl});
+    }
     if (items.isEmpty) return const _EmptyCard(text: 'Aucun exécutif renseigné');
 
     return GridView.builder(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.85),
       itemCount: items.length,
-      itemBuilder: (_, i) => _SquareExecutiveCard(role: items[i]['role']!, name: items[i]['name']!, photoUrl: items[i]['photo']),
+      itemBuilder: (_, i) => _ExecutiveCard(role: items[i]['role']!, name: items[i]['name']!, photoUrl: items[i]['photo']),
     );
   }
 }
 
-class _SquareExecutiveCard extends StatelessWidget {
-  final String role, name; final String? photoUrl;
-  const _SquareExecutiveCard({required this.role, required this.name, this.photoUrl});
-  static const gold = Color(0xFFE3B23C); static const navy = Color(0xFF123B7A); static const hairline = Color(0xFFE7EAF3);
+class _ExecutiveCard extends StatelessWidget {
+  final String role, name;
+  final String? photoUrl;
+  const _ExecutiveCard({required this.role, required this.name, this.photoUrl});
+
   @override
   Widget build(BuildContext context) {
     final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
     final isGov = role.toLowerCase().contains('gouverneur') && !role.toLowerCase().contains('vice');
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: hairline), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0,4))]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE7EAF3)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
       padding: const EdgeInsets.all(14),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(padding: const EdgeInsets.all(3), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: isGov ? gold : navy, width: 2.5)), child: CircleAvatar(radius: 38, backgroundColor: const Color(0xFFF6F7FB), backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null, child: !hasPhoto ? const Icon(Icons.person, size: 36, color: Color(0xFF6B7690)) : null)),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: isGov ? const Color(0xFFE3B23C) : const Color(0xFF123B7A), width: 2.5)),
+          child: CircleAvatar(
+            radius: 38, backgroundColor: const Color(0xFFF6F7FB),
+            backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null,
+            child: !hasPhoto ? const Icon(Icons.person, size: 36, color: Color(0xFF6B7690)) : null,
+          ),
+        ),
         const SizedBox(height: 12),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: (isGov ? gold : navy).withOpacity(0.12), borderRadius: BorderRadius.circular(6)), child: Text(role.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isGov ? const Color(0xFF8A6B00) : navy))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: (isGov ? const Color(0xFFE3B23C) : const Color(0xFF123B7A)).withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+          child: Text(role.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isGov ? const Color(0xFF8A6B00) : const Color(0xFF123B7A))),
+        ),
         const SizedBox(height: 6),
         Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF10182B))),
       ]),
@@ -354,50 +384,48 @@ class _SquareExecutiveCard extends StatelessWidget {
   }
 }
 
-// ==================== MINISTRES ====================
-class _MinistersGrid extends StatelessWidget {
+// ==================== 5. MINISTERS SECTION ====================
+class _MinistersSection extends StatelessWidget {
   final List<dynamic> ministers;
-  const _MinistersGrid({required this.ministers});
+  const _MinistersSection({required this.ministers});
+
   @override
   Widget build(BuildContext context) {
-    if (ministers.isEmpty) return const _EmptyCard(text: 'Aucun ministre renseigné');
     return GridView.builder(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.78),
       itemCount: ministers.length,
       itemBuilder: (_, i) {
         final m = ministers[i] as Map;
-        return _SquareMinisterCard(name: m['name']?.toString() ?? '—', role: m['role']?.toString() ?? 'Ministre', photoUrl: m['photoUrl']?.toString() ?? m['photo_url']?.toString());
+        final name = m['name']?.toString() ?? '—';
+        final role = m['role']?.toString() ?? 'Ministre';
+        final photo = m['photoUrl']?.toString() ?? m['photo_url']?.toString();
+        final hasPhoto = photo != null && photo.trim().isNotEmpty;
+
+        return Container(
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE7EAF3))),
+          padding: const EdgeInsets.all(10),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            CircleAvatar(
+              radius: 28, backgroundColor: const Color(0xFFF6F7FB),
+              backgroundImage: hasPhoto ? CachedNetworkImageProvider(photo) : null,
+              child: !hasPhoto ? const Icon(Icons.person, size: 22, color: Color(0xFF6B7690)) : null,
+            ),
+            const SizedBox(height: 8),
+            Text(role, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Color(0xFF6B7690), fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF10182B))),
+          ]),
+        );
       },
     );
   }
 }
 
-class _SquareMinisterCard extends StatelessWidget {
-  final String name, role; final String? photoUrl;
-  const _SquareMinisterCard({required this.name, required this.role, this.photoUrl});
-  static const hairline = Color(0xFFE7EAF3);
-  @override
-  Widget build(BuildContext context) {
-    final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: hairline)),
-      padding: const EdgeInsets.all(10),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        CircleAvatar(radius: 28, backgroundColor: const Color(0xFFF6F7FB), backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null, child: !hasPhoto ? const Icon(Icons.person, size: 22, color: Color(0xFF6B7690)) : null),
-        const SizedBox(height: 8),
-        Text(role, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Color(0xFF6B7690), fontWeight: FontWeight.w700)),
-        const SizedBox(height: 2),
-        Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF10182B))),
-      ]),
-    );
-  }
-}
-
-// ==================== TRIBES & PEUPLES ====================
-class _TribesList extends StatelessWidget {
+// ==================== 6. TRIBES SECTION ====================
+class _TribesSection extends StatelessWidget {
   final List<Map<String, dynamic>> tribes;
-  const _TribesList({required this.tribes});
+  const _TribesSection({required this.tribes});
 
   @override
   Widget build(BuildContext context) {
@@ -454,10 +482,11 @@ class _TribesList extends StatelessWidget {
   }
 }
 
-// ==================== REALISATIONS ====================
-class _AchievementsList extends StatelessWidget {
+// ==================== 7. ACHIEVEMENTS SECTION ====================
+class _AchievementsSection extends StatelessWidget {
   final List<Map<String, dynamic>> achievements;
-  const _AchievementsList({required this.achievements});
+  const _AchievementsSection({required this.achievements});
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -489,13 +518,13 @@ class _AchievementsList extends StatelessWidget {
   }
 }
 
-// ==================== VILLES ====================
-class _CitiesGrid extends StatelessWidget {
+// ==================== 8. CITIES SECTION ====================
+class _CitiesSection extends StatelessWidget {
   final List<City> cities;
-  const _CitiesGrid({required this.cities});
+  const _CitiesSection({required this.cities});
+
   @override
   Widget build(BuildContext context) {
-    if (cities.isEmpty) return const _EmptyCard(text: 'Aucune ville enregistrée');
     return GridView.builder(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.6),
@@ -520,11 +549,10 @@ class _CitiesGrid extends StatelessWidget {
   }
 }
 
-// ==================== EXPLORE GRID ====================
-class _ExploreGrid extends StatelessWidget {
+// ==================== 9. EXPLORE GRID SECTION ====================
+class _ExploreGridSection extends StatelessWidget {
   final Province province;
-  final AsyncValue<List<ProvinceMedia>> mediaAsync;
-  const _ExploreGrid({required this.province, required this.mediaAsync});
+  const _ExploreGridSection({required this.province});
 
   @override
   Widget build(BuildContext context) {
@@ -536,14 +564,14 @@ class _ExploreGrid extends StatelessWidget {
         subtitle: province.languages?.trim().isNotEmpty == true ? province.languages! : 'Langues & Traditions', 
         bgImage: fallbackImage,
         color: const Color(0xFF123B7A),
-        onTap: (ctx) => _showInfoModal(ctx, 'Culture & Langues', province.languages ?? 'Informations culturelles non renseignées.'),
+        onTap: (ctx) => _showModal(ctx, 'Culture & Langues', province.languages ?? 'Informations culturelles non renseignées.'),
       ),
       _ExploreItem(
         title: 'Économie', 
         subtitle: province.resources?.trim().isNotEmpty == true ? province.resources! : 'Ressources clés', 
         bgImage: fallbackImage,
         color: const Color(0xFF2E7D32),
-        onTap: (ctx) => _showInfoModal(ctx, 'Ressources Économiques', province.resources ?? 'Aucune ressource économique détaillée.'),
+        onTap: (ctx) => _showModal(ctx, 'Ressources Économiques', province.resources ?? 'Aucune ressource économique détaillée.'),
       ),
       _ExploreItem(
         title: 'Tourisme', 
@@ -569,9 +597,9 @@ class _ExploreGrid extends StatelessWidget {
       _ExploreItem(
         title: 'Galerie', 
         subtitle: 'Photos et médias', 
-        bgImage: mediaAsync.valueOrNull?.where((m) => m.type == 'photo').map((m) => m.url).firstOrNull ?? fallbackImage,
+        bgImage: province.galleryMedia?.where((m) => m['type'] == 'photo').map((m) => m['url']?.toString()).firstOrNull ?? fallbackImage,
         color: const Color(0xFF00695C),
-        onTap: (ctx) => _showGalleryModal(ctx, mediaAsync.valueOrNull ?? []),
+        onTap: (ctx) => _showGalleryModal(ctx, province.galleryMedia ?? []),
       ),
     ];
 
@@ -583,10 +611,9 @@ class _ExploreGrid extends StatelessWidget {
     );
   }
 
-  void _showInfoModal(BuildContext context, String title, String content) {
+  void _showModal(BuildContext context, String title, String content) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
+      context: context, backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
@@ -602,9 +629,7 @@ class _ExploreGrid extends StatelessWidget {
 
   void _showTourismModal(BuildContext context, List<ProvinceTourism> sites) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
+      context: context, backgroundColor: Colors.white, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => DraggableScrollableSheet(
         initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.9, expand: false,
@@ -614,20 +639,17 @@ class _ExploreGrid extends StatelessWidget {
             const Text('Sites Touristiques & Culturels', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
             const Divider(height: 20),
             Expanded(
-              child: sites.isEmpty 
-                ? const Center(child: Text('Aucun site touristique répertorié.'))
-                : ListView.builder(
-                    controller: scrollCtrl,
-                    itemCount: sites.length,
-                    itemBuilder: (_, i) {
-                      final s = sites[i];
-                      return ListTile(
-                        leading: s.imageUrl != null ? CircleAvatar(backgroundImage: CachedNetworkImageProvider(s.imageUrl!)) : const Icon(Icons.place),
-                        title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(s.description ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
-                      );
-                    },
-                  ),
+              child: sites.isEmpty ? const Center(child: Text('Aucun site répertorié.')) : ListView.builder(
+                controller: scrollCtrl, itemCount: sites.length,
+                itemBuilder: (_, i) {
+                  final s = sites[i];
+                  return ListTile(
+                    leading: s.imageUrl != null ? CircleAvatar(backgroundImage: CachedNetworkImageProvider(s.imageUrl!)) : const Icon(Icons.place),
+                    title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(s.description ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
+                  );
+                },
+              ),
             ),
           ]),
         ),
@@ -637,32 +659,24 @@ class _ExploreGrid extends StatelessWidget {
 
   void _showEmergencyModal(BuildContext context, List<ProvinceEmergencyContact> contacts) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
+      context: context, backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Numéros d\'Urgence', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFFD32F2F))),
           const Divider(height: 20),
-          contacts.isEmpty 
-            ? const Text('Aucun contact d\'urgence spécifique.')
-            : Column(
-                children: contacts.map((e) {
-                  final dynamic dyn = e;
-                  final serviceName = dyn.serviceName ?? dyn.name ?? dyn.title ?? 'Service d\'urgence';
-                  final phoneNumber = dyn.phoneNumber ?? dyn.phone ?? dyn.number ?? '';
-                  return ListTile(
-                    leading: const Icon(Icons.phone_in_talk, color: Color(0xFFD32F2F)),
-                    title: Text(serviceName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(phoneNumber),
-                    trailing: phoneNumber.isNotEmpty ? IconButton(
-                      icon: const Icon(Icons.call, color: Colors.green),
-                      onPressed: () => launchUrl(Uri.parse('tel:$phoneNumber')),
-                    ) : null,
-                  );
-                }).toList(),
-              ),
+          contacts.isEmpty ? const Text('Aucun contact d\'urgence.') : Column(
+            children: contacts.map((e) => ListTile(
+              leading: const Icon(Icons.phone_in_talk, color: Color(0xFFD32F2F)),
+              title: Text(e.service, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(e.phone),
+              trailing: e.phone.isNotEmpty ? IconButton(
+                icon: const Icon(Icons.call, color: Colors.green),
+                onPressed: () => launchUrl(Uri.parse('tel:${e.phone}')),
+              ) : null,
+            )).toList(),
+          ),
         ]),
       ),
     );
@@ -670,34 +684,29 @@ class _ExploreGrid extends StatelessWidget {
 
   void _showAdminModal(BuildContext context, List<ProvinceAdministrativeDivision> divs) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
+      context: context, backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Découpage Administratif', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
           const Divider(height: 20),
-          divs.isEmpty 
-            ? const Text('Aucun découpage administratif enregistré.')
-            : Column(
-                children: divs.map((d) => ListTile(
-                  leading: const Icon(Icons.account_balance, color: Color(0xFF123B7A)),
-                  title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Type: ${d.type}'),
-                )).toList(),
-              ),
+          divs.isEmpty ? const Text('Aucun découpage enregistré.') : Column(
+            children: divs.map((d) => ListTile(
+              leading: const Icon(Icons.account_balance, color: Color(0xFF123B7A)),
+              title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('Type: ${d.type}'),
+            )).toList(),
+          ),
         ]),
       ),
     );
   }
 
-  void _showGalleryModal(BuildContext context, List<ProvinceMedia> media) {
-    final photos = media.where((m) => m.type == 'photo').toList();
+  void _showGalleryModal(BuildContext context, List<Map<String, dynamic>> media) {
+    final photos = media.where((m) => m['type'] == 'photo').toList();
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
+      context: context, backgroundColor: Colors.white, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => DraggableScrollableSheet(
         initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.95, expand: false,
@@ -707,17 +716,15 @@ class _ExploreGrid extends StatelessWidget {
             const Text('Galerie Multimédia', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0A1F44))),
             const Divider(height: 20),
             Expanded(
-              child: photos.isEmpty 
-                ? const Center(child: Text('Aucune photo dans la galerie.'))
-                : GridView.builder(
-                    controller: scrollCtrl,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10),
-                    itemCount: photos.length,
-                    itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(imageUrl: photos[i].url, fit: BoxFit.cover),
-                    ),
-                  ),
+              child: photos.isEmpty ? const Center(child: Text('Aucune photo.')) : GridView.builder(
+                controller: scrollCtrl,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10),
+                itemCount: photos.length,
+                itemBuilder: (_, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(imageUrl: photos[i]['url']?.toString() ?? '', fit: BoxFit.cover),
+                ),
+              ),
             ),
           ]),
         ),
@@ -726,101 +733,54 @@ class _ExploreGrid extends StatelessWidget {
   }
 }
 
-class _ExploreItem { 
-  final String title, subtitle, bgImage; 
-  final Color color; 
+class _ExploreItem {
+  final String title, subtitle, bgImage;
+  final Color color;
   final void Function(BuildContext) onTap;
-  _ExploreItem({required this.title, required this.subtitle, required this.bgImage, required this.color, required this.onTap}); 
+  _ExploreItem({required this.title, required this.subtitle, required this.bgImage, required this.color, required this.onTap});
 }
 
 class _SquareExploreCard extends StatelessWidget {
-  final _ExploreItem item; 
+  final _ExploreItem item;
   const _SquareExploreCard({required this.item});
 
   @override
   Widget build(BuildContext context) {
     final hasImg = item.bgImage.trim().isNotEmpty;
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Material(
         color: Colors.white,
         child: InkWell(
           onTap: () => item.onTap(context),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (hasImg)
-                CachedNetworkImage(
-                  imageUrl: item.bgImage,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: Colors.grey.shade200),
-                  errorWidget: (_, __, ___) => Container(color: item.color.withOpacity(0.1)),
-                ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(hasImg ? 0.3 : 0.0),
-                      Colors.black.withOpacity(hasImg ? 0.8 : 0.05),
-                    ],
-                  ),
-                  color: hasImg ? null : Colors.white,
-                  border: Border.all(color: const Color(0xFFE7EAF3)),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, 
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: item.color.withOpacity(0.9), 
-                        borderRadius: BorderRadius.circular(8)
-                      ),
-                      child: Text(
-                        item.title, 
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white)
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      item.subtitle, 
-                      maxLines: 2, 
-                      overflow: TextOverflow.ellipsis, 
-                      style: TextStyle(
-                        fontSize: 11, 
-                        fontWeight: FontWeight.w700, 
-                        color: hasImg ? Colors.white70 : const Color(0xFF6B7690), 
-                        height: 1.3
-                      )
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          child: Stack(fit: StackFit.expand, children: [
+            if (hasImg) CachedNetworkImage(imageUrl: item.bgImage, fit: BoxFit.cover, placeholder: (_, __) => Container(color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(color: item.color.withOpacity(0.1))),
+            Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withOpacity(hasImg ? 0.3 : 0.0), Colors.black.withOpacity(hasImg ? 0.8 : 0.05)]), color: hasImg ? null : Colors.white, border: Border.all(color: const Color(0xFFE7EAF3)), borderRadius: BorderRadius.circular(20))),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: item.color.withOpacity(0.9), borderRadius: BorderRadius.circular(8)), child: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white))),
+                const Spacer(),
+                Text(item.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: hasImg ? Colors.white70 : const Color(0xFF6B7690), height: 1.3)),
+              ]),
+            ),
+          ]),
         ),
       ),
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
+class _SectionTitle extends StatelessWidget {
   final String text;
-  const _SectionLabel(this.text);
+  const _SectionTitle(this.text);
   @override
   Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0A1F44)));
 }
 
-class _InfoCard extends StatelessWidget {
+class _ContentCard extends StatelessWidget {
   final String content;
-  const _InfoCard({required this.content});
+  const _ContentCard({required this.content});
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
