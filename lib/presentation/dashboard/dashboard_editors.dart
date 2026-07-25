@@ -15,6 +15,33 @@ import 'package:thix_id/services/platform_file_from_path_stub.dart' if (dart.lib
 import '../../theme.dart';
 
 // ============================================================
+// MODÈLES LOCAUX
+// ============================================================
+
+class EvidenceFileRef {
+  final String storagePathOrUrl;
+  final String? label;
+
+  const EvidenceFileRef({required this.storagePathOrUrl, this.label});
+
+  static EvidenceFileRef? tryParse(dynamic data) {
+    if (data is! Map) return null;
+    final map = data.cast<String, dynamic>();
+    final path = map['storagePathOrUrl'] ?? map['url'] ?? map['path'];
+    if (path == null || path.toString().trim().isEmpty) return null;
+    return EvidenceFileRef(
+      storagePathOrUrl: path.toString(),
+      label: map['label']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'storagePathOrUrl': storagePathOrUrl,
+    'label': label,
+  };
+}
+
+// ============================================================
 // CONSTANTES DESIGN & CHARTE GRAPHIQUE
 // ============================================================
 const _blue = Color(0xFF0D2CC1);
@@ -98,7 +125,6 @@ class _ProfileEditorBody extends StatefulWidget {
 class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
   final ValueNotifier<bool> _saving = ValueNotifier(false);
 
-  // Déclaration de TOUS les contrôleurs
   late final TextEditingController _nameC, _competenceC, _bioC, _countryOriginC;
   late final TextEditingController _contactPhoneC, _dobC, _pobC, _nationalityC;
   late final TextEditingController _maritalC, _genderC, _occupationC, _addressC;
@@ -226,7 +252,6 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
       await _uploadIdIfNeeded(uid: widget.profile.userId, kind: 'back');
       await _uploadIdIfNeeded(uid: widget.profile.userId, kind: 'selfie');
 
-      // Le script SQL BLOC 1 doit avoir été exécuté pour que cette sauvegarde fonctionne.
       await _userService.updateProfile(
         uid: widget.profile.userId,
         displayName: _nameC.text.trim(),
@@ -278,7 +303,7 @@ class _ProfileEditorBodyState extends State<_ProfileEditorBody> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil mis à jour avec succès.')));
       context.pop();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur (Assurez-vous que le script SQL a été exécuté) : $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     } finally {
       _saving.value = false;
     }
@@ -845,6 +870,7 @@ class _EducationEditorBodyState extends State<_EducationEditorBody> {
                         TextField(controller: _descriptionC, maxLines: 3, decoration: _inputDecor('Description (optionnel)', Icons.notes_rounded)),
                         const SizedBox(height: 16),
                         
+                        // Composant d'upload multiple (Web/Mobile)
                         ValueListenableBuilder<bool>(
                           valueListenable: _saving,
                           builder: (ctx, isSaving, _) => _MultiFileUploadCard(
