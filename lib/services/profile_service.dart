@@ -38,7 +38,7 @@ class ProfileService {
     }
   }
 
-  /// Flux en temps réel du profil
+  /// Flux en temps réel du profil personnel
   Stream<ThixProfile?> streamMyProfile(String userId) {
     return _client
         .from('profiles')
@@ -48,6 +48,11 @@ class ProfileService {
           if (list.isEmpty) return null;
           return ThixProfile.fromPrivateRow(list.first);
         });
+  }
+
+  /// Flux en temps réel du profil public (Utilisé par notifications_sheet)
+  Stream<ThixProfile?> streamPublicProfileByUserId(String userId) {
+    return streamMyProfile(userId); // Réutilise la même logique que streamMyProfile
   }
 
   /// Met à jour les paramètres de visibilité du profil
@@ -86,9 +91,7 @@ class ProfileService {
     }
   }
 
-  /// =======================================================================
-  /// MISE À JOUR GLOBALE DU PROFIL (Fix Erreur Date "" vers NULL)
-  /// =======================================================================
+  /// MISE À JOUR GLOBALE DU PROFIL
   Future<void> updateProfile({
     required String userId,
     String? displayName,
@@ -150,10 +153,7 @@ class ProfileService {
     try {
       final data = <String, dynamic>{};
 
-      // ------------------------------------------------------------------
-      // FIX CRITIQUE: Transforme les String vides ("") en null
-      // Cela évite l'erreur PostgreSQL 22007 `invalid input syntax for type date`
-      // ------------------------------------------------------------------
+      // FIX CRITIQUE: Transforme les String vides ("") en null pour éviter l'erreur PostgreSQL 22007
       void put(String k, Object? v) {
         if (v is String) {
           final trimmed = v.trim();
@@ -238,7 +238,6 @@ class ProfileService {
       if (certifications != null) put('certifications', certifications);
       if (emergencyContacts != null) put('emergency_contacts', emergencyContacts);
 
-      // On n'envoie la requête que si le map data contient autre chose que updated_at
       if (data.keys.length > 1) {
         await _client.from('profiles').update(data).eq('id', userId);
       }
